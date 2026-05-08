@@ -17,6 +17,7 @@ export default function DashboardClient({ user }: { user: User }) {
   const username = user.user_metadata?.username || user.email?.split("@")[0] || "me";
   const name = user.user_metadata?.name || username;
   const avatarLetter = name.charAt(0).toUpperCase();
+  const avatarUrl = user.user_metadata?.avatar_url as string | undefined;
 
   async function handleLogout() {
     const supabase = createClient();
@@ -62,10 +63,12 @@ export default function DashboardClient({ user }: { user: User }) {
           {/* Avatar + logout */}
           <div className="flex items-center gap-2">
             <div
-              className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-black"
+              className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-black overflow-hidden"
               style={{ background: "var(--blue)", color: "#fff", fontFamily: "var(--font-nunito)" }}
             >
-              {avatarLetter}
+              {avatarUrl
+                ? <img src={avatarUrl} alt={name} className="w-full h-full object-cover" />
+                : avatarLetter}
             </div>
             <button
               onClick={handleLogout}

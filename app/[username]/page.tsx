@@ -10,6 +10,36 @@ interface Profile {
   bio: string | null;
   twitter: string | null;
   github: string | null;
+  avatar_url: string | null;
+  social_links: string[] | null;
+}
+
+function detectPlatform(url: string): { platform: string; handle: string } | null {
+  if (!url.trim()) return null;
+  try {
+    const normalized = url.startsWith("http") ? url : `https://${url}`;
+    const u = new URL(normalized);
+    const host = u.hostname.replace("www.", "");
+    const path = u.pathname.replace(/^\/+/, "").replace(/\/+$/, "");
+
+    if (host === "instagram.com") return { platform: "Instagram", handle: `@${path}` };
+    if (host === "twitter.com" || host === "x.com") return { platform: "X (Twitter)", handle: `@${path.replace("@", "")}` };
+    if (host === "github.com") return { platform: "GitHub", handle: `@${path}` };
+    if (host.includes("linkedin.com")) {
+      const parts = path.split("/");
+      const idx = parts.indexOf("in");
+      return { platform: "LinkedIn", handle: `@${idx >= 0 ? parts[idx + 1] : path}` };
+    }
+    if (host === "youtube.com" || host === "youtu.be") {
+      return { platform: "YouTube", handle: path.startsWith("@") ? path : `@${path}` };
+    }
+    if (host === "tiktok.com") return { platform: "TikTok", handle: path.startsWith("@") ? path : `@${path}` };
+    if (host === "facebook.com") return { platform: "Facebook", handle: `@${path}` };
+    if (host === "threads.net") return { platform: "Threads", handle: `@${path.replace("@", "")}` };
+    return { platform: host, handle: `/${path}` };
+  } catch {
+    return null;
+  }
 }
 
 interface DBProject {
@@ -108,9 +138,9 @@ export default async function UserPortfolioPage({
           }}
         />
 
-        {/* Avatar letter */}
+        {/* Avatar */}
         <div
-          className="relative w-32 h-32 rounded-full flex items-center justify-center text-5xl font-black sphere-shadow mb-8 z-10"
+          className="relative w-32 h-32 rounded-full flex items-center justify-center text-5xl font-black sphere-shadow mb-8 z-10 overflow-hidden"
           style={{
             background: "linear-gradient(135deg, var(--blue), var(--blue-bright))",
             color: "#fff",
@@ -118,7 +148,9 @@ export default async function UserPortfolioPage({
             border: "1px solid rgba(77,158,255,0.25)",
           }}
         >
-          {(p.name || p.username).charAt(0).toUpperCase()}
+          {p.avatar_url
+            ? <img src={p.avatar_url} alt={p.name || p.username} className="w-full h-full object-cover" />
+            : (p.name || p.username).charAt(0).toUpperCase()}
         </div>
 
         {/* Name */}
@@ -157,33 +189,36 @@ export default async function UserPortfolioPage({
         )}
 
         {/* Social links */}
-        {(p.twitter || p.github) && (
-          <div className="flex items-center gap-5 mt-8">
-            {p.twitter && (
-              <a
-                href={p.twitter.startsWith("http") ? p.twitter : `https://twitter.com/${p.twitter.replace("@", "")}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="social-link"
-              >
-                Twitter
-              </a>
-            )}
-            {p.twitter && p.github && (
-              <span style={{ color: "var(--border-bright)", fontSize: "0.6rem" }}>●</span>
-            )}
-            {p.github && (
-              <a
-                href={p.github.startsWith("http") ? p.github : `https://github.com/${p.github}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="social-link"
-              >
-                GitHub
-              </a>
-            )}
-          </div>
-        )}
+        {(() => {
+          const links: string[] = p.social_links?.length
+            ? p.social_links
+            : [
+                p.twitter ? `https://twitter.com/${p.twitter.replace("@", "")}` : "",
+                p.github ? `https://github.com/${p.github}` : "",
+              ].filter(Boolean);
+
+          if (!links.length) return null;
+
+          return (
+            <div className="flex flex-wrap items-center justify-center gap-4 mt-8">
+              {links.map((url, i) => {
+                const detected = detectPlatform(url);
+                if (!detected) return null;
+                return (
+                  <a
+                    key={i}
+                    href={url.startsWith("http") ? url : `https://${url}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="social-link"
+                  >
+                    {detected.platform} {detected.handle}
+                  </a>
+                );
+              })}
+            </div>
+          );
+        })()}
       </section>
 
       {/* Projects */}

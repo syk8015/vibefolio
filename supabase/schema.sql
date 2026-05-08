@@ -9,6 +9,8 @@ create table if not exists profiles (
   bio text,
   twitter text,
   github text,
+  avatar_url text,
+  social_links text[] default '{}',
   updated_at timestamptz default now()
 );
 
