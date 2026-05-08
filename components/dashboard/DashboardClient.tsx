@@ -50,7 +50,6 @@ export default function DashboardClient({ user }: { user: User }) {
           {/* Preview link */}
           <Link
             href={`/${username}`}
-            target="_blank"
             className="flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-bold transition-opacity hover:opacity-75"
             style={{ border: "1px solid var(--border-bright)", color: "var(--text-primary)", fontFamily: "var(--font-nunito)", textDecoration: "none" }}
           >
