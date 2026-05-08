@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import ProjectsSection from "@/components/ProjectsSection";
+import SocialBadge from "@/components/SocialBadge";
 import type { Project } from "@/lib/data";
 
 interface Profile {
@@ -14,33 +15,6 @@ interface Profile {
   social_links: string[] | null;
 }
 
-function detectPlatform(url: string): { platform: string; handle: string } | null {
-  if (!url.trim()) return null;
-  try {
-    const normalized = url.startsWith("http") ? url : `https://${url}`;
-    const u = new URL(normalized);
-    const host = u.hostname.replace("www.", "");
-    const path = u.pathname.replace(/^\/+/, "").replace(/\/+$/, "");
-
-    if (host === "instagram.com") return { platform: "Instagram", handle: `@${path}` };
-    if (host === "twitter.com" || host === "x.com") return { platform: "X (Twitter)", handle: `@${path.replace("@", "")}` };
-    if (host === "github.com") return { platform: "GitHub", handle: `@${path}` };
-    if (host.includes("linkedin.com")) {
-      const parts = path.split("/");
-      const idx = parts.indexOf("in");
-      return { platform: "LinkedIn", handle: `@${idx >= 0 ? parts[idx + 1] : path}` };
-    }
-    if (host === "youtube.com" || host === "youtu.be") {
-      return { platform: "YouTube", handle: path.startsWith("@") ? path : `@${path}` };
-    }
-    if (host === "tiktok.com") return { platform: "TikTok", handle: path.startsWith("@") ? path : `@${path}` };
-    if (host === "facebook.com") return { platform: "Facebook", handle: `@${path}` };
-    if (host === "threads.net") return { platform: "Threads", handle: `@${path.replace("@", "")}` };
-    return { platform: host, handle: `/${path}` };
-  } catch {
-    return null;
-  }
-}
 
 interface DBProject {
   id: string;
@@ -200,22 +174,10 @@ export default async function UserPortfolioPage({
           if (!links.length) return null;
 
           return (
-            <div className="flex flex-wrap items-center justify-center gap-4 mt-8">
-              {links.map((url, i) => {
-                const detected = detectPlatform(url);
-                if (!detected) return null;
-                return (
-                  <a
-                    key={i}
-                    href={url.startsWith("http") ? url : `https://${url}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="social-link"
-                  >
-                    {detected.platform} {detected.handle}
-                  </a>
-                );
-              })}
+            <div className="flex flex-wrap items-center justify-center gap-3 mt-8">
+              {links.map((url, i) => (
+                <SocialBadge key={i} url={url} />
+              ))}
             </div>
           );
         })()}
