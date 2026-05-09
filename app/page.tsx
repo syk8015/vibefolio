@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import HomeProfileMenu from "@/components/HomeProfileMenu";
 
 export default async function LandingPage() {
   const supabase = await createClient();
@@ -24,20 +25,7 @@ export default async function LandingPage() {
             </span>
           </div>
 
-          {/* Profile */}
-          <div className="flex items-center gap-3">
-            <span className="text-sm font-semibold" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
-              @{username}
-            </span>
-            <div
-              className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center text-sm font-black flex-shrink-0"
-              style={{ background: "var(--blue)", color: "#fff", fontFamily: "var(--font-nunito)" }}
-            >
-              {avatarUrl
-                ? <img src={avatarUrl} alt={name} className="w-full h-full object-cover" />
-                : avatarLetter}
-            </div>
-          </div>
+          <HomeProfileMenu username={username} name={name} avatarUrl={avatarUrl} />
         </nav>
 
         {/* Hero */}

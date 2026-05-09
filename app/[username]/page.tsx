@@ -87,7 +87,7 @@ export default async function UserPortfolioPage({
             style={{ background: "var(--blue)", boxShadow: "0 0 8px var(--blue)" }}
           />
           <span
-            className="text-sm tracking-[0.25em] uppercase font-medium"
+            className="font-black text-base"
             style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}
           >
             Vibefolio

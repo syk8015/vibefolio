@@ -32,7 +32,7 @@ export default function LoginPage() {
     if (error) {
       setError(errorMessage(error.message));
     } else {
-      router.push("/demo");
+      router.push("/");
       router.refresh();
     }
   }
@@ -41,7 +41,7 @@ export default function LoginPage() {
     const supabase = createClient();
     await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `${location.origin}/demo` },
+      options: { redirectTo: `${location.origin}/` },
     });
   }
 
