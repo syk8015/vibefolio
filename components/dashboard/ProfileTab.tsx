@@ -157,7 +157,7 @@ export default function ProfileTab({ user }: { user: User }) {
   const avatarInitial = (form.name || form.username).charAt(0).toUpperCase();
 
   return (
-    <form onSubmit={handleSave} className="flex flex-col gap-6 max-w-lg">
+    <form onSubmit={handleSave} className="flex flex-col gap-6 max-w-lg mx-auto w-full">
 
       {/* Avatar */}
       <div>
