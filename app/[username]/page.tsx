@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import ProjectsSection from "@/components/ProjectsSection";
 import SocialBadge from "@/components/SocialBadge";
@@ -80,7 +81,7 @@ export default async function UserPortfolioPage({
           borderBottom: "1px solid var(--border)",
         }}
       >
-        <div className="flex items-center gap-3">
+        <Link href="/" className="flex items-center gap-3" style={{ textDecoration: "none" }}>
           <div
             className="w-2 h-2 rounded-full"
             style={{ background: "var(--blue)", boxShadow: "0 0 8px var(--blue)" }}
@@ -91,7 +92,7 @@ export default async function UserPortfolioPage({
           >
             Vibefolio
           </span>
-        </div>
+        </Link>
         <span
           className="text-xs tracking-widest uppercase"
           style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}
