@@ -47,7 +47,7 @@ export default function SignupPage() {
     const supabase = createClient();
     await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `${location.origin}/demo` },
+      options: { redirectTo: `${location.origin}/` },
     });
   }
 

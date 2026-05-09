@@ -35,9 +35,15 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  // 로그인 유저가 /login, /signup 접근 시 대시보드로
+  // 로그인 유저가 /login, /signup 접근 시 홈으로
   if (user && (pathname === "/login" || pathname === "/signup")) {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
+    return NextResponse.redirect(new URL("/", request.url));
+  }
+
+  // username 없는 로그인 유저 → 온보딩으로
+  const skipOnboarding = pathname.startsWith("/onboarding") || pathname.startsWith("/api");
+  if (user && !user.user_metadata?.username && !skipOnboarding) {
+    return NextResponse.redirect(new URL("/onboarding", request.url));
   }
 
   return supabaseResponse;
