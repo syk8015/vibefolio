@@ -150,6 +150,7 @@ const AI_KEYWORDS = ["claude", "gpt", "gemini", "llm", "ai"];
 
 function ProjectRow({ project, onDelete, onEdit }: { project: DBProject; onDelete: () => void; onEdit: () => void }) {
   const thumbnail = project.thumbnail || `https://picsum.photos/seed/${project.id}/800/600`;
+
   const isUploaded = isUploadedProject(project.demo_url);
 
   return (

@@ -59,7 +59,7 @@ export default async function UserPortfolioPage({
     title: p.title,
     description: p.description ?? "",
     type: p.type,
-    thumbnail: p.thumbnail ?? `https://picsum.photos/seed/${p.id}/800/600`,
+    thumbnail: p.thumbnail || `https://picsum.photos/seed/${p.id}/800/600`,
     year: p.year ?? new Date().getFullYear().toString(),
     tags: p.tags ?? [],
     demoUrl: p.demo_url ?? undefined,
