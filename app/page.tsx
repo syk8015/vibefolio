@@ -1,6 +1,103 @@
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/server";
 
-export default function LandingPage() {
+export default async function LandingPage() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  const meta = user?.user_metadata || {};
+  const username = meta.username || user?.email?.split("@")[0] || "";
+  const name = meta.name || username;
+  const avatarUrl = meta.avatar_url as string | undefined;
+  const avatarLetter = name.charAt(0).toUpperCase();
+
+  if (user) {
+    return (
+      <main className="min-h-screen flex flex-col" style={{ background: "var(--bg)" }}>
+
+        {/* Nav */}
+        <nav className="flex items-center justify-between px-8 py-5">
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full" style={{ background: "var(--blue)", boxShadow: "0 0 8px var(--blue)" }} />
+            <span className="font-black text-base" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}>
+              Vibefolio
+            </span>
+          </div>
+
+          {/* Profile */}
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-semibold" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
+              @{username}
+            </span>
+            <div
+              className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center text-sm font-black flex-shrink-0"
+              style={{ background: "var(--blue)", color: "#fff", fontFamily: "var(--font-nunito)" }}
+            >
+              {avatarUrl
+                ? <img src={avatarUrl} alt={name} className="w-full h-full object-cover" />
+                : avatarLetter}
+            </div>
+          </div>
+        </nav>
+
+        {/* Hero */}
+        <div className="flex-1 flex flex-col items-center justify-center px-6 text-center gap-3">
+          <p className="text-sm font-bold mb-2" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
+            안녕하세요, <span style={{ color: "var(--blue)" }}>{name}</span>님!
+          </p>
+
+          <h1
+            className="font-black leading-tight mb-8"
+            style={{
+              fontFamily: "var(--font-nunito)",
+              color: "var(--text-primary)",
+              fontSize: "clamp(2rem, 5vw, 3.5rem)",
+              letterSpacing: "-0.03em",
+            }}
+          >
+            나의 명함을<br />
+            <span style={{
+              background: "linear-gradient(120deg, var(--blue) 0%, var(--blue-bright) 100%)",
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+            }}>
+              세상에 공유하세요.
+            </span>
+          </h1>
+
+          <div className="flex items-center gap-3">
+            <Link
+              href={`/${username}`}
+              className="px-7 py-3.5 rounded-full font-bold text-sm transition-opacity hover:opacity-80"
+              style={{ background: "var(--blue)", color: "#fff", fontFamily: "var(--font-nunito)", textDecoration: "none", boxShadow: "0 0 24px var(--blue-glow)" }}
+            >
+              내 명함 보기
+            </Link>
+            <Link
+              href="/dashboard"
+              className="px-7 py-3.5 rounded-full font-bold text-sm transition-opacity hover:opacity-70"
+              style={{ border: "1px solid var(--border-bright)", color: "var(--text-primary)", fontFamily: "var(--font-nunito)", textDecoration: "none" }}
+            >
+              명함 수정
+            </Link>
+          </div>
+
+          <p className="mt-4 text-xs font-semibold" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
+            vibefolio.com/<span style={{ color: "var(--blue-bright)" }}>{username}</span>
+          </p>
+        </div>
+
+        {/* Footer */}
+        <footer className="flex items-center justify-center py-6">
+          <p className="text-xs" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
+            © {new Date().getFullYear()} Vibefolio
+          </p>
+        </footer>
+
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen flex flex-col" style={{ background: "var(--bg)" }}>
 
@@ -29,10 +126,8 @@ export default function LandingPage() {
         </div>
       </nav>
 
-      {/* Hero — vertically centered in remaining space */}
+      {/* Hero */}
       <div className="flex-1 flex flex-col items-center justify-center px-6 text-center">
-
-        {/* Headline */}
         <h1
           className="font-black leading-tight mb-6"
           style={{
@@ -52,7 +147,6 @@ export default function LandingPage() {
           </span>
         </h1>
 
-        {/* CTA buttons */}
         <div className="flex items-center gap-3 mb-20">
           <Link
             href="/signup"
@@ -70,7 +164,6 @@ export default function LandingPage() {
           </Link>
         </div>
 
-        {/* Stats */}
         <div className="flex items-center gap-10">
           <Stat value="1,000+" label="바이브코더" />
           <div className="w-px h-8" style={{ background: "var(--border)" }} />
