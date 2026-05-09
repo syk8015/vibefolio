@@ -7,6 +7,32 @@ import { createClient } from "@/lib/supabase/client";
 
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024; // 10MB
 
+const MIME_TYPES: Record<string, string> = {
+  html: "text/html",
+  htm: "text/html",
+  css: "text/css",
+  js: "application/javascript",
+  ts: "application/javascript",
+  jsx: "application/javascript",
+  tsx: "application/javascript",
+  json: "application/json",
+  svg: "image/svg+xml",
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  gif: "image/gif",
+  webp: "image/webp",
+  woff: "font/woff",
+  woff2: "font/woff2",
+  ttf: "font/ttf",
+  ico: "image/x-icon",
+};
+
+function getMimeType(filename: string): string {
+  const ext = filename.split(".").pop()?.toLowerCase() ?? "";
+  return MIME_TYPES[ext] ?? "application/octet-stream";
+}
+
 interface DBProject {
   id: string;
   title: string;
@@ -276,7 +302,7 @@ function ProjectModal({ title, initialForm, onClose, onSubmit, submitLabel, user
 
       const { error } = await supabase.storage
         .from("project-files")
-        .upload(storagePath, file, { upsert: true });
+        .upload(storagePath, file, { upsert: true, contentType: getMimeType(file.name) });
 
       if (!error) {
         if (relativePath === "index.html" || (relativePath.endsWith(".html") && !indexHtmlStoragePath)) {
