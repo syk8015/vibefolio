@@ -60,7 +60,25 @@ const EMPTY_FORM: ProjectForm = {
 };
 
 function isUploadedProject(demoUrl: string) {
-  return demoUrl?.includes("/storage/v1/object/public/project-files/");
+  return demoUrl?.startsWith("/api/preview/");
+}
+
+async function deleteProjectFiles(supabase: ReturnType<typeof createClient>, demoUrl: string) {
+  if (!isUploadedProject(demoUrl)) return;
+  try {
+    // demoUrl format: /api/preview/{userId}/{projectId}/index.html
+    const parts = demoUrl.replace("/api/preview/", "").split("/");
+    const userId = parts[0];
+    const projectId = parts[1];
+    if (!userId || !projectId) return;
+    const folderPath = `${userId}/${projectId}`;
+    const { data: files } = await supabase.storage.from("project-files").list(folderPath, { limit: 1000 });
+    if (!files?.length) return;
+    const paths = files.map((f) => `${folderPath}/${f.name}`);
+    await supabase.storage.from("project-files").remove(paths);
+  } catch {
+    // silently ignore storage cleanup errors
+  }
 }
 
 export default function ProjectsTab({ user }: { user: User }) {
@@ -84,6 +102,10 @@ export default function ProjectsTab({ user }: { user: User }) {
   async function handleDelete(id: string) {
     if (!confirm("이 프로젝트를 삭제할까요?")) return;
     const supabase = createClient();
+    const project = projects.find((p) => p.id === id);
+    if (project?.demo_url) {
+      await deleteProjectFiles(supabase, project.demo_url);
+    }
     await supabase.from("projects").delete().eq("id", id);
     setProjects((prev) => prev.filter((p) => p.id !== id));
   }
@@ -317,8 +339,8 @@ function ProjectModal({ title, initialForm, onClose, onSubmit, submitLabel, user
     }
 
     if (indexHtmlStoragePath) {
-      const { data } = supabase.storage.from("project-files").getPublicUrl(indexHtmlStoragePath);
-      setForm((prev) => ({ ...prev, demo_url: data.publicUrl }));
+      // Use proxy route so CSS/JS relative paths resolve correctly
+      setForm((prev) => ({ ...prev, demo_url: `/api/preview/${indexHtmlStoragePath}` }));
     }
     if (thumbnailStoragePath && !form.thumbnail) {
       const { data } = supabase.storage.from("project-files").getPublicUrl(thumbnailStoragePath);
