@@ -3,6 +3,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import ProjectsSection from "@/components/ProjectsSection";
 import SocialBadge from "@/components/SocialBadge";
+import CopyLinkButton from "@/components/CopyLinkButton";
 import type { Project } from "@/lib/data";
 
 interface Profile {
@@ -93,12 +94,15 @@ export default async function UserPortfolioPage({
             Vibefolio
           </span>
         </Link>
-        <span
-          className="text-xs tracking-widest uppercase"
-          style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}
-        >
-          {projects.length} Projects
-        </span>
+        <div className="flex items-center gap-3">
+          <span
+            className="text-xs tracking-widest uppercase"
+            style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}
+          >
+            {projects.length} Projects
+          </span>
+          <CopyLinkButton username={p.username} />
+        </div>
       </nav>
 
       {/* Hero */}
