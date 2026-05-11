@@ -8,8 +8,9 @@ import { useRouter } from "next/navigation";
 import ProfileTab from "./ProfileTab";
 import ProjectsTab from "./ProjectsTab";
 import CustomTab from "./CustomTab";
+import AnalyticsTab from "./AnalyticsTab";
 
-type Tab = "profile" | "projects" | "custom";
+type Tab = "profile" | "projects" | "analytics" | "custom";
 
 export default function DashboardClient({ user }: { user: User }) {
   const [tab, setTab] = useState<Tab>("profile");
@@ -98,7 +99,7 @@ export default function DashboardClient({ user }: { user: User }) {
           className="flex gap-1 p-1 rounded-xl mb-8 w-fit"
           style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
         >
-          {(["profile", "projects", "custom"] as Tab[]).map((t) => (
+          {(["profile", "projects", "analytics", "custom"] as Tab[]).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -111,7 +112,7 @@ export default function DashboardClient({ user }: { user: User }) {
                 cursor: "pointer",
               }}
             >
-              {t === "profile" ? "프로필" : t === "projects" ? "프로젝트" : "🚧 커스텀"}
+              {t === "profile" ? "프로필" : t === "projects" ? "프로젝트" : t === "analytics" ? "분석" : "🚧 커스텀"}
             </button>
           ))}
         </div>
@@ -121,6 +122,8 @@ export default function DashboardClient({ user }: { user: User }) {
           <ProfileTab user={user} />
         ) : tab === "projects" ? (
           <ProjectsTab user={user} />
+        ) : tab === "analytics" ? (
+          <AnalyticsTab user={user} />
         ) : (
           <CustomTab user={user} />
         )}

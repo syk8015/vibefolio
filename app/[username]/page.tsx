@@ -6,6 +6,7 @@ import SocialBadge from "@/components/SocialBadge";
 import CopyLinkButton from "@/components/CopyLinkButton";
 import PortfolioModeToggle from "@/components/PortfolioModeToggle";
 import type { Project } from "@/lib/data";
+import ViewTracker from "@/components/ViewTracker";
 
 interface Profile {
   id: string;
@@ -77,6 +78,7 @@ export default async function UserPortfolioPage({
 
   return (
     <main className="relative min-h-screen" style={{ background: "var(--bg)" }}>
+      <ViewTracker username={p.username} />
 
       {/* Nav */}
       <nav
