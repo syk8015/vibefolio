@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import ProjectsSection from "@/components/ProjectsSection";
 import SocialBadge from "@/components/SocialBadge";
 import CopyLinkButton from "@/components/CopyLinkButton";
-import DevModeButton from "@/components/DevModeButton";
+import PortfolioModeToggle from "@/components/PortfolioModeToggle";
 import type { Project } from "@/lib/data";
 
 interface Profile {
@@ -77,11 +77,6 @@ export default async function UserPortfolioPage({
 
   return (
     <main className="relative min-h-screen" style={{ background: "var(--bg)" }}>
-
-      {/* Custom CSS injection */}
-      {p.custom_mode && p.custom_css && (
-        <style dangerouslySetInnerHTML={{ __html: p.custom_css }} />
-      )}
 
       {/* Nav */}
       <nav
@@ -224,8 +219,10 @@ export default async function UserPortfolioPage({
         </p>
       </footer>
 
-      {/* Dev mode button — owner only */}
-      {isOwner && <DevModeButton username={p.username} customMode={p.custom_mode ?? false} />}
+      {/* Mode toggle — visible to all visitors when custom CSS exists */}
+      {p.custom_mode && p.custom_css && (
+        <PortfolioModeToggle customCss={p.custom_css} />
+      )}
     </main>
   );
 }
