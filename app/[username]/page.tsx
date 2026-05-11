@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import ProjectsSection from "@/components/ProjectsSection";
 import SocialBadge from "@/components/SocialBadge";
 import CopyLinkButton from "@/components/CopyLinkButton";
+import DevModeButton from "@/components/DevModeButton";
 import type { Project } from "@/lib/data";
 
 interface Profile {
@@ -15,6 +16,8 @@ interface Profile {
   github: string | null;
   avatar_url: string | null;
   social_links: string[] | null;
+  custom_mode: boolean | null;
+  custom_css: string | null;
 }
 
 
@@ -69,9 +72,16 @@ export default async function UserPortfolioPage({
   }));
 
   const p = profile as Profile;
+  const { data: { user: currentUser } } = await supabase.auth.getUser();
+  const isOwner = currentUser?.id === p.id;
 
   return (
     <main className="relative min-h-screen" style={{ background: "var(--bg)" }}>
+
+      {/* Custom CSS injection */}
+      {p.custom_mode && p.custom_css && (
+        <style dangerouslySetInnerHTML={{ __html: p.custom_css }} />
+      )}
 
       {/* Nav */}
       <nav
@@ -119,7 +129,7 @@ export default async function UserPortfolioPage({
 
         {/* Avatar */}
         <div
-          className="relative w-32 h-32 rounded-full flex items-center justify-center text-5xl font-black sphere-shadow mb-8 z-10 overflow-hidden"
+          className="vf-avatar relative w-32 h-32 rounded-full flex items-center justify-center text-5xl font-black sphere-shadow mb-8 z-10 overflow-hidden"
           style={{
             background: "linear-gradient(135deg, var(--blue), var(--blue-bright))",
             color: "#fff",
@@ -213,6 +223,9 @@ export default async function UserPortfolioPage({
           Vibefolio · {new Date().getFullYear()}
         </p>
       </footer>
+
+      {/* Dev mode button — owner only */}
+      {isOwner && <DevModeButton username={p.username} customMode={p.custom_mode ?? false} />}
     </main>
   );
 }
