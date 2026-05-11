@@ -46,6 +46,7 @@ export default function CustomTab({ user }: { user: User }) {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [toggling, setToggling] = useState(false);
+  const [showActivateModal, setShowActivateModal] = useState(false);
   const username = user.user_metadata?.username || user.email?.split("@")[0] || "";
 
   useEffect(() => {
@@ -80,10 +81,23 @@ export default function CustomTab({ user }: { user: User }) {
   }
 
   async function handleToggleMode() {
+    if (!customMode) {
+      setShowActivateModal(true);
+      return;
+    }
     setToggling(true);
     const supabase = createClient();
-    await supabase.from("profiles").update({ custom_mode: !customMode }).eq("id", user.id);
-    setCustomMode((v) => !v);
+    await supabase.from("profiles").update({ custom_mode: false }).eq("id", user.id);
+    setCustomMode(false);
+    setToggling(false);
+  }
+
+  async function handleActivateConfirm() {
+    setShowActivateModal(false);
+    setToggling(true);
+    const supabase = createClient();
+    await supabase.from("profiles").update({ custom_mode: true }).eq("id", user.id);
+    setCustomMode(true);
     setToggling(false);
   }
 
@@ -201,6 +215,47 @@ export default function CustomTab({ user }: { user: User }) {
         <code style={{ color: "var(--blue-bright)" }}>:root</code>의 CSS 변수로 색상을 바꿀 수 있어요.
         nav(로고/링크복사)는 커스텀 대상에서 제외돼요.
       </p>
+
+      {/* Activate confirmation modal */}
+      {showActivateModal && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center p-6"
+          style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(8px)" }}
+          onClick={(e) => { if (e.target === e.currentTarget) setShowActivateModal(false); }}
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl p-6"
+            style={{ background: "var(--surface)", border: "1px solid #f59e0b55" }}
+          >
+            <div className="text-3xl mb-4">🤖</div>
+            <h2 className="text-lg font-black mb-2" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}>
+              AI 검토 후 적용돼요
+            </h2>
+            <p className="text-sm leading-relaxed mb-1" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
+              커스텀 CSS는 <strong>AI 자동 검토</strong>를 거친 뒤 명함에 반영돼요.
+            </p>
+            <p className="text-xs leading-relaxed mb-6" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
+              악성 스크립트, 외부 리소스 무단 삽입, 유해 콘텐츠가 감지되면 자동으로 차단될 수 있어요. 건전한 커스텀은 대부분 바로 통과돼요 🙂
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowActivateModal(false)}
+                className="flex-1 py-2.5 rounded-xl text-sm font-bold"
+                style={{ border: "1px solid var(--border-bright)", color: "var(--text-secondary)", background: "none", fontFamily: "var(--font-nunito)", cursor: "pointer" }}
+              >
+                취소
+              </button>
+              <button
+                onClick={handleActivateConfirm}
+                className="flex-1 py-2.5 rounded-xl text-sm font-black"
+                style={{ background: "#f59e0b", color: "#000", fontFamily: "var(--font-nunito)", border: "none", cursor: "pointer" }}
+              >
+                동의하고 켜기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
