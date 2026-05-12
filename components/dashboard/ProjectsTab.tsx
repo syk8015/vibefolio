@@ -514,10 +514,10 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
           border: "1px solid var(--border-bright)",
         }}
       >
-        {/* ── Left: form panel — fixed width, never shrinks ── */}
+        {/* ── Left: form panel — fills container on mobile, 42rem on desktop ── */}
         <div
           className="flex flex-col overflow-y-auto"
-          style={{ width: "42rem", maxWidth: "42rem", flexShrink: 0 }}
+          style={{ flex: 1, minWidth: 0 }}
         >
 
         {/* Modal header */}
@@ -527,11 +527,11 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
             {title}
           </h2>
 
-          {/* Preview toggle */}
+          {/* Preview toggle — hidden on mobile (preview panel would overflow) */}
           <button
             type="button"
             onClick={() => setShowPreview(v => !v)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all duration-150"
+            className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all duration-150"
             style={{
               background: showPreview ? "var(--blue-tint)" : "var(--bg)",
               border: `1px solid ${showPreview ? "var(--blue)" : "var(--border-bright)"}`,

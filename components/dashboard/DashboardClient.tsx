@@ -34,7 +34,7 @@ export default function DashboardClient({ user }: { user: User }) {
 
       {/* Top nav */}
       <nav
-        className="sticky top-0 z-40 flex items-center justify-between px-6 py-4"
+        className="sticky top-0 z-40 flex items-center justify-between px-4 md:px-6 py-3 md:py-4"
         style={{
           background: "var(--nav-bg)",
           backdropFilter: "blur(16px)",
@@ -49,38 +49,37 @@ export default function DashboardClient({ user }: { user: User }) {
           </span>
         </Link>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 md:gap-3">
           <ThemeToggle />
-          {/* Preview link */}
+          {/* Preview link — text hidden on mobile, icon only */}
           <Link
             href={`/${username}`}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-bold transition-opacity hover:opacity-75"
+            className="flex items-center gap-1.5 px-2.5 md:px-4 py-2 rounded-full text-sm font-bold transition-opacity hover:opacity-75"
             style={{ border: "1px solid var(--border-bright)", color: "var(--text-primary)", fontFamily: "var(--font-nunito)", textDecoration: "none" }}
           >
             <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
               <path d="M1.5 11.5L11.5 1.5M11.5 1.5H5.5M11.5 1.5V7.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
-            내 명함 보기
+            <span className="hidden md:inline">내 명함 보기</span>
           </Link>
 
-          {/* Avatar + logout */}
-          <div className="flex items-center gap-2">
-            <div
-              className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-black overflow-hidden"
-              style={{ background: "var(--blue)", color: "#fff", fontFamily: "var(--font-nunito)" }}
-            >
-              {avatarUrl
-                ? <img src={avatarUrl} alt={name} className="w-full h-full object-cover" />
-                : avatarLetter}
-            </div>
-            <button
-              onClick={handleLogout}
-              className="text-xs font-bold px-3 py-1.5 rounded-full transition-opacity hover:opacity-70"
-              style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", background: "none", border: "none", cursor: "pointer" }}
-            >
-              로그아웃
-            </button>
+          {/* Avatar */}
+          <div
+            className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-black overflow-hidden"
+            style={{ background: "var(--blue)", color: "#fff", fontFamily: "var(--font-nunito)", flexShrink: 0 }}
+          >
+            {avatarUrl
+              ? <img src={avatarUrl} alt={name} className="w-full h-full object-cover" />
+              : avatarLetter}
           </div>
+          {/* Logout — hidden on mobile */}
+          <button
+            onClick={handleLogout}
+            className="hidden md:block text-xs font-bold px-3 py-1.5 rounded-full transition-opacity hover:opacity-70"
+            style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", background: "none", border: "none", cursor: "pointer" }}
+          >
+            로그아웃
+          </button>
         </div>
       </nav>
 

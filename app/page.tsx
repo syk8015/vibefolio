@@ -62,7 +62,7 @@ export default async function LandingPage() {
   if (user) {
     return (
       <main className="min-h-screen flex flex-col" style={{ background: "var(--bg)" }}>
-        <nav className="flex items-center justify-between px-8 py-5">
+        <nav className="flex items-center justify-between px-4 md:px-8 py-4 md:py-5">
           <Logo />
           <div className="flex items-center gap-3">
             <ThemeToggle />
@@ -83,7 +83,7 @@ export default async function LandingPage() {
               세상에 공유하세요.
             </span>
           </h1>
-          <div className="flex items-center gap-3 mt-4">
+          <div className="flex flex-wrap justify-center items-center gap-3 mt-4">
             <Link href={`/${username}`}
               className="px-7 py-3.5 rounded-full font-bold text-sm transition-opacity hover:opacity-80"
               style={{ background: "var(--blue)", color: "#fff", fontFamily: "var(--font-nunito)", textDecoration: "none", boxShadow: "0 0 24px var(--blue-glow)" }}>
@@ -114,7 +114,7 @@ export default async function LandingPage() {
     <main className="flex flex-col overflow-x-hidden" style={{ background: "var(--bg)" }}>
 
       {/* Nav */}
-      <nav className="flex items-center justify-between px-8 py-5 relative z-10">
+      <nav className="flex items-center justify-between px-4 md:px-8 py-4 md:py-5 relative z-10">
         <Logo />
         <div className="flex items-center gap-3">
           <ThemeToggle />
@@ -168,7 +168,7 @@ export default async function LandingPage() {
           5분 안에 나만의 포트폴리오 명함이 완성됩니다.
         </p>
 
-        <div className="flex items-center gap-3 mb-12 z-10">
+        <div className="flex flex-wrap justify-center items-center gap-3 mb-12 z-10">
           <Link href="/signup"
             className="px-7 py-3.5 rounded-full font-bold text-sm transition-opacity hover:opacity-80"
             style={{ background: "var(--blue)", color: "#fff", fontFamily: "var(--font-nunito)", textDecoration: "none", boxShadow: "0 0 24px var(--blue-glow)" }}>

@@ -2,9 +2,9 @@
 
 import { useRef, useEffect, useState } from "react";
 
-const SCALE = 0.52;
 const IFRAME_W = 1200;
 const IFRAME_H = 860;
+const DEFAULT_SCALE = 0.52;
 
 interface Props {
   url: string;
@@ -24,8 +24,20 @@ export default function PortfolioPipSection({ url, displayUsername }: Props) {
   const [scrollY, setScrollY] = useState(0);
   const [maxScroll, setMaxScroll] = useState(0);
 
-  const displayW = Math.round(IFRAME_W * SCALE);
-  const displayH = Math.round(IFRAME_H * SCALE);
+  // Responsive scale — shrinks on narrow viewports
+  const [scale, setScale] = useState(DEFAULT_SCALE);
+  useEffect(() => {
+    const update = () => {
+      const maxW = window.innerWidth - 32; // 16px padding each side
+      setScale(Math.min(DEFAULT_SCALE, maxW / IFRAME_W));
+    };
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
+
+  const displayW = Math.round(IFRAME_W * scale);
+  const displayH = Math.round(IFRAME_H * scale);
 
   const handleLoad = () => {
     setLoaded(true);
@@ -242,7 +254,7 @@ export default function PortfolioPipSection({ url, displayUsername }: Props) {
               style={{
                 width: IFRAME_W,
                 height: IFRAME_H,
-                transform: `scale(${SCALE})`,
+                transform: `scale(${scale})`,
                 transformOrigin: "top left",
                 pointerEvents: "none",
               }}

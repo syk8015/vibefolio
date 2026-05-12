@@ -122,7 +122,7 @@ export default async function UserPortfolioPage({
 
       {/* Nav */}
       <nav
-        className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-8 py-4"
+        className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 md:px-8 py-3 md:py-4"
         style={{
           background: "var(--nav-bg)",
           backdropFilter: "blur(16px)",
@@ -143,7 +143,7 @@ export default async function UserPortfolioPage({
         </Link>
         <div className="flex items-center gap-3">
           <span
-            className="text-xs tracking-widest uppercase"
+            className="hidden sm:inline text-xs tracking-widest uppercase"
             style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}
           >
             {projects.length} Projects
@@ -154,7 +154,7 @@ export default async function UserPortfolioPage({
       </nav>
 
       {/* Hero */}
-      <section className="relative flex flex-col items-center pt-40 pb-24 px-6 z-10">
+      <section className="relative flex flex-col items-center pt-28 md:pt-40 pb-16 md:pb-24 px-6 z-10">
 
         {/* Glow */}
         <div
@@ -167,7 +167,7 @@ export default async function UserPortfolioPage({
 
         {/* Avatar */}
         <div
-          className="vf-avatar relative w-32 h-32 rounded-full flex items-center justify-center text-5xl font-black sphere-shadow mb-8 z-10 overflow-hidden"
+          className="vf-avatar relative w-24 h-24 md:w-32 md:h-32 rounded-full flex items-center justify-center text-4xl md:text-5xl font-black sphere-shadow mb-6 md:mb-8 z-10 overflow-hidden"
           style={{
             background: "linear-gradient(135deg, var(--blue), var(--blue-bright))",
             color: "#fff",
@@ -182,7 +182,7 @@ export default async function UserPortfolioPage({
 
         {/* Name */}
         <h1
-          className="text-5xl md:text-6xl mb-1 tracking-tight"
+          className="text-3xl md:text-5xl lg:text-6xl mb-1 tracking-tight"
           style={{
             fontFamily: "var(--font-nunito)",
             color: "var(--text-primary)",
