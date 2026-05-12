@@ -85,7 +85,7 @@ export default function DashboardClient({ user }: { user: User }) {
       <div className="max-w-4xl mx-auto px-6 py-10">
 
         {/* Page header */}
-        <div className="mb-8">
+        <div className="mb-8 text-center">
           <h1 className="text-2xl font-black mb-1" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", letterSpacing: "-0.02em" }}>
             대시보드
           </h1>
@@ -95,8 +95,9 @@ export default function DashboardClient({ user }: { user: User }) {
         </div>
 
         {/* Tabs */}
+        <div className="flex justify-center mb-8">
         <div
-          className="flex gap-1 p-1 rounded-xl mb-8 w-fit"
+          className="flex gap-1 p-1 rounded-xl"
           style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
         >
           {(["profile", "projects", "analytics", "custom"] as Tab[]).map((t) => (
@@ -115,6 +116,7 @@ export default function DashboardClient({ user }: { user: User }) {
               {t === "profile" ? "프로필" : t === "projects" ? "프로젝트" : t === "analytics" ? "분석" : "🚧 커스텀"}
             </button>
           ))}
+        </div>
         </div>
 
         {/* Tab content */}
