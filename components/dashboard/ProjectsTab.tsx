@@ -194,7 +194,37 @@ export default function ProjectsTab({ user }: { user: User }) {
   );
 }
 
-const AI_KEYWORDS = ["claude", "gpt", "gemini", "llm", "ai"];
+const AI_TOOLS = [
+  // 코딩 · 빌딩 (인기순)
+  { id: "ChatGPT",        emoji: "💬" },
+  { id: "Claude Code",    emoji: "🟠" },
+  { id: "Cursor",         emoji: "🖱️" },
+  { id: "GitHub Copilot", emoji: "🐙" },
+  { id: "Gemini",         emoji: "✨" },
+  { id: "v0",             emoji: "▲" },
+  { id: "Bolt.new",       emoji: "⚡" },
+  { id: "Windsurf",       emoji: "🏄" },
+  { id: "Lovable",        emoji: "💜" },
+  { id: "Replit AI",      emoji: "🔁" },
+  { id: "Devin",          emoji: "🤖" },
+  { id: "Aider",          emoji: "💻" },
+  { id: "Continue.dev",   emoji: "🔗" },
+  { id: "Codeium",        emoji: "🟢" },
+  { id: "Amazon Q",       emoji: "🟡" },
+  { id: "Perplexity",     emoji: "🔮" },
+  // 이미지
+  { id: "Midjourney",         emoji: "🎨" },
+  { id: "DALL-E",             emoji: "🖼️" },
+  { id: "Stable Diffusion",   emoji: "🌊" },
+  { id: "Ideogram",           emoji: "🔤" },
+  { id: "Flux",               emoji: "🌀" },
+  // 영상 · 음악
+  { id: "Runway",      emoji: "🎬" },
+  { id: "Kling",       emoji: "📹" },
+  { id: "Pika",        emoji: "🎞️" },
+  { id: "Suno",        emoji: "🎵" },
+  { id: "ElevenLabs",  emoji: "🎙️" },
+];
 
 function ProjectRow({ project, onDelete, onEdit }: { project: DBProject; onDelete: () => void; onEdit: () => void }) {
   const thumbnail = project.thumbnail || `https://picsum.photos/seed/${project.id}/800/600`;
@@ -220,17 +250,16 @@ function ProjectRow({ project, onDelete, onEdit }: { project: DBProject; onDelet
         </div>
         <div className="flex flex-wrap gap-1.5">
           {(project.tags ?? []).map((tag) => {
-            const ai = AI_KEYWORDS.some((k) => tag.toLowerCase().includes(k));
+            const tool = AI_TOOLS.find((t) => t.id === tag);
             return (
-              <span key={tag} className="px-2 py-0.5 rounded-full"
+              <span key={tag} className="flex items-center gap-1 px-2 py-0.5 rounded-full"
                 style={{
-                  background: ai ? "rgba(234,179,8,0.1)" : "var(--blue-tint)",
-                  border: `1px solid ${ai ? "rgba(234,179,8,0.35)" : "var(--border-bright)"}`,
-                  color: ai ? "#eab308" : "var(--blue-bright)",
-                  fontSize: "0.6rem", fontWeight: 700, fontFamily: "var(--font-nunito)",
-                  letterSpacing: "0.08em", textTransform: "uppercase",
+                  background: "rgba(245,158,11,0.08)",
+                  border: "1px solid rgba(245,158,11,0.3)",
+                  color: "#f59e0b",
+                  fontSize: "0.62rem", fontWeight: 700, fontFamily: "var(--font-nunito)",
                 }}>
-                {tag}
+                {tool ? `${tool.emoji} ${tag}` : tag}
               </span>
             );
           })}
@@ -272,7 +301,8 @@ function ProjectModal({ title, initialForm, onClose, onSubmit, submitLabel, user
   userId: string;
 }) {
   const [uploadMode, setUploadMode] = useState<"url" | "files">("url");
-  const [form, setForm] = useState({ ...initialForm, tags: initialForm.tags.join(", ") });
+  const [form, setForm] = useState({ ...initialForm });
+  const [selectedTools, setSelectedTools] = useState<string[]>(initialForm.tags);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -351,13 +381,16 @@ function ProjectModal({ title, initialForm, onClose, onSubmit, submitLabel, user
     setUploadDone(true);
   }
 
+  function toggleTool(id: string) {
+    setSelectedTools((prev) =>
+      prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id]
+    );
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
-    await onSubmit({
-      ...form,
-      tags: form.tags.split(",").map((t) => t.trim()).filter(Boolean),
-    } as ProjectForm);
+    await onSubmit({ ...form, tags: selectedTools } as ProjectForm);
     setSaving(false);
   }
 
@@ -484,10 +517,35 @@ function ProjectModal({ title, initialForm, onClose, onSubmit, submitLabel, user
             </select>
           </ModalField>
 
-          <ModalField label="태그 (쉼표로 구분)">
-            <input className="vf-input" name="tags" placeholder="React, Claude API, Tailwind"
-              value={form.tags} onChange={handleChange} />
-          </ModalField>
+          <div>
+            <label className="block text-xs font-bold mb-2"
+              style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", letterSpacing: "0.05em" }}>
+              사용한 AI 도구 <span style={{ color: "var(--text-muted)", fontWeight: 400 }}>(복수 선택 가능)</span>
+            </label>
+            <div className="flex flex-wrap gap-1.5">
+              {AI_TOOLS.map((tool) => {
+                const active = selectedTools.includes(tool.id);
+                return (
+                  <button
+                    key={tool.id}
+                    type="button"
+                    onClick={() => toggleTool(tool.id)}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold transition-all duration-100"
+                    style={{
+                      background: active ? "rgba(245,158,11,0.15)" : "var(--bg)",
+                      border: `1px solid ${active ? "rgba(245,158,11,0.6)" : "var(--border)"}`,
+                      color: active ? "#f59e0b" : "var(--text-muted)",
+                      fontFamily: "var(--font-nunito)",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <span>{tool.emoji}</span>
+                    <span>{tool.id}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
           <ModalField label="썸네일 URL">
             <input className="vf-input" name="thumbnail" type="url"
