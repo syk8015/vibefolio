@@ -46,8 +46,9 @@ export default function PortfolioPipSection({ url, displayUsername }: Props) {
       const section = sectionRef.current;
       if (!section) return false;
       const rect = section.getBoundingClientRect();
-      const centerY = rect.top + rect.height / 2;
-      return centerY > 0 && centerY < window.innerHeight;
+      // Only hijack when the entire PiP section is fully visible in the viewport
+      // (i.e., the hero has been fully scrolled past and PiP is the main content)
+      return rect.top >= -10 && rect.bottom <= window.innerHeight + 10;
     };
 
     const onWheel = (e: WheelEvent) => {
