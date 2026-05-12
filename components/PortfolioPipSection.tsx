@@ -5,8 +5,6 @@ import { useRef, useEffect, useState } from "react";
 const SCALE = 0.52;
 const IFRAME_W = 1200;
 const IFRAME_H = 860;
-// Cap iframe scroll — enough to reveal the projects section
-const MAX_IFRAME_SCROLL = 1200;
 
 interface Props {
   url: string;
@@ -17,13 +15,33 @@ export default function PortfolioPipSection({ url, displayUsername }: Props) {
   const sectionRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [loaded, setLoaded] = useState(false);
-  const [iframeScrollY, setIframeScrollY] = useState(0);
+
+  // Use refs for values used in the wheel handler to avoid stale closures
+  const scrollYRef = useRef(0);
+  const maxScrollRef = useRef(0);
+
+  // State only for UI rendering
+  const [scrollY, setScrollY] = useState(0);
+  const [maxScroll, setMaxScroll] = useState(0);
 
   const displayW = Math.round(IFRAME_W * SCALE);
   const displayH = Math.round(IFRAME_H * SCALE);
 
+  const handleLoad = () => {
+    setLoaded(true);
+    try {
+      const doc = iframeRef.current?.contentDocument?.documentElement;
+      if (doc) {
+        const scrollable = doc.scrollHeight - doc.clientHeight;
+        if (scrollable > 0) {
+          maxScrollRef.current = scrollable;
+          setMaxScroll(scrollable);
+        }
+      }
+    } catch { /* cross-origin guard */ }
+  };
+
   useEffect(() => {
-    // Hijack wheel events when the PiP section is centered in the viewport
     const isPipActive = () => {
       const section = sectionRef.current;
       if (!section) return false;
@@ -34,27 +52,27 @@ export default function PortfolioPipSection({ url, displayUsername }: Props) {
 
     const onWheel = (e: WheelEvent) => {
       if (!isPipActive()) return;
+      if (maxScrollRef.current === 0) return;
 
       const iframe = iframeRef.current;
       if (!iframe) return;
 
-      let currentY = 0;
+      let currentY = scrollYRef.current;
       try {
-        currentY = iframe.contentWindow?.scrollY ?? iframeScrollY;
-      } catch {
-        return;
-      }
+        currentY = iframe.contentWindow?.scrollY ?? currentY;
+      } catch { return; }
 
       let delta = e.deltaY;
-      if (e.deltaMode === 1) delta *= 20;  // lines → px
-      if (e.deltaMode === 2) delta *= 300; // pages → px
+      if (e.deltaMode === 1) delta *= 20;
+      if (e.deltaMode === 2) delta *= 300;
 
-      if (delta > 0 && currentY < MAX_IFRAME_SCROLL) {
+      if (delta > 0 && currentY < maxScrollRef.current) {
         e.preventDefault();
-        const newY = Math.min(currentY + delta, MAX_IFRAME_SCROLL);
+        const newY = Math.min(currentY + delta, maxScrollRef.current);
         try {
           iframe.contentWindow?.scrollTo({ top: newY, behavior: "instant" });
-          setIframeScrollY(newY);
+          scrollYRef.current = newY;
+          setScrollY(newY);
         } catch { /* ignore */ }
         return;
       }
@@ -64,18 +82,18 @@ export default function PortfolioPipSection({ url, displayUsername }: Props) {
         const newY = Math.max(currentY + delta, 0);
         try {
           iframe.contentWindow?.scrollTo({ top: newY, behavior: "instant" });
-          setIframeScrollY(newY);
+          scrollYRef.current = newY;
+          setScrollY(newY);
         } catch { /* ignore */ }
         return;
       }
-      // Otherwise: let the page scroll normally
     };
 
     document.addEventListener("wheel", onWheel, { passive: false });
     return () => document.removeEventListener("wheel", onWheel);
-  }, [iframeScrollY]);
+  }, []);
 
-  const progress = Math.round((iframeScrollY / MAX_IFRAME_SCROLL) * 100);
+  const progress = maxScroll > 0 ? Math.min(100, Math.round((scrollY / maxScroll) * 100)) : 0;
 
   return (
     <div
@@ -223,26 +241,24 @@ export default function PortfolioPipSection({ url, displayUsername }: Props) {
                   opacity: loaded ? 1 : 0,
                   transition: "opacity 0.4s ease",
                 }}
-                onLoad={() => setLoaded(true)}
+                onLoad={handleLoad}
                 sandbox="allow-scripts allow-same-origin"
                 title="포트폴리오 미리보기"
               />
             </div>
           </div>
 
-          {/* Scroll progress bar at the bottom of the mockup */}
-          {loaded && (
-            <div style={{ height: 2, background: "rgba(255,255,255,0.04)" }}>
-              <div
-                style={{
-                  height: "100%",
-                  width: `${progress}%`,
-                  background: "linear-gradient(90deg, var(--blue), var(--blue-bright))",
-                  transition: "width 0.1s linear",
-                }}
-              />
-            </div>
-          )}
+          {/* Scroll progress bar — synced to actual iframe scroll height */}
+          <div style={{ height: 2, background: "rgba(255,255,255,0.04)" }}>
+            <div
+              style={{
+                height: "100%",
+                width: `${progress}%`,
+                background: "linear-gradient(90deg, var(--blue), var(--blue-bright))",
+                transition: "width 0.1s linear",
+              }}
+            />
+          </div>
         </div>
       </div>
 
@@ -259,7 +275,7 @@ export default function PortfolioPipSection({ url, displayUsername }: Props) {
           &nbsp;의 바이브포트폴리오
         </p>
         <p style={{ fontSize: "0.65rem", color: "var(--text-muted)", fontFamily: "var(--font-nunito)", opacity: 0.6 }}>
-          {iframeScrollY >= MAX_IFRAME_SCROLL ? "↓ 계속 스크롤하면 다음으로" : "↕ 스크롤하면 프로젝트가 보여요"}
+          {progress >= 100 ? "↓ 계속 스크롤하면 다음으로" : "↕ 스크롤하면 프로젝트가 보여요"}
         </p>
       </div>
     </div>
