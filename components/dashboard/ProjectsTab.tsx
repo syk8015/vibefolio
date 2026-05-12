@@ -4,6 +4,8 @@ import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
+import ProjectCard from "@/components/ProjectCard";
+import type { Project } from "@/lib/data";
 
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 
@@ -306,6 +308,8 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
   const [form, setForm] = useState({ ...initialForm });
   const [selectedTools, setSelectedTools] = useState<string[]>(initialForm.tags);
   const [showAllTools, setShowAllTools] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+  const [previewLayout, setPreviewLayout] = useState<"grid" | "list">("grid");
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -313,6 +317,19 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
   const [uploadDone, setUploadDone] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
+
+  const previewProject: Project = {
+    id: 0,
+    title: form.title || "프로젝트 이름",
+    description: form.description || "프로젝트 설명이 여기에 표시됩니다.",
+    type: form.type,
+    contentType: form.content_type,
+    thumbnail: form.thumbnail || `https://picsum.photos/seed/preview/800/600`,
+    year: form.year || new Date().getFullYear().toString(),
+    tags: selectedTools,
+    demoUrl: form.demo_url || undefined,
+    comment: form.comment || undefined,
+  };
 
   // Always show tools that are already selected even if collapsed
   const hiddenSelectedCount = selectedTools.filter(id =>
@@ -403,15 +420,44 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div
-        className="w-full max-w-2xl rounded-2xl max-h-[92vh] overflow-y-auto"
-        style={{ background: "var(--surface)", border: "1px solid var(--border-bright)" }}
+        className="w-full rounded-2xl max-h-[92vh] flex overflow-hidden"
+        style={{
+          maxWidth: showPreview ? "72rem" : "42rem",
+          transition: "max-width 0.3s cubic-bezier(0.4,0,0.2,1)",
+          background: "var(--surface)",
+          border: "1px solid var(--border-bright)",
+        }}
       >
+        {/* ── Left: form panel ── */}
+        <div className="flex flex-col flex-1 min-w-0 overflow-y-auto">
+
         {/* Modal header */}
-        <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-4"
+        <div className="sticky top-0 z-10 flex items-center gap-3 px-6 py-4"
           style={{ background: "var(--surface)", borderBottom: "1px solid var(--border)" }}>
-          <h2 className="text-lg font-black" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}>
+          <h2 className="text-lg font-black flex-1" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}>
             {title}
           </h2>
+
+          {/* Preview toggle */}
+          <button
+            type="button"
+            onClick={() => setShowPreview(v => !v)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all duration-150"
+            style={{
+              background: showPreview ? "var(--blue-tint)" : "var(--bg)",
+              border: `1px solid ${showPreview ? "var(--blue)" : "var(--border-bright)"}`,
+              color: showPreview ? "var(--blue)" : "var(--text-secondary)",
+              fontFamily: "var(--font-nunito)",
+              cursor: "pointer",
+            }}
+          >
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+              <ellipse cx="6.5" cy="6.5" rx="5.5" ry="3.5" stroke="currentColor" strokeWidth="1.4"/>
+              <circle cx="6.5" cy="6.5" r="1.5" fill="currentColor"/>
+            </svg>
+            카드 미리보기
+          </button>
+
           <button onClick={onClose}
             style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-secondary)" }}>
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -638,6 +684,63 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
             </button>
           </div>
         </form>
+        </div>{/* end left panel */}
+
+        {/* ── Right: live preview panel ── */}
+        {showPreview && (
+          <div
+            className="flex flex-col shrink-0 overflow-y-auto"
+            style={{
+              width: "360px",
+              borderLeft: "1px solid var(--border)",
+              background: "var(--bg)",
+            }}
+          >
+            {/* Preview header */}
+            <div
+              className="sticky top-0 z-10 flex items-center justify-between px-5 py-4"
+              style={{ background: "var(--bg)", borderBottom: "1px solid var(--border)" }}
+            >
+              <div className="flex items-center gap-2">
+                <div className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--blue)", boxShadow: "0 0 6px var(--blue)" }} />
+                <span className="text-xs font-bold tracking-widest uppercase" style={{ color: "var(--blue-bright)", fontFamily: "var(--font-nunito)" }}>
+                  실시간 미리보기
+                </span>
+              </div>
+              {/* Grid / List toggle */}
+              <div className="flex gap-1 p-0.5 rounded-lg" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+                {(["grid", "list"] as const).map(l => (
+                  <button
+                    key={l}
+                    type="button"
+                    onClick={() => setPreviewLayout(l)}
+                    className="px-2 py-1 rounded-md text-xs font-bold transition-all duration-150"
+                    style={{
+                      background: previewLayout === l ? "var(--blue-tint)" : "transparent",
+                      color: previewLayout === l ? "var(--blue)" : "var(--text-muted)",
+                      border: "none",
+                      fontFamily: "var(--font-nunito)",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {l === "grid" ? "그리드" : "리스트"}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Card preview */}
+            <div className="p-5">
+              <ProjectCard
+                project={previewProject}
+                layout={previewLayout}
+              />
+              <p className="text-xs text-center mt-4" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
+                명함 페이지에서 실제로 보이는 모습이에요
+              </p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
