@@ -2,6 +2,19 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import HomeProfileMenu from "@/components/HomeProfileMenu";
 
+const STAT_TAGLINES = [
+  "나랑 같은 토큰을 쓰는 동료들",
+  "ChatGPT한테 \"왜 안 돼요\" 물어본 사람들",
+  "스택오버플로우 대신 AI한테 물어본 사람들",
+  "Ctrl+C 없이도 뭔가 만든 사람들",
+  "기획자이자 디자이너이자 개발자인 사람들",
+  "혼자서 팀 하나를 대신하는 사람들",
+  "AI를 팀원으로 둔 솔로 창업자들",
+  "아이디어만으로 제품을 만든 빌더들",
+  "코드보다 아이디어가 먼저인 사람들",
+  "AI 네이티브 세대의 첫 포트폴리오",
+];
+
 function formatCount(n: number): string {
   if (n < 10) return String(n);
   return n.toLocaleString("ko-KR") + "+";
@@ -19,6 +32,8 @@ export default async function LandingPage() {
     supabase.from("profiles").select("*", { count: "exact", head: true }),
     supabase.from("projects").select("*", { count: "exact", head: true }),
   ]);
+
+  const tagline = STAT_TAGLINES[Math.floor(Math.random() * STAT_TAGLINES.length)];
 
   const meta = user?.user_metadata || {};
   const username = meta.username || user?.email?.split("@")[0] || "";
@@ -166,10 +181,15 @@ export default async function LandingPage() {
           </Link>
         </div>
 
-        <div className="flex items-center gap-10">
-          <Stat value={formatCount(userCount ?? 0)} label="바이브코더" />
-          <div className="w-px h-8" style={{ background: "var(--border)" }} />
-          <Stat value={formatCount(projectCount ?? 0)} label="업로드된 프로젝트" />
+        <div className="flex flex-col items-center gap-4">
+          <div className="flex items-center gap-10">
+            <Stat value={formatCount(userCount ?? 0)} label="바이브코더" />
+            <div className="w-px h-8" style={{ background: "var(--border)" }} />
+            <Stat value={formatCount(projectCount ?? 0)} label="업로드된 프로젝트" />
+          </div>
+          <p className="text-xs font-semibold" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
+            {tagline}
+          </p>
         </div>
       </div>
 
