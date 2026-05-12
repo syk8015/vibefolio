@@ -419,17 +419,22 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
       style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(10px)" }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
+      {/* Outer wrapper — width drives centering animation */}
       <div
-        className="w-full rounded-2xl max-h-[92vh] flex overflow-hidden"
+        className="flex rounded-2xl overflow-hidden"
         style={{
-          maxWidth: showPreview ? "72rem" : "42rem",
-          transition: "max-width 0.3s cubic-bezier(0.4,0,0.2,1)",
+          maxHeight: "92vh",
+          width: showPreview ? "min(calc(42rem + 361px), calc(100vw - 2rem))" : "min(42rem, calc(100vw - 2rem))",
+          transition: "width 0.32s cubic-bezier(0.4,0,0.2,1)",
           background: "var(--surface)",
           border: "1px solid var(--border-bright)",
         }}
       >
-        {/* ── Left: form panel ── */}
-        <div className="flex flex-col flex-1 min-w-0 overflow-y-auto">
+        {/* ── Left: form panel — fixed width, never shrinks ── */}
+        <div
+          className="flex flex-col overflow-y-auto"
+          style={{ width: "42rem", maxWidth: "42rem", flexShrink: 0 }}
+        >
 
         {/* Modal header */}
         <div className="sticky top-0 z-10 flex items-center gap-3 px-6 py-4"
@@ -686,10 +691,18 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
         </form>
         </div>{/* end left panel */}
 
-        {/* ── Right: live preview panel ── */}
-        {showPreview && (
+        {/* ── Right: live preview panel — width animates, inner content is fixed 360px ── */}
+        <div
+          style={{
+            width: showPreview ? "360px" : "0px",
+            flexShrink: 0,
+            overflow: "hidden",
+            transition: "width 0.32s cubic-bezier(0.4,0,0.2,1)",
+          }}
+        >
+          {/* Inner wrapper: fixed 360px so content never squishes during animation */}
           <div
-            className="flex flex-col shrink-0 overflow-y-auto"
+            className="flex flex-col h-full overflow-y-auto"
             style={{
               width: "360px",
               borderLeft: "1px solid var(--border)",
@@ -731,16 +744,13 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
 
             {/* Card preview */}
             <div className="p-5">
-              <ProjectCard
-                project={previewProject}
-                layout={previewLayout}
-              />
+              <ProjectCard project={previewProject} layout={previewLayout} />
               <p className="text-xs text-center mt-4" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
                 명함 페이지에서 실제로 보이는 모습이에요
               </p>
             </div>
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
