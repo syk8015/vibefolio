@@ -128,7 +128,7 @@ export default function ProjectsSection({ projects }: { projects: Project[] }) {
   const [layout, setLayout] = useState<Layout>("grid");       // controls toggle UI
   const [displayLayout, setDisplayLayout] = useState<Layout>("grid"); // controls actual grid
   const [phase, setPhase] = useState<Phase>("idle");
-  const [selected, setSelected] = useState<Project | null>(null);
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   function clearTimers() {
@@ -199,12 +199,17 @@ export default function ProjectsSection({ projects }: { projects: Project[] }) {
             index={index}
             layout={displayLayout}
             phase={phase}
-            onClick={() => setSelected(project)}
+            onClick={() => setSelectedIndex(index)}
           />
         ))}
       </div>
 
-      <ProjectModal project={selected} onClose={() => setSelected(null)} />
+      <ProjectModal
+        projects={projects}
+        currentIndex={selectedIndex}
+        onClose={() => setSelectedIndex(null)}
+        onNavigate={setSelectedIndex}
+      />
     </>
   );
 }
