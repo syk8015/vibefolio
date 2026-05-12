@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import HomeProfileMenu from "@/components/HomeProfileMenu";
-import PortfolioMockup from "@/components/PortfolioMockup";
+import PortfolioPipSection from "@/components/PortfolioPipSection";
 
 const STAT_TAGLINES = [
   "나랑 같은 토큰을 쓰는 동료들",
@@ -201,54 +201,12 @@ export default async function LandingPage() {
         )}
       </section>
 
-      {/* PiP portfolio preview */}
+      {/* PiP portfolio preview — scroll-synced */}
       {pipProfile && (
-        <section
-          className="flex flex-col items-center px-6 pb-32 pt-8 gap-6 relative"
-          style={{ borderTop: "1px solid var(--border)" }}
-        >
-          {/* Section label */}
-          <div
-            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full"
-            style={{ background: "var(--blue-tint)", border: "1px solid var(--border-bright)" }}
-          >
-            <div className="w-1 h-1 rounded-full" style={{ background: "var(--blue)", boxShadow: "0 0 4px var(--blue)" }} />
-            <span className="text-xs font-bold" style={{ color: "var(--blue-bright)", fontFamily: "var(--font-nunito)" }}>
-              실제 바이브코더 명함
-            </span>
-          </div>
-
-          {/* Floating mockup */}
-          <div className="relative flex items-center justify-center w-full">
-            {/* Ambient glow */}
-            <div
-              className="absolute pointer-events-none"
-              style={{
-                width: 700, height: 400,
-                background: "radial-gradient(ellipse at center, rgba(77,158,255,0.12) 0%, transparent 70%)",
-                filter: "blur(40px)",
-              }}
-            />
-            <div style={{ filter: "drop-shadow(0 40px 80px rgba(0,0,0,0.6))" }}>
-              <PortfolioMockup
-                url={`/${pipProfile.username}`}
-                displayUsername={pipProfile.username}
-              />
-            </div>
-          </div>
-
-          {/* Attribution */}
-          <p className="text-xs" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
-            <Link
-              href={`/${pipProfile.username}`}
-              target="_blank"
-              style={{ color: "var(--blue)", textDecoration: "none", fontWeight: 600 }}
-            >
-              @{pipProfile.username}
-            </Link>
-            &nbsp;의 바이브포트폴리오
-          </p>
-        </section>
+        <PortfolioPipSection
+          url={`/${pipProfile.username}`}
+          displayUsername={pipProfile.username}
+        />
       )}
 
       <footer className="flex items-center justify-center py-6 relative z-10" style={{ borderTop: "1px solid var(--border)" }}>
