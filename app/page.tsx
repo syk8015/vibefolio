@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import HomeProfileMenu from "@/components/HomeProfileMenu";
 import PortfolioPipSection from "@/components/PortfolioPipSection";
+import ThemeToggle from "@/components/ThemeToggle";
 
 const STAT_TAGLINES = [
   "나랑 같은 토큰을 쓰는 동료들",
@@ -63,7 +64,10 @@ export default async function LandingPage() {
       <main className="min-h-screen flex flex-col" style={{ background: "var(--bg)" }}>
         <nav className="flex items-center justify-between px-8 py-5">
           <Logo />
-          <HomeProfileMenu username={username} name={name} avatarUrl={avatarUrl} />
+          <div className="flex items-center gap-3">
+            <ThemeToggle />
+            <HomeProfileMenu username={username} name={name} avatarUrl={avatarUrl} />
+          </div>
         </nav>
 
         <div className="flex-1 flex flex-col items-center justify-center px-6 text-center gap-4">
@@ -113,6 +117,7 @@ export default async function LandingPage() {
       <nav className="flex items-center justify-between px-8 py-5 relative z-10">
         <Logo />
         <div className="flex items-center gap-3">
+          <ThemeToggle />
           <Link href="/login"
             style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", fontSize: "0.875rem", fontWeight: 600, textDecoration: "none" }}>
             로그인

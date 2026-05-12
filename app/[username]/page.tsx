@@ -9,6 +9,7 @@ import CopyLinkButton from "@/components/CopyLinkButton";
 import PortfolioModeToggle from "@/components/PortfolioModeToggle";
 import type { Project } from "@/lib/data";
 import ViewTracker from "@/components/ViewTracker";
+import ThemeToggle from "@/components/ThemeToggle";
 
 const getProfile = cache(async (username: string) => {
   const supabase = await createClient();
@@ -147,6 +148,7 @@ export default async function UserPortfolioPage({
           >
             {projects.length} Projects
           </span>
+          <ThemeToggle />
           <CopyLinkButton username={p.username} />
         </div>
       </nav>

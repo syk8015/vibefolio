@@ -9,6 +9,7 @@ import ProfileTab from "./ProfileTab";
 import ProjectsTab from "./ProjectsTab";
 import CustomTab from "./CustomTab";
 import AnalyticsTab from "./AnalyticsTab";
+import ThemeToggle from "@/components/ThemeToggle";
 
 type Tab = "profile" | "projects" | "analytics" | "custom";
 
@@ -49,6 +50,7 @@ export default function DashboardClient({ user }: { user: User }) {
         </Link>
 
         <div className="flex items-center gap-3">
+          <ThemeToggle />
           {/* Preview link */}
           <Link
             href={`/${username}`}

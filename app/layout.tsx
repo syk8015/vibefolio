@@ -35,6 +35,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ko" className={nunito.variable}>
+      <head>
+        {/* Runs before paint to prevent flash of wrong theme */}
+        <script dangerouslySetInnerHTML={{ __html: `
+(function(){try{var s=localStorage.getItem('vf-theme');if(s==='dark'||s==='light'){document.documentElement.setAttribute('data-theme',s);}else if(window.matchMedia('(prefers-color-scheme:light)').matches){document.documentElement.setAttribute('data-theme','light');}else{document.documentElement.setAttribute('data-theme','dark');}}catch(e){}})();
+        `.trim() }} />
+      </head>
       <body className="min-h-screen">{children}</body>
     </html>
   );

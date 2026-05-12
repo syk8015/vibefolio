@@ -1,6 +1,8 @@
 @import "tailwindcss";
 
-:root {
+/* Dark theme — default */
+:root,
+[data-theme="dark"] {
   --bg: #08090f;
   --surface: #0d1117;
   --border: #1c2a3a;
@@ -20,26 +22,25 @@
   --badge-bg: rgba(8, 9, 15, 0.78);
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    --bg: #f4f7ff;
-    --surface: #ffffff;
-    --border: #dae1f0;
-    --border-bright: #c0cce4;
-    --blue: #2d6fd4;
-    --blue-bright: #1a56b8;
-    --blue-dim: #1a56b8;
-    --blue-glow: rgba(45, 111, 212, 0.15);
-    --blue-tint: rgba(45, 111, 212, 0.07);
-    --text-primary: #080c18;
-    --text-secondary: #6272a0;
-    --text-muted: #b0bcd8;
-    --dot-color: rgba(45, 111, 212, 0.07);
-    --nav-bg: rgba(244, 247, 255, 0.88);
-    --overlay-strong: rgba(244, 247, 255, 0.88);
-    --overlay-mid: rgba(244, 247, 255, 0.6);
-    --badge-bg: rgba(244, 247, 255, 0.85);
-  }
+/* Light theme */
+[data-theme="light"] {
+  --bg: #f4f7ff;
+  --surface: #ffffff;
+  --border: #dae1f0;
+  --border-bright: #c0cce4;
+  --blue: #2d6fd4;
+  --blue-bright: #1a56b8;
+  --blue-dim: #1a56b8;
+  --blue-glow: rgba(45, 111, 212, 0.15);
+  --blue-tint: rgba(45, 111, 212, 0.07);
+  --text-primary: #080c18;
+  --text-secondary: #6272a0;
+  --text-muted: #b0bcd8;
+  --dot-color: rgba(45, 111, 212, 0.07);
+  --nav-bg: rgba(244, 247, 255, 0.88);
+  --overlay-strong: rgba(244, 247, 255, 0.88);
+  --overlay-mid: rgba(244, 247, 255, 0.6);
+  --badge-bg: rgba(244, 247, 255, 0.85);
 }
 
 * { box-sizing: border-box; }
