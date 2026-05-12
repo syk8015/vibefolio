@@ -1,5 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { cache } from "react";
+import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import ProjectsSection from "@/components/ProjectsSection";
 import SocialBadge from "@/components/SocialBadge";
@@ -7,6 +9,48 @@ import CopyLinkButton from "@/components/CopyLinkButton";
 import PortfolioModeToggle from "@/components/PortfolioModeToggle";
 import type { Project } from "@/lib/data";
 import ViewTracker from "@/components/ViewTracker";
+
+const getProfile = cache(async (username: string) => {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("username", username)
+    .single();
+  if (error || !data) return null;
+  return data as Profile;
+});
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ username: string }>;
+}): Promise<Metadata> {
+  const { username } = await params;
+  const profile = await getProfile(username);
+  if (!profile) return {};
+
+  const name = profile.name || username;
+  const description = profile.bio || `${name}의 Vibefolio — 바이브코더 포트폴리오`;
+  const url = `https://vibefolio.vercel.app/${username}`;
+
+  return {
+    title: `${name} | Vibefolio`,
+    description,
+    openGraph: {
+      title: `${name} | Vibefolio`,
+      description,
+      url,
+      type: "profile",
+      siteName: "Vibefolio",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${name} | Vibefolio`,
+      description,
+    },
+  };
+}
 
 interface Profile {
   id: string;
@@ -43,20 +87,13 @@ export default async function UserPortfolioPage({
   const { username } = await params;
   const supabase = await createClient();
 
-  const { data: profile, error } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("username", username)
-    .single();
-
-  if (error || !profile) {
-    notFound();
-  }
+  const profile = await getProfile(username);
+  if (!profile) notFound();
 
   const { data: dbProjects } = await supabase
     .from("projects")
     .select("*")
-    .eq("user_id", (profile as Profile).id)
+    .eq("user_id", profile.id)
     .order("sort_order", { ascending: true })
     .order("created_at", { ascending: false });
 
@@ -72,7 +109,7 @@ export default async function UserPortfolioPage({
     comment: p.comment ?? undefined,
   }));
 
-  const p = profile as Profile;
+  const p = profile;
   const { data: { user: currentUser } } = await supabase.auth.getUser();
   const isOwner = currentUser?.id === p.id;
 
