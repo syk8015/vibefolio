@@ -118,6 +118,8 @@ export default function ProjectsTab({ user }: { user: User }) {
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editProject, setEditProject] = useState<DBProject | null>(null);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
   useEffect(() => { loadProjects(); }, []);
 
@@ -129,6 +131,44 @@ export default function ProjectsTab({ user }: { user: User }) {
       .order("created_at", { ascending: false });
     setProjects((data as DBProject[]) ?? []);
     setLoading(false);
+  }
+
+  async function saveOrder(ordered: DBProject[]) {
+    const supabase = createClient();
+    await Promise.all(
+      ordered.map((p, i) =>
+        supabase.from("projects").update({ sort_order: i }).eq("id", p.id)
+      )
+    );
+  }
+
+  function handleDragStart(index: number) {
+    setDragIndex(index);
+  }
+
+  function handleDragOver(e: React.DragEvent, index: number) {
+    e.preventDefault();
+    if (index !== dragOverIndex) setDragOverIndex(index);
+  }
+
+  function handleDrop(toIndex: number) {
+    if (dragIndex === null || dragIndex === toIndex) {
+      setDragIndex(null);
+      setDragOverIndex(null);
+      return;
+    }
+    const next = [...projects];
+    const [moved] = next.splice(dragIndex, 1);
+    next.splice(toIndex, 0, moved);
+    setProjects(next);
+    setDragIndex(null);
+    setDragOverIndex(null);
+    saveOrder(next);
+  }
+
+  function handleDragEnd() {
+    setDragIndex(null);
+    setDragOverIndex(null);
   }
 
   async function handleDelete(id: string) {
@@ -194,10 +234,19 @@ export default function ProjectsTab({ user }: { user: User }) {
             <p className="text-xs" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>위 버튼으로 첫 프로젝트를 추가해보세요!</p>
           </div>
         ) : (
-          projects.map(project => (
-            <ProjectRow key={project.id} project={project}
+          projects.map((project, i) => (
+            <ProjectRow
+              key={project.id}
+              project={project}
               onDelete={() => handleDelete(project.id)}
-              onEdit={() => setEditProject(project)} />
+              onEdit={() => setEditProject(project)}
+              isDragging={dragIndex === i}
+              isDragOver={dragOverIndex === i && dragIndex !== i}
+              onDragStart={() => handleDragStart(i)}
+              onDragOver={e => handleDragOver(e, i)}
+              onDrop={() => handleDrop(i)}
+              onDragEnd={handleDragEnd}
+            />
           ))
         )}
       </div>
@@ -225,15 +274,46 @@ export default function ProjectsTab({ user }: { user: User }) {
   );
 }
 
-function ProjectRow({ project, onDelete, onEdit }: {
-  project: DBProject; onDelete: () => void; onEdit: () => void;
+function ProjectRow({ project, onDelete, onEdit, isDragging, isDragOver, onDragStart, onDragOver, onDrop, onDragEnd }: {
+  project: DBProject;
+  onDelete: () => void;
+  onEdit: () => void;
+  isDragging: boolean;
+  isDragOver: boolean;
+  onDragStart: () => void;
+  onDragOver: (e: React.DragEvent) => void;
+  onDrop: () => void;
+  onDragEnd: () => void;
 }) {
   const thumbnail = project.thumbnail || `https://picsum.photos/seed/${project.id}/800/600`;
   const contentType = CONTENT_TYPES.find(c => c.id === project.content_type);
 
   return (
-    <div className="flex items-center gap-4 p-4 rounded-2xl"
-      style={{ border: "1px solid var(--border)", background: "var(--surface)" }}>
+    <div
+      draggable
+      onDragStart={onDragStart}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+      onDragEnd={onDragEnd}
+      className="flex items-center gap-4 p-4 rounded-2xl transition-all duration-150"
+      style={{
+        border: isDragOver ? "1px solid var(--blue)" : "1px solid var(--border)",
+        background: "var(--surface)",
+        opacity: isDragging ? 0.4 : 1,
+        boxShadow: isDragOver ? "0 0 0 2px var(--blue-glow)" : undefined,
+        borderTop: isDragOver ? "2px solid var(--blue)" : undefined,
+        cursor: "grab",
+      }}
+    >
+      {/* Drag handle */}
+      <div style={{ color: "var(--border-bright)", cursor: "grab", flexShrink: 0, padding: "4px 2px" }}>
+        <svg width="12" height="18" viewBox="0 0 12 18" fill="currentColor">
+          <circle cx="3" cy="3" r="1.5"/><circle cx="9" cy="3" r="1.5"/>
+          <circle cx="3" cy="9" r="1.5"/><circle cx="9" cy="9" r="1.5"/>
+          <circle cx="3" cy="15" r="1.5"/><circle cx="9" cy="15" r="1.5"/>
+        </svg>
+      </div>
+
       <div className="relative w-20 h-14 rounded-xl overflow-hidden shrink-0">
         <Image src={thumbnail} alt={project.title} fill className="object-cover" sizes="80px" />
       </div>
@@ -278,7 +358,7 @@ function ProjectRow({ project, onDelete, onEdit }: {
         }}>
         {project.type === "video" ? "영상" : "이미지"}
       </span>
-      <div className="flex items-center gap-2 shrink-0">
+      <div className="flex items-center gap-2 shrink-0" onDragStart={e => e.stopPropagation()}>
         <button onClick={onEdit} className="p-2 rounded-lg transition-opacity hover:opacity-70"
           style={{ background: "var(--blue-tint)", border: "1px solid var(--border-bright)", cursor: "pointer" }}>
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
