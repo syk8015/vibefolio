@@ -43,12 +43,11 @@ export default function PortfolioPipSection({ url, displayUsername }: Props) {
 
   useEffect(() => {
     const isPipActive = () => {
-      const section = sectionRef.current;
-      if (!section) return false;
-      const rect = section.getBoundingClientRect();
-      // Only hijack when the entire PiP section is fully visible in the viewport
-      // (i.e., the hero has been fully scrolled past and PiP is the main content)
-      return rect.top >= -10 && rect.bottom <= window.innerHeight + 10;
+      // Only hijack when the page is fully scrolled to the bottom
+      const atBottom =
+        window.scrollY + window.innerHeight >=
+        document.documentElement.scrollHeight - 10;
+      return atBottom;
     };
 
     const onWheel = (e: WheelEvent) => {
