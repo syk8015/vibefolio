@@ -227,7 +227,10 @@ export default function ProjectsTab({ user }: { user: User }) {
         </button>
       </div>
 
-      <div className="flex flex-col gap-3">
+      <div
+        className="rounded-2xl overflow-hidden"
+        style={{ border: "1px solid var(--border-bright)" }}
+      >
         {projects.length === 0 ? (
           <div className="text-center py-16">
             <p className="text-sm font-semibold mb-1" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>아직 프로젝트가 없어요</p>
@@ -242,6 +245,7 @@ export default function ProjectsTab({ user }: { user: User }) {
               onEdit={() => setEditProject(project)}
               isDragging={dragIndex === i}
               isDragOver={dragOverIndex === i && dragIndex !== i}
+              isLast={i === projects.length - 1}
               onDragStart={() => handleDragStart(i)}
               onDragOver={e => handleDragOver(e, i)}
               onDrop={() => handleDrop(i)}
@@ -274,12 +278,13 @@ export default function ProjectsTab({ user }: { user: User }) {
   );
 }
 
-function ProjectRow({ project, onDelete, onEdit, isDragging, isDragOver, onDragStart, onDragOver, onDrop, onDragEnd }: {
+function ProjectRow({ project, onDelete, onEdit, isDragging, isDragOver, isLast, onDragStart, onDragOver, onDrop, onDragEnd }: {
   project: DBProject;
   onDelete: () => void;
   onEdit: () => void;
   isDragging: boolean;
   isDragOver: boolean;
+  isLast: boolean;
   onDragStart: () => void;
   onDragOver: (e: React.DragEvent) => void;
   onDrop: () => void;
@@ -295,12 +300,11 @@ function ProjectRow({ project, onDelete, onEdit, isDragging, isDragOver, onDragS
       onDragOver={onDragOver}
       onDrop={onDrop}
       onDragEnd={onDragEnd}
-      className="flex items-center gap-4 p-4 rounded-2xl transition-all duration-150"
+      className="flex items-center gap-4 p-4 transition-all duration-150"
       style={{
-        border: isDragOver ? "1px solid var(--blue)" : "1px solid var(--border)",
-        background: "var(--surface)",
+        background: isDragOver ? "var(--blue-tint)" : "var(--surface)",
         opacity: isDragging ? 0.4 : 1,
-        boxShadow: isDragOver ? "0 0 0 2px var(--blue-glow)" : undefined,
+        borderBottom: isLast ? "none" : "1px solid var(--border)",
         borderTop: isDragOver ? "2px solid var(--blue)" : undefined,
         cursor: "grab",
       }}
