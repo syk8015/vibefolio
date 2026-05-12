@@ -180,7 +180,9 @@ export default function ProjectsSection({ projects }: { projects: Project[] }) {
             </span>
           </div>
           <div className="flex-1 h-px" style={{ background: "var(--border)" }} />
-          <LayoutToggle layout={layout} onSwitch={switchLayout} />
+          <div className="hidden md:block">
+            <LayoutToggle layout={layout} onSwitch={switchLayout} />
+          </div>
         </div>
       </div>
 
@@ -189,7 +191,7 @@ export default function ProjectsSection({ projects }: { projects: Project[] }) {
         className={
           displayLayout === "grid"
             ? "grid grid-cols-1 md:grid-cols-2 gap-10"
-            : "flex flex-col gap-10"
+            : "grid grid-cols-1 md:flex md:flex-col gap-10"
         }
       >
         {projects.map((project, index) => (
