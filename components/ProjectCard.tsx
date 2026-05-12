@@ -8,6 +8,17 @@ type Layout = "grid" | "list";
 
 const AI_KEYWORDS = ["claude", "gpt", "gemini", "llm", "ai"];
 
+const CONTENT_TYPE_MAP: Record<string, { label: string; emoji: string }> = {
+  "web-app":    { label: "웹 앱",        emoji: "🌐" },
+  "saas":       { label: "SaaS",         emoji: "☁️" },
+  "mobile":     { label: "모바일 앱",     emoji: "📱" },
+  "game":       { label: "게임",          emoji: "🎮" },
+  "extension":  { label: "크롬 익스텐션", emoji: "🧩" },
+  "ai-service": { label: "AI 서비스",     emoji: "🤖" },
+  "media":      { label: "미디어 컨텐츠", emoji: "🎨" },
+  "other":      { label: "기타",          emoji: "📦" },
+};
+
 function isAiTag(tag: string) {
   return AI_KEYWORDS.some((k) => tag.toLowerCase().includes(k));
 }
@@ -100,12 +111,29 @@ export default function ProjectCard({
           className="flex flex-col justify-center flex-1 p-8"
           style={{ borderLeft: "1px solid var(--border)" }}
         >
-          <h3
-            className="text-2xl mb-3 leading-tight"
-            style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontWeight: 800 }}
-          >
-            {project.title}
-          </h3>
+          <div className="flex items-start gap-2 mb-3">
+            <h3
+              className="text-2xl leading-tight flex-1"
+              style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontWeight: 800 }}
+            >
+              {project.title}
+            </h3>
+            {project.contentType && CONTENT_TYPE_MAP[project.contentType] && (
+              <span
+                className="shrink-0 mt-1 px-2 py-0.5 rounded-full text-xs font-bold"
+                style={{
+                  background: "var(--blue-tint)",
+                  border: "1px solid var(--border-bright)",
+                  color: "var(--blue-bright)",
+                  fontFamily: "var(--font-nunito)",
+                  fontSize: "0.6rem",
+                  letterSpacing: "0.04em",
+                }}
+              >
+                {CONTENT_TYPE_MAP[project.contentType].emoji} {CONTENT_TYPE_MAP[project.contentType].label}
+              </span>
+            )}
+          </div>
           <p
             className="text-sm leading-relaxed mb-6"
             style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", fontWeight: 400, fontSize: "0.95rem" }}
@@ -225,9 +253,26 @@ export default function ProjectCard({
       </div>
 
       <div className="p-5" style={{ borderTop: "1px solid var(--border)" }}>
-        <h3 className="text-base mb-2" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontWeight: 700 }}>
-          {project.title}
-        </h3>
+        <div className="flex items-center gap-2 mb-2">
+          <h3 className="text-base flex-1 truncate" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontWeight: 700 }}>
+            {project.title}
+          </h3>
+          {project.contentType && CONTENT_TYPE_MAP[project.contentType] && (
+            <span
+              className="shrink-0 px-2 py-0.5 rounded-full text-xs font-bold"
+              style={{
+                background: "var(--blue-tint)",
+                border: "1px solid var(--border-bright)",
+                color: "var(--blue-bright)",
+                fontFamily: "var(--font-nunito)",
+                fontSize: "0.6rem",
+                letterSpacing: "0.04em",
+              }}
+            >
+              {CONTENT_TYPE_MAP[project.contentType].emoji} {CONTENT_TYPE_MAP[project.contentType].label}
+            </span>
+          )}
+        </div>
         <p className="text-sm leading-relaxed mb-4 line-clamp-2" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", fontWeight: 400 }}>
           {project.description}
         </p>

@@ -76,6 +76,7 @@ interface DBProject {
   tags: string[];
   demo_url: string | null;
   comment: string | null;
+  content_type: string | null;
   sort_order: number;
 }
 
@@ -107,6 +108,7 @@ export default async function UserPortfolioPage({
     tags: p.tags ?? [],
     demoUrl: p.demo_url ?? undefined,
     comment: p.comment ?? undefined,
+    contentType: p.content_type ?? null,
   }));
 
   const p = profile;

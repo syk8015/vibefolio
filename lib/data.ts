@@ -8,6 +8,7 @@ export interface Project {
   tags: string[];
   demoUrl?: string;
   comment?: string;
+  contentType?: string | null;
 }
 
 export const profile = {
