@@ -2,9 +2,23 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import HomeProfileMenu from "@/components/HomeProfileMenu";
 
+function formatCount(n: number): string {
+  if (n < 10) return String(n);
+  return n.toLocaleString("ko-KR") + "+";
+}
+
 export default async function LandingPage() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+
+  const [
+    { data: { user } },
+    { count: userCount },
+    { count: projectCount },
+  ] = await Promise.all([
+    supabase.auth.getUser(),
+    supabase.from("profiles").select("*", { count: "exact", head: true }),
+    supabase.from("projects").select("*", { count: "exact", head: true }),
+  ]);
 
   const meta = user?.user_metadata || {};
   const username = meta.username || user?.email?.split("@")[0] || "";
@@ -153,9 +167,9 @@ export default async function LandingPage() {
         </div>
 
         <div className="flex items-center gap-10">
-          <Stat value="1,000+" label="바이브코더" />
+          <Stat value={formatCount(userCount ?? 0)} label="바이브코더" />
           <div className="w-px h-8" style={{ background: "var(--border)" }} />
-          <Stat value="5,000+" label="업로드된 프로젝트" />
+          <Stat value={formatCount(projectCount ?? 0)} label="업로드된 프로젝트" />
         </div>
       </div>
 
