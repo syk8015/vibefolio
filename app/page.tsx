@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import HomeProfileMenu from "@/components/HomeProfileMenu";
-import PortfolioMockup from "@/components/PortfolioMockup";
 
 const STAT_TAGLINES = [
   "나랑 같은 토큰을 쓰는 동료들",
@@ -21,6 +20,13 @@ function formatCount(n: number): string {
   return n.toLocaleString("ko-KR") + "+";
 }
 
+interface FeaturedProfile {
+  username: string;
+  name: string | null;
+  bio: string | null;
+  avatar_url: string | null;
+}
+
 export default async function LandingPage() {
   const supabase = await createClient();
 
@@ -28,12 +34,15 @@ export default async function LandingPage() {
     { data: { user } },
     { count: userCount },
     { count: projectCount },
-    { data: featuredProfile },
+    { data: featuredProfiles },
   ] = await Promise.all([
     supabase.auth.getUser(),
     supabase.from("profiles").select("*", { count: "exact", head: true }),
     supabase.from("projects").select("*", { count: "exact", head: true }),
-    supabase.from("profiles").select("username").order("created_at", { ascending: true }).limit(1).single(),
+    supabase.from("profiles")
+      .select("username, name, bio, avatar_url")
+      .order("created_at", { ascending: true })
+      .limit(9),
   ]);
 
   const tagline = STAT_TAGLINES[Math.floor(Math.random() * STAT_TAGLINES.length)];
@@ -42,10 +51,6 @@ export default async function LandingPage() {
   const username = meta.username || user?.email?.split("@")[0] || "";
   const name = meta.name || username;
   const avatarUrl = meta.avatar_url as string | undefined;
-
-  // Mockup shows the logged-in user's portfolio, or the first registered profile
-  const mockupUsername = username || featuredProfile?.username || "";
-  const mockupUrl = mockupUsername ? `/${mockupUsername}` : "/demo";
 
   /* ─── Logged-in home ─── */
   if (user) {
@@ -115,88 +120,168 @@ export default async function LandingPage() {
         </div>
       </nav>
 
-      {/* Hero — 2-column on desktop */}
-      <section className="flex-1 flex flex-col lg:flex-row items-center gap-12 px-8 lg:px-16 py-16 lg:py-0 relative">
-
+      {/* Hero — centered */}
+      <section className="relative flex flex-col items-center justify-center text-center px-6 py-28">
         {/* Background glow */}
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
           <div style={{
-            position: "absolute", top: "-10%", left: "20%",
-            width: 600, height: 600, borderRadius: "50%",
+            position: "absolute", top: "0%", left: "50%", transform: "translateX(-50%)",
+            width: 700, height: 500, borderRadius: "50%",
             background: "radial-gradient(circle, rgba(77,158,255,0.08) 0%, transparent 70%)",
             filter: "blur(40px)",
           }} />
         </div>
 
-        {/* Left: copy */}
-        <div className="flex-1 flex flex-col items-start z-10 max-w-xl">
-          {/* Chip */}
-          <div
-            className="flex items-center gap-2 px-3 py-1.5 rounded-full mb-6"
-            style={{ background: "var(--blue-tint)", border: "1px solid var(--border-bright)" }}
-          >
-            <div className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--blue)", boxShadow: "0 0 6px var(--blue)" }} />
-            <span className="text-xs font-bold tracking-wider" style={{ color: "var(--blue-bright)", fontFamily: "var(--font-nunito)" }}>
-              바이브코더를 위한 디지털 명함
-            </span>
-          </div>
-
-          <h1
-            className="font-black leading-tight mb-5"
-            style={{ fontFamily: "var(--font-nunito)", color: "var(--text-primary)", fontSize: "clamp(2.4rem, 4vw, 4rem)", letterSpacing: "-0.03em" }}
-          >
-            AI로 만든 결과물,<br />
-            <span style={{ background: "linear-gradient(120deg, var(--blue) 0%, var(--blue-bright) 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-              이제 보여주세요.
-            </span>
-          </h1>
-
-          <p className="mb-8 leading-relaxed" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", fontSize: "1rem", fontWeight: 400 }}>
-            링크 하나로 나의 바이브코딩 결과물을 전시하세요.<br />
-            5분 안에 나만의 포트폴리오 명함이 완성됩니다.
-          </p>
-
-          <div className="flex items-center gap-3 mb-10">
-            <Link href="/signup"
-              className="px-7 py-3.5 rounded-full font-bold text-sm transition-opacity hover:opacity-80"
-              style={{ background: "var(--blue)", color: "#fff", fontFamily: "var(--font-nunito)", textDecoration: "none", boxShadow: "0 0 24px var(--blue-glow)" }}>
-              무료로 시작하기
-            </Link>
-            <Link href={mockupUrl}
-              target="_blank"
-              className="px-7 py-3.5 rounded-full font-bold text-sm transition-opacity hover:opacity-70"
-              style={{ border: "1px solid var(--border-bright)", color: "var(--text-primary)", fontFamily: "var(--font-nunito)", textDecoration: "none" }}>
-              예시 보기 →
-            </Link>
-          </div>
-
-          {/* Stats */}
-          <div className="flex flex-col gap-3">
-            <div className="flex items-center gap-8">
-              <Stat value={formatCount(userCount ?? 0)} label="바이브코더" />
-              <div className="w-px h-8" style={{ background: "var(--border)" }} />
-              <Stat value={formatCount(projectCount ?? 0)} label="업로드된 프로젝트" />
-            </div>
-            <p className="text-xs font-semibold" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
-              {tagline}
-            </p>
-          </div>
+        {/* Chip */}
+        <div
+          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full mb-8"
+          style={{ background: "var(--blue-tint)", border: "1px solid var(--border-bright)" }}
+        >
+          <div className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--blue)", boxShadow: "0 0 6px var(--blue)" }} />
+          <span className="text-xs font-bold tracking-wider" style={{ color: "var(--blue-bright)", fontFamily: "var(--font-nunito)" }}>
+            바이브코더를 위한 디지털 명함
+          </span>
         </div>
 
-        {/* Right: browser mockup */}
-        {mockupUsername && (
-          <div className="flex-1 flex items-center justify-center lg:justify-end z-10 w-full">
-            <PortfolioMockup url={mockupUrl} displayUsername={mockupUsername} />
+        <h1
+          className="font-black leading-tight mb-5 z-10"
+          style={{ fontFamily: "var(--font-nunito)", color: "var(--text-primary)", fontSize: "clamp(2.6rem, 5vw, 4.5rem)", letterSpacing: "-0.03em" }}
+        >
+          AI로 만든 결과물,<br />
+          <span style={{ background: "linear-gradient(120deg, var(--blue) 0%, var(--blue-bright) 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+            이제 보여주세요.
+          </span>
+        </h1>
+
+        <p className="mb-10 leading-relaxed z-10 max-w-md" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", fontSize: "1rem", fontWeight: 400 }}>
+          링크 하나로 나의 바이브코딩 결과물을 전시하세요.<br />
+          5분 안에 나만의 포트폴리오 명함이 완성됩니다.
+        </p>
+
+        <div className="flex items-center gap-3 mb-12 z-10">
+          <Link href="/signup"
+            className="px-7 py-3.5 rounded-full font-bold text-sm transition-opacity hover:opacity-80"
+            style={{ background: "var(--blue)", color: "#fff", fontFamily: "var(--font-nunito)", textDecoration: "none", boxShadow: "0 0 24px var(--blue-glow)" }}>
+            무료로 시작하기
+          </Link>
+          {featuredProfiles && featuredProfiles.length > 0 && (
+            <a href="#vibecoders"
+              className="px-7 py-3.5 rounded-full font-bold text-sm transition-opacity hover:opacity-70"
+              style={{ border: "1px solid var(--border-bright)", color: "var(--text-primary)", fontFamily: "var(--font-nunito)", textDecoration: "none" }}>
+              예시 보기 ↓
+            </a>
+          )}
+        </div>
+
+        {/* Stats */}
+        <div className="flex flex-col items-center gap-3 z-10">
+          <div className="flex items-center gap-8">
+            <Stat value={formatCount(userCount ?? 0)} label="바이브코더" />
+            <div className="w-px h-8" style={{ background: "var(--border)" }} />
+            <Stat value={formatCount(projectCount ?? 0)} label="업로드된 프로젝트" />
           </div>
-        )}
+          <p className="text-xs font-semibold" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
+            {tagline}
+          </p>
+        </div>
       </section>
 
-      <footer className="flex items-center justify-center py-6 relative z-10">
+      {/* Vibecoders grid */}
+      {featuredProfiles && featuredProfiles.length > 0 && (
+        <section id="vibecoders" className="relative px-6 pb-28 z-10">
+          {/* Section divider */}
+          <div className="flex items-center gap-4 max-w-5xl mx-auto mb-12">
+            <div className="flex-1 h-px" style={{ background: "var(--border)" }} />
+            <span className="text-xs font-bold tracking-[0.2em] uppercase" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
+              바이브코더들의 명함
+            </span>
+            <div className="flex-1 h-px" style={{ background: "var(--border)" }} />
+          </div>
+
+          <div className="max-w-5xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {(featuredProfiles as FeaturedProfile[]).map((profile) => (
+              <ProfileCard key={profile.username} profile={profile} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      <footer className="flex items-center justify-center py-6 relative z-10" style={{ borderTop: "1px solid var(--border)" }}>
         <p className="text-xs" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
           © {new Date().getFullYear()} Vibefolio
         </p>
       </footer>
     </main>
+  );
+}
+
+function ProfileCard({ profile }: { profile: FeaturedProfile }) {
+  const displayName = profile.name || profile.username;
+  const initial = displayName.charAt(0).toUpperCase();
+
+  return (
+    <Link
+      href={`/${profile.username}`}
+      style={{ textDecoration: "none" }}
+      className="group relative flex flex-col rounded-2xl overflow-hidden transition-all duration-300 card-hover-glow"
+    >
+      <div
+        className="flex flex-col p-6 gap-4 h-full"
+        style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+      >
+        {/* Avatar + name row */}
+        <div className="flex items-center gap-3">
+          <div
+            className="w-11 h-11 rounded-full flex items-center justify-center text-lg font-black overflow-hidden shrink-0"
+            style={{
+              background: profile.avatar_url ? "transparent" : "linear-gradient(135deg, var(--blue), var(--blue-bright))",
+              color: "#fff",
+              fontFamily: "var(--font-nunito)",
+              border: "1px solid rgba(77,158,255,0.2)",
+            }}
+          >
+            {profile.avatar_url
+              ? <img src={profile.avatar_url} alt={displayName} className="w-full h-full object-cover" />
+              : initial}
+          </div>
+          <div className="min-w-0">
+            <p className="font-bold text-sm truncate" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}>
+              {displayName}
+            </p>
+            <p className="text-xs truncate" style={{ color: "var(--blue)", fontFamily: "var(--font-nunito)", fontWeight: 600 }}>
+              @{profile.username}
+            </p>
+          </div>
+        </div>
+
+        {/* Bio */}
+        {profile.bio && (
+          <p
+            className="text-sm leading-relaxed line-clamp-3 flex-1"
+            style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", fontWeight: 400, fontSize: "0.85rem" }}
+          >
+            {profile.bio}
+          </p>
+        )}
+
+        {/* CTA */}
+        <div
+          className="flex items-center gap-1.5 text-xs font-bold transition-colors duration-200"
+          style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}
+        >
+          명함 보기
+          <span className="transition-transform duration-200 group-hover:translate-x-0.5">→</span>
+        </div>
+      </div>
+
+      {/* Blue top border on hover */}
+      <div
+        className="absolute top-0 left-0 right-0 h-0.5 rounded-t-2xl transition-opacity duration-300 opacity-0 group-hover:opacity-100"
+        style={{
+          background: "linear-gradient(90deg, transparent, var(--blue), var(--blue-bright), var(--blue), transparent)",
+        }}
+      />
+    </Link>
   );
 }
 
@@ -213,7 +298,7 @@ function Logo() {
 
 function Stat({ value, label }: { value: string; label: string }) {
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex flex-col items-center gap-1">
       <span className="text-2xl font-black"
         style={{ fontFamily: "var(--font-nunito)", background: "linear-gradient(120deg, var(--blue), var(--blue-bright))", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
         {value}
