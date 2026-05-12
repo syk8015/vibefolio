@@ -4,13 +4,23 @@ import { useEffect, useState } from "react";
 
 type Theme = "dark" | "light";
 
+function getSystemTheme(): Theme {
+  if (typeof window === "undefined") return "dark";
+  return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+}
+
 function getInitialTheme(): Theme {
   try {
     const stored = localStorage.getItem("vf-theme") as Theme | null;
     if (stored === "dark" || stored === "light") return stored;
-    if (window.matchMedia("(prefers-color-scheme: light)").matches) return "light";
+    return getSystemTheme();
   } catch { /* SSR */ }
   return "dark";
+}
+
+function applyTheme(theme: Theme) {
+  document.documentElement.setAttribute("data-theme", theme);
+  document.dispatchEvent(new CustomEvent("vf-theme-change", { detail: { theme } }));
 }
 
 export default function ThemeToggle() {
@@ -20,13 +30,26 @@ export default function ThemeToggle() {
   useEffect(() => {
     const t = getInitialTheme();
     setTheme(t);
+    applyTheme(t);
     setMounted(true);
+
+    // Follow system changes when no explicit preference is stored
+    const mq = window.matchMedia("(prefers-color-scheme: light)");
+    const handleSystemChange = (e: MediaQueryListEvent) => {
+      if (!localStorage.getItem("vf-theme")) {
+        const next: Theme = e.matches ? "light" : "dark";
+        setTheme(next);
+        applyTheme(next);
+      }
+    };
+    mq.addEventListener("change", handleSystemChange);
+    return () => mq.removeEventListener("change", handleSystemChange);
   }, []);
 
   const toggle = () => {
     const next: Theme = theme === "dark" ? "light" : "dark";
     setTheme(next);
-    document.documentElement.setAttribute("data-theme", next);
+    applyTheme(next);
     localStorage.setItem("vf-theme", next);
   };
 

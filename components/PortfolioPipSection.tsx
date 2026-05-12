@@ -32,6 +32,10 @@ export default function PortfolioPipSection({ url, displayUsername }: Props) {
     try {
       const doc = iframeRef.current?.contentDocument?.documentElement;
       if (doc) {
+        // Sync current theme into iframe
+        const currentTheme = document.documentElement.getAttribute("data-theme") || "dark";
+        doc.setAttribute("data-theme", currentTheme);
+
         const scrollable = doc.scrollHeight - doc.clientHeight;
         if (scrollable > 0) {
           maxScrollRef.current = scrollable;
@@ -40,6 +44,18 @@ export default function PortfolioPipSection({ url, displayUsername }: Props) {
       }
     } catch { /* cross-origin guard */ }
   };
+
+  // Keep iframe theme in sync whenever parent theme changes
+  useEffect(() => {
+    const handleThemeChange = (e: Event) => {
+      const theme = (e as CustomEvent<{ theme: string }>).detail.theme;
+      try {
+        iframeRef.current?.contentDocument?.documentElement.setAttribute("data-theme", theme);
+      } catch { /* ignore */ }
+    };
+    document.addEventListener("vf-theme-change", handleThemeChange);
+    return () => document.removeEventListener("vf-theme-change", handleThemeChange);
+  }, []);
 
   useEffect(() => {
     const isPipActive = () => {
