@@ -36,11 +36,10 @@ export default function ThemeToggle() {
     // Follow system changes when no explicit preference is stored
     const mq = window.matchMedia("(prefers-color-scheme: light)");
     const handleSystemChange = (e: MediaQueryListEvent) => {
-      if (!localStorage.getItem("vf-theme")) {
-        const next: Theme = e.matches ? "light" : "dark";
-        setTheme(next);
-        applyTheme(next);
-      }
+      const next: Theme = e.matches ? "light" : "dark";
+      localStorage.removeItem("vf-theme"); // system override clears manual preference
+      setTheme(next);
+      applyTheme(next);
     };
     mq.addEventListener("change", handleSystemChange);
     return () => mq.removeEventListener("change", handleSystemChange);
