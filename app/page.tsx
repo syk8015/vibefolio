@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import HomeProfileMenu from "@/components/HomeProfileMenu";
 import PortfolioPipSection from "@/components/PortfolioPipSection";
 import ThemeToggle from "@/components/ThemeToggle";
+import GlitchHeadline from "@/components/GlitchHeadline";
 
 const STAT_TAGLINES = [
   "나랑 같은 토큰을 쓰는 동료들",
@@ -157,7 +158,7 @@ export default async function LandingPage() {
           className="font-black leading-tight mb-5 z-10"
           style={{ fontFamily: "var(--font-nunito)", color: "var(--text-primary)", fontSize: "clamp(2.6rem, 5vw, 4.5rem)", letterSpacing: "-0.03em" }}
         >
-          AI로 만든 결과물,<br />
+          <GlitchHeadline />,<br />
           <span style={{ background: "linear-gradient(120deg, var(--blue) 0%, var(--blue-bright) 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
             이제 보여주세요.
           </span>
