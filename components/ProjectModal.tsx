@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
+import { createPortal } from "react-dom";
 import Image from "next/image";
 import type { Project } from "@/lib/data";
 
@@ -16,6 +17,7 @@ const AI_KEYWORDS = ["claude", "gpt", "gemini", "llm", "ai"];
 export default function ProjectModal({ projects, currentIndex, onClose, onNavigate }: Props) {
   const project = currentIndex !== null ? projects[currentIndex] : null;
 
+  const [isMounted, setIsMounted] = useState(false);
   const [iframeState, setIframeState] = useState<"loading" | "loaded" | "error">("loading");
   const [visible, setVisible] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
@@ -84,6 +86,8 @@ export default function ProjectModal({ projects, currentIndex, onClose, onNaviga
     return () => window.removeEventListener("keydown", handler);
   }, [handleClose, handlePrev, handleNext]);
 
+  useEffect(() => { setIsMounted(true); }, []);
+
   useEffect(() => {
     document.body.style.overflow = project ? "hidden" : "";
     return () => { document.body.style.overflow = ""; };
@@ -97,9 +101,9 @@ export default function ProjectModal({ projects, currentIndex, onClose, onNaviga
     return () => { if (timeoutRef.current) clearTimeout(timeoutRef.current); };
   }, [project, iframeState]);
 
-  if (!project) return null;
+  if (!isMounted || !project) return null;
 
-  return (
+  return createPortal(
     /* Backdrop — hidden on mobile */
     <div
       className="hidden md:flex fixed inset-0 z-[100] items-center justify-center p-8"
@@ -381,7 +385,8 @@ export default function ProjectModal({ projects, currentIndex, onClose, onNaviga
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
