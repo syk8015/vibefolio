@@ -34,7 +34,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ko" className={nunito.variable}>
+    <html lang="ko" className={nunito.variable} suppressHydrationWarning>
       <head>
         {/* Runs before paint to prevent flash of wrong theme */}
         <script dangerouslySetInnerHTML={{ __html: `

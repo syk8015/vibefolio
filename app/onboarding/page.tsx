@@ -1,22 +1,67 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+
+type UsernameStatus = "idle" | "checking" | "available" | "taken" | "invalid";
 
 export default function OnboardingPage() {
   const router = useRouter();
   const [form, setForm] = useState({ name: "", username: "", bio: "" });
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [initLoading, setInitLoading] = useState(true);
   const [error, setError] = useState("");
+  const [usernameStatus, setUsernameStatus] = useState<UsernameStatus>("idle");
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const checkUsername = useCallback(async (value: string) => {
+    if (!value) { setUsernameStatus("idle"); return; }
+    if (!/^[a-zA-Z0-9_-]+$/.test(value) || value.length < 2) {
+      setUsernameStatus("invalid"); return;
+    }
+    setUsernameStatus("checking");
+    const supabase = createClient();
+    const { data } = await supabase.from("profiles").select("id").eq("username", value).maybeSingle();
+    setUsernameStatus(data ? "taken" : "available");
+  }, []);
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return;
+      const meta = user.user_metadata;
+      const name = meta?.full_name || meta?.name || "";
+      const emailPrefix = (user.email?.split("@")[0] ?? "").replace(/[^a-zA-Z0-9_-]/g, "");
+      const suggestedUsername = emailPrefix.length >= 2 ? emailPrefix : "";
+      setAvatarUrl(meta?.avatar_url ?? null);
+      setForm((prev) => ({
+        ...prev,
+        name: name || prev.name,
+        username: suggestedUsername || prev.username,
+      }));
+      if (suggestedUsername) checkUsername(suggestedUsername);
+      setInitLoading(false);
+    });
+  }, [checkUsername]);
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
     setError("");
+    if (name === "username") {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      setUsernameStatus("idle");
+      debounceRef.current = setTimeout(() => checkUsername(value), 400);
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (usernameStatus === "taken") { setError("이미 사용 중인 username이에요. 다른 걸 입력해주세요."); return; }
+    if (usernameStatus === "invalid") { setError("username은 영문, 숫자, _, -만 사용 가능하고 2자 이상이어야 해요."); return; }
+
     setLoading(true);
     setError("");
 
@@ -24,20 +69,16 @@ export default function OnboardingPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { router.push("/login"); return; }
 
-    // Check username uniqueness
-    const { data: existing } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("username", form.username)
-      .single();
-
-    if (existing) {
-      setError("이미 사용 중인 username이에요. 다른 걸 입력해주세요.");
-      setLoading(false);
-      return;
+    // Final check if debounce hasn't resolved yet
+    if (usernameStatus !== "available") {
+      const { data: existing } = await supabase.from("profiles").select("id").eq("username", form.username).maybeSingle();
+      if (existing) {
+        setError("이미 사용 중인 username이에요. 다른 걸 입력해주세요.");
+        setLoading(false);
+        return;
+      }
     }
 
-    // Save to auth metadata
     const { error: authErr } = await supabase.auth.updateUser({
       data: { name: form.name, username: form.username, bio: form.bio },
     });
@@ -48,7 +89,6 @@ export default function OnboardingPage() {
       return;
     }
 
-    // Save to profiles table
     await supabase.from("profiles").upsert({
       id: user.id,
       username: form.username,
@@ -57,15 +97,26 @@ export default function OnboardingPage() {
       updated_at: new Date().toISOString(),
     });
 
-    router.push("/");
+    router.push("/dashboard?welcome=1");
     router.refresh();
   }
 
+  const canSubmit = !loading && usernameStatus !== "taken" && usernameStatus !== "invalid" && usernameStatus !== "checking";
+
+  if (initLoading) {
+    return (
+      <main className="min-h-screen flex items-center justify-center" style={{ background: "var(--bg)" }}>
+        <div className="w-5 h-5 rounded-full border-2 animate-spin"
+          style={{ borderColor: "var(--blue)", borderTopColor: "transparent" }} />
+      </main>
+    );
+  }
+
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center px-6" style={{ background: "var(--bg)" }}>
+    <main className="min-h-screen flex flex-col items-center justify-center px-6 py-12" style={{ background: "var(--bg)" }}>
 
       {/* Logo */}
-      <div className="flex items-center gap-2 mb-12">
+      <div className="flex items-center gap-2 mb-10">
         <div className="w-2 h-2 rounded-full" style={{ background: "var(--blue)", boxShadow: "0 0 8px var(--blue)" }} />
         <span className="font-black text-base" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}>
           Vibefolio
@@ -73,7 +124,30 @@ export default function OnboardingPage() {
       </div>
 
       <div className="w-full max-w-sm">
+
+        {/* Step indicator */}
+        <div className="flex items-center justify-center mb-8">
+          <div className="flex items-center gap-2">
+            <StepDot state="done" label="가입" />
+            <StepLine />
+            <StepDot state="active" label="프로필" />
+            <StepLine />
+            <StepDot state="upcoming" label="시작" />
+          </div>
+        </div>
+
+        {/* Avatar + heading */}
         <div className="mb-8 text-center">
+          {avatarUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={avatarUrl} alt="" className="w-16 h-16 rounded-full mx-auto mb-4 object-cover"
+              style={{ border: "2px solid var(--border-bright)" }} />
+          ) : (
+            <div className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center text-2xl font-black"
+              style={{ background: "var(--blue-tint)", border: "2px solid var(--border-bright)", color: "var(--blue)", fontFamily: "var(--font-nunito)" }}>
+              {form.name ? form.name.charAt(0).toUpperCase() : "V"}
+            </div>
+          )}
           <h1 className="text-3xl font-black mb-2" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", letterSpacing: "-0.02em" }}>
             명함을 만들어볼게요
           </h1>
@@ -92,14 +166,27 @@ export default function OnboardingPage() {
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold pointer-events-none"
                 style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>@</span>
-              <input className="vf-input" style={{ paddingLeft: "1.75rem" }}
+              <input className="vf-input" style={{ paddingLeft: "1.75rem", paddingRight: "2.5rem" }}
                 type="text" name="username" placeholder="alexvibe"
                 value={form.username} onChange={handleChange} required
                 pattern="[a-zA-Z0-9_-]+" title="영문, 숫자, _-만 사용 가능해요" />
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                <UsernameStatusIcon status={usernameStatus} />
+              </div>
             </div>
             {form.username && (
-              <p className="mt-1.5 text-xs font-semibold" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
-                vibefolio.com/<span style={{ color: "var(--blue)" }}>{form.username}</span>
+              <p className="mt-1.5 text-xs font-semibold" style={{
+                color: usernameStatus === "available" ? "#22c55e"
+                  : (usernameStatus === "taken" || usernameStatus === "invalid") ? "#ef4444"
+                  : "var(--text-muted)",
+                fontFamily: "var(--font-nunito)"
+              }}>
+                {usernameStatus === "available" && "✓ 사용 가능한 username이에요"}
+                {usernameStatus === "taken" && "✗ 이미 사용 중이에요"}
+                {usernameStatus === "invalid" && "✗ 영문, 숫자, _, -만 사용 가능해요 (2자 이상)"}
+                {(usernameStatus === "idle" || usernameStatus === "checking") && (
+                  <>vibefolio.com/<span style={{ color: "var(--blue)" }}>{form.username}</span></>
+                )}
               </p>
             )}
           </Field>
@@ -117,15 +204,75 @@ export default function OnboardingPage() {
             </p>
           )}
 
-          <button type="submit" disabled={loading}
+          <button type="submit" disabled={!canSubmit}
             className="w-full py-3.5 rounded-xl font-black text-sm mt-2 transition-opacity hover:opacity-85 disabled:opacity-50"
-            style={{ background: "var(--blue)", color: "#fff", fontFamily: "var(--font-nunito)", cursor: loading ? "not-allowed" : "pointer", border: "none", boxShadow: "0 0 20px var(--blue-glow)" }}>
+            style={{ background: "var(--blue)", color: "#fff", fontFamily: "var(--font-nunito)", cursor: canSubmit ? "pointer" : "not-allowed", border: "none", boxShadow: "0 0 20px var(--blue-glow)" }}>
             {loading ? "저장 중..." : "시작하기 →"}
           </button>
         </form>
       </div>
     </main>
   );
+}
+
+function UsernameStatusIcon({ status }: { status: UsernameStatus }) {
+  if (status === "checking") {
+    return (
+      <div className="w-4 h-4 rounded-full border-2 animate-spin"
+        style={{ borderColor: "var(--blue)", borderTopColor: "transparent" }} />
+    );
+  }
+  if (status === "available") {
+    return (
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <circle cx="8" cy="8" r="7" fill="rgba(34,197,94,0.15)" stroke="#22c55e" strokeWidth="1.5" />
+        <path d="M5 8l2 2 4-4" stroke="#22c55e" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+  if (status === "taken" || status === "invalid") {
+    return (
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <circle cx="8" cy="8" r="7" fill="rgba(239,68,68,0.15)" stroke="#ef4444" strokeWidth="1.5" />
+        <path d="M5.5 5.5l5 5M10.5 5.5l-5 5" stroke="#ef4444" strokeWidth="1.5" strokeLinecap="round" />
+      </svg>
+    );
+  }
+  return null;
+}
+
+function StepDot({ state, label }: { state: "done" | "active" | "upcoming"; label: string }) {
+  const isDone = state === "done";
+  const isActive = state === "active";
+  return (
+    <div className="flex flex-col items-center gap-1.5">
+      <div className="w-7 h-7 rounded-full flex items-center justify-center transition-all"
+        style={{
+          background: isDone || isActive ? "var(--blue)" : "var(--surface)",
+          border: `1.5px solid ${isDone || isActive ? "var(--blue)" : "var(--border)"}`,
+          boxShadow: isActive ? "0 0 12px var(--blue-glow)" : "none",
+        }}>
+        {isDone ? (
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+            <path d="M2.5 6l2.5 2.5 5-5" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        ) : (
+          <div className="w-2 h-2 rounded-full"
+            style={{ background: isActive ? "#fff" : "var(--text-muted)" }} />
+        )}
+      </div>
+      <span className="text-xs font-bold" style={{
+        color: isDone || isActive ? "var(--blue)" : "var(--text-muted)",
+        fontFamily: "var(--font-nunito)"
+      }}>
+        {label}
+      </span>
+    </div>
+  );
+}
+
+function StepLine() {
+  return <div className="w-10 h-px mb-4" style={{ background: "var(--border)" }} />;
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {

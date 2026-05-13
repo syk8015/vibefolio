@@ -41,7 +41,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // username 없는 로그인 유저 → 온보딩으로
-  const skipOnboarding = pathname.startsWith("/onboarding") || pathname.startsWith("/api");
+  const skipOnboarding = pathname.startsWith("/onboarding") || pathname.startsWith("/api") || pathname.startsWith("/auth");
   if (user && !user.user_metadata?.username && !skipOnboarding) {
     return NextResponse.redirect(new URL("/onboarding", request.url));
   }
