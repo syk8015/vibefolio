@@ -750,59 +750,50 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
             </label>
             <input ref={thumbnailInputRef} type="file" className="hidden" accept="image/*"
               onChange={handleThumbnailUpload} />
-            <button
-              type="button"
+            <div
               onClick={() => thumbnailInputRef.current?.click()}
-              disabled={thumbnailUploading}
-              className="relative w-full rounded-xl overflow-hidden group transition-opacity hover:opacity-90 disabled:opacity-60"
+              onDragOver={e => { e.preventDefault(); e.currentTarget.setAttribute("data-drag", "1"); }}
+              onDragLeave={e => e.currentTarget.removeAttribute("data-drag")}
+              onDrop={e => {
+                e.preventDefault();
+                e.currentTarget.removeAttribute("data-drag");
+                const file = e.dataTransfer.files[0];
+                if (file && file.type.startsWith("image/")) {
+                  const dt = new DataTransfer();
+                  dt.items.add(file);
+                  if (thumbnailInputRef.current) {
+                    thumbnailInputRef.current.files = dt.files;
+                    thumbnailInputRef.current.dispatchEvent(new Event("change", { bubbles: true }));
+                  }
+                }
+              }}
+              className="flex items-center justify-center gap-3 w-full rounded-xl transition-colors cursor-pointer"
               style={{
-                aspectRatio: "16/9",
+                height: 48,
                 background: "var(--bg)",
-                border: `2px dashed ${form.thumbnail ? "transparent" : "var(--border-bright)"}`,
-                cursor: "pointer",
-                padding: 0,
+                border: "2px dashed var(--border-bright)",
               }}
             >
-              {form.thumbnail ? (
+              {thumbnailUploading ? (
+                <div className="w-4 h-4 rounded-full border-2 animate-spin"
+                  style={{ borderColor: "var(--blue)", borderTopColor: "transparent" }} />
+              ) : form.thumbnail ? (
                 <>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={form.thumbnail} alt="" className="w-full h-full object-cover" />
-                  <div
-                    className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                    style={{ background: "rgba(0,0,0,0.55)" }}
+                  <span style={{ fontSize: "0.75rem", color: "#22c55e", fontFamily: "var(--font-nunito)", fontWeight: 700 }}>✓ 업로드 완료</span>
+                  <button
+                    type="button"
+                    onClick={e => { e.stopPropagation(); setForm(prev => ({ ...prev, thumbnail: "" })); }}
+                    style={{ fontSize: "0.7rem", color: "var(--text-muted)", background: "none", border: "none", cursor: "pointer", fontFamily: "var(--font-nunito)", padding: 0 }}
                   >
-                    <span className="text-xs font-bold text-white">사진 변경</span>
-                  </div>
+                    제거
+                  </button>
                 </>
               ) : (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
-                  {thumbnailUploading ? (
-                    <div className="w-5 h-5 rounded-full border-2 animate-spin"
-                      style={{ borderColor: "var(--blue)", borderTopColor: "transparent" }} />
-                  ) : (
-                    <>
-                      <svg width="22" height="22" viewBox="0 0 22 22" fill="none" style={{ color: "var(--text-muted)" }}>
-                        <path d="M11 3v12M5 9l6-6 6 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-                        <path d="M3 19h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
-                      </svg>
-                      <span className="text-xs font-semibold" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
-                        클릭해서 이미지 업로드
-                      </span>
-                    </>
-                  )}
-                </div>
+                <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
+                  클릭하거나 이미지를 드래그해서 업로드
+                </span>
               )}
-            </button>
-            {form.thumbnail && (
-              <button
-                type="button"
-                onClick={() => setForm(prev => ({ ...prev, thumbnail: "" }))}
-                className="mt-1.5 text-xs font-semibold transition-opacity hover:opacity-70"
-                style={{ color: "var(--text-muted)", background: "none", border: "none", cursor: "pointer", fontFamily: "var(--font-nunito)", padding: 0 }}
-              >
-                ✕ 썸네일 제거 (자동 생성으로 전환)
-              </button>
-            )}
+            </div>
           </div>
 
           {/* AI 도구 */}
