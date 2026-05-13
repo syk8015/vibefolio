@@ -395,13 +395,14 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
   const [showPreview, setShowPreview] = useState(false);
   const [previewLayout, setPreviewLayout] = useState<"grid" | "list">("grid");
   const [saving, setSaving] = useState(false);
-  const [autoFetching, setAutoFetching] = useState(false);
+  const [thumbnailUploading, setThumbnailUploading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadError, setUploadError] = useState("");
   const [uploadDone, setUploadDone] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
+  const thumbnailInputRef = useRef<HTMLInputElement>(null);
 
   const previewProject: Project = {
     id: 0,
@@ -491,25 +492,41 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
     setSelectedTools(prev => prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id]);
   }
 
-  async function handleDemoUrlBlur() {
-    if (!form.demo_url || form.thumbnail) return;
-    setAutoFetching(true);
+  async function handleThumbnailUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setThumbnailUploading(true);
     try {
-      const res = await fetch("/api/og-thumbnail", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: form.demo_url }),
-      });
-      const { imageUrl } = await res.json();
-      if (imageUrl) setForm(prev => ({ ...prev, thumbnail: imageUrl }));
+      const supabase = createClient();
+      const ext = file.name.split(".").pop() || "jpg";
+      const path = `${userId}/thumbnails/${crypto.randomUUID()}.${ext}`;
+      const { error } = await supabase.storage.from("project-files")
+        .upload(path, file, { upsert: true, contentType: file.type });
+      if (!error) {
+        const { data } = supabase.storage.from("project-files").getPublicUrl(path);
+        setForm(prev => ({ ...prev, thumbnail: data.publicUrl }));
+      }
     } catch { /* ignore */ }
-    setAutoFetching(false);
+    setThumbnailUploading(false);
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
-    await onSubmit({ ...form, tags: selectedTools } as ProjectForm);
+    let finalForm = { ...form, tags: selectedTools } as ProjectForm;
+    // Auto-fetch thumbnail from demo URL if none uploaded
+    if (!finalForm.thumbnail && finalForm.demo_url) {
+      try {
+        const res = await fetch("/api/og-thumbnail", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: finalForm.demo_url }),
+        });
+        const { imageUrl } = await res.json();
+        if (imageUrl) finalForm = { ...finalForm, thumbnail: imageUrl };
+      } catch { /* ignore */ }
+    }
+    await onSubmit(finalForm);
     setSaving(false);
   }
 
@@ -647,8 +664,7 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
             <Field label="데모 URL">
               <input className="vf-input" name="demo_url" type="url"
                 placeholder="https://myproject.vercel.app"
-                value={form.demo_url} onChange={handleChange}
-                onBlur={handleDemoUrlBlur} />
+                value={form.demo_url} onChange={handleChange} />
             </Field>
           )}
 
@@ -723,19 +739,71 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
             </div>
           </div>
 
-          {/* 썸네일 URL */}
-          <Field label="썸네일 URL">
-            <div className="relative">
-              <input className="vf-input" name="thumbnail" type="url"
-                placeholder={autoFetching ? "썸네일 추출 중..." : "https://..."}
-                value={form.thumbnail} onChange={handleChange}
-                disabled={autoFetching} />
-              {autoFetching && (
-                <div className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full border-2 animate-spin"
-                  style={{ borderColor: "var(--blue)", borderTopColor: "transparent" }} />
+          {/* 썸네일 업로드 */}
+          <div>
+            <label className="block text-xs font-bold mb-2"
+              style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", letterSpacing: "0.05em" }}>
+              썸네일
+              <span className="ml-1.5 font-normal" style={{ color: "var(--text-muted)" }}>
+                (없으면 저장 시 자동 생성)
+              </span>
+            </label>
+            <input ref={thumbnailInputRef} type="file" className="hidden" accept="image/*"
+              onChange={handleThumbnailUpload} />
+            <button
+              type="button"
+              onClick={() => thumbnailInputRef.current?.click()}
+              disabled={thumbnailUploading}
+              className="relative w-full rounded-xl overflow-hidden group transition-opacity hover:opacity-90 disabled:opacity-60"
+              style={{
+                aspectRatio: "16/9",
+                background: "var(--bg)",
+                border: `2px dashed ${form.thumbnail ? "transparent" : "var(--border-bright)"}`,
+                cursor: "pointer",
+                padding: 0,
+              }}
+            >
+              {form.thumbnail ? (
+                <>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={form.thumbnail} alt="" className="w-full h-full object-cover" />
+                  <div
+                    className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    style={{ background: "rgba(0,0,0,0.55)" }}
+                  >
+                    <span className="text-xs font-bold text-white">사진 변경</span>
+                  </div>
+                </>
+              ) : (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
+                  {thumbnailUploading ? (
+                    <div className="w-5 h-5 rounded-full border-2 animate-spin"
+                      style={{ borderColor: "var(--blue)", borderTopColor: "transparent" }} />
+                  ) : (
+                    <>
+                      <svg width="22" height="22" viewBox="0 0 22 22" fill="none" style={{ color: "var(--text-muted)" }}>
+                        <path d="M11 3v12M5 9l6-6 6 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M3 19h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+                      </svg>
+                      <span className="text-xs font-semibold" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
+                        클릭해서 이미지 업로드
+                      </span>
+                    </>
+                  )}
+                </div>
               )}
-            </div>
-          </Field>
+            </button>
+            {form.thumbnail && (
+              <button
+                type="button"
+                onClick={() => setForm(prev => ({ ...prev, thumbnail: "" }))}
+                className="mt-1.5 text-xs font-semibold transition-opacity hover:opacity-70"
+                style={{ color: "var(--text-muted)", background: "none", border: "none", cursor: "pointer", fontFamily: "var(--font-nunito)", padding: 0 }}
+              >
+                ✕ 썸네일 제거 (자동 생성으로 전환)
+              </button>
+            )}
+          </div>
 
           {/* AI 도구 */}
           <div>
