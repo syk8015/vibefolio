@@ -31,8 +31,10 @@ export default function ProjectModal({ projects, currentIndex, onClose, onNaviga
   const handleClose = useCallback(() => {
     if (closingRef.current) return;
     closingRef.current = true;
+    setVisible(false);
     window.history.back();
-  }, []);
+    setTimeout(onClose, 250);
+  }, [onClose]);
 
   const handlePrev = useCallback(() => {
     if (currentIndex !== null && currentIndex > 0) onNavigate(currentIndex - 1);
