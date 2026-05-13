@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 
+function screenshotFallback(url: string) {
+  return `https://image.thum.io/get/width/1200/crop/630/${url}`;
+}
+
 export async function POST(req: NextRequest) {
+  let url = "";
   try {
-    const { url } = await req.json();
+    ({ url } = await req.json());
     if (!url || typeof url !== "string") return NextResponse.json({ imageUrl: null });
 
     const res = await fetch(url, {
@@ -13,11 +18,10 @@ export async function POST(req: NextRequest) {
       signal: AbortSignal.timeout(8000),
     });
 
-    if (!res.ok) return NextResponse.json({ imageUrl: null });
+    if (!res.ok) return NextResponse.json({ imageUrl: screenshotFallback(url) });
 
     const html = await res.text();
 
-    // Match og:image or twitter:image in either attribute order
     const patterns = [
       /property=["']og:image["'][^>]+content=["']([^"']+)["']/i,
       /content=["']([^"']+)["'][^>]+property=["']og:image["']/i,
@@ -25,17 +29,17 @@ export async function POST(req: NextRequest) {
       /content=["']([^"']+)["'][^>]+name=["']twitter:image["']/i,
     ];
 
-    let rawUrl: string | null = null;
     for (const pattern of patterns) {
       const m = html.match(pattern);
-      if (m?.[1]) { rawUrl = m[1]; break; }
+      if (m?.[1]) {
+        const imageUrl = m[1].startsWith("http") ? m[1] : new URL(m[1], url).href;
+        return NextResponse.json({ imageUrl });
+      }
     }
 
-    if (!rawUrl) return NextResponse.json({ imageUrl: null });
-
-    const imageUrl = rawUrl.startsWith("http") ? rawUrl : new URL(rawUrl, url).href;
-    return NextResponse.json({ imageUrl });
+    // No og:image — fall back to screenshot
+    return NextResponse.json({ imageUrl: screenshotFallback(url) });
   } catch {
-    return NextResponse.json({ imageUrl: null });
+    return NextResponse.json({ imageUrl: url ? screenshotFallback(url) : null });
   }
 }

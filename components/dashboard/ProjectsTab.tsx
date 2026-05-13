@@ -395,8 +395,7 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
   const [showPreview, setShowPreview] = useState(false);
   const [previewLayout, setPreviewLayout] = useState<"grid" | "list">("grid");
   const [saving, setSaving] = useState(false);
-  const [extracting, setExtracting] = useState(false);
-  const [extractError, setExtractError] = useState("");
+  const [autoFetching, setAutoFetching] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadError, setUploadError] = useState("");
@@ -492,27 +491,19 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
     setSelectedTools(prev => prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id]);
   }
 
-  async function handleAutoThumbnail() {
-    const targetUrl = form.demo_url;
-    if (!targetUrl) return;
-    setExtracting(true);
-    setExtractError("");
+  async function handleDemoUrlBlur() {
+    if (!form.demo_url || form.thumbnail) return;
+    setAutoFetching(true);
     try {
       const res = await fetch("/api/og-thumbnail", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: targetUrl }),
+        body: JSON.stringify({ url: form.demo_url }),
       });
       const { imageUrl } = await res.json();
-      if (imageUrl) {
-        setForm(prev => ({ ...prev, thumbnail: imageUrl }));
-      } else {
-        setExtractError("이 URL에서 썸네일 이미지를 찾지 못했어요.");
-      }
-    } catch {
-      setExtractError("가져오기에 실패했어요. 직접 URL을 입력해주세요.");
-    }
-    setExtracting(false);
+      if (imageUrl) setForm(prev => ({ ...prev, thumbnail: imageUrl }));
+    } catch { /* ignore */ }
+    setAutoFetching(false);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -656,7 +647,8 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
             <Field label="데모 URL">
               <input className="vf-input" name="demo_url" type="url"
                 placeholder="https://myproject.vercel.app"
-                value={form.demo_url} onChange={handleChange} />
+                value={form.demo_url} onChange={handleChange}
+                onBlur={handleDemoUrlBlur} />
             </Field>
           )}
 
@@ -733,26 +725,16 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
 
           {/* 썸네일 URL */}
           <Field label="썸네일 URL">
-            <div className="flex gap-2">
-              <input className="vf-input flex-1" name="thumbnail" type="url"
-                placeholder="https://..."
-                value={form.thumbnail} onChange={handleChange} />
-              <button
-                type="button"
-                onClick={handleAutoThumbnail}
-                disabled={!form.demo_url || extracting}
-                title={form.demo_url ? "데모 URL에서 썸네일 자동 추출" : "먼저 데모 URL을 입력하세요"}
-                className="px-3 py-2 rounded-xl text-xs font-bold transition-opacity hover:opacity-75 disabled:opacity-40 shrink-0"
-                style={{ border: "1px solid var(--border-bright)", color: "var(--text-secondary)", background: "var(--bg)", fontFamily: "var(--font-nunito)", cursor: "pointer", whiteSpace: "nowrap" }}
-              >
-                {extracting ? "추출 중..." : "🔍 자동"}
-              </button>
+            <div className="relative">
+              <input className="vf-input" name="thumbnail" type="url"
+                placeholder={autoFetching ? "썸네일 추출 중..." : "https://..."}
+                value={form.thumbnail} onChange={handleChange}
+                disabled={autoFetching} />
+              {autoFetching && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full border-2 animate-spin"
+                  style={{ borderColor: "var(--blue)", borderTopColor: "transparent" }} />
+              )}
             </div>
-            {extractError && (
-              <p className="mt-1 text-xs font-semibold" style={{ color: "#ef4444", fontFamily: "var(--font-nunito)" }}>
-                {extractError}
-              </p>
-            )}
           </Field>
 
           {/* AI 도구 */}
