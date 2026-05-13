@@ -282,15 +282,6 @@ export default function AnalyticsTab({ user }: { user: User }) {
     return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 5);
   }, [views]);
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <div className="w-6 h-6 rounded-full border-2 animate-spin"
-          style={{ borderColor: "var(--blue)", borderTopColor: "transparent" }} />
-      </div>
-    );
-  }
-
   // 방문 기록 그룹화
   const groupedViews = useMemo(() => {
     const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
@@ -308,6 +299,15 @@ export default function AnalyticsTab({ user }: { user: User }) {
       }),
     };
   }, [views]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="w-6 h-6 rounded-full border-2 animate-spin"
+          style={{ borderColor: "var(--blue)", borderTopColor: "transparent" }} />
+      </div>
+    );
+  }
 
   const noData = views.length === 0;
 
