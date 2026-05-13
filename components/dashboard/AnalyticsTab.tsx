@@ -140,6 +140,80 @@ function BarChart({ days, counts }: { days: Date[]; counts: number[] }) {
   );
 }
 
+function ViewGroup({
+  label,
+  rows,
+  defaultOpen = false,
+}: {
+  label: string;
+  rows: ViewRow[];
+  defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+
+  return (
+    <div style={{ borderBottom: "1px solid var(--border)" }}>
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center justify-between px-5 py-3 transition-opacity hover:opacity-70"
+        style={{ background: "none", border: "none", cursor: "pointer" }}
+      >
+        <div className="flex items-center gap-2">
+          <svg
+            width="12" height="12" viewBox="0 0 12 12" fill="none"
+            style={{ transform: open ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.2s", color: "var(--text-muted)", flexShrink: 0 }}
+          >
+            <path d="M4 2l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          <span className="text-xs font-bold" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
+            {label}
+          </span>
+        </div>
+        <span
+          className="text-xs font-black px-2 py-0.5 rounded-full"
+          style={{ background: "var(--blue-tint)", color: "var(--blue-bright)", border: "1px solid var(--border-bright)", fontFamily: "var(--font-nunito)" }}
+        >
+          {rows.length}
+        </span>
+      </button>
+
+      {open && (
+        <div>
+          {rows.map((v, i) => (
+            <div
+              key={v.id}
+              className="flex items-center justify-between px-5 py-2.5"
+              style={{
+                borderTop: "1px solid var(--border)",
+                background: "var(--bg)",
+              }}
+            >
+              <div className="flex items-center gap-3">
+                <span className="text-base">
+                  {v.country ? (COUNTRY_EMOJI[v.country] ?? "🌐") : "🌐"}
+                </span>
+                <div>
+                  <p className="text-xs font-bold" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}>
+                    {parseReferrer(v.referrer)}
+                  </p>
+                  {v.country && (
+                    <p className="text-xs" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
+                      {COUNTRY_NAME[v.country] ?? v.country}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <span className="text-xs" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
+                {timeAgo(v.viewed_at)}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function AnalyticsTab({ user }: { user: User }) {
   const [views, setViews] = useState<ViewRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -216,6 +290,24 @@ export default function AnalyticsTab({ user }: { user: User }) {
       </div>
     );
   }
+
+  // 방문 기록 그룹화
+  const groupedViews = useMemo(() => {
+    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+    const ago7 = new Date(Date.now() - 7 * 86400000);
+    const ago30 = new Date(Date.now() - 30 * 86400000);
+    return {
+      today: views.filter(v => new Date(v.viewed_at) >= todayStart),
+      week: views.filter(v => {
+        const d = new Date(v.viewed_at);
+        return d >= ago7 && d < todayStart;
+      }),
+      month: views.filter(v => {
+        const d = new Date(v.viewed_at);
+        return d >= ago30 && d < ago7;
+      }),
+    };
+  }, [views]);
 
   const noData = views.length === 0;
 
@@ -332,55 +424,32 @@ export default function AnalyticsTab({ user }: { user: User }) {
         </div>
       )}
 
-      {/* 최근 조회 기록 */}
+      {/* 방문 기록 — 기간별 접기/펼치기 */}
       <div
         className="rounded-2xl overflow-hidden"
-        style={{ border: "1px solid var(--border)" }}
+        style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
       >
         <div
           className="px-5 py-3"
-          style={{ borderBottom: "1px solid var(--border)", background: "var(--surface)" }}
+          style={{ borderBottom: "1px solid var(--border)" }}
         >
           <p className="text-xs font-bold" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", letterSpacing: "0.05em" }}>
-            최근 방문 기록
+            방문 기록
           </p>
         </div>
 
         {noData ? (
-          <div className="px-5 py-10 text-center" style={{ background: "var(--surface)" }}>
+          <div className="px-5 py-10 text-center">
             <p className="text-sm" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
               아직 방문 기록이 없어요
             </p>
           </div>
         ) : (
-          <div style={{ background: "var(--surface)" }}>
-            {views.slice(0, 50).map((v, i) => (
-              <div
-                key={v.id}
-                className="flex items-center justify-between px-5 py-3"
-                style={{ borderBottom: i < 49 && i < views.length - 1 ? "1px solid var(--border)" : "none" }}
-              >
-                <div className="flex items-center gap-3">
-                  <span className="text-base">
-                    {v.country ? (COUNTRY_EMOJI[v.country] ?? "🌐") : "🌐"}
-                  </span>
-                  <div>
-                    <p className="text-xs font-bold" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}>
-                      {parseReferrer(v.referrer)}
-                    </p>
-                    {v.country && (
-                      <p className="text-xs" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
-                        {COUNTRY_NAME[v.country] ?? v.country}
-                      </p>
-                    )}
-                  </div>
-                </div>
-                <span className="text-xs" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
-                  {timeAgo(v.viewed_at)}
-                </span>
-              </div>
-            ))}
-          </div>
+          <>
+            <ViewGroup label="오늘" rows={groupedViews.today} defaultOpen={groupedViews.today.length > 0} />
+            <ViewGroup label="7일 이내" rows={groupedViews.week} />
+            <ViewGroup label="한달 이내" rows={groupedViews.month} />
+          </>
         )}
       </div>
     </div>
