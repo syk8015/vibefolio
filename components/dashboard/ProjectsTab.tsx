@@ -229,7 +229,8 @@ export default function ProjectsTab({ user }: { user: User }) {
       .from("projects")
       .insert({ ...form, user_id: user.id, sort_order: projects.length })
       .select().single();
-    if (!error && data) setProjects(prev => [...prev, data as DBProject]);
+    if (error) throw new Error(error.message);
+    if (data) setProjects(prev => [...prev, data as DBProject]);
     setShowAddModal(false);
   }
 
@@ -237,9 +238,8 @@ export default function ProjectsTab({ user }: { user: User }) {
     const supabase = createClient();
     const { data, error } = await supabase
       .from("projects").update(form).eq("id", id).select().single();
-    if (!error && data) {
-      setProjects(prev => prev.map(p => p.id === id ? (data as DBProject) : p));
-    }
+    if (error) throw new Error(error.message);
+    if (data) setProjects(prev => prev.map(p => p.id === id ? (data as DBProject) : p));
     setEditProject(null);
   }
 
@@ -436,6 +436,7 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
   const [showPreview, setShowPreview] = useState(false);
   const [previewLayout, setPreviewLayout] = useState<"grid" | "list">("grid");
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
   const [thumbnailUploading, setThumbnailUploading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -554,20 +555,26 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
-    let finalForm = { ...form, tags: selectedTools } as ProjectForm;
-    // Auto-fetch thumbnail from demo URL if none uploaded
-    if (!finalForm.thumbnail && finalForm.demo_url) {
-      try {
-        const res = await fetch("/api/og-thumbnail", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url: finalForm.demo_url }),
-        });
-        const { imageUrl } = await res.json();
-        if (imageUrl) finalForm = { ...finalForm, thumbnail: imageUrl };
-      } catch { /* ignore */ }
+    setSaveError("");
+    try {
+      let finalForm = { ...form, tags: selectedTools } as ProjectForm;
+      // Auto-fetch OG thumbnail only for external URLs (not uploaded files)
+      const isUpload = finalForm.demo_url?.startsWith("/api/preview/");
+      if (!finalForm.thumbnail && finalForm.demo_url && !isUpload) {
+        try {
+          const res = await fetch("/api/og-thumbnail", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ url: finalForm.demo_url }),
+          });
+          const { imageUrl } = await res.json();
+          if (imageUrl) finalForm = { ...finalForm, thumbnail: imageUrl };
+        } catch { /* ignore */ }
+      }
+      await onSubmit(finalForm);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "저장 중 오류가 발생했어요.");
     }
-    await onSubmit(finalForm);
     setSaving(false);
   }
 
@@ -881,6 +888,14 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
             <input className="vf-input" name="comment" placeholder="제가 제일 아끼는 작업물이에요! ⭐"
               value={form.comment} onChange={handleChange} />
           </Field>
+
+          {/* Save error */}
+          {saveError && (
+            <div className="px-4 py-3 rounded-xl text-xs font-semibold"
+              style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.3)", color: "#ef4444", fontFamily: "var(--font-nunito)", lineHeight: 1.6 }}>
+              ⚠️ {saveError}
+            </div>
+          )}
 
           {/* Actions */}
           <div className="flex gap-3 pt-1 pb-1">
