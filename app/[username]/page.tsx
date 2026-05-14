@@ -165,24 +165,35 @@ export default async function UserPortfolioPage({
           }}
         />
 
-        {/* Avatar */}
-        <div
-          className="vf-avatar relative w-24 h-24 md:w-32 md:h-32 rounded-full flex items-center justify-center text-4xl md:text-5xl font-black sphere-shadow mb-6 md:mb-8 z-10 overflow-hidden"
-          style={{
-            background: "linear-gradient(135deg, var(--blue), var(--blue-bright))",
-            color: "#fff",
-            fontFamily: "var(--font-nunito)",
-            border: "1px solid rgba(77,158,255,0.25)",
-          }}
-        >
-          {p.avatar_url
-            ? <img src={p.avatar_url} alt={p.name || p.username} className="w-full h-full object-cover" />
-            : (p.name || p.username).charAt(0).toUpperCase()}
+        {/* Avatar with rotating ring */}
+        <div className="vf-anim-avatar relative mb-6 md:mb-8 z-10">
+          {/* Spinning ring */}
+          <div
+            className="vf-ring-spin absolute rounded-full pointer-events-none"
+            style={{
+              inset: "-4px",
+              background: "conic-gradient(from 0deg, var(--blue) 0%, var(--blue-bright) 35%, transparent 55%, transparent 80%, var(--blue) 100%)",
+              opacity: 0.65,
+            }}
+          />
+          <div
+            className="vf-avatar relative w-24 h-24 md:w-32 md:h-32 rounded-full flex items-center justify-center text-4xl md:text-5xl font-black sphere-shadow overflow-hidden z-10"
+            style={{
+              background: "linear-gradient(135deg, var(--blue), var(--blue-bright))",
+              color: "#fff",
+              fontFamily: "var(--font-nunito)",
+              border: "2px solid var(--bg)",
+            }}
+          >
+            {p.avatar_url
+              ? <img src={p.avatar_url} alt={p.name || p.username} className="w-full h-full object-cover" />
+              : (p.name || p.username).charAt(0).toUpperCase()}
+          </div>
         </div>
 
         {/* Name */}
         <h1
-          className="text-3xl md:text-5xl lg:text-6xl mb-1 tracking-tight"
+          className="vf-anim-1 text-3xl md:text-5xl lg:text-6xl mb-1 tracking-tight"
           style={{
             fontFamily: "var(--font-nunito)",
             color: "var(--text-primary)",
@@ -193,17 +204,17 @@ export default async function UserPortfolioPage({
         </h1>
 
         <p
-          className="mb-8 text-sm tracking-[0.25em] uppercase"
+          className="vf-anim-1 mb-8 text-sm tracking-[0.25em] uppercase"
           style={{ color: "var(--blue)", fontFamily: "var(--font-nunito)", fontWeight: 300 }}
         >
           @{p.username}
         </p>
 
-        <div className="w-24 h-px mb-8 blue-line" />
+        <div className="vf-anim-2 w-24 h-px mb-8 blue-line" />
 
         {p.bio && (
           <p
-            className="max-w-lg text-center leading-8 whitespace-pre-line"
+            className="vf-anim-2 max-w-lg text-center leading-8 whitespace-pre-line"
             style={{
               color: "var(--text-secondary)",
               fontFamily: "var(--font-nunito)",
@@ -227,7 +238,7 @@ export default async function UserPortfolioPage({
           if (!links.length) return null;
 
           return (
-            <div className="flex flex-wrap items-center justify-center gap-3 mt-8">
+            <div className="vf-anim-3 flex flex-wrap items-center justify-center gap-3 mt-8">
               {links.map((url, i) => (
                 <SocialBadge key={i} url={url} />
               ))}
@@ -242,10 +253,25 @@ export default async function UserPortfolioPage({
           <ProjectsSection projects={projects} />
         </section>
       ) : (
-        <section className="relative max-w-5xl mx-auto px-6 pb-28 z-10 text-center">
-          <p className="text-sm" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
-            아직 등록된 프로젝트가 없어요.
-          </p>
+        <section className="relative max-w-5xl mx-auto px-6 pb-28 z-10">
+          <div className="flex flex-col items-center justify-center py-24 text-center">
+            <div
+              className="w-16 h-16 rounded-2xl flex items-center justify-center mb-5"
+              style={{ background: "var(--blue-tint)", border: "1px solid var(--border-bright)" }}
+            >
+              <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+                <path d="M6 8h16M6 14h10M6 20h7" stroke="var(--blue)" strokeWidth="1.8" strokeLinecap="round"/>
+                <circle cx="21" cy="20" r="5" stroke="var(--blue)" strokeWidth="1.8"/>
+                <path d="M24 23l2.5 2.5" stroke="var(--blue)" strokeWidth="1.8" strokeLinecap="round"/>
+              </svg>
+            </div>
+            <p className="text-base font-black mb-2" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
+              아직 공개된 프로젝트가 없어요
+            </p>
+            <p className="text-sm" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontWeight: 400 }}>
+              곧 새로운 작업물이 올라올 예정이에요.
+            </p>
+          </div>
         </section>
       )}
 

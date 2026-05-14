@@ -5,6 +5,32 @@ import ProjectCard from "./ProjectCard";
 import ProjectModal from "./ProjectModal";
 import type { Project } from "@/lib/data";
 
+function ScrollReveal({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) { setVisible(true); observer.disconnect(); } },
+      { threshold: 0.06 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div ref={ref} style={{
+      opacity: visible ? 1 : 0,
+      transform: visible ? "translateY(0)" : "translateY(28px)",
+      transition: `opacity 0.55s ease ${delay}ms, transform 0.55s ease ${delay}ms`,
+    }}>
+      {children}
+    </div>
+  );
+}
+
 type Layout = "grid" | "list";
 type Phase = "idle" | "exit" | "entering";
 
@@ -195,14 +221,15 @@ export default function ProjectsSection({ projects }: { projects: Project[] }) {
         }
       >
         {projects.map((project, index) => (
-          <CardWithBubble
-            key={project.id}
-            project={project}
-            index={index}
-            layout={displayLayout}
-            phase={phase}
-            onClick={() => setSelectedIndex(index)}
-          />
+          <ScrollReveal key={project.id} delay={index * 60}>
+            <CardWithBubble
+              project={project}
+              index={index}
+              layout={displayLayout}
+              phase={phase}
+              onClick={() => setSelectedIndex(index)}
+            />
+          </ScrollReveal>
         ))}
       </div>
 
