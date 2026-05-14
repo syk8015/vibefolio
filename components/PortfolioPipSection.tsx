@@ -247,19 +247,29 @@ export default function PortfolioPipSection({ profiles }: Props) {
         </p>
 
         {atBottom ? (
-          <p
-            style={{
-              fontSize: "0.65rem",
-              fontFamily: "var(--font-nunito)",
-              background: `linear-gradient(90deg, var(--blue-bright) ${gaugeProgress}%, var(--text-muted) ${gaugeProgress}%)`,
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-              backgroundClip: "text",
-              transition: "background 0.05s linear",
-            }}
-          >
-            ↓ 계속 스크롤하여 다음 명함으로
-          </p>
+          <div style={{ position: "relative", display: "inline-block" }}>
+            {/* Base layer — muted */}
+            <span style={{ fontSize: "0.65rem", fontFamily: "var(--font-nunito)", color: "var(--text-muted)", whiteSpace: "nowrap" }}>
+              ↓ 계속 스크롤하여 다음 명함으로
+            </span>
+            {/* Blue fill layer — clipped from left */}
+            <span
+              aria-hidden
+              style={{
+                position: "absolute",
+                inset: 0,
+                overflow: "hidden",
+                width: `${gaugeProgress}%`,
+                whiteSpace: "nowrap",
+                fontSize: "0.65rem",
+                fontFamily: "var(--font-nunito)",
+                color: "var(--blue-bright)",
+                transition: "width 0.05s linear",
+              }}
+            >
+              ↓ 계속 스크롤하여 다음 명함으로
+            </span>
+          </div>
         ) : (
           <p style={{ fontSize: "0.65rem", color: "var(--text-muted)", fontFamily: "var(--font-nunito)", opacity: 0.6 }}>
             ↕ 스크롤하면 프로젝트가 보여요
