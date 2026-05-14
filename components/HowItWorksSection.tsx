@@ -26,7 +26,7 @@ function PersonRow({ count, opacity }: { count: number; opacity: number }) {
   );
 }
 
-function Card({
+function TallCard({
   num, title, sub, subColor, opacity, children,
 }: {
   num: string;
@@ -39,13 +39,13 @@ function Card({
   return (
     <div
       style={{
-        borderRadius: 16,
+        borderRadius: 20,
         background: "var(--surface)",
         border: "1px solid var(--border)",
-        padding: "1.5rem",
-        minHeight: 280,
+        padding: "2rem 1.75rem",
+        height: 420,
         opacity,
-        transform: `translateY(${clamp((1 - Math.min(opacity * 2.5, 1)) * 24, 0, 24)}px)`,
+        transform: `translateY(${clamp((1 - Math.min(opacity * 2.5, 1)) * 28, 0, 28)}px)`,
         transition: "opacity 0.5s ease, transform 0.5s ease",
         display: "flex",
         flexDirection: "column",
@@ -53,9 +53,9 @@ function Card({
     >
       <span
         style={{
-          fontSize: "0.68rem",
+          fontSize: "0.7rem",
           fontWeight: 800,
-          letterSpacing: "0.1em",
+          letterSpacing: "0.12em",
           color: "var(--border-bright)",
           fontFamily: "var(--font-nunito)",
         }}
@@ -66,9 +66,10 @@ function Card({
         style={{
           fontFamily: "var(--font-nunito)",
           fontWeight: 800,
-          fontSize: "0.9rem",
+          fontSize: "1rem",
           color: "var(--text-primary)",
-          margin: "0.5rem 0 0.25rem",
+          margin: "0.75rem 0 0.35rem",
+          lineHeight: 1.3,
         }}
       >
         {title}
@@ -76,7 +77,7 @@ function Card({
       <p
         style={{
           fontFamily: "var(--font-nunito)",
-          fontSize: "0.68rem",
+          fontSize: "0.72rem",
           color: subColor,
           fontWeight: 600,
           margin: 0,
@@ -107,13 +108,11 @@ export default function HowItWorksSection() {
     return () => window.removeEventListener("scroll", update);
   }, []);
 
-  // Phase boundaries
   const titleProg = clamp(progress / 0.22, 0, 1);
   const card1Prog = clamp((progress - 0.18) / 0.36, 0, 1);
   const card2Prog = clamp((progress - 0.56) / 0.22, 0, 1);
   const card3Prog = clamp((progress - 0.79) / 0.20, 0, 1);
 
-  // Person pyramid within card 1's progress
   const row1 = clamp(card1Prog / 0.30, 0, 1);
   const row2 = clamp((card1Prog - 0.33) / 0.34, 0, 1);
   const row3 = clamp((card1Prog - 0.67) / 0.33, 0, 1);
@@ -131,61 +130,50 @@ export default function HowItWorksSection() {
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          padding: "0 1.5rem",
-          gap: "2.5rem",
+          padding: "0 2rem",
+          gap: "3rem",
         }}
       >
-        {/* Scroll-reveal title chip */}
-        <div
+        {/* Title — plain large text, scroll-reveal per character */}
+        <h2
           style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 8,
-            padding: "6px 14px",
-            borderRadius: 999,
-            background: "var(--blue-tint)",
-            border: "1px solid var(--border-bright)",
-            opacity: clamp(titleProg * 6, 0, 1),
+            fontFamily: "var(--font-nunito)",
+            fontWeight: 800,
+            fontSize: "clamp(1.8rem, 3.5vw, 3rem)",
+            letterSpacing: "-0.02em",
+            lineHeight: 1,
+            margin: 0,
+            display: "flex",
+            flexWrap: "wrap",
+            justifyContent: "center",
           }}
         >
-          <div
-            style={{
-              width: 6, height: 6, borderRadius: "50%",
-              background: "var(--blue)", boxShadow: "0 0 6px var(--blue)",
-              flexShrink: 0,
-            }}
-          />
           {titleChars.map((ch, i, arr) => (
             <span
               key={i}
               style={{
                 whiteSpace: "pre",
-                color: titleProg >= i / arr.length ? "var(--blue-bright)" : "transparent",
-                fontFamily: "var(--font-nunito)",
-                fontWeight: 700,
-                fontSize: "0.7rem",
-                letterSpacing: "0.3em",
-                textTransform: "uppercase",
+                color: titleProg >= i / arr.length ? "var(--text-primary)" : "transparent",
                 transition: "color 0.12s ease",
               }}
             >
               {ch}
             </span>
           ))}
-        </div>
+        </h2>
 
-        {/* Cards */}
+        {/* Three tall cards — 3 columns */}
         <div
           style={{
             display: "grid",
             gridTemplateColumns: "repeat(3, 1fr)",
             gap: "1.25rem",
             width: "100%",
-            maxWidth: 920,
+            maxWidth: 900,
           }}
         >
-          {/* Card 1 — person pyramid animation */}
-          <Card
+          {/* Card 1 — person pyramid */}
+          <TallCard
             num="01"
             title="가입하고 사용자명 설정"
             sub="vibefolio.vercel.app/username"
@@ -199,19 +187,19 @@ export default function HowItWorksSection() {
                 flexDirection: "column",
                 alignItems: "center",
                 justifyContent: "flex-end",
-                gap: 10,
-                paddingTop: "1.25rem",
-                paddingBottom: 4,
+                gap: 12,
+                paddingTop: "1.5rem",
+                paddingBottom: 8,
               }}
             >
               <PersonRow count={1} opacity={row1} />
               <PersonRow count={2} opacity={row2} />
               <PersonRow count={3} opacity={row3} />
             </div>
-          </Card>
+          </TallCard>
 
           {/* Card 2 — placeholder */}
-          <Card
+          <TallCard
             num="02"
             title="프로젝트 추가"
             sub="배포된 사이트 주소 또는 결과물 파일"
@@ -220,7 +208,7 @@ export default function HowItWorksSection() {
           />
 
           {/* Card 3 — placeholder */}
-          <Card
+          <TallCard
             num="03"
             title="링크 하나로 공유"
             sub="이력서 · SNS · 채용 지원"
