@@ -185,7 +185,7 @@ export default function OnboardingPage() {
                 {usernameStatus === "taken" && "✗ 이미 사용 중이에요"}
                 {usernameStatus === "invalid" && "✗ 영문, 숫자, _, -만 사용 가능해요 (2자 이상)"}
                 {(usernameStatus === "idle" || usernameStatus === "checking") && (
-                  <>vibefolio.com/<span style={{ color: "var(--blue)" }}>{form.username}</span></>
+                  <>vibefolio.vercel.app/<span style={{ color: "var(--blue)" }}>{form.username}</span></>
                 )}
               </p>
             )}

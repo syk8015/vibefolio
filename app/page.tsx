@@ -91,7 +91,7 @@ export default async function LandingPage() {
             </Link>
           </div>
           <p className="text-xs font-semibold" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
-            vibefolio.com/<span style={{ color: "var(--blue-bright)" }}>{username}</span>
+            vibefolio.vercel.app/<span style={{ color: "var(--blue-bright)" }}>{username}</span>
           </p>
         </div>
 
@@ -221,7 +221,7 @@ export default async function LandingPage() {
               number="01"
               title="가입하고 사용자명 설정"
               desc="구글 계정으로 5초 만에 가입. 나만의 주소가 생겨요."
-              example="vibefolio.com/syk8015"
+              example="vibefolio.vercel.app/syk8015"
               icon={
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
                   <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="1.8"/>

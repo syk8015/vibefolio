@@ -137,7 +137,7 @@ export default function SignupPage() {
               </div>
               {form.username && (
                 <p className="mt-1 text-xs font-semibold" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
-                  vibefolio.com/{form.username}
+                  vibefolio.vercel.app/{form.username}
                 </p>
               )}
             </Field>
