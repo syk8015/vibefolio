@@ -153,12 +153,9 @@ export default async function LandingPage() {
           </span>
         </h1>
 
-        <p className="mb-3 leading-relaxed z-10 max-w-md" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", fontSize: "1rem", fontWeight: 400 }}>
+        <p className="mb-10 leading-relaxed z-10 max-w-md" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", fontSize: "1rem", fontWeight: 400 }}>
           링크 하나로 나의 바이브코딩 결과물을 전시하세요.<br />
           5분 안에 나만의 포트폴리오 명함이 완성됩니다.
-        </p>
-        <p className="mb-10 z-10 text-sm font-semibold" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
-          Linktree는 너무 가볍고, Github는 너무 무겁다.
         </p>
 
         <div className="flex flex-wrap justify-center items-center gap-3 mb-12 z-10">
