@@ -1,3 +1,4 @@
+import type React from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import HomeProfileMenu from "@/components/HomeProfileMenu";
@@ -200,6 +201,61 @@ export default async function LandingPage() {
         )}
       </section>
 
+      {/* How it works */}
+      <section className="relative z-10 py-24 px-6">
+        <div className="max-w-4xl mx-auto">
+          {/* Section label */}
+          <div className="flex items-center justify-center mb-12">
+            <div className="flex items-center gap-2 px-4 py-1.5 rounded-full"
+              style={{ border: "1px solid var(--border-bright)", background: "var(--blue-tint)" }}>
+              <div className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--blue)", boxShadow: "0 0 6px var(--blue)" }} />
+              <span className="text-xs tracking-[0.3em] uppercase font-bold" style={{ color: "var(--blue-bright)", fontFamily: "var(--font-nunito)" }}>
+                How it works
+              </span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <HowItWorksStep
+              number="01"
+              title="가입하고 사용자명 설정"
+              desc="구글 계정으로 5초 만에 가입. 나만의 주소가 생겨요."
+              example="vibefolio.com/syk8015"
+              icon={
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="1.8"/>
+                  <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+                </svg>
+              }
+            />
+            <HowItWorksStep
+              number="02"
+              title="프로젝트 추가"
+              desc="배포 URL을 붙여넣거나, 빌드된 파일 폴더를 통째로 올리면 끝."
+              example="Vercel URL · dist/ 폴더"
+              icon={
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                  <path d="M12 16V8M8 12l4-4 4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                  <rect x="3" y="3" width="18" height="18" rx="3" stroke="currentColor" strokeWidth="1.8"/>
+                </svg>
+              }
+            />
+            <HowItWorksStep
+              number="03"
+              title="링크 하나로 공유"
+              desc="나만의 명함 링크를 복사해서 어디서든 공유하세요."
+              example="이력서 · SNS · 채용 지원"
+              icon={
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                  <path d="M8 12h8M13 8l4 4-4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                  <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8"/>
+                </svg>
+              }
+            />
+          </div>
+        </div>
+      </section>
+
       {/* PiP portfolio preview — scroll-synced */}
       {pipProfile && (
         <PortfolioPipSection
@@ -224,6 +280,55 @@ function Logo() {
       <span className="font-black text-base" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}>
         Vibefolio
       </span>
+    </div>
+  );
+}
+
+function HowItWorksStep({
+  number, title, desc, example, icon,
+}: {
+  number: string; title: string; desc: string; example: string; icon: React.ReactNode;
+}) {
+  return (
+    <div
+      className="relative flex flex-col gap-4 p-6 rounded-2xl"
+      style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+    >
+      {/* Step number */}
+      <span
+        className="absolute top-5 right-5 text-xs font-black tracking-widest"
+        style={{ color: "var(--border-bright)", fontFamily: "var(--font-nunito)" }}
+      >
+        {number}
+      </span>
+
+      {/* Icon */}
+      <div
+        className="w-10 h-10 rounded-xl flex items-center justify-center"
+        style={{ background: "var(--blue-tint)", border: "1px solid var(--border-bright)", color: "var(--blue)" }}
+      >
+        {icon}
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <h3 className="font-black text-sm" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}>
+          {title}
+        </h3>
+        <p className="text-xs leading-relaxed" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", fontWeight: 400 }}>
+          {desc}
+        </p>
+      </div>
+
+      {/* Example pill */}
+      <div
+        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full self-start"
+        style={{ background: "var(--blue-tint)", border: "1px solid var(--border-bright)" }}
+      >
+        <div className="w-1 h-1 rounded-full" style={{ background: "var(--blue)" }} />
+        <span className="text-xs font-semibold" style={{ color: "var(--blue-bright)", fontFamily: "var(--font-nunito)" }}>
+          {example}
+        </span>
+      </div>
     </div>
   );
 }
