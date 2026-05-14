@@ -21,8 +21,8 @@ export default function LoggedInHeadline() {
       setTimeout(() => {
         setIndex((i) => (i + 1) % HEADLINES.length);
         setVisible(true);
-      }, 280);
-    }, 3000);
+      }, 400);
+    }, 5000);
     return () => clearInterval(timer);
   }, []);
 
@@ -38,7 +38,7 @@ export default function LoggedInHeadline() {
         letterSpacing: "-0.03em",
         opacity: visible ? 1 : 0,
         transform: visible ? "translateY(0)" : "translateY(10px)",
-        transition: "opacity 0.28s ease, transform 0.28s ease",
+        transition: "opacity 0.4s ease, transform 0.4s ease",
       }}
     >
       <span style={mono ? { fontFamily: "'Courier New', Monaco, monospace", fontSize: "0.85em" } : undefined}>

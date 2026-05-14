@@ -37,33 +37,76 @@ const CONTENT_TYPES = [
 ];
 
 export const AI_TOOLS = [
-  { id: "ChatGPT",        emoji: "💬" },
-  { id: "Claude Code",    emoji: "🟠" },
-  { id: "Cursor",         emoji: "🖱️" },
-  { id: "GitHub Copilot", emoji: "🐙" },
-  { id: "Gemini",         emoji: "✨" },
-  { id: "v0",             emoji: "▲" },
-  { id: "Bolt.new",       emoji: "⚡" },
-  { id: "Windsurf",       emoji: "🏄" },
-  { id: "Lovable",        emoji: "💜" },
-  { id: "Replit AI",      emoji: "🔁" },
-  { id: "Devin",          emoji: "🤖" },
-  { id: "Aider",          emoji: "💻" },
-  { id: "Continue.dev",   emoji: "🔗" },
-  { id: "Codeium",        emoji: "🟢" },
-  { id: "Amazon Q",       emoji: "🟡" },
-  { id: "Perplexity",     emoji: "🔮" },
-  { id: "Midjourney",     emoji: "🎨" },
-  { id: "DALL-E",         emoji: "🖼️" },
-  { id: "Stable Diffusion", emoji: "🌊" },
-  { id: "Ideogram",       emoji: "🔤" },
-  { id: "Flux",           emoji: "🌀" },
-  { id: "Runway",         emoji: "🎬" },
-  { id: "Kling",          emoji: "📹" },
-  { id: "Pika",           emoji: "🎞️" },
-  { id: "Suno",           emoji: "🎵" },
-  { id: "ElevenLabs",     emoji: "🎙️" },
+  { id: "ChatGPT"          },
+  { id: "Claude Code"      },
+  { id: "Cursor"           },
+  { id: "GitHub Copilot"   },
+  { id: "Gemini"           },
+  { id: "v0"               },
+  { id: "Bolt.new"         },
+  { id: "Windsurf"         },
+  { id: "Lovable"          },
+  { id: "Replit AI"        },
+  { id: "Devin"            },
+  { id: "Aider"            },
+  { id: "Continue.dev"     },
+  { id: "Codeium"          },
+  { id: "Amazon Q"         },
+  { id: "Perplexity"       },
+  { id: "Midjourney"       },
+  { id: "DALL-E"           },
+  { id: "Stable Diffusion" },
+  { id: "Ideogram"         },
+  { id: "Flux"             },
+  { id: "Runway"           },
+  { id: "Kling"            },
+  { id: "Pika"             },
+  { id: "Suno"             },
+  { id: "ElevenLabs"       },
 ];
+
+const AI_TOOL_DOMAINS: Record<string, string> = {
+  "ChatGPT":           "chatgpt.com",
+  "Claude Code":       "claude.ai",
+  "Cursor":            "cursor.com",
+  "GitHub Copilot":    "github.com",
+  "Gemini":            "gemini.google.com",
+  "v0":                "v0.dev",
+  "Bolt.new":          "bolt.new",
+  "Windsurf":          "windsurf.com",
+  "Lovable":           "lovable.dev",
+  "Replit AI":         "replit.com",
+  "Devin":             "cognition.ai",
+  "Aider":             "aider.chat",
+  "Continue.dev":      "continue.dev",
+  "Codeium":           "codeium.com",
+  "Amazon Q":          "aws.amazon.com",
+  "Perplexity":        "perplexity.ai",
+  "Midjourney":        "midjourney.com",
+  "DALL-E":            "openai.com",
+  "Stable Diffusion":  "stability.ai",
+  "Ideogram":          "ideogram.ai",
+  "Flux":              "blackforestlabs.ai",
+  "Runway":            "runwayml.com",
+  "Kling":             "klingai.com",
+  "Pika":              "pika.art",
+  "Suno":              "suno.com",
+  "ElevenLabs":        "elevenlabs.io",
+};
+
+function AiToolLogo({ id, size = 13 }: { id: string; size?: number }) {
+  const domain = AI_TOOL_DOMAINS[id];
+  if (!domain) return null;
+  return (
+    <img
+      src={`https://www.google.com/s2/favicons?domain=${domain}&sz=32`}
+      alt={id}
+      width={size}
+      height={size}
+      style={{ borderRadius: 3, display: "block", flexShrink: 0 }}
+    />
+  );
+}
 
 const AI_TOOLS_INITIAL = 5;
 
@@ -339,18 +382,16 @@ function ProjectRow({ project, onDelete, onEdit, isDragging, isDragOver, isLast,
           )}
         </div>
         <div className="flex flex-wrap gap-1.5">
-          {(project.tags ?? []).map(tag => {
-            const tool = AI_TOOLS.find(t => t.id === tag);
-            return (
-              <span key={tag} className="flex items-center gap-1 px-2 py-0.5 rounded-full"
-                style={{
-                  background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.3)",
-                  color: "#f59e0b", fontSize: "0.62rem", fontWeight: 700, fontFamily: "var(--font-nunito)",
-                }}>
-                {tool ? `${tool.emoji} ${tag}` : tag}
-              </span>
-            );
-          })}
+          {(project.tags ?? []).map(tag => (
+            <span key={tag} className="flex items-center gap-1 px-2 py-0.5 rounded-full"
+              style={{
+                background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.3)",
+                color: "#f59e0b", fontSize: "0.62rem", fontWeight: 700, fontFamily: "var(--font-nunito)",
+              }}>
+              <AiToolLogo id={tag} size={11} />
+              {tag}
+            </span>
+          ))}
         </div>
       </div>
       <span className="shrink-0 px-2.5 py-1 rounded-full text-xs font-bold"
@@ -689,53 +730,29 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
               style={{ resize: "vertical" }} />
           </Field>
 
-          {/* 썸네일 유형 + 콘텐츠 유형 */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-bold mb-2"
-                style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", letterSpacing: "0.05em" }}>
-                썸네일 유형
-              </label>
-              <div className="flex gap-2">
-                {(["image", "video"] as const).map(t => (
-                  <button key={t} type="button"
-                    onClick={() => setForm(prev => ({ ...prev, type: t }))}
-                    className="flex-1 py-2 rounded-xl text-sm font-bold transition-all duration-150"
+          {/* 콘텐츠 유형 — 풀 너비 */}
+          <div>
+            <label className="block text-xs font-bold mb-2"
+              style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", letterSpacing: "0.05em" }}>
+              콘텐츠 유형
+            </label>
+            <div className="flex flex-wrap gap-1.5">
+              {CONTENT_TYPES.map(ct => {
+                const active = form.content_type === ct.id;
+                return (
+                  <button key={ct.id} type="button"
+                    onClick={() => setForm(prev => ({ ...prev, content_type: active ? null : ct.id }))}
+                    className="px-2.5 py-1 rounded-full text-xs font-bold transition-all duration-100"
                     style={{
-                      background: form.type === t ? (t === "video" ? "rgba(168,85,247,0.15)" : "var(--blue-tint)") : "var(--bg)",
-                      border: `1px solid ${form.type === t ? (t === "video" ? "rgba(168,85,247,0.5)" : "var(--blue)") : "var(--border)"}`,
-                      color: form.type === t ? (t === "video" ? "#a855f7" : "var(--blue)") : "var(--text-muted)",
+                      background: active ? "var(--blue-tint)" : "var(--bg)",
+                      border: `1px solid ${active ? "var(--blue)" : "var(--border)"}`,
+                      color: active ? "var(--blue)" : "var(--text-muted)",
                       fontFamily: "var(--font-nunito)", cursor: "pointer",
                     }}>
-                    {t === "image" ? "🖼️ 이미지" : "🎬 영상"}
+                    {ct.emoji} {ct.label}
                   </button>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold mb-2"
-                style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", letterSpacing: "0.05em" }}>
-                콘텐츠 유형
-              </label>
-              <div className="flex flex-wrap gap-1.5">
-                {CONTENT_TYPES.map(ct => {
-                  const active = form.content_type === ct.id;
-                  return (
-                    <button key={ct.id} type="button"
-                      onClick={() => setForm(prev => ({ ...prev, content_type: active ? null : ct.id }))}
-                      className="px-2.5 py-1 rounded-full text-xs font-bold transition-all duration-100"
-                      style={{
-                        background: active ? "var(--blue-tint)" : "var(--bg)",
-                        border: `1px solid ${active ? "var(--blue)" : "var(--border)"}`,
-                        color: active ? "var(--blue)" : "var(--text-muted)",
-                        fontFamily: "var(--font-nunito)", cursor: "pointer",
-                      }}>
-                      {ct.emoji} {ct.label}
-                    </button>
-                  );
-                })}
-              </div>
+                );
+              })}
             </div>
           </div>
 
@@ -796,6 +813,29 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
             </div>
           </div>
 
+          {/* 썸네일 유형 */}
+          <div>
+            <label className="block text-xs font-bold mb-2"
+              style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", letterSpacing: "0.05em" }}>
+              썸네일 유형
+            </label>
+            <div className="flex gap-2">
+              {(["image", "video"] as const).map(t => (
+                <button key={t} type="button"
+                  onClick={() => setForm(prev => ({ ...prev, type: t }))}
+                  className="flex-1 py-2 rounded-xl text-sm font-bold transition-all duration-150"
+                  style={{
+                    background: form.type === t ? (t === "video" ? "rgba(168,85,247,0.15)" : "var(--blue-tint)") : "var(--bg)",
+                    border: `1px solid ${form.type === t ? (t === "video" ? "rgba(168,85,247,0.5)" : "var(--blue)") : "var(--border)"}`,
+                    color: form.type === t ? (t === "video" ? "#a855f7" : "var(--blue)") : "var(--text-muted)",
+                    fontFamily: "var(--font-nunito)", cursor: "pointer",
+                  }}>
+                  {t === "image" ? "🖼️ 이미지" : "🎬 영상"}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* AI 도구 */}
           <div>
             <label className="block text-xs font-bold mb-2"
@@ -808,14 +848,14 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
                 const active = selectedTools.includes(tool.id);
                 return (
                   <button key={tool.id} type="button" onClick={() => toggleTool(tool.id)}
-                    className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold transition-all duration-100"
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold transition-all duration-100"
                     style={{
                       background: active ? "rgba(245,158,11,0.15)" : "var(--bg)",
                       border: `1px solid ${active ? "rgba(245,158,11,0.6)" : "var(--border)"}`,
                       color: active ? "#f59e0b" : "var(--text-muted)",
                       fontFamily: "var(--font-nunito)", cursor: "pointer",
                     }}>
-                    <span>{tool.emoji}</span>
+                    <AiToolLogo id={tool.id} size={13} />
                     <span>{tool.id}</span>
                   </button>
                 );
