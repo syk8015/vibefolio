@@ -4,15 +4,7 @@ import HomeProfileMenu from "@/components/HomeProfileMenu";
 import PortfolioPipSection from "@/components/PortfolioPipSection";
 import ThemeToggle from "@/components/ThemeToggle";
 import GlitchHeadline from "@/components/GlitchHeadline";
-
-const LOGGED_IN_HEADLINES = [
-  { line1: "만든 것들을",      line2: "세상에 푸시하세요.",     mono: false },
-  { line1: "나의 작업물을",    line2: "세상에 릴리즈하세요.",   mono: false },
-  { line1: "아이디어에서",     line2: "프로덕션까지.",          mono: false },
-  { line1: "당신이 만든 것이", line2: "당신의 이력서입니다.",   mono: false },
-  { line1: "git push 하듯",   line2: "나를 공유하세요.",       mono: true  },
-  { line1: "README보다",      line2: "멋진 자기소개.",          mono: false },
-];
+import LoggedInHeadline from "@/components/LoggedInHeadline";
 
 const STAT_TAGLINES = [
   "나랑 같은 토큰을 쓰는 동료들",
@@ -56,7 +48,6 @@ export default async function LandingPage() {
   ]);
 
   const tagline = STAT_TAGLINES[Math.floor(Math.random() * STAT_TAGLINES.length)];
-  const headline = LOGGED_IN_HEADLINES[Math.floor(Math.random() * LOGGED_IN_HEADLINES.length)];
 
   const meta = user?.user_metadata || {};
   const username = meta.username || user?.email?.split("@")[0] || "";
@@ -85,18 +76,7 @@ export default async function LandingPage() {
           <p className="text-sm font-bold" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
             안녕하세요, <span style={{ color: "var(--blue)" }}>{name}</span>님!
           </p>
-          <h1
-            className="font-black leading-tight"
-            style={{ fontFamily: "var(--font-nunito)", color: "var(--text-primary)", fontSize: "clamp(2rem, 5vw, 3.5rem)", letterSpacing: "-0.03em" }}
-          >
-            <span style={headline.mono ? { fontFamily: "'Courier New', Monaco, monospace", fontSize: "0.85em" } : undefined}>
-              {headline.line1}
-            </span>
-            <br />
-            <span style={{ background: "linear-gradient(120deg, var(--blue) 0%, var(--blue-bright) 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-              {headline.line2}
-            </span>
-          </h1>
+          <LoggedInHeadline />
           <div className="flex flex-wrap justify-center items-center gap-3 mt-4">
             <Link href={`/${username}`}
               className="px-7 py-3.5 rounded-full font-bold text-sm transition-opacity hover:opacity-80"
