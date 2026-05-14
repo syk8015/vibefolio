@@ -657,6 +657,18 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
           {/* File upload */}
           {uploadMode === "files" && (
             <div className="flex flex-col gap-3">
+              {/* Guide notice */}
+              <div className="flex gap-2.5 px-3.5 py-3 rounded-xl"
+                style={{ background: "rgba(245,158,11,0.07)", border: "1px solid rgba(245,158,11,0.25)" }}>
+                <span style={{ fontSize: "0.85rem", flexShrink: 0, marginTop: "1px" }}>💡</span>
+                <div style={{ fontFamily: "var(--font-nunito)", fontSize: "0.72rem", color: "var(--text-secondary)", lineHeight: 1.7 }}>
+                  <span style={{ fontWeight: 700, color: "#f59e0b" }}>React / Vue / Vite 프로젝트라면</span>{" "}
+                  소스 폴더 대신 <code style={{ background: "rgba(245,158,11,0.12)", padding: "1px 5px", borderRadius: 4, fontSize: "0.68rem" }}>npm run build</code> 후 생성된{" "}
+                  <code style={{ background: "rgba(245,158,11,0.12)", padding: "1px 5px", borderRadius: 4, fontSize: "0.68rem" }}>dist/</code> 폴더를 올려주세요.
+                  순수 HTML/CSS/JS 파일은 그대로 올려도 돼요.
+                </div>
+              </div>
+
               <input ref={fileInputRef} type="file" className="hidden" multiple
                 accept=".html,.css,.js,.ts,.jsx,.tsx,.json,.svg,.png,.jpg,.jpeg,.gif,.webp,.woff,.woff2,.ttf"
                 onChange={e => e.target.files && handleFilesUpload(e.target.files)} />
