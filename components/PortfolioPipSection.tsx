@@ -247,31 +247,22 @@ export default function PortfolioPipSection({ profiles }: Props) {
         </p>
 
         {atBottom ? (
-          <div style={{ position: "relative", display: "inline-block" }}>
-            {/* Base layer — muted */}
-            <span style={{ fontSize: "0.65rem", fontFamily: "var(--font-nunito)", color: "var(--text-muted)", whiteSpace: "nowrap" }}>
-              ↓ 계속 스크롤하여 다음 명함으로
-            </span>
-            {/* Blue fill layer — clipped from left */}
-            <span
-              aria-hidden
-              style={{
-                position: "absolute",
-                inset: 0,
-                overflow: "hidden",
-                width: `${gaugeProgress}%`,
-                whiteSpace: "nowrap",
-                fontSize: "0.65rem",
-                fontFamily: "var(--font-nunito)",
-                color: "var(--blue-bright)",
-                transition: "width 0.05s linear",
-              }}
-            >
-              ↓ 계속 스크롤하여 다음 명함으로
-            </span>
-          </div>
+          <p
+            style={{
+              fontSize: "0.65rem",
+              fontFamily: "var(--font-nunito)",
+              color: gaugeProgress > 0 ? "var(--blue)" : "var(--text-secondary)",
+              opacity: 0.55 + (gaugeProgress / 100) * 0.45,
+              textShadow: gaugeProgress > 15
+                ? `0 0 ${Math.round(4 + gaugeProgress * 0.1)}px var(--blue), 0 0 ${Math.round(8 + gaugeProgress * 0.16)}px var(--blue-glow)`
+                : "none",
+              transition: "color 0.15s, opacity 0.05s linear, text-shadow 0.1s",
+            }}
+          >
+            ↓ 계속 스크롤하여 다음 명함으로
+          </p>
         ) : (
-          <p style={{ fontSize: "0.65rem", color: "var(--text-muted)", fontFamily: "var(--font-nunito)", opacity: 0.6 }}>
+          <p style={{ fontSize: "0.65rem", color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
             ↕ 스크롤하면 프로젝트가 보여요
           </p>
         )}
