@@ -5,9 +5,9 @@ import { useState, useEffect, useRef } from "react";
 const PHRASES = ["AI로 만든 결과물", "당신의 창작물"];
 const CHARS = "!<>_\\/[]{}|=+*^?#$0123456789ABCDEFabcdef가나다라마";
 
-const INTERVAL_MS = 10000;
+const INTERVAL_MS = 5000;
 const FRAME_MS = 45;
-const TOTAL_FRAMES = 18; // 45ms × 18 = 810ms scramble
+const TOTAL_FRAMES = 20; // 45ms × 20 = 900ms scramble
 
 export default function GlitchHeadline() {
   const [text, setText] = useState(PHRASES[0]);
@@ -30,13 +30,15 @@ export default function GlitchHeadline() {
           indexRef.current = next;
           return;
         }
-        // Left-to-right settling: earlier chars lock in first
-        const settled = Math.floor(target.length * (frame / TOTAL_FRAMES));
+        // Quadratic easing: slow start, fast finish
+        // At 50% frames → only 25% of chars settled
+        const progress = Math.pow(frame / TOTAL_FRAMES, 2);
+        const settled = Math.floor(target.length * progress);
         setText(
           target
             .split("")
             .map((ch, i) => {
-              if (ch === " ") return " "; // non-breaking space
+              if (ch === " ") return " ";
               if (i < settled) return ch;
               return CHARS[Math.floor(Math.random() * CHARS.length)];
             })
@@ -52,13 +54,7 @@ export default function GlitchHeadline() {
   return (
     <span
       className={glitching ? "glitch-active" : ""}
-      style={{
-        display: "inline-block",
-        background: "linear-gradient(120deg, var(--blue) 0%, var(--blue-bright) 100%)",
-        WebkitBackgroundClip: "text",
-        WebkitTextFillColor: "transparent",
-        backgroundClip: "text",
-      }}
+      style={{ display: "inline-block" }}
     >
       {text}
     </span>
