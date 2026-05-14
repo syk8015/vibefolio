@@ -253,10 +253,11 @@ export default function PortfolioPipSection({ profiles }: Props) {
               const isLit = gaugeProgress >= threshold;
               return (
                 <span
-                  key={i}
+                  key={isLit ? `${i}-lit` : i}
+                  className={isLit ? "vf-char-pop" : undefined}
                   style={{
-                    color: isLit ? "var(--blue-bright)" : "var(--text-secondary)",
-                    transition: "color 0.12s ease",
+                    display: "inline-block",
+                    color: isLit ? "#38bdf8" : "var(--text-secondary)",
                   }}
                 >
                   {char}
