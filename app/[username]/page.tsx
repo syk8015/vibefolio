@@ -150,6 +150,72 @@ export default async function UserPortfolioPage({
           </span>
           <ThemeToggle />
           <CopyLinkButton username={p.username} />
+
+          {/* Auth pill */}
+          {isOwner ? (
+            <Link
+              href="/dashboard"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition-opacity hover:opacity-80"
+              style={{
+                background: "var(--blue)",
+                color: "#fff",
+                fontFamily: "var(--font-nunito)",
+                textDecoration: "none",
+                boxShadow: "0 0 12px var(--blue-glow)",
+              }}
+            >
+              <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
+                <path d="M7.5 1.5l3 3L4 11H1V8L7.5 1.5z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              명함 수정
+            </Link>
+          ) : currentUser ? (
+            <Link
+              href="/dashboard"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-bold transition-opacity hover:opacity-75"
+              style={{
+                border: "1px solid var(--border-bright)",
+                color: "var(--text-secondary)",
+                fontFamily: "var(--font-nunito)",
+                textDecoration: "none",
+                background: "var(--surface)",
+              }}
+            >
+              {currentUser.user_metadata?.avatar_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={currentUser.user_metadata.avatar_url as string}
+                  alt=""
+                  width={16}
+                  height={16}
+                  style={{ borderRadius: "50%", display: "block", flexShrink: 0 }}
+                />
+              ) : (
+                <div style={{
+                  width: 16, height: 16, borderRadius: "50%", flexShrink: 0,
+                  background: "linear-gradient(135deg, var(--blue), var(--blue-bright))",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: "0.55rem", fontWeight: 900, color: "#fff",
+                }}>
+                  {(currentUser.user_metadata?.name as string || currentUser.email || "?").charAt(0).toUpperCase()}
+                </div>
+              )}
+              내 명함
+            </Link>
+          ) : (
+            <Link
+              href="/login"
+              className="px-3.5 py-1.5 rounded-full text-xs font-bold transition-opacity hover:opacity-80"
+              style={{
+                border: "1px solid var(--border-bright)",
+                color: "var(--text-secondary)",
+                fontFamily: "var(--font-nunito)",
+                textDecoration: "none",
+              }}
+            >
+              로그인
+            </Link>
+          )}
         </div>
       </nav>
 
