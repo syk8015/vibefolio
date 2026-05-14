@@ -3,11 +3,10 @@
 import { useState, useEffect, useRef } from "react";
 
 const PHRASES = ["AI로 만든 결과물", "당신의 창작물"];
-const CHARS = "!<>_\\/[]{}|=+*^?#$0123456789ABCDEFabcdef가나다라마";
 
 const INTERVAL_MS = 5000;
-const FRAME_MS = 45;
-const TOTAL_FRAMES = 20; // 45ms × 20 = 900ms scramble
+const GLITCH_MS = 420;   // total glitch duration
+const SWITCH_MS = 180;   // swap text halfway through
 
 export default function GlitchHeadline() {
   const [text, setText] = useState(PHRASES[0]);
@@ -17,34 +16,19 @@ export default function GlitchHeadline() {
   useEffect(() => {
     const run = () => {
       const next = (indexRef.current + 1) % PHRASES.length;
-      const target = PHRASES[next];
       setGlitching(true);
 
-      let frame = 0;
-      const id = setInterval(() => {
-        frame++;
-        if (frame >= TOTAL_FRAMES) {
-          clearInterval(id);
-          setText(target);
-          setGlitching(false);
-          indexRef.current = next;
-          return;
-        }
-        // Quadratic easing: slow start, fast finish
-        // At 50% frames → only 25% of chars settled
-        const progress = Math.pow(frame / TOTAL_FRAMES, 2);
-        const settled = Math.floor(target.length * progress);
-        setText(
-          target
-            .split("")
-            .map((ch, i) => {
-              if (ch === " ") return " ";
-              if (i < settled) return ch;
-              return CHARS[Math.floor(Math.random() * CHARS.length)];
-            })
-            .join("")
-        );
-      }, FRAME_MS);
+      // Swap text mid-glitch so it feels like the distortion causes the change
+      const swapTimer = setTimeout(() => {
+        setText(PHRASES[next]);
+        indexRef.current = next;
+      }, SWITCH_MS);
+
+      const endTimer = setTimeout(() => {
+        setGlitching(false);
+      }, GLITCH_MS);
+
+      return () => { clearTimeout(swapTimer); clearTimeout(endTimer); };
     };
 
     const timer = setInterval(run, INTERVAL_MS);

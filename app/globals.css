@@ -211,21 +211,19 @@ body::before {
 }
 /* Glitch headline animation */
 @keyframes glitch-jitter {
-  0%   { transform: translate(0, 0)       skewX(0deg);  filter: hue-rotate(0deg);   }
-  10%  { transform: translate(-4px, 0)    skewX(-6deg); filter: hue-rotate(90deg);  }
-  20%  { transform: translate(4px, 1px)   skewX(5deg);  filter: hue-rotate(200deg); }
-  30%  { transform: translate(-2px, -1px) skewX(-3deg); filter: hue-rotate(30deg);  }
-  40%  { transform: translate(3px, 0)     skewX(4deg);  filter: hue-rotate(270deg); }
-  50%  { transform: translate(-3px, 1px)  skewX(-4deg); filter: hue-rotate(130deg); }
-  60%  { transform: translate(2px, -1px)  skewX(3deg);  filter: hue-rotate(200deg); }
-  70%  { transform: translate(-2px, 0)    skewX(-2deg); filter: hue-rotate(60deg);  }
-  80%  { transform: translate(2px, 1px)   skewX(2deg);  filter: hue-rotate(300deg); }
-  90%  { transform: translate(-1px, -1px) skewX(-1deg); filter: hue-rotate(90deg);  }
-  100% { transform: translate(0, 0)       skewX(0deg);  filter: hue-rotate(0deg);   }
+  0%   { transform: translate(0, 0) skewX(0deg);       text-shadow: none;                              filter: hue-rotate(0deg);   opacity: 1;    }
+  12%  { transform: translate(-3px, 0) skewX(-4deg);   text-shadow: 3px 0 #ff2d55, -3px 0 #00d4ff;   filter: hue-rotate(90deg);  opacity: 0.85; }
+  25%  { transform: translate(3px, 1px) skewX(4deg);   text-shadow: -3px 0 #ff2d55, 3px 0 #00d4ff;   filter: hue-rotate(200deg); opacity: 1;    }
+  37%  { transform: translate(-2px, -1px) skewX(-3deg); text-shadow: 2px 0 #ff2d55, -2px 0 #00d4ff;  filter: hue-rotate(30deg);  opacity: 0.9;  }
+  50%  { transform: translate(2px, 0) skewX(3deg);     text-shadow: -4px 0 #ff2d55, 4px 0 #00d4ff;   filter: hue-rotate(270deg); opacity: 0.8;  }
+  62%  { transform: translate(-2px, 1px) skewX(-2deg); text-shadow: 2px 0 #ff2d55, -2px 0 #00d4ff;   filter: hue-rotate(130deg); opacity: 0.95; }
+  75%  { transform: translate(1px, -1px) skewX(2deg);  text-shadow: 1px 0 #ff2d55, -1px 0 #00d4ff;   filter: hue-rotate(60deg);  opacity: 1;    }
+  88%  { transform: translate(-1px, 0) skewX(-1deg);   text-shadow: 1px 0 #ff2d5540, -1px 0 #00d4ff40; filter: hue-rotate(20deg); opacity: 1;   }
+  100% { transform: translate(0, 0) skewX(0deg);       text-shadow: none;                              filter: hue-rotate(0deg);   opacity: 1;    }
 }
 
 .glitch-active {
-  animation: glitch-jitter 0.055s steps(1) infinite;
+  animation: glitch-jitter 0.06s steps(1) infinite;
   will-change: transform, filter;
 }
 
