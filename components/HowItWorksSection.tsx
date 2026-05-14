@@ -1,13 +1,12 @@
 "use client";
 
 import { useRef, useEffect, useState } from "react";
-import type { ReactNode } from "react";
 
 function clamp(v: number, lo: number, hi: number) {
   return Math.max(lo, Math.min(hi, v));
 }
 
-function PersonIcon({ size = 32 }: { size?: number }) {
+function PersonIcon({ size = 22 }: { size?: number }) {
   return (
     <svg width={size} height={Math.round(size * 1.4)} viewBox="0 0 24 34" fill="var(--blue)">
       <circle cx="12" cy="7" r="5.5" />
@@ -18,74 +17,87 @@ function PersonIcon({ size = 32 }: { size?: number }) {
 
 function PersonRow({ count, opacity }: { count: number; opacity: number }) {
   return (
-    <div style={{ opacity, transition: "opacity 0.55s ease", display: "flex", gap: 12 }}>
+    <div style={{ opacity, transition: "opacity 0.5s ease", display: "flex", gap: 8 }}>
       {Array.from({ length: count }).map((_, i) => (
-        <PersonIcon key={i} size={34} />
+        <PersonIcon key={i} size={22} />
       ))}
     </div>
   );
 }
 
-function TallCard({
-  num, title, sub, subColor, opacity, children,
+function HorizCard({
+  num, title, sub, subColor, opacity, right,
 }: {
   num: string;
   title: string;
   sub: string;
   subColor: string;
   opacity: number;
-  children?: ReactNode;
+  right?: React.ReactNode;
 }) {
   return (
     <div
       style={{
-        borderRadius: 20,
+        borderRadius: 18,
         background: "var(--surface)",
         border: "1px solid var(--border)",
-        padding: "2rem 1.75rem",
-        height: 420,
-        opacity,
-        transform: `translateY(${clamp((1 - Math.min(opacity * 2.5, 1)) * 28, 0, 28)}px)`,
-        transition: "opacity 0.5s ease, transform 0.5s ease",
+        padding: "1.5rem 2rem",
         display: "flex",
-        flexDirection: "column",
+        alignItems: "center",
+        gap: "1.5rem",
+        opacity,
+        transform: `translateY(${clamp((1 - Math.min(opacity * 2.5, 1)) * 20, 0, 20)}px)`,
+        transition: "opacity 0.45s ease, transform 0.45s ease",
+        minHeight: 110,
       }}
     >
+      {/* Number */}
       <span
         style={{
+          fontFamily: "var(--font-nunito)",
           fontSize: "0.7rem",
           fontWeight: 800,
           letterSpacing: "0.12em",
           color: "var(--border-bright)",
-          fontFamily: "var(--font-nunito)",
+          flexShrink: 0,
+          width: 24,
         }}
       >
         {num}
       </span>
-      <h3
-        style={{
-          fontFamily: "var(--font-nunito)",
-          fontWeight: 800,
-          fontSize: "1rem",
-          color: "var(--text-primary)",
-          margin: "0.75rem 0 0.35rem",
-          lineHeight: 1.3,
-        }}
-      >
-        {title}
-      </h3>
-      <p
-        style={{
-          fontFamily: "var(--font-nunito)",
-          fontSize: "0.72rem",
-          color: subColor,
-          fontWeight: 600,
-          margin: 0,
-        }}
-      >
-        {sub}
-      </p>
-      {children}
+
+      {/* Text */}
+      <div style={{ flex: 1 }}>
+        <h3
+          style={{
+            fontFamily: "var(--font-nunito)",
+            fontWeight: 800,
+            fontSize: "0.95rem",
+            color: "var(--text-primary)",
+            margin: "0 0 0.3rem",
+          }}
+        >
+          {title}
+        </h3>
+        <p
+          style={{
+            fontFamily: "var(--font-nunito)",
+            fontSize: "0.72rem",
+            color: subColor,
+            fontWeight: 600,
+            margin: 0,
+          }}
+        >
+          {sub}
+        </p>
+      </div>
+
+      {/* Right slot (animation) */}
+      {right && (
+        <div style={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+          {right}
+        </div>
+      )}
     </div>
   );
 }
@@ -108,10 +120,11 @@ export default function HowItWorksSection() {
     return () => window.removeEventListener("scroll", update);
   }, []);
 
-  const titleProg = clamp(progress / 0.22, 0, 1);
-  const card1Prog = clamp((progress - 0.18) / 0.36, 0, 1);
-  const card2Prog = clamp((progress - 0.56) / 0.22, 0, 1);
-  const card3Prog = clamp((progress - 0.79) / 0.20, 0, 1);
+  // Tighter phases — total 180vh (80vh of scroll)
+  const titleProg = clamp(progress / 0.20, 0, 1);
+  const card1Prog = clamp((progress - 0.16) / 0.30, 0, 1);
+  const card2Prog = clamp((progress - 0.46) / 0.28, 0, 1);
+  const card3Prog = clamp((progress - 0.72) / 0.28, 0, 1);
 
   const row1 = clamp(card1Prog / 0.30, 0, 1);
   const row2 = clamp((card1Prog - 0.33) / 0.34, 0, 1);
@@ -120,7 +133,7 @@ export default function HowItWorksSection() {
   const titleChars = [..."How it works"];
 
   return (
-    <div ref={wrapperRef} style={{ height: "280vh", position: "relative" }}>
+    <div ref={wrapperRef} style={{ height: "180vh", position: "relative" }}>
       <div
         style={{
           position: "sticky",
@@ -131,10 +144,10 @@ export default function HowItWorksSection() {
           alignItems: "center",
           justifyContent: "center",
           padding: "0 2rem",
-          gap: "3rem",
+          gap: "2.5rem",
         }}
       >
-        {/* Title — plain large text, scroll-reveal per character */}
+        {/* Heading — scroll-reveal per character */}
         <h2
           style={{
             fontFamily: "var(--font-nunito)",
@@ -162,44 +175,34 @@ export default function HowItWorksSection() {
           ))}
         </h2>
 
-        {/* Three tall cards — 3 columns */}
+        {/* 3 rows of horizontal cards */}
         <div
           style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(3, 1fr)",
-            gap: "1.25rem",
+            display: "flex",
+            flexDirection: "column",
+            gap: "0.875rem",
             width: "100%",
-            maxWidth: 900,
+            maxWidth: 760,
           }}
         >
-          {/* Card 1 — person pyramid */}
-          <TallCard
+          {/* Card 1 */}
+          <HorizCard
             num="01"
             title="가입하고 사용자명 설정"
             sub="vibefolio.vercel.app/username"
             subColor="var(--blue)"
             opacity={card1Prog}
-          >
-            <div
-              style={{
-                flex: 1,
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "flex-end",
-                gap: 12,
-                paddingTop: "1.5rem",
-                paddingBottom: 8,
-              }}
-            >
-              <PersonRow count={1} opacity={row1} />
-              <PersonRow count={2} opacity={row2} />
-              <PersonRow count={3} opacity={row3} />
-            </div>
-          </TallCard>
+            right={
+              <>
+                <PersonRow count={1} opacity={row1} />
+                <PersonRow count={2} opacity={row2} />
+                <PersonRow count={3} opacity={row3} />
+              </>
+            }
+          />
 
-          {/* Card 2 — placeholder */}
-          <TallCard
+          {/* Card 2 */}
+          <HorizCard
             num="02"
             title="프로젝트 추가"
             sub="배포된 사이트 주소 또는 결과물 파일"
@@ -207,8 +210,8 @@ export default function HowItWorksSection() {
             opacity={0.1 + card2Prog * 0.9}
           />
 
-          {/* Card 3 — placeholder */}
-          <TallCard
+          {/* Card 3 */}
+          <HorizCard
             num="03"
             title="링크 하나로 공유"
             sub="이력서 · SNS · 채용 지원"
