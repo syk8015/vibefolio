@@ -247,24 +247,19 @@ export default function PortfolioPipSection({ profiles }: Props) {
         </p>
 
         {atBottom ? (
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-            <p style={{ fontSize: "0.65rem", color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
-              ↓ 계속 스크롤하여 다음 명함으로
-            </p>
-            {/* Next gauge */}
-            <div style={{ width: 140, height: 3, borderRadius: 999, background: "rgba(255,255,255,0.07)", overflow: "hidden" }}>
-              <div
-                style={{
-                  height: "100%",
-                  width: `${gaugeProgress}%`,
-                  background: "linear-gradient(90deg, var(--blue), var(--blue-bright))",
-                  borderRadius: 999,
-                  transition: "width 0.05s linear",
-                  boxShadow: gaugeProgress > 10 ? "0 0 6px var(--blue)" : "none",
-                }}
-              />
-            </div>
-          </div>
+          <p
+            style={{
+              fontSize: "0.65rem",
+              fontFamily: "var(--font-nunito)",
+              background: `linear-gradient(90deg, var(--blue-bright) ${gaugeProgress}%, var(--text-muted) ${gaugeProgress}%)`,
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+              backgroundClip: "text",
+              transition: "background 0.05s linear",
+            }}
+          >
+            ↓ 계속 스크롤하여 다음 명함으로
+          </p>
         ) : (
           <p style={{ fontSize: "0.65rem", color: "var(--text-muted)", fontFamily: "var(--font-nunito)", opacity: 0.6 }}>
             ↕ 스크롤하면 프로젝트가 보여요
