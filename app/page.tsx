@@ -53,11 +53,7 @@ export default async function LandingPage() {
   const name = meta.name || username;
   const avatarUrl = meta.avatar_url as string | undefined;
 
-  // Pick a random profile for the PiP preview
-  const profiles = featuredProfiles as FeaturedProfile[] | null;
-  const pipProfile = profiles && profiles.length > 0
-    ? profiles[Math.floor(Math.random() * profiles.length)]
-    : null;
+  const profiles = (featuredProfiles as FeaturedProfile[] | null) ?? [];
 
   /* ─── Logged-in home ─── */
   if (user) {
@@ -186,7 +182,7 @@ export default async function LandingPage() {
         </p>
 
         {/* Scroll hint */}
-        {pipProfile && (
+        {profiles.length > 0 && (
           <div className="absolute bottom-10 flex flex-col items-center gap-2 animate-bounce">
             <p className="text-xs" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
               실제 명함 보기
@@ -253,12 +249,9 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      {/* PiP portfolio preview — scroll-synced */}
-      {pipProfile && (
-        <PortfolioPipSection
-          url={`/${pipProfile.username}`}
-          displayUsername={pipProfile.username}
-        />
+      {/* PiP portfolio preview — scroll-synced, cycles through profiles */}
+      {profiles.length > 0 && (
+        <PortfolioPipSection profiles={profiles} />
       )}
 
       <footer className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 py-6 relative z-10" style={{ borderTop: "1px solid var(--border)" }}>
