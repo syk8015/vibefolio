@@ -247,7 +247,7 @@ export default function PortfolioPipSection({ profiles }: Props) {
         </p>
 
         {atBottom ? (
-          <p style={{ fontSize: "0.65rem", fontFamily: "var(--font-nunito)", letterSpacing: "0.01em" }}>
+          <p style={{ fontSize: "0.85rem", fontFamily: "var(--font-nunito)", letterSpacing: "0.01em" }}>
             {[..."↓ 계속 스크롤하여 다음 명함으로"].map((char, i, arr) => {
               const threshold = (i / arr.length) * 100;
               const isLit = gaugeProgress >= threshold;
@@ -265,7 +265,7 @@ export default function PortfolioPipSection({ profiles }: Props) {
             })}
           </p>
         ) : (
-          <p style={{ fontSize: "0.65rem", color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
+          <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
             ↕ 스크롤하면 프로젝트가 보여요
           </p>
         )}
