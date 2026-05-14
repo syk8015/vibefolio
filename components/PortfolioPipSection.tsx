@@ -247,19 +247,22 @@ export default function PortfolioPipSection({ profiles }: Props) {
         </p>
 
         {atBottom ? (
-          <p
-            style={{
-              fontSize: "0.65rem",
-              fontFamily: "var(--font-nunito)",
-              color: gaugeProgress > 0 ? "var(--blue)" : "var(--text-secondary)",
-              opacity: 0.55 + (gaugeProgress / 100) * 0.45,
-              textShadow: gaugeProgress > 15
-                ? `0 0 ${Math.round(4 + gaugeProgress * 0.1)}px var(--blue), 0 0 ${Math.round(8 + gaugeProgress * 0.16)}px var(--blue-glow)`
-                : "none",
-              transition: "color 0.15s, opacity 0.05s linear, text-shadow 0.1s",
-            }}
-          >
-            ↓ 계속 스크롤하여 다음 명함으로
+          <p style={{ fontSize: "0.65rem", fontFamily: "var(--font-nunito)", letterSpacing: "0.01em" }}>
+            {[..."↓ 계속 스크롤하여 다음 명함으로"].map((char, i, arr) => {
+              const threshold = (i / arr.length) * 100;
+              const isLit = gaugeProgress >= threshold;
+              return (
+                <span
+                  key={i}
+                  style={{
+                    color: isLit ? "var(--blue-bright)" : "var(--text-secondary)",
+                    transition: "color 0.12s ease",
+                  }}
+                >
+                  {char}
+                </span>
+              );
+            })}
           </p>
         ) : (
           <p style={{ fontSize: "0.65rem", color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
