@@ -343,15 +343,13 @@ export default async function UserPortfolioPage({
 
       {/* Footer */}
       <footer
-        className="relative z-10 text-center py-10"
+        className="relative z-10 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 py-8"
         style={{ borderTop: "1px solid var(--border)" }}
       >
-        <p
-          className="text-xs tracking-widest uppercase"
-          style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}
-        >
-          Vibefolio · {new Date().getFullYear()}
-        </p>
+        <Link href="/terms" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem", textDecoration: "none" }}>이용약관</Link>
+        <Link href="/privacy" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem", textDecoration: "none" }}>개인정보처리방침</Link>
+        <a href="mailto:vivestarter@gmail.com" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem", textDecoration: "none" }}>문의</a>
+        <span style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem" }}>© {new Date().getFullYear()} Vibefolio</span>
       </footer>
 
       {/* Mode toggle — visible to all visitors when custom CSS exists */}
