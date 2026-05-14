@@ -48,7 +48,7 @@ function HorizCard({
         opacity,
         transform: `translateY(${clamp((1 - Math.min(opacity * 2.5, 1)) * 20, 0, 20)}px)`,
         transition: "opacity 0.45s ease, transform 0.45s ease",
-        minHeight: 110,
+        minHeight: 220,
       }}
     >
       {/* Number */}
