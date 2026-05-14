@@ -34,11 +34,20 @@ export async function GET(
   const ext = filePath.split("?")[0].split(".").pop()?.toLowerCase() ?? "";
   const contentType = MIME_MAP[ext] ?? "application/octet-stream";
 
-  return new NextResponse(upstream.body, {
-    headers: {
-      "Content-Type": contentType,
-      "Cache-Control": "public, max-age=60",
-      "X-Content-Type-Options": "nosniff",
-    },
-  });
+  const isHtml = contentType.startsWith("text/html");
+  const headers: Record<string, string> = {
+    "Content-Type": contentType,
+    "Cache-Control": "public, max-age=60",
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "no-referrer",
+  };
+  if (isHtml) {
+    // Allow scripts (needed for built Vite/React apps) but restrict framing to same origin.
+    // Full sandboxing requires serving from a separate domain.
+    headers["X-Frame-Options"] = "SAMEORIGIN";
+    headers["Content-Security-Policy"] =
+      "default-src * 'unsafe-inline' 'unsafe-eval' data: blob:; frame-ancestors 'self'";
+  }
+
+  return new NextResponse(upstream.body, { headers });
 }

@@ -14,6 +14,12 @@ interface Props {
 
 const AI_KEYWORDS = ["claude", "gpt", "gemini", "llm", "ai"];
 
+function safeHref(url: string | undefined): string | undefined {
+  if (!url) return undefined;
+  if (url.startsWith("https://") || url.startsWith("http://")) return url;
+  return undefined;
+}
+
 export default function ProjectModal({ projects, currentIndex, onClose, onNavigate }: Props) {
   const project = currentIndex !== null ? projects[currentIndex] : null;
 
@@ -226,9 +232,9 @@ export default function ProjectModal({ projects, currentIndex, onClose, onNaviga
               </svg>
             </button>
 
-            {project.demoUrl && (
+            {safeHref(project.demoUrl) && (
               <a
-                href={project.demoUrl} target="_blank" rel="noopener noreferrer"
+                href={safeHref(project.demoUrl)} target="_blank" rel="noopener noreferrer"
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-full font-bold hover:opacity-80 transition-opacity"
                 style={{ background: "var(--blue)", color: "#fff", fontFamily: "var(--font-nunito)", fontSize: "0.72rem", textDecoration: "none" }}
               >
@@ -275,7 +281,7 @@ export default function ProjectModal({ projects, currentIndex, onClose, onNaviga
                         이 사이트는 iframe 표시를 차단하고 있어요.
                       </p>
                       <a
-                        href={project.demoUrl} target="_blank" rel="noopener noreferrer"
+                        href={safeHref(project.demoUrl)} target="_blank" rel="noopener noreferrer"
                         className="flex items-center gap-2 px-5 py-2.5 rounded-full font-bold hover:opacity-80 transition-opacity"
                         style={{ background: "var(--blue)", color: "#fff", fontFamily: "var(--font-nunito)", fontSize: "0.875rem", textDecoration: "none" }}
                       >

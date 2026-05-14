@@ -4,11 +4,27 @@ function screenshotFallback(url: string) {
   return `https://image.thum.io/get/width/1200/crop/630/${url}`;
 }
 
+function isSafeUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    if (!["http:", "https:"].includes(parsed.protocol)) return false;
+    const h = parsed.hostname;
+    if (h === "localhost" || h === "127.0.0.1" || h === "::1") return false;
+    if (h === "169.254.169.254") return false;
+    if (/^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(h)) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function POST(req: NextRequest) {
   let url = "";
   try {
     ({ url } = await req.json());
     if (!url || typeof url !== "string") return NextResponse.json({ imageUrl: null });
+    if (url.length > 2048) return NextResponse.json({ imageUrl: null });
+    if (!isSafeUrl(url)) return NextResponse.json({ imageUrl: null });
 
     const res = await fetch(url, {
       headers: {

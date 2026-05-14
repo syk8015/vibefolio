@@ -8,16 +8,16 @@ import GlitchHeadline from "@/components/GlitchHeadline";
 import LoggedInHeadline from "@/components/LoggedInHeadline";
 
 const STAT_TAGLINES = [
-  "나랑 같은 토큰을 쓰는 동료들",
-  "ChatGPT한테 \"왜 안 돼요\" 물어본 사람들",
-  "스택오버플로우 대신 AI한테 물어본 사람들",
-  "Ctrl+C 없이도 뭔가 만든 사람들",
-  "기획자이자 디자이너이자 개발자인 사람들",
-  "혼자서 팀 하나를 대신하는 사람들",
-  "AI를 팀원으로 둔 솔로 창업자들",
-  "아이디어만으로 제품을 만든 빌더들",
-  "코드보다 아이디어가 먼저인 사람들",
-  "AI 네이티브 세대의 첫 포트폴리오",
+  "나랑 같은 토큰을 쓰는 동료",
+  "ChatGPT한테 \"왜 안 돼요\" 물어본 사람",
+  "스택오버플로우 대신 AI한테 물어본 사람",
+  "Ctrl+C 없이도 뭔가 만든 사람",
+  "기획자이자 디자이너이자 개발자인 사람",
+  "혼자서 팀 하나를 대신하는 사람",
+  "AI를 팀원으로 둔 솔로 창업자",
+  "아이디어만으로 제품을 만든 빌더",
+  "코드보다 아이디어가 먼저인 사람",
+  "프롬프트로 제품을 만드는 사람",
 ];
 
 function formatCount(n: number): string {
@@ -36,12 +36,10 @@ export default async function LandingPage() {
   const [
     { data: { user } },
     { count: userCount },
-    { count: projectCount },
     { data: featuredProfiles },
   ] = await Promise.all([
     supabase.auth.getUser(),
     supabase.from("profiles").select("*", { count: "exact", head: true }),
-    supabase.from("projects").select("*", { count: "exact", head: true }),
     supabase.from("profiles")
       .select("username, name")
       .order("updated_at", { ascending: true })
@@ -159,9 +157,12 @@ export default async function LandingPage() {
           </span>
         </h1>
 
-        <p className="mb-10 leading-relaxed z-10 max-w-md" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", fontSize: "1rem", fontWeight: 400 }}>
+        <p className="mb-3 leading-relaxed z-10 max-w-md" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", fontSize: "1rem", fontWeight: 400 }}>
           링크 하나로 나의 바이브코딩 결과물을 전시하세요.<br />
           5분 안에 나만의 포트폴리오 명함이 완성됩니다.
+        </p>
+        <p className="mb-10 z-10 text-sm font-semibold" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
+          Linktree는 너무 가볍고, Github는 너무 무겁다.
         </p>
 
         <div className="flex flex-wrap justify-center items-center gap-3 mb-12 z-10">
@@ -177,17 +178,12 @@ export default async function LandingPage() {
           </Link>
         </div>
 
-        {/* Stats */}
-        <div className="flex flex-col items-center gap-3 z-10">
-          <div className="flex items-center gap-8">
-            <Stat value={formatCount(userCount ?? 0)} label="바이브코더" />
-            <div className="w-px h-8" style={{ background: "var(--border)" }} />
-            <Stat value={formatCount(projectCount ?? 0)} label="업로드된 프로젝트" />
-          </div>
-          <p className="text-xs font-semibold" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
-            {tagline}
-          </p>
-        </div>
+        {/* Social proof */}
+        <p className="text-sm font-semibold z-10" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
+          {tagline}{" "}
+          <span style={{ color: "var(--blue)", fontWeight: 800 }}>{formatCount(userCount ?? 0)}명</span>
+          이 사용중이에요
+        </p>
 
         {/* Scroll hint */}
         {pipProfile && (
@@ -233,7 +229,7 @@ export default async function LandingPage() {
               number="02"
               title="프로젝트 추가"
               desc="배포 URL을 붙여넣거나, 빌드된 파일 폴더를 통째로 올리면 끝."
-              example="Vercel URL · dist/ 폴더"
+              example="배포된 사이트 주소 또는 결과물 파일"
               icon={
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
                   <path d="M12 16V8M8 12l4-4 4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
@@ -335,16 +331,3 @@ function HowItWorksStep({
   );
 }
 
-function Stat({ value, label }: { value: string; label: string }) {
-  return (
-    <div className="flex flex-col items-center gap-1">
-      <span className="text-2xl font-black"
-        style={{ fontFamily: "var(--font-nunito)", background: "linear-gradient(120deg, var(--blue), var(--blue-bright))", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-        {value}
-      </span>
-      <span className="text-xs font-semibold" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
-        {label}
-      </span>
-    </div>
-  );
-}
