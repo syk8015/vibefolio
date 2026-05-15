@@ -189,7 +189,7 @@ export default function HowItWorksSection() {
 
   return (
     <div style={{
-      padding: "6rem 2rem 5rem",
+      padding: "6rem 2rem 10rem",
       display: "flex",
       flexDirection: "column",
       alignItems: "center",

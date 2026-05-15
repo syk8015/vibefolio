@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useEffect, useState, useCallback } from "react";
+import { motion } from "framer-motion";
 
 const IFRAME_W = 1200;
 const IFRAME_H = 860;
@@ -26,6 +27,7 @@ export default function PortfolioPipSection({ profiles }: Props) {
   const [maxScroll, setMaxScroll] = useState(0);
   const [overscroll, setOverscroll] = useState(0);
   const [scale, setScale] = useState(DEFAULT_SCALE);
+  const [switchCount, setSwitchCount] = useState(0);
 
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const scrollYRef = useRef(0);
@@ -70,6 +72,7 @@ export default function PortfolioPipSection({ profiles }: Props) {
     historyRef.current = [...historyRef.current, next].slice(-MAX_HISTORY);
 
     setCurrentUsername(next);
+    setSwitchCount((c) => c + 1);
     setLoaded(false);
     scrollYRef.current = 0;
     maxScrollRef.current = 0;
@@ -174,23 +177,33 @@ export default function PortfolioPipSection({ profiles }: Props) {
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        gap: "1.25rem",
-        padding: "4rem 1.5rem 5rem",
+        gap: "2.5rem",
+        padding: "8rem 1.5rem 5rem",
       }}
     >
-      {/* Label chip */}
-      <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "6px 12px", borderRadius: 999, background: "var(--blue-tint)", border: "1px solid var(--border-bright)" }}>
-        <div style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--blue)", boxShadow: "0 0 4px var(--blue)" }} />
-        <span style={{ color: "var(--blue-bright)", fontFamily: "var(--font-nunito)", fontSize: "0.7rem", fontWeight: 700 }}>
-          실제 바이브코더 명함
-        </span>
-      </div>
+      {/* Section title — matches How it works typography */}
+      <h2 style={{
+        fontFamily: "var(--font-nunito)",
+        fontWeight: 800,
+        fontSize: "clamp(1.8rem, 3.5vw, 3rem)",
+        letterSpacing: "-0.02em",
+        lineHeight: 1,
+        margin: 0,
+        color: "var(--text-primary)",
+        textAlign: "center",
+      }}>
+        실제 바이브코더 명함
+      </h2>
 
       {/* Browser mockup */}
       <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
         <div style={{ position: "absolute", width: 700, height: 400, background: "radial-gradient(ellipse at center, rgba(77,158,255,0.12) 0%, transparent 70%)", filter: "blur(40px)", pointerEvents: "none" }} />
 
-        <div style={{ position: "relative", width: displayW, borderRadius: 12, overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 40px 100px rgba(0,0,0,0.65), 0 0 0 1px rgba(77,158,255,0.15)" }}>
+        <motion.div
+          animate={{ scale: switchCount > 0 ? [1, 1.18, 1.1] : 1 }}
+          transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+          style={{ position: "relative", width: displayW, borderRadius: 12, overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 40px 100px rgba(0,0,0,0.65), 0 0 0 1px rgba(77,158,255,0.15)" }}
+        >
           {/* Chrome bar */}
           <div style={{ height: 40, background: "#1a1a24", borderBottom: "1px solid rgba(255,255,255,0.07)", display: "flex", alignItems: "center", gap: 12, padding: "0 16px" }}>
             <div style={{ display: "flex", gap: 6 }}>
@@ -233,7 +246,7 @@ export default function PortfolioPipSection({ profiles }: Props) {
           <div style={{ height: 2, background: "rgba(255,255,255,0.04)" }}>
             <div style={{ height: "100%", width: `${iframeProgress}%`, background: "linear-gradient(90deg, var(--blue), var(--blue-bright))", transition: "width 0.1s linear" }} />
           </div>
-        </div>
+        </motion.div>
       </div>
 
       {/* Attribution + hint / gauge */}
