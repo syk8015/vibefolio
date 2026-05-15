@@ -120,11 +120,11 @@ export default function HowItWorksSection() {
     return () => window.removeEventListener("scroll", update);
   }, []);
 
-  // Tighter phases — total 180vh (80vh of scroll)
-  const titleProg = clamp(progress / 0.20, 0, 1);
-  const card1Prog = clamp((progress - 0.16) / 0.30, 0, 1);
-  const card2Prog = clamp((progress - 0.46) / 0.28, 0, 1);
-  const card3Prog = clamp((progress - 0.72) / 0.28, 0, 1);
+  // Total 150vh (50vh of scroll) — tighter pacing
+  const titleProg = clamp(progress / 0.18, 0, 1);
+  const card1Prog = clamp((progress - 0.14) / 0.28, 0, 1);
+  const card2Prog = clamp((progress - 0.40) / 0.26, 0, 1);
+  const card3Prog = clamp((progress - 0.64) / 0.26, 0, 1);
 
   const row1 = clamp(card1Prog / 0.30, 0, 1);
   const row2 = clamp((card1Prog - 0.33) / 0.34, 0, 1);
@@ -133,7 +133,7 @@ export default function HowItWorksSection() {
   const titleChars = [..."How it works"];
 
   return (
-    <div ref={wrapperRef} style={{ height: "180vh", position: "relative" }}>
+    <div ref={wrapperRef} style={{ height: "150vh", position: "relative" }}>
       <div
         style={{
           position: "sticky",
@@ -166,7 +166,7 @@ export default function HowItWorksSection() {
               key={i}
               style={{
                 whiteSpace: "pre",
-                color: titleProg >= i / arr.length ? "var(--text-primary)" : "transparent",
+                color: titleProg >= (i + 1) / arr.length ? "var(--text-primary)" : "var(--text-muted)",
                 transition: "color 0.12s ease",
               }}
             >
