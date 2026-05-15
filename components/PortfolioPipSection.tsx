@@ -171,7 +171,6 @@ export default function PortfolioPipSection({ profiles }: Props) {
   return (
     <div
       style={{
-        borderTop: "1px solid var(--border)",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",

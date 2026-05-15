@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useEffect, useState } from "react";
-import { motion, useScroll, useSpring, useTransform, MotionValue } from "framer-motion";
+import { motion, useScroll, useSpring, useTransform, useMotionValue, MotionValue } from "framer-motion";
 
 function useInView(threshold = 0.5): [React.RefObject<HTMLDivElement | null>, boolean] {
   const ref = useRef<HTMLDivElement>(null);
@@ -19,19 +19,29 @@ function useInView(threshold = 0.5): [React.RefObject<HTMLDivElement | null>, bo
   return [ref, inView];
 }
 
-/** Scroll progress relative to a card.
+/** Scroll progress relative to a card, latched at its maximum so the fade-in
+ *  only ever plays once. Once the card has reached full opacity, scrolling
+ *  back up cannot push the progress (and thus the opacity) back down.
  *  offset ["start end", "start start"]:
- *    0   → card top touches viewport bottom
- *    0.5 → card top reaches viewport center  (← target: 85% opacity)
- *    0.7 → card top reaches 30%-from-top     (← 100% opacity)
- *    1   → card top touches viewport top
+ *    0    → card top touches viewport bottom
+ *    0.5  → card top reaches viewport center  (← target: 85% opacity)
+ *    0.85 → card top reaches 15%-from-top     (← 100% opacity)
+ *    1    → card top touches viewport top
  */
 function useCardProgress(ref: React.RefObject<HTMLDivElement | null>) {
   const { scrollYProgress } = useScroll({
     target: ref,
     offset: ["start end", "start start"],
   });
-  return useSpring(scrollYProgress, { stiffness: 120, damping: 28, mass: 0.4 });
+  const smooth = useSpring(scrollYProgress, { stiffness: 120, damping: 28, mass: 0.4 });
+  const maxProgress = useMotionValue(0);
+  useEffect(() => {
+    if (smooth.get() > maxProgress.get()) maxProgress.set(smooth.get());
+    return smooth.on("change", (v) => {
+      if (v > maxProgress.get()) maxProgress.set(v);
+    });
+  }, [smooth, maxProgress]);
+  return maxProgress;
 }
 
 function PersonIcon({ size = 22 }: { size?: number }) {
@@ -84,8 +94,8 @@ function HorizCard({
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const progress = useCardProgress(ref);
-  const opacity = useTransform(progress, [0, 0.5, 0.7], [0, 0.85, 1]);
-  const y = useTransform(progress, [0, 0.5, 0.7], [60, 9, 0]);
+  const opacity = useTransform(progress, [0, 0.5, 0.85], [0, 0.85, 1]);
+  const y = useTransform(progress, [0, 0.5, 0.85], [60, 9, 0]);
 
   return (
     <motion.div ref={ref} style={{ ...cardBaseStyle, opacity, y }}>
@@ -127,8 +137,8 @@ function HorizCard({
 function Card1() {
   const ref = useRef<HTMLDivElement>(null);
   const progress = useCardProgress(ref);
-  const opacity = useTransform(progress, [0, 0.5, 0.7], [0, 0.85, 1]);
-  const y = useTransform(progress, [0, 0.5, 0.7], [60, 9, 0]);
+  const opacity = useTransform(progress, [0, 0.5, 0.85], [0, 0.85, 1]);
+  const y = useTransform(progress, [0, 0.5, 0.85], [60, 9, 0]);
 
   return (
     <motion.div ref={ref} style={{ ...cardBaseStyle, opacity, y }}>
