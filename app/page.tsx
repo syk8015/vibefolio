@@ -101,7 +101,7 @@ export default async function LandingPage() {
 
   /* ─── Public landing ─── */
   return (
-    <main className="flex flex-col overflow-x-hidden" style={{ background: "var(--bg)" }}>
+    <main className="flex flex-col" style={{ background: "var(--bg)", overflowX: "clip" }}>
 
       {/* Nav */}
       <nav className="flex items-center justify-between px-4 md:px-8 py-4 md:py-5 relative z-10">
