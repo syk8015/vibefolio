@@ -1,8 +1,9 @@
 "use client";
 
 import { useRef, useEffect, useState } from "react";
+import { motion, Variants } from "framer-motion";
 
-function useInView(threshold = 0.15): [React.RefObject<HTMLDivElement | null>, boolean] {
+function useInView(threshold = 0.5): [React.RefObject<HTMLDivElement | null>, boolean] {
   const ref = useRef<HTMLDivElement>(null);
   const [inView, setInView] = useState(false);
   useEffect(() => {
@@ -18,6 +19,43 @@ function useInView(threshold = 0.15): [React.RefObject<HTMLDivElement | null>, b
   return [ref, inView];
 }
 
+const EASE = [0.22, 1, 0.36, 1] as const;
+
+const containerVariants: Variants = {
+  hidden: {},
+  show: {
+    transition: { staggerChildren: 0.18, delayChildren: 0.05 },
+  },
+};
+
+const cardVariants: Variants = {
+  hidden: { opacity: 0, y: 50 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.65, ease: EASE },
+  },
+};
+
+const card1Variants: Variants = {
+  hidden: { opacity: 0, y: 50 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.65,
+      ease: EASE,
+      delayChildren: 0.35,
+      staggerChildren: 0.22,
+    },
+  },
+};
+
+const personRowVariants: Variants = {
+  hidden: { opacity: 0, y: 8 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: EASE } },
+};
+
 function PersonIcon({ size = 22 }: { size?: number }) {
   return (
     <svg width={size} height={Math.round(size * 1.4)} viewBox="0 0 24 34" fill="var(--blue)">
@@ -27,35 +65,30 @@ function PersonIcon({ size = 22 }: { size?: number }) {
   );
 }
 
-function PersonRow({ count, show, delay }: { count: number; show: boolean; delay: number }) {
+function PersonRow({ count }: { count: number }) {
   return (
-    <div style={{
-      opacity: show ? 1 : 0,
-      transform: show ? "translateY(0)" : "translateY(8px)",
-      transition: `opacity 0.4s ease ${delay}s, transform 0.4s ease ${delay}s`,
-      display: "flex",
-      gap: 8,
-    }}>
+    <motion.div
+      variants={personRowVariants}
+      style={{ display: "flex", gap: 8 }}
+    >
       {Array.from({ length: count }).map((_, i) => (
         <PersonIcon key={i} size={22} />
       ))}
-    </div>
+    </motion.div>
   );
 }
 
 function HorizCard({
-  num, title, sub, subColor, right,
+  num, title, sub, subColor,
 }: {
   num: string;
   title: string;
   sub: string;
   subColor: string;
-  right?: React.ReactNode;
 }) {
-  const [cardRef, inView] = useInView(0.15);
   return (
-    <div
-      ref={cardRef}
+    <motion.div
+      variants={cardVariants}
       style={{
         borderRadius: 18,
         background: "var(--surface)",
@@ -65,9 +98,6 @@ function HorizCard({
         alignItems: "center",
         gap: "1.5rem",
         minHeight: 220,
-        opacity: inView ? 1 : 0,
-        transform: inView ? "translateY(0)" : "translateY(32px)",
-        transition: "opacity 0.65s cubic-bezier(0.22,1,0.36,1), transform 0.65s cubic-bezier(0.22,1,0.36,1)",
       }}
     >
       <span style={{
@@ -101,18 +131,12 @@ function HorizCard({
           {sub}
         </p>
       </div>
-      {right && (
-        <div style={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-          {right}
-        </div>
-      )}
-    </div>
+    </motion.div>
   );
 }
 
 export default function HowItWorksSection() {
   const [titleRef, titleInView] = useInView(0.5);
-  const [card1Ref, card1InView] = useInView(0.15);
 
   const titleChars = [..."How it works"];
 
@@ -154,17 +178,23 @@ export default function HowItWorksSection() {
         ))}
       </h2>
 
-      {/* Cards */}
-      <div style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: "0.875rem",
-        width: "100%",
-        maxWidth: 760,
-      }}>
+      {/* Cards — Framer Motion stagger with whileInView */}
+      <motion.div
+        variants={containerVariants}
+        initial="hidden"
+        whileInView="show"
+        viewport={{ once: true, amount: 0.3 }}
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "2.625rem",
+          width: "100%",
+          maxWidth: 760,
+        }}
+      >
         {/* Card 1 — inline for person pyramid */}
-        <div
-          ref={card1Ref}
+        <motion.div
+          variants={card1Variants}
           style={{
             borderRadius: 18,
             background: "var(--surface)",
@@ -174,9 +204,6 @@ export default function HowItWorksSection() {
             alignItems: "center",
             gap: "1.5rem",
             minHeight: 220,
-            opacity: card1InView ? 1 : 0,
-            transform: card1InView ? "translateY(0)" : "translateY(32px)",
-            transition: "opacity 0.65s cubic-bezier(0.22,1,0.36,1), transform 0.65s cubic-bezier(0.22,1,0.36,1)",
           }}
         >
           <span style={{
@@ -211,11 +238,11 @@ export default function HowItWorksSection() {
             </p>
           </div>
           <div style={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-            <PersonRow count={1} show={card1InView} delay={0.4} />
-            <PersonRow count={2} show={card1InView} delay={0.65} />
-            <PersonRow count={3} show={card1InView} delay={0.9} />
+            <PersonRow count={1} />
+            <PersonRow count={2} />
+            <PersonRow count={3} />
           </div>
-        </div>
+        </motion.div>
 
         {/* Card 2 */}
         <HorizCard
@@ -232,7 +259,7 @@ export default function HowItWorksSection() {
           sub="이력서 · SNS · 채용 지원"
           subColor="var(--text-secondary)"
         />
-      </div>
+      </motion.div>
     </div>
   );
 }
