@@ -10,6 +10,8 @@ import PortfolioModeToggle from "@/components/PortfolioModeToggle";
 import type { Project } from "@/lib/data";
 import ViewTracker from "@/components/ViewTracker";
 import ThemeToggle from "@/components/ThemeToggle";
+import ViewportModeToggle from "@/components/ViewportModeToggle";
+import ViewportFrame from "@/components/ViewportFrame";
 
 const getProfile = cache(async (username: string) => {
   const supabase = await createClient();
@@ -83,10 +85,14 @@ interface DBProject {
 
 export default async function UserPortfolioPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ username: string }>;
+  searchParams: Promise<{ embed?: string }>;
 }) {
   const { username } = await params;
+  const { embed } = await searchParams;
+  const isEmbed = embed === "1";
   const supabase = await createClient();
 
   const profile = await getProfile(username);
@@ -148,6 +154,7 @@ export default async function UserPortfolioPage({
           >
             {projects.length} Projects
           </span>
+          {isOwner && !isEmbed && <ViewportModeToggle />}
           <ThemeToggle />
           <CopyLinkButton username={p.username} />
 
@@ -219,6 +226,7 @@ export default async function UserPortfolioPage({
         </div>
       </nav>
 
+      <ViewportFrame username={p.username} enabled={isOwner && !isEmbed}>
       {/* Hero */}
       <section className="relative flex flex-col items-center pt-28 md:pt-40 pb-16 md:pb-24 px-6 z-10">
 
@@ -356,6 +364,7 @@ export default async function UserPortfolioPage({
       {p.custom_mode && p.custom_css && (
         <PortfolioModeToggle customCss={p.custom_css} />
       )}
+      </ViewportFrame>
     </main>
   );
 }
