@@ -113,12 +113,21 @@ export default function PortfolioPipSection({ profiles }: Props) {
     setOverscroll(0);
   }, [pickNext, enterPop]);
 
-  // Lock page scroll while popped so the fullscreen-like frame stays anchored.
+  // Lock page scroll while popped, and reserve the scrollbar gutter so the
+  // page width doesn't shift when overflow toggles.
   useEffect(() => {
     if (!isPopped) return;
-    const prev = document.body.style.overflow;
+    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+    const prevOverflow = document.body.style.overflow;
+    const prevPaddingRight = document.body.style.paddingRight;
     document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = prev; };
+    if (scrollbarWidth > 0) {
+      document.body.style.paddingRight = `${scrollbarWidth}px`;
+    }
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      document.body.style.paddingRight = prevPaddingRight;
+    };
   }, [isPopped]);
 
   const handleLoad = () => {
@@ -245,16 +254,17 @@ export default function PortfolioPipSection({ profiles }: Props) {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+              transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
               onClick={exitPop}
               style={{
                 position: "fixed",
                 inset: 0,
                 background: "rgba(0,0,0,0.55)",
-                backdropFilter: "blur(10px)",
-                WebkitBackdropFilter: "blur(10px)",
+                backdropFilter: "blur(8px)",
+                WebkitBackdropFilter: "blur(8px)",
                 zIndex: 90,
                 cursor: "zoom-out",
+                willChange: "opacity",
               }}
             />
           )}
@@ -265,7 +275,7 @@ export default function PortfolioPipSection({ profiles }: Props) {
           onClick={enterPop}
           animate={{ scale: popTransform.scale, x: popTransform.x, y: popTransform.y }}
           transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-          style={{ position: "relative", width: displayW, borderRadius: 12, overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 40px 100px rgba(0,0,0,0.65), 0 0 0 1px rgba(77,158,255,0.15)", transformOrigin: "center center", zIndex: isPopped ? 100 : 1, cursor: isPopped ? "default" : "zoom-in" }}
+          style={{ position: "relative", width: displayW, borderRadius: 12, overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 40px 100px rgba(0,0,0,0.65), 0 0 0 1px rgba(77,158,255,0.15)", transformOrigin: "center center", zIndex: 100, cursor: isPopped ? "default" : "zoom-in", willChange: "transform" }}
         >
           {/* Chrome bar */}
           <div style={{ height: 40, background: "#1a1a24", borderBottom: "1px solid rgba(255,255,255,0.07)", display: "flex", alignItems: "center", gap: 12, padding: "0 16px" }}>
