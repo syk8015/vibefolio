@@ -1,13 +1,14 @@
 "use client";
 
 import { useRef, useEffect, useState, useCallback } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 
 const IFRAME_W = 1200;
 const IFRAME_H = 860;
 const DEFAULT_SCALE = 0.52;
 const NEXT_THRESHOLD = 600; // accumulated wheel delta to trigger next profile
 const MAX_HISTORY = 10;
+const POP_VIEWPORT_RATIO = 0.75;
 
 interface Profile {
   username: string;
@@ -27,17 +28,22 @@ export default function PortfolioPipSection({ profiles }: Props) {
   const [maxScroll, setMaxScroll] = useState(0);
   const [overscroll, setOverscroll] = useState(0);
   const [scale, setScale] = useState(DEFAULT_SCALE);
-  const [switchCount, setSwitchCount] = useState(0);
+  const [, setSwitchCount] = useState(0);
+  const [isPopped, setIsPopped] = useState(false);
+  const [popTransform, setPopTransform] = useState({ x: 0, y: 0, scale: 1 });
 
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const mockupRef = useRef<HTMLDivElement>(null);
   const scrollYRef = useRef(0);
   const maxScrollRef = useRef(0);
   const overscrollRef = useRef(0);
   const transitioningRef = useRef(false);
   const currentUsernameRef = useRef(initial);
   const historyRef = useRef<string[]>([initial]);
+  const isPoppedRef = useRef(false);
 
   useEffect(() => { currentUsernameRef.current = currentUsername; }, [currentUsername]);
+  useEffect(() => { isPoppedRef.current = isPopped; }, [isPopped]);
 
   useEffect(() => {
     const update = () => {
@@ -63,6 +69,30 @@ export default function PortfolioPipSection({ profiles }: Props) {
     return pool[Math.floor(Math.random() * pool.length)].username;
   }, [profiles]);
 
+  const enterPop = useCallback(() => {
+    if (isPoppedRef.current) return;
+    const el = mockupRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const currentW = rect.width;
+    const currentH = rect.height;
+    if (currentW === 0 || currentH === 0) return;
+    const targetW = window.innerWidth * POP_VIEWPORT_RATIO;
+    const targetH = window.innerHeight * POP_VIEWPORT_RATIO;
+    const popScale = Math.min(targetW / currentW, targetH / currentH);
+    const currentCx = rect.left + currentW / 2;
+    const currentCy = rect.top + currentH / 2;
+    const dx = window.innerWidth / 2 - currentCx;
+    const dy = window.innerHeight / 2 - currentCy;
+    setPopTransform({ x: dx, y: dy, scale: popScale });
+    setIsPopped(true);
+  }, []);
+
+  const exitPop = useCallback(() => {
+    setIsPopped(false);
+    setPopTransform({ x: 0, y: 0, scale: 1 });
+  }, []);
+
   const switchToNext = useCallback(() => {
     if (transitioningRef.current) return;
     const next = pickNext();
@@ -71,6 +101,7 @@ export default function PortfolioPipSection({ profiles }: Props) {
     transitioningRef.current = true;
     historyRef.current = [...historyRef.current, next].slice(-MAX_HISTORY);
 
+    enterPop();
     setCurrentUsername(next);
     setSwitchCount((c) => c + 1);
     setLoaded(false);
@@ -80,7 +111,15 @@ export default function PortfolioPipSection({ profiles }: Props) {
     setScrollY(0);
     setMaxScroll(0);
     setOverscroll(0);
-  }, [pickNext]);
+  }, [pickNext, enterPop]);
+
+  // Lock page scroll while popped so the fullscreen-like frame stays anchored.
+  useEffect(() => {
+    if (!isPopped) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, [isPopped]);
 
   const handleLoad = () => {
     setLoaded(true);
@@ -199,10 +238,33 @@ export default function PortfolioPipSection({ profiles }: Props) {
       <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
         <div style={{ position: "absolute", width: 700, height: 400, background: "radial-gradient(ellipse at center, rgba(77,158,255,0.12) 0%, transparent 70%)", filter: "blur(40px)", pointerEvents: "none" }} />
 
+        <AnimatePresence>
+          {isPopped && (
+            <motion.div
+              key="pip-backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+              onClick={exitPop}
+              style={{
+                position: "fixed",
+                inset: 0,
+                background: "rgba(0,0,0,0.55)",
+                backdropFilter: "blur(10px)",
+                WebkitBackdropFilter: "blur(10px)",
+                zIndex: 90,
+                cursor: "zoom-out",
+              }}
+            />
+          )}
+        </AnimatePresence>
+
         <motion.div
-          animate={{ scale: switchCount > 0 ? [1, 1.18, 1.1] : 1 }}
+          ref={mockupRef}
+          animate={{ scale: popTransform.scale, x: popTransform.x, y: popTransform.y }}
           transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-          style={{ position: "relative", width: displayW, borderRadius: 12, overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 40px 100px rgba(0,0,0,0.65), 0 0 0 1px rgba(77,158,255,0.15)" }}
+          style={{ position: "relative", width: displayW, borderRadius: 12, overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 40px 100px rgba(0,0,0,0.65), 0 0 0 1px rgba(77,158,255,0.15)", transformOrigin: "center center", zIndex: isPopped ? 100 : 1 }}
         >
           {/* Chrome bar */}
           <div style={{ height: 40, background: "#1a1a24", borderBottom: "1px solid rgba(255,255,255,0.07)", display: "flex", alignItems: "center", gap: 12, padding: "0 16px" }}>
