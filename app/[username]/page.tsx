@@ -139,18 +139,33 @@ export default async function UserPortfolioPage({
           borderBottom: "1px solid var(--border)",
         }}
       >
-        <Link href="/" className="flex items-center gap-3" style={{ textDecoration: "none" }}>
-          <div
-            className="w-2 h-2 rounded-full"
-            style={{ background: "var(--blue)", boxShadow: "0 0 8px var(--blue)" }}
-          />
-          <span
-            className="font-black text-base"
-            style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}
-          >
-            Vibefolio
-          </span>
-        </Link>
+        {isEmbed ? (
+          <div className="flex items-center gap-3" style={{ cursor: "default" }}>
+            <div
+              className="w-2 h-2 rounded-full"
+              style={{ background: "var(--blue)", boxShadow: "0 0 8px var(--blue)" }}
+            />
+            <span
+              className="font-black text-base"
+              style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}
+            >
+              Vibefolio
+            </span>
+          </div>
+        ) : (
+          <Link href="/" className="flex items-center gap-3" style={{ textDecoration: "none" }}>
+            <div
+              className="w-2 h-2 rounded-full"
+              style={{ background: "var(--blue)", boxShadow: "0 0 8px var(--blue)" }}
+            />
+            <span
+              className="font-black text-base"
+              style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}
+            >
+              Vibefolio
+            </span>
+          </Link>
+        )}
         <div className="flex items-center gap-3">
           <span
             className="hidden sm:inline text-xs tracking-widest uppercase"

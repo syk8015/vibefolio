@@ -33,8 +33,14 @@ export default function ViewportFrame({ username, enabled, children }: Props) {
   const [mounted, setMounted] = useState(false);
   const [scale, setScale] = useState(1);
   const [time, setTime] = useState("9:41");
+  const [iframeLoaded, setIframeLoaded] = useState(false);
   const deviceOuterW = MOBILE_W + BEZEL * 2;
   const deviceOuterH = MOBILE_H + BEZEL * 2;
+
+  // Reset the loading state every time the mobile preview opens.
+  useEffect(() => {
+    if (mode === "mobile") setIframeLoaded(false);
+  }, [mode]);
 
   useEffect(() => {
     if (!enabled) return;
@@ -202,6 +208,7 @@ export default function ViewportFrame({ username, enabled, children }: Props) {
               title="모바일 미리보기"
               width={MOBILE_W}
               height={MOBILE_H - STATUS_BAR_H}
+              onLoad={() => setIframeLoaded(true)}
               style={{
                 position: "absolute",
                 top: STATUS_BAR_H,
@@ -210,8 +217,39 @@ export default function ViewportFrame({ username, enabled, children }: Props) {
                 display: "block",
                 width: MOBILE_W,
                 height: MOBILE_H - STATUS_BAR_H,
+                opacity: iframeLoaded ? 1 : 0,
+                transition: "opacity 0.25s ease",
               }}
             />
+
+            {/* Loading spinner — covers the screen area below the status bar */}
+            {!iframeLoaded && (
+              <div
+                style={{
+                  position: "absolute",
+                  top: STATUS_BAR_H,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  background: "var(--bg)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  zIndex: 4,
+                }}
+              >
+                <div
+                  className="animate-spin"
+                  style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: "50%",
+                    border: "2.5px solid rgba(77,158,255,0.25)",
+                    borderTopColor: "var(--blue)",
+                  }}
+                />
+              </div>
+            )}
           </div>
         </div>
 
