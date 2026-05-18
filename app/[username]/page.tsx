@@ -12,6 +12,7 @@ import ViewTracker from "@/components/ViewTracker";
 import ThemeToggle from "@/components/ThemeToggle";
 import ViewportModeToggle from "@/components/ViewportModeToggle";
 import ViewportFrame from "@/components/ViewportFrame";
+import EmbedLoginButton from "@/components/EmbedLoginButton";
 
 const getProfile = cache(async (username: string) => {
   const supabase = await createClient();
@@ -119,7 +120,10 @@ export default async function UserPortfolioPage({
   }));
 
   const p = profile;
-  const { data: { user: currentUser } } = await supabase.auth.getUser();
+  const { data: { user: rawUser } } = await supabase.auth.getUser();
+  // In embed (mobile-preview iframe) mode, render as if the visitor is not
+  // logged in so the owner can see what an anonymous visitor would see.
+  const currentUser = isEmbed ? null : rawUser;
   const isOwner = currentUser?.id === p.id;
 
   return (
@@ -209,6 +213,8 @@ export default async function UserPortfolioPage({
               )}
               내 명함
             </Link>
+          ) : isEmbed ? (
+            <EmbedLoginButton />
           ) : (
             <Link
               href="/login"
