@@ -262,9 +262,10 @@ export default function PortfolioPipSection({ profiles }: Props) {
 
         <motion.div
           ref={mockupRef}
+          onClick={enterPop}
           animate={{ scale: popTransform.scale, x: popTransform.x, y: popTransform.y }}
           transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-          style={{ position: "relative", width: displayW, borderRadius: 12, overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 40px 100px rgba(0,0,0,0.65), 0 0 0 1px rgba(77,158,255,0.15)", transformOrigin: "center center", zIndex: isPopped ? 100 : 1 }}
+          style={{ position: "relative", width: displayW, borderRadius: 12, overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 40px 100px rgba(0,0,0,0.65), 0 0 0 1px rgba(77,158,255,0.15)", transformOrigin: "center center", zIndex: isPopped ? 100 : 1, cursor: isPopped ? "default" : "zoom-in" }}
         >
           {/* Chrome bar */}
           <div style={{ height: 40, background: "#1a1a24", borderBottom: "1px solid rgba(255,255,255,0.07)", display: "flex", alignItems: "center", gap: 12, padding: "0 16px" }}>
