@@ -237,18 +237,18 @@ body::before {
 .blink { animation: blink 1.2s ease infinite; }
 
 /* Typewriter cursor for landing tagline.
-   Thin CSS bar, absolutely positioned at end of text so it never
-   participates in text width / centering. */
+   Lives inside an inline-flex with alignItems:center, so it tracks the
+   vertical middle of the line regardless of whether text is present. */
 @keyframes vf-cursor-blink {
   0%, 49% { opacity: 1; }
   50%, 100% { opacity: 0; }
 }
 .vf-cursor {
-  position: absolute;
-  left: 100%;
-  top: 0.18em;
+  display: inline-block;
+  flex-shrink: 0;
   width: 2px;
-  height: 0.78em;
+  height: 0.92em;
+  margin-left: 2px;
   background: var(--text-secondary);
   animation: vf-cursor-blink 0.95s steps(1) infinite;
   pointer-events: none;

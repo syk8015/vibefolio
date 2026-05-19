@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Noto_Serif_KR, JetBrains_Mono } from "next/font/google";
+import { Inter, Hahmlet, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
 const inter = Inter({
@@ -8,9 +8,9 @@ const inter = Inter({
   weight: ["300", "400", "500", "600", "700", "800", "900"],
 });
 
-const serifKr = Noto_Serif_KR({
+const hahmlet = Hahmlet({
   variable: "--font-serif",
-  weight: ["400", "500", "600"],
+  weight: ["300", "400", "500", "600"],
   preload: false,
 });
 
@@ -45,7 +45,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ko" className={`${inter.variable} ${serifKr.variable} ${mono.variable}`} suppressHydrationWarning>
+    <html lang="ko" className={`${inter.variable} ${hahmlet.variable} ${mono.variable}`} suppressHydrationWarning>
       <head>
         {/* Runs before paint to prevent flash of wrong theme */}
         <script dangerouslySetInnerHTML={{ __html: `
