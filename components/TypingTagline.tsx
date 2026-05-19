@@ -12,21 +12,10 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
-/**
- * Scale font down for longer phrases so every one fits a single line
- * across viewports. Korean glyphs are ~0.9em wide, so longer strings
- * need a smaller cap.
- */
-function fontSizeFor(len: number): string {
-  if (len <= 12) return "clamp(1.6rem, 4vw, 3rem)";
-  if (len <= 18) return "clamp(1.35rem, 3.4vw, 2.5rem)";
-  if (len <= 24) return "clamp(1.1rem, 2.8vw, 2.1rem)";
-  return "clamp(0.85rem, 2.2vw, 1.7rem)";
-}
+const TAGLINE_FONT_SIZE = "clamp(1.35rem, 3.4vw, 2.5rem)";
 
 export default function TypingTagline({ userCount }: { userCount: number }) {
   const [text, setText] = useState("");
-  const [fontSize, setFontSize] = useState(fontSizeFor(16));
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   useEffect(() => {
@@ -44,8 +33,6 @@ export default function TypingTagline({ userCount }: { userCount: number }) {
       const raw = queue[idx % queue.length];
       const phrase = raw.replace(/\{N\}/g, String(userCount));
       idx++;
-
-      setFontSize(fontSizeFor(phrase.length));
 
       let i = 0;
       const typeChar = () => {
@@ -95,7 +82,7 @@ export default function TypingTagline({ userCount }: { userCount: number }) {
       style={{
         fontFamily: "var(--font-serif), 'Noto Serif KR', serif",
         fontWeight: 500,
-        fontSize,
+        fontSize: TAGLINE_FONT_SIZE,
         color: "var(--text-primary)",
         lineHeight: 1.45,
         letterSpacing: "-0.01em",
