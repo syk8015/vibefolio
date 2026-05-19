@@ -89,8 +89,10 @@ export default function TypingTagline({ userCount }: { userCount: number }) {
         wordBreak: "keep-all",
       }}
     >
-      {text}
-      <span className="vf-cursor" aria-hidden>│</span>
+      <span style={{ position: "relative", display: "inline-block" }}>
+        {text}
+        <span className="vf-cursor" aria-hidden />
+      </span>
     </h1>
   );
 }
