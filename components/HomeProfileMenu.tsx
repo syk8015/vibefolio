@@ -41,7 +41,7 @@ export default function HomeProfileMenu({ username, name, avatarUrl }: Props) {
       <button
         onClick={() => setOpen((v) => !v)}
         className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center text-sm font-black flex-shrink-0 transition-opacity hover:opacity-80"
-        style={{ background: "var(--blue)", color: "#fff", fontFamily: "var(--font-nunito)", border: "none", cursor: "pointer" }}
+        style={{ background: "var(--blue)", color: "var(--bg)", fontFamily: "var(--font-nunito)", border: "none", cursor: "pointer" }}
       >
         {avatarUrl
           ? <img src={avatarUrl} alt={name} className="w-full h-full object-cover" />

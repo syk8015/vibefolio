@@ -76,7 +76,7 @@ export default function DashboardClient({ user }: { user: User }) {
           {/* Avatar */}
           <div
             className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-black overflow-hidden"
-            style={{ background: "var(--blue)", color: "#fff", fontFamily: "var(--font-nunito)", flexShrink: 0 }}
+            style={{ background: "var(--blue)", color: "var(--bg)", fontFamily: "var(--font-nunito)", flexShrink: 0 }}
           >
             {avatarUrl
               ? <img src={avatarUrl} alt={name} className="w-full h-full object-cover" />

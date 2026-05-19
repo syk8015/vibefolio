@@ -124,7 +124,7 @@ export default function LoginPage() {
 
             <button type="submit" disabled={loading}
               className="w-full py-3.5 rounded-xl font-black text-sm mt-2 transition-opacity hover:opacity-85 disabled:opacity-50"
-              style={{ background: "var(--blue)", color: "#fff", fontFamily: "var(--font-nunito)", cursor: loading ? "not-allowed" : "pointer", border: "none", boxShadow: "0 0 20px var(--blue-glow)" }}>
+              style={{ background: "var(--blue)", color: "var(--bg)", fontFamily: "var(--font-nunito)", cursor: loading ? "not-allowed" : "pointer", border: "none", boxShadow: "0 0 20px var(--blue-glow)" }}>
               {loading ? "로그인 중..." : "로그인"}
             </button>
           </form>

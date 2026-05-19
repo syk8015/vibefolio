@@ -22,7 +22,7 @@ export default function PortfolioMockup({ url, displayUsername }: Props) {
       className="relative rounded-xl overflow-hidden"
       style={{
         width: displayW,
-        boxShadow: "0 32px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(77,158,255,0.15)",
+        boxShadow: "0 32px 80px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.08)",
         border: "1px solid rgba(255,255,255,0.08)",
       }}
     >
@@ -57,7 +57,7 @@ export default function PortfolioMockup({ url, displayUsername }: Props) {
         >
           <span style={{ color: "rgba(255,255,255,0.25)", marginRight: 4 }}>🔒</span>
           vibefolio.com/
-          <span style={{ color: "#4d9eff" }}>{displayUsername}</span>
+          <span style={{ color: "#e8c977" }}>{displayUsername}</span>
         </div>
       </div>
 
@@ -70,7 +70,7 @@ export default function PortfolioMockup({ url, displayUsername }: Props) {
             style={{ background: "#0a0a0f" }}
           >
             <div className="w-6 h-6 rounded-full border-2 animate-spin"
-              style={{ borderColor: "rgba(77,158,255,0.3)", borderTopColor: "#4d9eff" }} />
+              style={{ borderColor: "rgba(255,255,255,0.15)", borderTopColor: "rgba(255,255,255,0.7)" }} />
           </div>
         )}
 

@@ -245,7 +245,7 @@ export default function PortfolioPipSection({ profiles }: Props) {
 
       {/* Browser mockup */}
       <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <div style={{ position: "absolute", width: 700, height: 400, background: "radial-gradient(ellipse at center, rgba(77,158,255,0.12) 0%, transparent 70%)", filter: "blur(40px)", pointerEvents: "none" }} />
+        <div style={{ position: "absolute", width: 700, height: 400, background: "radial-gradient(ellipse at center, rgba(0,0,0,0.08) 0%, transparent 70%)", filter: "blur(40px)", pointerEvents: "none" }} />
 
         <AnimatePresence>
           {isPopped && (
@@ -275,7 +275,7 @@ export default function PortfolioPipSection({ profiles }: Props) {
           onClick={enterPop}
           animate={{ scale: popTransform.scale, x: popTransform.x, y: popTransform.y }}
           transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-          style={{ position: "relative", width: displayW, borderRadius: 12, overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 40px 100px rgba(0,0,0,0.65), 0 0 0 1px rgba(77,158,255,0.15)", transformOrigin: "center center", zIndex: 100, cursor: isPopped ? "default" : "zoom-in", willChange: "transform" }}
+          style={{ position: "relative", width: displayW, borderRadius: 12, overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 40px 100px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.06)", transformOrigin: "center center", zIndex: 100, cursor: isPopped ? "default" : "zoom-in", willChange: "transform" }}
         >
           {/* Chrome bar */}
           <div style={{ height: 40, background: "#1a1a24", borderBottom: "1px solid rgba(255,255,255,0.07)", display: "flex", alignItems: "center", gap: 12, padding: "0 16px" }}>
@@ -286,7 +286,7 @@ export default function PortfolioPipSection({ profiles }: Props) {
             </div>
             <div style={{ flex: 1, height: 26, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, display: "flex", alignItems: "center", padding: "0 10px", fontSize: "0.7rem", fontFamily: "monospace", color: "rgba(255,255,255,0.45)" }}>
               <span style={{ color: "rgba(255,255,255,0.25)", marginRight: 4 }}>🔒</span>
-              vibefolio.vercel.app/<span style={{ color: "#4d9eff" }}>{currentUsername}</span>
+              vibefolio.vercel.app/<span style={{ color: "#e8c977" }}>{currentUsername}</span>
             </div>
           </div>
 
@@ -296,7 +296,7 @@ export default function PortfolioPipSection({ profiles }: Props) {
               <div style={{ position: "absolute", inset: 0, zIndex: 10, display: "flex", alignItems: "center", justifyContent: "center", background: "#0a0a0f" }}>
                 <div
                   className="animate-spin"
-                  style={{ width: 24, height: 24, borderRadius: "50%", border: "2px solid rgba(77,158,255,0.3)", borderTopColor: "#4d9eff" }}
+                  style={{ width: 24, height: 24, borderRadius: "50%", border: "2px solid rgba(255,255,255,0.15)", borderTopColor: "rgba(255,255,255,0.7)" }}
                 />
               </div>
             )}

@@ -224,7 +224,7 @@ export default function CustomTab({ user }: { user: User }) {
           disabled={saving}
           className="px-6 py-2.5 rounded-xl text-sm font-black transition-opacity hover:opacity-85 disabled:opacity-50"
           style={{
-            background: "var(--blue)", color: "#fff",
+            background: "var(--blue)", color: "var(--bg)",
             fontFamily: "var(--font-nunito)", border: "none",
             cursor: saving ? "not-allowed" : "pointer",
             boxShadow: "0 0 16px var(--blue-glow)",

@@ -3,27 +3,9 @@ import { createClient } from "@/lib/supabase/server";
 import HomeProfileMenu from "@/components/HomeProfileMenu";
 import PortfolioPipSection from "@/components/PortfolioPipSection";
 import ThemeToggle from "@/components/ThemeToggle";
-import GlitchHeadline from "@/components/GlitchHeadline";
 import LoggedInHeadline from "@/components/LoggedInHeadline";
 import HowItWorksSection from "@/components/HowItWorksSection";
-
-const STAT_TAGLINES = [
-  "나랑 같은 토큰을 쓰는 동료",
-  "ChatGPT한테 \"왜 안 돼요\" 물어본 사람",
-  "스택오버플로우 대신 AI한테 물어본 사람",
-  "Ctrl+C 없이도 뭔가 만든 사람",
-  "기획자이자 디자이너이자 개발자인 사람",
-  "혼자서 팀 하나를 대신하는 사람",
-  "AI를 팀원으로 둔 솔로 창업자",
-  "아이디어만으로 제품을 만든 빌더",
-  "코드보다 아이디어가 먼저인 사람",
-  "프롬프트로 제품을 만드는 사람",
-];
-
-function formatCount(n: number): string {
-  if (n < 10) return String(n);
-  return n.toLocaleString("ko-KR") + "+";
-}
+import TypingTagline from "@/components/TypingTagline";
 
 interface FeaturedProfile {
   username: string;
@@ -46,8 +28,6 @@ export default async function LandingPage() {
       .limit(20),
   ]);
 
-  const tagline = STAT_TAGLINES[Math.floor(Math.random() * STAT_TAGLINES.length)];
-
   const meta = user?.user_metadata || {};
   const username = meta.username || user?.email?.split("@")[0] || "";
   const name = meta.name || username;
@@ -68,24 +48,24 @@ export default async function LandingPage() {
         </nav>
 
         <div className="flex-1 flex flex-col items-center justify-center px-6 text-center gap-4">
-          <p className="text-sm font-bold" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
-            안녕하세요, <span style={{ color: "var(--blue)" }}>{name}</span>님!
+          <p className="text-sm" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
+            안녕하세요, <span style={{ color: "var(--text-primary)", fontWeight: 600 }}>{name}</span>님!
           </p>
           <LoggedInHeadline />
           <div className="flex flex-wrap justify-center items-center gap-3 mt-4">
             <Link href={`/${username}`}
-              className="px-7 py-3.5 rounded-full font-bold text-sm transition-opacity hover:opacity-80"
-              style={{ background: "var(--blue)", color: "#fff", fontFamily: "var(--font-nunito)", textDecoration: "none", boxShadow: "0 0 24px var(--blue-glow)" }}>
+              className="px-7 py-3 rounded-full text-sm transition-opacity hover:opacity-80"
+              style={{ background: "var(--blue)", color: "var(--bg)", fontFamily: "var(--font-nunito)", fontWeight: 600, textDecoration: "none" }}>
               내 명함 보기
             </Link>
             <Link href="/dashboard"
-              className="px-7 py-3.5 rounded-full font-bold text-sm transition-opacity hover:opacity-70"
-              style={{ border: "1px solid var(--border-bright)", color: "var(--text-primary)", fontFamily: "var(--font-nunito)", textDecoration: "none" }}>
+              className="px-7 py-3 rounded-full text-sm transition-opacity hover:opacity-70"
+              style={{ border: "1px solid var(--border-bright)", color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontWeight: 600, textDecoration: "none" }}>
               명함 수정
             </Link>
           </div>
-          <p className="text-xs font-semibold" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
-            vibefolio.vercel.app/<span style={{ color: "var(--blue-bright)" }}>{username}</span>
+          <p className="text-xs" style={{ color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
+            vibefolio.vercel.app/<span style={{ color: "var(--text-secondary)" }}>{username}</span>
           </p>
         </div>
 
@@ -103,88 +83,48 @@ export default async function LandingPage() {
   return (
     <main className="flex flex-col" style={{ background: "var(--bg)", overflowX: "clip" }}>
 
-      {/* Nav */}
+      {/* Nav — minimal text links */}
       <nav className="flex items-center justify-between px-4 md:px-8 py-4 md:py-5 relative z-10">
         <Logo />
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-5">
           <ThemeToggle />
           <Link href="/login"
-            style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", fontSize: "0.875rem", fontWeight: 600, textDecoration: "none" }}>
+            style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", fontSize: "0.875rem", fontWeight: 500, textDecoration: "none" }}>
             로그인
           </Link>
           <Link href="/signup"
-            className="px-4 py-2 rounded-full font-bold text-sm"
-            style={{ background: "var(--blue)", color: "#fff", fontFamily: "var(--font-nunito)", textDecoration: "none" }}>
+            style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontSize: "0.875rem", fontWeight: 600, textDecoration: "none" }}>
             시작하기
           </Link>
         </div>
       </nav>
 
-      {/* Hero — centered, full viewport height */}
+      {/* Hero — single rotating phrase, centered, no other furniture */}
       <section className="relative flex flex-col items-center justify-center text-center px-6 min-h-[calc(100vh-72px)]">
-        {/* Background glow */}
-        <div className="pointer-events-none absolute inset-0 overflow-hidden">
-          <div style={{
-            position: "absolute", top: "20%", left: "50%", transform: "translateX(-50%)",
-            width: 700, height: 500, borderRadius: "50%",
-            background: "radial-gradient(circle, rgba(77,158,255,0.08) 0%, transparent 70%)",
-            filter: "blur(40px)",
-          }} />
-        </div>
+        <TypingTagline userCount={userCount ?? 0} />
 
-        {/* Chip */}
-        <div
-          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full mb-8"
-          style={{ background: "var(--blue-tint)", border: "1px solid var(--border-bright)" }}
+        {/* Tiny mono caption — homage to the medium */}
+        <p
+          className="absolute"
+          style={{
+            bottom: "10rem",
+            color: "var(--text-muted)",
+            fontFamily: "var(--font-mono), monospace",
+            fontSize: "0.7rem",
+            letterSpacing: "0.25em",
+            textTransform: "uppercase",
+          }}
         >
-          <div className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--blue)", boxShadow: "0 0 6px var(--blue)" }} />
-          <span className="text-xs font-bold tracking-wider" style={{ color: "var(--blue-bright)", fontFamily: "var(--font-nunito)" }}>
-            바이브코더를 위한 디지털 명함
-          </span>
-        </div>
-
-        <h1
-          className="font-black leading-tight mb-5 z-10"
-          style={{ fontFamily: "var(--font-nunito)", color: "var(--text-primary)", fontSize: "clamp(2.6rem, 5vw, 4.5rem)", letterSpacing: "-0.03em" }}
-        >
-          <GlitchHeadline />,<br />
-          <span style={{ background: "linear-gradient(120deg, var(--blue) 0%, var(--blue-bright) 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-            이제 보여주세요.
-          </span>
-        </h1>
-
-        <p className="mb-10 leading-relaxed z-10 max-w-md" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", fontSize: "1rem", fontWeight: 400 }}>
-          링크 하나로 나의 바이브코딩 결과물을 전시하세요.<br />
-          5분 안에 나만의 포트폴리오 명함이 완성됩니다.
-        </p>
-
-        <div className="flex flex-wrap justify-center items-center gap-3 mb-12 z-10">
-          <Link href="/signup"
-            className="px-7 py-3.5 rounded-full font-bold text-sm transition-opacity hover:opacity-80"
-            style={{ background: "var(--blue)", color: "#fff", fontFamily: "var(--font-nunito)", textDecoration: "none", boxShadow: "0 0 24px var(--blue-glow)" }}>
-            무료로 시작하기
-          </Link>
-          <Link href="/login"
-            className="px-7 py-3.5 rounded-full font-bold text-sm transition-opacity hover:opacity-70"
-            style={{ border: "1px solid var(--border-bright)", color: "var(--text-primary)", fontFamily: "var(--font-nunito)", textDecoration: "none" }}>
-            로그인
-          </Link>
-        </div>
-
-        {/* Social proof */}
-        <p className="text-sm font-semibold z-10" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
-          {tagline}{" "}
-          <span style={{ color: "var(--blue)", fontWeight: 800 }}>{formatCount(userCount ?? 0)}명</span>
-          이 사용중이에요
+          /* a card for those who build with vibes */
         </p>
 
         {/* Scroll hint */}
         {profiles.length > 0 && (
           <div className="absolute bottom-10 flex flex-col items-center gap-2 animate-bounce">
-            <p className="text-xs" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
-              실제 명함 보기
+            <p className="text-xs" style={{ color: "var(--text-muted)", fontFamily: "var(--font-mono)", letterSpacing: "0.1em" }}>
+              scroll
             </p>
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
               <path d="M8 3v10M3 9l5 5 5-5" stroke="var(--text-muted)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </div>
@@ -211,13 +151,18 @@ export default async function LandingPage() {
 
 function Logo() {
   return (
-    <div className="flex items-center gap-2">
-      <div className="w-2 h-2 rounded-full" style={{ background: "var(--blue)", boxShadow: "0 0 8px var(--blue)" }} />
-      <span className="font-black text-base" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}>
-        Vibefolio
+    <Link href="/" style={{ textDecoration: "none" }}>
+      <span
+        style={{
+          color: "var(--text-primary)",
+          fontFamily: "var(--font-mono), monospace",
+          fontWeight: 500,
+          fontSize: "0.95rem",
+          letterSpacing: "-0.01em",
+        }}
+      >
+        vibefolio
       </span>
-    </div>
+    </Link>
   );
 }
-
-

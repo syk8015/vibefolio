@@ -165,7 +165,7 @@ export default function ProfileTab({ user }: { user: User }) {
         <div className="flex items-center gap-4 mt-2">
           <div
             className="w-20 h-20 rounded-full flex items-center justify-center text-2xl font-black overflow-hidden flex-shrink-0"
-            style={{ background: "linear-gradient(135deg, var(--blue), var(--blue-bright))", color: "#fff", fontFamily: "var(--font-nunito)" }}
+            style={{ background: "linear-gradient(135deg, var(--blue), var(--blue-bright))", color: "var(--bg)", fontFamily: "var(--font-nunito)" }}
           >
             {form.avatarUrl
               ? <img src={form.avatarUrl} alt="avatar" className="w-full h-full object-cover" />
@@ -276,7 +276,7 @@ export default function ProfileTab({ user }: { user: User }) {
           type="submit"
           disabled={loading}
           className="px-6 py-2.5 rounded-xl text-sm font-black transition-opacity hover:opacity-85 disabled:opacity-50"
-          style={{ background: "var(--blue)", color: "#fff", fontFamily: "var(--font-nunito)", border: "none", cursor: loading ? "not-allowed" : "pointer", boxShadow: "0 0 16px var(--blue-glow)" }}
+          style={{ background: "var(--blue)", color: "var(--bg)", fontFamily: "var(--font-nunito)", border: "none", cursor: loading ? "not-allowed" : "pointer", boxShadow: "0 0 16px var(--blue-glow)" }}
         >
           {loading ? "저장 중..." : "저장하기"}
         </button>

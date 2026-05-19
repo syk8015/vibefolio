@@ -261,7 +261,7 @@ export default function ProjectsTab({ user }: { user: User }) {
         <button
           onClick={() => setShowAddModal(true)}
           className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-black transition-opacity hover:opacity-85"
-          style={{ background: "var(--blue)", color: "#fff", fontFamily: "var(--font-nunito)", border: "none", cursor: "pointer", boxShadow: "0 0 16px var(--blue-glow)" }}
+          style={{ background: "var(--blue)", color: "var(--bg)", fontFamily: "var(--font-nunito)", border: "none", cursor: "pointer", boxShadow: "0 0 16px var(--blue-glow)" }}
         >
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
             <path d="M7 1v12M1 7h12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
@@ -918,7 +918,7 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
             </button>
             <button type="submit" disabled={saving || uploading}
               className="flex-1 py-2.5 rounded-xl text-sm font-black transition-opacity hover:opacity-85 disabled:opacity-50"
-              style={{ background: "var(--blue)", color: "#fff", fontFamily: "var(--font-nunito)", border: "none", cursor: (saving || uploading) ? "not-allowed" : "pointer" }}>
+              style={{ background: "var(--blue)", color: "var(--bg)", fontFamily: "var(--font-nunito)", border: "none", cursor: (saving || uploading) ? "not-allowed" : "pointer" }}>
               {saving ? "저장 중..." : submitLabel}
             </button>
           </div>
