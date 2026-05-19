@@ -30,22 +30,23 @@ export default function LoggedInHeadline() {
 
   return (
     <h1
-      className="font-black leading-tight"
+      className="leading-tight"
       style={{
-        fontFamily: "var(--font-nunito)",
+        fontFamily: "var(--font-serif), 'Noto Serif KR', serif",
+        fontWeight: 500,
         color: "var(--text-primary)",
-        fontSize: "clamp(2rem, 5vw, 3.5rem)",
-        letterSpacing: "-0.03em",
+        fontSize: "clamp(1.8rem, 4.4vw, 3.2rem)",
+        letterSpacing: "-0.01em",
         opacity: visible ? 1 : 0,
         transform: visible ? "translateY(0)" : "translateY(10px)",
         transition: "opacity 0.4s ease, transform 0.4s ease",
       }}
     >
-      <span style={mono ? { fontFamily: "'Courier New', Monaco, monospace", fontSize: "0.85em" } : undefined}>
+      <span style={mono ? { fontFamily: "var(--font-mono), monospace", fontSize: "0.85em" } : undefined}>
         {line1}
       </span>
       <br />
-      <span style={{ background: "linear-gradient(120deg, var(--blue) 0%, var(--blue-bright) 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+      <span style={{ fontStyle: "italic", color: "var(--text-secondary)" }}>
         {line2}
       </span>
     </h1>
