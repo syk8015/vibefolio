@@ -83,40 +83,26 @@ export default async function LandingPage() {
   return (
     <main className="flex flex-col" style={{ background: "var(--bg)", overflowX: "clip" }}>
 
-      {/* Nav — minimal text links */}
-      <nav className="flex items-center justify-between px-4 md:px-8 py-4 md:py-5 relative z-10">
-        <Logo />
-        <div className="flex items-center gap-5">
-          <ThemeToggle />
-          <Link href="/login"
-            style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", fontSize: "0.875rem", fontWeight: 500, textDecoration: "none" }}>
-            로그인
-          </Link>
-          <Link href="/signup"
-            style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontSize: "0.875rem", fontWeight: 600, textDecoration: "none" }}>
-            시작하기
-          </Link>
-        </div>
-      </nav>
+      {/* Hero — single rotating phrase, true viewport center.
+          Nav floats absolutely so it doesn't offset the tagline. */}
+      <section className="relative flex flex-col items-center justify-center text-center px-6" style={{ minHeight: "100vh" }}>
+        {/* Nav — absolute over hero so layout center = viewport center */}
+        <nav className="absolute top-0 left-0 right-0 flex items-center justify-between px-4 md:px-8 py-4 md:py-5 z-10">
+          <Logo />
+          <div className="flex items-center gap-5">
+            <ThemeToggle />
+            <Link href="/login"
+              style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", fontSize: "0.875rem", fontWeight: 500, textDecoration: "none" }}>
+              로그인
+            </Link>
+            <Link href="/signup"
+              style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontSize: "0.875rem", fontWeight: 600, textDecoration: "none" }}>
+              시작하기
+            </Link>
+          </div>
+        </nav>
 
-      {/* Hero — single rotating phrase, centered, no other furniture */}
-      <section className="relative flex flex-col items-center justify-center text-center px-6 min-h-[calc(100vh-72px)]">
         <TypingTagline userCount={userCount ?? 0} />
-
-        {/* Tiny mono caption — homage to the medium */}
-        <p
-          className="absolute"
-          style={{
-            bottom: "10rem",
-            color: "var(--text-muted)",
-            fontFamily: "var(--font-mono), monospace",
-            fontSize: "0.7rem",
-            letterSpacing: "0.25em",
-            textTransform: "uppercase",
-          }}
-        >
-          /* a card for those who build with vibes */
-        </p>
 
         {/* Scroll hint */}
         {profiles.length > 0 && (

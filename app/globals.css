@@ -4,14 +4,36 @@
    Vibefolio — Paper & Ink design system
    ============================================================= */
 
-/* Dark theme — deep ink (default) */
+/* Light theme — cream paper (default) */
 :root,
+[data-theme="light"] {
+  --bg: #faf4e8;
+  --surface: #ffffff;
+  --border: #e6dcc7;
+  --border-bright: #c8b994;
+  /* `--blue*` var names kept for backward compat; semantics = "ink accent" */
+  --blue: #1a1612;
+  --blue-bright: #000000;
+  --blue-dim: #2e2620;
+  --blue-glow: transparent;
+  --blue-tint: rgba(26, 22, 18, 0.05);
+  --text-primary: #1a1612;
+  --text-secondary: #6a5e4e;
+  --text-muted: #a89b87;
+  --nav-bg: rgba(250, 244, 232, 0.88);
+  --overlay-strong: rgba(250, 244, 232, 0.88);
+  --overlay-mid: rgba(250, 244, 232, 0.6);
+  --badge-bg: rgba(250, 244, 232, 0.85);
+  --paper-blend: multiply;
+  --paper-opacity: 0.05;
+}
+
+/* Dark theme — deep ink */
 [data-theme="dark"] {
   --bg: #1a1612;
   --surface: #221d18;
   --border: #2e2620;
   --border-bright: #4a3e35;
-  /* `--blue*` var names kept for backward compat; semantics = "ink accent" */
   --blue: #f4ede0;
   --blue-bright: #ffffff;
   --blue-dim: #d8cdb5;
@@ -26,28 +48,6 @@
   --badge-bg: rgba(26, 22, 18, 0.78);
   --paper-blend: overlay;
   --paper-opacity: 0.08;
-}
-
-/* Light theme — cream paper */
-[data-theme="light"] {
-  --bg: #f4ede0;
-  --surface: #faf6ec;
-  --border: #d8cdb5;
-  --border-bright: #b8a98a;
-  --blue: #1a1612;
-  --blue-bright: #000000;
-  --blue-dim: #2e2620;
-  --blue-glow: transparent;
-  --blue-tint: rgba(26, 22, 18, 0.05);
-  --text-primary: #1a1612;
-  --text-secondary: #6a5e4e;
-  --text-muted: #a89b87;
-  --nav-bg: rgba(244, 237, 224, 0.88);
-  --overlay-strong: rgba(244, 237, 224, 0.88);
-  --overlay-mid: rgba(244, 237, 224, 0.6);
-  --badge-bg: rgba(244, 237, 224, 0.85);
-  --paper-blend: multiply;
-  --paper-opacity: 0.06;
 }
 
 * { box-sizing: border-box; }

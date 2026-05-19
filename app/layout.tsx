@@ -49,7 +49,7 @@ export default function RootLayout({
       <head>
         {/* Runs before paint to prevent flash of wrong theme */}
         <script dangerouslySetInnerHTML={{ __html: `
-(function(){try{var s=localStorage.getItem('vf-theme');if(s==='dark'||s==='light'){document.documentElement.setAttribute('data-theme',s);}else if(window.matchMedia('(prefers-color-scheme:light)').matches){document.documentElement.setAttribute('data-theme','light');}else{document.documentElement.setAttribute('data-theme','dark');}}catch(e){}})();
+(function(){try{var s=localStorage.getItem('vf-theme');document.documentElement.setAttribute('data-theme',(s==='dark'||s==='light')?s:'light');}catch(e){}})();
         `.trim() }} />
       </head>
       <body className="min-h-screen">{children}</body>
