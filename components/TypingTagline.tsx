@@ -12,8 +12,21 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
+/**
+ * Scale font down for longer phrases so every one fits a single line
+ * across viewports. Korean glyphs are ~0.9em wide, so longer strings
+ * need a smaller cap.
+ */
+function fontSizeFor(len: number): string {
+  if (len <= 12) return "clamp(1.6rem, 4vw, 3rem)";
+  if (len <= 18) return "clamp(1.35rem, 3.4vw, 2.5rem)";
+  if (len <= 24) return "clamp(1.1rem, 2.8vw, 2.1rem)";
+  return "clamp(0.85rem, 2.2vw, 1.7rem)";
+}
+
 export default function TypingTagline({ userCount }: { userCount: number }) {
   const [text, setText] = useState("");
+  const [fontSize, setFontSize] = useState(fontSizeFor(16));
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   useEffect(() => {
@@ -32,17 +45,16 @@ export default function TypingTagline({ userCount }: { userCount: number }) {
       const phrase = raw.replace(/\{N\}/g, String(userCount));
       idx++;
 
-      let i = 0;
+      setFontSize(fontSizeFor(phrase.length));
 
+      let i = 0;
       const typeChar = () => {
         if (cancelled) return;
         if (i <= phrase.length) {
           setText(phrase.slice(0, i));
           i++;
-          // Deliberate, human typing — 90~150ms per char
           schedule(typeChar, 90 + Math.random() * 60);
         } else {
-          // Hold the completed phrase
           schedule(eraseChar, 1600);
         }
       };
@@ -52,10 +64,8 @@ export default function TypingTagline({ userCount }: { userCount: number }) {
         if (i > 0) {
           i--;
           setText(phrase.slice(0, i));
-          // Backspace a touch faster than typing — 50~85ms per char
           schedule(eraseChar, 50 + Math.random() * 35);
         } else {
-          // Brief pause on empty line before next phrase
           schedule(runPhrase, 420);
         }
       };
@@ -63,7 +73,14 @@ export default function TypingTagline({ userCount }: { userCount: number }) {
       typeChar();
     };
 
-    runPhrase();
+    // Wait for fonts (notably Hahmlet) before typing so no character
+    // ever flashes in the fallback font mid-keystroke.
+    const start = () => { if (!cancelled) runPhrase(); };
+    if (typeof document !== "undefined" && document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(start);
+    } else {
+      start();
+    }
 
     return () => {
       cancelled = true;
@@ -78,15 +95,14 @@ export default function TypingTagline({ userCount }: { userCount: number }) {
       style={{
         fontFamily: "var(--font-serif), 'Noto Serif KR', serif",
         fontWeight: 500,
-        fontSize: "clamp(1.6rem, 3.6vw, 3rem)",
+        fontSize,
         color: "var(--text-primary)",
         lineHeight: 1.45,
         letterSpacing: "-0.01em",
         minHeight: "1.45em",
-        maxWidth: "min(92vw, 900px)",
         margin: 0,
         textAlign: "center",
-        wordBreak: "keep-all",
+        whiteSpace: "nowrap",
       }}
     >
       <span style={{ display: "inline-flex", alignItems: "center" }}>
