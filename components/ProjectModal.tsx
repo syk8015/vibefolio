@@ -112,9 +112,9 @@ export default function ProjectModal({ projects, currentIndex, onClose, onNaviga
   if (!isMounted || !project) return null;
 
   return createPortal(
-    /* Backdrop — hidden on mobile */
+    /* Backdrop — fullscreen on mobile, padded on desktop */
     <div
-      className="hidden md:flex fixed inset-0 z-[100] items-center justify-center p-8"
+      className="flex fixed inset-0 z-[100] items-center justify-center md:p-8"
       style={{
         background: "rgba(0,0,0,0.65)",
         backdropFilter: "blur(12px)",
@@ -126,11 +126,10 @@ export default function ProjectModal({ projects, currentIndex, onClose, onNaviga
       {/* PiP window */}
       <div
         onClick={e => e.stopPropagation()}
-        className="flex flex-col w-full h-full overflow-hidden"
+        className="flex flex-col w-full h-full overflow-hidden md:rounded-[20px]"
         style={{
           maxWidth: 1200,
           maxHeight: 820,
-          borderRadius: 20,
           border: "1px solid rgba(255,255,255,0.1)",
           boxShadow: "0 48px 120px rgba(0,0,0,0.75), 0 0 0 1px rgba(77,158,255,0.12)",
           background: "var(--bg)",
@@ -140,7 +139,7 @@ export default function ProjectModal({ projects, currentIndex, onClose, onNaviga
       >
         {/* Title bar */}
         <div
-          className="shrink-0 flex items-center gap-3 px-4 py-3"
+          className="shrink-0 flex items-center gap-2 md:gap-3 px-3 md:px-4 py-3"
           style={{
             background: "var(--nav-bg)",
             backdropFilter: "blur(16px)",
@@ -171,7 +170,7 @@ export default function ProjectModal({ projects, currentIndex, onClose, onNaviga
                 <path d="M6.5 2L3 5l3.5 3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </button>
-            <span className="text-xs font-bold px-1.5" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", minWidth: "2.8rem", textAlign: "center" }}>
+            <span className="hidden md:inline text-xs font-bold px-1.5" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", minWidth: "2.8rem", textAlign: "center" }}>
               {(currentIndex ?? 0) + 1} / {projects.length}
             </span>
             <button
@@ -185,7 +184,7 @@ export default function ProjectModal({ projects, currentIndex, onClose, onNaviga
             </button>
           </div>
 
-          <div className="w-px h-4 shrink-0" style={{ background: "var(--border)" }} />
+          <div className="hidden md:block w-px h-4 shrink-0" style={{ background: "var(--border)" }} />
 
           {/* Address bar style title */}
           <div
@@ -196,7 +195,7 @@ export default function ProjectModal({ projects, currentIndex, onClose, onNaviga
             <span className="text-xs font-bold truncate" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}>
               {project.title}
             </span>
-            <span className="text-xs shrink-0" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
+            <span className="hidden md:inline text-xs shrink-0" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
               {project.year}
             </span>
           </div>
@@ -235,13 +234,13 @@ export default function ProjectModal({ projects, currentIndex, onClose, onNaviga
             {safeHref(project.demoUrl) && (
               <a
                 href={safeHref(project.demoUrl)} target="_blank" rel="noopener noreferrer"
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full font-bold hover:opacity-80 transition-opacity"
+                className="flex items-center gap-1.5 px-2.5 md:px-3 py-1.5 rounded-full font-bold hover:opacity-80 transition-opacity"
                 style={{ background: "var(--blue)", color: "var(--bg)", fontFamily: "var(--font-nunito)", fontSize: "0.72rem", textDecoration: "none" }}
               >
                 <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
                   <path d="M2 10L10 2M10 2H5M10 2V7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
-                새 탭
+                <span className="hidden sm:inline">새 탭</span>
               </a>
             )}
           </div>
@@ -331,64 +330,33 @@ export default function ProjectModal({ projects, currentIndex, onClose, onNaviga
             )}
           </div>
 
-          {/* Info panel */}
-          <div style={{ width: infoOpen ? "264px" : "0px", overflow: "hidden", transition: "width 0.28s cubic-bezier(0.4,0,0.2,1)", borderLeft: "1px solid var(--border)", background: "var(--surface)", flexShrink: 0 }}>
+          {/* Info panel — desktop: side panel with width transition */}
+          <div
+            className="hidden md:block flex-shrink-0 overflow-hidden"
+            style={{
+              width: infoOpen ? "264px" : "0px",
+              transition: "width 0.28s cubic-bezier(0.4,0,0.2,1)",
+              borderLeft: "1px solid var(--border)",
+              background: "var(--surface)",
+            }}
+          >
             <div className="w-[264px] p-5 flex flex-col gap-4 h-full overflow-y-auto">
-              <div className="relative w-full aspect-video rounded-xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
-                <Image src={project.thumbnail} alt={project.title} fill className="object-cover" sizes="264px" />
-              </div>
+              <InfoPanelBody project={project} hasPrev={hasPrev} hasNext={hasNext} onPrev={handlePrev} onNext={handleNext} />
+            </div>
+          </div>
 
-              <div>
-                <p className="text-xs font-bold mb-1" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", letterSpacing: "0.1em", textTransform: "uppercase" }}>
-                  {project.year}
-                </p>
-                <h3 className="text-sm font-black leading-snug" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}>
-                  {project.title}
-                </h3>
-              </div>
-
-              {project.description && (
-                <p className="text-xs leading-relaxed" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
-                  {project.description}
-                </p>
-              )}
-
-              {project.tags.length > 0 && (
-                <div className="flex flex-wrap gap-1.5">
-                  {project.tags.map(tag => {
-                    const ai = AI_KEYWORDS.some(k => tag.toLowerCase().includes(k));
-                    return (
-                      <span key={tag} className="px-2 py-0.5 rounded-full text-xs font-bold uppercase" style={{
-                        background: ai ? "rgba(234,179,8,0.1)" : "var(--blue-tint)",
-                        border: `1px solid ${ai ? "rgba(234,179,8,0.35)" : "var(--border-bright)"}`,
-                        color: ai ? "#eab308" : "var(--blue-bright)",
-                        fontFamily: "var(--font-nunito)", letterSpacing: "0.06em",
-                      }}>
-                        {tag}
-                      </span>
-                    );
-                  })}
-                </div>
-              )}
-
-              {project.comment && (
-                <div className="p-3 rounded-xl text-xs leading-relaxed" style={{ background: "var(--blue-tint)", border: "1px solid var(--border-bright)", color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
-                  💬 {project.comment}
-                </div>
-              )}
-
-              <div className="flex gap-2 mt-auto pt-2">
-                <button onClick={handlePrev} disabled={!hasPrev}
-                  className="flex-1 py-2 rounded-xl text-xs font-bold"
-                  style={{ border: "1px solid var(--border-bright)", color: "var(--text-secondary)", background: "transparent", fontFamily: "var(--font-nunito)", cursor: hasPrev ? "pointer" : "not-allowed", opacity: hasPrev ? 1 : 0.35 }}>
-                  ← 이전
-                </button>
-                <button onClick={handleNext} disabled={!hasNext}
-                  className="flex-1 py-2 rounded-xl text-xs font-bold"
-                  style={{ border: "1px solid var(--border-bright)", color: "var(--text-secondary)", background: "transparent", fontFamily: "var(--font-nunito)", cursor: hasNext ? "pointer" : "not-allowed", opacity: hasNext ? 1 : 0.35 }}>
-                  다음 →
-                </button>
-              </div>
+          {/* Info panel — mobile: fullscreen overlay sliding from right */}
+          <div
+            className="md:hidden absolute inset-y-0 right-0 w-full overflow-hidden z-10"
+            style={{
+              transform: infoOpen ? "translateX(0)" : "translateX(100%)",
+              transition: "transform 0.28s cubic-bezier(0.4,0,0.2,1)",
+              background: "var(--surface)",
+              borderLeft: "1px solid var(--border)",
+            }}
+          >
+            <div className="w-full p-5 flex flex-col gap-4 h-full overflow-y-auto">
+              <InfoPanelBody project={project} hasPrev={hasPrev} hasNext={hasNext} onPrev={handlePrev} onNext={handleNext} />
             </div>
           </div>
         </div>
@@ -403,5 +371,75 @@ function ThumbnailBackground({ project }: { project: Project }) {
     <div className="absolute inset-0">
       <Image src={project.thumbnail} alt="" fill className="object-cover" style={{ filter: "blur(3px) brightness(0.2)" }} sizes="100vw" />
     </div>
+  );
+}
+
+function InfoPanelBody({
+  project, hasPrev, hasNext, onPrev, onNext,
+}: {
+  project: Project;
+  hasPrev: boolean;
+  hasNext: boolean;
+  onPrev: () => void;
+  onNext: () => void;
+}) {
+  return (
+    <>
+      <div className="relative w-full aspect-video rounded-xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
+        <Image src={project.thumbnail} alt={project.title} fill className="object-cover" sizes="264px" />
+      </div>
+
+      <div>
+        <p className="text-xs font-bold mb-1" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", letterSpacing: "0.1em", textTransform: "uppercase" }}>
+          {project.year}
+        </p>
+        <h3 className="text-sm font-black leading-snug" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}>
+          {project.title}
+        </h3>
+      </div>
+
+      {project.description && (
+        <p className="text-xs leading-relaxed" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
+          {project.description}
+        </p>
+      )}
+
+      {project.tags.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {project.tags.map(tag => {
+            const ai = AI_KEYWORDS.some(k => tag.toLowerCase().includes(k));
+            return (
+              <span key={tag} className="px-2 py-0.5 rounded-full text-xs font-bold uppercase" style={{
+                background: ai ? "rgba(234,179,8,0.1)" : "var(--blue-tint)",
+                border: `1px solid ${ai ? "rgba(234,179,8,0.35)" : "var(--border-bright)"}`,
+                color: ai ? "#eab308" : "var(--blue-bright)",
+                fontFamily: "var(--font-nunito)", letterSpacing: "0.06em",
+              }}>
+                {tag}
+              </span>
+            );
+          })}
+        </div>
+      )}
+
+      {project.comment && (
+        <div className="p-3 rounded-xl text-xs leading-relaxed" style={{ background: "var(--blue-tint)", border: "1px solid var(--border-bright)", color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
+          💬 {project.comment}
+        </div>
+      )}
+
+      <div className="flex gap-2 mt-auto pt-2">
+        <button onClick={onPrev} disabled={!hasPrev}
+          className="flex-1 py-2 rounded-xl text-xs font-bold"
+          style={{ border: "1px solid var(--border-bright)", color: "var(--text-secondary)", background: "transparent", fontFamily: "var(--font-nunito)", cursor: hasPrev ? "pointer" : "not-allowed", opacity: hasPrev ? 1 : 0.35 }}>
+          ← 이전
+        </button>
+        <button onClick={onNext} disabled={!hasNext}
+          className="flex-1 py-2 rounded-xl text-xs font-bold"
+          style={{ border: "1px solid var(--border-bright)", color: "var(--text-secondary)", background: "transparent", fontFamily: "var(--font-nunito)", cursor: hasNext ? "pointer" : "not-allowed", opacity: hasNext ? 1 : 0.35 }}>
+          다음 →
+        </button>
+      </div>
+    </>
   );
 }
