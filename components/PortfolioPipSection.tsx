@@ -28,6 +28,7 @@ export default function PortfolioPipSection({ profiles }: Props) {
   const [maxScroll, setMaxScroll] = useState(0);
   const [overscroll, setOverscroll] = useState(0);
   const [scale, setScale] = useState(DEFAULT_SCALE);
+  const [isMobile, setIsMobile] = useState(false);
   const [, setSwitchCount] = useState(0);
   const [isPopped, setIsPopped] = useState(false);
   const [popTransform, setPopTransform] = useState({ x: 0, y: 0, scale: 1 });
@@ -49,6 +50,7 @@ export default function PortfolioPipSection({ profiles }: Props) {
     const update = () => {
       const maxW = window.innerWidth - 32;
       setScale(Math.min(DEFAULT_SCALE, maxW / IFRAME_W));
+      setIsMobile(window.innerWidth < 768);
     };
     update();
     window.addEventListener("resize", update);
@@ -101,7 +103,7 @@ export default function PortfolioPipSection({ profiles }: Props) {
     transitioningRef.current = true;
     historyRef.current = [...historyRef.current, next].slice(-MAX_HISTORY);
 
-    enterPop();
+    if (!isMobile) enterPop();
     setCurrentUsername(next);
     setSwitchCount((c) => c + 1);
     setLoaded(false);
@@ -111,7 +113,7 @@ export default function PortfolioPipSection({ profiles }: Props) {
     setScrollY(0);
     setMaxScroll(0);
     setOverscroll(0);
-  }, [pickNext, enterPop]);
+  }, [pickNext, enterPop, isMobile]);
 
   // Lock page scroll while popped, and reserve the scrollbar gutter so the
   // page width doesn't shift when overflow toggles.
@@ -272,10 +274,10 @@ export default function PortfolioPipSection({ profiles }: Props) {
 
         <motion.div
           ref={mockupRef}
-          onClick={enterPop}
+          onClick={isMobile ? undefined : enterPop}
           animate={{ scale: popTransform.scale, x: popTransform.x, y: popTransform.y }}
           transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-          style={{ position: "relative", width: displayW, borderRadius: 12, overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 40px 100px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.06)", transformOrigin: "center center", zIndex: 100, cursor: isPopped ? "default" : "zoom-in", willChange: "transform" }}
+          style={{ position: "relative", width: displayW, borderRadius: 12, overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 40px 100px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.06)", transformOrigin: "center center", zIndex: 100, cursor: isMobile ? "default" : (isPopped ? "default" : "zoom-in"), willChange: "transform" }}
         >
           {/* Chrome bar */}
           <div style={{ height: 40, background: "#1a1a24", borderBottom: "1px solid rgba(255,255,255,0.07)", display: "flex", alignItems: "center", gap: 12, padding: "0 16px" }}>
@@ -331,7 +333,25 @@ export default function PortfolioPipSection({ profiles }: Props) {
           &nbsp;의 바이브포트폴리오
         </p>
 
-        {atBottom ? (
+        {isMobile ? (
+          <button
+            onClick={switchToNext}
+            style={{
+              padding: "0.625rem 1.25rem",
+              borderRadius: 9999,
+              background: "var(--blue)",
+              color: "var(--bg)",
+              fontFamily: "var(--font-nunito)",
+              fontSize: "0.85rem",
+              fontWeight: 700,
+              border: "none",
+              cursor: "pointer",
+              marginTop: 4,
+            }}
+          >
+            다음 명함 보기 →
+          </button>
+        ) : atBottom ? (
           <p style={{ fontSize: "0.85rem", fontFamily: "var(--font-nunito)", letterSpacing: "0.01em" }}>
             {[..."↓ 계속 스크롤하여 다음 명함으로"].map((char, i, arr) => {
               const threshold = (i / arr.length) * 100;
