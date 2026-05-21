@@ -101,9 +101,22 @@ export default function LoggedInHeadline() {
       typeChar();
     };
 
+    // Pre-warm every glyph used in the pool so Hangul characters delivered
+    // via Noto Serif KR's unicode-range subsets are already cached before
+    // typing starts — otherwise a fresh syllable can flash in the system
+    // serif for the first paint.
     const start = () => { if (!cancelled) runPhrase(); };
-    if (typeof document !== "undefined" && document.fonts && document.fonts.ready) {
-      document.fonts.ready.then(start);
+    if (typeof document !== "undefined" && document.fonts) {
+      const sample = Array.from(
+        new Set(loggedInTaglines.flatMap((t) => [...t.text, ...(t.reply ?? "")]))
+      ).join("");
+      const HEADLINE_SPEC = "500 2.5rem 'Noto Serif KR', serif";
+      const REPLY_SPEC = "italic 400 2rem 'Noto Serif KR', serif";
+      Promise.all([
+        document.fonts.load(HEADLINE_SPEC, sample).catch(() => null),
+        document.fonts.load(REPLY_SPEC, sample).catch(() => null),
+        document.fonts.ready,
+      ]).then(start);
     } else {
       start();
     }
@@ -131,11 +144,11 @@ export default function LoggedInHeadline() {
     >
       <h1
         style={{
-          fontFamily: "'Noto Serif KR', var(--font-serif), serif",
+          fontFamily: "var(--font-serif), 'Noto Serif KR', serif",
           fontWeight: 500,
           fontSize: HEADLINE_FONT_SIZE,
           color: "var(--text-primary)",
-          lineHeight: 1.5,
+          lineHeight: 1.45,
           letterSpacing: "-0.01em",
           margin: 0,
           wordBreak: "keep-all",
@@ -149,7 +162,7 @@ export default function LoggedInHeadline() {
       {reply.length > 0 || phase === "reply" ? (
         <p
           style={{
-            fontFamily: "'Noto Serif KR', var(--font-serif), serif",
+            fontFamily: "var(--font-serif), 'Noto Serif KR', serif",
             fontWeight: 400,
             fontSize: REPLY_FONT_SIZE,
             color: "var(--text-secondary)",
