@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+
+const RETURNING_USER_KEY = "vf-returning-user";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -11,6 +13,11 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [form, setForm] = useState({ email: "", password: "" });
+  const [isReturning, setIsReturning] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    setIsReturning(localStorage.getItem(RETURNING_USER_KEY) === "1");
+  }, []);
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -32,12 +39,14 @@ export default function LoginPage() {
     if (error) {
       setError(errorMessage(error.message));
     } else {
+      localStorage.setItem(RETURNING_USER_KEY, "1");
       router.push("/");
       router.refresh();
     }
   }
 
   async function handleGoogle() {
+    localStorage.setItem(RETURNING_USER_KEY, "1");
     const supabase = createClient();
     await supabase.auth.signInWithOAuth({
       provider: "google",
@@ -60,12 +69,12 @@ export default function LoginPage() {
 
       <div className="flex-1 flex items-center justify-center px-6 py-12">
         <div className="w-full max-w-sm">
-          <div className="mb-8">
+          <div className="mb-8" style={{ opacity: isReturning === null ? 0 : 1, transition: "opacity 0.2s ease" }}>
             <h1 className="text-3xl font-black mb-2" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", letterSpacing: "-0.02em" }}>
-              다시 돌아왔군요
+              {isReturning ? "다시 돌아왔군요" : "환영합니다"}
             </h1>
             <p className="text-sm font-semibold" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
-              포트폴리오가 기다리고 있어요.
+              {isReturning ? "포트폴리오가 기다리고 있어요." : "새로운 포트폴리오를 만들 차례입니다."}
             </p>
           </div>
 
