@@ -77,10 +77,10 @@ const cardBaseStyle: React.CSSProperties = {
   borderRadius: 18,
   background: "var(--surface)",
   border: "1px solid var(--border)",
-  padding: "1.5rem 2rem",
+  padding: "clamp(1rem, 2.5vw, 1.5rem) clamp(1.1rem, 3vw, 2rem)",
   display: "flex",
   alignItems: "center",
-  gap: "1.5rem",
+  gap: "clamp(0.85rem, 2.5vw, 1.5rem)",
   minHeight: 220,
 };
 
@@ -189,7 +189,7 @@ export default function HowItWorksSection() {
 
   return (
     <div style={{
-      padding: "6rem 2rem 10rem",
+      padding: "6rem clamp(1rem, 3vw, 2rem) 10rem",
       display: "flex",
       flexDirection: "column",
       alignItems: "center",

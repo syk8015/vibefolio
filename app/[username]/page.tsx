@@ -186,7 +186,11 @@ export default async function UserPortfolioPage({
           >
             {projects.length} Projects
           </span>
-          {isOwner && !isEmbed && <ViewportModeToggle />}
+          {isOwner && !isEmbed && (
+            <div className="hidden md:block">
+              <ViewportModeToggle />
+            </div>
+          )}
           <ThemeToggle />
           <CopyLinkButton username={p.username} />
 

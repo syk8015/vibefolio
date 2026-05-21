@@ -146,28 +146,28 @@ export default function DashboardClient({ user }: { user: User }) {
         </div>
 
         {/* Tabs */}
-        <div className="flex justify-center mb-8">
-        <div
-          className="flex gap-1 p-1 rounded-xl"
-          style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
-        >
-          {(["profile", "projects", "analytics", "custom"] as Tab[]).map((t) => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className="px-5 py-2 rounded-lg text-sm font-bold transition-all duration-150"
-              style={{
-                background: tab === t ? (t === "custom" ? "#f59e0b" : "var(--blue)") : "transparent",
-                color: tab === t ? (t === "custom" ? "#000" : "#fff") : "var(--text-secondary)",
-                fontFamily: "var(--font-nunito)",
-                border: "none",
-                cursor: "pointer",
-              }}
-            >
-              {t === "profile" ? "프로필" : t === "projects" ? "프로젝트" : t === "analytics" ? "분석" : "커스텀"}
-            </button>
-          ))}
-        </div>
+        <div className="flex justify-center mb-8 overflow-x-auto">
+          <div
+            className="flex gap-1 p-1 rounded-xl shrink-0"
+            style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+          >
+            {(["profile", "projects", "analytics", "custom"] as Tab[]).map((t) => (
+              <button
+                key={t}
+                onClick={() => setTab(t)}
+                className="px-3 sm:px-5 py-2 rounded-lg text-sm font-bold transition-all duration-150 whitespace-nowrap"
+                style={{
+                  background: tab === t ? (t === "custom" ? "#f59e0b" : "var(--blue)") : "transparent",
+                  color: tab === t ? (t === "custom" ? "#000" : "#fff") : "var(--text-secondary)",
+                  fontFamily: "var(--font-nunito)",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+              >
+                {t === "profile" ? "프로필" : t === "projects" ? "프로젝트" : t === "analytics" ? "분석" : "커스텀"}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Tab content */}

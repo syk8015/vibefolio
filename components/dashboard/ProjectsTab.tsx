@@ -246,6 +246,22 @@ export default function ProjectsTab({ user }: { user: User }) {
     setEditProject(null);
   }
 
+  function handleMoveUp(index: number) {
+    if (index <= 0) return;
+    const next = [...projects];
+    [next[index - 1], next[index]] = [next[index], next[index - 1]];
+    setProjects(next);
+    saveOrder(next);
+  }
+
+  function handleMoveDown(index: number) {
+    if (index >= projects.length - 1) return;
+    const next = [...projects];
+    [next[index], next[index + 1]] = [next[index + 1], next[index]];
+    setProjects(next);
+    saveOrder(next);
+  }
+
   async function handleToggleFeatured(id: string) {
     const supabase = createClient();
     const target = projects.find(p => p.id === id);
@@ -313,6 +329,10 @@ export default function ProjectsTab({ user }: { user: User }) {
               onDelete={() => handleDelete(project.id)}
               onEdit={() => setEditProject(project)}
               onToggleFeatured={() => handleToggleFeatured(project.id)}
+              onMoveUp={() => handleMoveUp(i)}
+              onMoveDown={() => handleMoveDown(i)}
+              canMoveUp={i > 0}
+              canMoveDown={i < projects.length - 1}
               isDragging={dragIndex === i}
               isDragOver={dragOverIndex === i && dragIndex !== i}
               isLast={i === projects.length - 1}
@@ -349,11 +369,15 @@ export default function ProjectsTab({ user }: { user: User }) {
   );
 }
 
-function ProjectRow({ project, onDelete, onEdit, onToggleFeatured, isDragging, isDragOver, isLast, onDragStart, onDragOver, onDrop, onDragEnd }: {
+function ProjectRow({ project, onDelete, onEdit, onToggleFeatured, onMoveUp, onMoveDown, canMoveUp, canMoveDown, isDragging, isDragOver, isLast, onDragStart, onDragOver, onDrop, onDragEnd }: {
   project: DBProject;
   onDelete: () => void;
   onEdit: () => void;
   onToggleFeatured: () => void;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+  canMoveUp: boolean;
+  canMoveDown: boolean;
   isDragging: boolean;
   isDragOver: boolean;
   isLast: boolean;
@@ -372,94 +396,117 @@ function ProjectRow({ project, onDelete, onEdit, onToggleFeatured, isDragging, i
       onDragOver={onDragOver}
       onDrop={onDrop}
       onDragEnd={onDragEnd}
-      className="flex items-center gap-4 p-4 transition-all duration-150"
+      className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4 p-3 md:p-4 transition-all duration-150"
       style={{
         background: isDragOver ? "var(--blue-tint)" : (project.is_featured ? "rgba(245,158,11,0.06)" : "var(--surface)"),
         opacity: isDragging ? 0.4 : 1,
         borderBottom: isLast ? "none" : "1px solid var(--border)",
         borderTop: isDragOver ? "2px solid var(--blue)" : undefined,
         borderLeft: project.is_featured ? "3px solid #f59e0b" : "3px solid transparent",
-        cursor: "grab",
       }}
     >
-      {/* Drag handle */}
-      <div style={{ color: "var(--border-bright)", cursor: "grab", flexShrink: 0, padding: "4px 2px" }}>
-        <svg width="12" height="18" viewBox="0 0 12 18" fill="currentColor">
-          <circle cx="3" cy="3" r="1.5"/><circle cx="9" cy="3" r="1.5"/>
-          <circle cx="3" cy="9" r="1.5"/><circle cx="9" cy="9" r="1.5"/>
-          <circle cx="3" cy="15" r="1.5"/><circle cx="9" cy="15" r="1.5"/>
-        </svg>
+      {/* Top section: drag handle (desktop) + thumbnail + info — stays in row even on mobile */}
+      <div className="flex items-start md:items-center gap-3 md:gap-4 flex-1 min-w-0">
+        {/* Drag handle — desktop only (mobile uses ↑↓ buttons) */}
+        <div className="hidden md:flex items-center shrink-0" style={{ color: "var(--border-bright)", cursor: "grab", padding: "4px 2px" }}>
+          <svg width="12" height="18" viewBox="0 0 12 18" fill="currentColor">
+            <circle cx="3" cy="3" r="1.5"/><circle cx="9" cy="3" r="1.5"/>
+            <circle cx="3" cy="9" r="1.5"/><circle cx="9" cy="9" r="1.5"/>
+            <circle cx="3" cy="15" r="1.5"/><circle cx="9" cy="15" r="1.5"/>
+          </svg>
+        </div>
+
+        <div className="relative w-20 h-14 rounded-xl overflow-hidden shrink-0">
+          <Image src={thumbnail} alt={project.title} fill className="object-cover" sizes="80px" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
+            <h3 className="font-bold text-sm truncate" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}>{project.title}</h3>
+            <span className="text-xs shrink-0" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>{project.year}</span>
+            {contentType && (
+              <span className="px-2 py-0.5 rounded-full text-xs font-bold shrink-0"
+                style={{ background: "var(--blue-tint)", border: "1px solid var(--border-bright)", color: "var(--blue-bright)", fontFamily: "var(--font-nunito)", fontSize: "0.6rem" }}>
+                {contentType.emoji} {contentType.label}
+              </span>
+            )}
+            {isUploadedProject(project.demo_url) && (
+              <span className="px-2 py-0.5 rounded-full text-xs font-bold shrink-0"
+                style={{ background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.3)", color: "#22c55e", fontFamily: "var(--font-nunito)", fontSize: "0.6rem" }}>
+                업로드
+              </span>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {(project.tags ?? []).map(tag => (
+              <span key={tag} className="flex items-center gap-1 px-2 py-0.5 rounded-full"
+                style={{
+                  background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.3)",
+                  color: "#f59e0b", fontSize: "0.62rem", fontWeight: 700, fontFamily: "var(--font-nunito)",
+                }}>
+                <AiToolLogo id={tag} size={11} />
+                {tag}
+              </span>
+            ))}
+          </div>
+        </div>
       </div>
 
-      <div className="relative w-20 h-14 rounded-xl overflow-hidden shrink-0">
-        <Image src={thumbnail} alt={project.title} fill className="object-cover" sizes="80px" />
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-1 flex-wrap">
-          <h3 className="font-bold text-sm truncate" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}>{project.title}</h3>
-          <span className="text-xs shrink-0" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>{project.year}</span>
-          {contentType && (
-            <span className="px-2 py-0.5 rounded-full text-xs font-bold shrink-0"
-              style={{ background: "var(--blue-tint)", border: "1px solid var(--border-bright)", color: "var(--blue-bright)", fontFamily: "var(--font-nunito)", fontSize: "0.6rem" }}>
-              {contentType.emoji} {contentType.label}
-            </span>
-          )}
-          {isUploadedProject(project.demo_url) && (
-            <span className="px-2 py-0.5 rounded-full text-xs font-bold shrink-0"
-              style={{ background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.3)", color: "#22c55e", fontFamily: "var(--font-nunito)", fontSize: "0.6rem" }}>
-              업로드
-            </span>
-          )}
-        </div>
-        <div className="flex flex-wrap gap-1.5">
-          {(project.tags ?? []).map(tag => (
-            <span key={tag} className="flex items-center gap-1 px-2 py-0.5 rounded-full"
-              style={{
-                background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.3)",
-                color: "#f59e0b", fontSize: "0.62rem", fontWeight: 700, fontFamily: "var(--font-nunito)",
-              }}>
-              <AiToolLogo id={tag} size={11} />
-              {tag}
-            </span>
-          ))}
-        </div>
-      </div>
-      <span className="shrink-0 px-2.5 py-1 rounded-full text-xs font-bold"
-        style={{
-          background: project.type === "video" ? "rgba(168,85,247,0.1)" : "var(--blue-tint)",
-          border: `1px solid ${project.type === "video" ? "rgba(168,85,247,0.35)" : "var(--border-bright)"}`,
-          color: project.type === "video" ? "#a855f7" : "var(--blue-bright)",
-          fontFamily: "var(--font-nunito)",
-        }}>
-        {project.type === "video" ? "영상" : "이미지"}
-      </span>
-      <div className="flex items-center gap-2 shrink-0" onDragStart={e => e.stopPropagation()}>
-        <button
-          onClick={onToggleFeatured}
-          title={project.is_featured ? "대표 작품 해제" : "대표 작품으로 설정"}
-          className="p-2 rounded-lg transition-opacity hover:opacity-70"
+      {/* Bottom section: type badge + actions. Full-width row on mobile, inline on desktop */}
+      <div className="flex items-center gap-2 justify-between md:justify-start shrink-0" onDragStart={e => e.stopPropagation()}>
+        <span className="px-2.5 py-1 rounded-full text-xs font-bold shrink-0"
           style={{
-            background: project.is_featured ? "rgba(245,158,11,0.15)" : "transparent",
-            border: `1px solid ${project.is_featured ? "rgba(245,158,11,0.5)" : "var(--border-bright)"}`,
-            cursor: "pointer",
-          }}
-        >
-          <svg width="14" height="14" viewBox="0 0 14 14" fill={project.is_featured ? "#f59e0b" : "none"} stroke={project.is_featured ? "#f59e0b" : "var(--text-muted)"}>
-            <path d="M7 1l1.8 4 4.2.4-3.2 2.9 1 4.2L7 10.4 3.2 12.5l1-4.2L1 5.4l4.2-.4L7 1z" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-        </button>
-        <button onClick={onEdit} className="p-2 rounded-lg transition-opacity hover:opacity-70"
-          style={{ background: "var(--blue-tint)", border: "1px solid var(--border-bright)", cursor: "pointer" }}>
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-            <path d="M9.5 2.5l2 2L4 12H2v-2L9.5 2.5zM8.5 3.5l2 2" stroke="var(--blue)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-        </button>
-        <button onClick={onDelete} className="p-2 rounded-lg transition-opacity hover:opacity-70"
-          style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", cursor: "pointer" }}>
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-            <path d="M2 3.5h10M5.5 3.5V2.5h3v1M5 5.5v5M9 5.5v5M3.5 3.5l.5 8h6l.5-8" stroke="#ef4444" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-        </button>
+            background: project.type === "video" ? "rgba(168,85,247,0.1)" : "var(--blue-tint)",
+            border: `1px solid ${project.type === "video" ? "rgba(168,85,247,0.35)" : "var(--border-bright)"}`,
+            color: project.type === "video" ? "#a855f7" : "var(--blue-bright)",
+            fontFamily: "var(--font-nunito)",
+          }}>
+          {project.type === "video" ? "영상" : "이미지"}
+        </span>
+
+        <div className="flex items-center gap-1.5 md:gap-2">
+          {/* Move up/down — mobile only (drag handle on desktop) */}
+          <button onClick={onMoveUp} disabled={!canMoveUp} title="위로"
+            className="md:hidden p-2 rounded-lg transition-opacity hover:opacity-70 disabled:opacity-30"
+            style={{ background: "var(--bg)", border: "1px solid var(--border-bright)", cursor: canMoveUp ? "pointer" : "not-allowed" }}>
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M3 8l4-4 4 4" stroke="var(--text-secondary)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
+          <button onClick={onMoveDown} disabled={!canMoveDown} title="아래로"
+            className="md:hidden p-2 rounded-lg transition-opacity hover:opacity-70 disabled:opacity-30"
+            style={{ background: "var(--bg)", border: "1px solid var(--border-bright)", cursor: canMoveDown ? "pointer" : "not-allowed" }}>
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M3 6l4 4 4-4" stroke="var(--text-secondary)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
+
+          <button
+            onClick={onToggleFeatured}
+            title={project.is_featured ? "대표 작품 해제" : "대표 작품으로 설정"}
+            className="p-2 rounded-lg transition-opacity hover:opacity-70"
+            style={{
+              background: project.is_featured ? "rgba(245,158,11,0.15)" : "transparent",
+              border: `1px solid ${project.is_featured ? "rgba(245,158,11,0.5)" : "var(--border-bright)"}`,
+              cursor: "pointer",
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" fill={project.is_featured ? "#f59e0b" : "none"} stroke={project.is_featured ? "#f59e0b" : "var(--text-muted)"}>
+              <path d="M7 1l1.8 4 4.2.4-3.2 2.9 1 4.2L7 10.4 3.2 12.5l1-4.2L1 5.4l4.2-.4L7 1z" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
+          <button onClick={onEdit} className="p-2 rounded-lg transition-opacity hover:opacity-70"
+            style={{ background: "var(--blue-tint)", border: "1px solid var(--border-bright)", cursor: "pointer" }}>
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M9.5 2.5l2 2L4 12H2v-2L9.5 2.5zM8.5 3.5l2 2" stroke="var(--blue)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
+          <button onClick={onDelete} className="p-2 rounded-lg transition-opacity hover:opacity-70"
+            style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", cursor: "pointer" }}>
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M2 3.5h10M5.5 3.5V2.5h3v1M5 5.5v5M9 5.5v5M3.5 3.5l.5 8h6l.5-8" stroke="#ef4444" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
+        </div>
       </div>
     </div>
   );

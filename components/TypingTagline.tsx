@@ -12,7 +12,7 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
-const TAGLINE_FONT_SIZE = "clamp(1.35rem, 3.4vw, 2.5rem)";
+const TAGLINE_FONT_SIZE = "clamp(1.1rem, 3.4vw, 2.5rem)";
 
 export default function TypingTagline({ userCount }: { userCount: number }) {
   const [text, setText] = useState("");
@@ -79,6 +79,7 @@ export default function TypingTagline({ userCount }: { userCount: number }) {
   return (
     <h1
       aria-live="polite"
+      className="vf-tagline whitespace-normal md:whitespace-nowrap"
       style={{
         fontFamily: "var(--font-serif), 'Noto Serif KR', serif",
         fontWeight: 500,
@@ -88,8 +89,8 @@ export default function TypingTagline({ userCount }: { userCount: number }) {
         letterSpacing: "-0.01em",
         minHeight: "1.45em",
         margin: 0,
+        maxWidth: "92vw",
         textAlign: "center",
-        whiteSpace: "nowrap",
       }}
     >
       <span style={{ display: "inline-flex", alignItems: "center" }}>
