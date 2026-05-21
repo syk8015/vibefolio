@@ -24,6 +24,7 @@ export default function ProjectModal({ projects, currentIndex, onClose, onNaviga
   const project = currentIndex !== null ? projects[currentIndex] : null;
 
   const [isMounted, setIsMounted] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const [iframeState, setIframeState] = useState<"loading" | "loaded" | "error">("loading");
   const [visible, setVisible] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
@@ -97,17 +98,24 @@ export default function ProjectModal({ projects, currentIndex, onClose, onNaviga
   useEffect(() => { setIsMounted(true); }, []);
 
   useEffect(() => {
+    const update = () => setIsMobile(window.innerWidth < 768);
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
+
+  useEffect(() => {
     document.body.style.overflow = project ? "hidden" : "";
     return () => { document.body.style.overflow = ""; };
   }, [project]);
 
   useEffect(() => {
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    if (project?.demoUrl && iframeState === "loading") {
+    if (project?.demoUrl && !isMobile && iframeState === "loading") {
       timeoutRef.current = setTimeout(() => setIframeState("error"), 8000);
     }
     return () => { if (timeoutRef.current) clearTimeout(timeoutRef.current); };
-  }, [project, iframeState]);
+  }, [project, iframeState, isMobile]);
 
   if (!isMounted || !project) return null;
 
@@ -251,7 +259,9 @@ export default function ProjectModal({ projects, currentIndex, onClose, onNaviga
 
           {/* Iframe / demo */}
           <div className="flex-1 relative overflow-hidden">
-            {project.demoUrl ? (
+            {project.demoUrl && isMobile ? (
+              <MobileProjectPreview project={project} />
+            ) : project.demoUrl ? (
               <>
                 {iframeState === "loading" && (
                   <div className="absolute inset-0 flex flex-col items-center justify-center z-10" style={{ background: "var(--bg)" }}>
@@ -363,6 +373,129 @@ export default function ProjectModal({ projects, currentIndex, onClose, onNaviga
       </div>
     </div>,
     document.body
+  );
+}
+
+function MobileProjectPreview({ project }: { project: Project }) {
+  const href = safeHref(project.demoUrl);
+  return (
+    <div className="absolute inset-0 overflow-y-auto">
+      <ThumbnailBackground project={project} />
+      <div className="relative z-10 min-h-full flex flex-col items-center justify-center p-6 gap-5">
+        {/* Sharp thumbnail card */}
+        <div
+          className="relative w-full max-w-sm aspect-video rounded-2xl overflow-hidden"
+          style={{ border: "1px solid var(--border-bright)", boxShadow: "0 12px 36px rgba(0,0,0,0.4)" }}
+        >
+          <Image
+            src={project.thumbnail}
+            alt={project.title}
+            fill
+            className="object-cover"
+            sizes="(max-width: 768px) 100vw, 400px"
+          />
+        </div>
+
+        <div className="text-center max-w-md flex flex-col items-center">
+          <div
+            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold mb-3"
+            style={{
+              background: "var(--blue-tint)",
+              border: "1px solid var(--blue)",
+              color: "var(--blue-bright)",
+              fontFamily: "var(--font-nunito)",
+              letterSpacing: "0.04em",
+            }}
+          >
+            🖥️ 큰 화면에서 더 잘 보여요
+          </div>
+
+          <h3
+            className="text-xl font-black mb-1"
+            style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}
+          >
+            {project.title}
+          </h3>
+
+          {project.year && (
+            <p
+              className="text-xs font-bold mb-3"
+              style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", letterSpacing: "0.1em" }}
+            >
+              {project.year}
+            </p>
+          )}
+
+          {project.description && (
+            <p
+              className="text-sm leading-relaxed mb-4"
+              style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}
+            >
+              {project.description}
+            </p>
+          )}
+
+          {project.tags.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 justify-center mb-5">
+              {project.tags.map(tag => {
+                const ai = AI_KEYWORDS.some(k => tag.toLowerCase().includes(k));
+                return (
+                  <span
+                    key={tag}
+                    className="px-2.5 py-0.5 rounded-full font-bold uppercase"
+                    style={{
+                      background: ai ? "rgba(234,179,8,0.1)" : "var(--blue-tint)",
+                      border: `1px solid ${ai ? "rgba(234,179,8,0.35)" : "var(--border-bright)"}`,
+                      color: ai ? "#eab308" : "var(--blue-bright)",
+                      fontFamily: "var(--font-nunito)",
+                      fontSize: "0.65rem",
+                      letterSpacing: "0.06em",
+                    }}
+                  >
+                    {tag}
+                  </span>
+                );
+              })}
+            </div>
+          )}
+
+          {project.comment && (
+            <div
+              className="p-3 rounded-xl text-xs leading-relaxed mb-5 w-full max-w-sm"
+              style={{
+                background: "var(--blue-tint)",
+                border: "1px solid var(--border-bright)",
+                color: "var(--text-secondary)",
+                fontFamily: "var(--font-nunito)",
+              }}
+            >
+              💬 {project.comment}
+            </div>
+          )}
+
+          {href && (
+            <a
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-5 py-3 rounded-full font-bold hover:opacity-85 transition-opacity"
+              style={{
+                background: "var(--blue)",
+                color: "var(--bg)",
+                fontFamily: "var(--font-nunito)",
+                fontSize: "0.875rem",
+                textDecoration: "none",
+              }}
+            >
+              <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
+                <path d="M2 12L12 2M12 2H6M12 2V8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              새 탭에서 열기
+            </a>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 
