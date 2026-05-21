@@ -253,3 +253,8 @@ body::before {
   animation: vf-cursor-blink 0.95s steps(1) infinite;
   pointer-events: none;
 }
+/* When the cursor lives in normal inline flow (not inline-flex),
+   use baseline-aware alignment so it tracks the text line height. */
+.vf-cursor-inline {
+  vertical-align: -0.05em;
+}

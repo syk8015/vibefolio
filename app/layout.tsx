@@ -47,6 +47,16 @@ export default function RootLayout({
   return (
     <html lang="ko" className={`${inter.variable} ${hahmlet.variable} ${mono.variable}`} suppressHydrationWarning>
       <head>
+        {/* Korean glyphs: next/font/google doesn't expose the `korean` subset
+            for CJK fonts, so Hangul was falling back to the system serif.
+            Loading Noto Serif KR via the Google Fonts CSS endpoint uses
+            unicode-range subsetting to serve the right glyphs on demand. */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;500;600;700&display=swap"
+          rel="stylesheet"
+        />
         {/* Runs before paint to prevent flash of wrong theme */}
         <script dangerouslySetInnerHTML={{ __html: `
 (function(){try{var s=localStorage.getItem('vf-theme');document.documentElement.setAttribute('data-theme',(s==='dark'||s==='light')?s:'light');}catch(e){}})();

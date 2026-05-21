@@ -131,40 +131,40 @@ export default function LoggedInHeadline() {
     >
       <h1
         style={{
-          fontFamily: "var(--font-serif), 'Noto Serif KR', serif",
+          fontFamily: "'Noto Serif KR', var(--font-serif), serif",
           fontWeight: 500,
           fontSize: HEADLINE_FONT_SIZE,
           color: "var(--text-primary)",
-          lineHeight: 1.45,
+          lineHeight: 1.5,
           letterSpacing: "-0.01em",
           margin: 0,
+          wordBreak: "keep-all",
+          overflowWrap: "break-word",
         }}
       >
-        <span style={{ display: "inline-flex", alignItems: "center" }}>
-          <span>{text || "​"}</span>
-          {phase === "text" && <span className="vf-cursor" aria-hidden />}
-        </span>
+        {text || "​"}
+        {phase === "text" && <span className="vf-cursor vf-cursor-inline" aria-hidden />}
       </h1>
 
       {reply.length > 0 || phase === "reply" ? (
         <p
           style={{
-            fontFamily: "var(--font-serif), 'Noto Serif KR', serif",
+            fontFamily: "'Noto Serif KR', var(--font-serif), serif",
             fontWeight: 400,
             fontSize: REPLY_FONT_SIZE,
             color: "var(--text-secondary)",
             fontStyle: "italic",
-            lineHeight: 1.4,
+            lineHeight: 1.45,
             letterSpacing: "-0.01em",
             margin: 0,
             paddingLeft: "1.4em",
+            wordBreak: "keep-all",
+            overflowWrap: "break-word",
           }}
         >
-          <span style={{ display: "inline-flex", alignItems: "center" }}>
-            <span aria-hidden style={{ marginRight: "0.35em", opacity: 0.7 }}>↳</span>
-            <span>{reply || "​"}</span>
-            {phase === "reply" && <span className="vf-cursor" aria-hidden />}
-          </span>
+          <span aria-hidden style={{ marginRight: "0.35em", opacity: 0.7 }}>↳</span>
+          {reply || "​"}
+          {phase === "reply" && <span className="vf-cursor vf-cursor-inline" aria-hidden />}
         </p>
       ) : null}
     </div>
