@@ -42,7 +42,7 @@ function PersonAtIcon({ size = 80 }: { size?: number }) {
     <svg width={size} height={Math.round(size * 1.4)} viewBox="0 0 24 34" fill="var(--blue)" aria-hidden>
       <text
         x="12"
-        y="7"
+        y="11"
         fontSize="13"
         fontWeight="900"
         textAnchor="middle"
@@ -52,7 +52,7 @@ function PersonAtIcon({ size = 80 }: { size?: number }) {
       >
         @
       </text>
-      <path d="M3 34C3 22 21 22 21 34H3Z" />
+      <path d="M3 34C3 17 21 17 21 34H3Z" />
     </svg>
   );
 }
@@ -132,24 +132,26 @@ function HorizCard({
       </span>
       <div style={{ flex: 1, minWidth: 0 }}>
         <h3 style={{
-          fontFamily: "var(--font-nunito)",
-          fontWeight: 800,
-          fontSize: "clamp(1.2rem, 3.2vw, 1.9rem)",
+          fontFamily: "var(--font-serif), 'Noto Serif KR', serif",
+          fontWeight: 500,
+          fontSize: "clamp(0.95rem, 1.7vw, 1.25rem)",
           color: "var(--text-primary)",
-          margin: "0 0 0.5rem",
-          lineHeight: 1.15,
+          margin: "0 0 0.4rem",
+          lineHeight: 1.35,
           letterSpacing: "-0.01em",
         }}>
           {title}
         </h3>
         <p style={{
-          fontFamily: "var(--font-nunito)",
-          fontSize: "clamp(0.9rem, 2.5vw, 1.44rem)",
+          fontFamily: "var(--font-serif), 'Noto Serif KR', serif",
+          fontSize: "clamp(0.8rem, 1.3vw, 1rem)",
           color: subColor,
-          fontWeight: 600,
+          fontWeight: 500,
           margin: 0,
-          lineHeight: 1.25,
-          wordBreak: "break-word",
+          lineHeight: 1.4,
+          letterSpacing: "-0.01em",
+          wordBreak: "keep-all",
+          overflowWrap: "break-word",
         }}>
           {sub}
         </p>
