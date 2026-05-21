@@ -9,6 +9,7 @@ export interface Project {
   demoUrl?: string;
   comment?: string;
   contentType?: string | null;
+  isFeatured?: boolean;
 }
 
 export const profile = {

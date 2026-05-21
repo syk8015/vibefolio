@@ -13,6 +13,7 @@ import ThemeToggle from "@/components/ThemeToggle";
 import ViewportModeToggle from "@/components/ViewportModeToggle";
 import ViewportFrame from "@/components/ViewportFrame";
 import EmbedLoginButton from "@/components/EmbedLoginButton";
+import FeaturedHero from "@/components/FeaturedHero";
 
 const getProfile = cache(async (username: string) => {
   const supabase = await createClient();
@@ -82,6 +83,7 @@ interface DBProject {
   comment: string | null;
   content_type: string | null;
   sort_order: number;
+  is_featured: boolean | null;
 }
 
 export default async function UserPortfolioPage({
@@ -117,7 +119,16 @@ export default async function UserPortfolioPage({
     demoUrl: p.demo_url ?? undefined,
     comment: p.comment ?? undefined,
     contentType: p.content_type ?? null,
+    isFeatured: p.is_featured ?? false,
   }));
+
+  // Pick featured: explicit flag wins, otherwise default to the first project.
+  const featuredIndex = projects.findIndex(pr => pr.isFeatured);
+  const featured: Project | null =
+    featuredIndex >= 0 ? projects[featuredIndex] : (projects[0] ?? null);
+  const otherProjects: Project[] = featured
+    ? projects.filter(pr => pr.id !== featured.id)
+    : projects;
 
   const p = profile;
   const { data: { user: rawUser } } = await supabase.auth.getUser();
@@ -248,108 +259,112 @@ export default async function UserPortfolioPage({
       </nav>
 
       <ViewportFrame username={p.username} enabled={isOwner && !isEmbed}>
-      {/* Hero */}
-      <section className="relative flex flex-col items-center pt-28 md:pt-40 pb-16 md:pb-24 px-6 z-10">
 
-        {/* Glow */}
-        <div
-          className="absolute top-32 w-64 h-64 rounded-full pointer-events-none"
-          style={{
-            background: "radial-gradient(circle, rgba(77,158,255,0.12) 0%, transparent 70%)",
-            filter: "blur(24px)",
-          }}
-        />
+      {/* Featured Hero — full-bleed 85vh, project front-and-center */}
+      {featured && <FeaturedHero project={featured} />}
 
-        {/* Avatar with rotating ring */}
-        <div className="vf-anim-avatar relative mb-6 md:mb-8 z-10">
-          {/* Spinning ring */}
-          <div
-            className="vf-ring-spin absolute rounded-full pointer-events-none"
-            style={{
-              inset: "-4px",
-              background: "conic-gradient(from 0deg, var(--blue) 0%, var(--blue-bright) 35%, transparent 55%, transparent 80%, var(--blue) 100%)",
-              opacity: 0.65,
-            }}
-          />
-          <div
-            className="vf-avatar relative w-24 h-24 md:w-32 md:h-32 rounded-full flex items-center justify-center text-4xl md:text-5xl font-black sphere-shadow overflow-hidden z-10"
-            style={{
-              background: "linear-gradient(135deg, var(--blue), var(--blue-bright))",
-              color: "#fff",
-              fontFamily: "var(--font-nunito)",
-              border: "2px solid var(--bg)",
-            }}
-          >
-            {p.avatar_url
-              ? <img src={p.avatar_url} alt={p.name || p.username} className="w-full h-full object-cover" />
-              : (p.name || p.username).charAt(0).toUpperCase()}
-          </div>
-        </div>
-
-        {/* Name */}
-        <h1
-          className="vf-anim-1 text-3xl md:text-5xl lg:text-6xl mb-1 tracking-tight"
-          style={{
-            fontFamily: "var(--font-nunito)",
-            color: "var(--text-primary)",
-            fontWeight: 800,
-          }}
-        >
-          {p.name || p.username}
-        </h1>
-
-        <p
-          className="vf-anim-1 mb-8 text-sm tracking-[0.25em] uppercase"
-          style={{ color: "var(--blue)", fontFamily: "var(--font-nunito)", fontWeight: 300 }}
-        >
-          @{p.username}
-        </p>
-
-        <div className="vf-anim-2 w-24 h-px mb-8 blue-line" />
-
-        {p.bio && (
-          <p
-            className="vf-anim-2 max-w-lg text-center leading-8 whitespace-pre-line"
-            style={{
-              color: "var(--text-secondary)",
-              fontFamily: "var(--font-nunito)",
-              fontWeight: 300,
-              fontSize: "0.925rem",
-            }}
-          >
-            {p.bio}
-          </p>
-        )}
-
-        {/* Social links */}
-        {(() => {
-          const links: string[] = p.social_links?.length
-            ? p.social_links
-            : [
-                p.twitter ? `https://twitter.com/${p.twitter.replace("@", "")}` : "",
-                p.github ? `https://github.com/${p.github}` : "",
-              ].filter(Boolean);
-
-          if (!links.length) return null;
-
-          return (
-            <div className="vf-anim-3 flex flex-wrap items-center justify-center gap-3 mt-8">
-              {links.map((url, i) => (
-                <SocialBadge key={i} url={url} />
-              ))}
-            </div>
-          );
-        })()}
-      </section>
-
-      {/* Projects */}
+      {/* Body: profile (left/top) + other projects (right/bottom) */}
       {projects.length > 0 ? (
-        <section className="relative max-w-5xl mx-auto px-6 pb-28 z-10">
-          <ProjectsSection projects={projects} />
+        <section className="relative z-10 max-w-7xl mx-auto px-5 md:px-8 py-12 md:py-20">
+          <div className="grid grid-cols-1 md:grid-cols-[minmax(0,30%)_minmax(0,1fr)] gap-10 md:gap-12">
+            {/* Profile (sticky on desktop) */}
+            <aside className="md:sticky md:top-24 md:self-start flex flex-col gap-5">
+              <div className="vf-anim-avatar relative">
+                <div
+                  className="vf-ring-spin absolute rounded-full pointer-events-none"
+                  style={{
+                    inset: "-4px",
+                    background: "conic-gradient(from 0deg, var(--blue) 0%, var(--blue-bright) 35%, transparent 55%, transparent 80%, var(--blue) 100%)",
+                    opacity: 0.55,
+                  }}
+                />
+                <div
+                  className="vf-avatar relative w-20 h-20 md:w-24 md:h-24 rounded-full flex items-center justify-center text-3xl md:text-4xl font-black sphere-shadow overflow-hidden z-10"
+                  style={{
+                    background: "linear-gradient(135deg, var(--blue), var(--blue-bright))",
+                    color: "#fff",
+                    fontFamily: "var(--font-nunito)",
+                    border: "2px solid var(--bg)",
+                  }}
+                >
+                  {p.avatar_url
+                    ? <img src={p.avatar_url} alt={p.name || p.username} className="w-full h-full object-cover" />
+                    : (p.name || p.username).charAt(0).toUpperCase()}
+                </div>
+              </div>
+
+              <div>
+                <h1
+                  className="vf-anim-1 text-2xl md:text-3xl tracking-tight mb-1"
+                  style={{ fontFamily: "var(--font-nunito)", color: "var(--text-primary)", fontWeight: 800 }}
+                >
+                  {p.name || p.username}
+                </h1>
+                <p
+                  className="vf-anim-1 text-xs tracking-[0.2em] uppercase"
+                  style={{ color: "var(--blue)", fontFamily: "var(--font-nunito)", fontWeight: 400 }}
+                >
+                  @{p.username}
+                </p>
+              </div>
+
+              {p.bio && (
+                <p
+                  className="vf-anim-2 leading-7 whitespace-pre-line"
+                  style={{
+                    color: "var(--text-secondary)",
+                    fontFamily: "var(--font-nunito)",
+                    fontWeight: 400,
+                    fontSize: "0.9rem",
+                  }}
+                >
+                  {p.bio}
+                </p>
+              )}
+
+              {(() => {
+                const links: string[] = p.social_links?.length
+                  ? p.social_links
+                  : [
+                      p.twitter ? `https://twitter.com/${p.twitter.replace("@", "")}` : "",
+                      p.github ? `https://github.com/${p.github}` : "",
+                    ].filter(Boolean);
+
+                if (!links.length) return null;
+
+                return (
+                  <div className="vf-anim-3 flex flex-wrap items-center gap-2">
+                    {links.map((url, i) => (
+                      <SocialBadge key={i} url={url} />
+                    ))}
+                  </div>
+                );
+              })()}
+            </aside>
+
+            {/* Other projects */}
+            <div className="min-w-0">
+              {otherProjects.length > 0 ? (
+                <ProjectsSection projects={otherProjects} />
+              ) : (
+                <div
+                  className="flex flex-col items-center justify-center py-16 text-center rounded-2xl"
+                  style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+                >
+                  <p className="text-sm font-bold mb-1" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
+                    다른 작품은 곧 추가될 예정이에요
+                  </p>
+                  <p className="text-xs" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
+                    위 대표 작품을 먼저 확인해보세요.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
         </section>
       ) : (
-        <section className="relative max-w-5xl mx-auto px-6 pb-28 z-10">
-          <div className="flex flex-col items-center justify-center py-24 text-center">
+        <section className="relative max-w-5xl mx-auto px-6 py-24 z-10">
+          <div className="flex flex-col items-center justify-center text-center">
             <div
               className="w-16 h-16 rounded-2xl flex items-center justify-center mb-5"
               style={{ background: "var(--blue-tint)", border: "1px solid var(--border-bright)" }}
@@ -360,6 +375,15 @@ export default async function UserPortfolioPage({
                 <path d="M24 23l2.5 2.5" stroke="var(--blue)" strokeWidth="1.8" strokeLinecap="round"/>
               </svg>
             </div>
+            <h1
+              className="text-2xl font-black mb-1"
+              style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}
+            >
+              {p.name || p.username}
+            </h1>
+            <p className="text-xs tracking-[0.2em] uppercase mb-6" style={{ color: "var(--blue)", fontFamily: "var(--font-nunito)" }}>
+              @{p.username}
+            </p>
             <p className="text-base font-black mb-2" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
               아직 공개된 프로젝트가 없어요
             </p>

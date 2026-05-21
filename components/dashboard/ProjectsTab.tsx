@@ -122,9 +122,10 @@ interface DBProject {
   demo_url: string;
   comment: string;
   sort_order: number;
+  is_featured: boolean;
 }
 
-type ProjectForm = Omit<DBProject, "id" | "sort_order">;
+type ProjectForm = Omit<DBProject, "id" | "sort_order" | "is_featured">;
 
 const EMPTY_FORM: ProjectForm = {
   title: "",
@@ -243,6 +244,29 @@ export default function ProjectsTab({ user }: { user: User }) {
     setEditProject(null);
   }
 
+  async function handleToggleFeatured(id: string) {
+    const supabase = createClient();
+    const target = projects.find(p => p.id === id);
+    if (!target) return;
+    const next = !target.is_featured;
+
+    // Optimistic UI: exactly one featured (or zero) at a time
+    setProjects(prev => prev.map(p => ({
+      ...p,
+      is_featured: p.id === id ? next : (next ? false : p.is_featured),
+    })));
+
+    // Persist: unset all other featured for this user first, then set target.
+    // The partial unique index requires no two rows with is_featured=true.
+    if (next) {
+      await supabase.from("projects")
+        .update({ is_featured: false })
+        .eq("user_id", user.id)
+        .neq("id", id);
+    }
+    await supabase.from("projects").update({ is_featured: next }).eq("id", id);
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -286,6 +310,7 @@ export default function ProjectsTab({ user }: { user: User }) {
               project={project}
               onDelete={() => handleDelete(project.id)}
               onEdit={() => setEditProject(project)}
+              onToggleFeatured={() => handleToggleFeatured(project.id)}
               isDragging={dragIndex === i}
               isDragOver={dragOverIndex === i && dragIndex !== i}
               isLast={i === projects.length - 1}
@@ -321,10 +346,11 @@ export default function ProjectsTab({ user }: { user: User }) {
   );
 }
 
-function ProjectRow({ project, onDelete, onEdit, isDragging, isDragOver, isLast, onDragStart, onDragOver, onDrop, onDragEnd }: {
+function ProjectRow({ project, onDelete, onEdit, onToggleFeatured, isDragging, isDragOver, isLast, onDragStart, onDragOver, onDrop, onDragEnd }: {
   project: DBProject;
   onDelete: () => void;
   onEdit: () => void;
+  onToggleFeatured: () => void;
   isDragging: boolean;
   isDragOver: boolean;
   isLast: boolean;
@@ -345,10 +371,11 @@ function ProjectRow({ project, onDelete, onEdit, isDragging, isDragOver, isLast,
       onDragEnd={onDragEnd}
       className="flex items-center gap-4 p-4 transition-all duration-150"
       style={{
-        background: isDragOver ? "var(--blue-tint)" : "var(--surface)",
+        background: isDragOver ? "var(--blue-tint)" : (project.is_featured ? "rgba(245,158,11,0.06)" : "var(--surface)"),
         opacity: isDragging ? 0.4 : 1,
         borderBottom: isLast ? "none" : "1px solid var(--border)",
         borderTop: isDragOver ? "2px solid var(--blue)" : undefined,
+        borderLeft: project.is_featured ? "3px solid #f59e0b" : "3px solid transparent",
         cursor: "grab",
       }}
     >
@@ -404,6 +431,20 @@ function ProjectRow({ project, onDelete, onEdit, isDragging, isDragOver, isLast,
         {project.type === "video" ? "영상" : "이미지"}
       </span>
       <div className="flex items-center gap-2 shrink-0" onDragStart={e => e.stopPropagation()}>
+        <button
+          onClick={onToggleFeatured}
+          title={project.is_featured ? "대표 작품 해제" : "대표 작품으로 설정"}
+          className="p-2 rounded-lg transition-opacity hover:opacity-70"
+          style={{
+            background: project.is_featured ? "rgba(245,158,11,0.15)" : "transparent",
+            border: `1px solid ${project.is_featured ? "rgba(245,158,11,0.5)" : "var(--border-bright)"}`,
+            cursor: "pointer",
+          }}
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill={project.is_featured ? "#f59e0b" : "none"} stroke={project.is_featured ? "#f59e0b" : "var(--text-muted)"}>
+            <path d="M7 1l1.8 4 4.2.4-3.2 2.9 1 4.2L7 10.4 3.2 12.5l1-4.2L1 5.4l4.2-.4L7 1z" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </button>
         <button onClick={onEdit} className="p-2 rounded-lg transition-opacity hover:opacity-70"
           style={{ background: "var(--blue-tint)", border: "1px solid var(--border-bright)", cursor: "pointer" }}>
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
