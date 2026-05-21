@@ -79,7 +79,7 @@ export default function TypingTagline({ userCount }: { userCount: number }) {
   return (
     <h1
       aria-live="polite"
-      className="vf-tagline whitespace-normal md:whitespace-nowrap"
+      className="vf-tagline md:whitespace-nowrap"
       style={{
         fontFamily: "var(--font-serif), 'Noto Serif KR', serif",
         fontWeight: 500,
@@ -91,12 +91,15 @@ export default function TypingTagline({ userCount }: { userCount: number }) {
         margin: 0,
         maxWidth: "92vw",
         textAlign: "center",
+        // Wrap on natural boundaries (spaces/punctuation) instead of
+        // breaking mid-syllable. keep-all keeps Korean character runs
+        // intact; overflowWrap as a safety net for unbroken runs.
+        wordBreak: "keep-all",
+        overflowWrap: "break-word",
       }}
     >
-      <span style={{ display: "inline-flex", alignItems: "center" }}>
-        <span>{text || "​"}</span>
-        <span className="vf-cursor" aria-hidden />
-      </span>
+      {text || "​"}
+      <span className="vf-cursor vf-cursor-inline" aria-hidden />
     </h1>
   );
 }
