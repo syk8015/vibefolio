@@ -1,54 +1,172 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
+import { loggedInTaglines, type LoggedInTagline } from "@/lib/loggedInTaglines";
 
-const HEADLINES = [
-  { line1: "만든 것들을",      line2: "세상에 푸시하세요.",   mono: false },
-  { line1: "나의 작업물을",    line2: "세상에 릴리즈하세요.", mono: false },
-  { line1: "아이디어에서",     line2: "프로덕션까지.",        mono: false },
-  { line1: "당신이 만든 것이", line2: "당신의 이력서입니다.", mono: false },
-  { line1: "git push 하듯",   line2: "나를 공유하세요.",     mono: true  },
-  { line1: "README보다",       line2: "멋진 자기소개.",       mono: false },
-];
+function shuffle<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+const HEADLINE_FONT_SIZE = "clamp(1.1rem, 3.4vw, 2.5rem)";
+const REPLY_FONT_SIZE = "clamp(0.95rem, 2.8vw, 2rem)";
 
 export default function LoggedInHeadline() {
-  const [index, setIndex] = useState(0);
-  const [visible, setVisible] = useState(true);
+  const [text, setText] = useState("");
+  const [reply, setReply] = useState("");
+  const [phase, setPhase] = useState<"text" | "reply">("text");
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setVisible(false);
-      setTimeout(() => {
-        setIndex((i) => (i + 1) % HEADLINES.length);
-        setVisible(true);
-      }, 400);
-    }, 5000);
-    return () => clearInterval(timer);
+    const queue = shuffle(loggedInTaglines);
+    let idx = 0;
+    let cancelled = false;
+
+    const schedule = (fn: () => void, ms: number) => {
+      const t = setTimeout(fn, ms);
+      timers.current.push(t);
+    };
+
+    const runPhrase = () => {
+      if (cancelled) return;
+      const item: LoggedInTagline = queue[idx % queue.length];
+      idx++;
+
+      const phrase = item.text;
+      const replyText = item.reply ?? "";
+      const hasReply = replyText.length > 0;
+
+      setReply("");
+      setPhase("text");
+
+      let i = 0;
+      const typeChar = () => {
+        if (cancelled) return;
+        if (i <= phrase.length) {
+          setText(phrase.slice(0, i));
+          i++;
+          schedule(typeChar, 65 + Math.random() * 45);
+        } else if (hasReply) {
+          // pause before the reply appears (like a comment beat)
+          schedule(startReply, 650);
+        } else {
+          schedule(eraseText, 1800);
+        }
+      };
+
+      let j = 0;
+      const startReply = () => {
+        if (cancelled) return;
+        setPhase("reply");
+        typeReply();
+      };
+      const typeReply = () => {
+        if (cancelled) return;
+        if (j <= replyText.length) {
+          setReply(replyText.slice(0, j));
+          j++;
+          schedule(typeReply, 65 + Math.random() * 45);
+        } else {
+          schedule(eraseReply, 1900);
+        }
+      };
+
+      const eraseReply = () => {
+        if (cancelled) return;
+        if (j > 0) {
+          j--;
+          setReply(replyText.slice(0, j));
+          schedule(eraseReply, 35 + Math.random() * 25);
+        } else {
+          setPhase("text");
+          schedule(eraseText, 120);
+        }
+      };
+
+      const eraseText = () => {
+        if (cancelled) return;
+        if (i > 0) {
+          i--;
+          setText(phrase.slice(0, i));
+          schedule(eraseText, 35 + Math.random() * 25);
+        } else {
+          schedule(runPhrase, 420);
+        }
+      };
+
+      typeChar();
+    };
+
+    const start = () => { if (!cancelled) runPhrase(); };
+    if (typeof document !== "undefined" && document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(start);
+    } else {
+      start();
+    }
+
+    return () => {
+      cancelled = true;
+      timers.current.forEach(clearTimeout);
+      timers.current = [];
+    };
   }, []);
 
-  const { line1, line2, mono } = HEADLINES[index];
-
   return (
-    <h1
-      className="leading-tight"
+    <div
+      aria-live="polite"
+      className="vf-logged-in-headline"
       style={{
-        fontFamily: "var(--font-serif), 'Noto Serif KR', serif",
-        fontWeight: 500,
-        color: "var(--text-primary)",
-        fontSize: "clamp(1.8rem, 4.4vw, 3.2rem)",
-        letterSpacing: "-0.01em",
-        opacity: visible ? 1 : 0,
-        transform: visible ? "translateY(0)" : "translateY(10px)",
-        transition: "opacity 0.4s ease, transform 0.4s ease",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: "0.4em",
+        maxWidth: "92vw",
+        textAlign: "center",
+        minHeight: "3.2em",
       }}
     >
-      <span style={mono ? { fontFamily: "var(--font-mono), monospace", fontSize: "0.85em" } : undefined}>
-        {line1}
-      </span>
-      <br />
-      <span style={{ fontStyle: "italic", color: "var(--text-secondary)" }}>
-        {line2}
-      </span>
-    </h1>
+      <h1
+        style={{
+          fontFamily: "var(--font-serif), 'Noto Serif KR', serif",
+          fontWeight: 500,
+          fontSize: HEADLINE_FONT_SIZE,
+          color: "var(--text-primary)",
+          lineHeight: 1.45,
+          letterSpacing: "-0.01em",
+          margin: 0,
+        }}
+      >
+        <span style={{ display: "inline-flex", alignItems: "center" }}>
+          <span>{text || "​"}</span>
+          {phase === "text" && <span className="vf-cursor" aria-hidden />}
+        </span>
+      </h1>
+
+      {reply.length > 0 || phase === "reply" ? (
+        <p
+          style={{
+            fontFamily: "var(--font-serif), 'Noto Serif KR', serif",
+            fontWeight: 400,
+            fontSize: REPLY_FONT_SIZE,
+            color: "var(--text-secondary)",
+            fontStyle: "italic",
+            lineHeight: 1.4,
+            letterSpacing: "-0.01em",
+            margin: 0,
+            paddingLeft: "1.4em",
+          }}
+        >
+          <span style={{ display: "inline-flex", alignItems: "center" }}>
+            <span aria-hidden style={{ marginRight: "0.35em", opacity: 0.7 }}>↳</span>
+            <span>{reply || "​"}</span>
+            {phase === "reply" && <span className="vf-cursor" aria-hidden />}
+          </span>
+        </p>
+      ) : null}
+    </div>
   );
 }
