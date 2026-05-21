@@ -62,8 +62,8 @@ export default function LoginPage() {
           <span className="font-black text-base" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}>Vibefolio</span>
         </Link>
         <p className="text-sm font-semibold" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
-          계정이 없나요?{" "}
-          <Link href="/signup" style={{ color: "var(--blue)", textDecoration: "none", fontWeight: 700 }}>회원가입</Link>
+          계정이 없나요?
+          <Link href="/signup" style={{ color: "var(--blue)", textDecoration: "none", fontWeight: 700, marginLeft: "8px" }}>회원가입</Link>
         </p>
       </nav>
 
