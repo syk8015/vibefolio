@@ -190,6 +190,17 @@ export default function ProjectsSection({ projects }: { projects: Project[] }) {
 
   useEffect(() => () => clearTimers(), []);
 
+  function handleCardClick(project: Project, index: number) {
+    const url = project.demoUrl;
+    const isUploaded = url?.startsWith("/api/preview/");
+    const isExternal = url && (url.startsWith("https://") || url.startsWith("http://"));
+    if (typeof window !== "undefined" && window.innerWidth < 768 && isExternal && !isUploaded) {
+      window.open(url, "_blank", "noopener,noreferrer");
+      return;
+    }
+    setSelectedIndex(index);
+  }
+
   return (
     <>
       {/* Works header */}
@@ -227,7 +238,7 @@ export default function ProjectsSection({ projects }: { projects: Project[] }) {
               index={index}
               layout={displayLayout}
               phase={phase}
-              onClick={() => setSelectedIndex(index)}
+              onClick={() => handleCardClick(project, index)}
             />
           </ScrollReveal>
         ))}
