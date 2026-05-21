@@ -1,5 +1,6 @@
 import Image from "next/image";
 import type { Project } from "@/lib/data";
+import { detectVideoKind, getYouTubeEmbedUrl, getVimeoEmbedUrl } from "@/lib/video";
 
 function isFileUpload(url: string | undefined): boolean {
   return !!url && url.startsWith("/api/preview/");
@@ -20,13 +21,19 @@ export default function FeaturedHero({ project }: Props) {
   const isFile = isFileUpload(project.demoUrl);
   const href = safeHref(project.demoUrl);
 
+  // Fallback chain: video > iframe(file) > thumbnail
+  const videoKind = project.videoUrl ? detectVideoKind(project.videoUrl) : "unknown";
+  const hasVideo = project.videoUrl && videoKind !== "unknown";
+
   return (
     <section
       className="relative w-full overflow-hidden"
       style={{ height: "85vh", background: "#0a0a0a" }}
     >
-      {/* Background: live iframe (file) or large thumbnail (URL/none) */}
-      {isFile && project.demoUrl ? (
+      {/* Background — video > iframe > thumbnail */}
+      {hasVideo ? (
+        <VideoBackground url={project.videoUrl!} kind={videoKind} poster={project.thumbnail} title={project.title} />
+      ) : isFile && project.demoUrl ? (
         <iframe
           src={project.demoUrl}
           className="absolute inset-0 w-full h-full"
@@ -45,11 +52,15 @@ export default function FeaturedHero({ project }: Props) {
         />
       )}
 
-      {/* Gradient overlay for text contrast (lighter for iframe so demo stays visible) */}
+      {/* Gradient overlay for text contrast.
+          Lighter when iframe demo is live (so the demo stays visible);
+          heavier for static thumbnail; video sits in-between. */}
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
-          background: isFile
+          background: hasVideo
+            ? "linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.1) 45%, rgba(0,0,0,0.0) 100%)"
+            : isFile
             ? "linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.0) 28%)"
             : "linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.35) 55%, rgba(0,0,0,0.0) 100%)",
         }}
@@ -155,5 +166,67 @@ export default function FeaturedHero({ project }: Props) {
         </svg>
       </div>
     </section>
+  );
+}
+
+function VideoBackground({
+  url,
+  kind,
+  poster,
+  title,
+}: {
+  url: string;
+  kind: "youtube" | "vimeo" | "direct" | "unknown";
+  poster: string;
+  title: string;
+}) {
+  if (kind === "youtube") {
+    const embed = getYouTubeEmbedUrl(url);
+    if (!embed) return null;
+    return (
+      <iframe
+        src={embed}
+        title={title}
+        className="absolute inset-0 w-full h-full pointer-events-none"
+        style={{
+          border: "none",
+          // Cover crop: scale up and translate to fill, hiding YouTube chrome edges
+          width: "calc(100% + 200px)",
+          height: "calc(100% + 200px)",
+          left: "-100px",
+          top: "-100px",
+        }}
+        allow="autoplay; encrypted-media; picture-in-picture"
+        allowFullScreen
+      />
+    );
+  }
+  if (kind === "vimeo") {
+    const embed = getVimeoEmbedUrl(url);
+    if (!embed) return null;
+    return (
+      <iframe
+        src={embed}
+        title={title}
+        className="absolute inset-0 w-full h-full pointer-events-none"
+        style={{ border: "none" }}
+        allow="autoplay; fullscreen; picture-in-picture"
+        allowFullScreen
+      />
+    );
+  }
+  // direct video file
+  return (
+    <video
+      autoPlay
+      muted
+      loop
+      playsInline
+      poster={poster}
+      className="absolute inset-0 w-full h-full object-cover"
+      preload="auto"
+    >
+      <source src={url} />
+    </video>
   );
 }

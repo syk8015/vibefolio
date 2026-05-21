@@ -123,6 +123,7 @@ interface DBProject {
   comment: string;
   sort_order: number;
   is_featured: boolean;
+  video_url: string;
 }
 
 type ProjectForm = Omit<DBProject, "id" | "sort_order" | "is_featured">;
@@ -137,6 +138,7 @@ const EMPTY_FORM: ProjectForm = {
   tags: [],
   demo_url: "",
   comment: "",
+  video_url: "",
 };
 
 function isUploadedProject(demoUrl: string) {
@@ -337,6 +339,7 @@ export default function ProjectsTab({ user }: { user: User }) {
             thumbnail: editProject.thumbnail, year: editProject.year,
             tags: editProject.tags, demo_url: editProject.demo_url,
             comment: editProject.comment,
+            video_url: editProject.video_url ?? "",
           }}
           onClose={() => setEditProject(null)}
           onSubmit={form => handleEdit(editProject.id, form)}
@@ -483,9 +486,13 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadError, setUploadError] = useState("");
   const [uploadDone, setUploadDone] = useState(false);
+  const [videoMode, setVideoMode] = useState<"file" | "url">("file");
+  const [videoUploading, setVideoUploading] = useState(false);
+  const [videoError, setVideoError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
   const thumbnailInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
 
   const previewProject: Project = {
     id: 0,
@@ -514,6 +521,51 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
     setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
+  }
+
+  async function handleVideoFile(file: File) {
+    setVideoError("");
+    const MAX_VIDEO_BYTES = 20 * 1024 * 1024;
+    if (file.size > MAX_VIDEO_BYTES) {
+      setVideoError(`영상은 20MB 이하만 업로드할 수 있어요. (현재 ${(file.size / 1024 / 1024).toFixed(1)}MB)`);
+      return;
+    }
+
+    // Check duration via HTML5 metadata
+    const duration = await new Promise<number>((resolve, reject) => {
+      const v = document.createElement("video");
+      v.preload = "metadata";
+      v.onloadedmetadata = () => { URL.revokeObjectURL(v.src); resolve(v.duration); };
+      v.onerror = () => { URL.revokeObjectURL(v.src); reject(); };
+      v.src = URL.createObjectURL(file);
+    }).catch(() => -1);
+
+    if (duration < 0) {
+      setVideoError("영상 파일을 읽을 수 없어요.");
+      return;
+    }
+    if (duration > 30) {
+      setVideoError(`영상은 30초 이하만 업로드할 수 있어요. (현재 ${duration.toFixed(1)}초)`);
+      return;
+    }
+
+    setVideoUploading(true);
+    const supabase = createClient();
+    const ext = file.name.split(".").pop()?.toLowerCase() || "mp4";
+    const videoId = crypto.randomUUID();
+    const storagePath = `${userId}/videos/${videoId}.${ext}`;
+    const { error: upErr } = await supabase.storage.from("project-files")
+      .upload(storagePath, file, { upsert: true, contentType: file.type || "video/mp4" });
+
+    if (upErr) {
+      setVideoError(`업로드 실패: ${upErr.message}`);
+      setVideoUploading(false);
+      return;
+    }
+
+    const { data: { publicUrl } } = supabase.storage.from("project-files").getPublicUrl(storagePath);
+    setForm(prev => ({ ...prev, video_url: publicUrl }));
+    setVideoUploading(false);
   }
 
   async function handleFilesUpload(fileList: FileList) {
@@ -768,6 +820,83 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
                 value={form.demo_url} onChange={handleChange} />
             </Field>
           )}
+
+          {/* 구동 영상 (선택) — 대표 작품 hero에서 자동 재생 */}
+          <div>
+            <label className="block text-xs font-bold mb-1"
+              style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", letterSpacing: "0.05em" }}>
+              구동 영상 (선택)
+            </label>
+            <p className="text-xs mb-2" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
+              대표 작품으로 설정하면 명함 상단에서 자동 재생돼요.
+            </p>
+
+            {form.video_url ? (
+              <div className="flex items-center gap-3 p-3 rounded-xl"
+                style={{ background: "var(--blue-tint)", border: "1px solid var(--border-bright)" }}>
+                <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
+                  style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <polygon points="3,2 13,8 3,14" fill="var(--blue)" />
+                  </svg>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold mb-0.5" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}>
+                    영상 연결됨
+                  </p>
+                  <p className="text-xs truncate" style={{ color: "var(--text-muted)", fontFamily: "var(--font-mono)", fontSize: "0.65rem" }}>
+                    {form.video_url}
+                  </p>
+                </div>
+                <button type="button"
+                  onClick={() => { setForm(prev => ({ ...prev, video_url: "" })); setVideoError(""); }}
+                  className="px-2.5 py-1 rounded-lg text-xs font-bold transition-opacity hover:opacity-70"
+                  style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", color: "#ef4444", fontFamily: "var(--font-nunito)", cursor: "pointer" }}>
+                  제거
+                </button>
+              </div>
+            ) : (
+              <>
+                {/* Mode toggle */}
+                <div className="flex gap-1 mb-2 p-1 rounded-lg w-fit"
+                  style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+                  {(["file", "url"] as const).map(m => (
+                    <button key={m} type="button" onClick={() => setVideoMode(m)}
+                      className="px-3 py-1 rounded-md text-xs font-bold transition-all"
+                      style={{
+                        background: videoMode === m ? "var(--blue-tint)" : "transparent",
+                        color: videoMode === m ? "var(--blue)" : "var(--text-muted)",
+                        border: "none", cursor: "pointer", fontFamily: "var(--font-nunito)",
+                      }}>
+                      {m === "file" ? "파일 업로드" : "URL"}
+                    </button>
+                  ))}
+                </div>
+
+                {videoMode === "file" ? (
+                  <>
+                    <input ref={videoInputRef} type="file" accept="video/mp4,video/webm,video/quicktime" className="hidden"
+                      onChange={e => { const f = e.target.files?.[0]; if (f) handleVideoFile(f); }} />
+                    <button type="button" disabled={videoUploading}
+                      onClick={() => videoInputRef.current?.click()}
+                      className="w-full py-2.5 rounded-xl text-sm font-bold transition-opacity hover:opacity-80 disabled:opacity-50"
+                      style={{ background: "var(--bg)", border: "1px dashed var(--border-bright)", color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", cursor: videoUploading ? "not-allowed" : "pointer" }}>
+                      {videoUploading ? "업로드 중..." : "+ 영상 파일 선택 (20MB · 30초 이하)"}
+                    </button>
+                  </>
+                ) : (
+                  <input className="vf-input" type="url" name="video_url"
+                    placeholder="https://youtube.com/watch?v=... 또는 https://vimeo.com/..."
+                    value={form.video_url} onChange={handleChange} />
+                )}
+                {videoError && (
+                  <p className="text-xs mt-2" style={{ color: "#ef4444", fontFamily: "var(--font-nunito)" }}>
+                    {videoError}
+                  </p>
+                )}
+              </>
+            )}
+          </div>
 
           {/* 프로젝트 이름 + 연도 */}
           <div className="grid grid-cols-3 gap-3">

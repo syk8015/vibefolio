@@ -84,6 +84,7 @@ interface DBProject {
   content_type: string | null;
   sort_order: number;
   is_featured: boolean | null;
+  video_url: string | null;
 }
 
 export default async function UserPortfolioPage({
@@ -120,6 +121,7 @@ export default async function UserPortfolioPage({
     comment: p.comment ?? undefined,
     contentType: p.content_type ?? null,
     isFeatured: p.is_featured ?? false,
+    videoUrl: p.video_url ?? undefined,
   }));
 
   // Pick featured: explicit flag wins, otherwise default to the first project.

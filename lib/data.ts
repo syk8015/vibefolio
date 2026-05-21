@@ -10,6 +10,7 @@ export interface Project {
   comment?: string;
   contentType?: string | null;
   isFeatured?: boolean;
+  videoUrl?: string;
 }
 
 export const profile = {
