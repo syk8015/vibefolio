@@ -1,7 +1,7 @@
 "use client";
 
-import { useRef, useEffect, useState } from "react";
-import { motion, useScroll, useSpring, useTransform, useMotionValue, MotionValue } from "framer-motion";
+import { useRef, useEffect, useState, ReactNode } from "react";
+import { motion, useScroll, useSpring, useTransform, useMotionValue } from "framer-motion";
 
 function useInView(threshold = 0.5): [React.RefObject<HTMLDivElement | null>, boolean] {
   const ref = useRef<HTMLDivElement>(null);
@@ -20,14 +20,7 @@ function useInView(threshold = 0.5): [React.RefObject<HTMLDivElement | null>, bo
 }
 
 /** Scroll progress relative to a card, latched at its maximum so the fade-in
- *  only ever plays once. Once the card has reached full opacity, scrolling
- *  back up cannot push the progress (and thus the opacity) back down.
- *  offset ["start end", "start start"]:
- *    0    → card top touches viewport bottom
- *    0.5  → card top reaches viewport center  (← target: 85% opacity)
- *    0.85 → card top reaches 15%-from-top     (← 100% opacity)
- *    1    → card top touches viewport top
- */
+ *  only ever plays once. */
 function useCardProgress(ref: React.RefObject<HTMLDivElement | null>) {
   const { scrollYProgress } = useScroll({
     target: ref,
@@ -44,32 +37,58 @@ function useCardProgress(ref: React.RefObject<HTMLDivElement | null>) {
   return maxProgress;
 }
 
-function PersonIcon({ size = 22 }: { size?: number }) {
+function PersonAtIcon({ size = 80 }: { size?: number }) {
   return (
-    <svg width={size} height={Math.round(size * 1.4)} viewBox="0 0 24 34" fill="var(--blue)">
-      <circle cx="12" cy="7" r="5.5" />
+    <svg width={size} height={Math.round(size * 1.4)} viewBox="0 0 24 34" fill="var(--blue)" aria-hidden>
+      <text
+        x="12"
+        y="7"
+        fontSize="13"
+        fontWeight="900"
+        textAnchor="middle"
+        dominantBaseline="central"
+        fill="var(--blue)"
+        fontFamily="var(--font-nunito), sans-serif"
+      >
+        @
+      </text>
       <path d="M3 34C3 22 21 22 21 34H3Z" />
     </svg>
   );
 }
 
-function PersonRow({
-  count,
-  progress,
-  range,
-}: {
-  count: number;
-  progress: MotionValue<number>;
-  range: [number, number];
-}) {
-  const opacity = useTransform(progress, range, [0, 1]);
-  const y = useTransform(progress, range, [8, 0]);
+function FolderIcon({ size = 100 }: { size?: number }) {
   return (
-    <motion.div style={{ opacity, y, display: "flex", gap: 8 }}>
-      {Array.from({ length: count }).map((_, i) => (
-        <PersonIcon key={i} size={22} />
-      ))}
-    </motion.div>
+    <svg width={size} height={Math.round(size * 0.72)} viewBox="0 0 100 72" fill="var(--blue)" aria-hidden>
+      <path d="M8 20 L8 56 Q8 60 12 60 L88 60 Q92 60 92 56 L92 24 Q92 20 88 20 L44 20 L36 12 L12 12 Q8 12 8 16 Z" />
+    </svg>
+  );
+}
+
+function ShareDomainIcon({ size = 130 }: { size?: number }) {
+  return (
+    <svg width={size} height={Math.round(size * 0.5)} viewBox="0 0 120 60" fill="none" aria-hidden>
+      <rect x="4" y="18" width="60" height="24" rx="6" stroke="var(--blue)" strokeWidth="2.5" fill="none" />
+      <text
+        x="34"
+        y="30"
+        fontSize="13"
+        fontWeight="900"
+        textAnchor="middle"
+        dominantBaseline="central"
+        fill="var(--blue)"
+        fontFamily="var(--font-nunito), sans-serif"
+      >
+        .com
+      </text>
+      <path
+        d="M72 30 L112 30 M104 22 L112 30 L104 38"
+        stroke="var(--blue)"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
 
@@ -77,20 +96,21 @@ const cardBaseStyle: React.CSSProperties = {
   borderRadius: 18,
   background: "var(--surface)",
   border: "1px solid var(--border)",
-  padding: "clamp(1rem, 2.5vw, 1.5rem) clamp(1.1rem, 3vw, 2rem)",
+  padding: "clamp(1.25rem, 2.5vw, 1.75rem) clamp(1.25rem, 3vw, 2rem)",
   display: "flex",
   alignItems: "center",
-  gap: "clamp(0.85rem, 2.5vw, 1.5rem)",
-  minHeight: 220,
+  gap: "clamp(1rem, 2.5vw, 1.75rem)",
+  minHeight: 240,
 };
 
 function HorizCard({
-  num, title, sub, subColor,
+  num, title, sub, subColor, icon,
 }: {
   num: string;
   title: string;
   sub: string;
   subColor: string;
+  icon?: ReactNode;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const progress = useCardProgress(ref);
@@ -110,74 +130,35 @@ function HorizCard({
       }}>
         {num}
       </span>
-      <div style={{ flex: 1 }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
         <h3 style={{
           fontFamily: "var(--font-nunito)",
           fontWeight: 800,
-          fontSize: "0.95rem",
+          fontSize: "clamp(1.2rem, 3.2vw, 1.9rem)",
           color: "var(--text-primary)",
-          margin: "0 0 0.3rem",
+          margin: "0 0 0.5rem",
+          lineHeight: 1.15,
+          letterSpacing: "-0.01em",
         }}>
           {title}
         </h3>
         <p style={{
           fontFamily: "var(--font-nunito)",
-          fontSize: "0.72rem",
+          fontSize: "clamp(0.9rem, 2.5vw, 1.44rem)",
           color: subColor,
           fontWeight: 600,
           margin: 0,
+          lineHeight: 1.25,
+          wordBreak: "break-word",
         }}>
           {sub}
         </p>
       </div>
-    </motion.div>
-  );
-}
-
-function Card1() {
-  const ref = useRef<HTMLDivElement>(null);
-  const progress = useCardProgress(ref);
-  const opacity = useTransform(progress, [0, 0.5, 0.85], [0, 0.85, 1]);
-  const y = useTransform(progress, [0, 0.5, 0.85], [60, 9, 0]);
-
-  return (
-    <motion.div ref={ref} style={{ ...cardBaseStyle, opacity, y }}>
-      <span style={{
-        fontFamily: "var(--font-nunito)",
-        fontSize: "0.7rem",
-        fontWeight: 800,
-        letterSpacing: "0.12em",
-        color: "var(--border-bright)",
-        flexShrink: 0,
-        width: 24,
-      }}>
-        01
-      </span>
-      <div style={{ flex: 1 }}>
-        <h3 style={{
-          fontFamily: "var(--font-nunito)",
-          fontWeight: 800,
-          fontSize: "0.95rem",
-          color: "var(--text-primary)",
-          margin: "0 0 0.3rem",
-        }}>
-          가입하고 사용자명 설정
-        </h3>
-        <p style={{
-          fontFamily: "var(--font-nunito)",
-          fontSize: "0.72rem",
-          color: "var(--blue)",
-          fontWeight: 600,
-          margin: 0,
-        }}>
-          vibefolio.vercel.app/username
-        </p>
-      </div>
-      <div style={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-        <PersonRow count={1} progress={progress} range={[0.5, 0.62]} />
-        <PersonRow count={2} progress={progress} range={[0.56, 0.68]} />
-        <PersonRow count={3} progress={progress} range={[0.62, 0.74]} />
-      </div>
+      {icon && (
+        <div style={{ flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          {icon}
+        </div>
+      )}
     </motion.div>
   );
 }
@@ -195,7 +176,6 @@ export default function HowItWorksSection() {
       alignItems: "center",
       gap: "2.5rem",
     }}>
-      {/* Title — char-by-char left-to-right fade-in */}
       <h2
         ref={titleRef}
         style={{
@@ -225,7 +205,6 @@ export default function HowItWorksSection() {
         ))}
       </h2>
 
-      {/* Cards — each card independently scroll-linked */}
       <div style={{
         display: "flex",
         flexDirection: "column",
@@ -233,18 +212,26 @@ export default function HowItWorksSection() {
         width: "100%",
         maxWidth: 760,
       }}>
-        <Card1 />
+        <HorizCard
+          num="01"
+          title="가입하고 사용자명 설정"
+          sub="vibefolio.vercel.app/username"
+          subColor="var(--blue)"
+          icon={<PersonAtIcon />}
+        />
         <HorizCard
           num="02"
           title="프로젝트 추가"
           sub="배포된 사이트 주소 또는 결과물 파일"
           subColor="var(--text-secondary)"
+          icon={<FolderIcon />}
         />
         <HorizCard
           num="03"
           title="링크 하나로 공유"
           sub="이력서 · SNS · 채용 지원"
           subColor="var(--text-secondary)"
+          icon={<ShareDomainIcon />}
         />
       </div>
     </div>
