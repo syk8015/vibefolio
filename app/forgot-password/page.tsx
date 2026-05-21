@@ -67,8 +67,8 @@ export default function ForgotPasswordPage() {
           <span className="font-black text-base" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}>Vibefolio</span>
         </Link>
         <p className="text-sm font-semibold" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
-          비밀번호가 기억났나요?{" "}
-          <Link href="/login" style={{ color: "var(--blue)", textDecoration: "none", fontWeight: 700 }}>로그인</Link>
+          비밀번호가 기억났나요?
+          <Link href="/login" style={{ color: "var(--blue)", textDecoration: "none", fontWeight: 700, marginLeft: "8px" }}>로그인</Link>
         </p>
       </nav>
 
