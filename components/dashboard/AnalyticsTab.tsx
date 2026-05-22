@@ -56,26 +56,24 @@ function timeAgo(date: string): string {
   return new Date(date).toLocaleDateString("ko-KR");
 }
 
-function StatCard({ label, value, highlight }: { label: string; value: number; highlight?: boolean }) {
+function StatCard({ label, value, dominant }: { label: string; value: number; dominant?: boolean }) {
   return (
     <div
-      className="rounded-2xl p-5"
+      className={dominant ? "vf-card-accent col-span-2 sm:col-span-2" : "vf-card"}
       style={{
-        background: highlight ? "var(--blue-tint)" : "var(--surface)",
-        border: `1px solid ${highlight ? "var(--border-bright)" : "var(--border)"}`,
+        padding: dominant ? "1.5rem 1.5rem" : "1.1rem 1.2rem",
       }}
     >
-      <p className="text-xs font-bold mb-1" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", letterSpacing: "0.05em" }}>
+      <p className="vf-label" style={{ marginBottom: dominant ? "0.5rem" : "0.35rem" }}>
         {label}
       </p>
       <p
-        className="text-3xl font-black"
+        className="vf-serif-display"
         style={{
-          fontFamily: "var(--font-nunito)",
-          background: highlight ? "linear-gradient(120deg, var(--blue), var(--blue-bright))" : undefined,
-          WebkitBackgroundClip: highlight ? "text" : undefined,
-          WebkitTextFillColor: highlight ? "transparent" : undefined,
-          color: highlight ? undefined : "var(--text-primary)",
+          fontSize: dominant ? "clamp(2.5rem, 6vw, 3.5rem)" : "clamp(1.5rem, 3vw, 2rem)",
+          fontWeight: 500,
+          lineHeight: 1.1,
+          margin: 0,
         }}
       >
         {value.toLocaleString()}
@@ -104,11 +102,10 @@ function BarChart({ days, counts }: { days: Date[]; counts: number[] }) {
                 height: `${pct}%`,
                 borderRadius: 3,
                 background: isToday
-                  ? "linear-gradient(180deg, var(--blue-bright), var(--blue))"
+                  ? "var(--text-primary)"
                   : counts[i] > 0 ? "var(--blue-tint)" : "var(--border)",
                 border: isToday ? "none" : `1px solid ${counts[i] > 0 ? "var(--border-bright)" : "transparent"}`,
                 transition: "height 0.4s ease",
-                boxShadow: isToday ? "0 0 8px var(--blue-glow)" : undefined,
                 cursor: "default",
               }}
             />
@@ -125,10 +122,11 @@ function BarChart({ days, counts }: { days: Date[]; counts: number[] }) {
             <div key={i} style={{ flex: 1, textAlign: "center" }}>
               <span style={{
                 fontSize: "0.55rem",
-                fontFamily: "var(--font-nunito)",
-                fontWeight: isToday ? 700 : 400,
-                color: isToday ? "var(--blue-bright)" : "var(--text-muted)",
+                fontFamily: "var(--font-mono), monospace",
+                fontWeight: isToday ? 600 : 400,
+                color: isToday ? "var(--text-primary)" : "var(--text-muted)",
                 opacity: showLabel ? 1 : 0,
+                letterSpacing: "0.02em",
               }}>
                 {isToday ? "오늘" : `${day.getMonth() + 1}/${day.getDate()}`}
               </span>
@@ -165,13 +163,13 @@ function ViewGroup({
           >
             <path d="M4 2l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
-          <span className="text-xs font-bold" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
+          <span className="text-xs" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", fontWeight: 500 }}>
             {label}
           </span>
         </div>
         <span
-          className="text-xs font-black px-2 py-0.5 rounded-full"
-          style={{ background: "var(--blue-tint)", color: "var(--blue-bright)", border: "1px solid var(--border-bright)", fontFamily: "var(--font-nunito)" }}
+          className="text-xs vf-mono"
+          style={{ color: "var(--text-secondary)", letterSpacing: "0.04em" }}
         >
           {rows.length}
         </span>
@@ -179,7 +177,7 @@ function ViewGroup({
 
       {open && (
         <div>
-          {rows.map((v, i) => (
+          {rows.map((v) => (
             <div
               key={v.id}
               className="flex items-center justify-between px-5 py-2.5"
@@ -193,7 +191,7 @@ function ViewGroup({
                   {v.country ? (COUNTRY_EMOJI[v.country] ?? "🌐") : "🌐"}
                 </span>
                 <div>
-                  <p className="text-xs font-bold" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}>
+                  <p className="text-xs" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontWeight: 500 }}>
                     {parseReferrer(v.referrer)}
                   </p>
                   {v.country && (
@@ -203,7 +201,7 @@ function ViewGroup({
                   )}
                 </div>
               </div>
-              <span className="text-xs" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
+              <span className="text-xs vf-mono" style={{ color: "var(--text-muted)" }}>
                 {timeAgo(v.viewed_at)}
               </span>
             </div>
@@ -304,7 +302,7 @@ export default function AnalyticsTab({ user }: { user: User }) {
     return (
       <div className="flex items-center justify-center py-20">
         <div className="w-6 h-6 rounded-full border-2 animate-spin"
-          style={{ borderColor: "var(--blue)", borderTopColor: "transparent" }} />
+          style={{ borderColor: "var(--text-primary)", borderTopColor: "transparent" }} />
       </div>
     );
   }
@@ -314,26 +312,23 @@ export default function AnalyticsTab({ user }: { user: User }) {
   return (
     <div className="max-w-2xl mx-auto w-full flex flex-col gap-5">
 
-      {/* Stat cards — 2×2 grid */}
+      {/* Stat cards — dominant 오늘 + secondary trio */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatCard label="오늘" value={stats.today} highlight={stats.today > 0} />
+        <StatCard label="오늘" value={stats.today} dominant />
         <StatCard label="최근 7일" value={stats.last7} />
         <StatCard label="최근 30일" value={stats.last30} />
         <StatCard label="전체 조회" value={stats.total} />
       </div>
 
       {/* 14-day bar chart */}
-      <div
-        className="rounded-2xl p-5"
-        style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
-      >
+      <div className="vf-card p-5">
         <div className="flex items-center justify-between mb-4">
-          <p className="text-xs font-bold" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", letterSpacing: "0.05em" }}>
+          <p className="vf-label" style={{ marginBottom: 0 }}>
             최근 14일 방문 추이
           </p>
           {!noData && (
-            <span className="text-xs font-semibold px-2 py-0.5 rounded-full"
-              style={{ background: "var(--blue-tint)", color: "var(--blue-bright)", border: "1px solid var(--border-bright)", fontFamily: "var(--font-nunito)" }}>
+            <span className="text-xs vf-mono"
+              style={{ color: "var(--text-secondary)", letterSpacing: "0.04em" }}>
               최고 {Math.max(...chartCounts).toLocaleString()}회
             </span>
           )}
@@ -353,21 +348,18 @@ export default function AnalyticsTab({ user }: { user: User }) {
 
           {/* 유입 경로 */}
           {topReferrers.length > 0 && (
-            <div
-              className="rounded-2xl p-5"
-              style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
-            >
-              <p className="text-xs font-bold mb-4" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", letterSpacing: "0.05em" }}>
+            <div className="vf-card p-5">
+              <p className="vf-label" style={{ marginBottom: "1rem" }}>
                 유입 경로
               </p>
               <div className="flex flex-col gap-3">
                 {topReferrers.map(([ref, count]) => (
                   <div key={ref}>
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-bold truncate" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}>
+                      <span className="text-xs truncate" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontWeight: 500 }}>
                         {ref}
                       </span>
-                      <span className="text-xs font-black ml-2 shrink-0" style={{ color: "var(--blue-bright)", fontFamily: "var(--font-nunito)" }}>
+                      <span className="text-xs vf-mono ml-2 shrink-0" style={{ color: "var(--text-secondary)", letterSpacing: "0.04em" }}>
                         {count}
                       </span>
                     </div>
@@ -376,7 +368,7 @@ export default function AnalyticsTab({ user }: { user: User }) {
                         className="h-full rounded-full"
                         style={{
                           width: `${Math.round((count / stats.total) * 100)}%`,
-                          background: "linear-gradient(90deg, var(--blue), var(--blue-bright))",
+                          background: "var(--text-primary)",
                         }}
                       />
                     </div>
@@ -388,22 +380,19 @@ export default function AnalyticsTab({ user }: { user: User }) {
 
           {/* 국가 분포 */}
           {topCountries.length > 0 && (
-            <div
-              className="rounded-2xl p-5"
-              style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
-            >
-              <p className="text-xs font-bold mb-4" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", letterSpacing: "0.05em" }}>
+            <div className="vf-card p-5">
+              <p className="vf-label" style={{ marginBottom: "1rem" }}>
                 방문 국가
               </p>
               <div className="flex flex-col gap-3">
                 {topCountries.map(([code, count]) => (
                   <div key={code}>
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-bold flex items-center gap-1.5" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}>
+                      <span className="text-xs flex items-center gap-1.5" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontWeight: 500 }}>
                         <span>{COUNTRY_EMOJI[code] ?? "🌐"}</span>
                         <span>{COUNTRY_NAME[code] ?? code}</span>
                       </span>
-                      <span className="text-xs font-black ml-2 shrink-0" style={{ color: "var(--blue-bright)", fontFamily: "var(--font-nunito)" }}>
+                      <span className="text-xs vf-mono ml-2 shrink-0" style={{ color: "var(--text-secondary)", letterSpacing: "0.04em" }}>
                         {count}
                       </span>
                     </div>
@@ -412,7 +401,7 @@ export default function AnalyticsTab({ user }: { user: User }) {
                         className="h-full rounded-full"
                         style={{
                           width: `${Math.round((count / stats.total) * 100)}%`,
-                          background: "linear-gradient(90deg, var(--blue), var(--blue-bright))",
+                          background: "var(--text-primary)",
                         }}
                       />
                     </div>
@@ -425,15 +414,12 @@ export default function AnalyticsTab({ user }: { user: User }) {
       )}
 
       {/* 방문 기록 — 기간별 접기/펼치기 */}
-      <div
-        className="rounded-2xl overflow-hidden"
-        style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
-      >
+      <div className="vf-card overflow-hidden">
         <div
           className="px-5 py-3"
           style={{ borderBottom: "1px solid var(--border)" }}
         >
-          <p className="text-xs font-bold" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", letterSpacing: "0.05em" }}>
+          <p className="vf-label" style={{ marginBottom: 0 }}>
             방문 기록
           </p>
         </div>
