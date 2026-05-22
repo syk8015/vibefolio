@@ -384,6 +384,21 @@ body::before {
   color: #8e3535;
 }
 
+/* Soft-fill button used inside the project wizard modal.
+   Always renders with the muted surface; hover inverts to ink-on-bg. */
+.vf-soft-fill {
+  background: var(--surface-soft);
+  color: var(--text-primary);
+  border: none;
+  transition: background-color 0.22s ease, color 0.22s ease;
+}
+.vf-soft-fill:hover:not(:disabled) {
+  background: var(--text-primary);
+  color: var(--bg);
+}
+.vf-soft-fill:disabled { cursor: not-allowed; opacity: 0.45; }
+.vf-soft-fill[data-active="true"] { font-weight: 700; }
+
 .vf-label {
   font-family: var(--font-mono), monospace;
   font-size: 0.72rem;

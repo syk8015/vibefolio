@@ -771,13 +771,10 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
           <button
             type="button"
             onClick={() => setShowPreview(v => !v)}
-            className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs transition-colors"
+            data-active={showPreview}
+            className="vf-soft-fill hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs"
             style={{
-              background: showPreview ? "var(--text-primary)" : "var(--surface-soft)",
-              border: "1px solid transparent",
-              color: showPreview ? "var(--bg)" : "var(--text-secondary)",
               fontFamily: "var(--font-nunito)",
-              fontWeight: 500,
               cursor: "pointer",
             }}
           >
@@ -789,8 +786,10 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
           </button>
 
           <button onClick={onClose}
-            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-secondary)" }}>
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            className="vf-soft-fill flex items-center justify-center rounded-full"
+            style={{ width: 32, height: 32, cursor: "pointer" }}
+            aria-label="닫기">
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
               <path d="M4 4l12 12M16 4L4 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
             </svg>
           </button>
@@ -841,28 +840,20 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
                 {([
                   { id: "url", emoji: "🔗", title: "URL 링크", desc: "이미 어딘가에 배포된 사이트가 있어요" },
                   { id: "files", emoji: "📁", title: "파일 업로드", desc: "직접 만든 HTML·CSS·JS 파일을 올릴게요" },
-                ] as const).map(opt => {
-                  const active = uploadMode === opt.id;
-                  return (
-                    <button key={opt.id} type="button"
-                      onClick={() => { setUploadMode(opt.id); setStep(2); }}
-                      className="flex flex-col items-start gap-2 p-5 rounded-2xl transition-colors text-left"
-                      style={{
-                        background: active ? "var(--text-primary)" : "var(--surface-soft)",
-                        color: active ? "var(--bg)" : "var(--text-primary)",
-                        border: "1px solid transparent",
-                        cursor: "pointer",
-                      }}>
-                      <span style={{ fontSize: "1.6rem" }}>{opt.emoji}</span>
-                      <span className="vf-serif-display" style={{ fontSize: "1rem", fontWeight: 500, color: "inherit" }}>
-                        {opt.title}
-                      </span>
-                      <span className="text-xs" style={{ color: active ? "var(--bg)" : "var(--text-secondary)", opacity: active ? 0.75 : 1, fontFamily: "var(--font-nunito)", lineHeight: 1.5 }}>
-                        {opt.desc}
-                      </span>
-                    </button>
-                  );
-                })}
+                ] as const).map(opt => (
+                  <button key={opt.id} type="button"
+                    onClick={() => { setUploadMode(opt.id); setStep(2); }}
+                    className="vf-soft-fill flex flex-col items-start gap-2 p-5 rounded-2xl text-left"
+                    style={{ cursor: "pointer" }}>
+                    <span style={{ fontSize: "1.6rem" }}>{opt.emoji}</span>
+                    <span className="vf-serif-display" style={{ fontSize: "1rem", fontWeight: 500, color: "inherit" }}>
+                      {opt.title}
+                    </span>
+                    <span className="text-xs" style={{ color: "inherit", opacity: 0.7, fontFamily: "var(--font-nunito)", lineHeight: 1.5 }}>
+                      {opt.desc}
+                    </span>
+                  </button>
+                ))}
               </div>
             </div>
           )}
@@ -870,21 +861,21 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
           {/* Upload mode toggle — hidden in wizard (replaced by big cards above) */}
           {!wizard && (
             <div className="flex gap-1 p-1 rounded-xl"
-              style={{ background: "var(--surface-soft)" }}>
-              {(["url", "files"] as const).map(mode => (
-                <button key={mode} type="button" onClick={() => setUploadMode(mode)}
-                  className="flex-1 py-2 rounded-lg text-sm transition-colors"
-                  style={{
-                    background: uploadMode === mode ? "var(--text-primary)" : "transparent",
-                    color: uploadMode === mode ? "var(--bg)" : "var(--text-secondary)",
-                    fontFamily: "var(--font-nunito)",
-                    fontWeight: uploadMode === mode ? 600 : 500,
-                    border: "none",
-                    cursor: "pointer",
-                  }}>
-                  {mode === "url" ? "🔗 URL 링크" : "📁 파일 업로드"}
-                </button>
-              ))}
+              style={{ background: "var(--surface-sunken)" }}>
+              {(["url", "files"] as const).map(mode => {
+                const active = uploadMode === mode;
+                return (
+                  <button key={mode} type="button" onClick={() => setUploadMode(mode)}
+                    data-active={active}
+                    className="vf-soft-fill flex-1 py-2 rounded-lg text-sm"
+                    style={{
+                      fontFamily: "var(--font-nunito)",
+                      cursor: "pointer",
+                    }}>
+                    {mode === "url" ? "🔗 URL 링크" : "📁 파일 업로드"}
+                  </button>
+                );
+              })}
             </div>
           )}
 
@@ -917,10 +908,14 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
                   HTML, CSS, JS, 이미지 파일 지원 · 최대 10MB
                 </p>
                 <div className="flex gap-2">
-                  <button type="button" onClick={() => fileInputRef.current?.click()} className="vf-button-ghost" style={{ padding: "0.5rem 1rem", fontSize: "0.8rem" }}>
+                  <button type="button" onClick={() => fileInputRef.current?.click()}
+                    className="vf-soft-fill rounded-full"
+                    style={{ padding: "0.5rem 1rem", fontSize: "0.8rem", fontFamily: "var(--font-nunito)", fontWeight: 500, cursor: "pointer" }}>
                     파일 선택
                   </button>
-                  <button type="button" onClick={() => folderInputRef.current?.click()} className="vf-button-ghost" style={{ padding: "0.5rem 1rem", fontSize: "0.8rem" }}>
+                  <button type="button" onClick={() => folderInputRef.current?.click()}
+                    className="vf-soft-fill rounded-full"
+                    style={{ padding: "0.5rem 1rem", fontSize: "0.8rem", fontFamily: "var(--font-nunito)", fontWeight: 500, cursor: "pointer" }}>
                     폴더 선택
                   </button>
                 </div>
@@ -998,19 +993,21 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
               <>
                 {/* Mode toggle */}
                 <div className="flex gap-1 mb-2 p-1 rounded-lg w-fit"
-                  style={{ background: "var(--surface-soft)" }}>
-                  {(["file", "url"] as const).map(m => (
-                    <button key={m} type="button" onClick={() => setVideoMode(m)}
-                      className="px-3 py-1 rounded-md text-xs transition-colors"
-                      style={{
-                        background: videoMode === m ? "var(--text-primary)" : "transparent",
-                        color: videoMode === m ? "var(--bg)" : "var(--text-muted)",
-                        fontWeight: videoMode === m ? 600 : 500,
-                        border: "none", cursor: "pointer", fontFamily: "var(--font-nunito)",
-                      }}>
-                      {m === "file" ? "파일 업로드" : "URL"}
-                    </button>
-                  ))}
+                  style={{ background: "var(--surface-sunken)" }}>
+                  {(["file", "url"] as const).map(m => {
+                    const active = videoMode === m;
+                    return (
+                      <button key={m} type="button" onClick={() => setVideoMode(m)}
+                        data-active={active}
+                        className="vf-soft-fill px-3 py-1 rounded-md text-xs"
+                        style={{
+                          fontFamily: "var(--font-nunito)",
+                          cursor: "pointer",
+                        }}>
+                        {m === "file" ? "파일 업로드" : "URL"}
+                      </button>
+                    );
+                  })}
                 </div>
 
                 {videoMode === "file" ? (
@@ -1019,8 +1016,8 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
                       onChange={e => { const f = e.target.files?.[0]; if (f) handleVideoFile(f); }} />
                     <button type="button" disabled={videoUploading}
                       onClick={() => videoInputRef.current?.click()}
-                      className="w-full py-2.5 rounded-xl text-sm transition-colors hover:opacity-90 disabled:opacity-50"
-                      style={{ background: "var(--surface-soft)", border: "none", color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", fontWeight: 500, cursor: videoUploading ? "not-allowed" : "pointer" }}>
+                      className="vf-soft-fill w-full py-2.5 rounded-xl text-sm"
+                      style={{ fontFamily: "var(--font-nunito)", fontWeight: 500, cursor: videoUploading ? "not-allowed" : "pointer" }}>
                       {videoUploading ? "업로드 중…" : "+ 영상 파일 선택 (20MB · 30초 이하)"}
                     </button>
                   </>
@@ -1070,16 +1067,13 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
                 return (
                   <button key={ct.id} type="button"
                     onClick={() => setForm(prev => ({ ...prev, content_type: active ? null : ct.id }))}
-                    className="px-2.5 py-1 rounded-full text-xs transition-colors"
+                    data-active={active}
+                    className="vf-soft-fill px-2.5 py-1 rounded-full text-xs"
                     style={{
-                      background: active ? "var(--text-primary)" : "var(--surface-soft)",
-                      border: "1px solid transparent",
-                      color: active ? "var(--bg)" : "var(--text-secondary)",
                       fontFamily: "var(--font-nunito)",
-                      fontWeight: active ? 600 : 500,
                       cursor: "pointer",
                     }}>
-                    {ct.emoji} {ct.label}
+                    {active && <span style={{ fontSize: "0.7em" }}>✓</span>} {ct.emoji} {ct.label}
                   </button>
                 );
               })}
@@ -1155,16 +1149,13 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
                 return (
                   <button key={t} type="button"
                     onClick={() => setForm(prev => ({ ...prev, type: t }))}
-                    className="flex-1 py-2 rounded-xl text-sm transition-colors"
+                    data-active={active}
+                    className="vf-soft-fill flex-1 py-2 rounded-xl text-sm"
                     style={{
-                      background: active ? "var(--text-primary)" : "var(--surface-soft)",
-                      border: "none",
-                      color: active ? "var(--bg)" : "var(--text-secondary)",
                       fontFamily: "var(--font-nunito)",
-                      fontWeight: active ? 600 : 500,
                       cursor: "pointer",
                     }}>
-                    {t === "image" ? "🖼️ 이미지" : "🎬 영상"}
+                    {active && <span style={{ marginRight: 4 }}>✓</span>}{t === "image" ? "🖼️ 이미지" : "🎬 영상"}
                   </button>
                 );
               })}
@@ -1182,15 +1173,13 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
                 const active = selectedTools.includes(tool.id);
                 return (
                   <button key={tool.id} type="button" onClick={() => toggleTool(tool.id)}
-                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs transition-colors"
+                    data-active={active}
+                    className="vf-soft-fill flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs"
                     style={{
-                      background: active ? "var(--text-primary)" : "var(--surface-soft)",
-                      border: "1px solid transparent",
-                      color: active ? "var(--bg)" : "var(--text-secondary)",
                       fontFamily: "var(--font-nunito)",
-                      fontWeight: active ? 600 : 500,
                       cursor: "pointer",
                     }}>
+                    {active && <span style={{ fontSize: "0.7em" }}>✓</span>}
                     <AiToolLogo id={tool.id} size={13} />
                     <span>{tool.id}</span>
                   </button>
@@ -1198,17 +1187,11 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
               })}
               <button type="button"
                 onClick={() => setShowAllTools(v => !v)}
-                className="px-2.5 py-1 rounded-full text-xs transition-colors"
+                className="vf-soft-fill px-2.5 py-1 rounded-full text-xs"
                 style={{
-                  background: "transparent",
-                  border: "none",
-                  color: "var(--text-muted)",
                   fontFamily: "var(--font-nunito)",
                   fontWeight: 500,
                   cursor: "pointer",
-                  textDecoration: "underline",
-                  textUnderlineOffset: "3px",
-                  textDecorationColor: "var(--border-bright)",
                 }}>
                 {showAllTools
                   ? "접기 ↑"
@@ -1237,13 +1220,13 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
           {!wizard && (
             <div className="flex gap-3 pt-1 pb-1">
               <button type="button" onClick={onClose}
-                className="vf-button-ghost flex-1"
-                style={{ padding: "0.65rem 1rem" }}>
+                className="vf-soft-fill flex-1 rounded-full"
+                style={{ padding: "0.65rem 1rem", fontFamily: "var(--font-nunito)", fontSize: "0.85rem", fontWeight: 500, cursor: "pointer" }}>
                 취소
               </button>
               <button type="submit" disabled={saving || uploading}
-                className="vf-button-primary flex-1"
-                style={{ padding: "0.65rem 1rem", cursor: (saving || uploading) ? "not-allowed" : "pointer" }}>
+                className="vf-soft-fill flex-1 rounded-full"
+                style={{ padding: "0.65rem 1rem", fontFamily: "var(--font-nunito)", fontSize: "0.85rem", fontWeight: 600, cursor: (saving || uploading) ? "not-allowed" : "pointer" }}>
                 {saving ? "저장 중…" : submitLabel}
               </button>
             </div>
@@ -1254,19 +1237,20 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
             <div className="flex gap-2 pt-1 pb-1">
               {step > 1 && (
                 <button type="button" onClick={() => setStep(s => s - 1)}
-                  className="vf-button-ghost"
-                  style={{ padding: "0.65rem 1.1rem" }}>
+                  className="vf-soft-fill rounded-full"
+                  style={{ padding: "0.65rem 1.1rem", fontFamily: "var(--font-nunito)", fontSize: "0.85rem", fontWeight: 500, cursor: "pointer" }}>
                   ← 이전
                 </button>
               )}
               <div className="flex-1" />
               {step >= 4 && step < TOTAL_STEPS && (
                 <button type="button" onClick={() => setStep(s => s + 1)}
-                  className="text-sm transition-opacity hover:opacity-70"
+                  className="vf-soft-fill rounded-full text-sm"
                   style={{
-                    background: "none", border: "none", cursor: "pointer",
-                    color: "var(--text-muted)", fontFamily: "var(--font-nunito)",
-                    padding: "0.65rem 0.5rem",
+                    cursor: "pointer",
+                    fontFamily: "var(--font-nunito)",
+                    fontWeight: 500,
+                    padding: "0.65rem 1.1rem",
                   }}>
                   건너뛰기
                 </button>
@@ -1280,28 +1264,25 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
                     (step === 3 && !form.title) ||
                     uploading
                   }
-                  className="vf-button-primary"
+                  className="vf-soft-fill rounded-full"
                   style={{
                     padding: "0.65rem 1.4rem",
+                    fontFamily: "var(--font-nunito)",
+                    fontSize: "0.85rem",
+                    fontWeight: 600,
                     cursor: (
                       (step === 2 && uploadMode === "url" && !form.demo_url) ||
                       (step === 2 && uploadMode === "files" && !uploadDone) ||
                       (step === 3 && !form.title) ||
                       uploading
                     ) ? "not-allowed" : "pointer",
-                    opacity: (
-                      (step === 2 && uploadMode === "url" && !form.demo_url) ||
-                      (step === 2 && uploadMode === "files" && !uploadDone) ||
-                      (step === 3 && !form.title) ||
-                      uploading
-                    ) ? 0.5 : 1,
                   }}>
                   다음 →
                 </button>
               ) : (
                 <button type="submit" disabled={saving || uploading}
-                  className="vf-button-primary"
-                  style={{ padding: "0.65rem 1.4rem", cursor: (saving || uploading) ? "not-allowed" : "pointer" }}>
+                  className="vf-soft-fill rounded-full"
+                  style={{ padding: "0.65rem 1.4rem", fontFamily: "var(--font-nunito)", fontSize: "0.85rem", fontWeight: 600, cursor: (saving || uploading) ? "not-allowed" : "pointer" }}>
                   {saving ? "저장 중…" : submitLabel}
                 </button>
               )}
@@ -1340,7 +1321,7 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
                 </span>
               </div>
               {/* Grid / List toggle */}
-              <div className="flex gap-1 p-0.5 rounded-lg" style={{ background: "var(--surface-soft)" }}>
+              <div className="flex gap-1 p-0.5 rounded-lg" style={{ background: "var(--surface-sunken)" }}>
                 {(["grid", "list"] as const).map(l => {
                   const active = previewLayout === l;
                   return (
@@ -1348,13 +1329,10 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
                       key={l}
                       type="button"
                       onClick={() => setPreviewLayout(l)}
-                      className="px-2 py-1 rounded-md text-xs transition-colors"
+                      data-active={active}
+                      className="vf-soft-fill px-2 py-1 rounded-md text-xs"
                       style={{
-                        background: active ? "var(--text-primary)" : "transparent",
-                        color: active ? "var(--bg)" : "var(--text-muted)",
-                        border: "none",
                         fontFamily: "var(--font-nunito)",
-                        fontWeight: active ? 600 : 500,
                         cursor: "pointer",
                       }}
                     >
