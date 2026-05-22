@@ -155,81 +155,105 @@ export default function ProfileTab({ user }: { user: User }) {
   }
 
   const avatarInitial = (form.name || form.username).charAt(0).toUpperCase();
+  const displayName = form.name || form.username || "이름";
+  const bioCount = form.bio.length;
 
   return (
-    <form onSubmit={handleSave} className="flex flex-col gap-6 max-w-lg mx-auto w-full">
+    <form onSubmit={handleSave} className="flex flex-col gap-8 max-w-lg mx-auto w-full">
 
-      {/* Avatar */}
+      {/* Identity preview — serif display */}
+      <div className="text-center pb-2">
+        <div
+          className="mx-auto mb-5 w-28 h-28 rounded-full flex items-center justify-center overflow-hidden"
+          style={{
+            background: "var(--surface)",
+            border: "1px solid var(--border-bright)",
+            color: "var(--text-primary)",
+            fontFamily: "var(--font-serif), 'Noto Serif KR', serif",
+            fontSize: "2.25rem",
+            fontWeight: 500,
+          }}
+        >
+          {form.avatarUrl
+            ? <img src={form.avatarUrl} alt="avatar" className="w-full h-full object-cover" />
+            : avatarInitial}
+        </div>
+        <p
+          className="vf-serif-display"
+          style={{ fontSize: "clamp(1.4rem, 3vw, 1.85rem)", fontWeight: 500, margin: 0, marginBottom: "0.35rem" }}
+        >
+          {displayName}
+        </p>
+        <p className="vf-mono" style={{ color: "var(--text-secondary)", fontSize: "0.85rem", letterSpacing: "0.02em" }}>
+          @{form.username || "username"}
+        </p>
+      </div>
+
+      {/* Avatar upload */}
       <div>
-        <Label>프로필 이미지</Label>
-        <div className="flex items-center gap-4 mt-2">
-          <div
-            className="w-20 h-20 rounded-full flex items-center justify-center text-2xl font-black overflow-hidden flex-shrink-0"
-            style={{ background: "linear-gradient(135deg, var(--blue), var(--blue-bright))", color: "var(--bg)", fontFamily: "var(--font-nunito)" }}
+        <label className="vf-label">프로필 이미지</label>
+        <div className="flex items-center gap-3 flex-wrap">
+          <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            className="vf-button-ghost"
+            style={{ cursor: uploading ? "not-allowed" : "pointer" }}
           >
-            {form.avatarUrl
-              ? <img src={form.avatarUrl} alt="avatar" className="w-full h-full object-cover" />
-              : avatarInitial}
-          </div>
-          <div>
-            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
-              className="px-4 py-2 rounded-xl text-sm font-bold transition-opacity hover:opacity-75 disabled:opacity-50"
-              style={{ border: "1px solid var(--border-bright)", color: "var(--text-primary)", background: "var(--surface)", fontFamily: "var(--font-nunito)", cursor: uploading ? "not-allowed" : "pointer" }}
-            >
-              {uploading ? "업로드 중..." : "이미지 업로드"}
-            </button>
-            <p className="text-xs mt-1.5" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
-              JPG, PNG, GIF · 최대 5MB
-            </p>
-          </div>
+            {uploading ? "업로드 중…" : form.avatarUrl ? "이미지 변경" : "이미지 업로드"}
+          </button>
+          <p className="text-xs vf-mono" style={{ color: "var(--text-muted)" }}>
+            JPG · PNG · GIF · 최대 5MB
+          </p>
         </div>
       </div>
 
       {/* Name */}
       <div>
-        <Label>이름</Label>
-        <input className="vf-input mt-1.5" name="name" type="text"
+        <label className="vf-label">표시 이름</label>
+        <input className="vf-input" name="name" type="text"
           placeholder="홍길동" value={form.name} onChange={handleChange} />
       </div>
 
       {/* Username */}
       <div>
-        <Label>사용자 이름</Label>
-        <div className="relative mt-1.5">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold pointer-events-none"
-            style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>@</span>
-          <input className="vf-input" style={{ paddingLeft: "1.75rem" }}
+        <label className="vf-label">사용자 이름</label>
+        <div className="relative">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm pointer-events-none"
+            style={{ color: "var(--text-muted)", fontFamily: "var(--font-mono), monospace" }}>@</span>
+          <input className="vf-input vf-mono" style={{ paddingLeft: "1.75rem" }}
             name="username" type="text" placeholder="alexvibe"
             value={form.username} onChange={handleChange}
             pattern="[a-zA-Z0-9_-]+" title="영문, 숫자, _-만 사용 가능해요" />
         </div>
-        <p className="text-xs mt-1.5" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
-          vibefolio.com/{form.username || "username"}
+        <p className="text-xs mt-2 vf-mono" style={{ color: "var(--text-muted)", letterSpacing: "0.02em" }}>
+          vibefolio.com/<span style={{ color: "var(--text-secondary)" }}>{form.username || "username"}</span>
         </p>
       </div>
 
       {/* Bio */}
       <div>
-        <Label>한 줄 소개</Label>
+        <label className="vf-label">한 줄 소개</label>
         <textarea
-          className="vf-input mt-1.5"
+          className="vf-input"
           name="bio"
           placeholder="바이브코딩으로 아이디어를 현실로 만들고 있어요."
           value={form.bio}
           onChange={handleChange}
           rows={3}
-          style={{ resize: "vertical" }}
+          maxLength={140}
+          style={{ resize: "vertical", lineHeight: 1.55 }}
         />
+        <p className="text-xs mt-2 vf-mono text-right" style={{ color: "var(--text-muted)" }}>
+          {bioCount} / 140
+        </p>
       </div>
 
       {/* Social Links */}
       <div>
-        <Label>소셜 링크</Label>
-        <div className="flex flex-col gap-3 mt-1.5">
+        <label className="vf-label">소셜 링크</label>
+        <div className="flex flex-col gap-3">
           {form.socialLinks.map((link, i) => {
             const detected = detectPlatform(link);
             return (
@@ -245,15 +269,16 @@ export default function ProfileTab({ user }: { user: User }) {
                   <button
                     type="button"
                     onClick={() => removeLink(i)}
-                    className="w-8 h-8 rounded-lg flex items-center justify-center text-lg transition-opacity hover:opacity-70 flex-shrink-0"
-                    style={{ color: "var(--text-muted)", background: "var(--surface)", border: "1px solid var(--border)", cursor: "pointer" }}
+                    className="w-9 h-9 rounded-full flex items-center justify-center text-base transition-colors flex-shrink-0"
+                    style={{ color: "var(--text-muted)", background: "transparent", border: "1px solid var(--border)", cursor: "pointer" }}
+                    aria-label="링크 삭제"
                   >
                     ×
                   </button>
                 </div>
                 {detected && link.trim() && (
-                  <p className="text-xs pl-1 font-bold" style={{ color: "var(--blue)", fontFamily: "var(--font-nunito)" }}>
-                    {detected.platform} {detected.handle}
+                  <p className="text-xs pl-1 vf-mono" style={{ color: "var(--text-secondary)", letterSpacing: "0.02em" }}>
+                    · {detected.platform} {detected.handle}
                   </p>
                 )}
               </div>
@@ -262,7 +287,7 @@ export default function ProfileTab({ user }: { user: User }) {
           <button
             type="button"
             onClick={addLink}
-            className="flex items-center gap-1.5 text-sm font-bold w-fit transition-opacity hover:opacity-70"
+            className="flex items-center gap-1.5 text-sm w-fit transition-opacity hover:opacity-70"
             style={{ color: "var(--text-secondary)", background: "none", border: "none", cursor: "pointer", fontFamily: "var(--font-nunito)", padding: 0 }}
           >
             <span style={{ fontSize: "1.1rem", lineHeight: 1 }}>+</span> 링크 추가
@@ -271,34 +296,29 @@ export default function ProfileTab({ user }: { user: User }) {
       </div>
 
       {/* Save */}
-      <div className="flex items-center gap-3 pt-2">
+      <div className="flex items-center gap-3 pt-2 flex-wrap">
         <button
           type="submit"
           disabled={loading}
-          className="px-6 py-2.5 rounded-xl text-sm font-black transition-opacity hover:opacity-85 disabled:opacity-50"
-          style={{ background: "var(--blue)", color: "var(--bg)", fontFamily: "var(--font-nunito)", border: "none", cursor: loading ? "not-allowed" : "pointer", boxShadow: "0 0 16px var(--blue-glow)" }}
+          className="vf-button-primary"
+          style={{ cursor: loading ? "not-allowed" : "pointer" }}
         >
-          {loading ? "저장 중..." : "저장하기"}
+          {loading ? "저장 중…" : "저장하기"}
         </button>
         {saved && (
-          <span className="text-sm font-bold" style={{ color: "var(--blue)", fontFamily: "var(--font-nunito)" }}>
-            ✓ 저장됐어요
+          <span className="text-sm flex items-center gap-1.5" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M2.5 7l3 3 6-6.5" stroke="var(--text-primary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            저장됐어요
           </span>
         )}
         {error && (
-          <span className="text-sm font-bold" style={{ color: "#ef4444", fontFamily: "var(--font-nunito)" }}>
+          <span className="text-sm" style={{ color: "#b34747", fontFamily: "var(--font-nunito)" }}>
             {error}
           </span>
         )}
       </div>
     </form>
-  );
-}
-
-function Label({ children }: { children: string }) {
-  return (
-    <label className="block text-xs font-bold" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", letterSpacing: "0.05em" }}>
-      {children}
-    </label>
   );
 }
