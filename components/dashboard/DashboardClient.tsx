@@ -76,8 +76,7 @@ export default function DashboardClient({ user }: { user: User }) {
           <div
             className="w-8 h-8 rounded-full flex items-center justify-center overflow-hidden"
             style={{
-              background: "var(--surface)",
-              border: "1px solid var(--border-bright)",
+              background: "var(--surface-soft)",
               color: "var(--text-primary)",
               fontFamily: "var(--font-serif), 'Noto Serif KR', serif",
               fontSize: "0.85rem",
@@ -124,8 +123,8 @@ export default function DashboardClient({ user }: { user: User }) {
                 </div>
               </div>
               <button onClick={() => setShowWelcome(false)}
-                className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center transition-opacity hover:opacity-60"
-                style={{ background: "transparent", border: "1px solid var(--border)", cursor: "pointer", color: "var(--text-muted)" }}>
+                className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center transition-colors hover:opacity-60"
+                style={{ background: "var(--surface-soft)", border: "none", cursor: "pointer", color: "var(--text-muted)" }}>
                 <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
                   <path d="M2 2l6 6M8 2L2 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
                 </svg>

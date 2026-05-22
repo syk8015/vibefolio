@@ -166,8 +166,7 @@ export default function ProfileTab({ user }: { user: User }) {
         <div
           className="mx-auto mb-5 w-28 h-28 rounded-full flex items-center justify-center overflow-hidden"
           style={{
-            background: "var(--surface)",
-            border: "1px solid var(--border-bright)",
+            background: "var(--surface-soft)",
             color: "var(--text-primary)",
             fontFamily: "var(--font-serif), 'Noto Serif KR', serif",
             fontSize: "2.25rem",
@@ -270,7 +269,7 @@ export default function ProfileTab({ user }: { user: User }) {
                     type="button"
                     onClick={() => removeLink(i)}
                     className="w-9 h-9 rounded-full flex items-center justify-center text-base transition-colors flex-shrink-0"
-                    style={{ color: "var(--text-muted)", background: "transparent", border: "1px solid var(--border)", cursor: "pointer" }}
+                    style={{ color: "var(--text-muted)", background: "var(--surface-soft)", border: "none", cursor: "pointer" }}
                     aria-label="링크 삭제"
                   >
                     ×

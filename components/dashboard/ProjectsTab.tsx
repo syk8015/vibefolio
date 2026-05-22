@@ -419,7 +419,7 @@ function ProjectRow({ project, onDelete, onEdit, onToggleFeatured, onMoveUp, onM
           </svg>
         </div>
 
-        <div className="relative w-20 h-14 rounded-xl overflow-hidden shrink-0" style={{ border: "1px solid var(--border)" }}>
+        <div className="relative w-20 h-14 rounded-xl overflow-hidden shrink-0" style={{ background: "var(--surface-soft)" }}>
           <Image src={thumbnail} alt={project.title} fill className="object-cover" sizes="80px" />
         </div>
         <div className="flex-1 min-w-0">
@@ -433,13 +433,13 @@ function ProjectRow({ project, onDelete, onEdit, onToggleFeatured, onMoveUp, onM
             <span className="text-xs shrink-0 vf-mono" style={{ color: "var(--text-muted)" }}>{project.year}</span>
             {contentType && (
               <span className="px-2 py-0.5 rounded-full text-xs shrink-0"
-                style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", fontSize: "0.6rem", fontWeight: 500 }}>
+                style={{ background: "var(--surface-soft)", color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", fontSize: "0.6rem", fontWeight: 500 }}>
                 {contentType.emoji} {contentType.label}
               </span>
             )}
             {isUploadedProject(project.demo_url) && (
               <span className="px-2 py-0.5 rounded-full text-xs shrink-0 vf-mono"
-                style={{ background: "var(--blue-tint)", border: "1px solid var(--border-bright)", color: "var(--text-primary)", fontSize: "0.58rem", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                style={{ background: "var(--text-primary)", color: "var(--bg)", fontSize: "0.58rem", letterSpacing: "0.08em", textTransform: "uppercase" }}>
                 upload
               </span>
             )}
@@ -448,7 +448,7 @@ function ProjectRow({ project, onDelete, onEdit, onToggleFeatured, onMoveUp, onM
             {(project.tags ?? []).map(tag => (
               <span key={tag} className="flex items-center gap-1 px-2 py-0.5 rounded-full"
                 style={{
-                  background: "var(--surface)", border: "1px solid var(--border)",
+                  background: "var(--surface-soft)",
                   color: "var(--text-secondary)", fontSize: "0.62rem", fontWeight: 500, fontFamily: "var(--font-nunito)",
                 }}>
                 <AiToolLogo id={tag} size={11} />
@@ -463,8 +463,7 @@ function ProjectRow({ project, onDelete, onEdit, onToggleFeatured, onMoveUp, onM
       <div className="flex items-center gap-2 justify-between md:justify-start shrink-0" onDragStart={e => e.stopPropagation()}>
         <span className="px-2.5 py-1 rounded-full text-xs shrink-0 vf-mono"
           style={{
-            background: "transparent",
-            border: "1px solid var(--border-bright)",
+            background: "var(--surface-soft)",
             color: "var(--text-secondary)",
             letterSpacing: "0.08em",
             textTransform: "uppercase",
@@ -476,15 +475,15 @@ function ProjectRow({ project, onDelete, onEdit, onToggleFeatured, onMoveUp, onM
         <div className="flex items-center gap-1.5 md:gap-2">
           {/* Move up/down — mobile only (drag handle on desktop) */}
           <button onClick={onMoveUp} disabled={!canMoveUp} title="위로"
-            className="md:hidden p-2 rounded-full transition-opacity hover:opacity-70 disabled:opacity-30"
-            style={{ background: "transparent", border: "1px solid var(--border-bright)", cursor: canMoveUp ? "pointer" : "not-allowed" }}>
+            className="md:hidden p-2 rounded-full transition-colors hover:bg-[var(--surface-soft-hover)] disabled:opacity-30"
+            style={{ background: "var(--surface-soft)", border: "none", cursor: canMoveUp ? "pointer" : "not-allowed" }}>
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
               <path d="M3 8l4-4 4 4" stroke="var(--text-secondary)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </button>
           <button onClick={onMoveDown} disabled={!canMoveDown} title="아래로"
-            className="md:hidden p-2 rounded-full transition-opacity hover:opacity-70 disabled:opacity-30"
-            style={{ background: "transparent", border: "1px solid var(--border-bright)", cursor: canMoveDown ? "pointer" : "not-allowed" }}>
+            className="md:hidden p-2 rounded-full transition-colors hover:bg-[var(--surface-soft-hover)] disabled:opacity-30"
+            style={{ background: "var(--surface-soft)", border: "none", cursor: canMoveDown ? "pointer" : "not-allowed" }}>
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
               <path d="M3 6l4 4 4-4" stroke="var(--text-secondary)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
@@ -495,25 +494,25 @@ function ProjectRow({ project, onDelete, onEdit, onToggleFeatured, onMoveUp, onM
             title={project.is_featured ? "대표 작품 해제" : "대표 작품으로 설정"}
             className="p-2 rounded-full transition-colors"
             style={{
-              background: "transparent",
-              border: `1px solid ${project.is_featured ? "var(--text-primary)" : "var(--border-bright)"}`,
+              background: project.is_featured ? "var(--text-primary)" : "var(--surface-soft)",
+              border: "none",
               cursor: "pointer",
             }}
           >
-            <svg width="14" height="14" viewBox="0 0 14 14" fill={project.is_featured ? "var(--text-primary)" : "none"} stroke={project.is_featured ? "var(--text-primary)" : "var(--text-muted)"}>
+            <svg width="14" height="14" viewBox="0 0 14 14" fill={project.is_featured ? "var(--bg)" : "none"} stroke={project.is_featured ? "var(--bg)" : "var(--text-muted)"}>
               <path d="M7 1l1.8 4 4.2.4-3.2 2.9 1 4.2L7 10.4 3.2 12.5l1-4.2L1 5.4l4.2-.4L7 1z" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </button>
           <button onClick={onEdit} title="수정"
             className="p-2 rounded-full transition-colors"
-            style={{ background: "transparent", border: "1px solid var(--border-bright)", cursor: "pointer" }}>
+            style={{ background: "var(--surface-soft)", border: "none", cursor: "pointer" }}>
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
               <path d="M9.5 2.5l2 2L4 12H2v-2L9.5 2.5zM8.5 3.5l2 2" stroke="var(--text-primary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </button>
           <button onClick={onDelete} title="삭제"
             className="p-2 rounded-full transition-colors"
-            style={{ background: "transparent", border: "1px solid var(--border)", cursor: "pointer" }}>
+            style={{ background: "var(--surface-soft)", border: "none", cursor: "pointer" }}>
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
               <path d="M2 3.5h10M5.5 3.5V2.5h3v1M5 5.5v5M9 5.5v5M3.5 3.5l.5 8h6l.5-8" stroke="#b34747" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
@@ -748,9 +747,8 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
           width: showPreview ? "min(calc(42rem + 361px), calc(100vw - 2rem))" : "min(42rem, calc(100vw - 2rem))",
           transition: "width 0.32s cubic-bezier(0.4,0,0.2,1)",
           background: "var(--surface)",
-          border: "1px solid var(--border-bright)",
-          borderRadius: 16,
-          boxShadow: "0 8px 32px rgba(0,0,0,0.08)",
+          borderRadius: 18,
+          boxShadow: "0 20px 60px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.04)",
         }}
       >
         {/* ── Left: form panel — fills container on mobile, 42rem on desktop ── */}
@@ -775,9 +773,9 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
             onClick={() => setShowPreview(v => !v)}
             className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs transition-colors"
             style={{
-              background: "transparent",
-              border: `1px solid ${showPreview ? "var(--text-primary)" : "var(--border-bright)"}`,
-              color: showPreview ? "var(--text-primary)" : "var(--text-secondary)",
+              background: showPreview ? "var(--text-primary)" : "var(--surface-soft)",
+              border: "1px solid transparent",
+              color: showPreview ? "var(--bg)" : "var(--text-secondary)",
               fontFamily: "var(--font-nunito)",
               fontWeight: 500,
               cursor: "pointer",
@@ -848,17 +846,18 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
                   return (
                     <button key={opt.id} type="button"
                       onClick={() => { setUploadMode(opt.id); setStep(2); }}
-                      className="flex flex-col items-start gap-2 p-5 rounded-2xl transition-all text-left"
+                      className="flex flex-col items-start gap-2 p-5 rounded-2xl transition-colors text-left"
                       style={{
-                        background: active ? "var(--blue-tint)" : "var(--bg)",
-                        border: `1.5px solid ${active ? "var(--text-primary)" : "var(--border-bright)"}`,
+                        background: active ? "var(--text-primary)" : "var(--surface-soft)",
+                        color: active ? "var(--bg)" : "var(--text-primary)",
+                        border: "1px solid transparent",
                         cursor: "pointer",
                       }}>
                       <span style={{ fontSize: "1.6rem" }}>{opt.emoji}</span>
-                      <span className="vf-serif-display" style={{ fontSize: "1rem", fontWeight: 500 }}>
+                      <span className="vf-serif-display" style={{ fontSize: "1rem", fontWeight: 500, color: "inherit" }}>
                         {opt.title}
                       </span>
-                      <span className="text-xs" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", lineHeight: 1.5 }}>
+                      <span className="text-xs" style={{ color: active ? "var(--bg)" : "var(--text-secondary)", opacity: active ? 0.75 : 1, fontFamily: "var(--font-nunito)", lineHeight: 1.5 }}>
                         {opt.desc}
                       </span>
                     </button>
@@ -871,7 +870,7 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
           {/* Upload mode toggle — hidden in wizard (replaced by big cards above) */}
           {!wizard && (
             <div className="flex gap-1 p-1 rounded-xl"
-              style={{ background: "var(--bg)", border: "1px solid var(--border)" }}>
+              style={{ background: "var(--surface-soft)" }}>
               {(["url", "files"] as const).map(mode => (
                 <button key={mode} type="button" onClick={() => setUploadMode(mode)}
                   className="flex-1 py-2 rounded-lg text-sm transition-colors"
@@ -895,12 +894,12 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
             <div className="flex flex-col gap-3">
               {/* Guide notice */}
               <div className="flex gap-2.5 px-3.5 py-3 rounded-xl"
-                style={{ background: "var(--blue-tint)", border: "1px solid var(--border-bright)" }}>
+                style={{ background: "var(--surface-soft)" }}>
                 <span style={{ fontSize: "0.85rem", flexShrink: 0, marginTop: "1px" }}>💡</span>
                 <div style={{ fontFamily: "var(--font-nunito)", fontSize: "0.72rem", color: "var(--text-secondary)", lineHeight: 1.7 }}>
                   <span style={{ fontWeight: 600, color: "var(--text-primary)", fontFamily: "var(--font-serif), 'Noto Serif KR', serif" }}>React / Vue / Vite 프로젝트라면</span>{" "}
-                  소스 폴더 대신 <code className="vf-mono" style={{ background: "var(--surface)", border: "1px solid var(--border)", padding: "1px 5px", borderRadius: 4, fontSize: "0.68rem", color: "var(--text-primary)" }}>npm run build</code> 후 생성된{" "}
-                  <code className="vf-mono" style={{ background: "var(--surface)", border: "1px solid var(--border)", padding: "1px 5px", borderRadius: 4, fontSize: "0.68rem", color: "var(--text-primary)" }}>dist/</code> 폴더를 올려주세요.
+                  소스 폴더 대신 <code className="vf-mono" style={{ background: "var(--surface)", padding: "1px 5px", borderRadius: 4, fontSize: "0.68rem", color: "var(--text-primary)" }}>npm run build</code> 후 생성된{" "}
+                  <code className="vf-mono" style={{ background: "var(--surface)", padding: "1px 5px", borderRadius: 4, fontSize: "0.68rem", color: "var(--text-primary)" }}>dist/</code> 폴더를 올려주세요.
                   순수 HTML/CSS/JS 파일은 그대로 올려도 돼요.
                 </div>
               </div>
@@ -912,7 +911,7 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
                 {...{ webkitdirectory: "", multiple: true } as React.InputHTMLAttributes<HTMLInputElement>}
                 onChange={e => e.target.files && handleFilesUpload(e.target.files)} />
               <div className="flex flex-col items-center gap-3 p-6 rounded-xl"
-                style={{ border: "1.5px dashed var(--border-bright)", background: "var(--bg)" }}>
+                style={{ background: "var(--surface-soft)" }}>
                 <div className="text-3xl">📂</div>
                 <p className="text-xs text-center" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
                   HTML, CSS, JS, 이미지 파일 지원 · 최대 10MB
@@ -973,9 +972,9 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
 
             {form.video_url ? (
               <div className="flex items-center gap-3 p-3 rounded-xl"
-                style={{ background: "var(--blue-tint)", border: "1px solid var(--border-bright)" }}>
+                style={{ background: "var(--surface-soft)" }}>
                 <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
-                  style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+                  style={{ background: "var(--surface)" }}>
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                     <polygon points="3,2 13,8 3,14" fill="var(--text-primary)" />
                   </svg>
@@ -999,7 +998,7 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
               <>
                 {/* Mode toggle */}
                 <div className="flex gap-1 mb-2 p-1 rounded-lg w-fit"
-                  style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+                  style={{ background: "var(--surface-soft)" }}>
                   {(["file", "url"] as const).map(m => (
                     <button key={m} type="button" onClick={() => setVideoMode(m)}
                       className="px-3 py-1 rounded-md text-xs transition-colors"
@@ -1020,8 +1019,8 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
                       onChange={e => { const f = e.target.files?.[0]; if (f) handleVideoFile(f); }} />
                     <button type="button" disabled={videoUploading}
                       onClick={() => videoInputRef.current?.click()}
-                      className="w-full py-2.5 rounded-xl text-sm transition-opacity hover:opacity-80 disabled:opacity-50"
-                      style={{ background: "var(--bg)", border: "1.5px dashed var(--border-bright)", color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", fontWeight: 500, cursor: videoUploading ? "not-allowed" : "pointer" }}>
+                      className="w-full py-2.5 rounded-xl text-sm transition-colors hover:opacity-90 disabled:opacity-50"
+                      style={{ background: "var(--surface-soft)", border: "none", color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", fontWeight: 500, cursor: videoUploading ? "not-allowed" : "pointer" }}>
                       {videoUploading ? "업로드 중…" : "+ 영상 파일 선택 (20MB · 30초 이하)"}
                     </button>
                   </>
@@ -1073,9 +1072,9 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
                     onClick={() => setForm(prev => ({ ...prev, content_type: active ? null : ct.id }))}
                     className="px-2.5 py-1 rounded-full text-xs transition-colors"
                     style={{
-                      background: "transparent",
-                      border: `1px solid ${active ? "var(--text-primary)" : "var(--border)"}`,
-                      color: active ? "var(--text-primary)" : "var(--text-muted)",
+                      background: active ? "var(--text-primary)" : "var(--surface-soft)",
+                      border: "1px solid transparent",
+                      color: active ? "var(--bg)" : "var(--text-secondary)",
                       fontFamily: "var(--font-nunito)",
                       fontWeight: active ? 600 : 500,
                       cursor: "pointer",
@@ -1117,8 +1116,7 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
               className="flex items-center justify-center gap-3 w-full rounded-xl transition-colors cursor-pointer"
               style={{
                 height: 48,
-                background: "var(--bg)",
-                border: "1.5px dashed var(--border-bright)",
+                background: "var(--surface-soft)",
               }}
             >
               {thumbnailUploading ? (
@@ -1159,9 +1157,9 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
                     onClick={() => setForm(prev => ({ ...prev, type: t }))}
                     className="flex-1 py-2 rounded-xl text-sm transition-colors"
                     style={{
-                      background: "transparent",
-                      border: `1px solid ${active ? "var(--text-primary)" : "var(--border)"}`,
-                      color: active ? "var(--text-primary)" : "var(--text-muted)",
+                      background: active ? "var(--text-primary)" : "var(--surface-soft)",
+                      border: "none",
+                      color: active ? "var(--bg)" : "var(--text-secondary)",
                       fontFamily: "var(--font-nunito)",
                       fontWeight: active ? 600 : 500,
                       cursor: "pointer",
@@ -1186,9 +1184,9 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
                   <button key={tool.id} type="button" onClick={() => toggleTool(tool.id)}
                     className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs transition-colors"
                     style={{
-                      background: "transparent",
-                      border: `1px solid ${active ? "var(--text-primary)" : "var(--border)"}`,
-                      color: active ? "var(--text-primary)" : "var(--text-muted)",
+                      background: active ? "var(--text-primary)" : "var(--surface-soft)",
+                      border: "1px solid transparent",
+                      color: active ? "var(--bg)" : "var(--text-secondary)",
                       fontFamily: "var(--font-nunito)",
                       fontWeight: active ? 600 : 500,
                       cursor: "pointer",
@@ -1203,11 +1201,14 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
                 className="px-2.5 py-1 rounded-full text-xs transition-colors"
                 style={{
                   background: "transparent",
-                  border: "1px dashed var(--border-bright)",
-                  color: "var(--text-secondary)",
+                  border: "none",
+                  color: "var(--text-muted)",
                   fontFamily: "var(--font-nunito)",
                   fontWeight: 500,
                   cursor: "pointer",
+                  textDecoration: "underline",
+                  textUnderlineOffset: "3px",
+                  textDecorationColor: "var(--border-bright)",
                 }}>
                 {showAllTools
                   ? "접기 ↑"
@@ -1227,7 +1228,7 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
           {/* Save error */}
           {saveError && (
             <div className="px-4 py-3 rounded-xl text-xs"
-              style={{ background: "var(--surface)", border: "1px solid #b34747", color: "#b34747", fontFamily: "var(--font-nunito)", lineHeight: 1.6 }}>
+              style={{ background: "rgba(179, 71, 71, 0.08)", color: "#8e3535", fontFamily: "var(--font-nunito)", lineHeight: 1.6 }}>
               ⚠ {saveError}
             </div>
           )}
@@ -1339,7 +1340,7 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
                 </span>
               </div>
               {/* Grid / List toggle */}
-              <div className="flex gap-1 p-0.5 rounded-lg" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+              <div className="flex gap-1 p-0.5 rounded-lg" style={{ background: "var(--surface-soft)" }}>
                 {(["grid", "list"] as const).map(l => {
                   const active = previewLayout === l;
                   return (

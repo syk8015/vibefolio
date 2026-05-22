@@ -196,8 +196,8 @@ export default function CustomTab({ user }: { user: User }) {
         rows={28}
         className="w-full rounded-xl p-4 text-sm leading-relaxed mb-4"
         style={{
-          background: "var(--surface)",
-          border: "1px solid var(--border-bright)",
+          background: "var(--surface-soft)",
+          border: "none",
           color: "var(--text-primary)",
           fontFamily: "var(--font-mono), monospace",
           resize: "vertical",

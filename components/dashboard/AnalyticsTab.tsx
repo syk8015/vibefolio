@@ -103,8 +103,7 @@ function BarChart({ days, counts }: { days: Date[]; counts: number[] }) {
                 borderRadius: 3,
                 background: isToday
                   ? "var(--text-primary)"
-                  : counts[i] > 0 ? "var(--blue-tint)" : "var(--border)",
-                border: isToday ? "none" : `1px solid ${counts[i] > 0 ? "var(--border-bright)" : "transparent"}`,
+                  : counts[i] > 0 ? "var(--blue-tint-strong)" : "var(--surface-soft)",
                 transition: "height 0.4s ease",
                 cursor: "default",
               }}
@@ -363,7 +362,7 @@ export default function AnalyticsTab({ user }: { user: User }) {
                         {count}
                       </span>
                     </div>
-                    <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "var(--border)" }}>
+                    <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "var(--surface-soft)" }}>
                       <div
                         className="h-full rounded-full"
                         style={{
@@ -396,7 +395,7 @@ export default function AnalyticsTab({ user }: { user: User }) {
                         {count}
                       </span>
                     </div>
-                    <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "var(--border)" }}>
+                    <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "var(--surface-soft)" }}>
                       <div
                         className="h-full rounded-full"
                         style={{

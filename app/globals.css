@@ -9,6 +9,9 @@
 [data-theme="light"] {
   --bg: #fdfaf3;
   --surface: #ffffff;
+  --surface-soft: #f3ecd9;
+  --surface-soft-hover: #ebe2ca;
+  --surface-sunken: #f7f0dd;
   --border: #ece4d2;
   --border-bright: #cfc1a3;
   /* `--blue*` var names kept for backward compat; semantics = "ink accent" */
@@ -17,6 +20,7 @@
   --blue-dim: #2e2620;
   --blue-glow: transparent;
   --blue-tint: rgba(26, 22, 18, 0.05);
+  --blue-tint-strong: rgba(26, 22, 18, 0.09);
   --text-primary: #1a1612;
   --text-secondary: #6a5e4e;
   --text-muted: #a89b87;
@@ -32,6 +36,9 @@
 [data-theme="dark"] {
   --bg: #1a1612;
   --surface: #221d18;
+  --surface-soft: #2a221d;
+  --surface-soft-hover: #332a22;
+  --surface-sunken: #1f1a15;
   --border: #2e2620;
   --border-bright: #4a3e35;
   --blue: #f4ede0;
@@ -39,6 +46,7 @@
   --blue-dim: #d8cdb5;
   --blue-glow: transparent;
   --blue-tint: rgba(244, 237, 224, 0.05);
+  --blue-tint-strong: rgba(244, 237, 224, 0.11);
   --text-primary: #f4ede0;
   --text-secondary: #b8a98a;
   --text-muted: #6a5e4e;
@@ -117,17 +125,19 @@ body::before {
   width: 100%;
   padding: 0.75rem 1rem;
   border-radius: 10px;
-  border: 1px solid var(--border-bright);
-  background: var(--surface);
+  border: 1px solid transparent;
+  background: var(--surface-soft);
   color: var(--text-primary);
   font-family: var(--font-nunito), sans-serif;
   font-size: 0.9rem;
   font-weight: 500;
   outline: none;
-  transition: border-color 0.15s ease;
+  transition: background-color 0.18s ease, border-color 0.18s ease;
 }
 .vf-input::placeholder { color: var(--text-muted); }
+.vf-input:hover:not(:focus) { background: var(--surface-soft-hover); }
 .vf-input:focus {
+  background: var(--surface);
   border-color: var(--text-primary);
 }
 
@@ -265,16 +275,47 @@ body::before {
 
 .vf-card {
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
   border-radius: 14px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.025);
 }
 
 .vf-card-accent {
   background: var(--surface);
-  border: 1px solid var(--border-bright);
+  border: 1px solid transparent;
   border-radius: 14px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+}
+
+/* Filled neutral surface — replaces "outline" boxes throughout the UI */
+.vf-soft {
+  background: var(--surface-soft);
+  border: 1px solid transparent;
+  border-radius: 12px;
+  transition: background-color 0.18s ease;
+}
+.vf-soft:hover { background: var(--surface-soft-hover); }
+
+.vf-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: var(--surface-soft);
+  color: var(--text-secondary);
+  font-family: var(--font-nunito), sans-serif;
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.18s ease, color 0.18s ease;
+}
+.vf-chip:hover { background: var(--surface-soft-hover); color: var(--text-primary); }
+.vf-chip[data-active="true"] {
+  background: var(--text-primary);
+  color: var(--bg);
+  font-weight: 600;
 }
 
 .vf-button-primary {
@@ -305,19 +346,19 @@ body::before {
   gap: 0.45rem;
   padding: 0.65rem 1.2rem;
   border-radius: 999px;
-  border: 1px solid var(--border-bright);
-  background: var(--surface);
+  border: 1px solid transparent;
+  background: var(--surface-soft);
   color: var(--text-primary);
   font-family: var(--font-nunito), sans-serif;
   font-size: 0.85rem;
   font-weight: 500;
   letter-spacing: -0.005em;
   cursor: pointer;
-  transition: border-color 0.18s ease, color 0.18s ease;
+  transition: background-color 0.18s ease, color 0.18s ease;
   text-decoration: none;
 }
 .vf-button-ghost:hover {
-  border-color: var(--text-primary);
+  background: var(--surface-soft-hover);
   color: var(--text-primary);
 }
 .vf-button-ghost:disabled { opacity: 0.4; cursor: not-allowed; }
@@ -329,17 +370,17 @@ body::before {
   gap: 0.45rem;
   padding: 0.5rem 0.8rem;
   border-radius: 999px;
-  border: 1px solid var(--border);
-  background: var(--surface);
+  border: 1px solid transparent;
+  background: var(--surface-soft);
   color: #b34747;
   font-family: var(--font-nunito), sans-serif;
   font-size: 0.8rem;
   font-weight: 500;
   cursor: pointer;
-  transition: border-color 0.18s ease, color 0.18s ease;
+  transition: background-color 0.18s ease, color 0.18s ease;
 }
 .vf-button-danger:hover {
-  border-color: #b34747;
+  background: rgba(179, 71, 71, 0.1);
   color: #8e3535;
 }
 
