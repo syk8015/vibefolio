@@ -351,7 +351,7 @@ export default function ProjectsTab({ user }: { user: User }) {
       {showAddModal && (
         <ProjectFormModal title="새 프로젝트 추가" initialForm={EMPTY_FORM}
           onClose={() => setShowAddModal(false)} onSubmit={handleAdd}
-          submitLabel="추가하기" userId={user.id} />
+          submitLabel="추가하기" userId={user.id} wizard />
       )}
 
       {editProject && (
@@ -524,16 +524,20 @@ function ProjectRow({ project, onDelete, onEdit, onToggleFeatured, onMoveUp, onM
   );
 }
 
-function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, userId }: {
+function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, userId, wizard = false }: {
   title: string;
   initialForm: ProjectForm;
   onClose: () => void;
   onSubmit: (form: ProjectForm) => void;
   submitLabel: string;
   userId: string;
+  wizard?: boolean;
 }) {
   const [uploadMode, setUploadMode] = useState<"url" | "files">("url");
   const [form, setForm] = useState({ ...initialForm });
+  const [step, setStep] = useState(1);
+  const TOTAL_STEPS = 5;
+  const STEP_LABELS = ["형태", "입력", "기본 정보", "분류", "마무리"];
   const [selectedTools, setSelectedTools] = useState<string[]>(initialForm.tags);
   const [showAllTools, setShowAllTools] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
@@ -794,28 +798,99 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
           </button>
         </div>
 
+        {/* Wizard progress indicator */}
+        {wizard && (
+          <div className="px-6 pt-5 pb-1">
+            <div className="flex items-center gap-1.5 mb-2">
+              {Array.from({ length: TOTAL_STEPS }).map((_, i) => {
+                const idx = i + 1;
+                const done = idx < step;
+                const current = idx === step;
+                return (
+                  <div key={i} className="flex-1 h-0.5 rounded-full transition-colors"
+                    style={{
+                      background: done || current ? "var(--text-primary)" : "var(--border)",
+                      opacity: current ? 1 : done ? 0.6 : 1,
+                    }} />
+                );
+              })}
+            </div>
+            <div className="flex justify-between items-baseline">
+              <span className="vf-mono text-xs" style={{ color: "var(--text-muted)", letterSpacing: "0.08em" }}>
+                {step} / {TOTAL_STEPS}
+              </span>
+              <span className="vf-serif-display" style={{ fontSize: "0.85rem", fontWeight: 500, color: "var(--text-secondary)" }}>
+                {STEP_LABELS[step - 1]}
+              </span>
+            </div>
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="px-6 py-5 flex flex-col gap-5">
 
-          {/* Upload mode toggle */}
-          <div className="flex gap-1 p-1 rounded-xl"
-            style={{ background: "var(--bg)", border: "1px solid var(--border)" }}>
-            {(["url", "files"] as const).map(mode => (
-              <button key={mode} type="button" onClick={() => setUploadMode(mode)}
-                className="flex-1 py-2 rounded-lg text-sm transition-colors"
-                style={{
-                  background: uploadMode === mode ? "var(--text-primary)" : "transparent",
-                  color: uploadMode === mode ? "var(--bg)" : "var(--text-secondary)",
-                  fontFamily: "var(--font-nunito)",
-                  fontWeight: uploadMode === mode ? 600 : 500,
-                  border: "none",
-                  cursor: "pointer",
-                }}>
-                {mode === "url" ? "🔗 URL 링크" : "📁 파일 업로드"}
-              </button>
-            ))}
-          </div>
+          {/* Step 1 big card selector (wizard only) */}
+          {wizard && (
+            <div style={{ display: step === 1 ? undefined : "none" }} className="flex flex-col gap-3">
+              <div className="text-center mb-1">
+                <p className="vf-serif-display" style={{ fontSize: "1.05rem", fontWeight: 500, margin: 0 }}>
+                  어떤 형태의 작품인가요?
+                </p>
+                <p className="text-xs mt-1" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
+                  나중에 바꿀 수 있어요
+                </p>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {([
+                  { id: "url", emoji: "🔗", title: "URL 링크", desc: "이미 어딘가에 배포된 사이트가 있어요" },
+                  { id: "files", emoji: "📁", title: "파일 업로드", desc: "직접 만든 HTML·CSS·JS 파일을 올릴게요" },
+                ] as const).map(opt => {
+                  const active = uploadMode === opt.id;
+                  return (
+                    <button key={opt.id} type="button"
+                      onClick={() => { setUploadMode(opt.id); setStep(2); }}
+                      className="flex flex-col items-start gap-2 p-5 rounded-2xl transition-all text-left"
+                      style={{
+                        background: active ? "var(--blue-tint)" : "var(--bg)",
+                        border: `1.5px solid ${active ? "var(--text-primary)" : "var(--border-bright)"}`,
+                        cursor: "pointer",
+                      }}>
+                      <span style={{ fontSize: "1.6rem" }}>{opt.emoji}</span>
+                      <span className="vf-serif-display" style={{ fontSize: "1rem", fontWeight: 500 }}>
+                        {opt.title}
+                      </span>
+                      <span className="text-xs" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", lineHeight: 1.5 }}>
+                        {opt.desc}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Upload mode toggle — hidden in wizard (replaced by big cards above) */}
+          {!wizard && (
+            <div className="flex gap-1 p-1 rounded-xl"
+              style={{ background: "var(--bg)", border: "1px solid var(--border)" }}>
+              {(["url", "files"] as const).map(mode => (
+                <button key={mode} type="button" onClick={() => setUploadMode(mode)}
+                  className="flex-1 py-2 rounded-lg text-sm transition-colors"
+                  style={{
+                    background: uploadMode === mode ? "var(--text-primary)" : "transparent",
+                    color: uploadMode === mode ? "var(--bg)" : "var(--text-secondary)",
+                    fontFamily: "var(--font-nunito)",
+                    fontWeight: uploadMode === mode ? 600 : 500,
+                    border: "none",
+                    cursor: "pointer",
+                  }}>
+                  {mode === "url" ? "🔗 URL 링크" : "📁 파일 업로드"}
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* File upload */}
+          <div style={{ display: wizard && step !== 2 ? "none" : undefined }}>
           {uploadMode === "files" && (
             <div className="flex flex-col gap-3">
               {/* Guide notice */}
@@ -887,9 +962,10 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
                 value={form.demo_url} onChange={handleChange} />
             </Field>
           )}
+          </div>{/* end step 2 wrapper */}
 
           {/* 구동 영상 (선택) — 대표 작품 hero에서 자동 재생 */}
-          <div>
+          <div style={{ display: wizard && step !== 5 ? "none" : undefined }}>
             <label className="vf-label">구동 영상 (선택)</label>
             <p className="text-xs mb-2" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
               대표 작품으로 설정하면 명함 상단에서 자동 재생돼요.
@@ -963,6 +1039,7 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
             )}
           </div>
 
+          <div style={{ display: wizard && step !== 3 ? "none" : undefined }} className="flex flex-col gap-5">
           {/* 프로젝트 이름 + 연도 */}
           <div className="grid grid-cols-3 gap-3">
             <div className="col-span-2">
@@ -983,9 +1060,10 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
               value={form.description} onChange={handleChange} rows={2}
               style={{ resize: "vertical" }} />
           </Field>
+          </div>{/* end step 3 wrapper */}
 
           {/* 콘텐츠 유형 — 풀 너비 */}
-          <div>
+          <div style={{ display: wizard && step !== 4 ? "none" : undefined }}>
             <label className="vf-label">콘텐츠 유형</label>
             <div className="flex flex-wrap gap-1.5">
               {CONTENT_TYPES.map(ct => {
@@ -1010,7 +1088,7 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
           </div>
 
           {/* 썸네일 업로드 */}
-          <div>
+          <div style={{ display: wizard && step !== 5 ? "none" : undefined }}>
             <label className="vf-label">
               썸네일
               <span className="ml-1.5" style={{ color: "var(--text-muted)", textTransform: "none", letterSpacing: 0, fontWeight: 400 }}>
@@ -1071,7 +1149,7 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
           </div>
 
           {/* 썸네일 유형 */}
-          <div>
+          <div style={{ display: wizard && step !== 5 ? "none" : undefined }}>
             <label className="vf-label">썸네일 유형</label>
             <div className="flex gap-2">
               {(["image", "video"] as const).map(t => {
@@ -1096,7 +1174,7 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
           </div>
 
           {/* AI 도구 */}
-          <div>
+          <div style={{ display: wizard && step !== 4 ? "none" : undefined }}>
             <label className="vf-label">
               사용한 AI 도구{" "}
               <span style={{ color: "var(--text-muted)", fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>(복수 선택)</span>
@@ -1139,10 +1217,12 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
           </div>
 
           {/* 한 마디 */}
-          <Field label="한 마디 (말풍선에 표시)">
-            <input className="vf-input" name="comment" placeholder="제가 제일 아끼는 작업물이에요! ⭐"
-              value={form.comment} onChange={handleChange} />
-          </Field>
+          <div style={{ display: wizard && step !== 5 ? "none" : undefined }}>
+            <Field label="한 마디 (말풍선에 표시)">
+              <input className="vf-input" name="comment" placeholder="제가 제일 아끼는 작업물이에요! ⭐"
+                value={form.comment} onChange={handleChange} />
+            </Field>
+          </div>
 
           {/* Save error */}
           {saveError && (
@@ -1153,18 +1233,79 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
           )}
 
           {/* Actions */}
-          <div className="flex gap-3 pt-1 pb-1">
-            <button type="button" onClick={onClose}
-              className="vf-button-ghost flex-1"
-              style={{ padding: "0.65rem 1rem" }}>
-              취소
-            </button>
-            <button type="submit" disabled={saving || uploading}
-              className="vf-button-primary flex-1"
-              style={{ padding: "0.65rem 1rem", cursor: (saving || uploading) ? "not-allowed" : "pointer" }}>
-              {saving ? "저장 중…" : submitLabel}
-            </button>
-          </div>
+          {!wizard && (
+            <div className="flex gap-3 pt-1 pb-1">
+              <button type="button" onClick={onClose}
+                className="vf-button-ghost flex-1"
+                style={{ padding: "0.65rem 1rem" }}>
+                취소
+              </button>
+              <button type="submit" disabled={saving || uploading}
+                className="vf-button-primary flex-1"
+                style={{ padding: "0.65rem 1rem", cursor: (saving || uploading) ? "not-allowed" : "pointer" }}>
+                {saving ? "저장 중…" : submitLabel}
+              </button>
+            </div>
+          )}
+
+          {/* Wizard navigation */}
+          {wizard && (
+            <div className="flex gap-2 pt-1 pb-1">
+              {step > 1 && (
+                <button type="button" onClick={() => setStep(s => s - 1)}
+                  className="vf-button-ghost"
+                  style={{ padding: "0.65rem 1.1rem" }}>
+                  ← 이전
+                </button>
+              )}
+              <div className="flex-1" />
+              {step >= 4 && step < TOTAL_STEPS && (
+                <button type="button" onClick={() => setStep(s => s + 1)}
+                  className="text-sm transition-opacity hover:opacity-70"
+                  style={{
+                    background: "none", border: "none", cursor: "pointer",
+                    color: "var(--text-muted)", fontFamily: "var(--font-nunito)",
+                    padding: "0.65rem 0.5rem",
+                  }}>
+                  건너뛰기
+                </button>
+              )}
+              {step < TOTAL_STEPS ? (
+                <button type="button"
+                  onClick={() => setStep(s => s + 1)}
+                  disabled={
+                    (step === 2 && uploadMode === "url" && !form.demo_url) ||
+                    (step === 2 && uploadMode === "files" && !uploadDone) ||
+                    (step === 3 && !form.title) ||
+                    uploading
+                  }
+                  className="vf-button-primary"
+                  style={{
+                    padding: "0.65rem 1.4rem",
+                    cursor: (
+                      (step === 2 && uploadMode === "url" && !form.demo_url) ||
+                      (step === 2 && uploadMode === "files" && !uploadDone) ||
+                      (step === 3 && !form.title) ||
+                      uploading
+                    ) ? "not-allowed" : "pointer",
+                    opacity: (
+                      (step === 2 && uploadMode === "url" && !form.demo_url) ||
+                      (step === 2 && uploadMode === "files" && !uploadDone) ||
+                      (step === 3 && !form.title) ||
+                      uploading
+                    ) ? 0.5 : 1,
+                  }}>
+                  다음 →
+                </button>
+              ) : (
+                <button type="submit" disabled={saving || uploading}
+                  className="vf-button-primary"
+                  style={{ padding: "0.65rem 1.4rem", cursor: (saving || uploading) ? "not-allowed" : "pointer" }}>
+                  {saving ? "저장 중…" : submitLabel}
+                </button>
+              )}
+            </div>
+          )}
         </form>
         </div>{/* end left panel */}
 
