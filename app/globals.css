@@ -258,3 +258,120 @@ body::before {
 .vf-cursor-inline {
   vertical-align: -0.05em;
 }
+
+/* =============================================================
+   Dashboard paper/ink utility layer
+   ============================================================= */
+
+.vf-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+.vf-card-accent {
+  background: var(--surface);
+  border: 1px solid var(--border-bright);
+  border-radius: 14px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.vf-button-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0.65rem 1.2rem;
+  border-radius: 999px;
+  border: 1px solid var(--text-primary);
+  background: var(--text-primary);
+  color: var(--bg);
+  font-family: var(--font-nunito), sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  cursor: pointer;
+  transition: opacity 0.18s ease;
+  text-decoration: none;
+}
+.vf-button-primary:hover { opacity: 0.85; }
+.vf-button-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.vf-button-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0.65rem 1.2rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-bright);
+  background: var(--surface);
+  color: var(--text-primary);
+  font-family: var(--font-nunito), sans-serif;
+  font-size: 0.85rem;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  cursor: pointer;
+  transition: border-color 0.18s ease, color 0.18s ease;
+  text-decoration: none;
+}
+.vf-button-ghost:hover {
+  border-color: var(--text-primary);
+  color: var(--text-primary);
+}
+.vf-button-ghost:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.vf-button-danger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0.5rem 0.8rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: #b34747;
+  font-family: var(--font-nunito), sans-serif;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.18s ease, color 0.18s ease;
+}
+.vf-button-danger:hover {
+  border-color: #b34747;
+  color: #8e3535;
+}
+
+.vf-label {
+  font-family: var(--font-mono), monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  font-weight: 500;
+  display: block;
+  margin-bottom: 0.45rem;
+}
+
+.vf-serif-display {
+  font-family: var(--font-serif), 'Noto Serif KR', serif;
+  letter-spacing: -0.01em;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+  color: var(--text-primary);
+}
+
+.vf-mono {
+  font-family: var(--font-mono), monospace;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vf-button-primary,
+  .vf-button-ghost,
+  .vf-button-danger,
+  .vf-input,
+  .card-hover-glow {
+    transition: none !important;
+  }
+}
