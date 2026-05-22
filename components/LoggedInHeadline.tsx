@@ -49,12 +49,12 @@ export default function LoggedInHeadline() {
         if (i <= phrase.length) {
           setText(phrase.slice(0, i));
           i++;
-          schedule(typeChar, 65 + Math.random() * 45);
+          schedule(typeChar, 90 + Math.random() * 60);
         } else if (hasReply) {
           // pause before the reply appears (like a comment beat)
           schedule(startReply, 650);
         } else {
-          schedule(eraseText, 1800);
+          schedule(eraseText, 1600);
         }
       };
 
@@ -69,9 +69,9 @@ export default function LoggedInHeadline() {
         if (j <= replyText.length) {
           setReply(replyText.slice(0, j));
           j++;
-          schedule(typeReply, 65 + Math.random() * 45);
+          schedule(typeReply, 90 + Math.random() * 60);
         } else {
-          schedule(eraseReply, 1900);
+          schedule(eraseReply, 1600);
         }
       };
 
@@ -80,7 +80,7 @@ export default function LoggedInHeadline() {
         if (j > 0) {
           j--;
           setReply(replyText.slice(0, j));
-          schedule(eraseReply, 35 + Math.random() * 25);
+          schedule(eraseReply, 50 + Math.random() * 35);
         } else {
           setPhase("text");
           schedule(eraseText, 120);
@@ -92,7 +92,7 @@ export default function LoggedInHeadline() {
         if (i > 0) {
           i--;
           setText(phrase.slice(0, i));
-          schedule(eraseText, 35 + Math.random() * 25);
+          schedule(eraseText, 50 + Math.random() * 35);
         } else {
           schedule(runPhrase, 420);
         }
