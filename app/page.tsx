@@ -4,7 +4,7 @@ import HomeProfileMenu from "@/components/HomeProfileMenu";
 import PortfolioPipSection from "@/components/PortfolioPipSection";
 import ThemeToggle from "@/components/ThemeToggle";
 import LoggedInHeadline from "@/components/LoggedInHeadline";
-import HowItWorksSection from "@/components/HowItWorksSection";
+import FaqRepliesSection from "@/components/FaqRepliesSection";
 import TypingTagline from "@/components/TypingTagline";
 
 interface FeaturedProfile {
@@ -117,8 +117,8 @@ export default async function LandingPage() {
         )}
       </section>
 
-      {/* How it works — scroll-driven */}
-      <HowItWorksSection />
+      {/* FAQ — ↳ replies, typed on first scroll-into-view */}
+      <FaqRepliesSection />
 
       {/* PiP portfolio preview — scroll-synced, cycles through profiles */}
       {profiles.length > 0 && (
