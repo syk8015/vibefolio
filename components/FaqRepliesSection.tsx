@@ -3,10 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 
 const FAQ = [
-  { q: "깃허브 링크면 충분하지 않나요?", a: "깃허브엔 코드, 이곳엔 손끝으로 닿는 작품" },
-  { q: "노션이나 링크트리로는 안 되나요?", a: "거기엔 링크 한 줄, 여기엔 작품이 사는 집" },
-  { q: "누가 쓰는 건가요?", a: "설명보다 작동으로 보여주는 사람" },
-  { q: "무엇을 올려야 하나요?", a: "주말의 스케치부터, 미완의 데모까지" },
+  { q: "깃허브 링크면 충분하지 않나요?", a: "깃허브는 코드를, 여기는 작품을" },
+  { q: "무엇을 올려야 하나요?", a: "주말의 스케치부터 배포한 url까지" },
+  { q: "완성된 것을 올려야 하나요?", a: "당신의 미완성도, 누군가에게 완성." },
+  { q: "누가 쓰는 건가요?", a: "@everyone" },
 ];
 
 const CHAR_MS = 8;
@@ -142,7 +142,6 @@ const aStyle: React.CSSProperties = {
   lineHeight: 1.5,
   letterSpacing: "-0.01em",
   margin: 0,
-  textAlign: "right",
   wordBreak: "keep-all",
   overflowWrap: "break-word",
 };
