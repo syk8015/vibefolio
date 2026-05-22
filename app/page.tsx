@@ -48,12 +48,12 @@ export default async function LandingPage() {
           </div>
         </nav>
 
-        <div className="flex-1 flex flex-col items-center justify-center px-6 text-center gap-4">
+        <div className="flex-1 flex flex-col items-center justify-center px-6 text-center gap-12">
           <p className="text-sm" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
             안녕하세요, <span style={{ color: "var(--text-primary)", fontWeight: 600 }}>{name}</span>님!
           </p>
           <LoggedInHeadline />
-          <div className="flex flex-wrap justify-center items-center gap-3 mt-4">
+          <div className="flex flex-wrap justify-center items-center gap-3">
             <Link href={`/${username}`}
               className="px-7 py-3 rounded-full text-sm transition-opacity hover:opacity-80"
               style={{ background: "var(--blue)", color: "var(--bg)", fontFamily: "var(--font-nunito)", fontWeight: 600, textDecoration: "none" }}>
@@ -65,9 +65,6 @@ export default async function LandingPage() {
               명함 수정
             </Link>
           </div>
-          <p className="text-xs" style={{ color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
-            vibefolio.vercel.app/<span style={{ color: "var(--text-secondary)" }}>{username}</span>
-          </p>
         </div>
 
         <footer className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 py-6">
