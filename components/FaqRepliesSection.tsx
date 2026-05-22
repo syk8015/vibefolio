@@ -130,6 +130,7 @@ const qStyle: React.CSSProperties = {
   lineHeight: 1.45,
   letterSpacing: "-0.01em",
   margin: "0 0 0.65rem",
+  textAlign: "center",
   wordBreak: "keep-all",
   overflowWrap: "break-word",
 };
@@ -142,6 +143,7 @@ const aStyle: React.CSSProperties = {
   lineHeight: 1.5,
   letterSpacing: "-0.01em",
   margin: 0,
+  textAlign: "center",
   wordBreak: "keep-all",
   overflowWrap: "break-word",
 };
