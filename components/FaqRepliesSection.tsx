@@ -9,35 +9,58 @@ const FAQ = [
   { q: "무엇을 올려야 하나요?", a: "자랑할 것 말고, 남겨두고 싶은 것." },
 ];
 
-type Item = { q: string; a: string; qStart: number; aStart: number };
+const CHAR_MS = 8;
+const Q_TO_A_PAUSE = 90;
+const PAIR_PAUSE = 200;
 
-function buildOffsets(): { items: Item[]; total: number } {
-  let offset = 0;
-  const items = FAQ.map((item) => {
-    const qStart = offset;
-    offset += item.q.length;
-    const aStart = offset;
-    offset += item.a.length;
-    return { ...item, qStart, aStart };
+type Item = { q: string; a: string; qDelay: number; aDelay: number };
+
+function buildTimeline(): Item[] {
+  let t = 0;
+  return FAQ.map((item) => {
+    const qDelay = t;
+    t += item.q.length * CHAR_MS + Q_TO_A_PAUSE;
+    const aDelay = t;
+    t += item.a.length * CHAR_MS + PAIR_PAUSE;
+    return { ...item, qDelay, aDelay };
   });
-  return { items, total: offset };
 }
 
-const { items: ITEMS, total: TOTAL_CHARS } = buildOffsets();
-
-function clamp(n: number, min: number, max: number) {
-  return Math.max(min, Math.min(max, n));
-}
+const TIMELINE = buildTimeline();
 
 function Typed({
-  text, start, globalCount, instant,
+  text, startDelay, enabled, instant,
 }: {
   text: string;
-  start: number;
-  globalCount: number;
+  startDelay: number;
+  enabled: boolean;
   instant: boolean;
 }) {
-  const n = instant ? text.length : clamp(globalCount - start, 0, text.length);
+  const [n, setN] = useState(0);
+
+  useEffect(() => {
+    if (!enabled) return;
+    if (instant) { setN(text.length); return; }
+
+    let intervalId: ReturnType<typeof setInterval> | undefined;
+    const startId = setTimeout(() => {
+      let c = 0;
+      intervalId = setInterval(() => {
+        c += 1;
+        setN(c);
+        if (c >= text.length && intervalId) {
+          clearInterval(intervalId);
+          intervalId = undefined;
+        }
+      }, CHAR_MS);
+    }, startDelay);
+
+    return () => {
+      clearTimeout(startId);
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [text, startDelay, enabled, instant]);
+
   return (
     <span style={{ display: "inline-grid", verticalAlign: "top" }}>
       <span style={{ gridArea: "1 / 1", visibility: "hidden" }} aria-hidden>{text}</span>
@@ -48,7 +71,7 @@ function Typed({
 
 export default function FaqRepliesSection() {
   const sectionRef = useRef<HTMLElement>(null);
-  const [globalCount, setGlobalCount] = useState(0);
+  const [inView, setInView] = useState(false);
   const [reduced, setReduced] = useState(false);
 
   useEffect(() => {
@@ -58,44 +81,13 @@ export default function FaqRepliesSection() {
   useEffect(() => {
     const el = sectionRef.current;
     if (!el) return;
-
-    let pending = false;
-    let highWater = 0;
-
-    const update = () => {
-      pending = false;
-      const rect = el.getBoundingClientRect();
-      const vh = window.innerHeight;
-      // progress=0 when section top is at 85% of viewport (just entering from below)
-      // progress=1 when section top is at (15% of vh - section height), i.e. section bottom at 15% from top
-      const startThreshold = vh * 0.85;
-      const endThreshold = vh * 0.15 - rect.height;
-      const range = startThreshold - endThreshold;
-      if (range <= 0) return;
-      const progress = clamp((startThreshold - rect.top) / range, 0, 1);
-      const count = Math.floor(progress * TOTAL_CHARS);
-      if (count > highWater) {
-        highWater = count;
-        setGlobalCount(count);
-      }
-    };
-
-    const onScroll = () => {
-      if (pending) return;
-      pending = true;
-      requestAnimationFrame(update);
-    };
-
-    update();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", onScroll);
-    return () => {
-      window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", onScroll);
-    };
+    const obs = new IntersectionObserver(
+      ([e]) => { if (e.isIntersecting) { setInView(true); obs.disconnect(); } },
+      { threshold: 0.1 }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
   }, []);
-
-  const effectiveCount = reduced ? TOTAL_CHARS : globalCount;
 
   return (
     <section
@@ -115,15 +107,13 @@ export default function FaqRepliesSection() {
           gap: "4.25rem",
         }}
       >
-        {ITEMS.map((item, i) => (
+        {TIMELINE.map((item, i) => (
           <div key={i}>
             <p style={qStyle}>
-              <span style={prefixStyle}>Q.</span>
-              <Typed text={item.q} start={item.qStart} globalCount={effectiveCount} instant={reduced} />
+              <Typed text={item.q} startDelay={item.qDelay} enabled={inView} instant={reduced} />
             </p>
             <p style={aStyle}>
-              <span style={prefixStyle}>A.</span>
-              <Typed text={item.a} start={item.aStart} globalCount={effectiveCount} instant={reduced} />
+              <Typed text={item.a} startDelay={item.aDelay} enabled={inView} instant={reduced} />
             </p>
           </div>
         ))}
@@ -155,10 +145,4 @@ const aStyle: React.CSSProperties = {
   textAlign: "right",
   wordBreak: "keep-all",
   overflowWrap: "break-word",
-};
-
-const prefixStyle: React.CSSProperties = {
-  fontWeight: 700,
-  marginRight: "0.45em",
-  color: "var(--text-primary)",
 };
