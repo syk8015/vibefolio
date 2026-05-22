@@ -6,6 +6,7 @@ import ThemeToggle from "@/components/ThemeToggle";
 import LoggedInHeadline from "@/components/LoggedInHeadline";
 import FaqRepliesSection from "@/components/FaqRepliesSection";
 import TypingTagline from "@/components/TypingTagline";
+import ScrollHint from "@/components/ScrollHint";
 
 interface FeaturedProfile {
   username: string;
@@ -104,17 +105,8 @@ export default async function LandingPage() {
 
         <TypingTagline userCount={userCount ?? 0} />
 
-        {/* Scroll hint */}
-        {profiles.length > 0 && (
-          <div className="absolute bottom-10 flex flex-col items-center gap-2 animate-bounce">
-            <p className="text-xs" style={{ color: "var(--text-muted)", fontFamily: "var(--font-mono)", letterSpacing: "0.1em" }}>
-              scroll
-            </p>
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-              <path d="M8 3v10M3 9l5 5 5-5" stroke="var(--text-muted)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </div>
-        )}
+        {/* Scroll hint — fades out as soon as the user scrolls */}
+        {profiles.length > 0 && <ScrollHint />}
       </section>
 
       {/* FAQ — ↳ replies, typed on first scroll-into-view */}
