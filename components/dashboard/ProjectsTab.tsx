@@ -294,6 +294,15 @@ export default function ProjectsTab({ user }: { user: User }) {
     );
   }
 
+  // ── Add-mode: inline takeover of the ProjectsTab content area ──
+  if (showAddModal) {
+    return (
+      <ProjectFormModal title="새 프로젝트 추가" initialForm={EMPTY_FORM}
+        onClose={() => setShowAddModal(false)} onSubmit={handleAdd}
+        submitLabel="추가하기" userId={user.id} wizard inline />
+    );
+  }
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -348,11 +357,6 @@ export default function ProjectsTab({ user }: { user: User }) {
         )}
       </div>
 
-      {showAddModal && (
-        <ProjectFormModal title="새 프로젝트 추가" initialForm={EMPTY_FORM}
-          onClose={() => setShowAddModal(false)} onSubmit={handleAdd}
-          submitLabel="추가하기" userId={user.id} wizard />
-      )}
 
       {editProject && (
         <ProjectFormModal title="프로젝트 수정"
@@ -523,7 +527,7 @@ function ProjectRow({ project, onDelete, onEdit, onToggleFeatured, onMoveUp, onM
   );
 }
 
-function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, userId, wizard = false }: {
+function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, userId, wizard = false, inline = false }: {
   title: string;
   initialForm: ProjectForm;
   onClose: () => void;
@@ -531,6 +535,7 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
   submitLabel: string;
   userId: string;
   wizard?: boolean;
+  inline?: boolean;
 }) {
   const [uploadMode, setUploadMode] = useState<"url" | "files">("url");
   const [form, setForm] = useState({ ...initialForm });
@@ -731,6 +736,401 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
       setSaveError(err instanceof Error ? err.message : "저장 중 오류가 발생했어요.");
     }
     setSaving(false);
+  }
+
+  // ── Inline mode: in-place takeover of the ProjectsTab content area ──
+  if (inline) {
+    return (
+      <div className="relative flex flex-col" style={{ minHeight: "calc(100vh - 220px)" }}>
+        {/* Top progress bar — segmented hairline */}
+        {wizard && (
+          <div className="absolute top-0 left-0 right-0 z-20 flex gap-[3px]">
+            {Array.from({ length: TOTAL_STEPS }).map((_, i) => {
+              const idx = i + 1;
+              const active = idx <= step;
+              return (
+                <div key={i} className="flex-1 rounded-full transition-colors"
+                  style={{
+                    height: 3,
+                    background: active ? "var(--text-primary)" : "var(--surface-soft)",
+                  }} />
+              );
+            })}
+          </div>
+        )}
+
+        {/* Top-left: cancel back button */}
+        <div className="flex items-center justify-between pt-6 pb-4">
+          <button onClick={onClose}
+            className="vf-soft-fill flex items-center gap-1.5 rounded-full"
+            style={{ padding: "0.5rem 1rem", fontFamily: "var(--font-nunito)", fontSize: "0.85rem", fontWeight: 500, cursor: "pointer" }}>
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M9 2L3 7l6 5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            취소
+          </button>
+          {wizard && (
+            <span className="vf-mono text-xs" style={{ color: "var(--text-muted)", letterSpacing: "0.12em" }}>
+              {String(step).padStart(2, "0")} / {String(TOTAL_STEPS).padStart(2, "0")}
+            </span>
+          )}
+        </div>
+
+        <form onSubmit={handleSubmit}
+          className="flex-1 flex flex-col min-h-0 pb-6 pt-4 max-w-5xl mx-auto w-full">
+
+          {/* Step 1 — 형태 선택 (화면 2등분) */}
+          {step === 1 && (
+            <div className="flex-1 grid grid-cols-2 gap-3 min-h-0">
+              {([
+                { id: "url", emoji: "🔗", title: "URL 링크", desc: "이미 어딘가에 배포된 사이트가 있어요" },
+                { id: "files", emoji: "📁", title: "파일 업로드", desc: "직접 만든 HTML·CSS·JS 파일을 올릴게요" },
+              ] as const).map(opt => (
+                <button key={opt.id} type="button"
+                  onClick={() => { setUploadMode(opt.id); setStep(2); }}
+                  className="vf-soft-fill rounded-2xl flex flex-col items-center justify-center gap-5"
+                  style={{ cursor: "pointer" }}>
+                  <span style={{ fontSize: "4.5rem", lineHeight: 1 }}>{opt.emoji}</span>
+                  <span className="vf-serif-display" style={{ fontSize: "1.6rem", fontWeight: 500, color: "inherit" }}>
+                    {opt.title}
+                  </span>
+                  <span style={{ fontSize: "0.9rem", color: "inherit", opacity: 0.62, fontFamily: "var(--font-nunito)", textAlign: "center", maxWidth: 260, lineHeight: 1.55 }}>
+                    {opt.desc}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Step 2 — URL 입력 또는 파일 업로드 */}
+          {step === 2 && (
+            <div className="flex-1 flex flex-col min-h-0">
+              {uploadMode === "url" ? (
+                <div className="flex-1 flex items-center justify-center">
+                  <div className="w-full" style={{ maxWidth: 680 }}>
+                    <input className="vf-input" name="demo_url" type="url"
+                      placeholder="https://myproject.vercel.app"
+                      value={form.demo_url} onChange={handleChange}
+                      autoFocus
+                      style={{ fontSize: "1.4rem", padding: "1.4rem 1.6rem", textAlign: "center" }} />
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <input ref={fileInputRef} type="file" className="hidden" multiple
+                    accept=".html,.css,.js,.ts,.jsx,.tsx,.json,.svg,.png,.jpg,.jpeg,.gif,.webp,.woff,.woff2,.ttf"
+                    onChange={e => e.target.files && handleFilesUpload(e.target.files)} />
+                  <input ref={folderInputRef} type="file" className="hidden"
+                    {...{ webkitdirectory: "", multiple: true } as React.InputHTMLAttributes<HTMLInputElement>}
+                    onChange={e => e.target.files && handleFilesUpload(e.target.files)} />
+                  <div className="vf-soft-fill flex-1 flex flex-col items-center justify-center gap-5 rounded-2xl p-8"
+                    onClick={() => fileInputRef.current?.click()}
+                    style={{ cursor: "pointer" }}>
+                    <div style={{ fontSize: "4rem", lineHeight: 1 }}>📂</div>
+                    <div className="flex gap-2">
+                      <button type="button" onClick={e => { e.stopPropagation(); fileInputRef.current?.click(); }}
+                        className="vf-soft-fill rounded-full"
+                        style={{ background: "var(--surface)", padding: "0.6rem 1.3rem", fontSize: "0.85rem", fontFamily: "var(--font-nunito)", fontWeight: 500, cursor: "pointer" }}>
+                        파일 선택
+                      </button>
+                      <button type="button" onClick={e => { e.stopPropagation(); folderInputRef.current?.click(); }}
+                        className="vf-soft-fill rounded-full"
+                        style={{ background: "var(--surface)", padding: "0.6rem 1.3rem", fontSize: "0.85rem", fontFamily: "var(--font-nunito)", fontWeight: 500, cursor: "pointer" }}>
+                        폴더 선택
+                      </button>
+                    </div>
+                    <p className="text-xs text-center" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", maxWidth: 520, lineHeight: 1.65 }}>
+                      React/Vue/Vite는 <code className="vf-mono" style={{ background: "var(--surface)", padding: "1px 5px", borderRadius: 4, fontSize: "0.7rem" }}>npm run build</code> 후 생성된 <code className="vf-mono" style={{ background: "var(--surface)", padding: "1px 5px", borderRadius: 4, fontSize: "0.7rem" }}>dist/</code> 폴더를 올려주세요. 순수 HTML/CSS/JS는 그대로. 최대 10MB
+                    </p>
+                    {uploading && (
+                      <div className="w-full max-w-md flex flex-col gap-2 mt-1">
+                        <div className="flex justify-between text-xs vf-mono" style={{ color: "var(--text-secondary)" }}>
+                          <span>업로드 중…</span><span>{uploadProgress}%</span>
+                        </div>
+                        <div className="w-full h-1.5 rounded-full" style={{ background: "var(--surface)" }}>
+                          <div className="h-1.5 rounded-full transition-all duration-300"
+                            style={{ width: `${uploadProgress}%`, background: "var(--text-primary)" }} />
+                        </div>
+                      </div>
+                    )}
+                    {uploadDone && !uploading && (
+                      <p className="text-sm flex items-center gap-1.5" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
+                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                          <path d="M2.5 7l3 3 6-6.5" stroke="var(--text-primary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                        업로드 완료
+                      </p>
+                    )}
+                    {uploadError && (
+                      <p className="text-sm" style={{ color: "#b34747", fontFamily: "var(--font-nunito)" }}>
+                        {uploadError}
+                      </p>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Step 3 — 프로젝트 이름 + 설명 */}
+          {step === 3 && (
+            <div className="flex-1 flex flex-col gap-4 min-h-0">
+              <input className="vf-input" name="title" placeholder="프로젝트 이름"
+                value={form.title} onChange={handleChange} required autoFocus
+                style={{ fontSize: "1.4rem", padding: "1.3rem 1.5rem" }} />
+              <textarea className="vf-input flex-1" name="description" placeholder="어떤 프로젝트인지 소개해주세요."
+                value={form.description} onChange={handleChange}
+                style={{ resize: "none", fontSize: "1rem", padding: "1.3rem 1.5rem", lineHeight: 1.7 }} />
+            </div>
+          )}
+
+          {/* Step 4 — 분류 (기존 디자인, 페이즈 2에서 재구성) */}
+          {step === 4 && (
+            <div className="flex-1 grid grid-cols-2 gap-8 min-h-0 overflow-y-auto">
+              <div className="flex flex-col gap-3">
+                <label className="vf-label">콘텐츠 유형</label>
+                <div className="flex flex-wrap gap-2 content-start">
+                  {CONTENT_TYPES.map(ct => {
+                    const active = form.content_type === ct.id;
+                    return (
+                      <button key={ct.id} type="button"
+                        onClick={() => setForm(prev => ({ ...prev, content_type: active ? null : ct.id }))}
+                        data-active={active}
+                        className="vf-soft-fill px-4 py-2 rounded-full text-sm"
+                        style={{ fontFamily: "var(--font-nunito)", cursor: "pointer" }}>
+                        {active && <span style={{ fontSize: "0.75em", marginRight: 4 }}>✓</span>}{ct.emoji} {ct.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="flex flex-col gap-3">
+                <label className="vf-label">
+                  사용한 AI 도구{" "}
+                  <span style={{ color: "var(--text-muted)", fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>(복수 선택)</span>
+                </label>
+                <div className="flex flex-wrap gap-2 content-start">
+                  {visibleTools.map(tool => {
+                    const active = selectedTools.includes(tool.id);
+                    return (
+                      <button key={tool.id} type="button" onClick={() => toggleTool(tool.id)}
+                        data-active={active}
+                        className="vf-soft-fill flex items-center gap-1.5 px-4 py-2 rounded-full text-sm"
+                        style={{ fontFamily: "var(--font-nunito)", cursor: "pointer" }}>
+                        {active && <span style={{ fontSize: "0.75em" }}>✓</span>}
+                        <AiToolLogo id={tool.id} size={14} />
+                        <span>{tool.id}</span>
+                      </button>
+                    );
+                  })}
+                  <button type="button"
+                    onClick={() => setShowAllTools(v => !v)}
+                    className="vf-soft-fill px-4 py-2 rounded-full text-sm"
+                    style={{ fontFamily: "var(--font-nunito)", fontWeight: 500, cursor: "pointer" }}>
+                    {showAllTools
+                      ? "접기 ↑"
+                      : `더보기 +${AI_TOOLS.length - AI_TOOLS_INITIAL - hiddenSelectedCount}`}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Step 5 — 마무리 (기존 디자인, 페이즈 2에서 재구성) */}
+          {step === 5 && (
+            <div className="flex-1 grid gap-4 min-h-0 overflow-y-auto"
+              style={{ gridTemplateColumns: "1fr 1fr", gridTemplateRows: "1fr auto" }}>
+              <div className="flex flex-col gap-2 min-h-0">
+                <label className="vf-label">
+                  구동 영상{" "}
+                  <span style={{ color: "var(--text-muted)", fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>(선택)</span>
+                </label>
+                {form.video_url ? (
+                  <div className="vf-soft-fill flex-1 flex flex-col items-center justify-center gap-3 rounded-2xl p-5">
+                    <div className="w-12 h-12 rounded-xl flex items-center justify-center"
+                      style={{ background: "var(--surface)" }}>
+                      <svg width="20" height="20" viewBox="0 0 16 16" fill="none">
+                        <polygon points="3,2 13,8 3,14" fill="var(--text-primary)" />
+                      </svg>
+                    </div>
+                    <p className="text-xs" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontWeight: 600 }}>
+                      영상 연결됨
+                    </p>
+                    <p className="text-xs truncate vf-mono w-full text-center" style={{ color: "var(--text-muted)", fontSize: "0.65rem" }}>
+                      {form.video_url}
+                    </p>
+                    <button type="button"
+                      onClick={() => { setForm(prev => ({ ...prev, video_url: "" })); setVideoError(""); }}
+                      className="vf-soft-fill rounded-full"
+                      style={{ background: "var(--surface)", padding: "0.4rem 0.9rem", fontSize: "0.72rem", color: "#b34747", fontFamily: "var(--font-nunito)", fontWeight: 500, cursor: "pointer" }}>
+                      제거
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex-1 flex flex-col gap-2 min-h-0">
+                    <div className="flex gap-1 p-1 rounded-lg w-fit"
+                      style={{ background: "var(--surface-sunken)" }}>
+                      {(["file", "url"] as const).map(m => {
+                        const active = videoMode === m;
+                        return (
+                          <button key={m} type="button" onClick={() => setVideoMode(m)}
+                            data-active={active}
+                            className="vf-soft-fill px-3 py-1 rounded-md text-xs"
+                            style={{ fontFamily: "var(--font-nunito)", cursor: "pointer" }}>
+                            {m === "file" ? "파일" : "URL"}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {videoMode === "file" ? (
+                      <>
+                        <input ref={videoInputRef} type="file" accept="video/mp4,video/webm,video/quicktime" className="hidden"
+                          onChange={e => { const f = e.target.files?.[0]; if (f) handleVideoFile(f); }} />
+                        <button type="button" disabled={videoUploading}
+                          onClick={() => videoInputRef.current?.click()}
+                          className="vf-soft-fill flex-1 rounded-2xl flex flex-col items-center justify-center gap-2"
+                          style={{ fontFamily: "var(--font-nunito)", fontWeight: 500, cursor: videoUploading ? "not-allowed" : "pointer" }}>
+                          <span style={{ fontSize: "2.2rem" }}>🎬</span>
+                          <span className="text-sm">{videoUploading ? "업로드 중…" : "영상 파일 선택"}</span>
+                          <span className="text-xs" style={{ opacity: 0.6 }}>20MB · 30초 이하</span>
+                        </button>
+                      </>
+                    ) : (
+                      <input className="vf-input flex-1" type="url" name="video_url"
+                        placeholder="https://youtube.com/... 또는 https://vimeo.com/..."
+                        value={form.video_url} onChange={handleChange} />
+                    )}
+                    {videoError && (
+                      <p className="text-xs" style={{ color: "#b34747", fontFamily: "var(--font-nunito)" }}>
+                        {videoError}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+              <div className="flex flex-col gap-2 min-h-0">
+                <label className="vf-label">
+                  썸네일{" "}
+                  <span style={{ color: "var(--text-muted)", textTransform: "none", letterSpacing: 0, fontWeight: 400 }}>
+                    (없으면 자동 생성)
+                  </span>
+                </label>
+                <input ref={thumbnailInputRef} type="file" className="hidden" accept="image/*"
+                  onChange={handleThumbnailUpload} />
+                <div
+                  onClick={() => thumbnailInputRef.current?.click()}
+                  className="vf-soft-fill flex-1 flex flex-col items-center justify-center gap-2 rounded-2xl p-3"
+                  style={{ cursor: "pointer" }}
+                >
+                  {thumbnailUploading ? (
+                    <div className="w-5 h-5 rounded-full border-2 animate-spin"
+                      style={{ borderColor: "var(--text-primary)", borderTopColor: "transparent" }} />
+                  ) : form.thumbnail ? (
+                    <>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={form.thumbnail} alt="" style={{ maxWidth: "75%", maxHeight: "65%", borderRadius: 10, objectFit: "cover" }} />
+                      <button type="button"
+                        onClick={e => { e.stopPropagation(); setForm(prev => ({ ...prev, thumbnail: "" })); }}
+                        style={{ fontSize: "0.7rem", color: "var(--text-muted)", background: "none", border: "none", cursor: "pointer", fontFamily: "var(--font-nunito)", padding: 0 }}>
+                        제거
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <span style={{ fontSize: "2.2rem" }}>🖼️</span>
+                      <span style={{ fontSize: "0.8rem", color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
+                        클릭하거나 이미지를 드래그
+                      </span>
+                    </>
+                  )}
+                </div>
+                <div className="flex gap-1.5 mt-1">
+                  {(["image", "video"] as const).map(t => {
+                    const active = form.type === t;
+                    return (
+                      <button key={t} type="button"
+                        onClick={() => setForm(prev => ({ ...prev, type: t }))}
+                        data-active={active}
+                        className="vf-soft-fill flex-1 py-1.5 rounded-lg text-xs"
+                        style={{ fontFamily: "var(--font-nunito)", cursor: "pointer" }}>
+                        {active && <span style={{ marginRight: 4 }}>✓</span>}{t === "image" ? "🖼️ 이미지" : "🎬 영상"}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="col-span-2 flex flex-col gap-2">
+                <label className="vf-label">
+                  한 마디{" "}
+                  <span style={{ color: "var(--text-muted)", fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>(말풍선에 표시)</span>
+                </label>
+                <input className="vf-input" name="comment" placeholder="제가 제일 아끼는 작업물이에요! ⭐"
+                  value={form.comment} onChange={handleChange}
+                  style={{ padding: "1rem 1.2rem", fontSize: "0.95rem" }} />
+              </div>
+            </div>
+          )}
+
+          {/* Save error */}
+          {saveError && (
+            <div className="px-4 py-3 rounded-xl text-xs mt-3"
+              style={{ background: "rgba(179, 71, 71, 0.08)", color: "#8e3535", fontFamily: "var(--font-nunito)", lineHeight: 1.6 }}>
+              ⚠ {saveError}
+            </div>
+          )}
+
+          {/* Navigation */}
+          <div className="flex gap-2 mt-5">
+            {step > 1 && (
+              <button type="button" onClick={() => setStep(s => s - 1)}
+                className="vf-soft-fill rounded-full"
+                style={{ padding: "0.7rem 1.3rem", fontFamily: "var(--font-nunito)", fontSize: "0.9rem", fontWeight: 500, cursor: "pointer" }}>
+                ← 이전
+              </button>
+            )}
+            <div className="flex-1" />
+            {step >= 4 && step < TOTAL_STEPS && (
+              <button type="button" onClick={() => setStep(s => s + 1)}
+                className="vf-soft-fill rounded-full"
+                style={{ padding: "0.7rem 1.3rem", fontFamily: "var(--font-nunito)", fontSize: "0.9rem", fontWeight: 500, cursor: "pointer" }}>
+                건너뛰기
+              </button>
+            )}
+            {step < TOTAL_STEPS ? (
+              <button type="button"
+                onClick={() => setStep(s => s + 1)}
+                disabled={
+                  (step === 2 && uploadMode === "url" && !form.demo_url) ||
+                  (step === 2 && uploadMode === "files" && !uploadDone) ||
+                  (step === 3 && !form.title) ||
+                  uploading
+                }
+                className="vf-soft-fill rounded-full"
+                style={{
+                  padding: "0.7rem 1.6rem",
+                  fontFamily: "var(--font-nunito)",
+                  fontSize: "0.9rem",
+                  fontWeight: 600,
+                  cursor: (
+                    (step === 2 && uploadMode === "url" && !form.demo_url) ||
+                    (step === 2 && uploadMode === "files" && !uploadDone) ||
+                    (step === 3 && !form.title) ||
+                    uploading
+                  ) ? "not-allowed" : "pointer",
+                }}>
+                다음 →
+              </button>
+            ) : (
+              <button type="submit" disabled={saving || uploading}
+                className="vf-soft-fill rounded-full"
+                style={{ padding: "0.7rem 1.6rem", fontFamily: "var(--font-nunito)", fontSize: "0.9rem", fontWeight: 600, cursor: (saving || uploading) ? "not-allowed" : "pointer" }}>
+                {saving ? "저장 중…" : submitLabel}
+              </button>
+            )}
+          </div>
+        </form>
+      </div>
+    );
   }
 
   return (
