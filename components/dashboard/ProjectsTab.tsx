@@ -560,6 +560,14 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
   const folderInputRef = useRef<HTMLInputElement>(null);
   const thumbnailInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
+  const inlineFormRef = useRef<HTMLFormElement>(null);
+
+  // Inline mode: smoothly scroll the step canvas to viewport center on mount
+  useEffect(() => {
+    if (inline && inlineFormRef.current) {
+      inlineFormRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [inline]);
 
   const previewProject: Project = {
     id: 0,
@@ -776,7 +784,7 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
           )}
         </div>
 
-        <form onSubmit={handleSubmit}
+        <form ref={inlineFormRef} onSubmit={handleSubmit}
           className="flex-1 flex flex-col min-h-0 pb-6 pt-4 max-w-5xl mx-auto w-full">
 
           {/* Step 1 — 형태 선택 (화면 2등분) */}
