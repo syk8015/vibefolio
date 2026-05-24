@@ -246,6 +246,34 @@ body::before {
 }
 .blink { animation: blink 1.2s ease infinite; }
 
+/* Theater stage "live" indicator — gentle breath, distinct from the
+   harsher landing-page `blink`. */
+@keyframes vf-live-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.45; transform: scale(0.75); }
+}
+.vf-live-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #5dd66e;
+  box-shadow: 0 0 8px #5dd66e;
+  animation: vf-live-pulse 1.4s ease-in-out infinite;
+}
+
+/* Inset paper grain — used on meishi cards so they read as actual paper.
+   The body already has a full-bleed grain; this is a local, multiplied
+   overlay that sits inside a card without leaking past its corners. */
+.vf-paper-grain {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.08 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  mix-blend-mode: multiply;
+  opacity: 0.7;
+}
+
 /* Typewriter cursor for landing tagline.
    Lives inside an inline-flex with alignItems:center, so it tracks the
    vertical middle of the line regardless of whether text is present. */
