@@ -74,6 +74,26 @@ const PLATFORM_MAP: Record<string, PlatformConfig> = {
   },
 };
 
+// Exposed so the Meishi card can render compact "dot" versions of the
+// same links the badge component would render in its full pill form.
+export function getSocialMeta(url: string): {
+  name: string;
+  color: string;
+  handle: string;
+  href: string;
+  icon: React.ReactNode;
+} | null {
+  const parsed = parseSocialUrl(url);
+  if (!parsed) return null;
+  return {
+    name: parsed.config.name,
+    color: parsed.config.color,
+    handle: parsed.handle,
+    href: url.startsWith("http") ? url : `https://${url}`,
+    icon: parsed.config.icon,
+  };
+}
+
 function parseSocialUrl(url: string): { config: PlatformConfig; handle: string } | null {
   if (!url.trim()) return null;
   try {

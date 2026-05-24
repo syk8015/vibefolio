@@ -1,11 +1,14 @@
-// Meishi (名刺) — the literal business-card identity element that
-// anchors the Theater layout. Three variants:
+// Meishi — the literal business-card identity element that anchors
+// the Theater layout. Variants:
 //
 //   • <MeishiSticker>  small peeling-corner sticker pinned to the stage
 //   • <MeishiBig>      large pocket card sitting beside the stage on desktop
-//   • <StampSeal>      tiny red 印 stamp, used as a personality accent
+//   • <MeishiInline>   horizontal name-card used in the mobile About section
+//   • <StampSeal>      red stamp accent; carries the owner's initial so it
+//                      reads as a personal seal rather than a generic 印
 
 import Link from "next/link";
+import { getSocialMeta } from "@/components/SocialBadge";
 
 export type MeishiProfile = {
   username: string;
@@ -17,6 +20,9 @@ export type MeishiProfile = {
 const ROLE_LABEL = "Vibe coder";
 
 function initial(p: MeishiProfile): string {
+  // The seal and avatar fallback both pull from this so they stay in sync —
+  // first character of the display name, uppercased. Keeps a single-letter
+  // identity throughout the card.
   return (p.name || p.username || "?").trim().charAt(0).toUpperCase();
 }
 
@@ -26,11 +32,11 @@ function displayName(p: MeishiProfile): string {
 
 export function StampSeal({
   size = 38,
-  label = "印",
+  label,
   style,
 }: {
   size?: number;
-  label?: string;
+  label: string;
   style?: React.CSSProperties;
 }) {
   return (
@@ -57,6 +63,45 @@ export function StampSeal({
       }}
     >
       {label}
+    </div>
+  );
+}
+
+// Compact horizontal row of colored social dots — used inside meishi
+// cards where the full SocialBadge pills would crowd the layout.
+function SocialDotRow({ urls, dotSize = 22 }: { urls: string[]; dotSize?: number }) {
+  const items = urls.map((u) => getSocialMeta(u)).filter((m): m is NonNullable<ReturnType<typeof getSocialMeta>> => !!m);
+  if (items.length === 0) return null;
+  return (
+    <div style={{ display: "flex", gap: 6, alignItems: "center", position: "relative" }}>
+      {items.map((meta) => (
+        <a
+          key={meta.href}
+          href={meta.href}
+          target="_blank"
+          rel="noopener noreferrer"
+          title={`${meta.name} · ${meta.handle}`}
+          style={{
+            width: dotSize,
+            height: dotSize,
+            borderRadius: 999,
+            background: meta.color,
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+            transition: "transform 0.15s ease, opacity 0.15s ease",
+          }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLAnchorElement).style.transform = "translateY(-1px)";
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLAnchorElement).style.transform = "translateY(0)";
+          }}
+        >
+          {meta.icon}
+        </a>
+      ))}
     </div>
   );
 }
@@ -124,15 +169,18 @@ export function MeishiSticker({ profile, style }: { profile: MeishiProfile; styl
 // Mirrors the proportions of a real Japanese meishi (1.68:1).
 export function MeishiBig({
   profile,
+  socialLinks = [],
   withSeal = true,
   number = "06",
   style,
 }: {
   profile: MeishiProfile;
+  socialLinks?: string[];
   withSeal?: boolean;
   number?: string;
   style?: React.CSSProperties;
 }) {
+  const hasSocials = socialLinks.length > 0;
   return (
     <div
       style={{
@@ -177,7 +225,7 @@ export function MeishiBig({
               fontWeight: 800,
             }}
           >
-            {ROLE_LABEL} · 名刺
+            {ROLE_LABEL}
           </div>
           <div
             className="vf-serif-display"
@@ -194,29 +242,42 @@ export function MeishiBig({
             @{profile.username}
           </div>
         </div>
-        {withSeal && <StampSeal />}
+        {withSeal && <StampSeal label={initial(profile)} />}
       </div>
 
-      <div style={{ position: "relative", display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
-        <Link
-          href={`/${profile.username}`}
-          style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: 9,
-            letterSpacing: "0.15em",
-            color: "var(--text-secondary)",
-            textTransform: "uppercase",
-            textDecoration: "none",
-          }}
-        >
-          vibefolio.app/{profile.username}
-        </Link>
+      <div
+        style={{
+          position: "relative",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-end",
+          gap: 12,
+        }}
+      >
+        {hasSocials ? (
+          <SocialDotRow urls={socialLinks} />
+        ) : (
+          <Link
+            href={`/${profile.username}`}
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 9,
+              letterSpacing: "0.15em",
+              color: "var(--text-secondary)",
+              textTransform: "uppercase",
+              textDecoration: "none",
+            }}
+          >
+            vibefolio.app/{profile.username}
+          </Link>
+        )}
         <span
           style={{
             fontFamily: "var(--font-mono)",
             fontSize: 9,
             letterSpacing: "0.15em",
             color: "var(--text-muted)",
+            whiteSpace: "nowrap",
           }}
         >
           No. {number} · {new Date().getFullYear()}
@@ -228,7 +289,15 @@ export function MeishiBig({
 
 // Inline name card used in the mobile About section — same DNA as the
 // big card but laid out horizontally so it nests inside a body section.
-export function MeishiInline({ profile, style }: { profile: MeishiProfile; style?: React.CSSProperties }) {
+export function MeishiInline({
+  profile,
+  socialLinks = [],
+  style,
+}: {
+  profile: MeishiProfile;
+  socialLinks?: string[];
+  style?: React.CSSProperties;
+}) {
   return (
     <div
       style={{
@@ -238,7 +307,7 @@ export function MeishiInline({ profile, style }: { profile: MeishiProfile; style
         boxShadow: "0 1px 0 rgba(0,0,0,0.04), 0 12px 28px rgba(0,0,0,0.14), 0 2px 6px rgba(0,0,0,0.08)",
         padding: "18px 20px",
         display: "flex",
-        alignItems: "center",
+        flexDirection: "column",
         gap: 14,
         overflow: "hidden",
         fontFamily: "var(--font-nunito)",
@@ -246,19 +315,48 @@ export function MeishiInline({ profile, style }: { profile: MeishiProfile; style
       }}
     >
       <div className="vf-paper-grain" />
-      <Avatar profile={profile} size={44} fontSize={18} />
-      <div style={{ flex: 1, position: "relative", minWidth: 0 }}>
-        <div
-          className="vf-serif-display"
-          style={{ fontWeight: 700, fontSize: 18, lineHeight: 1.1 }}
-        >
-          {displayName(profile)}
+      <div style={{ display: "flex", alignItems: "center", gap: 14, position: "relative" }}>
+        <Avatar profile={profile} size={44} fontSize={18} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div
+            className="vf-serif-display"
+            style={{ fontWeight: 700, fontSize: 18, lineHeight: 1.1 }}
+          >
+            {displayName(profile)}
+          </div>
+          <div style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 2, fontWeight: 500 }}>
+            {ROLE_LABEL} · @{profile.username}
+          </div>
         </div>
-        <div style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 2, fontWeight: 500 }}>
-          {ROLE_LABEL} · @{profile.username}
-        </div>
+        <StampSeal size={28} label={initial(profile)} />
       </div>
-      <StampSeal size={28} />
+      {socialLinks.length > 0 && (
+        <div
+          style={{
+            position: "relative",
+            paddingTop: 12,
+            borderTop: "1px solid var(--border)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 10,
+          }}
+        >
+          <SocialDotRow urls={socialLinks} dotSize={26} />
+          <span
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 9,
+              letterSpacing: "0.15em",
+              color: "var(--text-muted)",
+              textTransform: "uppercase",
+              whiteSpace: "nowrap",
+            }}
+          >
+            vibefolio.app/{profile.username}
+          </span>
+        </div>
+      )}
     </div>
   );
 }

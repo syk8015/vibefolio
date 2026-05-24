@@ -5,7 +5,6 @@ import Image from "next/image";
 import type { Project } from "@/lib/data";
 import TheaterStage from "./TheaterStage";
 import { MeishiBig, MeishiInline, type MeishiProfile } from "./Meishi";
-import SocialBadge from "@/components/SocialBadge";
 
 // A horizontal divider with a centered label — used to break the body
 // into sections without resorting to heavy headers.
@@ -362,7 +361,7 @@ export default function TheaterShell({ profile, projects, initialActiveIndex, so
         <div className="px-5 pt-10 pb-8">
           <SectionHeader label="명함 · About" />
           <div className="mt-5">
-            <MeishiInline profile={profile} />
+            <MeishiInline profile={profile} socialLinks={socialLinks} />
           </div>
           {profile.bio && (
             <p
@@ -378,22 +377,15 @@ export default function TheaterShell({ profile, projects, initialActiveIndex, so
               {profile.bio}
             </p>
           )}
-          {socialLinks.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2 mt-5">
-              {socialLinks.map((url, i) => (
-                <SocialBadge key={i} url={url} />
-              ))}
-            </div>
-          )}
         </div>
       </div>
 
       {/* ───────────────────── DESKTOP ───────────────────── */}
       <div className="hidden md:block">
-        <div className="max-w-[1280px] mx-auto px-7 pt-7 pb-14">
+        <div className="max-w-[1440px] mx-auto px-7 pt-7 pb-14">
           <div
             className="grid gap-7"
-            style={{ gridTemplateColumns: "minmax(0, 1.55fr) minmax(0, 1fr)" }}
+            style={{ gridTemplateColumns: "minmax(0, 1.95fr) minmax(0, 1fr)" }}
           >
             {/* LEFT — Stage + tags + navigation */}
             <div>
@@ -462,7 +454,11 @@ export default function TheaterShell({ profile, projects, initialActiveIndex, so
 
             {/* RIGHT — Identity card + bio + Up Next list */}
             <aside className="flex flex-col gap-4 min-w-0">
-              <MeishiBig profile={profile} number={String(total).padStart(2, "0")} />
+              <MeishiBig
+                profile={profile}
+                socialLinks={socialLinks}
+                number={String(total).padStart(2, "0")}
+              />
 
               {profile.bio && (
                 <p
@@ -478,14 +474,6 @@ export default function TheaterShell({ profile, projects, initialActiveIndex, so
                 >
                   {profile.bio}
                 </p>
-              )}
-
-              {socialLinks.length > 0 && (
-                <div className="flex flex-wrap items-center gap-2">
-                  {socialLinks.map((url, i) => (
-                    <SocialBadge key={i} url={url} />
-                  ))}
-                </div>
               )}
 
               <div className="mt-2">
