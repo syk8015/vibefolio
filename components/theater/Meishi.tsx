@@ -7,6 +7,7 @@
 //                      reads as a personal seal rather than a generic 印
 
 import Link from "next/link";
+import { QRCodeSVG } from "qrcode.react";
 import { getSocialMeta } from "@/components/SocialBadge";
 
 export type MeishiProfile = {
@@ -143,16 +144,19 @@ function SocialHandleList({
 }
 
 // Large pocket-style card used as the identity centerpiece on desktop.
-// Aspect-ratio is the minimum — the card grows taller when the owner
-// has many social links so the handle list isn't clipped.
+// Two-column body: identity stack on the left, seal + QR on the right.
+// min-height lets the card grow when the owner has many social handles
+// so nothing clips.
 export function MeishiBig({
   profile,
+  profileUrl,
   socialLinks = [],
   withSeal = true,
   number = "06",
   style,
 }: {
   profile: MeishiProfile;
+  profileUrl: string;
   socialLinks?: string[];
   withSeal?: boolean;
   number?: string;
@@ -163,7 +167,7 @@ export function MeishiBig({
       style={{
         position: "relative",
         width: "100%",
-        minHeight: 260,
+        minHeight: 290,
         background: "var(--surface)",
         borderRadius: 4,
         boxShadow: "0 1px 0 rgba(0,0,0,0.04), 0 18px 40px rgba(0,0,0,0.16), 0 3px 8px rgba(0,0,0,0.08)",
@@ -189,46 +193,89 @@ export function MeishiBig({
         }}
       />
 
-      {/* Header — role label + seal */}
+      {/* Role label — full-width header before the split body */}
       <div
         style={{
           position: "relative",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-start",
+          fontFamily: "var(--font-mono)",
+          fontSize: 9,
+          letterSpacing: "0.28em",
+          textTransform: "uppercase",
+          color: "var(--text-muted)",
+          fontWeight: 800,
         }}
       >
+        {ROLE_LABEL}
+      </div>
+
+      {/* Split body: left = identity stack, right = seal + QR */}
+      <div
+        style={{
+          position: "relative",
+          marginTop: 14,
+          display: "flex",
+          gap: 16,
+          flex: 1,
+        }}
+      >
+        <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 12 }}>
+          <div>
+            <div className="vf-serif-display" style={{ fontWeight: 700, fontSize: 30, lineHeight: 1 }}>
+              {displayName(profile)}
+            </div>
+            <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 4, fontWeight: 500 }}>
+              @{profile.username}
+            </div>
+          </div>
+          <SocialHandleList urls={socialLinks} />
+        </div>
+
         <div
           style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: 9,
-            letterSpacing: "0.28em",
-            textTransform: "uppercase",
-            color: "var(--text-muted)",
-            fontWeight: 800,
+            flexShrink: 0,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "flex-end",
+            gap: 12,
           }}
         >
-          {ROLE_LABEL}
+          {withSeal && <StampSeal label={initial(profile)} />}
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+            <div
+              style={{
+                padding: 4,
+                background: "var(--surface)",
+                border: "1px solid var(--border)",
+                borderRadius: 4,
+                display: "inline-flex",
+              }}
+              title={profileUrl}
+            >
+              <QRCodeSVG
+                value={profileUrl}
+                size={72}
+                level="M"
+                fgColor="var(--text-primary)"
+                bgColor="transparent"
+              />
+            </div>
+            <span
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: 8,
+                letterSpacing: "0.2em",
+                color: "var(--text-muted)",
+                textTransform: "uppercase",
+                fontWeight: 700,
+              }}
+            >
+              Scan
+            </span>
+          </div>
         </div>
-        {withSeal && <StampSeal label={initial(profile)} />}
       </div>
 
-      {/* Identity stack — name → @username → SNS handle list, all left-aligned
-          so visitors read it as a single contact block. */}
-      <div style={{ position: "relative", marginTop: 14, display: "flex", flexDirection: "column", gap: 12 }}>
-        <div>
-          <div className="vf-serif-display" style={{ fontWeight: 700, fontSize: 30, lineHeight: 1 }}>
-            {displayName(profile)}
-          </div>
-          <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 4, fontWeight: 500 }}>
-            @{profile.username}
-          </div>
-        </div>
-        <SocialHandleList urls={socialLinks} />
-      </div>
-
-      {/* Bottom rail — flex-spacer above pushes this to the card floor */}
-      <div style={{ flex: 1 }} />
+      {/* Bottom contact rail */}
       <div
         style={{
           position: "relative",

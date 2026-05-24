@@ -278,6 +278,7 @@ export default async function UserPortfolioPage({
             avatar_url: p.avatar_url,
             bio: p.bio,
           }}
+          profileUrl={`https://vibefolio.vercel.app/${p.username}`}
           projects={projects}
           initialActiveIndex={initialActiveIndex}
           socialLinks={socialLinks}

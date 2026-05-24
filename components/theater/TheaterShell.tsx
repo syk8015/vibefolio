@@ -271,12 +271,13 @@ function UpNextRow({
 
 interface ShellProps {
   profile: MeishiProfile;
+  profileUrl: string;
   projects: Project[];
   initialActiveIndex: number;
   socialLinks: string[];
 }
 
-export default function TheaterShell({ profile, projects, initialActiveIndex, socialLinks }: ShellProps) {
+export default function TheaterShell({ profile, profileUrl, projects, initialActiveIndex, socialLinks }: ShellProps) {
   const [activeIndex, setActiveIndex] = useState(
     Math.min(Math.max(initialActiveIndex, 0), Math.max(projects.length - 1, 0))
   );
@@ -456,6 +457,7 @@ export default function TheaterShell({ profile, projects, initialActiveIndex, so
             <aside className="flex flex-col gap-4 min-w-0">
               <MeishiBig
                 profile={profile}
+                profileUrl={profileUrl}
                 socialLinks={socialLinks}
                 number={String(total).padStart(2, "0")}
               />
