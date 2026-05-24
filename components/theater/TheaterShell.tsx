@@ -333,7 +333,7 @@ export default function TheaterShell({ profile, projects, initialActiveIndex, so
       {/* ───────────────────── MOBILE ───────────────────── */}
       <div className="md:hidden">
         {/* Stage runs full-bleed under the nav. */}
-        <TheaterStage project={activeProject} profile={profile} index={activeIndex} variant="mobile" />
+        <TheaterStage project={activeProject} index={activeIndex} variant="mobile" />
 
         {/* Reel */}
         <div className="px-5 pt-7">
@@ -389,7 +389,7 @@ export default function TheaterShell({ profile, projects, initialActiveIndex, so
           >
             {/* LEFT — Stage + tags + navigation */}
             <div>
-              <TheaterStage project={activeProject} profile={profile} index={activeIndex} variant="desktop" />
+              <TheaterStage project={activeProject} index={activeIndex} variant="desktop" />
 
               <div className="flex items-center gap-3 mt-4">
                 <div className="flex flex-wrap gap-1.5">

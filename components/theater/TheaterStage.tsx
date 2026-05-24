@@ -3,7 +3,6 @@
 import Image from "next/image";
 import type { Project } from "@/lib/data";
 import { detectVideoKind, getYouTubeEmbedUrl, getVimeoEmbedUrl } from "@/lib/video";
-import { MeishiSticker, type MeishiProfile } from "./Meishi";
 
 function isFileUpload(url: string | undefined): boolean {
   return !!url && url.startsWith("/api/preview/");
@@ -199,12 +198,11 @@ function StageVoiceBubble({ text }: { text: string }) {
 
 interface StageProps {
   project: Project;
-  profile: MeishiProfile;
   index: number; // 0-based — displayed as NO. 01 etc.
   variant: "mobile" | "desktop";
 }
 
-export default function TheaterStage({ project, profile, index, variant }: StageProps) {
+export default function TheaterStage({ project, index, variant }: StageProps) {
   const href = safeHref(project.demoUrl);
   const isFile = isFileUpload(project.demoUrl);
   const numberLabel = String(index + 1).padStart(2, "0");
@@ -248,19 +246,6 @@ export default function TheaterStage({ project, profile, index, variant }: Stage
       {/* Top-left: Now playing badge */}
       <div style={{ position: "absolute", top: isDesktop ? 18 : 14, left: isDesktop ? 18 : 14, zIndex: 4 }}>
         <NowPlayingBadge />
-      </div>
-
-      {/* Top-right: meishi sticker pinned to the corner */}
-      <div
-        style={{
-          position: "absolute",
-          top: isDesktop ? 16 : 12,
-          right: isDesktop ? 16 : 12,
-          transform: "rotate(2deg)",
-          zIndex: 4,
-        }}
-      >
-        <MeishiSticker profile={profile} />
       </div>
 
       {/* Owner's note bubble — sits above the title block, doesn't collide

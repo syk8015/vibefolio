@@ -1,7 +1,6 @@
 // Meishi — the literal business-card identity element that anchors
 // the Theater layout. Variants:
 //
-//   • <MeishiSticker>  small peeling-corner sticker pinned to the stage
 //   • <MeishiBig>      large pocket card sitting beside the stage on desktop
 //   • <MeishiInline>   horizontal name-card used in the mobile About section
 //   • <StampSeal>      red stamp accent; carries the owner's initial so it
@@ -21,8 +20,7 @@ const ROLE_LABEL = "Vibe coder";
 
 function initial(p: MeishiProfile): string {
   // The seal and avatar fallback both pull from this so they stay in sync —
-  // first character of the display name, uppercased. Keeps a single-letter
-  // identity throughout the card.
+  // first character of the display name, uppercased.
   return (p.name || p.username || "?").trim().charAt(0).toUpperCase();
 }
 
@@ -67,106 +65,86 @@ export function StampSeal({
   );
 }
 
-// Compact horizontal row of colored social dots — used inside meishi
-// cards where the full SocialBadge pills would crowd the layout.
-function SocialDotRow({ urls, dotSize = 22 }: { urls: string[]; dotSize?: number }) {
-  const items = urls.map((u) => getSocialMeta(u)).filter((m): m is NonNullable<ReturnType<typeof getSocialMeta>> => !!m);
+// Vertical list of social links shown inside the meishi card — each
+// row is a small colored dot + @handle so visitors can copy/recognize
+// the actual ID, not just guess from a color.
+function SocialHandleList({
+  urls,
+  dotSize = 18,
+  fontSize = 12,
+  gap = 5,
+}: {
+  urls: string[];
+  dotSize?: number;
+  fontSize?: number;
+  gap?: number;
+}) {
+  const items = urls
+    .map((u) => getSocialMeta(u))
+    .filter((m): m is NonNullable<ReturnType<typeof getSocialMeta>> => !!m);
   if (items.length === 0) return null;
   return (
-    <div style={{ display: "flex", gap: 6, alignItems: "center", position: "relative" }}>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap,
+        position: "relative",
+      }}
+    >
       {items.map((meta) => (
         <a
           key={meta.href}
           href={meta.href}
           target="_blank"
           rel="noopener noreferrer"
-          title={`${meta.name} · ${meta.handle}`}
+          title={meta.name}
           style={{
-            width: dotSize,
-            height: dotSize,
-            borderRadius: 999,
-            background: meta.color,
             display: "inline-flex",
             alignItems: "center",
-            justifyContent: "center",
-            flexShrink: 0,
-            transition: "transform 0.15s ease, opacity 0.15s ease",
+            gap: 8,
+            textDecoration: "none",
+            color: "var(--text-secondary)",
+            transition: "color 0.15s ease",
+            fontFamily: "var(--font-nunito)",
+            fontSize,
+            fontWeight: 500,
+            width: "fit-content",
+            maxWidth: "100%",
           }}
           onMouseEnter={(e) => {
-            (e.currentTarget as HTMLAnchorElement).style.transform = "translateY(-1px)";
+            (e.currentTarget as HTMLAnchorElement).style.color = "var(--text-primary)";
           }}
           onMouseLeave={(e) => {
-            (e.currentTarget as HTMLAnchorElement).style.transform = "translateY(0)";
+            (e.currentTarget as HTMLAnchorElement).style.color = "var(--text-secondary)";
           }}
         >
-          {meta.icon}
+          <span
+            style={{
+              width: dotSize,
+              height: dotSize,
+              borderRadius: 999,
+              background: meta.color,
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+            }}
+          >
+            {meta.icon}
+          </span>
+          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {meta.handle}
+          </span>
         </a>
       ))}
     </div>
   );
 }
 
-// Small sticker pinned to the corner of the stage — reads as a peeled
-// business card stuck onto the live demo.
-export function MeishiSticker({ profile, style }: { profile: MeishiProfile; style?: React.CSSProperties }) {
-  return (
-    <div
-      style={{
-        position: "relative",
-        width: 130,
-        height: 78,
-        padding: "10px 12px",
-        background: "var(--surface)",
-        borderRadius: 4,
-        boxShadow: "0 1px 0 rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.18), 0 1.5px 4px rgba(0,0,0,0.08)",
-        fontFamily: "var(--font-nunito)",
-        overflow: "hidden",
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "space-between",
-        ...style,
-      }}
-    >
-      <div className="vf-paper-grain" />
-      <div style={{ display: "flex", alignItems: "center", gap: 7, position: "relative" }}>
-        <Avatar profile={profile} size={22} fontSize={11} />
-        <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.1, minWidth: 0 }}>
-          <span
-            style={{
-              fontWeight: 800,
-              fontSize: 12,
-              color: "var(--text-primary)",
-              whiteSpace: "nowrap",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-            }}
-          >
-            {displayName(profile)}
-          </span>
-          <span style={{ fontWeight: 500, fontSize: 9, color: "var(--text-muted)" }}>@{profile.username}</span>
-        </div>
-      </div>
-      <div
-        style={{
-          fontFamily: "var(--font-mono)",
-          fontSize: 8,
-          letterSpacing: "0.18em",
-          textTransform: "uppercase",
-          color: "var(--text-muted)",
-          position: "relative",
-          whiteSpace: "nowrap",
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-        }}
-      >
-        vibefolio.app/{profile.username}
-      </div>
-    </div>
-  );
-}
-
 // Large pocket-style card used as the identity centerpiece on desktop.
-// Mirrors the proportions of a real Japanese meishi (1.68:1).
+// Aspect-ratio is the minimum — the card grows taller when the owner
+// has many social links so the handle list isn't clipped.
 export function MeishiBig({
   profile,
   socialLinks = [],
@@ -180,20 +158,18 @@ export function MeishiBig({
   number?: string;
   style?: React.CSSProperties;
 }) {
-  const hasSocials = socialLinks.length > 0;
   return (
     <div
       style={{
         position: "relative",
         width: "100%",
-        aspectRatio: "1.68 / 1",
+        minHeight: 260,
         background: "var(--surface)",
         borderRadius: 4,
         boxShadow: "0 1px 0 rgba(0,0,0,0.04), 0 18px 40px rgba(0,0,0,0.16), 0 3px 8px rgba(0,0,0,0.08)",
         padding: "22px 26px",
         display: "flex",
         flexDirection: "column",
-        justifyContent: "space-between",
         overflow: "hidden",
         fontFamily: "var(--font-nunito)",
         ...style,
@@ -213,38 +189,46 @@ export function MeishiBig({
         }}
       />
 
-      <div style={{ position: "relative", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-        <div style={{ minWidth: 0 }}>
-          <div
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: 9,
-              letterSpacing: "0.28em",
-              textTransform: "uppercase",
-              color: "var(--text-muted)",
-              fontWeight: 800,
-            }}
-          >
-            {ROLE_LABEL}
-          </div>
-          <div
-            className="vf-serif-display"
-            style={{
-              fontWeight: 700,
-              fontSize: 30,
-              marginTop: 14,
-              lineHeight: 1,
-            }}
-          >
-            {displayName(profile)}
-          </div>
-          <div style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 6, fontWeight: 500 }}>
-            @{profile.username}
-          </div>
+      {/* Header — role label + seal */}
+      <div
+        style={{
+          position: "relative",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+        }}
+      >
+        <div
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: 9,
+            letterSpacing: "0.28em",
+            textTransform: "uppercase",
+            color: "var(--text-muted)",
+            fontWeight: 800,
+          }}
+        >
+          {ROLE_LABEL}
         </div>
         {withSeal && <StampSeal label={initial(profile)} />}
       </div>
 
+      {/* Identity stack — name → @username → SNS handle list, all left-aligned
+          so visitors read it as a single contact block. */}
+      <div style={{ position: "relative", marginTop: 14, display: "flex", flexDirection: "column", gap: 12 }}>
+        <div>
+          <div className="vf-serif-display" style={{ fontWeight: 700, fontSize: 30, lineHeight: 1 }}>
+            {displayName(profile)}
+          </div>
+          <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 4, fontWeight: 500 }}>
+            @{profile.username}
+          </div>
+        </div>
+        <SocialHandleList urls={socialLinks} />
+      </div>
+
+      {/* Bottom rail — flex-spacer above pushes this to the card floor */}
+      <div style={{ flex: 1 }} />
       <div
         style={{
           position: "relative",
@@ -252,25 +236,24 @@ export function MeishiBig({
           justifyContent: "space-between",
           alignItems: "flex-end",
           gap: 12,
+          marginTop: 14,
+          paddingTop: 10,
+          borderTop: "1px solid var(--border)",
         }}
       >
-        {hasSocials ? (
-          <SocialDotRow urls={socialLinks} />
-        ) : (
-          <Link
-            href={`/${profile.username}`}
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: 9,
-              letterSpacing: "0.15em",
-              color: "var(--text-secondary)",
-              textTransform: "uppercase",
-              textDecoration: "none",
-            }}
-          >
-            vibefolio.app/{profile.username}
-          </Link>
-        )}
+        <Link
+          href={`/${profile.username}`}
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: 9,
+            letterSpacing: "0.15em",
+            color: "var(--text-secondary)",
+            textTransform: "uppercase",
+            textDecoration: "none",
+          }}
+        >
+          vibefolio.app/{profile.username}
+        </Link>
         <span
           style={{
             fontFamily: "var(--font-mono)",
@@ -288,7 +271,8 @@ export function MeishiBig({
 }
 
 // Inline name card used in the mobile About section — same DNA as the
-// big card but laid out horizontally so it nests inside a body section.
+// big card but laid out so avatar + name sit on one row and the social
+// handles stack below.
 export function MeishiInline({
   profile,
   socialLinks = [],
@@ -298,6 +282,7 @@ export function MeishiInline({
   socialLinks?: string[];
   style?: React.CSSProperties;
 }) {
+  const hasSocials = socialLinks.length > 0;
   return (
     <div
       style={{
@@ -318,43 +303,24 @@ export function MeishiInline({
       <div style={{ display: "flex", alignItems: "center", gap: 14, position: "relative" }}>
         <Avatar profile={profile} size={44} fontSize={18} />
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div
-            className="vf-serif-display"
-            style={{ fontWeight: 700, fontSize: 18, lineHeight: 1.1 }}
-          >
+          <div className="vf-serif-display" style={{ fontWeight: 700, fontSize: 18, lineHeight: 1.1 }}>
             {displayName(profile)}
           </div>
           <div style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 2, fontWeight: 500 }}>
-            {ROLE_LABEL} · @{profile.username}
+            @{profile.username}
           </div>
         </div>
         <StampSeal size={28} label={initial(profile)} />
       </div>
-      {socialLinks.length > 0 && (
+      {hasSocials && (
         <div
           style={{
             position: "relative",
             paddingTop: 12,
             borderTop: "1px solid var(--border)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 10,
           }}
         >
-          <SocialDotRow urls={socialLinks} dotSize={26} />
-          <span
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: 9,
-              letterSpacing: "0.15em",
-              color: "var(--text-muted)",
-              textTransform: "uppercase",
-              whiteSpace: "nowrap",
-            }}
-          >
-            vibefolio.app/{profile.username}
-          </span>
+          <SocialHandleList urls={socialLinks} dotSize={20} fontSize={12} gap={6} />
         </div>
       )}
     </div>

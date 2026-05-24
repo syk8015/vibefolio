@@ -268,8 +268,9 @@ export default async function UserPortfolioPage({
       <ViewportFrame username={p.username} enabled={isOwner && !isEmbed}>
 
       {/* Body: Theater layout — stage drives identity, reel drives navigation.
-          Replaces the previous featured-hero + aside-profile + grid split. */}
-      <div className="pt-[57px] md:pt-[68px]">
+          min-h-screen guarantees the body fills the viewport so the footer
+          sits below the fold on profiles with few projects. */}
+      <div className="pt-[57px] md:pt-[68px] min-h-screen">
         <TheaterShell
           profile={{
             username: p.username,
