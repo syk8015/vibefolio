@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import Image from "next/image";
 import type { Project } from "@/lib/data";
 import { detectVideoKind, getYouTubeEmbedUrl, getVimeoEmbedUrl } from "@/lib/video";
@@ -100,11 +101,27 @@ function VideoBackground({
       />
     );
   }
+  return <DirectVideo url={url} poster={poster} />;
+}
+
+// React 19에서 `muted` JSX prop이 HTML 속성으로 안 렌더되는 케이스가 있음.
+// Chrome 자동재생 정책상 muted 속성이 없으면 음소거 안 된 영상으로 간주되어
+// autoplay 차단 → 포스터만 보이고 영상 멈춤. ref로 마운트 직후 강제로
+// .muted = true + .play() 호출해서 우회.
+function DirectVideo({ url, poster }: { url: string; poster: string }) {
+  const ref = useRef<HTMLVideoElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.muted = true;
+    el.play().catch(() => { /* 일부 브라우저는 사용자 인터랙션 전엔 거부 */ });
+  }, [url]);
   return (
     <video
+      ref={ref}
       autoPlay
-      muted
       loop
+      muted
       playsInline
       poster={poster}
       className="absolute inset-0 w-full h-full object-cover"
