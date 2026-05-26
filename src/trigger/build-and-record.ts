@@ -1,7 +1,15 @@
 import { task, logger, retry } from "@trigger.dev/sdk";
 import Sandbox from "e2b";
 import { createClient } from "@supabase/supabase-js";
+import ws from "ws";
 import { RECORD_HELPER_SRC } from "./record-helper-src";
+
+// Trigger.dev 워커는 Node 21이라 native WebSocket이 없음.
+// supabase-js의 RealtimeClient가 ws를 못 잡으면 초기화에서 throw해서
+// DB write 자체가 안 됨. transport로 명시 주입.
+const SUPABASE_OPTS = {
+  realtime: { transport: ws as unknown as never },
+} as const;
 
 export type BuildPayload = {
   projectId: string;
@@ -37,6 +45,7 @@ async function recordFailedStatus(projectId: string, error: unknown) {
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      SUPABASE_OPTS,
     );
     const message =
       error instanceof Error
@@ -180,6 +189,7 @@ export const buildAndRecord = task({
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      SUPABASE_OPTS,
     );
     const isRealProject = !payload.projectId.startsWith("manual-");
 
