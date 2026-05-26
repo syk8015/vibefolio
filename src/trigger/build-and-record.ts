@@ -1,5 +1,6 @@
 import { task, logger } from "@trigger.dev/sdk";
 import Sandbox from "e2b";
+import { createClient } from "@supabase/supabase-js";
 import { RECORD_HELPER_SRC } from "./record-helper-src";
 
 export type BuildPayload = {
@@ -13,6 +14,7 @@ export type BuildResult = {
   sandboxId?: string;
   builtAt: string;
   videoBytes?: number;
+  videoUrl?: string;
 };
 
 const SANDBOX_TIMEOUT_MS = 600_000;
@@ -27,6 +29,7 @@ const RECORD_PREFIX =
   NODE_PATH_PREFIX +
   "export NODE_PATH=/usr/local/lib/node_modules && " +
   "export PLAYWRIGHT_BROWSERS_PATH=/opt/playwright && ";
+const DEMO_BUCKET = "project-files";
 
 export const buildAndRecord = task({
   id: "build-and-record",
@@ -117,11 +120,61 @@ export const buildAndRecord = task({
     const buf = Buffer.from(videoBytes);
     logger.log("video downloaded", { bytes: buf.length });
 
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    );
+    const isRealProject = !payload.projectId.startsWith("manual-");
+
+    let userId: string | null = null;
+    if (isRealProject) {
+      const { data, error } = await supabase
+        .from("projects")
+        .select("user_id")
+        .eq("id", payload.projectId)
+        .single();
+      if (error) throw new Error(`projects select failed: ${error.message}`);
+      userId = data.user_id;
+    }
+
+    const storagePath = isRealProject
+      ? `${userId}/${payload.projectId}/demo.webm`
+      : `_test/${payload.projectId}/demo.webm`;
+
+    const { error: uploadErr } = await supabase.storage
+      .from(DEMO_BUCKET)
+      .upload(storagePath, buf, {
+        contentType: "video/webm",
+        upsert: true,
+      });
+    if (uploadErr)
+      throw new Error(`storage upload failed: ${uploadErr.message}`);
+
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from(DEMO_BUCKET).getPublicUrl(storagePath);
+    logger.log("video uploaded", { storagePath, publicUrl });
+
+    if (isRealProject) {
+      const { error: updErr } = await supabase
+        .from("projects")
+        .update({
+          demo_video_url: publicUrl,
+          demo_build_status: "done",
+          demo_generated_at: new Date().toISOString(),
+        })
+        .eq("id", payload.projectId);
+      if (updErr)
+        throw new Error(`projects update failed: ${updErr.message}`);
+      logger.log("projects updated", { projectId: payload.projectId });
+    }
+
     return {
       url,
       sandboxId: sandbox.sandboxId,
       builtAt: new Date().toISOString(),
       videoBytes: buf.length,
+      videoUrl: publicUrl,
     };
   },
 });
