@@ -22,11 +22,15 @@ function safeHref(url: string | undefined): string | undefined {
 // ────────────────────────────────────────────────────────────────
 function LivePreview({ project }: { project: Project }) {
   const videoKind = project.videoUrl ? detectVideoKind(project.videoUrl) : "unknown";
-  const hasVideo = project.videoUrl && videoKind !== "unknown";
+  const hasManualVideo = project.videoUrl && videoKind !== "unknown";
   const isFile = isFileUpload(project.demoUrl);
 
-  if (hasVideo) {
+  // Priority: 수동 video_url > 자동 demo_video_url(mp4) > iframe(파일 업로드) > 썸네일
+  if (hasManualVideo) {
     return <VideoBackground url={project.videoUrl!} kind={videoKind} poster={project.thumbnail} title={project.title} />;
+  }
+  if (project.demoVideoUrl) {
+    return <VideoBackground url={project.demoVideoUrl} kind="direct" poster={project.thumbnail} title={project.title} />;
   }
   if (isFile && project.demoUrl) {
     return (

@@ -11,6 +11,7 @@ export interface Project {
   contentType?: string | null;
   isFeatured?: boolean;
   videoUrl?: string;
+  demoVideoUrl?: string;
 }
 
 export const profile = {

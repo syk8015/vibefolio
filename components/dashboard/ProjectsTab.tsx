@@ -6,6 +6,7 @@ import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import ProjectCard from "@/components/ProjectCard";
 import type { Project } from "@/lib/data";
+import { detectDemoSource } from "@/lib/demoSource";
 
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 
@@ -110,6 +111,14 @@ function AiToolLogo({ id, size = 13 }: { id: string; size?: number }) {
 
 const AI_TOOLS_INITIAL = 5;
 
+type DemoBuildStatus =
+  | "pending"
+  | "building"
+  | "recording"
+  | "editing"
+  | "done"
+  | "failed";
+
 interface DBProject {
   id: string;
   title: string;
@@ -124,9 +133,26 @@ interface DBProject {
   sort_order: number;
   is_featured: boolean;
   video_url: string;
+  demo_source_type: "github" | "live_url" | "zip" | null;
+  demo_source_value: string | null;
+  demo_build_status: DemoBuildStatus | null;
+  demo_build_error: string | null;
+  demo_video_url: string | null;
+  demo_generated_at: string | null;
 }
 
-type ProjectForm = Omit<DBProject, "id" | "sort_order" | "is_featured">;
+type ProjectForm = Omit<
+  DBProject,
+  | "id"
+  | "sort_order"
+  | "is_featured"
+  | "demo_source_type"
+  | "demo_source_value"
+  | "demo_build_status"
+  | "demo_build_error"
+  | "demo_video_url"
+  | "demo_generated_at"
+>;
 
 const EMPTY_FORM: ProjectForm = {
   title: "",
@@ -178,6 +204,33 @@ export default function ProjectsTab({ user }: { user: User }) {
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
   useEffect(() => { loadProjects(); }, []);
+
+  // Live-update the build-status badge as the trigger.dev job progresses.
+  // Requires realtime publication on the projects table; silent no-op otherwise.
+  useEffect(() => {
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`projects:${user.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "projects",
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          const updated = payload.new as DBProject;
+          setProjects((prev) =>
+            prev.map((p) => (p.id === updated.id ? { ...p, ...updated } : p)),
+          );
+        },
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user.id]);
 
   async function loadProjects() {
     const supabase = createClient();
@@ -243,7 +296,20 @@ export default function ProjectsTab({ user }: { user: User }) {
       .insert({ ...form, user_id: user.id, sort_order: projects.length })
       .select().single();
     if (error) throw new Error(error.message);
-    if (data) setProjects(prev => [...prev, data as DBProject]);
+    if (data) {
+      const inserted = data as DBProject;
+      const source = detectDemoSource(form.demo_url);
+      // GitHub URL이면 자동 시연 영상 잡 트리거 + 옵티미스틱 pending 배지
+      const optimistic: DBProject = source?.type === "github"
+        ? { ...inserted, demo_build_status: "pending", demo_source_type: source.type, demo_source_value: source.value }
+        : inserted;
+      setProjects(prev => [...prev, optimistic]);
+      if (source?.type === "github") {
+        fetch(`/api/projects/${inserted.id}/trigger-demo`, {
+          method: "POST",
+        }).catch(() => { /* fire and forget */ });
+      }
+    }
     setShowAddModal(false);
   }
 
@@ -386,6 +452,53 @@ export default function ProjectsTab({ user }: { user: User }) {
   );
 }
 
+function DemoBuildBadge({ status }: { status: DemoBuildStatus | null }) {
+  if (!status || status === "done") return null;
+
+  if (status === "failed") {
+    return (
+      <span
+        className="px-2 py-0.5 rounded-full text-xs shrink-0"
+        style={{
+          background: "rgba(179, 71, 71, 0.12)",
+          color: "#8e3535",
+          fontFamily: "var(--font-nunito)",
+          fontSize: "0.6rem",
+          fontWeight: 600,
+        }}
+        title="자동 시연 영상 생성 실패"
+      >
+        시연 영상 실패
+      </span>
+    );
+  }
+
+  // pending | building | recording | editing
+  return (
+    <span
+      className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs shrink-0"
+      style={{
+        background: "var(--surface-soft)",
+        color: "var(--text-secondary)",
+        fontFamily: "var(--font-nunito)",
+        fontSize: "0.6rem",
+        fontWeight: 600,
+      }}
+    >
+      <span
+        className="rounded-full border-2 animate-spin"
+        style={{
+          width: 8,
+          height: 8,
+          borderColor: "var(--text-secondary)",
+          borderTopColor: "transparent",
+        }}
+      />
+      시연 영상 만드는 중…
+    </span>
+  );
+}
+
 function ProjectRow({ project, onDelete, onEdit, onToggleFeatured, onMoveUp, onMoveDown, canMoveUp, canMoveDown, isDragging, isDragOver, isLast, onDragStart, onDragOver, onDrop, onDragEnd }: {
   project: DBProject;
   onDelete: () => void;
@@ -457,6 +570,7 @@ function ProjectRow({ project, onDelete, onEdit, onToggleFeatured, onMoveUp, onM
                 upload
               </span>
             )}
+            <DemoBuildBadge status={project.demo_build_status} />
           </div>
           <div className="flex flex-wrap gap-1.5">
             {(project.tags ?? []).map(tag => (

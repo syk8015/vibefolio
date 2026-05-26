@@ -83,6 +83,7 @@ interface DBProject {
   sort_order: number;
   is_featured: boolean | null;
   video_url: string | null;
+  demo_video_url: string | null;
 }
 
 export default async function UserPortfolioPage({
@@ -120,6 +121,7 @@ export default async function UserPortfolioPage({
     contentType: p.content_type ?? null,
     isFeatured: p.is_featured ?? false,
     videoUrl: p.video_url ?? undefined,
+    demoVideoUrl: p.demo_video_url ?? undefined,
   }));
 
   // Theater starts on the explicitly-featured project, falling back to
