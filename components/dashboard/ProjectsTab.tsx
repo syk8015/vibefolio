@@ -489,7 +489,13 @@ export default function ProjectsTab({ user }: { user: User }) {
   );
 }
 
-function DemoBuildBadge({ status }: { status: DemoBuildStatus | null }) {
+function DemoBuildBadge({
+  status,
+  error,
+}: {
+  status: DemoBuildStatus | null;
+  error: string | null;
+}) {
   if (!status || status === "done") return null;
 
   if (status === "failed") {
@@ -502,8 +508,9 @@ function DemoBuildBadge({ status }: { status: DemoBuildStatus | null }) {
           fontFamily: "var(--font-nunito)",
           fontSize: "0.6rem",
           fontWeight: 600,
+          cursor: error ? "help" : "default",
         }}
-        title="자동 시연 영상 생성 실패"
+        title={error ? `자동 시연 영상 생성 실패\n\n${error}` : "자동 시연 영상 생성 실패"}
       >
         시연 영상 실패
       </span>
@@ -607,7 +614,7 @@ function ProjectRow({ project, onDelete, onEdit, onToggleFeatured, onMoveUp, onM
                 upload
               </span>
             )}
-            <DemoBuildBadge status={project.demo_build_status} />
+            <DemoBuildBadge status={project.demo_build_status} error={project.demo_build_error} />
           </div>
           <div className="flex flex-wrap gap-1.5">
             {(project.tags ?? []).map(tag => (

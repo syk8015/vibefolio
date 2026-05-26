@@ -31,9 +31,45 @@ const RECORD_PREFIX =
   "export PLAYWRIGHT_BROWSERS_PATH=/opt/playwright && ";
 const DEMO_BUCKET = "project-files";
 
+async function recordFailedStatus(projectId: string, error: unknown) {
+  if (projectId.startsWith("manual-")) return; // dry-run 모드는 DB 안 건드림
+  try {
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    );
+    const message =
+      error instanceof Error
+        ? error.message
+        : typeof error === "string"
+          ? error
+          : "Unknown error";
+    // 너무 긴 stack trace는 잘라서 저장 (UI tooltip이 감당 가능한 길이)
+    const truncated = message.length > 1000 ? message.slice(0, 1000) + "…" : message;
+    await supabase
+      .from("projects")
+      .update({
+        demo_build_status: "failed",
+        demo_build_error: truncated,
+      })
+      .eq("id", projectId);
+  } catch (writeErr) {
+    logger.error("Failed to record failure status", { writeErr });
+  }
+}
+
 export const buildAndRecord = task({
   id: "build-and-record",
   maxDuration: 1200,
+  catchError: async ({ payload, error, ctx }) => {
+    const buildPayload = payload as BuildPayload;
+    logger.error("Build job failed", {
+      projectId: buildPayload.projectId,
+      attempt: ctx.attempt.number,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    await recordFailedStatus(buildPayload.projectId, error);
+  },
   run: async (payload: BuildPayload): Promise<BuildResult> => {
     logger.log("Build job start", { payload });
 
