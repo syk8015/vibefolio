@@ -11,12 +11,14 @@
     "trigger:deploy": "trigger deploy"
   },
   "dependencies": {
+    "@browserbasehq/sdk": "^2.12.0",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.105.3",
     "@trigger.dev/sdk": "^4.4.6",
     "e2b": "^2.24.0",
     "framer-motion": "^12.38.0",
     "next": "16.2.4",
+    "playwright-core": "^1.60.0",
     "qrcode.react": "^4.2.0",
     "react": "19.2.4",
     "react-dom": "19.2.4"

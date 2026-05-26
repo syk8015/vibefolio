@@ -12,6 +12,9 @@ export const template = Template()
   )
   .setEnvs({
     PATH: "/opt/node/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+    PLAYWRIGHT_BROWSERS_PATH: "/opt/playwright",
   })
   .runCmd("node -v && npm -v && git --version")
+  .runCmd("npm i -g playwright@1.50.0")
+  .runCmd("playwright install --with-deps chromium")
   .setUser("user");

@@ -1,5 +1,6 @@
 import { task, logger } from "@trigger.dev/sdk";
 import Sandbox from "e2b";
+import { RECORD_HELPER_SRC } from "./record-helper-src";
 
 export type BuildPayload = {
   projectId: string;
@@ -11,14 +12,21 @@ export type BuildResult = {
   url: string;
   sandboxId?: string;
   builtAt: string;
+  videoBytes?: number;
 };
 
-const SANDBOX_TIMEOUT_MS = 300_000;
+const SANDBOX_TIMEOUT_MS = 600_000;
 const CLONE_TIMEOUT_MS = 120_000;
 const INSTALL_TIMEOUT_MS = 600_000;
 const READY_TIMEOUT_MS = 90_000;
+const RECORD_TIMEOUT_MS = 120_000;
+const RECORD_DURATION_SEC = 15;
 const DEV_PORT = 3000;
 const NODE_PATH_PREFIX = "export PATH=/opt/node/bin:$PATH && ";
+const RECORD_PREFIX =
+  NODE_PATH_PREFIX +
+  "export NODE_PATH=/usr/local/lib/node_modules && " +
+  "export PLAYWRIGHT_BROWSERS_PATH=/opt/playwright && ";
 
 export const buildAndRecord = task({
   id: "build-and-record",
@@ -91,10 +99,29 @@ export const buildAndRecord = task({
 
     logger.log("Dev server reachable", { url });
 
+    await sandbox.files.write("/tmp/record-helper.js", RECORD_HELPER_SRC);
+    logger.log("record helper uploaded");
+
+    const recordResult = await sandbox.commands.run(
+      `${RECORD_PREFIX}mkdir -p /tmp/rec && node /tmp/record-helper.js http://localhost:${DEV_PORT} /tmp/rec ${RECORD_DURATION_SEC}`,
+      { timeoutMs: RECORD_TIMEOUT_MS },
+    );
+    logger.log("record done", {
+      exitCode: recordResult.exitCode,
+      stdout: recordResult.stdout,
+    });
+
+    const videoBytes = await sandbox.files.read("/tmp/rec/demo.webm", {
+      format: "bytes",
+    });
+    const buf = Buffer.from(videoBytes);
+    logger.log("video downloaded", { bytes: buf.length });
+
     return {
       url,
       sandboxId: sandbox.sandboxId,
       builtAt: new Date().toISOString(),
+      videoBytes: buf.length,
     };
   },
 });
