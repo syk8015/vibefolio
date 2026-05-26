@@ -1,4 +1,4 @@
-import { task, logger } from "@trigger.dev/sdk";
+import { task, logger, retry } from "@trigger.dev/sdk";
 import Sandbox from "e2b";
 import { createClient } from "@supabase/supabase-js";
 import { RECORD_HELPER_SRC } from "./record-helper-src";
@@ -169,9 +169,11 @@ export const buildAndRecord = task({
     }
     logger.log("ffmpeg done");
 
-    const videoBytes = await sandbox.files.read("/tmp/rec/demo.mp4", {
-      format: "bytes",
-    });
+    // E2B sandbox는 file read에서 transient "fetch failed"가 30~50% 빈도. 재시도로 흡수.
+    const videoBytes = await retry.onThrow(
+      async () => sandbox.files.read("/tmp/rec/demo.mp4", { format: "bytes" }),
+      { maxAttempts: 4, minTimeoutInMs: 1500, factor: 2 },
+    );
     const buf = Buffer.from(videoBytes);
     logger.log("video downloaded", { bytes: buf.length });
 
