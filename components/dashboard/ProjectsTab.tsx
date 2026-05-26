@@ -350,6 +350,26 @@ export default function ProjectsTab({ user }: { user: User }) {
     setShowAddModal(false);
   }
 
+  async function handleRerecord(id: string) {
+    // 옵티미스틱 pending. 라우트가 DB 갱신하면 realtime이 덮어쓰지만 그 전에 UI 반응 즉시.
+    setProjects(prev => prev.map(p => p.id === id
+      ? { ...p, demo_build_status: "pending", demo_build_error: null }
+      : p));
+    try {
+      const res = await fetch(`/api/projects/${id}/trigger-demo`, { method: "POST" });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || `HTTP ${res.status}`);
+      }
+    } catch (err) {
+      // 트리거 자체 실패 시 failed로 표시 (잡이 안 돌았으니 catchError로 잡힐 일도 없음)
+      const message = err instanceof Error ? err.message : "재녹화 요청 실패";
+      setProjects(prev => prev.map(p => p.id === id
+        ? { ...p, demo_build_status: "failed", demo_build_error: message }
+        : p));
+    }
+  }
+
   async function handleEdit(id: string, form: ProjectForm) {
     const supabase = createClient();
     const { data, error } = await supabase
@@ -454,6 +474,7 @@ export default function ProjectsTab({ user }: { user: User }) {
               onDelete={() => handleDelete(project.id)}
               onEdit={() => setEditProject(project)}
               onToggleFeatured={() => handleToggleFeatured(project.id)}
+              onRerecord={() => handleRerecord(project.id)}
               onMoveUp={() => handleMoveUp(i)}
               onMoveDown={() => handleMoveDown(i)}
               canMoveUp={i > 0}
@@ -543,11 +564,50 @@ function DemoBuildBadge({
   );
 }
 
-function ProjectRow({ project, onDelete, onEdit, onToggleFeatured, onMoveUp, onMoveDown, canMoveUp, canMoveDown, isDragging, isDragOver, isLast, onDragStart, onDragOver, onDrop, onDragEnd }: {
+function RerecordButton({
+  sourceValue,
+  status,
+  onRerecord,
+}: {
+  sourceValue: string | null;
+  status: DemoBuildStatus | null;
+  onRerecord: () => void;
+}) {
+  // 녹화할 소스가 없으면 버튼 자체를 숨김 (예: 파일 업로드 미완료 + URL도 없음)
+  if (!sourceValue) return null;
+  const inFlight = status === "pending" || status === "building" || status === "recording" || status === "editing";
+  return (
+    <button
+      onClick={onRerecord}
+      disabled={inFlight}
+      title={inFlight ? "녹화 진행 중…" : status === "failed" ? "다시 녹화 시도" : "시연 영상 다시 녹화"}
+      className="p-2 rounded-full transition-colors"
+      style={{
+        background: "var(--surface-soft)",
+        border: "none",
+        cursor: inFlight ? "not-allowed" : "pointer",
+        opacity: inFlight ? 0.45 : 1,
+      }}
+    >
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+        <path
+          d="M12 7a5 5 0 1 1-1.46-3.54M12 2v3h-3"
+          stroke="var(--text-primary)"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    </button>
+  );
+}
+
+function ProjectRow({ project, onDelete, onEdit, onToggleFeatured, onRerecord, onMoveUp, onMoveDown, canMoveUp, canMoveDown, isDragging, isDragOver, isLast, onDragStart, onDragOver, onDrop, onDragEnd }: {
   project: DBProject;
   onDelete: () => void;
   onEdit: () => void;
   onToggleFeatured: () => void;
+  onRerecord: () => void;
   onMoveUp: () => void;
   onMoveDown: () => void;
   canMoveUp: boolean;
@@ -660,6 +720,12 @@ function ProjectRow({ project, onDelete, onEdit, onToggleFeatured, onMoveUp, onM
               <path d="M3 6l4 4 4-4" stroke="var(--text-secondary)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </button>
+
+          <RerecordButton
+            sourceValue={project.demo_source_value}
+            status={project.demo_build_status}
+            onRerecord={onRerecord}
+          />
 
           <button
             onClick={onToggleFeatured}
