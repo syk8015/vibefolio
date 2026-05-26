@@ -114,7 +114,23 @@ export const buildAndRecord = task({
       stdout: recordResult.stdout,
     });
 
-    const videoBytes = await sandbox.files.read("/tmp/rec/demo.webm", {
+    const fadeOutStart = (RECORD_DURATION_SEC - 0.5).toFixed(2);
+    const ffmpegCmd =
+      `cd /tmp/rec && ffmpeg -y -i demo.webm -t ${RECORD_DURATION_SEC} ` +
+      `-vf "fade=t=in:st=0:d=0.5,fade=t=out:st=${fadeOutStart}:d=0.5" ` +
+      `-c:v libx264 -preset veryfast -crf 23 -pix_fmt yuv420p -an ` +
+      `-movflags +faststart demo.mp4`;
+    const ffmpegResult = await sandbox.commands.run(ffmpegCmd, {
+      timeoutMs: 120_000,
+    });
+    if (ffmpegResult.exitCode !== 0) {
+      throw new Error(
+        `ffmpeg failed (exit ${ffmpegResult.exitCode}): ${ffmpegResult.stderr.slice(-600)}`,
+      );
+    }
+    logger.log("ffmpeg done");
+
+    const videoBytes = await sandbox.files.read("/tmp/rec/demo.mp4", {
       format: "bytes",
     });
     const buf = Buffer.from(videoBytes);
@@ -138,13 +154,13 @@ export const buildAndRecord = task({
     }
 
     const storagePath = isRealProject
-      ? `${userId}/${payload.projectId}/demo.webm`
-      : `_test/${payload.projectId}/demo.webm`;
+      ? `${userId}/${payload.projectId}/demo.mp4`
+      : `_test/${payload.projectId}/demo.mp4`;
 
     const { error: uploadErr } = await supabase.storage
       .from(DEMO_BUCKET)
       .upload(storagePath, buf, {
-        contentType: "video/webm",
+        contentType: "video/mp4",
         upsert: true,
       });
     if (uploadErr)

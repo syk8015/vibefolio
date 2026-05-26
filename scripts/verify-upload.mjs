@@ -27,6 +27,6 @@ if (data.length > 0) {
 
   const { data: urlData } = supabase.storage
     .from("project-files")
-    .getPublicUrl(`_test/${latest.name}/demo.webm`);
+    .getPublicUrl(`_test/${latest.name}/demo.mp4`);
   console.log("\npublic url:", urlData.publicUrl);
 }
