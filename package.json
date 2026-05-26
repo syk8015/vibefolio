@@ -17,6 +17,7 @@
     "@trigger.dev/sdk": "^4.4.6",
     "e2b": "^2.24.0",
     "framer-motion": "^12.38.0",
+    "jszip": "^3.10.1",
     "next": "16.2.4",
     "playwright-core": "^1.60.0",
     "qrcode.react": "^4.2.0",

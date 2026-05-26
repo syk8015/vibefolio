@@ -181,6 +181,43 @@ function isValidHttpUrl(s: string) {
   }
 }
 
+// zip → 압축해제, 일반 파일 → 그대로. 결과는 {relativePath, blob} 배열.
+// zip 안에 단일 최상위 폴더가 있으면 strip해서 index.html이 root에 오게 한다.
+async function expandUploadEntries(
+  rawFiles: File[],
+): Promise<{ relativePath: string; data: Blob }[]> {
+  const out: { relativePath: string; data: Blob }[] = [];
+  for (const file of rawFiles) {
+    if (/\.zip$/i.test(file.name)) {
+      const { default: JSZip } = await import("jszip");
+      const zip = await JSZip.loadAsync(file);
+      const fileEntries = Object.values(zip.files).filter((e) => !e.dir);
+      const topSegments = new Set(fileEntries.map((e) => e.name.split("/")[0]));
+      const stripTop =
+        topSegments.size === 1 && fileEntries.every((e) => e.name.includes("/"));
+      for (const entry of fileEntries) {
+        const parts = entry.name.split("/");
+        if (stripTop) parts.shift();
+        const relativePath = parts.join("/");
+        if (!relativePath || relativePath.startsWith("__MACOSX/")) continue;
+        const data = await entry.async("blob");
+        out.push({ relativePath, data });
+      }
+    } else {
+      let relativePath: string;
+      if (file.webkitRelativePath) {
+        const parts = file.webkitRelativePath.split("/");
+        parts.shift();
+        relativePath = parts.join("/");
+      } else {
+        relativePath = file.name;
+      }
+      out.push({ relativePath, data: file });
+    }
+  }
+  return out;
+}
+
 async function deleteProjectFiles(supabase: ReturnType<typeof createClient>, demoUrl: string) {
   if (!isUploadedProject(demoUrl)) return;
   try {
@@ -771,35 +808,39 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
   async function handleFilesUpload(fileList: FileList) {
     setUploadError("");
     setUploadDone(false);
-    const files = Array.from(fileList);
-    if (!files.length) return;
-
-    const totalSize = files.reduce((acc, f) => acc + f.size, 0);
-    if (totalSize > MAX_UPLOAD_BYTES) {
-      setUploadError(`총 파일 크기가 10MB를 초과해요. (현재 ${(totalSize / 1024 / 1024).toFixed(1)}MB)`);
-      return;
-    }
+    const rawFiles = Array.from(fileList);
+    if (!rawFiles.length) return;
 
     setUploading(true);
     setUploadProgress(0);
+
+    // zip은 브라우저에서 풀어서 일반 파일처럼 취급.
+    let entries: { relativePath: string; data: Blob }[];
+    try {
+      entries = await expandUploadEntries(rawFiles);
+    } catch (err) {
+      setUploadError(err instanceof Error ? `zip 압축해제 실패: ${err.message}` : "zip 파일을 읽을 수 없어요.");
+      setUploading(false);
+      return;
+    }
+
+    const totalSize = entries.reduce((acc, e) => acc + e.data.size, 0);
+    if (totalSize > MAX_UPLOAD_BYTES) {
+      setUploadError(`총 파일 크기가 10MB를 초과해요. (현재 ${(totalSize / 1024 / 1024).toFixed(1)}MB)`);
+      setUploading(false);
+      return;
+    }
+
     const supabase = createClient();
     const projectId = crypto.randomUUID();
     let indexHtmlStoragePath: string | null = null;
     let thumbnailStoragePath: string | null = null;
 
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      let relativePath: string;
-      if (file.webkitRelativePath) {
-        const parts = file.webkitRelativePath.split("/");
-        parts.shift();
-        relativePath = parts.join("/");
-      } else {
-        relativePath = file.name;
-      }
+    for (let i = 0; i < entries.length; i++) {
+      const { relativePath, data } = entries[i];
       const storagePath = `${userId}/${projectId}/${relativePath}`;
       const { error } = await supabase.storage.from("project-files")
-        .upload(storagePath, file, { upsert: true, contentType: getMimeType(file.name) });
+        .upload(storagePath, data, { upsert: true, contentType: getMimeType(relativePath) });
 
       if (!error) {
         if (relativePath === "index.html" || (relativePath.endsWith(".html") && !indexHtmlStoragePath)) {
@@ -809,7 +850,7 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
           thumbnailStoragePath = storagePath;
         }
       }
-      setUploadProgress(Math.round(((i + 1) / files.length) * 100));
+      setUploadProgress(Math.round(((i + 1) / entries.length) * 100));
     }
 
     if (indexHtmlStoragePath) {
@@ -951,7 +992,7 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
               ) : (
                 <>
                   <input ref={fileInputRef} type="file" className="hidden" multiple
-                    accept=".html,.css,.js,.ts,.jsx,.tsx,.json,.svg,.png,.jpg,.jpeg,.gif,.webp,.woff,.woff2,.ttf"
+                    accept=".html,.css,.js,.ts,.jsx,.tsx,.json,.svg,.png,.jpg,.jpeg,.gif,.webp,.woff,.woff2,.ttf,.zip"
                     onChange={e => e.target.files && handleFilesUpload(e.target.files)} />
                   <input ref={folderInputRef} type="file" className="hidden"
                     {...{ webkitdirectory: "", multiple: true } as React.InputHTMLAttributes<HTMLInputElement>}
@@ -973,7 +1014,7 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
                       </button>
                     </div>
                     <p className="text-xs text-center" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", maxWidth: 520, lineHeight: 1.65 }}>
-                      React/Vue/Vite는 <code className="vf-mono" style={{ background: "var(--surface)", padding: "1px 5px", borderRadius: 4, fontSize: "0.7rem" }}>npm run build</code> 후 생성된 <code className="vf-mono" style={{ background: "var(--surface)", padding: "1px 5px", borderRadius: 4, fontSize: "0.7rem" }}>dist/</code> 폴더를 올려주세요. 순수 HTML/CSS/JS는 그대로. 최대 10MB
+                      React/Vue/Vite는 <code className="vf-mono" style={{ background: "var(--surface)", padding: "1px 5px", borderRadius: 4, fontSize: "0.7rem" }}>npm run build</code> 후 생성된 <code className="vf-mono" style={{ background: "var(--surface)", padding: "1px 5px", borderRadius: 4, fontSize: "0.7rem" }}>dist/</code> 폴더를 올려주세요. 순수 HTML/CSS/JS는 그대로, <code className="vf-mono" style={{ background: "var(--surface)", padding: "1px 5px", borderRadius: 4, fontSize: "0.7rem" }}>.zip</code>도 가능. 최대 10MB
                     </p>
                     {uploading && (
                       <div className="w-full max-w-md flex flex-col gap-2 mt-1">
@@ -1416,7 +1457,7 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
               ) : (
                 <div className="flex-1 flex flex-col min-h-0">
                   <input ref={fileInputRef} type="file" className="hidden" multiple
-                    accept=".html,.css,.js,.ts,.jsx,.tsx,.json,.svg,.png,.jpg,.jpeg,.gif,.webp,.woff,.woff2,.ttf"
+                    accept=".html,.css,.js,.ts,.jsx,.tsx,.json,.svg,.png,.jpg,.jpeg,.gif,.webp,.woff,.woff2,.ttf,.zip"
                     onChange={e => e.target.files && handleFilesUpload(e.target.files)} />
                   <input ref={folderInputRef} type="file" className="hidden"
                     {...{ webkitdirectory: "", multiple: true } as React.InputHTMLAttributes<HTMLInputElement>}
@@ -1438,7 +1479,7 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
                       </button>
                     </div>
                     <p className="text-xs text-center" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", maxWidth: 520, lineHeight: 1.65 }}>
-                      React/Vue/Vite는 <code className="vf-mono" style={{ background: "var(--surface)", padding: "1px 5px", borderRadius: 4, fontSize: "0.7rem" }}>npm run build</code> 후 생성된 <code className="vf-mono" style={{ background: "var(--surface)", padding: "1px 5px", borderRadius: 4, fontSize: "0.7rem" }}>dist/</code> 폴더를 올려주세요. 순수 HTML/CSS/JS는 그대로. 최대 10MB
+                      React/Vue/Vite는 <code className="vf-mono" style={{ background: "var(--surface)", padding: "1px 5px", borderRadius: 4, fontSize: "0.7rem" }}>npm run build</code> 후 생성된 <code className="vf-mono" style={{ background: "var(--surface)", padding: "1px 5px", borderRadius: 4, fontSize: "0.7rem" }}>dist/</code> 폴더를 올려주세요. 순수 HTML/CSS/JS는 그대로, <code className="vf-mono" style={{ background: "var(--surface)", padding: "1px 5px", borderRadius: 4, fontSize: "0.7rem" }}>.zip</code>도 가능. 최대 10MB
                     </p>
                     {uploading && (
                       <div className="w-full max-w-md flex flex-col gap-2 mt-1">
@@ -1727,7 +1768,7 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
               </div>
 
               <input ref={fileInputRef} type="file" className="hidden" multiple
-                accept=".html,.css,.js,.ts,.jsx,.tsx,.json,.svg,.png,.jpg,.jpeg,.gif,.webp,.woff,.woff2,.ttf"
+                accept=".html,.css,.js,.ts,.jsx,.tsx,.json,.svg,.png,.jpg,.jpeg,.gif,.webp,.woff,.woff2,.ttf,.zip"
                 onChange={e => e.target.files && handleFilesUpload(e.target.files)} />
               <input ref={folderInputRef} type="file" className="hidden"
                 {...{ webkitdirectory: "", multiple: true } as React.InputHTMLAttributes<HTMLInputElement>}
