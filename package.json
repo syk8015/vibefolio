@@ -6,11 +6,15 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "trigger:dev": "trigger dev",
+    "trigger:deploy": "trigger deploy"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.105.3",
+    "@trigger.dev/sdk": "^4.4.6",
+    "e2b": "^2.24.0",
     "framer-motion": "^12.38.0",
     "next": "16.2.4",
     "qrcode.react": "^4.2.0",
@@ -25,6 +29,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
     "tailwindcss": "^4",
+    "trigger.dev": "^4.4.6",
     "typescript": "^5"
   }
 }
