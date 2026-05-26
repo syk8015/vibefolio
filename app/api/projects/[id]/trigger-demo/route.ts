@@ -29,18 +29,23 @@ export async function POST(
   }
 
   const source = detectDemoSource(project.demo_url);
-  if (!source || source.type !== "github") {
+  if (!source) {
     return NextResponse.json(
-      { error: "unsupported source", detected: source?.type ?? null },
+      { error: "unsupported source" },
       { status: 400 },
     );
   }
+
+  // 업로드된 프로젝트(/api/preview/...)는 우리 사이트 origin을 붙여 절대 URL로.
+  const sourceValue = source.value.startsWith("/")
+    ? `${req.nextUrl.origin}${source.value}`
+    : source.value;
 
   const { error: updErr } = await supabase
     .from("projects")
     .update({
       demo_source_type: source.type,
-      demo_source_value: source.value,
+      demo_source_value: sourceValue,
       demo_build_status: "pending",
       demo_build_error: null,
     })
@@ -52,8 +57,8 @@ export async function POST(
   const handle = await tasks.trigger<typeof buildAndRecord>("build-and-record", {
     projectId: id,
     sourceType: source.type,
-    sourceValue: source.value,
+    sourceValue,
   });
 
-  return NextResponse.json({ ok: true, runId: handle.id, source });
+  return NextResponse.json({ ok: true, runId: handle.id, source: { type: source.type, value: sourceValue } });
 }

@@ -16,7 +16,11 @@ export function detectDemoSource(demoUrl: string | null | undefined): DemoSource
   if (!demoUrl) return null;
   const trimmed = demoUrl.trim();
   if (!trimmed) return null;
-  if (trimmed.startsWith("/api/preview/")) return null;
+  // 파일 업로드 결과: 우리 자체 /api/preview/<path>. 그대로 리턴해 두면
+  // API 라우트가 origin을 붙여 절대 URL로 변환한 뒤 live_url로 녹화.
+  if (trimmed.startsWith("/api/preview/")) {
+    return { type: "live_url", value: trimmed };
+  }
   if (isGithubRepoUrl(trimmed)) {
     return { type: "github", value: normalizeGithubUrl(trimmed) };
   }

@@ -299,12 +299,12 @@ export default function ProjectsTab({ user }: { user: User }) {
     if (data) {
       const inserted = data as DBProject;
       const source = detectDemoSource(form.demo_url);
-      // GitHub URL이면 자동 시연 영상 잡 트리거 + 옵티미스틱 pending 배지
-      const optimistic: DBProject = source?.type === "github"
+      // 자동 시연 영상이 가능한 소스(github URL · 파일 업로드 · 외부 URL)는 잡 트리거 + 옵티미스틱 pending 배지
+      const optimistic: DBProject = source
         ? { ...inserted, demo_build_status: "pending", demo_source_type: source.type, demo_source_value: source.value }
         : inserted;
       setProjects(prev => [...prev, optimistic]);
-      if (source?.type === "github") {
+      if (source) {
         fetch(`/api/projects/${inserted.id}/trigger-demo`, {
           method: "POST",
         }).catch(() => { /* fire and forget */ });

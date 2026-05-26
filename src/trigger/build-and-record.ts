@@ -37,14 +37,7 @@ export const buildAndRecord = task({
   run: async (payload: BuildPayload): Promise<BuildResult> => {
     logger.log("Build job start", { payload });
 
-    if (payload.sourceType === "live_url") {
-      return {
-        url: payload.sourceValue,
-        builtAt: new Date().toISOString(),
-      };
-    }
-
-    if (payload.sourceType !== "github") {
+    if (payload.sourceType !== "github" && payload.sourceType !== "live_url") {
       throw new Error(
         `MVP only supports 'github' or 'live_url' sources (got '${payload.sourceType}')`,
       );
@@ -55,58 +48,68 @@ export const buildAndRecord = task({
     });
     logger.log("Sandbox created", { sandboxId: sandbox.sandboxId });
 
-    const repoUrl = payload.sourceValue;
-    const repoPath = "/tmp/app";
+    // github: 빌드 + 자체 dev server. live_url: 이미 호스팅된 URL 그대로 사용.
+    let recordTarget: string;
+    let sandboxPublicUrl: string | undefined;
 
-    const clone = await sandbox.commands.run(
-      `git clone --depth 1 ${repoUrl} ${repoPath}`,
-      { timeoutMs: CLONE_TIMEOUT_MS },
-    );
-    logger.log("git clone done", { exitCode: clone.exitCode });
+    if (payload.sourceType === "github") {
+      const repoUrl = payload.sourceValue;
+      const repoPath = "/tmp/app";
 
-    const install = await sandbox.commands.run(
-      `${NODE_PATH_PREFIX}cd ${repoPath} && npm install --no-audit --no-fund --prefer-offline`,
-      { timeoutMs: INSTALL_TIMEOUT_MS },
-    );
-    logger.log("npm install done", { exitCode: install.exitCode });
-
-    await sandbox.commands.run(
-      `${NODE_PATH_PREFIX}cd ${repoPath} && npm run dev -- --host 0.0.0.0 --port ${DEV_PORT} > /tmp/dev.log 2>&1`,
-      { background: true },
-    );
-
-    const host = sandbox.getHost(DEV_PORT);
-    const url = `https://${host}`;
-
-    const deadline = Date.now() + READY_TIMEOUT_MS;
-    let ready = false;
-    while (Date.now() < deadline) {
-      try {
-        const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
-        if (res.status < 500) {
-          ready = true;
-          break;
-        }
-      } catch {
-        // keep polling
-      }
-      await new Promise((r) => setTimeout(r, 2000));
-    }
-
-    if (!ready) {
-      const tail = await sandbox.commands.run("tail -80 /tmp/dev.log");
-      throw new Error(
-        `Dev server did not respond within ${READY_TIMEOUT_MS / 1000}s.\n--- dev.log tail ---\n${tail.stdout}`,
+      const clone = await sandbox.commands.run(
+        `git clone --depth 1 ${repoUrl} ${repoPath}`,
+        { timeoutMs: CLONE_TIMEOUT_MS },
       );
-    }
+      logger.log("git clone done", { exitCode: clone.exitCode });
 
-    logger.log("Dev server reachable", { url });
+      const install = await sandbox.commands.run(
+        `${NODE_PATH_PREFIX}cd ${repoPath} && npm install --no-audit --no-fund --prefer-offline`,
+        { timeoutMs: INSTALL_TIMEOUT_MS },
+      );
+      logger.log("npm install done", { exitCode: install.exitCode });
+
+      await sandbox.commands.run(
+        `${NODE_PATH_PREFIX}cd ${repoPath} && npm run dev -- --host 0.0.0.0 --port ${DEV_PORT} > /tmp/dev.log 2>&1`,
+        { background: true },
+      );
+
+      sandboxPublicUrl = `https://${sandbox.getHost(DEV_PORT)}`;
+
+      const deadline = Date.now() + READY_TIMEOUT_MS;
+      let ready = false;
+      while (Date.now() < deadline) {
+        try {
+          const res = await fetch(sandboxPublicUrl, { signal: AbortSignal.timeout(5000) });
+          if (res.status < 500) {
+            ready = true;
+            break;
+          }
+        } catch {
+          // keep polling
+        }
+        await new Promise((r) => setTimeout(r, 2000));
+      }
+
+      if (!ready) {
+        const tail = await sandbox.commands.run("tail -80 /tmp/dev.log");
+        throw new Error(
+          `Dev server did not respond within ${READY_TIMEOUT_MS / 1000}s.\n--- dev.log tail ---\n${tail.stdout}`,
+        );
+      }
+
+      logger.log("Dev server reachable", { url: sandboxPublicUrl });
+      recordTarget = `http://localhost:${DEV_PORT}`;
+    } else {
+      // live_url: just record the public URL directly.
+      recordTarget = payload.sourceValue;
+      logger.log("Live URL mode — skipping build", { url: recordTarget });
+    }
 
     await sandbox.files.write("/tmp/record-helper.js", RECORD_HELPER_SRC);
     logger.log("record helper uploaded");
 
     const recordResult = await sandbox.commands.run(
-      `${RECORD_PREFIX}mkdir -p /tmp/rec && node /tmp/record-helper.js http://localhost:${DEV_PORT} /tmp/rec ${RECORD_DURATION_SEC}`,
+      `${RECORD_PREFIX}mkdir -p /tmp/rec && node /tmp/record-helper.js ${recordTarget} /tmp/rec ${RECORD_DURATION_SEC}`,
       { timeoutMs: RECORD_TIMEOUT_MS },
     );
     logger.log("record done", {
@@ -186,7 +189,7 @@ export const buildAndRecord = task({
     }
 
     return {
-      url,
+      url: sandboxPublicUrl ?? payload.sourceValue,
       sandboxId: sandbox.sandboxId,
       builtAt: new Date().toISOString(),
       videoBytes: buf.length,
