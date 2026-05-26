@@ -575,18 +575,23 @@ function RerecordButton({
 }) {
   // 녹화할 소스가 없으면 버튼 자체를 숨김 (예: 파일 업로드 미완료 + URL도 없음)
   if (!sourceValue) return null;
+  // 진행 중이어도 클릭 가능 — stuck row를 풀려면 강제 재시도가 필요함.
   const inFlight = status === "pending" || status === "building" || status === "recording" || status === "editing";
   return (
     <button
       onClick={onRerecord}
-      disabled={inFlight}
-      title={inFlight ? "녹화 진행 중…" : status === "failed" ? "다시 녹화 시도" : "시연 영상 다시 녹화"}
+      title={
+        inFlight
+          ? "녹화 진행 중 (강제로 다시 시도)"
+          : status === "failed"
+            ? "다시 녹화 시도"
+            : "시연 영상 다시 녹화"
+      }
       className="p-2 rounded-full transition-colors"
       style={{
         background: "var(--surface-soft)",
         border: "none",
-        cursor: inFlight ? "not-allowed" : "pointer",
-        opacity: inFlight ? 0.45 : 1,
+        cursor: "pointer",
       }}
     >
       <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
