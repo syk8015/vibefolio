@@ -33,7 +33,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   // Next.js / React 등은 load 이벤트 후에 hydration / 폰트 / 애니메이션이
   // 돌기 시작함. 그동안 page는 거의 비어 보일 수 있어서 settle 시간 줌.
   try {
-    await page.evaluate(() => (document as any).fonts && (document as any).fonts.ready);
+    await page.evaluate(() => document.fonts && document.fonts.ready);
   } catch {}
   await sleep(3000);
 
