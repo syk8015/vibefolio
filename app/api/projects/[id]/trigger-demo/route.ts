@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { tasks } from "@trigger.dev/sdk";
 import { createClient } from "@/lib/supabase/server";
 import { detectDemoSource } from "@/lib/demoSource";
-import type { buildAndRecord } from "@/src/trigger/build-and-record";
+import type { buildAndRecord, BuildPayload } from "@/src/trigger/build-and-record";
 
 export async function POST(
   req: NextRequest,
@@ -36,16 +36,40 @@ export async function POST(
     );
   }
 
-  // 업로드된 프로젝트(/api/preview/...)는 우리 사이트 origin을 붙여 절대 URL로.
-  const sourceValue = source.value.startsWith("/")
-    ? `${req.nextUrl.origin}${source.value}`
-    : source.value;
+  // 업로드된 프로젝트(/api/preview/{userId}/{projectId}/index.html)는 package.json
+  // 존재 여부로 빌드 필요 vs 정적 서빙 구분. 빌드 필요하면 zip 모드로 잡에 storage
+  // prefix를 넘긴다. 잡이 직접 supabase storage에서 파일 가져와 샌드박스에서 빌드.
+  let payload: BuildPayload;
+  if (source.type === "live_url" && source.value.startsWith("/api/preview/")) {
+    const prefix = source.value
+      .replace(/^\/api\/preview\//, "")
+      .replace(/\/[^/]+$/, ""); // strip filename → {userId}/{projectId}
+    const { data: rootFiles } = await supabase.storage
+      .from("project-files")
+      .list(prefix, { limit: 1000 });
+    const hasPackageJson = rootFiles?.some((f) => f.name === "package.json") ?? false;
+    if (hasPackageJson) {
+      payload = { projectId: id, sourceType: "zip", sourceValue: prefix };
+    } else {
+      payload = {
+        projectId: id,
+        sourceType: "live_url",
+        sourceValue: `${req.nextUrl.origin}${source.value}`,
+      };
+    }
+  } else {
+    payload = {
+      projectId: id,
+      sourceType: source.type,
+      sourceValue: source.value,
+    };
+  }
 
   const { error: updErr } = await supabase
     .from("projects")
     .update({
-      demo_source_type: source.type,
-      demo_source_value: sourceValue,
+      demo_source_type: payload.sourceType,
+      demo_source_value: payload.sourceValue,
       demo_build_status: "pending",
       demo_build_error: null,
     })
@@ -54,11 +78,11 @@ export async function POST(
     return NextResponse.json({ error: updErr.message }, { status: 500 });
   }
 
-  const handle = await tasks.trigger<typeof buildAndRecord>("build-and-record", {
-    projectId: id,
-    sourceType: source.type,
-    sourceValue,
-  });
+  const handle = await tasks.trigger<typeof buildAndRecord>("build-and-record", payload);
 
-  return NextResponse.json({ ok: true, runId: handle.id, source: { type: source.type, value: sourceValue } });
+  return NextResponse.json({
+    ok: true,
+    runId: handle.id,
+    source: { type: payload.sourceType, value: payload.sourceValue },
+  });
 }

@@ -7,7 +7,8 @@ if (!arg1) {
     "Usage:\n" +
       "  node scripts/trigger-build.mjs <github-url>\n" +
       "  node scripts/trigger-build.mjs live_url <https://...>\n" +
-      "  node scripts/trigger-build.mjs github <https://github.com/...>",
+      "  node scripts/trigger-build.mjs github <https://github.com/...>\n" +
+      "  node scripts/trigger-build.mjs zip <userId/projectId>",
   );
   process.exit(1);
 }
@@ -15,8 +16,10 @@ if (!arg1) {
 let sourceType;
 let sourceValue;
 if (arg2) {
-  if (arg1 !== "github" && arg1 !== "live_url") {
-    console.error(`sourceType must be "github" or "live_url" (got "${arg1}")`);
+  if (arg1 !== "github" && arg1 !== "live_url" && arg1 !== "zip") {
+    console.error(
+      `sourceType must be "github", "live_url", or "zip" (got "${arg1}")`,
+    );
     process.exit(1);
   }
   sourceType = arg1;

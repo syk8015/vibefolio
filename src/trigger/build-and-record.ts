@@ -1,6 +1,6 @@
 import { task, logger, retry } from "@trigger.dev/sdk";
 import Sandbox from "e2b";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import ws from "ws";
 import { RECORD_HELPER_SRC } from "./record-helper-src";
 
@@ -38,6 +38,34 @@ const RECORD_PREFIX =
   "export NODE_PATH=/usr/local/lib/node_modules && " +
   "export PLAYWRIGHT_BROWSERS_PATH=/opt/playwright && ";
 const DEMO_BUCKET = "project-files";
+
+// supabase storage list는 한 단계만 본다. zip 업로드는 중첩 디렉터리(src/,
+// public/, ...)를 가질 수 있어서 BFS로 모든 파일 경로를 모은다.
+async function listStorageFilesRecursive(
+  supabase: SupabaseClient,
+  bucket: string,
+  prefix: string,
+): Promise<string[]> {
+  const out: string[] = [];
+  const queue: string[] = [prefix];
+  while (queue.length) {
+    const dir = queue.shift()!;
+    const { data, error } = await supabase.storage
+      .from(bucket)
+      .list(dir, { limit: 1000 });
+    if (error) throw new Error(`storage list failed at ${dir}: ${error.message}`);
+    for (const entry of data ?? []) {
+      const full = `${dir}/${entry.name}`;
+      // supabase는 디렉터리 placeholder를 id=null + metadata=null로 돌려준다.
+      if (entry.id === null) {
+        queue.push(full);
+      } else {
+        out.push(full);
+      }
+    }
+  }
+  return out;
+}
 
 async function recordFailedStatus(projectId: string, error: unknown) {
   if (projectId.startsWith("manual-")) return; // dry-run 모드는 DB 안 건드림
@@ -82,9 +110,13 @@ export const buildAndRecord = task({
   run: async (payload: BuildPayload): Promise<BuildResult> => {
     logger.log("Build job start", { payload });
 
-    if (payload.sourceType !== "github" && payload.sourceType !== "live_url") {
+    if (
+      payload.sourceType !== "github" &&
+      payload.sourceType !== "live_url" &&
+      payload.sourceType !== "zip"
+    ) {
       throw new Error(
-        `MVP only supports 'github' or 'live_url' sources (got '${payload.sourceType}')`,
+        `Unsupported source type '${payload.sourceType}'`,
       );
     }
 
@@ -93,19 +125,61 @@ export const buildAndRecord = task({
     });
     logger.log("Sandbox created", { sandboxId: sandbox.sandboxId });
 
-    // github: 빌드 + 자체 dev server. live_url: 이미 호스팅된 URL 그대로 사용.
+    // github/zip: 샌드박스에서 빌드 + dev server. live_url: 이미 호스팅된 URL 그대로.
     let recordTarget: string;
     let sandboxPublicUrl: string | undefined;
 
-    if (payload.sourceType === "github") {
-      const repoUrl = payload.sourceValue;
+    if (payload.sourceType === "github" || payload.sourceType === "zip") {
       const repoPath = "/tmp/app";
 
-      const clone = await sandbox.commands.run(
-        `git clone --depth 1 ${repoUrl} ${repoPath}`,
-        { timeoutMs: CLONE_TIMEOUT_MS },
-      );
-      logger.log("git clone done", { exitCode: clone.exitCode });
+      if (payload.sourceType === "github") {
+        const repoUrl = payload.sourceValue;
+        const clone = await sandbox.commands.run(
+          `git clone --depth 1 ${repoUrl} ${repoPath}`,
+          { timeoutMs: CLONE_TIMEOUT_MS },
+        );
+        logger.log("git clone done", { exitCode: clone.exitCode });
+      } else {
+        // zip: supabase storage prefix 아래 모든 파일을 받아 샌드박스에 펼친다.
+        const supabaseDl = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.SUPABASE_SERVICE_ROLE_KEY!,
+          SUPABASE_OPTS,
+        );
+        const prefix = payload.sourceValue;
+        const filePaths = await listStorageFilesRecursive(
+          supabaseDl,
+          DEMO_BUCKET,
+          prefix,
+        );
+        logger.log("storage list done", { prefix, count: filePaths.length });
+        if (!filePaths.length) {
+          throw new Error(`No files found under storage prefix '${prefix}'`);
+        }
+
+        await sandbox.commands.run(`mkdir -p ${repoPath}`);
+        for (const storagePath of filePaths) {
+          const relative = storagePath.slice(prefix.length + 1); // strip "{prefix}/"
+          const { data, error } = await supabaseDl.storage
+            .from(DEMO_BUCKET)
+            .download(storagePath);
+          if (error || !data) {
+            throw new Error(
+              `storage download failed at ${storagePath}: ${error?.message ?? "no data"}`,
+            );
+          }
+          const targetPath = `${repoPath}/${relative}`;
+          const targetDir = targetPath.substring(0, targetPath.lastIndexOf("/"));
+          if (targetDir && targetDir !== repoPath) {
+            await sandbox.commands.run(`mkdir -p '${targetDir}'`);
+          }
+          await sandbox.files.write(targetPath, data);
+        }
+        logger.log("zip files uploaded to sandbox", {
+          count: filePaths.length,
+          repoPath,
+        });
+      }
 
       const install = await sandbox.commands.run(
         `${NODE_PATH_PREFIX}cd ${repoPath} && npm install --no-audit --no-fund --prefer-offline`,
