@@ -162,9 +162,12 @@ export const buildAndRecord = task({
       stdout: recordResult.stdout,
     });
 
+    // 녹화 시작점은 context 생성 직후라 페이지 로딩/networkidle 대기 구간이
+    // 앞쪽에 들어감. 콘텐츠가 보이는 구간은 스크롤 루프(끝쪽). -sseof로
+    // 끝에서 RECORD_DURATION_SEC 거꾸로 가서 마지막 부분만 잘라낸다.
     const fadeOutStart = (RECORD_DURATION_SEC - 0.5).toFixed(2);
     const ffmpegCmd =
-      `cd /tmp/rec && ffmpeg -y -i demo.webm -t ${RECORD_DURATION_SEC} ` +
+      `cd /tmp/rec && ffmpeg -y -sseof -${RECORD_DURATION_SEC} -i demo.webm ` +
       `-vf "fade=t=in:st=0:d=0.5,fade=t=out:st=${fadeOutStart}:d=0.5" ` +
       `-c:v libx264 -preset veryfast -crf 23 -pix_fmt yuv420p -an ` +
       `-movflags +faststart demo.mp4`;
