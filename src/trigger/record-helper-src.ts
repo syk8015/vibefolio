@@ -30,38 +30,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     await page.waitForLoadState("networkidle", { timeout: 5000 });
   } catch {}
 
-  // Next.js / React 등은 load 이벤트 후에 hydration / 폰트 / 애니메이션이
-  // 돌기 시작함. 그동안 page는 거의 비어 보일 수 있어서 settle 시간 줌.
-  try {
-    await page.evaluate(() => document.fonts && document.fonts.ready);
-  } catch {}
-  await sleep(3000);
-
-  // 디버그: 페이지에 실제로 뭐가 떠있는지 trigger 로그로 확인 가능하게.
-  try {
-    const diag = await page.evaluate(() => ({
-      title: document.title,
-      bodyLen: (document.body && document.body.innerText && document.body.innerText.length) || 0,
-      sample: (document.body && document.body.innerText && document.body.innerText.slice(0, 200)) || "",
-    }));
-    console.log("page diag:", JSON.stringify(diag));
-  } catch (e) {
-    console.log("page diag failed:", String(e));
-  }
-
   const start = Date.now();
   while (Date.now() - start < DURATION_MS) {
     await page.evaluate(() => window.scrollBy({ top: 200, behavior: "smooth" }));
     await sleep(1500);
-  }
-
-  // 디버그: 녹화 끝 시점의 페이지 스크린샷을 webm 옆에 저장한다.
-  // 영상이 비어 보일 때 진짜 페이지에 뭐가 있는지 검증용.
-  try {
-    await page.screenshot({ path: path.join(OUTPUT_DIR, "final.png"), fullPage: false });
-    console.log("screenshot saved");
-  } catch (e) {
-    console.log("screenshot failed:", String(e));
   }
 
   const video = page.video();
