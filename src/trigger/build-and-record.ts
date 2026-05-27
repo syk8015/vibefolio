@@ -225,6 +225,31 @@ export const buildAndRecord = task({
     } = supabase.storage.from(DEMO_BUCKET).getPublicUrl(storagePath);
     logger.log("video uploaded", { storagePath, publicUrl });
 
+    // 디버그: helper가 남긴 final.png도 같이 업로드해서 콘텐츠 비교 가능하게.
+    try {
+      const shotBytes = await sandbox.files.read("/tmp/rec/final.png", { format: "bytes" });
+      const shotBuf = Buffer.from(shotBytes);
+      const shotPath = isRealProject
+        ? `${userId}/${payload.projectId}/final.png`
+        : `_test/${payload.projectId}/final.png`;
+      const { error: shotErr } = await supabase.storage
+        .from(DEMO_BUCKET)
+        .upload(shotPath, shotBuf, {
+          contentType: "image/png",
+          upsert: true,
+        });
+      if (!shotErr) {
+        const { data: { publicUrl: shotUrl } } = supabase.storage
+          .from(DEMO_BUCKET)
+          .getPublicUrl(shotPath);
+        logger.log("debug screenshot uploaded", { shotUrl, bytes: shotBuf.length });
+      } else {
+        logger.warn("debug screenshot upload failed", { msg: shotErr.message });
+      }
+    } catch (e) {
+      logger.warn("debug screenshot read/upload skipped", { e: String(e) });
+    }
+
     if (isRealProject) {
       const { error: updErr } = await supabase
         .from("projects")

@@ -55,6 +55,15 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     await sleep(1500);
   }
 
+  // 디버그: 녹화 끝 시점의 페이지 스크린샷을 webm 옆에 저장한다.
+  // 영상이 비어 보일 때 진짜 페이지에 뭐가 있는지 검증용.
+  try {
+    await page.screenshot({ path: path.join(OUTPUT_DIR, "final.png"), fullPage: false });
+    console.log("screenshot saved");
+  } catch (e) {
+    console.log("screenshot failed:", String(e));
+  }
+
   const video = page.video();
   await context.close();
   await browser.close();
