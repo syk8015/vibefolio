@@ -84,6 +84,7 @@ interface DBProject {
   is_featured: boolean | null;
   video_url: string | null;
   demo_video_url: string | null;
+  demo_generated_at: string | null;
 }
 
 export default async function UserPortfolioPage({
@@ -121,7 +122,14 @@ export default async function UserPortfolioPage({
     contentType: p.content_type ?? null,
     isFeatured: p.is_featured ?? false,
     videoUrl: p.video_url ?? undefined,
-    demoVideoUrl: p.demo_video_url ?? undefined,
+    // Re-records overwrite the same storage path (upsert), so the URL is
+    // stable and browsers serve a stale cached copy. Version the URL by the
+    // generation time so every re-record is a fresh fetch.
+    demoVideoUrl: p.demo_video_url
+      ? p.demo_generated_at
+        ? `${p.demo_video_url}?v=${encodeURIComponent(p.demo_generated_at)}`
+        : p.demo_video_url
+      : undefined,
   }));
 
   // Theater starts on the explicitly-featured project, falling back to

@@ -117,7 +117,11 @@ function DirectVideo({ url, poster }: { url: string; poster: string }) {
     el.play().catch(() => { /* 일부 브라우저는 사용자 인터랙션 전엔 거부 */ });
   }, [url]);
   return (
+    // key={url} forces a remount when the active project changes — a plain
+    // <source src> swap does NOT reload an existing <video>, so without this
+    // the element keeps playing the first project's video.
     <video
+      key={url}
       ref={ref}
       autoPlay
       loop
