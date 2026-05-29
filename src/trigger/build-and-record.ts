@@ -235,6 +235,12 @@ export const buildAndRecord = task({
       exitCode: recordResult.exitCode,
       stdout: recordResult.stdout,
     });
+    if (recordResult.exitCode !== 0) {
+      throw new Error(
+        `Recorder exited ${recordResult.exitCode}: ` +
+          (recordResult.stderr?.slice(-600) || recordResult.stdout?.slice(-600) || "no output"),
+      );
+    }
 
     // 녹화 시작점은 context 생성 직후라 페이지 로딩/networkidle 대기 구간이
     // 앞쪽에 들어감. 콘텐츠가 보이는 구간은 스크롤 루프(끝쪽). -sseof로
@@ -254,6 +260,47 @@ export const buildAndRecord = task({
       );
     }
     logger.log("ffmpeg done");
+
+    // Blank-recording guard: never ship a uniform-color video. Sample the
+    // final mp4 at 2fps and read each frame's luminance spread (YMAX-YMIN).
+    // A blank page (font-gated / JS-gated content, wrong default theme, dead
+    // target) yields near-uniform frames; any frame with real content (text,
+    // imagery) has a wide spread. We pass if *any* sampled frame looks alive.
+    const SIG_PATH = "/tmp/rec/sig.txt";
+    await sandbox.commands.run(
+      `cd /tmp/rec && ffmpeg -y -i demo.mp4 -vf "fps=2,signalstats,metadata=print:file=${SIG_PATH}" -an -f null - 2>/dev/null`,
+      { timeoutMs: 60_000 },
+    );
+    const sigText = await retry.onThrow(
+      async () => sandbox.files.read(SIG_PATH, { format: "text" }),
+      { maxAttempts: 3, minTimeoutInMs: 1000, factor: 2 },
+    );
+    const mins = [...sigText.matchAll(/signalstats\.YMIN=([\d.]+)/g)].map((m) =>
+      parseFloat(m[1]),
+    );
+    const maxs = [...sigText.matchAll(/signalstats\.YMAX=([\d.]+)/g)].map((m) =>
+      parseFloat(m[1]),
+    );
+    let peakSpread = 0;
+    for (let i = 0; i < Math.min(mins.length, maxs.length); i++) {
+      peakSpread = Math.max(peakSpread, maxs[i] - mins[i]);
+    }
+    const BLANK_SPREAD_THRESHOLD = 40;
+    logger.log("blank check", {
+      sampledFrames: Math.min(mins.length, maxs.length),
+      peakSpread,
+    });
+    // Only fail when we actually got samples; if parsing yielded nothing, don't
+    // block on a measurement we couldn't make.
+    if (mins.length && maxs.length && peakSpread < BLANK_SPREAD_THRESHOLD) {
+      throw new Error(
+        `Recording appears blank — every sampled frame was near-uniform color ` +
+          `(peak luminance spread ${peakSpread.toFixed(1)} < ${BLANK_SPREAD_THRESHOLD}). ` +
+          `The target rendered no visible content (font-gated/JS-gated content, ` +
+          `a light default theme with no painted text, or a dead page). ` +
+          `Recorder diagnostics: ${recordResult.stdout.slice(-400)}`,
+      );
+    }
 
     // E2B sandbox는 file read에서 transient "fetch failed"가 30~50% 빈도. 재시도로 흡수.
     const videoBytes = await retry.onThrow(
