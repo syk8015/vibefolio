@@ -28,6 +28,10 @@ function buildTimeline(): Item[] {
 
 const TIMELINE = buildTimeline();
 
+// The inline-grid "ghost text underneath, typed text on top" trick reserves the
+// final layout so lines never reflow while typing. max-width:100% lets the ghost
+// (and the visible copy over it) wrap within its container on narrow screens
+// instead of overflowing — the trick is otherwise untouched.
 function Typed({
   text, startDelay, enabled, instant,
 }: {
@@ -62,13 +66,16 @@ function Typed({
   }, [text, startDelay, enabled, instant]);
 
   return (
-    <span style={{ display: "inline-grid", verticalAlign: "top" }}>
+    <span style={{ display: "inline-grid", verticalAlign: "top", maxWidth: "100%" }}>
       <span style={{ gridArea: "1 / 1", visibility: "hidden" }} aria-hidden>{text}</span>
       <span style={{ gridArea: "1 / 1" }}>{text.slice(0, n)}</span>
     </span>
   );
 }
 
+// Direction C — "선언 (Dialogue)": emphasis is inverted. The question is a quiet
+// mono-tagged prompt; the answer becomes the hero — large serif on a soft-fill
+// band. Reads like a manifesto of short replies.
 export default function FaqRepliesSection() {
   const sectionRef = useRef<HTMLElement>(null);
   const [inView, setInView] = useState(false);
@@ -98,23 +105,19 @@ export default function FaqRepliesSection() {
         justifyContent: "center",
       }}
     >
-      <div
-        style={{
-          width: "100%",
-          maxWidth: 640,
-          display: "flex",
-          flexDirection: "column",
-          gap: "4.25rem",
-        }}
-      >
+      <div style={listStyle}>
         {TIMELINE.map((item, i) => (
           <div key={i}>
             <p style={qStyle}>
+              <span style={tagStyle}>Q{String(i + 1).padStart(2, "0")}</span>
               <Typed text={item.q} startDelay={item.qDelay} enabled={inView} instant={reduced} />
             </p>
-            <p style={aStyle}>
-              <Typed text={item.a} startDelay={item.aDelay} enabled={inView} instant={reduced} />
-            </p>
+            <div style={bandStyle}>
+              <span style={arrowStyle} aria-hidden>→</span>
+              <p style={aStyle}>
+                <Typed text={item.a} startDelay={item.aDelay} enabled={inView} instant={reduced} />
+              </p>
+            </div>
           </div>
         ))}
       </div>
@@ -122,28 +125,70 @@ export default function FaqRepliesSection() {
   );
 }
 
+// Inner content column. Establishes a query container so the section's clamp()
+// sizes track its OWN width (cqi) — on the full-width page cqi ≈ vw.
+const listStyle: React.CSSProperties = {
+  width: "100%",
+  maxWidth: 640,
+  containerType: "inline-size",
+  display: "flex",
+  flexDirection: "column",
+  gap: "clamp(2rem, 4.5cqi, 3rem)",
+};
+
 const qStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "baseline",
+  gap: "0.7rem",
   fontFamily: "var(--font-serif), 'Noto Serif KR', serif",
-  fontWeight: 500,
-  fontSize: "clamp(1.2rem, 2.2vw, 1.6rem)",
-  color: "var(--text-primary)",
-  lineHeight: 1.45,
-  letterSpacing: "-0.01em",
-  margin: "0 0 0.65rem",
-  textAlign: "center",
+  fontWeight: 400,
+  fontSize: "clamp(0.92rem, 1.7cqi, 1.12rem)",
+  color: "var(--text-secondary)",
+  lineHeight: 1.5,
+  letterSpacing: "-0.005em",
+  margin: "0 0 clamp(0.7rem, 1.8cqi, 1rem)",
   wordBreak: "keep-all",
   overflowWrap: "break-word",
 };
 
-const aStyle: React.CSSProperties = {
-  fontFamily: "var(--font-serif), 'Noto Serif KR', serif",
+const tagStyle: React.CSSProperties = {
+  flex: "0 0 auto",
+  whiteSpace: "nowrap",
+  fontFamily: "var(--font-mono), monospace",
+  fontSize: "0.68rem",
   fontWeight: 500,
-  fontSize: "clamp(0.9rem, 1.55vw, 1.15rem)",
-  color: "var(--text-secondary)",
-  lineHeight: 1.5,
-  letterSpacing: "-0.01em",
+  letterSpacing: "0.08em",
+  color: "var(--text-muted)",
+  transform: "translateY(-0.08em)",
+};
+
+const bandStyle: React.CSSProperties = {
+  background: "var(--surface-soft)",
+  borderRadius: 16,
+  padding: "clamp(1.3rem, 3.2cqi, 1.9rem) clamp(1.4rem, 3.5cqi, 2.1rem)",
+  display: "grid",
+  gridTemplateColumns: "auto 1fr",
+  gap: "clamp(0.7rem, 2cqi, 1.1rem)",
+  alignItems: "start",
+};
+
+const arrowStyle: React.CSSProperties = {
+  fontFamily: "var(--font-mono), monospace",
+  fontSize: "clamp(1.2rem, 2.4cqi, 1.5rem)",
+  lineHeight: 1.25,
+  color: "var(--text-muted)",
+  flex: "0 0 auto",
+};
+
+const aStyle: React.CSSProperties = {
   margin: 0,
-  textAlign: "center",
+  minWidth: 0,
+  fontFamily: "var(--font-serif), 'Noto Serif KR', serif",
+  fontWeight: 600,
+  fontSize: "clamp(1.35rem, 3cqi, 1.95rem)",
+  color: "var(--text-primary)",
+  lineHeight: 1.35,
+  letterSpacing: "-0.015em",
   wordBreak: "keep-all",
   overflowWrap: "break-word",
 };
