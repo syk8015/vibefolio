@@ -427,6 +427,32 @@ body::before {
 .vf-soft-fill:disabled { cursor: not-allowed; opacity: 0.45; }
 .vf-soft-fill[data-active="true"] { font-weight: 700; }
 
+/* Selectable soft surface — gentle hover, ink-solid persistent active.
+   Use for choices/toggles where the selection must stay visible (vs. the
+   action-style invert-on-hover of .vf-soft-fill). */
+.vf-selectable {
+  background: var(--surface-soft);
+  color: var(--text-primary);
+  border: none;
+  transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+.vf-selectable:hover:not([data-active="true"]):not(:disabled) {
+  background: var(--surface-soft-hover);
+}
+.vf-selectable[data-active="true"] {
+  background: var(--text-primary);
+  color: var(--bg);
+  font-weight: 700;
+}
+.vf-selectable:disabled { cursor: not-allowed; opacity: 0.45; }
+
+/* Per-step entrance for the project wizard — fade + gentle rise */
+@keyframes vfStepIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.vf-step-enter { animation: vfStepIn 0.34s cubic-bezier(0.22, 1, 0.36, 1); }
+
 .vf-label {
   font-family: var(--font-mono), monospace;
   font-size: 0.72rem;
@@ -455,7 +481,9 @@ body::before {
   .vf-button-ghost,
   .vf-button-danger,
   .vf-input,
+  .vf-selectable,
   .card-hover-glow {
     transition: none !important;
   }
+  .vf-step-enter { animation: none !important; }
 }

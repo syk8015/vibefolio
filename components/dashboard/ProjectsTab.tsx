@@ -1031,6 +1031,8 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
         <form ref={inlineFormRef} onSubmit={handleSubmit}
           className="flex-1 flex flex-col min-h-0 pb-6 pt-4 max-w-5xl mx-auto w-full">
 
+          {/* Step canvas — re-keyed per step so each view fades + rises in */}
+          <div key={step} className="vf-step-enter flex-1 flex flex-col min-h-0">
           {/* Step 1 — 형태 선택 (화면 2등분) */}
           {step === 1 && (
             <div className="flex-1 grid grid-cols-2 gap-3 min-h-0">
@@ -1040,7 +1042,7 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
               ] as const).map(opt => (
                 <button key={opt.id} type="button"
                   onClick={() => { setUploadMode(opt.id); setStep(2); }}
-                  className="vf-soft-fill rounded-2xl flex flex-col items-center justify-center gap-5"
+                  className="vf-selectable rounded-2xl flex flex-col items-center justify-center gap-5"
                   style={{ cursor: "pointer" }}>
                   <span style={{ fontSize: "4.5rem", lineHeight: 1 }}>{opt.emoji}</span>
                   <span className="vf-serif-display" style={{ fontSize: "1.6rem", fontWeight: 500, color: "inherit" }}>
@@ -1147,7 +1149,7 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
                     <button key={ct.id} type="button"
                       onClick={() => setForm(prev => ({ ...prev, content_type: active ? null : ct.id }))}
                       data-active={active}
-                      className="vf-soft-fill px-5 py-2.5 rounded-full text-sm"
+                      className="vf-selectable px-5 py-2.5 rounded-full text-sm"
                       style={{ fontFamily: "var(--font-nunito)", cursor: "pointer" }}>
                       {active && <span style={{ fontSize: "0.75em", marginRight: 4 }}>✓</span>}{ct.emoji} {ct.label}
                     </button>
@@ -1170,7 +1172,7 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
                   return (
                     <button key={tool.id} type="button" onClick={() => toggleTool(tool.id)}
                       data-active={active}
-                      className="vf-soft-fill flex items-center gap-1.5 px-4 py-2 rounded-full text-sm"
+                      className="vf-selectable flex items-center gap-1.5 px-4 py-2 rounded-full text-sm"
                       style={{ fontFamily: "var(--font-nunito)", cursor: "pointer" }}>
                       {active && <span style={{ fontSize: "0.75em" }}>✓</span>}
                       <AiToolLogo id={tool.id} size={14} />
@@ -1228,7 +1230,7 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
                         return (
                           <button key={m} type="button" onClick={() => setVideoMode(m)}
                             data-active={active}
-                            className="vf-soft-fill px-4 py-1.5 rounded-md text-xs"
+                            className="vf-selectable px-4 py-1.5 rounded-md text-xs"
                             style={{ fontFamily: "var(--font-nunito)", cursor: "pointer" }}>
                             {m === "file" ? "파일 업로드" : "URL"}
                           </button>
@@ -1277,11 +1279,11 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
                   <button key={opt.id} type="button"
                     onClick={() => setThumbnailMode(opt.id)}
                     data-active={active}
-                    className="vf-soft-fill rounded-2xl flex flex-col items-center justify-center gap-5"
+                    className="vf-selectable rounded-2xl flex flex-col items-center justify-center gap-5"
                     style={{ cursor: "pointer" }}>
                     <span style={{ fontSize: "4.5rem", lineHeight: 1 }}>{opt.emoji}</span>
                     <span className="vf-serif-display" style={{ fontSize: "1.6rem", fontWeight: 500, color: "inherit" }}>
-                      {active && <span style={{ fontSize: "0.6em", marginRight: 6, opacity: 0.7 }}>✓</span>}{opt.title}
+                      {opt.title}
                     </span>
                     <span style={{ fontSize: "0.9rem", color: "inherit", opacity: 0.62, fontFamily: "var(--font-nunito)", textAlign: "center", maxWidth: 260, lineHeight: 1.55 }}>
                       {opt.desc}
@@ -1340,6 +1342,7 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
               </div>
             </div>
           )}
+          </div>{/* end step canvas */}
 
           {/* Save error */}
           {saveError && (
