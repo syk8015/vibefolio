@@ -1,8 +1,9 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { cache } from "react";
+import { unstable_cache } from "next/cache";
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
+import { createPublicClient } from "@/lib/supabase/public";
 import CopyLinkButton from "@/components/CopyLinkButton";
 import PortfolioModeToggle from "@/components/PortfolioModeToggle";
 import type { Project } from "@/lib/data";
@@ -13,16 +14,39 @@ import ViewportFrame from "@/components/ViewportFrame";
 import EmbedLoginButton from "@/components/EmbedLoginButton";
 import TheaterShell from "@/components/theater/TheaterShell";
 
-const getProfile = cache(async (username: string) => {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("username", username)
-    .single();
-  if (error || !data) return null;
-  return data as Profile;
-});
+// Public portfolio data is identical for every visitor, so we cache the two
+// Supabase reads instead of hitting the DB on every pageview. A 60s window
+// keeps owner edits visibly fresh — writes happen client-side in the dashboard
+// (no server action to revalidate from), so the cache simply expires quickly.
+const getProfile = unstable_cache(
+  async (username: string) => {
+    const supabase = createPublicClient();
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("username", username)
+      .single();
+    if (error || !data) return null;
+    return data as Profile;
+  },
+  ["portfolio-profile"],
+  { revalidate: 60, tags: ["portfolio"] }
+);
+
+const getProjects = unstable_cache(
+  async (userId: string) => {
+    const supabase = createPublicClient();
+    const { data } = await supabase
+      .from("projects")
+      .select("*")
+      .eq("user_id", userId)
+      .order("sort_order", { ascending: true })
+      .order("created_at", { ascending: false });
+    return (data as DBProject[]) ?? [];
+  },
+  ["portfolio-projects"],
+  { revalidate: 60, tags: ["portfolio"] }
+);
 
 export async function generateMetadata({
   params,
@@ -97,19 +121,13 @@ export default async function UserPortfolioPage({
   const { username } = await params;
   const { embed } = await searchParams;
   const isEmbed = embed === "1";
-  const supabase = await createClient();
 
   const profile = await getProfile(username);
   if (!profile) notFound();
 
-  const { data: dbProjects } = await supabase
-    .from("projects")
-    .select("*")
-    .eq("user_id", profile.id)
-    .order("sort_order", { ascending: true })
-    .order("created_at", { ascending: false });
+  const dbProjects = await getProjects(profile.id);
 
-  const projects: Project[] = (dbProjects as DBProject[] ?? []).map((p, i) => ({
+  const projects: Project[] = dbProjects.map((p, i) => ({
     id: i + 1,
     title: p.title,
     description: p.description ?? "",
@@ -144,6 +162,9 @@ export default async function UserPortfolioPage({
         p.twitter ? `https://twitter.com/${p.twitter.replace("@", "")}` : "",
         p.github ? `https://github.com/${p.github}` : "",
       ].filter(Boolean);
+  // Auth stays dynamic & per-request (reads cookies) — only the public profile
+  // and project reads above are cached.
+  const supabase = await createClient();
   const { data: { user: rawUser } } = await supabase.auth.getUser();
   // In embed (mobile-preview iframe) mode, render as if the visitor is not
   // logged in so the owner can see what an anonymous visitor would see.
