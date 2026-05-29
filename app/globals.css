@@ -14,6 +14,8 @@
   --surface-sunken: #f7f0dd;
   --border: #ece4d2;
   --border-bright: #cfc1a3;
+  /* Soft highlight for active/selected & hover — pale fill, not the harsh ink invert */
+  --surface-active: #e3d5ae;
   /* `--blue*` var names kept for backward compat; semantics = "ink accent" */
   --blue: #1a1612;
   --blue-bright: #000000;
@@ -41,6 +43,7 @@
   --surface-sunken: #1f1a15;
   --border: #2e2620;
   --border-bright: #4a3e35;
+  --surface-active: #3d3229;
   --blue: #f4ede0;
   --blue-bright: #ffffff;
   --blue-dim: #d8cdb5;
@@ -413,7 +416,7 @@ body::before {
 }
 
 /* Soft-fill button used inside the project wizard modal.
-   Always renders with the muted surface; hover inverts to ink-on-bg. */
+   Always renders with the muted surface; hover fills with the soft highlight. */
 .vf-soft-fill {
   background: var(--surface-soft);
   color: var(--text-primary);
@@ -421,15 +424,15 @@ body::before {
   transition: background-color 0.22s ease, color 0.22s ease;
 }
 .vf-soft-fill:hover:not(:disabled) {
-  background: var(--text-primary);
-  color: var(--bg);
+  background: var(--surface-active);
+  color: var(--text-primary);
 }
 .vf-soft-fill:disabled { cursor: not-allowed; opacity: 0.45; }
 .vf-soft-fill[data-active="true"] { font-weight: 700; }
 
-/* Selectable soft surface — gentle hover, ink-solid persistent active.
+/* Selectable soft surface — gentle hover, soft-highlight persistent active.
    Use for choices/toggles where the selection must stay visible (vs. the
-   action-style invert-on-hover of .vf-soft-fill). */
+   action-style hover fill of .vf-soft-fill). */
 .vf-selectable {
   background: var(--surface-soft);
   color: var(--text-primary);
@@ -440,8 +443,8 @@ body::before {
   background: var(--surface-soft-hover);
 }
 .vf-selectable[data-active="true"] {
-  background: var(--text-primary);
-  color: var(--bg);
+  background: var(--surface-active);
+  color: var(--text-primary);
   font-weight: 700;
 }
 .vf-selectable:disabled { cursor: not-allowed; opacity: 0.45; }
