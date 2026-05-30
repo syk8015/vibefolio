@@ -219,18 +219,78 @@ async function expandUploadEntries(
   return out;
 }
 
-async function deleteProjectFiles(supabase: ReturnType<typeof createClient>, demoUrl: string) {
-  if (!isUploadedProject(demoUrl)) return;
+// supabase storage list는 한 단계만 본다. zip 업로드는 중첩 디렉터리(src/,
+// public/, ...)를 가질 수 있어서 BFS로 모든 파일 경로를 모은다.
+async function listFilesRecursive(
+  supabase: ReturnType<typeof createClient>,
+  bucket: string,
+  prefix: string,
+): Promise<string[]> {
+  const out: string[] = [];
+  const queue: string[] = [prefix];
+  while (queue.length) {
+    const dir = queue.shift()!;
+    const { data } = await supabase.storage.from(bucket).list(dir, { limit: 1000 });
+    for (const entry of data ?? []) {
+      const full = `${dir}/${entry.name}`;
+      // 디렉터리 placeholder는 id=null로 돌아온다.
+      if (entry.id === null) queue.push(full);
+      else out.push(full);
+    }
+  }
+  return out;
+}
+
+// project-files public URL에서 스토리지 객체 경로를 뽑는다.
+// 외부 URL·picsum·thum.io·빈 값이면 우리 객체가 아니므로 null.
+const PUBLIC_OBJECT_PREFIX = "/storage/v1/object/public/project-files/";
+function storagePathFromPublicUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  const i = url.indexOf(PUBLIC_OBJECT_PREFIX);
+  if (i === -1) return null;
+  const path = url.slice(i + PUBLIC_OBJECT_PREFIX.length);
+  return path ? decodeURIComponent(path) : null;
+}
+
+// 프로젝트가 소유한 모든 스토리지 객체 제거: 업로드 사이트 폴더
+// ({user}/{project}/… — 자동 시연 mp4도 여기 있음) + 폴더 밖에 따로 사는
+// 업로드 영상({user}/videos/…)과 업로드 썸네일({user}/thumbnails/…).
+async function deleteProjectStorage(
+  supabase: ReturnType<typeof createClient>,
+  project: Pick<DBProject, "demo_url" | "video_url" | "thumbnail">,
+) {
   try {
-    const parts = demoUrl.replace("/api/preview/", "").split("/");
-    const userId = parts[0];
-    const projectId = parts[1];
-    if (!userId || !projectId) return;
-    const folderPath = `${userId}/${projectId}`;
-    const { data: files } = await supabase.storage.from("project-files").list(folderPath, { limit: 1000 });
-    if (!files?.length) return;
-    await supabase.storage.from("project-files").remove(files.map(f => `${folderPath}/${f.name}`));
+    const paths: string[] = [];
+    if (isUploadedProject(project.demo_url)) {
+      const [userId, projectId] = project.demo_url.replace("/api/preview/", "").split("/");
+      if (userId && projectId) {
+        paths.push(...(await listFilesRecursive(supabase, "project-files", `${userId}/${projectId}`)));
+      }
+    }
+    const videoPath = storagePathFromPublicUrl(project.video_url);
+    if (videoPath) paths.push(videoPath);
+    const thumbPath = storagePathFromPublicUrl(project.thumbnail);
+    if (thumbPath) paths.push(thumbPath);
+    if (paths.length) await supabase.storage.from("project-files").remove(paths);
   } catch { /* ignore */ }
+}
+
+// 수정 저장 후, 교체·제거된 이전 업로드 영상/썸네일 객체를 청소한다.
+// DB 업데이트가 커밋된 뒤 old↔new를 비교하므로(업로드 시점 X) 저장 안 하고
+// 닫는 footgun이 없다. thum.io·picsum 등 우리 객체가 아닌 값은 null이라 무시.
+async function deleteSwappedAssets(
+  supabase: ReturnType<typeof createClient>,
+  prev: Pick<DBProject, "video_url" | "thumbnail">,
+  next: Pick<DBProject, "video_url" | "thumbnail">,
+) {
+  const stale: string[] = [];
+  const oldVideo = storagePathFromPublicUrl(prev.video_url);
+  if (oldVideo && oldVideo !== storagePathFromPublicUrl(next.video_url)) stale.push(oldVideo);
+  const oldThumb = storagePathFromPublicUrl(prev.thumbnail);
+  if (oldThumb && oldThumb !== storagePathFromPublicUrl(next.thumbnail)) stale.push(oldThumb);
+  if (stale.length) {
+    try { await supabase.storage.from("project-files").remove(stale); } catch { /* ignore */ }
+  }
 }
 
 export default function ProjectsTab({ user }: { user: User }) {
@@ -322,7 +382,7 @@ export default function ProjectsTab({ user }: { user: User }) {
     if (!confirm("이 프로젝트를 삭제할까요?")) return;
     const supabase = createClient();
     const project = projects.find(p => p.id === id);
-    if (project?.demo_url) await deleteProjectFiles(supabase, project.demo_url);
+    if (project) await deleteProjectStorage(supabase, project);
     await supabase.from("projects").delete().eq("id", id);
     setProjects(prev => prev.filter(p => p.id !== id));
   }
@@ -373,10 +433,14 @@ export default function ProjectsTab({ user }: { user: User }) {
 
   async function handleEdit(id: string, form: ProjectForm) {
     const supabase = createClient();
+    const before = projects.find(p => p.id === id);
     const { data, error } = await supabase
       .from("projects").update(form).eq("id", id).select().single();
     if (error) throw new Error(error.message);
-    if (data) setProjects(prev => prev.map(p => p.id === id ? (data as DBProject) : p));
+    if (data) {
+      setProjects(prev => prev.map(p => p.id === id ? (data as DBProject) : p));
+      if (before) await deleteSwappedAssets(supabase, before, data as DBProject);
+    }
     setEditProject(null);
   }
 

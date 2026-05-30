@@ -246,10 +246,14 @@ export const buildAndRecord = task({
     // 앞쪽에 들어감. 콘텐츠가 보이는 구간은 스크롤 루프(끝쪽). -sseof로
     // 끝에서 RECORD_DURATION_SEC 거꾸로 가서 마지막 부분만 잘라낸다.
     const fadeOutStart = (RECORD_DURATION_SEC - 0.5).toFixed(2);
+    // Capture stays 1920×1080 (correct desktop layout), but the demo only ever
+    // plays in a small Theater card — so downscale to 720p and lean on a higher
+    // CRF + slower preset. This trims ~60-70% off the file with no perceptible
+    // loss at card size. Compute time is free here (async Trigger task).
     const ffmpegCmd =
       `cd /tmp/rec && ffmpeg -y -sseof -${RECORD_DURATION_SEC} -i demo.webm ` +
-      `-vf "fade=t=in:st=0:d=0.5,fade=t=out:st=${fadeOutStart}:d=0.5" ` +
-      `-c:v libx264 -preset veryfast -crf 23 -pix_fmt yuv420p -an ` +
+      `-vf "scale=-2:720,fade=t=in:st=0:d=0.5,fade=t=out:st=${fadeOutStart}:d=0.5" ` +
+      `-c:v libx264 -preset slow -crf 28 -pix_fmt yuv420p -an ` +
       `-movflags +faststart demo.mp4`;
     const ffmpegResult = await sandbox.commands.run(ffmpegCmd, {
       timeoutMs: 120_000,
