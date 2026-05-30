@@ -779,8 +779,10 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
   const [uploadMode, setUploadMode] = useState<"url" | "files">("url");
   const [form, setForm] = useState({ ...initialForm });
   const [step, setStep] = useState(1);
-  const [thumbnailMode, setThumbnailMode] = useState<"auto" | "manual">("auto");
-  // Wizard length: 7 steps for auto thumbnail, 8 when a manual upload step is added
+  // null until the user actively picks on step 7 — prevents the final save
+  // button from arming itself before a choice is made.
+  const [thumbnailMode, setThumbnailMode] = useState<"auto" | "manual" | null>(null);
+  // Wizard length: 7 steps for auto/unchosen thumbnail, 8 when manual upload is added
   const TOTAL_STEPS = thumbnailMode === "manual" ? 8 : 7;
   const [selectedTools, setSelectedTools] = useState<string[]>(initialForm.tags);
   const [showAllTools, setShowAllTools] = useState(false);
@@ -992,6 +994,41 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
 
   // ── Inline mode: in-place takeover of the ProjectsTab content area ──
   if (inline) {
+    // Whether the current optional step (4·5·6) has something chosen.
+    const hasStepSelection =
+      step === 4 ? form.content_type !== null :
+      step === 5 ? selectedTools.length > 0 :
+      step === 6 ? !!form.video_url :
+      false;
+
+    // "다음" is blocked until the step's requirement is met. On the optional
+    // steps that means: a selection must exist (otherwise the only way forward
+    // is the 건너뛰기 button).
+    const nextDisabled =
+      (step === 2 && uploadMode === "url" && !isValidHttpUrl(form.demo_url)) ||
+      (step === 2 && uploadMode === "files" && !uploadDone) ||
+      (step === 3 && !form.title) ||
+      ((step === 4 || step === 5 || step === 6) && !hasStepSelection) ||
+      uploading;
+
+    // "건너뛰기" is only offered when nothing is chosen; once the user picks
+    // something they must use 다음 (the two are mutually exclusive).
+    const skipDisabled = hasStepSelection;
+
+    // The final save must wait for an explicit thumbnail-mode choice on step 7.
+    const submitDisabled = saving || uploading || (step === 7 && thumbnailMode === null);
+
+    // Block the form's implicit Enter-submit on every step but the last; on
+    // intermediate steps a valid Enter advances instead of saving.
+    function handleFormKeyDown(e: React.KeyboardEvent<HTMLFormElement>) {
+      if (e.key !== "Enter") return;
+      if ((e.target as HTMLElement).tagName === "TEXTAREA") return; // allow newlines
+      if (step < TOTAL_STEPS) {
+        e.preventDefault();
+        if (!nextDisabled) setStep(s => s + 1);
+      }
+    }
+
     return (
       <div className="relative flex flex-col" style={{ minHeight: "calc(100vh - 220px)" }}>
         {/* Top progress bar — segmented hairline */}
@@ -1028,7 +1065,7 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
           )}
         </div>
 
-        <form ref={inlineFormRef} onSubmit={handleSubmit}
+        <form ref={inlineFormRef} onSubmit={handleSubmit} onKeyDown={handleFormKeyDown}
           className="flex-1 flex flex-col min-h-0 pb-6 pt-4 max-w-5xl mx-auto w-full">
 
           {/* Step canvas — re-keyed per step so each view fades + rises in */}
@@ -1353,54 +1390,64 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
           )}
 
           {/* Navigation — hidden on step 1 (click-to-advance cards) */}
-          {step !== 1 && (() => {
-            const nextDisabled =
-              (step === 2 && uploadMode === "url" && !isValidHttpUrl(form.demo_url)) ||
-              (step === 2 && uploadMode === "files" && !uploadDone) ||
-              (step === 3 && !form.title) ||
-              uploading;
-            return (
-              <div className="flex gap-2 mt-5">
-                {step > 1 && (
-                  <button type="button" onClick={() => setStep(s => s - 1)}
-                    className="vf-soft-fill rounded-full"
-                    style={{ padding: "0.7rem 1.3rem", fontFamily: "var(--font-nunito)", fontSize: "0.9rem", fontWeight: 500, cursor: "pointer" }}>
-                    ← 이전
-                  </button>
-                )}
-                <div className="flex-1" />
-                {/* 건너뛰기 — 콘텐츠 유형(4), 개발 도구(5), 영상(6)에서만 */}
-                {(step === 4 || step === 5 || step === 6) && (
-                  <button type="button" onClick={() => setStep(s => s + 1)}
-                    className="vf-soft-fill rounded-full"
-                    style={{ padding: "0.7rem 1.3rem", fontFamily: "var(--font-nunito)", fontSize: "0.9rem", fontWeight: 500, cursor: "pointer" }}>
-                    건너뛰기
-                  </button>
-                )}
-                {step < TOTAL_STEPS ? (
-                  <button type="button"
-                    onClick={() => setStep(s => s + 1)}
-                    disabled={nextDisabled}
-                    className="vf-soft-fill rounded-full"
-                    style={{
-                      padding: "0.7rem 1.6rem",
-                      fontFamily: "var(--font-nunito)",
-                      fontSize: "0.9rem",
-                      fontWeight: 600,
-                      cursor: nextDisabled ? "not-allowed" : "pointer",
-                    }}>
-                    다음 →
-                  </button>
-                ) : (
-                  <button type="submit" disabled={saving || uploading}
-                    className="vf-soft-fill rounded-full"
-                    style={{ padding: "0.7rem 1.6rem", fontFamily: "var(--font-nunito)", fontSize: "0.9rem", fontWeight: 600, cursor: (saving || uploading) ? "not-allowed" : "pointer" }}>
-                    {saving ? "저장 중…" : submitLabel}
-                  </button>
-                )}
-              </div>
-            );
-          })()}
+          {step !== 1 && (
+            <div className="flex gap-2 mt-5">
+              {step > 1 && (
+                <button type="button" onClick={() => setStep(s => s - 1)}
+                  className="vf-soft-fill rounded-full"
+                  style={{ padding: "0.7rem 1.3rem", fontFamily: "var(--font-nunito)", fontSize: "0.9rem", fontWeight: 500, cursor: "pointer" }}>
+                  ← 이전
+                </button>
+              )}
+              <div className="flex-1" />
+              {/* 건너뛰기 — 콘텐츠 유형(4), 개발 도구(5), 영상(6)에서만.
+                  무언가를 선택하면 비활성화되어 다음 버튼만 누를 수 있다. */}
+              {(step === 4 || step === 5 || step === 6) && (
+                <button type="button" onClick={() => setStep(s => s + 1)}
+                  disabled={skipDisabled}
+                  className="vf-soft-fill rounded-full"
+                  style={{
+                    padding: "0.7rem 1.3rem",
+                    fontFamily: "var(--font-nunito)",
+                    fontSize: "0.9rem",
+                    fontWeight: 500,
+                    opacity: skipDisabled ? 0.4 : 1,
+                    cursor: skipDisabled ? "not-allowed" : "pointer",
+                  }}>
+                  건너뛰기
+                </button>
+              )}
+              {step < TOTAL_STEPS ? (
+                <button type="button"
+                  onClick={() => setStep(s => s + 1)}
+                  disabled={nextDisabled}
+                  className="vf-soft-fill rounded-full"
+                  style={{
+                    padding: "0.7rem 1.6rem",
+                    fontFamily: "var(--font-nunito)",
+                    fontSize: "0.9rem",
+                    fontWeight: 600,
+                    opacity: nextDisabled ? 0.4 : 1,
+                    cursor: nextDisabled ? "not-allowed" : "pointer",
+                  }}>
+                  다음 →
+                </button>
+              ) : (
+                <button type="submit" disabled={submitDisabled}
+                  className="vf-soft-fill rounded-full"
+                  style={{
+                    padding: "0.7rem 1.6rem",
+                    fontFamily: "var(--font-nunito)",
+                    fontSize: "0.9rem",
+                    fontWeight: 600,
+                    opacity: submitDisabled ? 0.4 : 1,
+                    cursor: submitDisabled ? "not-allowed" : "pointer",
+                  }}>
+                  {saving ? "저장 중…" : submitLabel}
+                </button>
+              )}
+            </div>
+          )}
         </form>
       </div>
     );
