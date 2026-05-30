@@ -1,6 +1,6 @@
 import { Sandbox } from "e2b";
 
-const sandbox = await Sandbox.create("vibefolio-builder", { timeoutMs: 90_000 });
+const sandbox = await Sandbox.create("nookframe-builder", { timeoutMs: 90_000 });
 console.log("sandbox:", sandbox.sandboxId);
 
 const PREFIX = "export PATH=/opt/node/bin:$PATH && ";

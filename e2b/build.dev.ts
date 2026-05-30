@@ -2,7 +2,7 @@ import { Template, defaultBuildLogger } from "e2b";
 import { template } from "./template";
 
 async function main() {
-  const info = await Template.build(template, "vibefolio-builder", {
+  const info = await Template.build(template, "nookframe-builder", {
     cpuCount: 2,
     memoryMB: 2048,
     onBuildLogs: defaultBuildLogger(),

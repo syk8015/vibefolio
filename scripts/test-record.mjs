@@ -4,7 +4,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 const TARGET_URL = process.argv[2] || "https://example.com";
 const DURATION = process.argv[3] || "5";
 
-const sandbox = await Sandbox.create("vibefolio-builder", { timeoutMs: 180_000 });
+const sandbox = await Sandbox.create("nookframe-builder", { timeoutMs: 180_000 });
 console.log("sandbox:", sandbox.sandboxId);
 
 const helperSrc = readFileSync("e2b/record-helper.js", "utf8");

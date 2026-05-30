@@ -120,7 +120,7 @@ export const buildAndRecord = task({
       );
     }
 
-    const sandbox = await Sandbox.create("vibefolio-builder", {
+    const sandbox = await Sandbox.create("nookframe-builder", {
       timeoutMs: SANDBOX_TIMEOUT_MS,
     });
     logger.log("Sandbox created", { sandboxId: sandbox.sandboxId });
