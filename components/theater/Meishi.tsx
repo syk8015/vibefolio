@@ -299,7 +299,7 @@ export function MeishiBig({
             textDecoration: "none",
           }}
         >
-          vibefolio.app/{profile.username}
+          nookframe.com/{profile.username}
         </Link>
         <span
           style={{

@@ -1,4 +1,4 @@
--- Vibefolio DB Schema
+-- Nookframe DB Schema
 -- Run this in Supabase Dashboard > SQL Editor
 
 -- 1. 프로필 테이블

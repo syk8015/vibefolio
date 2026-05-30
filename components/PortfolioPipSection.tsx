@@ -288,7 +288,7 @@ export default function PortfolioPipSection({ profiles }: Props) {
             </div>
             <div style={{ flex: 1, height: 26, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, display: "flex", alignItems: "center", padding: "0 10px", fontSize: "0.7rem", fontFamily: "monospace", color: "rgba(255,255,255,0.45)" }}>
               <span style={{ color: "rgba(255,255,255,0.25)", marginRight: 4 }}>🔒</span>
-              vibefolio.vercel.app/<span style={{ color: "#e8c977" }}>{currentUsername}</span>
+              nookframe.com/<span style={{ color: "#e8c977" }}>{currentUsername}</span>
             </div>
           </div>
 

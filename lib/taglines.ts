@@ -1,5 +1,5 @@
 /**
- * Vibefolio 회전 카피 풀.
+ * Nookframe 회전 카피 풀.
  * {N} 토큰은 실제 사용자 수로 치환됨.
  */
 export const taglines: string[] = [

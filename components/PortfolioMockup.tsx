@@ -56,7 +56,7 @@ export default function PortfolioMockup({ url, displayUsername }: Props) {
           }}
         >
           <span style={{ color: "rgba(255,255,255,0.25)", marginRight: 4 }}>🔒</span>
-          vibefolio.com/
+          nookframe.com/
           <span style={{ color: "#e8c977" }}>{displayUsername}</span>
         </div>
       </div>

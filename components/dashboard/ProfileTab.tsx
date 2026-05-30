@@ -227,7 +227,7 @@ export default function ProfileTab({ user }: { user: User }) {
             pattern="[a-zA-Z0-9_-]+" title="영문, 숫자, _-만 사용 가능해요" />
         </div>
         <p className="text-xs mt-2 vf-mono" style={{ color: "var(--text-muted)", letterSpacing: "0.02em" }}>
-          vibefolio.com/<span style={{ color: "var(--text-secondary)" }}>{form.username || "username"}</span>
+          nookframe.com/<span style={{ color: "var(--text-secondary)" }}>{form.username || "username"}</span>
         </p>
       </div>
 

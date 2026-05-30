@@ -57,7 +57,7 @@ export default function ProjectModal({ projects, currentIndex, onClose, onNaviga
         setIframeState("loading");
         prevProjectId.current = project.id;
       }
-      window.history.pushState({ vibefolio: "modal" }, "");
+      window.history.pushState({ nookframe: "modal" }, "");
       requestAnimationFrame(() => setVisible(true));
     } else {
       setVisible(false);

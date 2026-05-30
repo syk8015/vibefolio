@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "이용약관 | Vibefolio",
+  title: "이용약관 | Nookframe",
 };
 
 export default function TermsPage() {
@@ -11,7 +11,7 @@ export default function TermsPage() {
       <nav className="flex items-center justify-between px-6 md:px-12 py-4" style={{ borderBottom: "1px solid var(--border)" }}>
         <Link href="/" className="flex items-center gap-2" style={{ textDecoration: "none" }}>
           <div className="w-2 h-2 rounded-full" style={{ background: "var(--blue)", boxShadow: "0 0 8px var(--blue)" }} />
-          <span className="font-black text-base" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}>Vibefolio</span>
+          <span className="font-black text-base" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}>Nookframe</span>
         </Link>
       </nav>
 
@@ -26,12 +26,12 @@ export default function TermsPage() {
         <div className="flex flex-col gap-10" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", fontSize: "0.9rem", lineHeight: 1.9 }}>
 
           <Section title="제1조 (목적)">
-            이 약관은 Vibefolio(이하 &quot;서비스&quot;)가 제공하는 포트폴리오 명함 서비스의 이용 조건 및 절차, 이용자와 서비스 운영자의 권리·의무 및 책임 사항을 규정함을 목적으로 합니다.
+            이 약관은 Nookframe(이하 &quot;서비스&quot;)가 제공하는 포트폴리오 명함 서비스의 이용 조건 및 절차, 이용자와 서비스 운영자의 권리·의무 및 책임 사항을 규정함을 목적으로 합니다.
           </Section>
 
           <Section title="제2조 (용어의 정의)">
             <ul className="list-disc pl-5 flex flex-col gap-1">
-              <li>&quot;서비스&quot;란 Vibefolio가 제공하는 포트폴리오 생성·공유 플랫폼을 의미합니다.</li>
+              <li>&quot;서비스&quot;란 Nookframe가 제공하는 포트폴리오 생성·공유 플랫폼을 의미합니다.</li>
               <li>&quot;이용자&quot;란 이 약관에 동의하고 서비스를 이용하는 자를 의미합니다.</li>
               <li>&quot;콘텐츠&quot;란 이용자가 서비스에 등록한 프로젝트, 이미지, 링크, 텍스트 등 일체의 정보를 의미합니다.</li>
             </ul>
@@ -103,7 +103,7 @@ export default function TermsPage() {
       <footer className="flex items-center justify-center gap-6 py-8" style={{ borderTop: "1px solid var(--border)" }}>
         <Link href="/terms" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem", textDecoration: "none" }}>이용약관</Link>
         <Link href="/privacy" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem", textDecoration: "none" }}>개인정보처리방침</Link>
-        <span style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem" }}>© {new Date().getFullYear()} Vibefolio</span>
+        <span style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem" }}>© {new Date().getFullYear()} Nookframe</span>
       </footer>
     </main>
   );

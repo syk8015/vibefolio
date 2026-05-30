@@ -54,7 +54,7 @@ export default function DashboardClient({ user }: { user: User }) {
         {/* Logo */}
         <Link href="/" style={{ textDecoration: "none", display: "flex", alignItems: "center" }}>
           <span style={{ color: "var(--text-primary)", fontFamily: "var(--font-mono), monospace", fontWeight: 500, fontSize: "0.95rem", letterSpacing: "-0.01em" }}>
-            vibefolio
+            nookframe
           </span>
         </Link>
 
@@ -142,7 +142,7 @@ export default function DashboardClient({ user }: { user: User }) {
             대시보드
           </h1>
           <p className="text-sm" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-mono), monospace", letterSpacing: "0.02em" }}>
-            vibefolio.com/<span style={{ color: "var(--text-primary)" }}>{username}</span>
+            nookframe.com/<span style={{ color: "var(--text-primary)" }}>{username}</span>
           </p>
         </div>
 

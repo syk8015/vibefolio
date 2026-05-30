@@ -5,7 +5,7 @@ import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 
 const BASE_CSS = `/* ============================================================
-   Vibefolio — 명함 페이지 베이스 CSS
+   Nookframe — 명함 페이지 베이스 CSS
    아래 코드를 자유롭게 수정하세요.
    ============================================================
 
@@ -174,7 +174,7 @@ export default function CustomTab({ user }: { user: User }) {
           </p>
           <p className="text-xs" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
             {customMode
-              ? <>vibefolio.com/<span className="vf-mono" style={{ color: "var(--text-secondary)" }}>{username}</span> 에 커스텀 CSS가 적용중이에요</>
+              ? <>nookframe.com/<span className="vf-mono" style={{ color: "var(--text-secondary)" }}>{username}</span> 에 커스텀 CSS가 적용중이에요</>
               : "커스텀 모드를 켜면 아래 CSS가 명함에 반영돼요"}
           </p>
         </div>

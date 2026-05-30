@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "개인정보처리방침 | Vibefolio",
+  title: "개인정보처리방침 | Nookframe",
 };
 
 export default function PrivacyPage() {
@@ -11,7 +11,7 @@ export default function PrivacyPage() {
       <nav className="flex items-center justify-between px-6 md:px-12 py-4" style={{ borderBottom: "1px solid var(--border)" }}>
         <Link href="/" className="flex items-center gap-2" style={{ textDecoration: "none" }}>
           <div className="w-2 h-2 rounded-full" style={{ background: "var(--blue)", boxShadow: "0 0 8px var(--blue)" }} />
-          <span className="font-black text-base" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}>Vibefolio</span>
+          <span className="font-black text-base" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}>Nookframe</span>
         </Link>
       </nav>
 
@@ -26,7 +26,7 @@ export default function PrivacyPage() {
         <div className="flex flex-col gap-10" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", fontSize: "0.9rem", lineHeight: 1.9 }}>
 
           <p>
-            Vibefolio(이하 &quot;서비스&quot;)는 이용자의 개인정보를 중요하게 여기며, 「개인정보 보호법」 및 관련 법령을 준수합니다.
+            Nookframe(이하 &quot;서비스&quot;)는 이용자의 개인정보를 중요하게 여기며, 「개인정보 보호법」 및 관련 법령을 준수합니다.
             본 방침은 서비스가 어떤 개인정보를 수집하고, 어떻게 활용하는지 안내합니다.
           </p>
 
@@ -90,7 +90,7 @@ export default function PrivacyPage() {
           <Section title="제8조 (개인정보 보호책임자)">
             개인정보 보호에 관한 문의, 불만 처리, 피해 구제 등에 관한 사항은 아래 담당자에게 연락해 주세요.
             <div className="mt-3 p-4 rounded-xl" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
-              <p><strong style={{ color: "var(--text-primary)" }}>개인정보 보호책임자:</strong> Vibefolio 운영팀</p>
+              <p><strong style={{ color: "var(--text-primary)" }}>개인정보 보호책임자:</strong> Nookframe 운영팀</p>
               <p><strong style={{ color: "var(--text-primary)" }}>이메일:</strong>{" "}
                 <a href="mailto:vivestarter@gmail.com" style={{ color: "var(--blue)" }}>vivestarter@gmail.com</a>
               </p>
@@ -108,7 +108,7 @@ export default function PrivacyPage() {
       <footer className="flex items-center justify-center gap-6 py-8" style={{ borderTop: "1px solid var(--border)" }}>
         <Link href="/terms" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem", textDecoration: "none" }}>이용약관</Link>
         <Link href="/privacy" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem", textDecoration: "none" }}>개인정보처리방침</Link>
-        <span style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem" }}>© {new Date().getFullYear()} Vibefolio</span>
+        <span style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem" }}>© {new Date().getFullYear()} Nookframe</span>
       </footer>
     </main>
   );

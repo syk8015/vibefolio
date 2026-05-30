@@ -58,22 +58,22 @@ export async function generateMetadata({
   if (!profile) return {};
 
   const name = profile.name || username;
-  const description = profile.bio || `${name}의 Vibefolio — 바이브코더 포트폴리오`;
-  const url = `https://vibefolio.vercel.app/${username}`;
+  const description = profile.bio || `${name}의 Nookframe — 바이브코더 포트폴리오`;
+  const url = `https://nookframe.com/${username}`;
 
   return {
-    title: `${name} | Vibefolio`,
+    title: `${name} | Nookframe`,
     description,
     openGraph: {
-      title: `${name} | Vibefolio`,
+      title: `${name} | Nookframe`,
       description,
       url,
       type: "profile",
-      siteName: "Vibefolio",
+      siteName: "Nookframe",
     },
     twitter: {
       card: "summary_large_image",
-      title: `${name} | Vibefolio`,
+      title: `${name} | Nookframe`,
       description,
     },
   };
@@ -194,7 +194,7 @@ export default async function UserPortfolioPage({
               className="font-black text-base"
               style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}
             >
-              Vibefolio
+              Nookframe
             </span>
           </div>
         ) : (
@@ -207,7 +207,7 @@ export default async function UserPortfolioPage({
               className="font-black text-base"
               style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}
             >
-              Vibefolio
+              Nookframe
             </span>
           </Link>
         )}
@@ -309,7 +309,7 @@ export default async function UserPortfolioPage({
             avatar_url: p.avatar_url,
             bio: p.bio,
           }}
-          profileUrl={`https://vibefolio.vercel.app/${p.username}`}
+          profileUrl={`https://nookframe.com/${p.username}`}
           projects={projects}
           initialActiveIndex={initialActiveIndex}
           socialLinks={socialLinks}
@@ -324,7 +324,7 @@ export default async function UserPortfolioPage({
         <Link href="/terms" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem", textDecoration: "none" }}>이용약관</Link>
         <Link href="/privacy" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem", textDecoration: "none" }}>개인정보처리방침</Link>
         <a href="mailto:vivestarter@gmail.com" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem", textDecoration: "none" }}>문의</a>
-        <span style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem" }}>© {new Date().getFullYear()} Vibefolio</span>
+        <span style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem" }}>© {new Date().getFullYear()} Nookframe</span>
       </footer>
 
       {/* Mode toggle — visible to all visitors when custom CSS exists */}

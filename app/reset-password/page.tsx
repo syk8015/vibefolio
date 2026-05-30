@@ -121,7 +121,7 @@ export default function ResetPasswordPage() {
       <nav className="flex items-center justify-between px-4 md:px-8 py-4 md:py-5">
         <Link href="/" style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: "8px" }}>
           <div className="w-2 h-2 rounded-full" style={{ background: "var(--blue)", boxShadow: "0 0 8px var(--blue)" }} />
-          <span className="font-black text-base" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}>Vibefolio</span>
+          <span className="font-black text-base" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}>Nookframe</span>
         </Link>
       </nav>
 

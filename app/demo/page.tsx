@@ -24,7 +24,7 @@ export default function Home() {
             className="text-sm tracking-[0.25em] uppercase font-medium"
             style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}
           >
-            Vibefolio
+            Nookframe
           </span>
         </div>
         <span
@@ -123,7 +123,7 @@ export default function Home() {
           className="text-xs tracking-widest uppercase"
           style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}
         >
-          Vibefolio · {new Date().getFullYear()}
+          Nookframe · {new Date().getFullYear()}
         </p>
       </footer>
     </main>

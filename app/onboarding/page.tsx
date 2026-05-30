@@ -119,7 +119,7 @@ export default function OnboardingPage() {
       <div className="flex items-center gap-2 mb-10">
         <div className="w-2 h-2 rounded-full" style={{ background: "var(--blue)", boxShadow: "0 0 8px var(--blue)" }} />
         <span className="font-black text-base" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}>
-          Vibefolio
+          Nookframe
         </span>
       </div>
 
@@ -185,7 +185,7 @@ export default function OnboardingPage() {
                 {usernameStatus === "taken" && "✗ 이미 사용 중이에요"}
                 {usernameStatus === "invalid" && "✗ 영문, 숫자, _, -만 사용 가능해요 (2자 이상)"}
                 {(usernameStatus === "idle" || usernameStatus === "checking") && (
-                  <>vibefolio.vercel.app/<span style={{ color: "var(--blue)" }}>{form.username}</span></>
+                  <>nookframe.com/<span style={{ color: "var(--blue)" }}>{form.username}</span></>
                 )}
               </p>
             )}

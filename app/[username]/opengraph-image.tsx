@@ -118,7 +118,7 @@ export default async function Image({
             letterSpacing: "-0.01em",
           }}
         >
-          vibefolio
+          nookframe
         </div>
       </div>
     ),
