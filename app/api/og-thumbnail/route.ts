@@ -1,8 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-
-function screenshotFallback(url: string) {
-  return `https://image.thum.io/get/width/1200/crop/630/${url}`;
-}
+import { screenshotUrl } from "@/lib/thumbnail";
 
 function isSafeUrl(url: string): boolean {
   try {
@@ -34,7 +31,7 @@ export async function POST(req: NextRequest) {
       signal: AbortSignal.timeout(8000),
     });
 
-    if (!res.ok) return NextResponse.json({ imageUrl: screenshotFallback(url) });
+    if (!res.ok) return NextResponse.json({ imageUrl: screenshotUrl(url) });
 
     const html = await res.text();
 
@@ -54,8 +51,8 @@ export async function POST(req: NextRequest) {
     }
 
     // No og:image — fall back to screenshot
-    return NextResponse.json({ imageUrl: screenshotFallback(url) });
+    return NextResponse.json({ imageUrl: screenshotUrl(url) });
   } catch {
-    return NextResponse.json({ imageUrl: url ? screenshotFallback(url) : null });
+    return NextResponse.json({ imageUrl: url ? screenshotUrl(url) : null });
   }
 }

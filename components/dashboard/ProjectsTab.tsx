@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import ProjectCard from "@/components/ProjectCard";
 import type { Project } from "@/lib/data";
 import { detectDemoSource } from "@/lib/demoSource";
+import { screenshotUrl } from "@/lib/thumbnail";
 
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 
@@ -914,7 +915,6 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
     const supabase = createClient();
     const projectId = crypto.randomUUID();
     let indexHtmlStoragePath: string | null = null;
-    let thumbnailStoragePath: string | null = null;
 
     for (let i = 0; i < entries.length; i++) {
       const { relativePath, data } = entries[i];
@@ -926,19 +926,12 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
         if (relativePath === "index.html" || (relativePath.endsWith(".html") && !indexHtmlStoragePath)) {
           indexHtmlStoragePath = storagePath;
         }
-        if (!thumbnailStoragePath && /\.(jpe?g|png|gif|webp|svg)$/i.test(relativePath)) {
-          thumbnailStoragePath = storagePath;
-        }
       }
       setUploadProgress(Math.round(((i + 1) / entries.length) * 100));
     }
 
     if (indexHtmlStoragePath) {
       setForm(prev => ({ ...prev, demo_url: `/api/preview/${indexHtmlStoragePath}` }));
-    }
-    if (thumbnailStoragePath && !form.thumbnail) {
-      const { data } = supabase.storage.from("project-files").getPublicUrl(thumbnailStoragePath);
-      setForm(prev => ({ ...prev, thumbnail: data.publicUrl }));
     }
     setUploading(false);
     setUploadDone(true);
@@ -972,18 +965,28 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
     setSaveError("");
     try {
       let finalForm = { ...form, tags: selectedTools } as ProjectForm;
-      // Auto-fetch OG thumbnail only for external URLs (not uploaded files)
-      const isUpload = finalForm.demo_url?.startsWith("/api/preview/");
-      if (!finalForm.thumbnail && finalForm.demo_url && !isUpload) {
-        try {
-          const res = await fetch("/api/og-thumbnail", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ url: finalForm.demo_url }),
-          });
-          const { imageUrl } = await res.json();
-          if (imageUrl) finalForm = { ...finalForm, thumbnail: imageUrl };
-        } catch { /* ignore */ }
+      // 썸네일 자동 생성 (사용자가 직접 올린 게 없을 때만).
+      if (!finalForm.thumbnail && finalForm.demo_url) {
+        const isUpload = finalForm.demo_url.startsWith("/api/preview/");
+        if (isUpload) {
+          // 업로드 프로젝트도 외부 URL과 동일하게 thum.io로 실제 화면을 찍는다.
+          // preview 경로는 상대 URL이라 thum.io가 접근할 수 있게 절대 URL로 변환.
+          finalForm = {
+            ...finalForm,
+            thumbnail: screenshotUrl(`${window.location.origin}${finalForm.demo_url}`),
+          };
+        } else {
+          // 외부 URL: og:image가 있으면 그걸, 없으면 thum.io 스크린샷 fallback.
+          try {
+            const res = await fetch("/api/og-thumbnail", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ url: finalForm.demo_url }),
+            });
+            const { imageUrl } = await res.json();
+            if (imageUrl) finalForm = { ...finalForm, thumbnail: imageUrl };
+          } catch { /* ignore */ }
+        }
       }
       await onSubmit(finalForm);
     } catch (err) {
