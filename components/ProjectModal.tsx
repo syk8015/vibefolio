@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
 import type { Project } from "@/lib/data";
+import { toPreviewUrl } from "@/lib/previewOrigin";
 
 interface Props {
   projects: Project[];
@@ -295,7 +296,7 @@ export default function ProjectModal({ projects, currentIndex, onClose, onNaviga
 
                 <iframe
                   key={project.id}
-                  src={project.demoUrl}
+                  src={toPreviewUrl(project.demoUrl)}
                   className="w-full h-full border-0"
                   onLoad={() => { if (timeoutRef.current) clearTimeout(timeoutRef.current); setIframeState("loaded"); }}
                   sandbox="allow-scripts allow-same-origin allow-forms allow-popups"

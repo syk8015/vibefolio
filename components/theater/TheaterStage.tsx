@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import Image from "next/image";
 import type { Project } from "@/lib/data";
 import { detectVideoKind, getYouTubeEmbedUrl, getVimeoEmbedUrl } from "@/lib/video";
+import { toPreviewUrl } from "@/lib/previewOrigin";
 
 function isFileUpload(url: string | undefined): boolean {
   return !!url && url.startsWith("/api/preview/");
@@ -12,7 +13,8 @@ function isFileUpload(url: string | undefined): boolean {
 function safeHref(url: string | undefined): string | undefined {
   if (!url) return undefined;
   if (url.startsWith("https://") || url.startsWith("http://")) return url;
-  if (url.startsWith("/api/preview/")) return url;
+  // Uploaded previews open on the sandbox origin, never under the app origin.
+  if (url.startsWith("/api/preview/")) return toPreviewUrl(url);
   return undefined;
 }
 
@@ -36,7 +38,7 @@ function LivePreview({ project }: { project: Project }) {
   if (isFile && project.demoUrl) {
     return (
       <iframe
-        src={project.demoUrl}
+        src={toPreviewUrl(project.demoUrl)}
         className="absolute inset-0 w-full h-full"
         style={{ border: "none" }}
         sandbox="allow-scripts allow-same-origin allow-forms allow-popups"

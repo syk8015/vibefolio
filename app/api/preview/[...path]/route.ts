@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { PREVIEW_ORIGIN } from "@/lib/previewOrigin";
 
 const MIME_MAP: Record<string, string> = {
   html: "text/html; charset=utf-8",
@@ -20,11 +21,23 @@ const MIME_MAP: Record<string, string> = {
 };
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ path: string[] }> }
 ) {
   const { path } = await params;
   const filePath = path.join("/");
+
+  // Untrusted uploaded content must execute only on the sandbox origin so its JS
+  // can never touch nookframe.com cookies/localStorage (session theft). If this
+  // request reached the main app origin — direct nav, a stale link, or an embed
+  // we missed — bounce it to the sandbox origin. No-op in dev (PREVIEW_ORIGIN unset).
+  if (PREVIEW_ORIGIN && req.nextUrl.host !== new URL(PREVIEW_ORIGIN).host) {
+    return NextResponse.redirect(
+      `${PREVIEW_ORIGIN}/api/preview/${filePath}${req.nextUrl.search}`,
+      307,
+    );
+  }
+
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const storageUrl = `${supabaseUrl}/storage/v1/object/public/project-files/${filePath}`;
 
