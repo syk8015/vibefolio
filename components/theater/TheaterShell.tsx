@@ -74,6 +74,7 @@ function ReelTile({
       >
         <Image
           src={project.thumbnail}
+          unoptimized /* user-supplied thumbnail URL — skip optimizer (any host, no SSRF) */
           alt={project.title}
           fill
           sizes="138px"
@@ -199,7 +200,7 @@ function UpNextRow({
           flexShrink: 0,
         }}
       >
-        <Image src={project.thumbnail} alt={project.title} fill sizes="64px" style={{ objectFit: "cover" }} />
+        <Image src={project.thumbnail} unoptimized alt={project.title} fill sizes="64px" style={{ objectFit: "cover" }} />
         {active && (
           <div
             style={{

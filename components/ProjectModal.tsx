@@ -370,7 +370,7 @@ export default function ProjectModal({ projects, currentIndex, onClose, onNaviga
 function ThumbnailBackground({ project }: { project: Project }) {
   return (
     <div className="absolute inset-0">
-      <Image src={project.thumbnail} alt="" fill className="object-cover" style={{ filter: "blur(3px) brightness(0.2)" }} sizes="100vw" />
+      <Image src={project.thumbnail} unoptimized alt="" fill className="object-cover" style={{ filter: "blur(3px) brightness(0.2)" }} sizes="100vw" />
     </div>
   );
 }
@@ -387,7 +387,7 @@ function InfoPanelBody({
   return (
     <>
       <div className="relative w-full aspect-video rounded-xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
-        <Image src={project.thumbnail} alt={project.title} fill className="object-cover" sizes="264px" />
+        <Image src={project.thumbnail} unoptimized alt={project.title} fill className="object-cover" sizes="264px" />
       </div>
 
       <div>

@@ -46,6 +46,9 @@ export default function FeaturedHero({ project }: Props) {
       ) : (
         <Image
           src={project.thumbnail}
+          // User-supplied thumbnail URL: skip the optimizer so any host renders
+          // and the image proxy can't be aimed at arbitrary hosts (no SSRF).
+          unoptimized
           alt={project.title}
           fill
           priority

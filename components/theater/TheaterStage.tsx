@@ -49,6 +49,7 @@ function LivePreview({ project }: { project: Project }) {
   return (
     <Image
       src={project.thumbnail}
+      unoptimized /* user-supplied thumbnail URL — skip optimizer (any host, no SSRF) */
       alt={project.title}
       fill
       priority

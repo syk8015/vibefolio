@@ -721,7 +721,7 @@ function ProjectRow({ project, onDelete, onEdit, onToggleFeatured, onRerecord, o
         </div>
 
         <div className="relative w-20 h-14 rounded-xl overflow-hidden shrink-0" style={{ background: "var(--surface-soft)" }}>
-          <Image src={thumbnail} alt={project.title} fill className="object-cover" sizes="80px" />
+          <Image src={thumbnail} unoptimized alt={project.title} fill className="object-cover" sizes="80px" />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1 flex-wrap">

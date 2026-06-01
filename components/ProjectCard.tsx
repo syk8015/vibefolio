@@ -68,6 +68,7 @@ export default function ProjectCard({
         <div className="relative sm:w-2/5 w-full" style={{ minHeight: "220px" }}>
           <Image
             src={project.thumbnail}
+            unoptimized /* user-supplied thumbnail URL — skip optimizer (any host, no SSRF) */
             alt={project.title}
             fill
             className="object-cover transition-transform duration-700 group-hover:scale-105"
@@ -189,6 +190,7 @@ export default function ProjectCard({
       <div className="relative w-full aspect-video overflow-hidden">
         <Image
           src={project.thumbnail}
+          unoptimized /* user-supplied thumbnail URL — skip optimizer (any host, no SSRF) */
           alt={project.title}
           fill
           className="object-cover transition-transform duration-700 group-hover:scale-105"
