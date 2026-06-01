@@ -257,7 +257,10 @@ export default function TheaterStage({ project, index, variant }: StageProps) {
       };
 
   return (
-    <div style={containerStyle}>
+    // data-theater-stage marks the desktop stage so the landing-page PiP can
+    // measure it and zoom into the demo video. Desktop-only: the mobile copy
+    // is display:none at the iframe's 1200px width and would measure as 0×0.
+    <div style={containerStyle} data-theater-stage={isDesktop ? "" : undefined}>
       <LivePreview project={project} />
 
       {/* Dark gradient — keeps title legible without crushing the demo. */}

@@ -10,6 +10,15 @@ const NEXT_THRESHOLD = 600; // accumulated wheel delta to trigger next profile
 const MAX_HISTORY = 10;
 const POP_VIEWPORT_RATIO = 0.75;
 
+// Cinematic close-up → dolly-out timing (desktop only). On load the PiP zooms
+// into the demo video; as the clip nears its end it pulls back to the full card,
+// then auto-advances to the next coder.
+const REVEAL_TRANSITION_MS = 1100; // length of the zoom-out animation
+const HOLD_AFTER_REVEAL_MS = 3500; // full card lingers this long before advancing
+const CLOSEUP_MAX_MS = 14000;      // hard cap on the close-up before revealing
+const CLOSEUP_FALLBACK_MS = 6500;  // close-up length when there's no readable video
+const REVEAL_LEAD_S = 1.0;         // reveal this many seconds before the video ends
+
 interface Profile {
   username: string;
   name: string | null;
@@ -20,7 +29,8 @@ interface Props {
 }
 
 export default function PortfolioPipSection({ profiles }: Props) {
-  const initial = profiles[Math.floor(Math.random() * profiles.length)]?.username ?? "";
+  // Pick the opening profile once, lazily — random in the render body is impure.
+  const [initial] = useState(() => profiles[Math.floor(Math.random() * profiles.length)]?.username ?? "");
 
   const [currentUsername, setCurrentUsername] = useState(initial);
   const [loaded, setLoaded] = useState(false);
@@ -32,6 +42,9 @@ export default function PortfolioPipSection({ profiles }: Props) {
   const [, setSwitchCount] = useState(0);
   const [isPopped, setIsPopped] = useState(false);
   const [popTransform, setPopTransform] = useState({ x: 0, y: 0, scale: 1 });
+  const [phase, setPhase] = useState<"closeup" | "full">("closeup");
+  const [stageRect, setStageRect] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+  const [animateReveal, setAnimateReveal] = useState(false);
 
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const mockupRef = useRef<HTMLDivElement>(null);
@@ -42,15 +55,24 @@ export default function PortfolioPipSection({ profiles }: Props) {
   const currentUsernameRef = useRef(initial);
   const historyRef = useRef<string[]>([initial]);
   const isPoppedRef = useRef(false);
+  const isMobileRef = useRef(false);
+  const phaseRef = useRef<"closeup" | "full">("closeup");
+  const revealedRef = useRef(false);
+  const revealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autoAdvanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const videoCleanupRef = useRef<(() => void) | null>(null);
 
   useEffect(() => { currentUsernameRef.current = currentUsername; }, [currentUsername]);
   useEffect(() => { isPoppedRef.current = isPopped; }, [isPopped]);
+  useEffect(() => { phaseRef.current = phase; }, [phase]);
 
   useEffect(() => {
     const update = () => {
       const maxW = window.innerWidth - 32;
       setScale(Math.min(DEFAULT_SCALE, maxW / IFRAME_W));
-      setIsMobile(window.innerWidth < 768);
+      const mobile = window.innerWidth < 768;
+      isMobileRef.current = mobile;
+      setIsMobile(mobile);
     };
     update();
     window.addEventListener("resize", update);
@@ -95,6 +117,12 @@ export default function PortfolioPipSection({ profiles }: Props) {
     setPopTransform({ x: 0, y: 0, scale: 1 });
   }, []);
 
+  const clearCinematicTimers = useCallback(() => {
+    if (revealTimerRef.current) { clearTimeout(revealTimerRef.current); revealTimerRef.current = null; }
+    if (autoAdvanceTimerRef.current) { clearTimeout(autoAdvanceTimerRef.current); autoAdvanceTimerRef.current = null; }
+    if (videoCleanupRef.current) { videoCleanupRef.current(); videoCleanupRef.current = null; }
+  }, []);
+
   const switchToNext = useCallback(() => {
     if (transitioningRef.current) return;
     const next = pickNext();
@@ -103,7 +131,14 @@ export default function PortfolioPipSection({ profiles }: Props) {
     transitioningRef.current = true;
     historyRef.current = [...historyRef.current, next].slice(-MAX_HISTORY);
 
-    if (!isMobile) enterPop();
+    // Reset the cinematic so the next card opens on its stage close-up again.
+    clearCinematicTimers();
+    revealedRef.current = false;
+    setAnimateReveal(false);
+    setStageRect(null);
+    setPhase("closeup");
+    phaseRef.current = "closeup";
+
     setCurrentUsername(next);
     setSwitchCount((c) => c + 1);
     setLoaded(false);
@@ -113,7 +148,74 @@ export default function PortfolioPipSection({ profiles }: Props) {
     setScrollY(0);
     setMaxScroll(0);
     setOverscroll(0);
-  }, [pickNext, enterPop, isMobile]);
+  }, [pickNext, clearCinematicTimers]);
+
+  // Pull back from the stage close-up to the full card, then queue the
+  // auto-advance. Idempotent — wheel, video end, and the safety timer can all
+  // race to call it.
+  const triggerReveal = useCallback(() => {
+    if (revealedRef.current) return;
+    revealedRef.current = true;
+    if (revealTimerRef.current) { clearTimeout(revealTimerRef.current); revealTimerRef.current = null; }
+    if (videoCleanupRef.current) { videoCleanupRef.current(); videoCleanupRef.current = null; }
+
+    setAnimateReveal(true);
+    setPhase("full");
+    phaseRef.current = "full";
+
+    autoAdvanceTimerRef.current = setTimeout(() => {
+      if (isPoppedRef.current || transitioningRef.current) return;
+      switchToNext();
+    }, REVEAL_TRANSITION_MS + HOLD_AFTER_REVEAL_MS);
+  }, [switchToNext]);
+
+  // Measure the demo stage inside the freshly-loaded iframe and arm the
+  // close-up. Same-origin iframe, so we can read the stage rect and the
+  // underlying <video> directly. Desktop only.
+  const setupCinematic = useCallback(() => {
+    revealedRef.current = false;
+    setAnimateReveal(false);
+
+    const doc = iframeRef.current?.contentDocument;
+    const stageEl = doc?.querySelector("[data-theater-stage]") as HTMLElement | null;
+    const rect = stageEl?.getBoundingClientRect();
+
+    if (!stageEl || !rect || rect.width < 1 || rect.height < 1) {
+      // No measurable stage — skip the close-up but keep the carousel moving.
+      setStageRect(null);
+      setPhase("full");
+      phaseRef.current = "full";
+      revealedRef.current = true;
+      autoAdvanceTimerRef.current = setTimeout(() => {
+        if (!isPoppedRef.current && !transitioningRef.current) switchToNext();
+      }, CLOSEUP_FALLBACK_MS + HOLD_AFTER_REVEAL_MS);
+      return;
+    }
+
+    setStageRect({ x: rect.left, y: rect.top, w: rect.width, h: rect.height });
+    setPhase("closeup");
+    phaseRef.current = "closeup";
+
+    // Drive the dolly-out off the demo video when it's a readable <video>;
+    // otherwise fall back to a fixed close-up duration.
+    const video = stageEl.querySelector("video") as HTMLVideoElement | null;
+    if (video) {
+      const onTime = () => {
+        const dur = video.duration;
+        const target = Number.isFinite(dur) && dur > 0
+          ? Math.min(dur - REVEAL_LEAD_S, CLOSEUP_MAX_MS / 1000)
+          : CLOSEUP_MAX_MS / 1000;
+        if (video.currentTime >= target) triggerReveal();
+      };
+      video.addEventListener("timeupdate", onTime);
+      videoCleanupRef.current = () => video.removeEventListener("timeupdate", onTime);
+      // Safety net: loop videos never fire "ended", and a stalled clip might
+      // never cross the threshold.
+      revealTimerRef.current = setTimeout(triggerReveal, CLOSEUP_MAX_MS);
+    } else {
+      revealTimerRef.current = setTimeout(triggerReveal, CLOSEUP_FALLBACK_MS);
+    }
+  }, [switchToNext, triggerReveal]);
 
   // Lock page scroll while popped, and reserve the scrollbar gutter so the
   // page width doesn't shift when overflow toggles.
@@ -146,6 +248,7 @@ export default function PortfolioPipSection({ profiles }: Props) {
           setMaxScroll(scrollable);
         }
       }
+      if (!isMobileRef.current) setupCinematic();
     } catch { /* cross-origin guard */ }
   };
 
@@ -166,6 +269,20 @@ export default function PortfolioPipSection({ profiles }: Props) {
     const onWheel = (e: WheelEvent) => {
       if (!atPageBottom()) return;
       if (transitioningRef.current) { e.preventDefault(); return; }
+
+      // A downward scroll during the close-up skips straight to the full card
+      // instead of scrolling the zoomed-in stage.
+      if (!isMobileRef.current && phaseRef.current === "closeup") {
+        e.preventDefault();
+        if (e.deltaY > 0) triggerReveal();
+        return;
+      }
+      // Past the reveal, any manual scroll means the viewer is in control — drop
+      // the pending auto-advance so we don't yank them to the next card.
+      if (autoAdvanceTimerRef.current) {
+        clearTimeout(autoAdvanceTimerRef.current);
+        autoAdvanceTimerRef.current = null;
+      }
 
       const iframe = iframeRef.current;
       if (!iframe) return;
@@ -215,11 +332,26 @@ export default function PortfolioPipSection({ profiles }: Props) {
 
     document.addEventListener("wheel", onWheel, { passive: false });
     return () => document.removeEventListener("wheel", onWheel);
-  }, [switchToNext]);
+  }, [switchToNext, triggerReveal]);
+
+  // Tear down any pending cinematic timers when the section unmounts.
+  useEffect(() => clearCinematicTimers, [clearCinematicTimers]);
 
   const iframeProgress = maxScroll > 0 ? Math.min(100, Math.round((scrollY / maxScroll) * 100)) : 0;
   const atBottom = loaded && (maxScroll === 0 || iframeProgress >= 100);
   const gaugeProgress = Math.round((overscroll / NEXT_THRESHOLD) * 100);
+
+  // In the close-up phase the iframe scaler zooms so the demo stage fills (covers)
+  // the mockup viewport; the reveal animates it back to the normal full-page scale.
+  const scalerTransform =
+    !isMobile && phase === "closeup" && stageRect
+      ? (() => {
+          const sc = Math.max(displayW / stageRect.w, displayH / stageRect.h);
+          const tx = -sc * stageRect.x + (displayW - sc * stageRect.w) / 2;
+          const ty = -sc * stageRect.y + (displayH - sc * stageRect.h) / 2;
+          return `translate(${tx}px, ${ty}px) scale(${sc})`;
+        })()
+      : `translate(0px, 0px) scale(${scale})`;
 
   return (
     <div
@@ -302,7 +434,7 @@ export default function PortfolioPipSection({ profiles }: Props) {
                 />
               </div>
             )}
-            <div style={{ width: IFRAME_W, height: IFRAME_H, transform: `scale(${scale})`, transformOrigin: "top left", pointerEvents: "none" }}>
+            <div style={{ width: IFRAME_W, height: IFRAME_H, transform: scalerTransform, transformOrigin: "top left", transition: animateReveal ? `transform ${REVEAL_TRANSITION_MS}ms cubic-bezier(0.22, 1, 0.36, 1)` : "none", pointerEvents: "none", willChange: "transform" }}>
               <iframe
                 key={currentUsername}
                 ref={iframeRef}
