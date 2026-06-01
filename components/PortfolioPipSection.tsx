@@ -48,8 +48,8 @@ export default function PortfolioPipSection({ profiles }: Props) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const mockupRef = useRef<HTMLDivElement>(null);
   const isMobileRef = useRef(false);
-  const loadedRef = useRef(false);
   const inViewRef = useRef(false);
+  const closeupReadyRef = useRef(false);
   const playedRef = useRef(false);
   const revealedRef = useRef(false);
   const revealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -109,11 +109,12 @@ export default function PortfolioPipSection({ profiles }: Props) {
     if (!stageEl || !rect || rect.width < 1 || rect.height < 1) return false;
     setStageRect({ x: rect.left, y: rect.top, w: rect.width, h: rect.height });
     setPhase("closeup");
+    closeupReadyRef.current = true;
     return true;
   }, []);
 
-  // Start the dolly-out clock once the section is actually on screen. Drive it
-  // off the demo <video> when readable, falling back to a fixed duration.
+  // Arm the dolly-out clock. Drive it off the demo <video> when readable,
+  // falling back to a fixed duration.
   const armReveal = useCallback(() => {
     if (revealedRef.current) return;
     const stageEl = iframeRef.current?.contentDocument?.querySelector("[data-theater-stage]") as HTMLElement | null;
@@ -136,25 +137,26 @@ export default function PortfolioPipSection({ profiles }: Props) {
     }
   }, [triggerReveal]);
 
-  // Fire the cinematic only when the iframe is ready AND the section is visible.
-  // Desktop only, once per page load.
-  const maybeStart = useCallback(() => {
-    if (isMobileRef.current || playedRef.current) return;
-    if (!loadedRef.current || !inViewRef.current) return;
+  // Start the ~7s reveal countdown — once the card is zoomed and the section is
+  // on screen. Desktop only, once per page load.
+  const startReveal = useCallback(() => {
+    if (playedRef.current || !closeupReadyRef.current) return;
     playedRef.current = true;
-    if (!setupCloseup()) return; // no measurable stage — stay interactive
     armReveal();
-  }, [setupCloseup, armReveal]);
+  }, [armReveal]);
 
   const handleLoad = () => {
     setLoaded(true);
-    loadedRef.current = true;
     syncTheme(document.documentElement.getAttribute("data-theme") || "dark");
-    maybeStart();
+    // Zoom into the demo stage immediately, while the section is still below the
+    // fold, so it's already a close-up when the viewer scrolls down to it — no
+    // visible zoom-in. The reveal clock waits until the section is on screen.
+    if (!isMobileRef.current && setupCloseup() && inViewRef.current) startReveal();
   };
 
-  // Observe the mockup; the first time it's meaningfully in view, kick off the
-  // cinematic (or arm it to start as soon as the iframe finishes loading).
+  // Observe the mockup; the reveal clock starts the first time it's in view. The
+  // close-up itself is already applied at load, so this never causes a visible
+  // zoom — it only decides when to dolly back out.
   useEffect(() => {
     const el = mockupRef.current;
     if (!el) return;
@@ -163,7 +165,7 @@ export default function PortfolioPipSection({ profiles }: Props) {
         for (const e of entries) {
           if (e.isIntersecting && e.intersectionRatio >= 0.55) {
             inViewRef.current = true;
-            maybeStart();
+            startReveal();
             io.disconnect();
             break;
           }
@@ -173,7 +175,7 @@ export default function PortfolioPipSection({ profiles }: Props) {
     );
     io.observe(el);
     return () => io.disconnect();
-  }, [maybeStart]);
+  }, [startReveal]);
 
   // Tear down any pending cinematic timers when the section unmounts.
   useEffect(() => clearCinematicTimers, [clearCinematicTimers]);
