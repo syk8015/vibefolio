@@ -22,6 +22,16 @@ const CLOSEUP_MS = 7000;            // play the close-up this long once fully on
 const CLOSEUP_TARGET_W = 900;      // preferred enlarged frame width during the close-up
 const EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
 
+// Section title rotates on every page load — a wry portrait of the kind of
+// person whose card this is, instead of the flat "vibe coder" label.
+const TITLE_VARIANTS = [
+  "차 트렁크에 노트북 묶은 사람의 명함",
+  "컨티뉴만 누르는 사람의 명함",
+  "뭐든지 토큰으로 보이는 사람의 명함",
+  "회사에서 몰래 작업하는 사람의 명함",
+  "노트북 화면 못 닫는 사람의 명함",
+];
+
 interface Profile {
   username: string;
   name: string | null;
@@ -35,6 +45,8 @@ export default function PortfolioPipSection({ profiles }: Props) {
   // Pick one card at random, once — random in the render body would re-roll on
   // every render and is impure during hydration.
   const [profile] = useState(() => profiles[Math.floor(Math.random() * profiles.length)]);
+  // Pick a title once per page load (lazy so it doesn't re-roll each render).
+  const [title] = useState(() => TITLE_VARIANTS[Math.floor(Math.random() * TITLE_VARIANTS.length)]);
 
   const [loaded, setLoaded] = useState(false);
   const [winW, setWinW] = useState(1440);
@@ -215,7 +227,7 @@ export default function PortfolioPipSection({ profiles }: Props) {
           textAlign: "center",
         }}
       >
-        실제 바이브코더 명함
+        {title}
       </h2>
 
       {/* Browser mockup — cinematic on arrival, interactive after the reveal */}
