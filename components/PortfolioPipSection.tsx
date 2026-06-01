@@ -18,9 +18,7 @@ const MOBILE_H = 720;
 // ~7s, then dollies back to the full interactive card. The close-up runs to
 // completion — no scroll-to-skip, so a tiny scroll can't cut it short.
 const REVEAL_TRANSITION_MS = 1100; // length of the dolly-out animation
-const CLOSEUP_MAX_MS = 7000;       // auto-reveal after ~7s
-const CLOSEUP_FALLBACK_MS = 7000;  // close-up length when there's no readable video
-const REVEAL_LEAD_S = 1.0;         // reveal this many seconds before the video ends
+const CLOSEUP_MS = 7000;            // play the close-up this long once fully on screen
 const CLOSEUP_TARGET_W = 900;      // preferred enlarged frame width during the close-up
 const EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
 
@@ -53,7 +51,6 @@ export default function PortfolioPipSection({ profiles }: Props) {
   const playedRef = useRef(false);
   const revealedRef = useRef(false);
   const revealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const videoCleanupRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     const update = () => {
@@ -86,7 +83,6 @@ export default function PortfolioPipSection({ profiles }: Props) {
 
   const clearCinematicTimers = useCallback(() => {
     if (revealTimerRef.current) { clearTimeout(revealTimerRef.current); revealTimerRef.current = null; }
-    if (videoCleanupRef.current) { videoCleanupRef.current(); videoCleanupRef.current = null; }
   }, []);
 
   // Dolly back to the full card. Idempotent — the video, the safety timer, and a
@@ -113,28 +109,13 @@ export default function PortfolioPipSection({ profiles }: Props) {
     return true;
   }, []);
 
-  // Arm the dolly-out clock. Drive it off the demo <video> when readable,
-  // falling back to a fixed duration.
+  // Arm the dolly-out clock — a flat 7s from the moment it's armed. We can't key
+  // off the demo <video>'s currentTime: it loops from page load, so by the time
+  // the section is fully on screen the clip is at an arbitrary point and would
+  // reveal early.
   const armReveal = useCallback(() => {
     if (revealedRef.current) return;
-    const stageEl = iframeRef.current?.contentDocument?.querySelector("[data-theater-stage]") as HTMLElement | null;
-    const video = stageEl?.querySelector("video") as HTMLVideoElement | null;
-    if (video) {
-      const onTime = () => {
-        const dur = video.duration;
-        const target = Number.isFinite(dur) && dur > 0
-          ? Math.min(dur - REVEAL_LEAD_S, CLOSEUP_MAX_MS / 1000)
-          : CLOSEUP_MAX_MS / 1000;
-        if (video.currentTime >= target) triggerReveal();
-      };
-      video.addEventListener("timeupdate", onTime);
-      videoCleanupRef.current = () => video.removeEventListener("timeupdate", onTime);
-      // Safety net: loop videos never fire "ended", and a stalled clip might
-      // never cross the threshold.
-      revealTimerRef.current = setTimeout(triggerReveal, CLOSEUP_MAX_MS);
-    } else {
-      revealTimerRef.current = setTimeout(triggerReveal, CLOSEUP_FALLBACK_MS);
-    }
+    revealTimerRef.current = setTimeout(triggerReveal, CLOSEUP_MS);
   }, [triggerReveal]);
 
   // Start the ~7s reveal countdown — once the card is zoomed and the section is
@@ -154,16 +135,17 @@ export default function PortfolioPipSection({ profiles }: Props) {
     if (!isMobileRef.current && setupCloseup() && inViewRef.current) startReveal();
   };
 
-  // Observe the mockup; the reveal clock starts the first time it's in view. The
-  // close-up itself is already applied at load, so this never causes a visible
-  // zoom — it only decides when to dolly back out.
+  // Observe the mockup; the reveal clock starts only once the whole close-up
+  // window is on screen. If the viewer leaves the section half-scrolled it stays
+  // zoomed indefinitely. The close-up itself is already applied at load, so this
+  // never causes a visible zoom — it only decides when to dolly back out.
   useEffect(() => {
     const el = mockupRef.current;
     if (!el) return;
     const io = new IntersectionObserver(
       (entries) => {
         for (const e of entries) {
-          if (e.isIntersecting && e.intersectionRatio >= 0.55) {
+          if (e.isIntersecting && e.intersectionRatio >= 0.99) {
             inViewRef.current = true;
             startReveal();
             io.disconnect();
@@ -171,7 +153,7 @@ export default function PortfolioPipSection({ profiles }: Props) {
           }
         }
       },
-      { threshold: [0, 0.55, 1] }
+      { threshold: [0, 0.25, 0.5, 0.75, 0.9, 0.99, 1] }
     );
     io.observe(el);
     return () => io.disconnect();
