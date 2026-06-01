@@ -20,13 +20,17 @@ export default async function LandingPage() {
     { data: { user } },
     { count: userCount },
     { data: featuredProfiles },
+    { data: projectOwners },
   ] = await Promise.all([
     supabase.auth.getUser(),
     supabase.from("profiles").select("*", { count: "exact", head: true }),
     supabase.from("profiles")
-      .select("username, name")
+      .select("id, username, name")
       .order("updated_at", { ascending: true })
-      .limit(20),
+      .limit(40),
+    // Just the owner column — counted in JS to find who has enough work to
+    // showcase, without leaning on an embedded-relationship name.
+    supabase.from("projects").select("user_id"),
   ]);
 
   const meta = user?.user_metadata || {};
@@ -34,7 +38,17 @@ export default async function LandingPage() {
   const name = meta.name || username;
   const avatarUrl = meta.avatar_url as string | undefined;
 
-  const profiles = (featuredProfiles as FeaturedProfile[] | null) ?? [];
+  // Only profiles with enough projects (≥3) make a convincing interactive
+  // showcase, so the PiP section draws from that pool.
+  const SHOWCASE_MIN_PROJECTS = 3;
+  const projectCounts = new Map<string, number>();
+  for (const row of (projectOwners as { user_id: string }[] | null) ?? []) {
+    projectCounts.set(row.user_id, (projectCounts.get(row.user_id) ?? 0) + 1);
+  }
+  const allProfiles = (featuredProfiles as (FeaturedProfile & { id: string })[] | null) ?? [];
+  const profiles: FeaturedProfile[] = allProfiles
+    .filter((p) => (projectCounts.get(p.id) ?? 0) >= SHOWCASE_MIN_PROJECTS)
+    .map(({ username, name }) => ({ username, name }));
 
   /* ─── Logged-in home ─── */
   if (user) {

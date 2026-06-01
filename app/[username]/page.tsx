@@ -116,11 +116,15 @@ export default async function UserPortfolioPage({
   searchParams,
 }: {
   params: Promise<{ username: string }>;
-  searchParams: Promise<{ embed?: string }>;
+  searchParams: Promise<{ embed?: string; showcase?: string }>;
 }) {
   const { username } = await params;
-  const { embed } = await searchParams;
+  const { embed, showcase } = await searchParams;
   const isEmbed = embed === "1";
+  // Showcase mode powers the landing PiP: a fully interactive card with every
+  // exit point (nav, footer, mode toggles, home links) stripped so visitors can
+  // only browse this person's projects.
+  const isShowcase = showcase === "1";
 
   const profile = await getProfile(username);
   if (!profile) notFound();
@@ -166,16 +170,17 @@ export default async function UserPortfolioPage({
   // and project reads above are cached.
   const supabase = await createClient();
   const { data: { user: rawUser } } = await supabase.auth.getUser();
-  // In embed (mobile-preview iframe) mode, render as if the visitor is not
-  // logged in so the owner can see what an anonymous visitor would see.
-  const currentUser = isEmbed ? null : rawUser;
+  // In embed (mobile-preview iframe) and showcase (landing PiP) modes, render
+  // as if the visitor is not logged in so no owner-only chrome leaks in.
+  const currentUser = (isEmbed || isShowcase) ? null : rawUser;
   const isOwner = currentUser?.id === p.id;
 
   return (
     <main className="relative min-h-screen" style={{ background: "var(--bg)" }}>
-      <ViewTracker username={p.username} />
+      {!isShowcase && <ViewTracker username={p.username} />}
 
       {/* Nav */}
+      {!isShowcase && (
       <nav
         className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 md:px-8 py-3 md:py-4"
         style={{
@@ -295,13 +300,14 @@ export default async function UserPortfolioPage({
           )}
         </div>
       </nav>
+      )}
 
       <ViewportFrame username={p.username} enabled={isOwner && !isEmbed}>
 
       {/* Body: Theater layout — stage drives identity, reel drives navigation.
           min-h-screen guarantees the body fills the viewport so the footer
           sits below the fold on profiles with few projects. */}
-      <div className="pt-[57px] md:pt-[68px] min-h-screen">
+      <div className={`${isShowcase ? "" : "pt-[57px] md:pt-[68px]"} min-h-screen`}>
         <TheaterShell
           profile={{
             username: p.username,
@@ -313,10 +319,12 @@ export default async function UserPortfolioPage({
           projects={projects}
           initialActiveIndex={initialActiveIndex}
           socialLinks={socialLinks}
+          showcase={isShowcase}
         />
       </div>
 
       {/* Footer */}
+      {!isShowcase && (
       <footer
         className="relative z-10 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 py-8"
         style={{ borderTop: "1px solid var(--border)" }}
@@ -326,9 +334,10 @@ export default async function UserPortfolioPage({
         <a href="mailto:vivestarter@gmail.com" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem", textDecoration: "none" }}>문의</a>
         <span style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem" }}>© {new Date().getFullYear()} Nookframe</span>
       </footer>
+      )}
 
       {/* Mode toggle — visible to all visitors when custom CSS exists */}
-      {p.custom_mode && p.custom_css && (
+      {!isShowcase && p.custom_mode && p.custom_css && (
         <PortfolioModeToggle customCss={p.custom_css} />
       )}
       </ViewportFrame>

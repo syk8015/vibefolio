@@ -154,6 +154,7 @@ export function MeishiBig({
   withSeal = true,
   number = "06",
   style,
+  showcase = false,
 }: {
   profile: MeishiProfile;
   profileUrl: string;
@@ -161,6 +162,8 @@ export function MeishiBig({
   withSeal?: boolean;
   number?: string;
   style?: React.CSSProperties;
+  // In the landing showcase the card's URL must not be a live link.
+  showcase?: boolean;
 }) {
   return (
     <div
@@ -288,19 +291,33 @@ export function MeishiBig({
           borderTop: "1px solid var(--border)",
         }}
       >
-        <Link
-          href={`/${profile.username}`}
-          style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: 9,
-            letterSpacing: "0.15em",
-            color: "var(--text-secondary)",
-            textTransform: "uppercase",
-            textDecoration: "none",
-          }}
-        >
-          nookframe.com/{profile.username}
-        </Link>
+        {showcase ? (
+          <span
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 9,
+              letterSpacing: "0.15em",
+              color: "var(--text-secondary)",
+              textTransform: "uppercase",
+            }}
+          >
+            nookframe.com/{profile.username}
+          </span>
+        ) : (
+          <Link
+            href={`/${profile.username}`}
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 9,
+              letterSpacing: "0.15em",
+              color: "var(--text-secondary)",
+              textTransform: "uppercase",
+              textDecoration: "none",
+            }}
+          >
+            nookframe.com/{profile.username}
+          </Link>
+        )}
         <span
           style={{
             fontFamily: "var(--font-mono)",

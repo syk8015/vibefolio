@@ -276,9 +276,12 @@ interface ShellProps {
   projects: Project[];
   initialActiveIndex: number;
   socialLinks: string[];
+  // Landing PiP showcase — render the card's own URL as plain text so there's
+  // no way to navigate away from the embedded profile.
+  showcase?: boolean;
 }
 
-export default function TheaterShell({ profile, profileUrl, projects, initialActiveIndex, socialLinks }: ShellProps) {
+export default function TheaterShell({ profile, profileUrl, projects, initialActiveIndex, socialLinks, showcase = false }: ShellProps) {
   const [activeIndex, setActiveIndex] = useState(
     Math.min(Math.max(initialActiveIndex, 0), Math.max(projects.length - 1, 0))
   );
@@ -461,6 +464,7 @@ export default function TheaterShell({ profile, profileUrl, projects, initialAct
                 profileUrl={profileUrl}
                 socialLinks={socialLinks}
                 number={String(total).padStart(2, "0")}
+                showcase={showcase}
               />
 
               {profile.bio && (
