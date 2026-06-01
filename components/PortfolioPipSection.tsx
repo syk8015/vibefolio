@@ -13,11 +13,13 @@ const POP_VIEWPORT_RATIO = 0.75;
 // Cinematic close-up → dolly-out timing (desktop only). On load the PiP zooms
 // into the demo video; as the clip nears its end it pulls back to the full card,
 // then auto-advances to the next coder.
-const REVEAL_TRANSITION_MS = 1100; // length of the zoom-out animation
+const REVEAL_TRANSITION_MS = 1100; // length of the zoom in / out animation
 const HOLD_AFTER_REVEAL_MS = 3500; // full card lingers this long before advancing
-const CLOSEUP_MAX_MS = 14000;      // hard cap on the close-up before revealing
-const CLOSEUP_FALLBACK_MS = 6500;  // close-up length when there's no readable video
+const CLOSEUP_MAX_MS = 7000;       // close-up auto-reveals after ~7s
+const CLOSEUP_FALLBACK_MS = 7000;  // close-up length when there's no readable video
 const REVEAL_LEAD_S = 1.0;         // reveal this many seconds before the video ends
+const CLOSEUP_TARGET_W = 900;      // preferred enlarged frame width during the close-up
+const EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
 
 interface Profile {
   username: string;
@@ -44,7 +46,8 @@ export default function PortfolioPipSection({ profiles }: Props) {
   const [popTransform, setPopTransform] = useState({ x: 0, y: 0, scale: 1 });
   const [phase, setPhase] = useState<"closeup" | "full">("closeup");
   const [stageRect, setStageRect] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
-  const [animateReveal, setAnimateReveal] = useState(false);
+  const [winW, setWinW] = useState(1440);
+  const [winH, setWinH] = useState(900);
 
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const mockupRef = useRef<HTMLDivElement>(null);
@@ -70,6 +73,8 @@ export default function PortfolioPipSection({ profiles }: Props) {
     const update = () => {
       const maxW = window.innerWidth - 32;
       setScale(Math.min(DEFAULT_SCALE, maxW / IFRAME_W));
+      setWinW(window.innerWidth);
+      setWinH(window.innerHeight);
       const mobile = window.innerWidth < 768;
       isMobileRef.current = mobile;
       setIsMobile(mobile);
@@ -134,7 +139,6 @@ export default function PortfolioPipSection({ profiles }: Props) {
     // Reset the cinematic so the next card opens on its stage close-up again.
     clearCinematicTimers();
     revealedRef.current = false;
-    setAnimateReveal(false);
     setStageRect(null);
     setPhase("closeup");
     phaseRef.current = "closeup";
@@ -159,7 +163,6 @@ export default function PortfolioPipSection({ profiles }: Props) {
     if (revealTimerRef.current) { clearTimeout(revealTimerRef.current); revealTimerRef.current = null; }
     if (videoCleanupRef.current) { videoCleanupRef.current(); videoCleanupRef.current = null; }
 
-    setAnimateReveal(true);
     setPhase("full");
     phaseRef.current = "full";
 
@@ -174,7 +177,6 @@ export default function PortfolioPipSection({ profiles }: Props) {
   // underlying <video> directly. Desktop only.
   const setupCinematic = useCallback(() => {
     revealedRef.current = false;
-    setAnimateReveal(false);
 
     const doc = iframeRef.current?.contentDocument;
     const stageEl = doc?.querySelector("[data-theater-stage]") as HTMLElement | null;
@@ -341,17 +343,30 @@ export default function PortfolioPipSection({ profiles }: Props) {
   const atBottom = loaded && (maxScroll === 0 || iframeProgress >= 100);
   const gaugeProgress = Math.round((overscroll / NEXT_THRESHOLD) * 100);
 
-  // In the close-up phase the iframe scaler zooms so the demo stage fills (covers)
-  // the mockup viewport; the reveal animates it back to the normal full-page scale.
-  const scalerTransform =
-    !isMobile && phase === "closeup" && stageRect
-      ? (() => {
-          const sc = Math.max(displayW / stageRect.w, displayH / stageRect.h);
-          const tx = -sc * stageRect.x + (displayW - sc * stageRect.w) / 2;
-          const ty = -sc * stageRect.y + (displayH - sc * stageRect.h) / 2;
-          return `translate(${tx}px, ${ty}px) scale(${sc})`;
-        })()
-      : `translate(0px, 0px) scale(${scale})`;
+  // Close-up grows the whole mockup to the stage's own aspect ratio, so the demo
+  // fills the frame with no side-cropping; the reveal animates frame + zoom back
+  // to the normal full-card view. Both directions transition for a natural feel.
+  const stageAspect = stageRect ? stageRect.w / stageRect.h : displayW / displayH;
+  const inCloseup = !isMobile && phase === "closeup" && !!stageRect;
+
+  let frameW = displayW;
+  let frameH = displayH;
+  let scl = scale;
+  let tx = 0;
+  let ty = 0;
+  if (inCloseup && stageRect) {
+    // Enlarge toward the target width, clamped to the viewport (and its height).
+    frameW = Math.max(
+      displayW,
+      Math.min(CLOSEUP_TARGET_W, winW - 48, (winH - 220) * stageAspect)
+    );
+    frameH = frameW / stageAspect;
+    scl = frameW / stageRect.w; // contain: stage maps exactly onto frameW × frameH
+    tx = -scl * stageRect.x;
+    ty = -scl * stageRect.y;
+  }
+  const scalerTransform = `translate(${tx}px, ${ty}px) scale(${scl})`;
+  const cineTransition = isMobile ? "none" : `${REVEAL_TRANSITION_MS}ms ${EASE}`;
 
   return (
     <div
@@ -409,7 +424,7 @@ export default function PortfolioPipSection({ profiles }: Props) {
           onClick={isMobile ? undefined : enterPop}
           animate={{ scale: popTransform.scale, x: popTransform.x, y: popTransform.y }}
           transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-          style={{ position: "relative", width: displayW, borderRadius: 12, overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 40px 100px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.06)", transformOrigin: "center center", zIndex: 100, cursor: isMobile ? "default" : (isPopped ? "default" : "zoom-in"), willChange: "transform" }}
+          style={{ position: "relative", width: frameW, borderRadius: 12, overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 40px 100px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.06)", transformOrigin: "center center", transition: isMobile ? undefined : `width ${cineTransition}`, zIndex: 100, cursor: isMobile ? "default" : (isPopped ? "default" : "zoom-in"), willChange: "transform" }}
         >
           {/* Chrome bar */}
           <div style={{ height: 40, background: "#1a1a24", borderBottom: "1px solid rgba(255,255,255,0.07)", display: "flex", alignItems: "center", gap: 12, padding: "0 16px" }}>
@@ -425,7 +440,7 @@ export default function PortfolioPipSection({ profiles }: Props) {
           </div>
 
           {/* Iframe viewport */}
-          <div style={{ width: displayW, height: displayH, overflow: "hidden", position: "relative", background: "#0a0a0f" }}>
+          <div style={{ width: frameW, height: frameH, overflow: "hidden", position: "relative", background: "#0a0a0f", transition: isMobile ? undefined : `width ${cineTransition}, height ${cineTransition}` }}>
             {!loaded && (
               <div style={{ position: "absolute", inset: 0, zIndex: 10, display: "flex", alignItems: "center", justifyContent: "center", background: "#0a0a0f" }}>
                 <div
@@ -434,7 +449,7 @@ export default function PortfolioPipSection({ profiles }: Props) {
                 />
               </div>
             )}
-            <div style={{ width: IFRAME_W, height: IFRAME_H, transform: scalerTransform, transformOrigin: "top left", transition: animateReveal ? `transform ${REVEAL_TRANSITION_MS}ms cubic-bezier(0.22, 1, 0.36, 1)` : "none", pointerEvents: "none", willChange: "transform" }}>
+            <div style={{ width: IFRAME_W, height: IFRAME_H, transform: scalerTransform, transformOrigin: "top left", transition: isMobile ? "none" : `transform ${cineTransition}`, pointerEvents: "none", willChange: "transform" }}>
               <iframe
                 key={currentUsername}
                 ref={iframeRef}
