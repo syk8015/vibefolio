@@ -29,8 +29,12 @@ const SANDBOX_TIMEOUT_MS = 600_000;
 const CLONE_TIMEOUT_MS = 120_000;
 const INSTALL_TIMEOUT_MS = 600_000;
 const READY_TIMEOUT_MS = 90_000;
-const RECORD_TIMEOUT_MS = 120_000;
+// The computer-use agent loop (screenshots + API round-trips + actions) plus
+// the initial load wait can run well past two minutes. Give it room.
+const RECORD_TIMEOUT_MS = 300_000;
 const RECORD_DURATION_SEC = 15;
+// Hard cap on the final clip length, regardless of how long the agent ran.
+const MAX_VIDEO_SEC = 30;
 const DEV_PORT = 3000;
 const NODE_PATH_PREFIX = "export PATH=/opt/node/bin:$PATH && ";
 const RECORD_PREFIX =
@@ -93,6 +97,33 @@ async function recordFailedStatus(projectId: string, error: unknown) {
   } catch (writeErr) {
     logger.error("Failed to record failure status", { writeErr });
   }
+}
+
+type RecorderMeta = {
+  mode?: string;
+  steps?: number;
+  interactionStartMs?: number;
+  interactionEndMs?: number;
+  visibleChars?: number;
+  cuError?: string | null;
+};
+
+// The recorder prints a JSON summary as its last stdout line. Parse it (from the
+// end, skipping the human-readable "goto ..." lines) so we can trim the video to
+// the actual interaction window.
+function parseRecorderMeta(stdout: string): RecorderMeta {
+  const lines = stdout.trim().split("\n");
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const line = lines[i].trim();
+    if (line.startsWith("{") && line.endsWith("}")) {
+      try {
+        return JSON.parse(line) as RecorderMeta;
+      } catch {
+        // keep scanning earlier lines
+      }
+    }
+  }
+  return {};
 }
 
 export const buildAndRecord = task({
@@ -227,9 +258,21 @@ export const buildAndRecord = task({
     await sandbox.files.write("/tmp/record-helper.js", RECORD_HELPER_SRC);
     logger.log("record helper uploaded");
 
+    // Inject the Anthropic key via `envs` (never the command string) so it
+    // drives the computer-use agent loop without leaking into logs. Absent key
+    // -> the recorder falls back to a plain scroll, still producing a video.
+    const recordEnvs: Record<string, string> = {};
+    if (process.env.ANTHROPIC_API_KEY)
+      recordEnvs.ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+    if (process.env.DEMO_CU_MODEL)
+      recordEnvs.DEMO_CU_MODEL = process.env.DEMO_CU_MODEL;
+    logger.log("recorder mode", {
+      computerUse: Boolean(recordEnvs.ANTHROPIC_API_KEY),
+    });
+
     const recordResult = await sandbox.commands.run(
       `${RECORD_PREFIX}mkdir -p /tmp/rec && node /tmp/record-helper.js ${recordTarget} /tmp/rec ${RECORD_DURATION_SEC}`,
-      { timeoutMs: RECORD_TIMEOUT_MS },
+      { timeoutMs: RECORD_TIMEOUT_MS, envs: recordEnvs },
     );
     logger.log("record done", {
       exitCode: recordResult.exitCode,
@@ -242,16 +285,32 @@ export const buildAndRecord = task({
       );
     }
 
-    // 녹화 시작점은 context 생성 직후라 페이지 로딩/networkidle 대기 구간이
-    // 앞쪽에 들어감. 콘텐츠가 보이는 구간은 스크롤 루프(끝쪽). -sseof로
-    // 끝에서 RECORD_DURATION_SEC 거꾸로 가서 마지막 부분만 잘라낸다.
-    const fadeOutStart = (RECORD_DURATION_SEC - 0.5).toFixed(2);
-    // Capture stays 1920×1080 (correct desktop layout), but the demo only ever
+    // The recording opens with dead load time (goto / networkidle / font + paint
+    // waits) before the agent — or the scroll fallback — starts. The recorder
+    // reports that interaction window, so trim to it instead of blind
+    // tail-slicing: start at interactionStart, run for the interaction's own
+    // length, capped at MAX_VIDEO_SEC.
+    const meta = parseRecorderMeta(recordResult.stdout);
+    logger.log("recorder meta", {
+      mode: meta.mode,
+      steps: meta.steps,
+      interactionStartMs: meta.interactionStartMs,
+      interactionEndMs: meta.interactionEndMs,
+      cuError: meta.cuError ?? undefined,
+    });
+    const startSec = Math.max(0, (meta.interactionStartMs ?? 0) / 1000);
+    const rawLen =
+      meta.interactionStartMs != null && meta.interactionEndMs != null
+        ? (meta.interactionEndMs - meta.interactionStartMs) / 1000
+        : RECORD_DURATION_SEC;
+    const clipLen = Math.max(4, Math.min(MAX_VIDEO_SEC, rawLen));
+    const fadeOutStart = Math.max(0, clipLen - 0.5).toFixed(2);
+    // Capture is WXGA 1280×800 (computer-use accuracy), but the demo only ever
     // plays in a small Theater card — so downscale to 720p and lean on a higher
     // CRF + slower preset. This trims ~60-70% off the file with no perceptible
     // loss at card size. Compute time is free here (async Trigger task).
     const ffmpegCmd =
-      `cd /tmp/rec && ffmpeg -y -sseof -${RECORD_DURATION_SEC} -i demo.webm ` +
+      `cd /tmp/rec && ffmpeg -y -ss ${startSec.toFixed(2)} -i demo.webm -t ${clipLen.toFixed(2)} ` +
       `-vf "scale=-2:720,fade=t=in:st=0:d=0.5,fade=t=out:st=${fadeOutStart}:d=0.5" ` +
       `-c:v libx264 -preset slow -crf 28 -pix_fmt yuv420p -an ` +
       `-movflags +faststart demo.mp4`;
