@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { sanitizeCustomCss } from "@/lib/sanitizeCss";
 
 interface Props {
   customCss: string;
@@ -11,8 +12,10 @@ export default function PortfolioModeToggle({ customCss }: Props) {
 
   return (
     <>
-      {/* Inject custom CSS only when special mode is active */}
-      {special && <style dangerouslySetInnerHTML={{ __html: customCss }} />}
+      {/* Inject custom CSS only when special mode is active. Sanitized so a
+          malicious owner can't break out of the <style> tag and run script
+          on a visitor's session. */}
+      {special && <style dangerouslySetInnerHTML={{ __html: sanitizeCustomCss(customCss) }} />}
 
       <button
         onClick={() => setSpecial((v) => !v)}
