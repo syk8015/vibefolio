@@ -31,10 +31,17 @@ const VIEW_H = 800;
 
 // --- Computer use config -------------------------------------------------
 const API_KEY = process.env.ANTHROPIC_API_KEY || "";
-const MODEL = process.env.DEMO_CU_MODEL || "claude-sonnet-4-6";
+// Computer use is NOT supported on the newest 4.6/4.8 models (the API rejects
+// the computer_20250124 tool for them). The latest computer-use-capable Sonnet
+// is 4.5 — keep this here, override via DEMO_CU_MODEL if needed.
+const MODEL = process.env.DEMO_CU_MODEL || "claude-sonnet-4-5";
 const CU_MAX_STEPS = 14;        // hard cap on agent turns
 const CU_MAX_MS = 75000;        // wall-clock budget for the interaction
-const CU_KEEP_IMAGES = 3;       // prune older screenshots to cap token cost
+// Keep only the latest screenshot in history. Computer use only needs the
+// current frame to decide the next action, and low API tiers cap input tokens
+// per minute (e.g. 30k/min) — retaining several ~1.4k-token screenshots per
+// rapid-fire call blows that budget fast. One image keeps us well under it.
+const CU_KEEP_IMAGES = 1;
 const ACTION_PACING_MS = 550;   // small dwell so the video reads smoothly
 
 const SYSTEM_PROMPT = [
@@ -174,35 +181,66 @@ async function execAction(page, input, state) {
 }
 
 async function callClaude(messages) {
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "x-api-key": API_KEY,
-      "anthropic-version": "2023-06-01",
-      "anthropic-beta": "computer-use-2025-01-24",
-    },
-    body: JSON.stringify({
-      model: MODEL,
-      max_tokens: 1024,
-      system: SYSTEM_PROMPT,
-      tools: [
-        {
-          type: "computer_20250124",
-          name: "computer",
-          display_width_px: VIEW_W,
-          display_height_px: VIEW_H,
-          display_number: 1,
-        },
-      ],
-      messages: messages,
-    }),
+  const body = JSON.stringify({
+    model: MODEL,
+    max_tokens: 1024,
+    system: SYSTEM_PROMPT,
+    tools: [
+      {
+        type: "computer_20250124",
+        name: "computer",
+        display_width_px: VIEW_W,
+        display_height_px: VIEW_H,
+        display_number: 1,
+      },
+    ],
+    messages: messages,
   });
-  if (!res.ok) {
-    const t = await res.text().catch(() => "");
-    throw new Error("anthropic " + res.status + ": " + t.slice(0, 300));
+  // Retry transient rate limits (429) and overload/5xx, honouring Retry-After.
+  // Low API tiers cap input tokens/min, so a brief wait beats aborting the whole
+  // run to the scroll fallback. Persistent failures still throw -> fallback.
+  let attempt = 0;
+  while (true) {
+    let res;
+    try {
+      res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-api-key": API_KEY,
+          "anthropic-version": "2023-06-01",
+          "anthropic-beta": "computer-use-2025-01-24",
+        },
+        body: body,
+      });
+    } catch (netErr) {
+      // fetch itself threw (ECONNRESET, DNS, TLS reset) — transient, retry.
+      if (attempt < 4) {
+        const waitMs = Math.min(15000, 2000 * Math.pow(2, attempt));
+        console.error("anthropic fetch error — retry in " + waitMs + "ms");
+        await sleep(waitMs);
+        attempt++;
+        continue;
+      }
+      throw new Error(
+        "anthropic fetch failed: " + (netErr && netErr.message ? netErr.message : netErr),
+      );
+    }
+    if (res.ok) return res.json();
+    const text = await res.text().catch(() => "");
+    const retriable = res.status === 429 || res.status === 529 || res.status >= 500;
+    if (retriable && attempt < 4) {
+      const ra = parseFloat(res.headers.get("retry-after") || "");
+      const waitMs = Number.isFinite(ra)
+        ? Math.min(20000, ra * 1000)
+        : Math.min(15000, 2000 * Math.pow(2, attempt));
+      console.error("anthropic " + res.status + " — retry in " + waitMs + "ms");
+      await sleep(waitMs);
+      attempt++;
+      continue;
+    }
+    throw new Error("anthropic " + res.status + ": " + text.slice(0, 300));
   }
-  return res.json();
 }
 
 // Replace all but the most recent CU_KEEP_IMAGES tool_result screenshots with a
