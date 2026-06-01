@@ -15,14 +15,13 @@ const MOBILE_H = 720;
 
 // First-visit cinematic (desktop only, once per page load): when the section
 // scrolls into view the card is already zoomed into its demo stage; it plays
-// ~7s, then dollies back to the full interactive card. Scrolling down collapses
-// it early, mirroring the old behaviour.
+// ~7s, then dollies back to the full interactive card. The close-up runs to
+// completion — no scroll-to-skip, so a tiny scroll can't cut it short.
 const REVEAL_TRANSITION_MS = 1100; // length of the dolly-out animation
 const CLOSEUP_MAX_MS = 7000;       // auto-reveal after ~7s
 const CLOSEUP_FALLBACK_MS = 7000;  // close-up length when there's no readable video
 const REVEAL_LEAD_S = 1.0;         // reveal this many seconds before the video ends
 const CLOSEUP_TARGET_W = 900;      // preferred enlarged frame width during the close-up
-const SCROLL_REVEAL_GRACE_MS = 700; // ignore the scroll that brought us into view
 const EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
 
 interface Profile {
@@ -53,7 +52,6 @@ export default function PortfolioPipSection({ profiles }: Props) {
   const inViewRef = useRef(false);
   const playedRef = useRef(false);
   const revealedRef = useRef(false);
-  const inViewAtRef = useRef(0);
   const revealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const videoCleanupRef = useRef<(() => void) | null>(null);
 
@@ -145,7 +143,6 @@ export default function PortfolioPipSection({ profiles }: Props) {
     if (!loadedRef.current || !inViewRef.current) return;
     playedRef.current = true;
     if (!setupCloseup()) return; // no measurable stage — stay interactive
-    inViewAtRef.current = Date.now();
     armReveal();
   }, [setupCloseup, armReveal]);
 
@@ -177,20 +174,6 @@ export default function PortfolioPipSection({ profiles }: Props) {
     io.observe(el);
     return () => io.disconnect();
   }, [maybeStart]);
-
-  // While zoomed in, a deliberate downward scroll collapses back to the full
-  // card — but only after a short grace, so the scroll that brought the section
-  // into view doesn't instantly dismiss the cinematic.
-  useEffect(() => {
-    if (phase !== "closeup") return;
-    const onWheel = (e: WheelEvent) => {
-      if (revealedRef.current || e.deltaY <= 0) return;
-      if (Date.now() - inViewAtRef.current < SCROLL_REVEAL_GRACE_MS) return;
-      triggerReveal();
-    };
-    window.addEventListener("wheel", onWheel, { passive: true });
-    return () => window.removeEventListener("wheel", onWheel);
-  }, [phase, triggerReveal]);
 
   // Tear down any pending cinematic timers when the section unmounts.
   useEffect(() => clearCinematicTimers, [clearCinematicTimers]);
@@ -331,7 +314,7 @@ export default function PortfolioPipSection({ profiles }: Props) {
       <div style={{ textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
         {inCloseup ? (
           <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", margin: 0 }}>
-            ▶ 자동 시연 재생 중 · 스크롤하면 전체 명함으로
+            ▶ 자동 시연 재생 중…
           </p>
         ) : (
           <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", margin: 0 }}>
