@@ -247,7 +247,7 @@ export default function TheaterStage({ project, index, variant }: StageProps) {
         background: "#0a0a0a",
         borderRadius: 14,
         overflow: "hidden",
-        boxShadow: "0 30px 60px rgba(0,0,0,0.18), 0 5px 14px rgba(0,0,0,0.10)",
+        boxShadow: "0 24px 56px rgba(0,0,0,0.24), 0 6px 16px rgba(0,0,0,0.14)",
       }
     : {
         position: "relative",
@@ -264,13 +264,15 @@ export default function TheaterStage({ project, index, variant }: StageProps) {
     <div style={containerStyle} data-theater-stage={isDesktop ? "" : undefined}>
       <LivePreview project={project} />
 
-      {/* Dark gradient — keeps title legible without crushing the demo. */}
+      {/* Dark gradient — keeps title legible without crushing the demo.
+          A whisper-light scrim at the very top seats the "Now playing" badge
+          and gives a light demo an upper edge instead of bleeding into the page. */}
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
           background: isFile
-            ? "linear-gradient(180deg, transparent 50%, rgba(0,0,0,0.78) 100%)"
-            : "linear-gradient(180deg, transparent 48%, rgba(0,0,0,0.82) 100%)",
+            ? "linear-gradient(180deg, rgba(0,0,0,0.16) 0%, transparent 14%, transparent 50%, rgba(0,0,0,0.78) 100%)"
+            : "linear-gradient(180deg, rgba(0,0,0,0.16) 0%, transparent 14%, transparent 48%, rgba(0,0,0,0.82) 100%)",
         }}
       />
 
@@ -394,6 +396,18 @@ export default function TheaterStage({ project, index, variant }: StageProps) {
           </a>
         )}
       </div>
+
+      {/* Frame ring — a crisp hairline painted ABOVE the demo so the card edge
+          stays defined even when the video is near-white. Must be its own
+          top-most layer: a child can't reveal a parent's inset box-shadow.
+          Desktop only — the mobile stage is full-bleed with no page beside it. */}
+      {isDesktop && (
+        <div
+          aria-hidden
+          className="absolute inset-0 pointer-events-none"
+          style={{ borderRadius: 14, boxShadow: "inset 0 0 0 1px rgba(0,0,0,0.18)", zIndex: 6 }}
+        />
+      )}
     </div>
   );
 }
