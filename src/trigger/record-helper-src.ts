@@ -139,10 +139,10 @@ async function ensureCinema(page) {
       "margin-top:-12px;border-radius:50%;background:rgba(15,15,20,0.22);" +
       "border:2px solid rgba(255,255,255,0.95);box-shadow:0 3px 10px rgba(0,0,0,0.4);" +
       "z-index:2147483647;pointer-events:none;will-change:left,top,transform;" +
-      // Apple-style spring glide: a long, gently decelerating ease so the cursor
-      // slides to its target with a premium, unhurried feel. The press scale stays
-      // snappy (0.12s) — that's click feedback, not a glide.
-      "transition:left 0.9s cubic-bezier(0.32,0.72,0,1),top 0.9s cubic-bezier(0.32,0.72,0,1),transform 0.12s ease;";
+      // Apple-style spring glide: a brisk, gently decelerating ease so the cursor
+      // slides to its target with a premium feel that still reads as snappy. The
+      // press scale stays snappy (0.12s) — that's click feedback, not a glide.
+      "transition:left 0.55s cubic-bezier(0.32,0.72,0,1),top 0.55s cubic-bezier(0.32,0.72,0,1),transform 0.12s ease;";
     var rip = doc.createElement("div");
     rip.id = "__demo_ripple";
     rip.style.cssText =
@@ -153,9 +153,14 @@ async function ensureCinema(page) {
     doc.documentElement.appendChild(rip);
     var body = doc.body;
     if (body) {
-      // Same Apple-style spring as the cursor, a touch faster (0.72s) so the
-      // camera push-in reads as a smooth, confident zoom rather than a snap.
-      body.style.transition = "transform 0.72s cubic-bezier(0.32,0.72,0,1)";
+      // Same Apple-style spring as the cursor, a touch faster (0.5s) so the camera
+      // push-in reads as a brisk, confident zoom. Set with !important so an
+      // arbitrary target app's CSS reset can't strip it (zoom() re-asserts too).
+      body.style.setProperty(
+        "transition",
+        "transform 0.5s cubic-bezier(0.32,0.72,0,1)",
+        "important",
+      );
       body.style.willChange = "transform";
     }
     var lastX = window.innerWidth / 2;
@@ -186,14 +191,32 @@ async function ensureCinema(page) {
         cur.style.transform = "scale(1)";
       },
       // Always called from scale(1), so transform-origin only takes visible
-      // effect for the upcoming zoom — no jump from a stale origin.
+      // effect for the upcoming zoom — no jump from a stale origin. Re-assert the
+      // transition with !important every time: the target app is arbitrary, and a
+      // global "* { transition: none }" (or an !important reset) would otherwise
+      // strip ours and make the scale snap straight to its final value.
       zoom: function (x, y, s) {
         if (!body) return;
         var ox = x + (window.pageXOffset || 0);
         var oy = y + (window.pageYOffset || 0);
+        body.style.setProperty(
+          "transition",
+          "transform 0.5s cubic-bezier(0.32,0.72,0,1)",
+          "important",
+        );
         body.style.transformOrigin = ox + "px " + oy + "px";
-        void body.offsetWidth; // flush origin before animating the scale
-        body.style.transform = "scale(" + s + ")";
+        body.style.transform = "scale(1)"; // pin an explicit start state
+        // Force the new origin + start scale to be committed and PAINTED before we
+        // flip to the target scale. A lone synchronous reflow was getting coalesced
+        // under Xvfb (the zoom jumped straight to the end — the "snap"); reading
+        // offsetHeight commits the start, and a double rAF guarantees that start
+        // frame actually paints, so the browser animates instead of skipping.
+        void body.offsetHeight;
+        requestAnimationFrame(function () {
+          requestAnimationFrame(function () {
+            body.style.transform = "scale(" + s + ")";
+          });
+        });
       },
       reset: function () {
         if (body) body.style.transform = "scale(1)";
@@ -245,9 +268,9 @@ async function execAction(page, input, state) {
     // plain sleeps — the post-capture dead-air cut keeps them at real-time speed
     // (only the Claude API-wait freezes are removed), so the pacing survives.
     await cam(page, "move", [state.x, state.y]);
-    await sleep(1000); // cursor glide (CSS 0.9s) + settle before acting
+    await sleep(650); // cursor glide (CSS 0.55s) + settle before acting
     await cam(page, "zoom", [state.x, state.y, 1.42]);
-    await sleep(800);  // zoom-in (CSS 0.72s) + brief settle
+    await sleep(600); // zoom-in (CSS 0.5s, +2 rAF) + brief settle
     await cam(page, "press");
     for (const m of heldMods) await page.keyboard.down(m);
     if (action === "double_click") {
@@ -258,11 +281,11 @@ async function execAction(page, input, state) {
       await page.mouse.click(state.x, state.y, { button: btn });
     }
     for (const m of heldMods) await page.keyboard.up(m);
-    await sleep(140);
+    await sleep(120);
     await cam(page, "release");
-    await sleep(1000); // hold the zoom so the result reads
+    await sleep(800); // hold the zoom so the result reads
     await cam(page, "reset");
-    await sleep(800);  // zoom back out (CSS 0.72s) + settle before screenshot
+    await sleep(600); // zoom back out (CSS 0.5s) + settle before screenshot
     return;
   }
 
@@ -310,14 +333,14 @@ async function execAction(page, input, state) {
       // never counted as API dead air and always survives the cut at real speed.
       const text = String(input.text || "");
       await cam(page, "zoom", [state.x, state.y, 1.3]); // >=1.3x onto the field
-      await sleep(600); // let the zoom-in settle before the first keystroke
+      await sleep(560); // let the zoom-in (CSS 0.5s, +2 rAF) settle before typing
       for (const ch of text) {
         await page.keyboard.type(ch);
         await sleep(50 + Math.floor(Math.random() * 101)); // 50-150ms per char
       }
-      await sleep(800); // hold on the finished text so the viewer can read it
+      await sleep(700); // hold on the finished text so the viewer can read it
       await cam(page, "reset");
-      await sleep(800); // let the zoom-out finish before the next screenshot
+      await sleep(600); // let the zoom-out (CSS 0.5s) finish before the screenshot
       break;
     }
     case "key":
@@ -343,7 +366,7 @@ async function execAction(page, input, state) {
         (d) => window.scrollBy({ left: d[0], top: d[1], behavior: "smooth" }),
         [dx, dy],
       );
-      await sleep(1100); // let the smooth scroll finish + a beat to read
+      await sleep(1000); // let the smooth scroll finish + a beat to read
       break;
     }
     default:
