@@ -238,7 +238,7 @@ export default async function UserPortfolioPage({
               className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition-opacity hover:opacity-80"
               style={{
                 background: "var(--blue)",
-                color: "#fff",
+                color: "var(--bg)",
                 fontFamily: "var(--font-nunito)",
                 textDecoration: "none",
                 boxShadow: "0 0 12px var(--blue-glow)",

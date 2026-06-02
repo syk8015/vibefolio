@@ -41,6 +41,7 @@ export function StampSeal({
   return (
     <div
       aria-hidden
+      className="vf-stamp-seal"
       style={{
         width: size,
         height: size,
@@ -54,9 +55,7 @@ export function StampSeal({
         alignItems: "center",
         justifyContent: "center",
         transform: "rotate(-6deg)",
-        opacity: 0.82,
         boxShadow: "0 1px 3px rgba(0,0,0,0.18)",
-        mixBlendMode: "multiply",
         flexShrink: 0,
         ...style,
       }}
@@ -173,7 +172,7 @@ export function MeishiBig({
         minHeight: 290,
         background: "var(--surface)",
         borderRadius: 4,
-        boxShadow: "0 1px 0 rgba(0,0,0,0.04), 0 18px 40px rgba(0,0,0,0.16), 0 3px 8px rgba(0,0,0,0.08)",
+        boxShadow: "var(--shadow-card-big)",
         padding: "22px 26px",
         display: "flex",
         flexDirection: "column",
@@ -353,7 +352,7 @@ export function MeishiInline({
         position: "relative",
         background: "var(--surface)",
         borderRadius: 4,
-        boxShadow: "0 1px 0 rgba(0,0,0,0.04), 0 12px 28px rgba(0,0,0,0.14), 0 2px 6px rgba(0,0,0,0.08)",
+        boxShadow: "var(--shadow-card-small)",
         padding: "18px 20px",
         display: "flex",
         flexDirection: "column",

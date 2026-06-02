@@ -32,6 +32,9 @@
   --badge-bg: rgba(253, 250, 243, 0.85);
   --paper-blend: multiply;
   --paper-opacity: 0.04;
+  /* Meishi card elevation — light: subtle drop shadow */
+  --shadow-card-big: 0 1px 0 rgba(0,0,0,0.04), 0 18px 40px rgba(0,0,0,0.16), 0 3px 8px rgba(0,0,0,0.08);
+  --shadow-card-small: 0 1px 0 rgba(0,0,0,0.04), 0 12px 28px rgba(0,0,0,0.14), 0 2px 6px rgba(0,0,0,0.08);
 }
 
 /* Dark theme — deep ink */
@@ -59,6 +62,9 @@
   --badge-bg: rgba(26, 22, 18, 0.78);
   --paper-blend: overlay;
   --paper-opacity: 0.08;
+  /* Meishi card elevation — dark: top highlight + deep shadow for perceived lift */
+  --shadow-card-big: inset 0 1px 0 rgba(255,255,255,0.07), 0 20px 56px rgba(0,0,0,0.6), 0 4px 14px rgba(0,0,0,0.45);
+  --shadow-card-small: inset 0 1px 0 rgba(255,255,255,0.06), 0 14px 38px rgba(0,0,0,0.5), 0 3px 9px rgba(0,0,0,0.38);
 }
 
 * { box-sizing: border-box; }
@@ -266,15 +272,28 @@ body::before {
 }
 
 /* Inset paper grain — used on meishi cards so they read as actual paper.
-   The body already has a full-bleed grain; this is a local, multiplied
-   overlay that sits inside a card without leaking past its corners. */
+   The body already has a full-bleed grain; this is a local overlay that sits
+   inside a card without leaking past its corners.
+   Light: multiply (grain darkens white paper → printed texture)
+   Dark: overlay (grain lightens + darkens mid-tones → visible on dark paper) */
 .vf-paper-grain {
   position: absolute;
   inset: 0;
   pointer-events: none;
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.08 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
-  mix-blend-mode: multiply;
+  mix-blend-mode: var(--paper-blend);
   opacity: 0.7;
+}
+
+/* Stamp seal — light: multiply (letterpress feel on white paper)
+                dark: normal (wax-seal look on dark paper, no colour collapse) */
+.vf-stamp-seal {
+  mix-blend-mode: multiply;
+  opacity: 0.82;
+}
+[data-theme="dark"] .vf-stamp-seal {
+  mix-blend-mode: normal;
+  opacity: 0.9;
 }
 
 /* Typewriter cursor for landing tagline.
