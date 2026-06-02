@@ -4,7 +4,19 @@ const NODE_VERSION = "22.12.0";
 
 export const template = Template()
   .fromBaseImage()
-  .aptInstall(["git", "curl", "ca-certificates", "xz-utils", "ffmpeg"])
+  // matchbox-window-manager: a minimal WM is required for headed Chromium under
+  // Xvfb to map/paint its window — without a WM Chromium treats the window as
+  // hidden and skips rendering (blank capture). x11-utils is for diagnostics.
+  .aptInstall([
+    "git",
+    "curl",
+    "ca-certificates",
+    "xz-utils",
+    "ffmpeg",
+    "xvfb",
+    "matchbox-window-manager",
+    "x11-utils",
+  ])
   .setUser("root")
   .runCmd(
     `mkdir -p /opt/node && curl -fsSL https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz ` +
