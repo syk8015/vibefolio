@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, memo } from "react";
 import Image from "next/image";
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
@@ -96,7 +96,9 @@ const AI_TOOL_DOMAINS: Record<string, string> = {
   "ElevenLabs":        "elevenlabs.io",
 };
 
-function AiToolLogo({ id, size = 13 }: { id: string; size?: number }) {
+// Pure, primitive props + a fixed domain map. Memoized so it doesn't re-render
+// (and re-issue the favicon request) on unrelated dashboard state changes.
+const AiToolLogo = memo(function AiToolLogo({ id, size = 13 }: { id: string; size?: number }) {
   const domain = AI_TOOL_DOMAINS[id];
   if (!domain) return null;
   return (
@@ -108,7 +110,7 @@ function AiToolLogo({ id, size = 13 }: { id: string; size?: number }) {
       style={{ borderRadius: 3, display: "block", flexShrink: 0 }}
     />
   );
-}
+});
 
 const AI_TOOLS_INITIAL = 5;
 
@@ -182,6 +184,20 @@ function isValidHttpUrl(s: string) {
   }
 }
 
+// zip-slip 방어: 업로드 엔트리 경로는 `${userId}/${projectId}/${relativePath}`로
+// storage 키가 된다. `..` 세그먼트·절대경로·역슬래시·NUL이 있으면 다른 사용자
+// prefix로 새거나(traversal) 키를 오염시킬 수 있으므로 그런 엔트리는 버린다.
+// (storage RLS도 `..` 키를 막지만 클라이언트에서도 fail-fast.)
+function safeRelativePath(raw: string): string | null {
+  const p = raw.replace(/^\/+/, ""); // 선행 슬래시 제거
+  if (!p || p.startsWith("__MACOSX/")) return null;
+  const segs = p.split("/");
+  if (segs.some((s) => s === ".." || s.includes("\\") || s.includes("\0"))) {
+    return null;
+  }
+  return p;
+}
+
 // zip → 압축해제, 일반 파일 → 그대로. 결과는 {relativePath, blob} 배열.
 // zip 안에 단일 최상위 폴더가 있으면 strip해서 index.html이 root에 오게 한다.
 async function expandUploadEntries(
@@ -199,20 +215,22 @@ async function expandUploadEntries(
       for (const entry of fileEntries) {
         const parts = entry.name.split("/");
         if (stripTop) parts.shift();
-        const relativePath = parts.join("/");
-        if (!relativePath || relativePath.startsWith("__MACOSX/")) continue;
+        const relativePath = safeRelativePath(parts.join("/"));
+        if (!relativePath) continue;
         const data = await entry.async("blob");
         out.push({ relativePath, data });
       }
     } else {
-      let relativePath: string;
+      let rawPath: string;
       if (file.webkitRelativePath) {
         const parts = file.webkitRelativePath.split("/");
         parts.shift();
-        relativePath = parts.join("/");
+        rawPath = parts.join("/");
       } else {
-        relativePath = file.name;
+        rawPath = file.name;
       }
+      const relativePath = safeRelativePath(rawPath);
+      if (!relativePath) continue;
       out.push({ relativePath, data: file });
     }
   }

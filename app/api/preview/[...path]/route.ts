@@ -25,6 +25,24 @@ export async function GET(
   { params }: { params: Promise<{ path: string[] }> }
 ) {
   const { path } = await params;
+  // Path-traversal guard: filePath is interpolated into the Supabase public-object
+  // URL, so a crafted request must not be able to climb out of the project-files
+  // bucket. Encoded `%2e%2e` arrives here already decoded as a literal `..`
+  // segment; a double-encoded `%2f` would show up as a slash inside a segment.
+  // Reject those (and backslash / NUL / empty segments) before building the URL.
+  if (
+    !path?.length ||
+    path.some(
+      (seg) =>
+        seg === "" ||
+        seg === ".." ||
+        seg.includes("/") ||
+        seg.includes("\\") ||
+        seg.includes("\0"),
+    )
+  ) {
+    return new NextResponse("Bad request", { status: 400 });
+  }
   const filePath = path.join("/");
 
   // Untrusted uploaded content must execute only on the sandbox origin so its JS

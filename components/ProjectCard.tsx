@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, memo } from "react";
 import Image from "next/image";
 import type { Project } from "@/lib/data";
 
@@ -23,7 +23,9 @@ function isAiTag(tag: string) {
   return AI_KEYWORDS.some((k) => tag.toLowerCase().includes(k));
 }
 
-function TagBadge({ tag }: { tag: string }) {
+// Pure, string-only prop. Memoized so a card's hover state flip (which re-renders
+// the card) doesn't needlessly re-render every tag badge inside it.
+const TagBadge = memo(function TagBadge({ tag }: { tag: string }) {
   const ai = isAiTag(tag);
   return (
     <span
@@ -42,7 +44,7 @@ function TagBadge({ tag }: { tag: string }) {
       {tag}
     </span>
   );
-}
+});
 
 export default function ProjectCard({
   project,

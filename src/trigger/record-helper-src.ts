@@ -19,6 +19,13 @@ if (!URL || !OUTPUT_DIR || !DURATION_SEC_STR) {
   console.error("Usage: record-helper.js <URL> <OUTPUT_DIR> <DURATION_SEC>");
   process.exit(1);
 }
+// Only ever drive Chromium at an http(s) target. The caller already validates
+// and shell-quotes the URL; this is the last guard so a stray file://, data:,
+// or other scheme can never be navigated even if something upstream slips.
+if (!/^https?:\/\//i.test(URL)) {
+  console.error("refusing non-http(s) target: " + URL);
+  process.exit(1);
+}
 const DURATION_MS = parseFloat(DURATION_SEC_STR) * 1000;
 const FONT_WAIT_MS = 8000;
 const CONTENT_WAIT_MS = 12000;
@@ -442,12 +449,19 @@ async function callClaude(messages) {
 }
 
 // Prompt caching: the message history is append-only, so each call's payload is
-// a strict superset of the previous one. Put a single rolling cache breakpoint on
-// the last content block and the whole prior prefix (tools + system + every
-// earlier turn, screenshots included) is served from cache at ~1/10 the price —
-// only the newest screenshot is paid at full rate. Far cheaper than re-sending,
-// and unlike image-pruning it never mutates the prefix (which would bust cache).
-// Breakpoints must not accumulate (max 4), so clear stale ones first.
+// a strict superset of the previous one. The whole prior prefix (tools + system +
+// every earlier turn, screenshots included) is served from cache at ~1/10 the
+// price — only the newest screenshot is paid at full rate. Far cheaper than
+// re-sending, and unlike image-pruning it never mutates the prefix (which would
+// bust cache). Breakpoints must not accumulate (max 4), so clear stale ones first,
+// then set TWO:
+//   1) a stable HEAD anchor on the first user message — re-caches the big fixed
+//      prefix (tools+system+first screenshot) every call so it survives the 5-min
+//      cache TTL even on a slow / rate-limited run; without it a single expiry
+//      forces a full-prefix re-write.
+//   2) a rolling TAIL breakpoint on the last block — extends the cache to cover
+//      the whole conversation so far.
+// (tools carries its own static cache_control, so this stays within the 4 max.)
 function applyCache(messages) {
   for (const m of messages) {
     if (!Array.isArray(m.content)) continue;
@@ -455,10 +469,13 @@ function applyCache(messages) {
       if (b && b.cache_control) delete b.cache_control;
     }
   }
-  const last = messages[messages.length - 1];
-  if (last && Array.isArray(last.content) && last.content.length) {
-    last.content[last.content.length - 1].cache_control = { type: "ephemeral" };
-  }
+  const setBreak = (m) => {
+    if (m && Array.isArray(m.content) && m.content.length) {
+      m.content[m.content.length - 1].cache_control = { type: "ephemeral" };
+    }
+  };
+  setBreak(messages[0]);
+  setBreak(messages[messages.length - 1]);
 }
 
 // Drives the app with Claude. Returns { steps, freezes } where freezes is a list

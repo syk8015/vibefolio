@@ -4,7 +4,17 @@ import { createServerClient } from "@supabase/ssr";
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  const next = searchParams.get("next") ?? "/";
+  // Open-redirect guard: `next` is user-controlled and concatenated onto origin.
+  // Only allow a same-origin relative path — reject `//evil.com`, `/\evil.com`,
+  // `@evil.com` (userinfo trick), or any absolute URL, all of which would escape
+  // our origin and turn the post-login redirect into a phishing hop.
+  const nextParam = searchParams.get("next") ?? "/";
+  const next =
+    nextParam.startsWith("/") &&
+    !nextParam.startsWith("//") &&
+    !nextParam.startsWith("/\\")
+      ? nextParam
+      : "/";
 
   if (code) {
     // Create the redirect response first so we can set cookies on it

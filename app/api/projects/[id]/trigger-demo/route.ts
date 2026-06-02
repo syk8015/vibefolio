@@ -78,7 +78,15 @@ export async function POST(
     return NextResponse.json({ error: updErr.message }, { status: 500 });
   }
 
-  const handle = await tasks.trigger<typeof buildAndRecord>("build-and-record", payload);
+  // Cost guard: collapse re-record click bursts (and accidental double-fires) for
+  // the same project into ONE run. Trailing mode means the latest payload wins, so
+  // editing the source then re-recording still uses the fresh source. The task's
+  // queue concurrencyLimit caps how many of these ever run in parallel.
+  const handle = await tasks.trigger<typeof buildAndRecord>(
+    "build-and-record",
+    payload,
+    { debounce: { key: `demo-${id}`, delay: "8s", mode: "trailing" } },
+  );
 
   return NextResponse.json({
     ok: true,
