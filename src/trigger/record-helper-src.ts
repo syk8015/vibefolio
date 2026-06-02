@@ -60,6 +60,9 @@ const SYSTEM_PROMPT = [
   "",
   "Rules:",
   "- Stay on this app. Never navigate to external sites, never open new tabs, never touch the URL bar.",
+  "- Prioritize the most eye-catching primary call-to-action (CTA) button or the flashiest interactive",
+  "  element first. Leading with the boldest, most visually striking control makes the demo instantly",
+  "  compelling — go for the hero button, the standout feature, the thing the page clearly wants clicked.",
   "- Prefer actions that visibly change the screen: click buttons, open menus/modals, switch tabs,",
   "  toggle views, type into a short demo input, drag a slider.",
   "- Do NOT perform destructive or irreversible actions (delete, purchase, pay, sign out, send a real",
@@ -136,7 +139,10 @@ async function ensureCinema(page) {
       "margin-top:-12px;border-radius:50%;background:rgba(15,15,20,0.22);" +
       "border:2px solid rgba(255,255,255,0.95);box-shadow:0 3px 10px rgba(0,0,0,0.4);" +
       "z-index:2147483647;pointer-events:none;will-change:left,top,transform;" +
-      "transition:left 0.85s cubic-bezier(0.33,0,0.2,1),top 0.85s cubic-bezier(0.33,0,0.2,1),transform 0.12s ease;";
+      // Apple-style spring glide: a long, gently decelerating ease so the cursor
+      // slides to its target with a premium, unhurried feel. The press scale stays
+      // snappy (0.12s) — that's click feedback, not a glide.
+      "transition:left 0.9s cubic-bezier(0.32,0.72,0,1),top 0.9s cubic-bezier(0.32,0.72,0,1),transform 0.12s ease;";
     var rip = doc.createElement("div");
     rip.id = "__demo_ripple";
     rip.style.cssText =
@@ -147,7 +153,9 @@ async function ensureCinema(page) {
     doc.documentElement.appendChild(rip);
     var body = doc.body;
     if (body) {
-      body.style.transition = "transform 0.62s cubic-bezier(0.22,1,0.36,1)";
+      // Same Apple-style spring as the cursor, a touch faster (0.72s) so the
+      // camera push-in reads as a smooth, confident zoom rather than a snap.
+      body.style.transition = "transform 0.72s cubic-bezier(0.32,0.72,0,1)";
       body.style.willChange = "transform";
     }
     var lastX = window.innerWidth / 2;
@@ -237,9 +245,9 @@ async function execAction(page, input, state) {
     // plain sleeps — the post-capture dead-air cut keeps them at real-time speed
     // (only the Claude API-wait freezes are removed), so the pacing survives.
     await cam(page, "move", [state.x, state.y]);
-    await sleep(950);  // cursor glide (CSS 0.85s) + settle before acting
+    await sleep(1000); // cursor glide (CSS 0.9s) + settle before acting
     await cam(page, "zoom", [state.x, state.y, 1.42]);
-    await sleep(720);  // zoom-in (CSS 0.62s) + brief settle
+    await sleep(800);  // zoom-in (CSS 0.72s) + brief settle
     await cam(page, "press");
     for (const m of heldMods) await page.keyboard.down(m);
     if (action === "double_click") {
@@ -254,7 +262,7 @@ async function execAction(page, input, state) {
     await cam(page, "release");
     await sleep(1000); // hold the zoom so the result reads
     await cam(page, "reset");
-    await sleep(720);  // zoom back out (CSS 0.62s) + settle before screenshot
+    await sleep(800);  // zoom back out (CSS 0.72s) + settle before screenshot
     return;
   }
 
@@ -294,14 +302,22 @@ async function execAction(page, input, state) {
       break;
     }
     case "type": {
-      // Zoom gently on the field while typing so the typed text is legible,
-      // then hold briefly so the result reads before easing back out.
-      await cam(page, "zoom", [state.x, state.y, 1.3]);
-      await sleep(420);
-      await page.keyboard.type(String(input.text || ""), { delay: 85 });
-      await sleep(650);  // hold on the typed text
+      // Cinematic typing: zoom onto the field, settle, then emit one character
+      // at a time with a randomized human cadence so the text visibly appears
+      // letter by letter (a single keyboard.type call tended to paint the whole
+      // string in one frame). Every sleep here is intentional staging — it runs
+      // strictly AFTER the freeze window measured around callClaude, so it is
+      // never counted as API dead air and always survives the cut at real speed.
+      const text = String(input.text || "");
+      await cam(page, "zoom", [state.x, state.y, 1.3]); // >=1.3x onto the field
+      await sleep(600); // let the zoom-in settle before the first keystroke
+      for (const ch of text) {
+        await page.keyboard.type(ch);
+        await sleep(50 + Math.floor(Math.random() * 101)); // 50-150ms per char
+      }
+      await sleep(800); // hold on the finished text so the viewer can read it
       await cam(page, "reset");
-      await sleep(600);
+      await sleep(800); // let the zoom-out finish before the next screenshot
       break;
     }
     case "key":
@@ -454,8 +470,13 @@ async function runComputerUse(page, capT0) {
   let steps = 0;
   while (steps < CU_MAX_STEPS && Date.now() - started < CU_MAX_MS) {
     applyCache(messages);
-    // The screen is frozen for the whole API round-trip — record the window so
-    // it can be cut out later (this is the only genuine dead air in the clip).
+    // Dead-air invariant: a freeze window spans the callClaude round-trip ONLY.
+    // fStart is sampled immediately before the request, the end immediately after
+    // the response — so the only sleeps inside it are callClaude's own retry
+    // backoffs (genuine API wait). Every cinematic sleep (cursor glide, zoom
+    // holds, per-char typing) lives in execAction, which runs strictly AFTER this
+    // push, so it is never measured here and always survives the dead-air cut at
+    // real-time speed. Do not move any staging sleep between these two lines.
     const fStart = Date.now() - capT0;
     const resp = await callClaude(messages);
     freezes.push([fStart, Date.now() - capT0]);
