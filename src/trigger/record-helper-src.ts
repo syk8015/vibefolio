@@ -12,7 +12,7 @@ export const RECORD_HELPER_SRC = String.raw`// Run inside the E2B sandbox.
 const { chromium } = require("playwright");
 const fs = require("node:fs");
 const path = require("node:path");
-const { spawn } = require("node:child_process");
+const { spawn, spawnSync } = require("node:child_process");
 
 const [, , URL, OUTPUT_DIR, DURATION_SEC_STR] = process.argv;
 if (!URL || !OUTPUT_DIR || !DURATION_SEC_STR) {
@@ -46,7 +46,10 @@ const API_KEY = process.env.ANTHROPIC_API_KEY || "";
 // the computer_20250124 tool for them). The latest computer-use-capable Sonnet
 // is 4.5 — keep this here, override via DEMO_CU_MODEL if needed.
 const MODEL = process.env.DEMO_CU_MODEL || "claude-sonnet-4-5";
-const CU_MAX_STEPS = 10;        // hard cap on agent turns (cost guard)
+// Fewer, slower steps: the dead-air cut keeps every action at real-time speed,
+// so each step now yields ~3-4s of footage. 7 steps ~= a 25s demo (cap 30s) and
+// fewer Claude calls = lower cost.
+const CU_MAX_STEPS = 7;         // hard cap on agent turns (cost guard)
 const CU_MAX_MS = 90000;        // wall-clock budget for the interaction (cinematics included)
 const ACTION_PACING_MS = 200;   // execAction now self-paces the cinematics; small extra dwell
 
@@ -62,12 +65,25 @@ const SYSTEM_PROMPT = [
   "- Do NOT perform destructive or irreversible actions (delete, purchase, pay, sign out, send a real",
   "  message). If a form looks like sign-up / login / payment, skip it and show something else.",
   "- One clear, unhurried action at a time.",
-  "- Be economical: after roughly 5-7 meaningful actions, or once you've shown the core feature well,",
+  "- Be economical: after roughly 4-6 meaningful actions, or once you've shown the core feature well,",
   "  stop by ending your turn without any tool call. Do not pad with extra steps.",
   "- If the screen is mostly static marketing text, scroll to reveal more, then interact with any visible controls.",
 ].join("\n");
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+function probeDur(file) {
+  try {
+    const r = spawnSync(
+      "ffprobe",
+      ["-v", "error", "-show_entries", "format=duration", "-of", "default=nk=1:nw=1", file],
+      { encoding: "utf8" },
+    );
+    return parseFloat((r.stdout || "").trim()) || 0;
+  } catch (e) {
+    return 0;
+  }
+}
 
 const MODS = {
   ctrl: "Control", control: "Control", alt: "Alt", option: "Alt",
@@ -120,7 +136,7 @@ async function ensureCinema(page) {
       "margin-top:-12px;border-radius:50%;background:rgba(15,15,20,0.22);" +
       "border:2px solid rgba(255,255,255,0.95);box-shadow:0 3px 10px rgba(0,0,0,0.4);" +
       "z-index:2147483647;pointer-events:none;will-change:left,top,transform;" +
-      "transition:left 0.45s cubic-bezier(0.4,0,0.2,1),top 0.45s cubic-bezier(0.4,0,0.2,1),transform 0.12s ease;";
+      "transition:left 0.85s cubic-bezier(0.33,0,0.2,1),top 0.85s cubic-bezier(0.33,0,0.2,1),transform 0.12s ease;";
     var rip = doc.createElement("div");
     rip.id = "__demo_ripple";
     rip.style.cssText =
@@ -131,7 +147,7 @@ async function ensureCinema(page) {
     doc.documentElement.appendChild(rip);
     var body = doc.body;
     if (body) {
-      body.style.transition = "transform 0.42s cubic-bezier(0.22,1,0.36,1)";
+      body.style.transition = "transform 0.62s cubic-bezier(0.22,1,0.36,1)";
       body.style.willChange = "transform";
     }
     var lastX = window.innerWidth / 2;
@@ -215,11 +231,15 @@ async function execAction(page, input, state) {
     const heldMods = input.text
       ? String(input.text).split("+").map(mapMod).filter(Boolean)
       : [];
-    // Glide the cursor to the target, then zoom toward it.
+    // Human-paced click: glide the cursor over (slow, like a real hand), pause
+    // to "acquire" the target, zoom in, click, then HOLD on the zoomed result so
+    // the viewer can read what happened, and ease back out. These holds are
+    // plain sleeps — the post-capture dead-air cut keeps them at real-time speed
+    // (only the Claude API-wait freezes are removed), so the pacing survives.
     await cam(page, "move", [state.x, state.y]);
-    await sleep(600);  // cursor glide (CSS 0.45s) + brief dwell
+    await sleep(950);  // cursor glide (CSS 0.85s) + settle before acting
     await cam(page, "zoom", [state.x, state.y, 1.42]);
-    await sleep(450);  // zoom-in CSS transition (0.42s) + settle
+    await sleep(720);  // zoom-in (CSS 0.62s) + brief settle
     await cam(page, "press");
     for (const m of heldMods) await page.keyboard.down(m);
     if (action === "double_click") {
@@ -230,18 +250,11 @@ async function execAction(page, input, state) {
       await page.mouse.click(state.x, state.y, { button: btn });
     }
     for (const m of heldMods) await page.keyboard.up(m);
-    await sleep(120);
+    await sleep(140);
     await cam(page, "release");
-    // Hold the zoom so the viewer reads the result. A plain sleep would be
-    // removed by mpdecimate (static frames look identical → dropped). Instead,
-    // drift the cursor 4px and back — CSS transition animates each micro-move,
-    // keeping every frame distinct so mpdecimate preserves the hold duration.
-    await cam(page, "move", [state.x + 4, state.y + 2]);
-    await sleep(350);
-    await cam(page, "move", [state.x, state.y]);
-    await sleep(350);
+    await sleep(1000); // hold the zoom so the result reads
     await cam(page, "reset");
-    await sleep(500);  // zoom-out CSS transition (0.42s) + settle before screenshot
+    await sleep(720);  // zoom back out (CSS 0.62s) + settle before screenshot
     return;
   }
 
@@ -255,7 +268,7 @@ async function execAction(page, input, state) {
     case "mouse_move":
       await cam(page, "move", [state.x, state.y]);
       await page.mouse.move(state.x, state.y);
-      await sleep(300);
+      await sleep(500);
       break;
     case "left_mouse_down":
       await cam(page, "move", [state.x, state.y]);
@@ -281,17 +294,14 @@ async function execAction(page, input, state) {
       break;
     }
     case "type": {
-      // Zoom gently on the field while typing so the typed text is legible.
+      // Zoom gently on the field while typing so the typed text is legible,
+      // then hold briefly so the result reads before easing back out.
       await cam(page, "zoom", [state.x, state.y, 1.3]);
-      await sleep(300);
-      await page.keyboard.type(String(input.text || ""), { delay: 70 });
-      // Brief drift after typing keeps frames distinct (mpdecimate guard)
-      await cam(page, "move", [state.x + 3, state.y]);
-      await sleep(280);
-      await cam(page, "move", [state.x, state.y]);
-      await sleep(280);
+      await sleep(420);
+      await page.keyboard.type(String(input.text || ""), { delay: 85 });
+      await sleep(650);  // hold on the typed text
       await cam(page, "reset");
-      await sleep(400);
+      await sleep(600);
       break;
     }
     case "key":
@@ -317,7 +327,7 @@ async function execAction(page, input, state) {
         (d) => window.scrollBy({ left: d[0], top: d[1], behavior: "smooth" }),
         [dx, dy],
       );
-      await sleep(720);
+      await sleep(1100); // let the smooth scroll finish + a beat to read
       break;
     }
     default:
@@ -412,11 +422,15 @@ function applyCache(messages) {
   }
 }
 
-// Drives the app with Claude. Returns the number of agent steps taken.
+// Drives the app with Claude. Returns { steps, freezes } where freezes is a list
+// of [startMs, endMs] windows (relative to capT0, the capture start) during which
+// the agent was blocked on a Claude API response and the screen sat frozen. The
+// caller cuts those windows so the demo keeps only real motion at real-time speed.
 // Throws if the API key is missing or any request fails (caller falls back).
-async function runComputerUse(page) {
+async function runComputerUse(page, capT0) {
   if (!API_KEY) throw new Error("ANTHROPIC_API_KEY not set");
   await ensureCinema(page); // synthetic cursor visible from the first frame
+  const freezes = [];
   const state = { x: Math.floor(VIEW_W / 2), y: Math.floor(VIEW_H / 2) };
   const messages = [
     {
@@ -440,7 +454,11 @@ async function runComputerUse(page) {
   let steps = 0;
   while (steps < CU_MAX_STEPS && Date.now() - started < CU_MAX_MS) {
     applyCache(messages);
+    // The screen is frozen for the whole API round-trip — record the window so
+    // it can be cut out later (this is the only genuine dead air in the clip).
+    const fStart = Date.now() - capT0;
     const resp = await callClaude(messages);
+    freezes.push([fStart, Date.now() - capT0]);
     messages.push({ role: "assistant", content: resp.content || [] });
     const toolUses = (resp.content || []).filter((b) => b && b.type === "tool_use");
     if (!toolUses.length) break; // Claude ended its turn -> demo complete
@@ -467,7 +485,7 @@ async function runComputerUse(page) {
     messages.push({ role: "user", content: results });
     steps++;
   }
-  return steps;
+  return { steps: steps, freezes: freezes };
 }
 
 // Original behaviour: gentle top->bottom scroll, easing to ~85% and resting
@@ -552,6 +570,9 @@ async function runScroll(page) {
   // -draw_mouse 0: don't capture the real X pointer (we draw our own synthetic
   // cursor). ultrafast/crf18: cheap high-quality intermediate; the task does the
   // 720p + fade pass afterwards.
+  // capT0 ≈ cap.mp4 t=0 (ffmpeg starts grabbing ~immediately after spawn). All
+  // freeze windows are measured against this so we can cut them out below.
+  const capT0 = Date.now();
   const ff = spawn(
     "ffmpeg",
     [
@@ -571,9 +592,12 @@ async function runScroll(page) {
   const interactionStart = Date.now();
   let mode = "computer-use";
   let steps = 0;
+  let freezes = [];
   let cuError = null;
   try {
-    steps = await runComputerUse(page);
+    const cu = await runComputerUse(page, capT0);
+    steps = cu.steps;
+    freezes = cu.freezes;
     if (!steps) throw new Error("computer-use produced no steps");
   } catch (e) {
     cuError = String(e && e.message ? e.message : e);
@@ -604,6 +628,57 @@ async function runScroll(page) {
 
   if (!fs.existsSync(capPath)) throw new Error("capture file missing: " + capPath);
   const stat = fs.statSync(capPath);
+
+  // --- Cut the API-wait dead air -----------------------------------------
+  // The capture is real-time, so the agent's thinking pauses sit in the clip as
+  // frozen stretches. We recorded those exact windows; drop them (keeping a small
+  // guard so motion is never clipped and a natural micro-pause survives) and
+  // re-time the remainder to continuous 60fps. Everything that's actual movement
+  // OR an intentional zoom-hold stays at true speed → reads like a real person.
+  const tightPath = path.join(OUTPUT_DIR, "tight.mp4");
+  const capDurSec = probeDur(capPath);
+  let useTight = false;
+  let tightDurSec = 0;
+  let cutCount = 0;
+  try {
+    const G = 0.18;       // guard seconds kept on each side of a cut
+    const MIN_CUT = 0.6;  // ignore freezes too short to be worth cutting
+    const cuts = [];
+    freezes.forEach(function (f, i) {
+      let s = i === 0 ? 0 : f[0] / 1000 + G; // also drop the static warmup lead-in
+      const e = f[1] / 1000 - G;
+      const minLen = i === 0 ? 0.2 : MIN_CUT;
+      if (e - s >= minLen) cuts.push([s, e]);
+    });
+    cuts.sort(function (a, b) { return a[0] - b[0]; });
+    const keeps = [];
+    let cur = 0;
+    for (const c of cuts) {
+      if (c[0] > cur) keeps.push([cur, c[0]]);
+      cur = Math.max(cur, c[1]);
+    }
+    if (capDurSec - cur > 0.05) keeps.push([cur, capDurSec]);
+    cutCount = cuts.length;
+    if (cuts.length && keeps.length) {
+      const expr =
+        "select='" +
+        keeps.map(function (k) { return "between(t," + k[0].toFixed(3) + "," + k[1].toFixed(3) + ")"; }).join("+") +
+        "',setpts=N/FRAME_RATE/TB";
+      const r = spawnSync(
+        "ffmpeg",
+        ["-y", "-i", capPath, "-vf", expr, "-fps_mode", "cfr", "-r", "60", "-an",
+         "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p", tightPath],
+        { stdio: "ignore" },
+      );
+      if (r.status === 0 && fs.existsSync(tightPath)) {
+        tightDurSec = probeDur(tightPath);
+        if (tightDurSec >= 2) useTight = true;
+      }
+    }
+  } catch (e) {
+    console.error("dead-air cut failed:", e && e.message ? e.message : e);
+  }
+
   console.log(
     JSON.stringify({
       path: capPath,
@@ -616,6 +691,10 @@ async function runScroll(page) {
       cropY,
       visibleChars,
       cuError,
+      tight: useTight,
+      capDurMs: Math.round(capDurSec * 1000),
+      tightDurMs: Math.round(tightDurSec * 1000),
+      cuts: cutCount,
       pageErrors: pageErrors.slice(0, 5),
     }),
   );

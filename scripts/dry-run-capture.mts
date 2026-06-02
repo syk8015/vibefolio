@@ -62,18 +62,26 @@ try {
     throw new Error("recorder failed");
   }
 
-  // post-process (mirror build-and-record)
-  const dur = await sh(
-    `ffprobe -v error -show_entries format=duration -of default=nk=1:nw=1 /tmp/rec/cap.mp4`,
-  );
-  const capDur = parseFloat((dur.stdout || "").trim()) || RECORD_DURATION_SEC;
-  const clipLen = Math.max(2, Math.min(MAX_VIDEO_SEC, capDur));
+  // post-process (mirror build-and-record): recorder already cut dead air into
+  // tight.mp4 — prefer it, fall back to the raw cap.mp4.
+  const probe = async (f: string) =>
+    parseFloat(
+      (await sh(`ffprobe -v error -show_entries format=duration -of default=nk=1:nw=1 /tmp/rec/${f}`))
+        .stdout.trim(),
+    ) || 0;
+  let src = "tight.mp4";
+  let srcDur = await probe(src);
+  if (srcDur < 2) {
+    src = "cap.mp4";
+    srcDur = await probe(src);
+  }
+  const clipLen = Math.max(2, Math.min(MAX_VIDEO_SEC, srcDur || RECORD_DURATION_SEC));
   const fadeOutStart = Math.max(0, clipLen - 0.5).toFixed(2);
-  console.log("cap duration:", capDur, "-> clipLen:", clipLen);
+  console.log("src:", src, "dur:", srcDur, "-> clipLen:", clipLen);
   const post = await sh(
-    `cd /tmp/rec && ffmpeg -y -i cap.mp4 -t ${clipLen.toFixed(2)} ` +
+    `cd /tmp/rec && ffmpeg -y -i ${src} -t ${clipLen.toFixed(2)} ` +
       `-vf "scale=-2:720,fade=t=in:st=0:d=0.5,fade=t=out:st=${fadeOutStart}:d=0.5" ` +
-      `-c:v libx264 -preset medium -crf 24 -pix_fmt yuv420p -an -movflags +faststart demo.mp4`,
+      `-c:v libx264 -preset medium -crf 26 -pix_fmt yuv420p -an -movflags +faststart demo.mp4`,
     { timeoutMs: 120_000 },
   );
   console.log("post exit:", post.exitCode, post.stderr ? "\n" + post.stderr.slice(-300) : "");
@@ -87,7 +95,7 @@ try {
   );
   console.log(uniq.stdout);
 
-  for (const f of ["demo.mp4", "cap.mp4"]) {
+  for (const f of ["demo.mp4", "tight.mp4", "cap.mp4"]) {
     const bytes = await sandbox.files.read("/tmp/rec/" + f, { format: "bytes" }).catch(() => null);
     if (bytes) {
       writeFileSync("/tmp/dryrun_" + f, Buffer.from(bytes as Uint8Array));

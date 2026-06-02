@@ -113,6 +113,11 @@ type RecorderMeta = {
   cropY?: number;
   visibleChars?: number;
   cuError?: string | null;
+  // The recorder cuts API-wait dead air into tight.mp4 and reports it here.
+  tight?: boolean;
+  capDurMs?: number;
+  tightDurMs?: number;
+  cuts?: number;
 };
 
 // The recorder prints a JSON summary as its last stdout line. Parse it (from the
@@ -312,28 +317,21 @@ export const buildAndRecord = task({
       );
     }
 
-    // cap.mp4 is a real-time 1280×800 @60fps grab of the interaction. Motion is
-    // genuinely 60fps, but the agent's API round-trips show up as frozen pauses.
+    // cap.mp4 is a real-time 1280×800 @60fps grab. The recorder already cut the
+    // API-wait dead air into tight.mp4 (keeping all gesture motion + zoom holds at
+    // real-time speed) and tells us whether that succeeded.
     const meta = parseRecorderMeta(recordResult.stdout);
     logger.log("recorder meta", {
       mode: meta.mode,
       steps: meta.steps,
       durationMs: meta.durationMs,
+      tight: meta.tight,
+      cuts: meta.cuts,
+      capDurMs: meta.capDurMs,
+      tightDurMs: meta.tightDurMs,
       cuError: meta.cuError ?? undefined,
     });
 
-    // Drop near-duplicate frames (mpdecimate) and re-time, collapsing the frozen
-    // API-wait gaps into a tight, continuous-motion clip. Motion stays full 60fps.
-    const tightRes = await sandbox.commands.run(
-      `cd /tmp/rec && ffmpeg -y -i cap.mp4 -vf "mpdecimate,setpts=N/FRAME_RATE/TB" ` +
-        `-fps_mode cfr -r 60 -an -c:v libx264 -preset veryfast -crf 20 -pix_fmt yuv420p tight.mp4`,
-      { timeoutMs: 120_000 },
-    );
-    if (tightRes.exitCode !== 0) {
-      throw new Error(
-        `ffmpeg mpdecimate failed (exit ${tightRes.exitCode}): ${tightRes.stderr.slice(-400)}`,
-      );
-    }
     const probe = async (f: string) =>
       parseFloat(
         (
@@ -342,15 +340,14 @@ export const buildAndRecord = task({
           )
         ).stdout.trim(),
       ) || 0;
-    const tightDur = await probe("tight.mp4");
-    // If the demo had little motion, mpdecimate can collapse it too far — fall
-    // back to the raw capture so we still ship a normal-length clip.
-    let src = "tight.mp4";
-    let srcDur = tightDur;
-    if (tightDur < 3) {
+    // Prefer the recorder's dead-air-cut clip; fall back to the raw capture if the
+    // cut didn't run (e.g. scroll fallback) or collapsed too far.
+    let src = meta.tight ? "tight.mp4" : "cap.mp4";
+    let srcDur = await probe(src);
+    if (srcDur < 2) {
       src = "cap.mp4";
       srcDur = await probe("cap.mp4");
-      logger.log("mpdecimate collapsed too far; using raw capture", { tightDur, srcDur });
+      logger.log("tight clip unusable; using raw capture", { srcDur });
     }
     const clipLen = Math.max(2, Math.min(MAX_VIDEO_SEC, srcDur || RECORD_DURATION_SEC));
     const fadeOutStart = Math.max(0, clipLen - 0.5).toFixed(2);
@@ -360,7 +357,7 @@ export const buildAndRecord = task({
     const ffmpegCmd =
       `cd /tmp/rec && ffmpeg -y -i ${src} -t ${clipLen.toFixed(2)} ` +
       `-vf "scale=-2:720,fade=t=in:st=0:d=0.4,fade=t=out:st=${fadeOutStart}:d=0.5" ` +
-      `-c:v libx264 -preset medium -crf 24 -pix_fmt yuv420p -an ` +
+      `-c:v libx264 -preset medium -crf 26 -pix_fmt yuv420p -an ` +
       `-movflags +faststart demo.mp4`;
     const ffmpegResult = await sandbox.commands.run(ffmpegCmd, {
       timeoutMs: 120_000,
