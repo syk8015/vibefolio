@@ -35,13 +35,8 @@ const API_KEY = process.env.ANTHROPIC_API_KEY || "";
 // the computer_20250124 tool for them). The latest computer-use-capable Sonnet
 // is 4.5 — keep this here, override via DEMO_CU_MODEL if needed.
 const MODEL = process.env.DEMO_CU_MODEL || "claude-sonnet-4-5";
-const CU_MAX_STEPS = 14;        // hard cap on agent turns
+const CU_MAX_STEPS = 10;        // hard cap on agent turns (cost guard)
 const CU_MAX_MS = 90000;        // wall-clock budget for the interaction (cinematics included)
-// Keep only the latest screenshot in history. Computer use only needs the
-// current frame to decide the next action, and low API tiers cap input tokens
-// per minute (e.g. 30k/min) — retaining several ~1.4k-token screenshots per
-// rapid-fire call blows that budget fast. One image keeps us well under it.
-const CU_KEEP_IMAGES = 1;
 const ACTION_PACING_MS = 200;   // execAction now self-paces the cinematics; small extra dwell
 
 const SYSTEM_PROMPT = [
@@ -56,8 +51,8 @@ const SYSTEM_PROMPT = [
   "- Do NOT perform destructive or irreversible actions (delete, purchase, pay, sign out, send a real",
   "  message). If a form looks like sign-up / login / payment, skip it and show something else.",
   "- One clear, unhurried action at a time.",
-  "- After roughly 8-12 meaningful actions, or once you've shown the core feature well, stop by ending",
-  "  your turn without any tool call.",
+  "- Be economical: after roughly 5-7 meaningful actions, or once you've shown the core feature well,",
+  "  stop by ending your turn without any tool call. Do not pad with extra steps.",
   "- If the screen is mostly static marketing text, scroll to reveal more, then interact with any visible controls.",
 ].join("\n");
 
@@ -321,6 +316,9 @@ async function callClaude(messages) {
         display_width_px: VIEW_W,
         display_height_px: VIEW_H,
         display_number: 1,
+        // Static cache anchor: tools + system never change across the loop, so
+        // they're served from cache on every call after the first.
+        cache_control: { type: "ephemeral" },
       },
     ],
     messages: messages,
@@ -372,25 +370,23 @@ async function callClaude(messages) {
   }
 }
 
-// Replace all but the most recent CU_KEEP_IMAGES tool_result screenshots with a
-// short text stub so the conversation's image-token cost stays bounded.
-function pruneImages(messages) {
-  const refs = [];
-  for (let i = 0; i < messages.length; i++) {
-    const c = messages[i].content;
-    if (!Array.isArray(c)) continue;
-    for (let j = 0; j < c.length; j++) {
-      const blk = c[j];
-      if (blk && blk.type === "tool_result" && Array.isArray(blk.content)) {
-        for (let k = 0; k < blk.content.length; k++) {
-          if (blk.content[k] && blk.content[k].type === "image") refs.push([i, j, k]);
-        }
-      }
+// Prompt caching: the message history is append-only, so each call's payload is
+// a strict superset of the previous one. Put a single rolling cache breakpoint on
+// the last content block and the whole prior prefix (tools + system + every
+// earlier turn, screenshots included) is served from cache at ~1/10 the price —
+// only the newest screenshot is paid at full rate. Far cheaper than re-sending,
+// and unlike image-pruning it never mutates the prefix (which would bust cache).
+// Breakpoints must not accumulate (max 4), so clear stale ones first.
+function applyCache(messages) {
+  for (const m of messages) {
+    if (!Array.isArray(m.content)) continue;
+    for (const b of m.content) {
+      if (b && b.cache_control) delete b.cache_control;
     }
   }
-  const drop = refs.slice(0, Math.max(0, refs.length - CU_KEEP_IMAGES));
-  for (const [i, j, k] of drop) {
-    messages[i].content[j].content[k] = { type: "text", text: "[earlier screenshot omitted]" };
+  const last = messages[messages.length - 1];
+  if (last && Array.isArray(last.content) && last.content.length) {
+    last.content[last.content.length - 1].cache_control = { type: "ephemeral" };
   }
 }
 
@@ -421,7 +417,7 @@ async function runComputerUse(page) {
   const started = Date.now();
   let steps = 0;
   while (steps < CU_MAX_STEPS && Date.now() - started < CU_MAX_MS) {
-    pruneImages(messages);
+    applyCache(messages);
     const resp = await callClaude(messages);
     messages.push({ role: "assistant", content: resp.content || [] });
     const toolUses = (resp.content || []).filter((b) => b && b.type === "tool_use");

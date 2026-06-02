@@ -309,13 +309,20 @@ export const buildAndRecord = task({
     // plays in a small Theater card — so downscale to 720p and lean on a higher
     // CRF + slower preset. This trims ~60-70% off the file with no perceptible
     // loss at card size. Compute time is free here (async Trigger task).
+    // Playwright records the page at a low effective frame rate (headless
+    // Chromium repaints sparsely, so motion reads ~15fps even in a 25fps
+    // container). Motion-interpolate to a smooth 60fps with ffmpeg's
+    // `minterpolate` (mci) — pure CPU work, no API cost. Downscale to 720p
+    // *before* interpolating so we synthesize cheaper frames. The interpolated
+    // 60fps motion is what makes the cinematic zoom/cursor read as buttery.
     const ffmpegCmd =
       `cd /tmp/rec && ffmpeg -y -ss ${startSec.toFixed(2)} -i demo.webm -t ${clipLen.toFixed(2)} ` +
-      `-vf "scale=-2:720,fade=t=in:st=0:d=0.5,fade=t=out:st=${fadeOutStart}:d=0.5" ` +
-      `-c:v libx264 -preset slow -crf 28 -pix_fmt yuv420p -an ` +
+      `-vf "scale=-2:720,minterpolate=fps=60:mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1,` +
+      `fade=t=in:st=0:d=0.5,fade=t=out:st=${fadeOutStart}:d=0.5" ` +
+      `-c:v libx264 -preset medium -crf 28 -pix_fmt yuv420p -an ` +
       `-movflags +faststart demo.mp4`;
     const ffmpegResult = await sandbox.commands.run(ffmpegCmd, {
-      timeoutMs: 120_000,
+      timeoutMs: 240_000,
     });
     if (ffmpegResult.exitCode !== 0) {
       throw new Error(
