@@ -311,18 +311,21 @@ export const buildAndRecord = task({
     // loss at card size. Compute time is free here (async Trigger task).
     // Playwright records the page at a low effective frame rate (headless
     // Chromium repaints sparsely, so motion reads ~15fps even in a 25fps
-    // container). Motion-interpolate to a smooth 60fps with ffmpeg's
+    // container). Motion-interpolate to a smooth 30fps with ffmpeg's
     // `minterpolate` (mci) — pure CPU work, no API cost. Downscale to 720p
-    // *before* interpolating so we synthesize cheaper frames. The interpolated
-    // 60fps motion is what makes the cinematic zoom/cursor read as buttery.
+    // *before* interpolating so we synthesize cheaper frames. 30fps (not 60)
+    // keeps the interpolation within the sandbox's CPU budget: mci is O(frames),
+    // and 60fps on a 30s clip blew past the timeout on the slower sandbox CPU.
+    // 30fps still reads far smoother than the ~15fps source. `vsbmc` dropped for
+    // the same reason (it roughly doubled the cost for a marginal quality gain).
     const ffmpegCmd =
       `cd /tmp/rec && ffmpeg -y -ss ${startSec.toFixed(2)} -i demo.webm -t ${clipLen.toFixed(2)} ` +
-      `-vf "scale=-2:720,minterpolate=fps=60:mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1,` +
+      `-vf "scale=-2:720,minterpolate=fps=30:mi_mode=mci:mc_mode=aobmc:me_mode=bidir,` +
       `fade=t=in:st=0:d=0.5,fade=t=out:st=${fadeOutStart}:d=0.5" ` +
       `-c:v libx264 -preset medium -crf 28 -pix_fmt yuv420p -an ` +
       `-movflags +faststart demo.mp4`;
     const ffmpegResult = await sandbox.commands.run(ffmpegCmd, {
-      timeoutMs: 240_000,
+      timeoutMs: 360_000,
     });
     if (ffmpegResult.exitCode !== 0) {
       throw new Error(
