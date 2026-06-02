@@ -217,9 +217,9 @@ async function execAction(page, input, state) {
       : [];
     // Glide the cursor to the target, then zoom toward it.
     await cam(page, "move", [state.x, state.y]);
-    await sleep(500);
+    await sleep(600);  // cursor glide (CSS 0.45s) + brief dwell
     await cam(page, "zoom", [state.x, state.y, 1.42]);
-    await sleep(360);
+    await sleep(450);  // zoom-in CSS transition (0.42s) + settle
     await cam(page, "press");
     for (const m of heldMods) await page.keyboard.down(m);
     if (action === "double_click") {
@@ -230,11 +230,18 @@ async function execAction(page, input, state) {
       await page.mouse.click(state.x, state.y, { button: btn });
     }
     for (const m of heldMods) await page.keyboard.up(m);
-    await sleep(90);
+    await sleep(120);
     await cam(page, "release");
-    await sleep(440); // hold the zoom so the result reads
+    // Hold the zoom so the viewer reads the result. A plain sleep would be
+    // removed by mpdecimate (static frames look identical → dropped). Instead,
+    // drift the cursor 4px and back — CSS transition animates each micro-move,
+    // keeping every frame distinct so mpdecimate preserves the hold duration.
+    await cam(page, "move", [state.x + 4, state.y + 2]);
+    await sleep(350);
+    await cam(page, "move", [state.x, state.y]);
+    await sleep(350);
     await cam(page, "reset");
-    await sleep(380); // zoom back out before the next screenshot
+    await sleep(500);  // zoom-out CSS transition (0.42s) + settle before screenshot
     return;
   }
 
@@ -274,13 +281,17 @@ async function execAction(page, input, state) {
       break;
     }
     case "type": {
-      // Keep a gentle zoom on the field being typed into (the last click point).
+      // Zoom gently on the field while typing so the typed text is legible.
       await cam(page, "zoom", [state.x, state.y, 1.3]);
-      await sleep(260);
-      await page.keyboard.type(String(input.text || ""), { delay: 55 });
-      await sleep(240);
+      await sleep(300);
+      await page.keyboard.type(String(input.text || ""), { delay: 70 });
+      // Brief drift after typing keeps frames distinct (mpdecimate guard)
+      await cam(page, "move", [state.x + 3, state.y]);
+      await sleep(280);
+      await cam(page, "move", [state.x, state.y]);
+      await sleep(280);
       await cam(page, "reset");
-      await sleep(320);
+      await sleep(400);
       break;
     }
     case "key":
