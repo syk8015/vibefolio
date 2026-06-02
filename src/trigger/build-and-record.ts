@@ -35,6 +35,11 @@ const RECORD_TIMEOUT_MS = 300_000;
 const RECORD_DURATION_SEC = 15;
 // Hard cap on the final clip length, regardless of how long the agent ran.
 const MAX_VIDEO_SEC = 30;
+// Virtual X display for headed capture. Height = 800 content + ~87 Chromium
+// toolbar; the recorder grabs only the content region below the toolbar.
+const DISPLAY_NUM = ":99";
+const DISPLAY_W = 1280;
+const DISPLAY_H = 887;
 const DEV_PORT = 3000;
 const NODE_PATH_PREFIX = "export PATH=/opt/node/bin:$PATH && ";
 const RECORD_PREFIX =
@@ -102,8 +107,10 @@ async function recordFailedStatus(projectId: string, error: unknown) {
 type RecorderMeta = {
   mode?: string;
   steps?: number;
-  interactionStartMs?: number;
-  interactionEndMs?: number;
+  durationMs?: number;
+  contentW?: number;
+  contentH?: number;
+  cropY?: number;
   visibleChars?: number;
   cuError?: string | null;
 };
@@ -258,10 +265,30 @@ export const buildAndRecord = task({
     await sandbox.files.write("/tmp/record-helper.js", RECORD_HELPER_SRC);
     logger.log("record helper uploaded");
 
+    // Headed capture needs a virtual X display + a window manager (Chromium
+    // skips rendering an unmanaged "hidden" window -> blank capture). Start both
+    // in the background; the recorder launches headed Chromium on this display
+    // and screen-grabs it with ffmpeg x11grab for a true 60fps recording.
+    await sandbox.commands.run(
+      `Xvfb ${DISPLAY_NUM} -screen 0 ${DISPLAY_W}x${DISPLAY_H}x24 -nolisten tcp >/tmp/xvfb.log 2>&1`,
+      { background: true },
+    );
+    await new Promise((r) => setTimeout(r, 1500));
+    await sandbox.commands.run(
+      `DISPLAY=${DISPLAY_NUM} matchbox-window-manager -use_titlebar no >/tmp/wm.log 2>&1`,
+      { background: true },
+    );
+    await new Promise((r) => setTimeout(r, 1000));
+
     // Inject the Anthropic key via `envs` (never the command string) so it
     // drives the computer-use agent loop without leaking into logs. Absent key
     // -> the recorder falls back to a plain scroll, still producing a video.
-    const recordEnvs: Record<string, string> = {};
+    // DISPLAY / DEMO_DISPLAY_H tell the headed recorder where to render + how far
+    // down the toolbar sits so it grabs only the content region.
+    const recordEnvs: Record<string, string> = {
+      DISPLAY: DISPLAY_NUM,
+      DEMO_DISPLAY_H: String(DISPLAY_H),
+    };
     if (process.env.ANTHROPIC_API_KEY)
       recordEnvs.ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
     if (process.env.DEMO_CU_MODEL)
@@ -285,47 +312,58 @@ export const buildAndRecord = task({
       );
     }
 
-    // The recording opens with dead load time (goto / networkidle / font + paint
-    // waits) before the agent — or the scroll fallback — starts. The recorder
-    // reports that interaction window, so trim to it instead of blind
-    // tail-slicing: start at interactionStart, run for the interaction's own
-    // length, capped at MAX_VIDEO_SEC.
+    // cap.mp4 is a real-time 1280×800 @60fps grab of the interaction. Motion is
+    // genuinely 60fps, but the agent's API round-trips show up as frozen pauses.
     const meta = parseRecorderMeta(recordResult.stdout);
     logger.log("recorder meta", {
       mode: meta.mode,
       steps: meta.steps,
-      interactionStartMs: meta.interactionStartMs,
-      interactionEndMs: meta.interactionEndMs,
+      durationMs: meta.durationMs,
       cuError: meta.cuError ?? undefined,
     });
-    const startSec = Math.max(0, (meta.interactionStartMs ?? 0) / 1000);
-    const rawLen =
-      meta.interactionStartMs != null && meta.interactionEndMs != null
-        ? (meta.interactionEndMs - meta.interactionStartMs) / 1000
-        : RECORD_DURATION_SEC;
-    const clipLen = Math.max(4, Math.min(MAX_VIDEO_SEC, rawLen));
+
+    // Drop near-duplicate frames (mpdecimate) and re-time, collapsing the frozen
+    // API-wait gaps into a tight, continuous-motion clip. Motion stays full 60fps.
+    const tightRes = await sandbox.commands.run(
+      `cd /tmp/rec && ffmpeg -y -i cap.mp4 -vf "mpdecimate,setpts=N/FRAME_RATE/TB" ` +
+        `-fps_mode cfr -r 60 -an -c:v libx264 -preset veryfast -crf 20 -pix_fmt yuv420p tight.mp4`,
+      { timeoutMs: 120_000 },
+    );
+    if (tightRes.exitCode !== 0) {
+      throw new Error(
+        `ffmpeg mpdecimate failed (exit ${tightRes.exitCode}): ${tightRes.stderr.slice(-400)}`,
+      );
+    }
+    const probe = async (f: string) =>
+      parseFloat(
+        (
+          await sandbox.commands.run(
+            `ffprobe -v error -show_entries format=duration -of default=nk=1:nw=1 /tmp/rec/${f}`,
+          )
+        ).stdout.trim(),
+      ) || 0;
+    const tightDur = await probe("tight.mp4");
+    // If the demo had little motion, mpdecimate can collapse it too far — fall
+    // back to the raw capture so we still ship a normal-length clip.
+    let src = "tight.mp4";
+    let srcDur = tightDur;
+    if (tightDur < 3) {
+      src = "cap.mp4";
+      srcDur = await probe("cap.mp4");
+      logger.log("mpdecimate collapsed too far; using raw capture", { tightDur, srcDur });
+    }
+    const clipLen = Math.max(2, Math.min(MAX_VIDEO_SEC, srcDur || RECORD_DURATION_SEC));
     const fadeOutStart = Math.max(0, clipLen - 0.5).toFixed(2);
-    // Capture is WXGA 1280×800 (computer-use accuracy), but the demo only ever
-    // plays in a small Theater card — so downscale to 720p and lean on a higher
-    // CRF + slower preset. This trims ~60-70% off the file with no perceptible
-    // loss at card size. Compute time is free here (async Trigger task).
-    // Playwright records the page at a low effective frame rate (headless
-    // Chromium repaints sparsely, so motion reads ~15fps even in a 25fps
-    // container). Motion-interpolate to a smooth 30fps with ffmpeg's
-    // `minterpolate` (mci) — pure CPU work, no API cost. Downscale to 720p
-    // *before* interpolating so we synthesize cheaper frames. 30fps (not 60)
-    // keeps the interpolation within the sandbox's CPU budget: mci is O(frames),
-    // and 60fps on a 30s clip blew past the timeout on the slower sandbox CPU.
-    // 30fps still reads far smoother than the ~15fps source. `vsbmc` dropped for
-    // the same reason (it roughly doubled the cost for a marginal quality gain).
+    logger.log("post-process", { src, srcDur, clipLen });
+    // 1280×800 @60fps -> 720p @60fps for the Theater card (still small at card
+    // size). Keep 60fps; that smoothness is the whole point of this rewrite.
     const ffmpegCmd =
-      `cd /tmp/rec && ffmpeg -y -ss ${startSec.toFixed(2)} -i demo.webm -t ${clipLen.toFixed(2)} ` +
-      `-vf "scale=-2:720,minterpolate=fps=30:mi_mode=mci:mc_mode=aobmc:me_mode=bidir,` +
-      `fade=t=in:st=0:d=0.5,fade=t=out:st=${fadeOutStart}:d=0.5" ` +
-      `-c:v libx264 -preset medium -crf 28 -pix_fmt yuv420p -an ` +
+      `cd /tmp/rec && ffmpeg -y -i ${src} -t ${clipLen.toFixed(2)} ` +
+      `-vf "scale=-2:720,fade=t=in:st=0:d=0.4,fade=t=out:st=${fadeOutStart}:d=0.5" ` +
+      `-c:v libx264 -preset medium -crf 24 -pix_fmt yuv420p -an ` +
       `-movflags +faststart demo.mp4`;
     const ffmpegResult = await sandbox.commands.run(ffmpegCmd, {
-      timeoutMs: 360_000,
+      timeoutMs: 120_000,
     });
     if (ffmpegResult.exitCode !== 0) {
       throw new Error(

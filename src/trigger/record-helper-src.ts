@@ -12,6 +12,7 @@ export const RECORD_HELPER_SRC = String.raw`// Run inside the E2B sandbox.
 const { chromium } = require("playwright");
 const fs = require("node:fs");
 const path = require("node:path");
+const { spawn } = require("node:child_process");
 
 const [, , URL, OUTPUT_DIR, DURATION_SEC_STR] = process.argv;
 if (!URL || !OUTPUT_DIR || !DURATION_SEC_STR) {
@@ -28,6 +29,16 @@ const MIN_VISIBLE_CHARS = 20;
 // max for the computer tool). Coordinates then map 1:1 to Playwright.
 const VIEW_W = 1280;
 const VIEW_H = 800;
+
+// --- Headed capture (Xvfb + ffmpeg x11grab) ------------------------------
+// We render headed Chromium onto a virtual X display and screen-grab it at a
+// real 60fps. Headless Playwright recordVideo only captured ~4.5 unique fps
+// (Chromium repaints on-demand in headless), which looked choppy. The Xvfb
+// display is VIEW_H + the browser toolbar tall; we grab only the content
+// region below the toolbar so the toolbar never shows in the video.
+const DISPLAY = process.env.DISPLAY || ":99";
+const DISPLAY_H = parseInt(process.env.DEMO_DISPLAY_H || "887", 10);
+const CAPTURE_FPS = 60;
 
 // --- Computer use config -------------------------------------------------
 const API_KEY = process.env.ANTHROPIC_API_KEY || "";
@@ -467,14 +478,21 @@ async function runScroll(page) {
 
 (async () => {
   fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+  // Headed Chromium rendered onto the Xvfb display (DISPLAY env). A window
+  // manager (matchbox) maximizes the window; --ozone-platform=x11 makes it
+  // paint to X. No Playwright recordVideo — we screen-grab the X display below.
   const browser = await chromium.launch({
-    args: ["--no-sandbox", "--disable-dev-shm-usage"],
+    headless: false,
+    args: [
+      "--no-sandbox",
+      "--disable-dev-shm-usage",
+      "--ozone-platform=x11",
+      "--disable-infobars",
+      "--force-device-scale-factor=1",
+    ],
   });
-  const context = await browser.newContext({
-    viewport: { width: VIEW_W, height: VIEW_H },
-    recordVideo: { dir: OUTPUT_DIR, size: { width: VIEW_W, height: VIEW_H } },
-  });
-  const videoStart = Date.now();
+  // viewport:null -> the page adopts the real (maximized) window size.
+  const context = await browser.newContext({ viewport: null });
   const page = await context.newPage();
 
   const pageErrors = [];
@@ -512,7 +530,33 @@ async function runScroll(page) {
     await sleep(500);
   }
 
-  // Everything before this point is dead load time the final video trims off.
+  // The window is now maximized to fill the Xvfb display; innerHeight is the
+  // content area below the browser toolbar, so the toolbar height (the y-offset
+  // we grab from) is DISPLAY_H - innerHeight. Grab only that content region so
+  // the toolbar never appears in the video.
+  const dim = await page.evaluate(() => ({ w: window.innerWidth, h: window.innerHeight }));
+  const cropY = Math.max(0, DISPLAY_H - dim.h);
+  const capPath = path.join(OUTPUT_DIR, "cap.mp4");
+  const grabLog = fs.openSync(path.join(OUTPUT_DIR, "ffmpeg-grab.log"), "w");
+  // -draw_mouse 0: don't capture the real X pointer (we draw our own synthetic
+  // cursor). ultrafast/crf18: cheap high-quality intermediate; the task does the
+  // 720p + fade pass afterwards.
+  const ff = spawn(
+    "ffmpeg",
+    [
+      "-y", "-draw_mouse", "0",
+      "-f", "x11grab", "-framerate", String(CAPTURE_FPS),
+      "-video_size", dim.w + "x" + dim.h,
+      "-i", DISPLAY + "+0," + cropY,
+      "-c:v", "libx264", "-preset", "ultrafast", "-crf", "18", "-pix_fmt", "yuv420p",
+      capPath,
+    ],
+    { stdio: ["ignore", grabLog, grabLog], env: Object.assign({}, process.env, { DISPLAY: DISPLAY }) },
+  );
+  let ffExited = false;
+  ff.on("exit", () => { ffExited = true; });
+  await sleep(500); // let ffmpeg start grabbing before the first action
+
   const interactionStart = Date.now();
   let mode = "computer-use";
   let steps = 0;
@@ -531,23 +575,34 @@ async function runScroll(page) {
   }
   const interactionEnd = Date.now();
 
-  const video = page.video();
+  // Stop the grab cleanly — SIGINT lets ffmpeg finalize the mp4 (moov atom).
+  if (!ffExited) {
+    await new Promise((res) => {
+      const t = setTimeout(() => {
+        try { ff.kill("SIGKILL"); } catch {}
+        res();
+      }, 8000);
+      ff.on("exit", () => { clearTimeout(t); res(); });
+      try { ff.kill("SIGINT"); } catch { clearTimeout(t); res(); }
+    });
+  }
+  try { fs.closeSync(grabLog); } catch {}
+
   await context.close();
   await browser.close();
 
-  if (!video) throw new Error("no video handle on page");
-  const rawPath = await video.path();
-  const finalPath = path.join(OUTPUT_DIR, "demo.webm");
-  fs.renameSync(rawPath, finalPath);
-  const stat = fs.statSync(finalPath);
+  if (!fs.existsSync(capPath)) throw new Error("capture file missing: " + capPath);
+  const stat = fs.statSync(capPath);
   console.log(
     JSON.stringify({
-      path: finalPath,
+      path: capPath,
       bytes: stat.size,
       mode,
       steps,
-      interactionStartMs: interactionStart - videoStart,
-      interactionEndMs: interactionEnd - videoStart,
+      durationMs: interactionEnd - interactionStart,
+      contentW: dim.w,
+      contentH: dim.h,
+      cropY,
       visibleChars,
       cuError,
       pageErrors: pageErrors.slice(0, 5),
