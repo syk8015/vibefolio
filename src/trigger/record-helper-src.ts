@@ -36,13 +36,13 @@ const API_KEY = process.env.ANTHROPIC_API_KEY || "";
 // is 4.5 — keep this here, override via DEMO_CU_MODEL if needed.
 const MODEL = process.env.DEMO_CU_MODEL || "claude-sonnet-4-5";
 const CU_MAX_STEPS = 14;        // hard cap on agent turns
-const CU_MAX_MS = 75000;        // wall-clock budget for the interaction
+const CU_MAX_MS = 90000;        // wall-clock budget for the interaction (cinematics included)
 // Keep only the latest screenshot in history. Computer use only needs the
 // current frame to decide the next action, and low API tiers cap input tokens
 // per minute (e.g. 30k/min) — retaining several ~1.4k-token screenshots per
 // rapid-fire call blows that budget fast. One image keeps us well under it.
 const CU_KEEP_IMAGES = 1;
-const ACTION_PACING_MS = 550;   // small dwell so the video reads smoothly
+const ACTION_PACING_MS = 200;   // execAction now self-paces the cinematics; small extra dwell
 
 const SYSTEM_PROMPT = [
   "You are operating a web app inside a browser to record a short, attractive product demo video.",
@@ -96,6 +96,97 @@ async function shot(page) {
   return buf.toString("base64");
 }
 
+// --- Cinematic camera layer ---------------------------------------------
+// Headless Chromium renders no OS cursor, so a real click looks like "nothing
+// happened". We inject a synthetic cursor + click ripple, and an Apple-ad-style
+// camera that zooms toward each click. The trick that keeps clicks accurate
+// while zoomed: set the page's transform-origin to the click point. That point
+// is the fixed point of the scale transform, so the real page.mouse click at
+// the same viewport coordinate still lands on the same element.
+async function ensureCinema(page) {
+  await page.evaluate(() => {
+    if (window.__demoCam) return;
+    var doc = document;
+    var cur = doc.createElement("div");
+    cur.id = "__demo_cursor";
+    cur.style.cssText =
+      "position:fixed;left:50%;top:50%;width:24px;height:24px;margin-left:-12px;" +
+      "margin-top:-12px;border-radius:50%;background:rgba(15,15,20,0.22);" +
+      "border:2px solid rgba(255,255,255,0.95);box-shadow:0 3px 10px rgba(0,0,0,0.4);" +
+      "z-index:2147483647;pointer-events:none;will-change:left,top,transform;" +
+      "transition:left 0.45s cubic-bezier(0.4,0,0.2,1),top 0.45s cubic-bezier(0.4,0,0.2,1),transform 0.12s ease;";
+    var rip = doc.createElement("div");
+    rip.id = "__demo_ripple";
+    rip.style.cssText =
+      "position:fixed;left:0;top:0;width:18px;height:18px;margin-left:-9px;margin-top:-9px;" +
+      "border-radius:50%;border:2px solid rgba(90,150,255,0.95);z-index:2147483646;" +
+      "pointer-events:none;opacity:0;transform:scale(1);will-change:transform,opacity;";
+    doc.documentElement.appendChild(cur);
+    doc.documentElement.appendChild(rip);
+    var body = doc.body;
+    if (body) {
+      body.style.transition = "transform 0.42s cubic-bezier(0.22,1,0.36,1)";
+      body.style.willChange = "transform";
+    }
+    var lastX = window.innerWidth / 2;
+    var lastY = window.innerHeight / 2;
+    cur.style.left = lastX + "px";
+    cur.style.top = lastY + "px";
+    window.__demoCam = {
+      move: function (x, y) {
+        cur.style.left = x + "px";
+        cur.style.top = y + "px";
+        lastX = x;
+        lastY = y;
+      },
+      press: function () {
+        cur.style.transform = "scale(0.78)";
+        rip.style.transition = "none";
+        rip.style.left = lastX + "px";
+        rip.style.top = lastY + "px";
+        rip.style.opacity = "0.85";
+        rip.style.transform = "scale(1)";
+        requestAnimationFrame(function () {
+          rip.style.transition = "transform 0.55s ease-out,opacity 0.55s ease-out";
+          rip.style.transform = "scale(3.4)";
+          rip.style.opacity = "0";
+        });
+      },
+      release: function () {
+        cur.style.transform = "scale(1)";
+      },
+      // Always called from scale(1), so transform-origin only takes visible
+      // effect for the upcoming zoom — no jump from a stale origin.
+      zoom: function (x, y, s) {
+        if (!body) return;
+        var ox = x + (window.pageXOffset || 0);
+        var oy = y + (window.pageYOffset || 0);
+        body.style.transformOrigin = ox + "px " + oy + "px";
+        void body.offsetWidth; // flush origin before animating the scale
+        body.style.transform = "scale(" + s + ")";
+      },
+      reset: function () {
+        if (body) body.style.transform = "scale(1)";
+      },
+    };
+  });
+}
+
+// Convenience: fire a __demoCam method on the page, swallowing the rare case
+// where a navigation dropped the injected harness (re-injected on next call).
+async function cam(page, method, args) {
+  await page
+    .evaluate(
+      (p) => {
+        var c = window.__demoCam;
+        if (!c || typeof c[p.m] !== "function") return;
+        c[p.m].apply(c, p.a || []);
+      },
+      { m: method, a: args || [] },
+    )
+    .catch(() => {});
+}
+
 async function execAction(page, input, state) {
   const action = input.action;
   const coord = input.coordinate;
@@ -103,6 +194,44 @@ async function execAction(page, input, state) {
     state.x = coord[0];
     state.y = coord[1];
   }
+  await ensureCinema(page);
+
+  const isClick =
+    action === "left_click" ||
+    action === "right_click" ||
+    action === "middle_click" ||
+    action === "double_click" ||
+    action === "triple_click";
+
+  if (isClick) {
+    const btn =
+      action === "right_click" ? "right" : action === "middle_click" ? "middle" : "left";
+    const heldMods = input.text
+      ? String(input.text).split("+").map(mapMod).filter(Boolean)
+      : [];
+    // Glide the cursor to the target, then zoom toward it.
+    await cam(page, "move", [state.x, state.y]);
+    await sleep(500);
+    await cam(page, "zoom", [state.x, state.y, 1.42]);
+    await sleep(360);
+    await cam(page, "press");
+    for (const m of heldMods) await page.keyboard.down(m);
+    if (action === "double_click") {
+      await page.mouse.dblclick(state.x, state.y, { button: btn });
+    } else if (action === "triple_click") {
+      await page.mouse.click(state.x, state.y, { button: btn, clickCount: 3 });
+    } else {
+      await page.mouse.click(state.x, state.y, { button: btn });
+    }
+    for (const m of heldMods) await page.keyboard.up(m);
+    await sleep(90);
+    await cam(page, "release");
+    await sleep(440); // hold the zoom so the result reads
+    await cam(page, "reset");
+    await sleep(380); // zoom back out before the next screenshot
+    return;
+  }
+
   switch (action) {
     case "screenshot":
     case "cursor_position":
@@ -111,30 +240,12 @@ async function execAction(page, input, state) {
       await sleep(Math.min(3000, (input.duration || 1) * 1000));
       break;
     case "mouse_move":
+      await cam(page, "move", [state.x, state.y]);
       await page.mouse.move(state.x, state.y);
+      await sleep(300);
       break;
-    case "left_click":
-    case "right_click":
-    case "middle_click":
-    case "double_click":
-    case "triple_click": {
-      const btn =
-        action === "right_click" ? "right" : action === "middle_click" ? "middle" : "left";
-      const heldMods = input.text
-        ? String(input.text).split("+").map(mapMod).filter(Boolean)
-        : [];
-      for (const m of heldMods) await page.keyboard.down(m);
-      if (action === "double_click") {
-        await page.mouse.dblclick(state.x, state.y, { button: btn });
-      } else if (action === "triple_click") {
-        await page.mouse.click(state.x, state.y, { button: btn, clickCount: 3 });
-      } else {
-        await page.mouse.click(state.x, state.y, { button: btn });
-      }
-      for (const m of heldMods) await page.keyboard.up(m);
-      break;
-    }
     case "left_mouse_down":
+      await cam(page, "move", [state.x, state.y]);
       await page.mouse.move(state.x, state.y);
       await page.mouse.down();
       break;
@@ -146,17 +257,29 @@ async function execAction(page, input, state) {
         Array.isArray(input.start_coordinate) && input.start_coordinate.length === 2
           ? input.start_coordinate
           : [state.x, state.y];
+      await cam(page, "move", [start[0], start[1]]);
+      await sleep(300);
       await page.mouse.move(start[0], start[1]);
       await page.mouse.down();
-      await page.mouse.move(state.x, state.y, { steps: 12 });
+      await cam(page, "move", [state.x, state.y]);
+      await page.mouse.move(state.x, state.y, { steps: 18 });
       await page.mouse.up();
+      await sleep(200);
       break;
     }
-    case "type":
-      await page.keyboard.type(String(input.text || ""), { delay: 25 });
+    case "type": {
+      // Keep a gentle zoom on the field being typed into (the last click point).
+      await cam(page, "zoom", [state.x, state.y, 1.3]);
+      await sleep(260);
+      await page.keyboard.type(String(input.text || ""), { delay: 55 });
+      await sleep(240);
+      await cam(page, "reset");
+      await sleep(320);
       break;
+    }
     case "key":
       await page.keyboard.press(mapKey(input.text || ""));
+      await sleep(160);
       break;
     case "hold_key": {
       const kk = mapKey(input.text || "");
@@ -170,8 +293,14 @@ async function execAction(page, input, state) {
       const dir = input.scroll_direction || "down";
       const dx = dir === "right" ? amt : dir === "left" ? -amt : 0;
       const dy = dir === "down" ? amt : dir === "up" ? -amt : 0;
-      await page.mouse.move(state.x, state.y);
-      await page.mouse.wheel(dx, dy);
+      // Scrolls read best at 1x — reset any zoom, then scroll smoothly.
+      await cam(page, "reset");
+      await cam(page, "move", [state.x, state.y]);
+      await page.evaluate(
+        (d) => window.scrollBy({ left: d[0], top: d[1], behavior: "smooth" }),
+        [dx, dy],
+      );
+      await sleep(720);
       break;
     }
     default:
@@ -269,6 +398,7 @@ function pruneImages(messages) {
 // Throws if the API key is missing or any request fails (caller falls back).
 async function runComputerUse(page) {
   if (!API_KEY) throw new Error("ANTHROPIC_API_KEY not set");
+  await ensureCinema(page); // synthetic cursor visible from the first frame
   const state = { x: Math.floor(VIEW_W / 2), y: Math.floor(VIEW_H / 2) };
   const messages = [
     {
