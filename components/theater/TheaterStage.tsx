@@ -270,9 +270,10 @@ export default function TheaterStage({ project, index, variant }: StageProps) {
   const isVideo = (!!project.videoUrl && videoKind !== "unknown") || !!project.demoVideoUrl;
 
   // Desktop: floating 16:10 card. Mobile: full-bleed. For video on mobile the
-  // box is 16:9 so a landscape demo shows in full (paired with object-contain)
-  // rather than being cropped by the tall portrait box that live previews /
-  // thumbnails still use.
+  // box is a tall ~square (1:1, ≈ half the viewport on a phone) and the demo is
+  // letterboxed inside it via object-contain — the full landscape frame shows
+  // with dark bars top/bottom, never cropped. Live previews / thumbnails keep
+  // the shorter portrait box below.
   const containerStyle: React.CSSProperties = isDesktop
     ? {
         position: "relative",
@@ -287,7 +288,7 @@ export default function TheaterStage({ project, index, variant }: StageProps) {
     ? {
         position: "relative",
         width: "100%",
-        aspectRatio: "16 / 9",
+        aspectRatio: "1 / 1",
         background: "#0a0a0a",
         overflow: "hidden",
       }
