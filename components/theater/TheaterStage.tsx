@@ -311,7 +311,9 @@ export default function TheaterStage({ project, index, variant }: StageProps) {
         position: "relative",
         width: "100%",
         aspectRatio: "1 / 1",
-        background: "#0a0a0a",
+        // Letterbox = the page colour, not hard black, so the bars don't clash
+        // with the light page. The chrome over them is frosted for a soft feel.
+        background: "var(--bg)",
         overflow: "hidden",
       }
     : {
@@ -338,8 +340,10 @@ export default function TheaterStage({ project, index, variant }: StageProps) {
             className="absolute top-0 left-0 right-0 pointer-events-none"
             style={{
               zIndex: 4,
-              padding: "13px 18px 22px",
-              background: "linear-gradient(180deg, rgba(0,0,0,0.6) 0%, transparent 100%)",
+              padding: "11px 18px",
+              background: "color-mix(in srgb, var(--bg) 62%, transparent)",
+              backdropFilter: "blur(16px) saturate(1.1)",
+              WebkitBackdropFilter: "blur(16px) saturate(1.1)",
               display: "flex",
               alignItems: "center",
               flexWrap: "wrap",
@@ -348,13 +352,13 @@ export default function TheaterStage({ project, index, variant }: StageProps) {
               fontSize: 10,
               letterSpacing: "0.16em",
               textTransform: "uppercase",
-              color: "rgba(255,255,255,0.72)",
+              color: "var(--text-secondary)",
             }}
           >
             <span>NO. {numberLabel}</span>
             {metaParts.map((part, i) => (
               <span key={i} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ width: 14, height: 1, background: "rgba(255,255,255,0.32)" }} />
+                <span style={{ width: 14, height: 1, background: "var(--border-bright)" }} />
                 <span style={{ letterSpacing: i === metaParts.length - 1 ? "0.16em" : "0.04em" }}>{part}</span>
               </span>
             ))}
@@ -369,8 +373,10 @@ export default function TheaterStage({ project, index, variant }: StageProps) {
               left: 0,
               right: 0,
               zIndex: 4,
-              padding: "22px 18px 16px",
-              background: "linear-gradient(0deg, rgba(0,0,0,0.66) 0%, transparent 100%)",
+              padding: "12px 18px",
+              background: "color-mix(in srgb, var(--bg) 62%, transparent)",
+              backdropFilter: "blur(16px) saturate(1.1)",
+              WebkitBackdropFilter: "blur(16px) saturate(1.1)",
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
@@ -382,14 +388,13 @@ export default function TheaterStage({ project, index, variant }: StageProps) {
               style={{
                 fontWeight: 700,
                 fontSize: 22,
-                color: "#fff",
+                color: "var(--text-primary)",
                 lineHeight: 1.1,
                 margin: 0,
                 minWidth: 0,
                 overflow: "hidden",
                 textOverflow: "ellipsis",
                 whiteSpace: "nowrap",
-                textShadow: "0 2px 14px rgba(0,0,0,0.55)",
               }}
             >
               {project.title}
@@ -401,8 +406,8 @@ export default function TheaterStage({ project, index, variant }: StageProps) {
                 rel="noopener noreferrer"
                 style={{
                   flex: "0 0 auto",
-                  background: "#fff",
-                  color: "#1a1612",
+                  background: "var(--blue)",
+                  color: "var(--bg)",
                   padding: "9px 16px",
                   borderRadius: 999,
                   border: "none",
