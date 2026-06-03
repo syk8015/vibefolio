@@ -339,10 +339,12 @@ export function MeishiBig({
 // handles stack below.
 export function MeishiInline({
   profile,
+  profileUrl,
   socialLinks = [],
   style,
 }: {
   profile: MeishiProfile;
+  profileUrl: string;
   socialLinks?: string[];
   style?: React.CSSProperties;
 }) {
@@ -376,17 +378,72 @@ export function MeishiInline({
         </div>
         <StampSeal size={28} label={initial(profile)} />
       </div>
-      {hasSocials && (
-        <div
-          style={{
-            position: "relative",
-            paddingTop: 12,
-            borderTop: "1px solid var(--border)",
-          }}
-        >
-          <SocialHandleList urls={socialLinks} dotSize={20} fontSize={12} gap={6} />
+
+      {/* Bottom rail: socials (or the card URL when there are none) on the left,
+          a scannable QR on the right — gives the mobile card the same
+          scan-to-visit affordance the desktop MeishiBig has. */}
+      <div
+        style={{
+          position: "relative",
+          paddingTop: 14,
+          borderTop: "1px solid var(--border)",
+          display: "flex",
+          alignItems: "flex-start",
+          justifyContent: "space-between",
+          gap: 14,
+        }}
+      >
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {hasSocials ? (
+            <SocialHandleList urls={socialLinks} dotSize={20} fontSize={12} gap={6} />
+          ) : (
+            <span
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: 10,
+                letterSpacing: "0.12em",
+                color: "var(--text-secondary)",
+                textTransform: "uppercase",
+                wordBreak: "break-all",
+              }}
+            >
+              nookframe.com/{profile.username}
+            </span>
+          )}
         </div>
-      )}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, flexShrink: 0 }}>
+          <div
+            style={{
+              padding: 4,
+              background: "var(--surface)",
+              border: "1px solid var(--border)",
+              borderRadius: 4,
+              display: "inline-flex",
+            }}
+            title={profileUrl}
+          >
+            <QRCodeSVG
+              value={profileUrl}
+              size={60}
+              level="M"
+              fgColor="var(--text-primary)"
+              bgColor="transparent"
+            />
+          </div>
+          <span
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 8,
+              letterSpacing: "0.2em",
+              color: "var(--text-muted)",
+              textTransform: "uppercase",
+              fontWeight: 700,
+            }}
+          >
+            Scan
+          </span>
+        </div>
+      </div>
     </div>
   );
 }

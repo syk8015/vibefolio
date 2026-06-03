@@ -150,6 +150,20 @@ body::before {
   border-color: var(--text-primary);
 }
 
+/* Mobile-only (< md / 768px) refinements. Desktop keeps the sizes defined
+   inline in components and above in this file — these rules never apply ≥768px.
+   • .vf-input → 16px stops iOS Safari from force-zooming on focus (any input
+     font < 16px triggers the zoom). Same single-class specificity, later in
+     source, so it wins under 768px with no !important.
+   • .vf-faq-* → keep the FAQ replies subordinate to the hero headline (which is
+     ~17.6px at its mobile min); the inline desktop sizes need !important to beat
+     the element's inline style. */
+@media (max-width: 767px) {
+  .vf-input { font-size: 16px; }
+  .vf-faq-a { font-size: 1rem !important; }
+  .vf-faq-q { font-size: 0.85rem !important; }
+}
+
 /* Speech bubble */
 .speech-bubble {
   position: absolute;

@@ -11,7 +11,10 @@ const DESKTOP_W = 1200;
 const DESKTOP_H = 860;
 const DESKTOP_MAX_SCALE = 0.62;
 const MOBILE_MAX_W = 430;
-const MOBILE_H = 720;
+// Compact teaser height on mobile — tall enough to frame the stage + a strip of
+// the reel without the section running far taller than the viewport (the old
+// 720 forced an awkwardly long scroll). Desktop uses DESKTOP_H, untouched.
+const MOBILE_H = 500;
 
 // First-visit cinematic (desktop only, once per page load): when the section
 // scrolls into view the card is already zoomed into its demo stage; it plays
@@ -235,8 +238,10 @@ export default function PortfolioPipSection({ profiles }: Props) {
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        gap: "2.5rem",
-        padding: "8rem 1.5rem 5rem",
+        // Tighter rhythm on mobile so the section reads as a compact teaser
+        // rather than a full-height block; desktop spacing is preserved.
+        gap: isMobile ? "1.25rem" : "2.5rem",
+        padding: isMobile ? "3.5rem 1rem 3rem" : "8rem 1.5rem 5rem",
       }}
     >
       {/* Section title — matches How it works typography */}
@@ -244,7 +249,7 @@ export default function PortfolioPipSection({ profiles }: Props) {
         style={{
           fontFamily: "var(--font-nunito)",
           fontWeight: 800,
-          fontSize: "clamp(1.8rem, 3.5vw, 3rem)",
+          fontSize: isMobile ? "1.5rem" : "clamp(1.8rem, 3.5vw, 3rem)",
           letterSpacing: "-0.02em",
           lineHeight: 1,
           margin: 0,

@@ -366,7 +366,7 @@ export default function TheaterShell({ profile, profileUrl, projects, initialAct
         <div className="px-5 pt-10 pb-8">
           <SectionHeader label="명함 · About" />
           <div className="mt-5">
-            <MeishiInline profile={profile} socialLinks={socialLinks} />
+            <MeishiInline profile={profile} profileUrl={profileUrl} socialLinks={socialLinks} />
           </div>
           {profile.bio && (
             <p

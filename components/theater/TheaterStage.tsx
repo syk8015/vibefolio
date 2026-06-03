@@ -23,17 +23,21 @@ function safeHref(url: string | undefined): string | undefined {
 // Priority: video > iframe(file upload) > static thumbnail.
 // Mirrors FeaturedHero's decision tree so behavior stays consistent.
 // ────────────────────────────────────────────────────────────────
-function LivePreview({ project }: { project: Project }) {
+function LivePreview({ project, variant }: { project: Project; variant: "mobile" | "desktop" }) {
   const videoKind = project.videoUrl ? detectVideoKind(project.videoUrl) : "unknown";
   const hasManualVideo = project.videoUrl && videoKind !== "unknown";
   const isFile = isFileUpload(project.demoUrl);
+  // On mobile the stage is a 16:9 box (see TheaterStage); show videos in full
+  // with `contain` so a landscape demo is never vertically cropped. Desktop's
+  // 16:10 stage keeps `cover`.
+  const videoFit = variant === "mobile" ? "contain" : "cover";
 
   // Priority: 수동 video_url > 자동 demo_video_url(mp4) > iframe(파일 업로드) > 썸네일
   if (hasManualVideo) {
-    return <VideoBackground url={project.videoUrl!} kind={videoKind} poster={project.thumbnail} title={project.title} />;
+    return <VideoBackground url={project.videoUrl!} kind={videoKind} poster={project.thumbnail} title={project.title} fit={videoFit} />;
   }
   if (project.demoVideoUrl) {
-    return <VideoBackground url={project.demoVideoUrl} kind="direct" poster={project.thumbnail} title={project.title} />;
+    return <VideoBackground url={project.demoVideoUrl} kind="direct" poster={project.thumbnail} title={project.title} fit={videoFit} />;
   }
   if (isFile && project.demoUrl) {
     return (
@@ -69,15 +73,32 @@ function VideoBackground({
   kind,
   poster,
   title,
+  fit,
 }: {
   url: string;
   kind: "youtube" | "vimeo" | "direct" | "unknown";
   poster: string;
   title: string;
+  fit: "cover" | "contain";
 }) {
   if (kind === "youtube") {
     const embed = getYouTubeEmbedUrl(url);
     if (!embed) return null;
+    // Mobile "contain": the stage is already 16:9, so a plain full-bleed embed
+    // fits exactly — nothing cropped. Desktop "cover": oversize + offset the
+    // iframe to hide YouTube's chrome and fill the 16:10 stage.
+    if (fit === "contain") {
+      return (
+        <iframe
+          src={embed}
+          title={title}
+          className="absolute inset-0 w-full h-full pointer-events-none"
+          style={{ border: "none" }}
+          allow="autoplay; encrypted-media; picture-in-picture"
+          allowFullScreen
+        />
+      );
+    }
     return (
       <iframe
         src={embed}
@@ -109,14 +130,14 @@ function VideoBackground({
       />
     );
   }
-  return <DirectVideo url={url} poster={poster} />;
+  return <DirectVideo url={url} poster={poster} fit={fit} />;
 }
 
 // React 19에서 `muted` JSX prop이 HTML 속성으로 안 렌더되는 케이스가 있음.
 // Chrome 자동재생 정책상 muted 속성이 없으면 음소거 안 된 영상으로 간주되어
 // autoplay 차단 → 포스터만 보이고 영상 멈춤. ref로 마운트 직후 강제로
 // .muted = true + .play() 호출해서 우회.
-function DirectVideo({ url, poster }: { url: string; poster: string }) {
+function DirectVideo({ url, poster, fit }: { url: string; poster: string; fit: "cover" | "contain" }) {
   const ref = useRef<HTMLVideoElement>(null);
   useEffect(() => {
     const el = ref.current;
@@ -136,7 +157,8 @@ function DirectVideo({ url, poster }: { url: string; poster: string }) {
       muted
       playsInline
       poster={poster}
-      className="absolute inset-0 w-full h-full object-cover"
+      // Literal class strings (not `object-${fit}`) so Tailwind's JIT emits both.
+      className={`absolute inset-0 w-full h-full ${fit === "contain" ? "object-contain" : "object-cover"}`}
       preload="auto"
     >
       <source src={url} />
@@ -241,9 +263,16 @@ export default function TheaterStage({ project, index, variant }: StageProps) {
   const numberLabel = String(index + 1).padStart(2, "0");
   const isDesktop = variant === "desktop";
 
-  // The stage is full-bleed on mobile (no rounded corners) and a floating
-  // 16:10 card on desktop. Everything else (badges, sticker, copy) is
-  // identical — only sizes shift.
+  // A project counts as "video" when it has a recognized manual video_url or an
+  // auto-recorded demo mp4 — those carry a fixed source aspect ratio and get
+  // vertically cropped by a portrait box. Live-site iframes and thumbnails don't.
+  const videoKind = project.videoUrl ? detectVideoKind(project.videoUrl) : "unknown";
+  const isVideo = (!!project.videoUrl && videoKind !== "unknown") || !!project.demoVideoUrl;
+
+  // Desktop: floating 16:10 card. Mobile: full-bleed. For video on mobile the
+  // box is 16:9 so a landscape demo shows in full (paired with object-contain)
+  // rather than being cropped by the tall portrait box that live previews /
+  // thumbnails still use.
   const containerStyle: React.CSSProperties = isDesktop
     ? {
         position: "relative",
@@ -253,6 +282,14 @@ export default function TheaterStage({ project, index, variant }: StageProps) {
         borderRadius: 14,
         overflow: "hidden",
         boxShadow: "0 24px 56px rgba(0,0,0,0.24), 0 6px 16px rgba(0,0,0,0.14)",
+      }
+    : isVideo
+    ? {
+        position: "relative",
+        width: "100%",
+        aspectRatio: "16 / 9",
+        background: "#0a0a0a",
+        overflow: "hidden",
       }
     : {
         position: "relative",
@@ -267,7 +304,7 @@ export default function TheaterStage({ project, index, variant }: StageProps) {
     // measure it and zoom into the demo video. Desktop-only: the mobile copy
     // is display:none at the iframe's 1200px width and would measure as 0×0.
     <div style={containerStyle} data-theater-stage={isDesktop ? "" : undefined}>
-      <LivePreview project={project} />
+      <LivePreview project={project} variant={variant} />
 
       {/* Dark gradient — keeps title legible without crushing the demo.
           A whisper-light scrim at the very top seats the "Now playing" badge

@@ -108,13 +108,13 @@ export default function FaqRepliesSection() {
       <div style={listStyle}>
         {TIMELINE.map((item, i) => (
           <div key={i}>
-            <p style={qStyle}>
+            <p className="vf-faq-q" style={qStyle}>
               <span style={tagStyle}>Q{String(i + 1).padStart(2, "0")}</span>
               <Typed text={item.q} startDelay={item.qDelay} enabled={inView} instant={reduced} />
             </p>
             <div style={bandStyle}>
               <span style={arrowStyle} aria-hidden>→</span>
-              <p style={aStyle}>
+              <p className="vf-faq-a" style={aStyle}>
                 <Typed text={item.a} startDelay={item.aDelay} enabled={inView} instant={reduced} />
               </p>
             </div>
