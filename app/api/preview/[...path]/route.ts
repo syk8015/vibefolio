@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PREVIEW_ORIGIN } from "@/lib/previewOrigin";
+import { logger } from "@/lib/logger";
 
 const MIME_MAP: Record<string, string> = {
   html: "text/html; charset=utf-8",
@@ -59,7 +60,16 @@ export async function GET(
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const storageUrl = `${supabaseUrl}/storage/v1/object/public/project-files/${filePath}`;
 
-  const upstream = await fetch(storageUrl);
+  // This route serves files for iframes, so error responses stay plain-text
+  // (never JSON) to honour its content contract. The outer guard only ensures an
+  // upstream network failure becomes a clean 502 instead of an unhandled 500.
+  let upstream: Response;
+  try {
+    upstream = await fetch(storageUrl);
+  } catch (err) {
+    logger.error("preview: upstream fetch failed", { error: err, filePath });
+    return new NextResponse("Upstream error", { status: 502 });
+  }
   if (!upstream.ok) return new NextResponse("Not found", { status: 404 });
 
   const ext = filePath.split("?")[0].split(".").pop()?.toLowerCase() ?? "";

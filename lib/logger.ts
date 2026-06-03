@@ -1,0 +1,103 @@
+// Structured, isomorphic application logger.
+//
+// One choke-point for every server- and client-side log, so the output format
+// stays consistent and a future Sentry / Datadog integration only has to be
+// wired in at `dispatch()` below — individual call sites never change.
+//
+// Design notes:
+//  - Stack traces are attached on the SERVER ONLY. Internal file paths / source
+//    frames must never reach the browser console (information leak).
+//  - In production every entry is emitted as a single JSON line so log
+//    aggregators can parse it; in development it is pretty-printed for humans.
+
+export type LogLevel = "debug" | "info" | "warn" | "error";
+
+export type LogContext = Record<string, unknown> & { error?: unknown };
+
+const isServer = typeof window === "undefined";
+const isProduction = process.env.NODE_ENV === "production";
+
+interface LogEntry {
+  level: LogLevel;
+  message: string;
+  timestamp: string;
+  runtime: "server" | "client";
+  [key: string]: unknown;
+}
+
+// Turn an unknown thrown value into a plain, serialisable shape. The stack is
+// included only on the server.
+function serializeError(error: unknown): Record<string, unknown> {
+  if (error instanceof Error) {
+    return {
+      name: error.name,
+      message: error.message,
+      ...(isServer && error.stack ? { stack: error.stack } : {}),
+    };
+  }
+  // Plain error-shaped objects, e.g. Supabase's PostgrestError
+  // ({ message, code, details, hint }) — capture the useful fields.
+  if (error && typeof error === "object") {
+    const obj = error as Record<string, unknown>;
+    if (typeof obj.message === "string") {
+      return {
+        message: obj.message,
+        ...(typeof obj.code === "string" ? { code: obj.code } : {}),
+        ...(obj.details !== undefined ? { details: obj.details } : {}),
+        ...(obj.hint !== undefined ? { hint: obj.hint } : {}),
+      };
+    }
+  }
+  return { value: typeof error === "string" ? error : String(error) };
+}
+
+function buildEntry(level: LogLevel, message: string, context?: LogContext): LogEntry {
+  const { error, ...rest } = context ?? {};
+  return {
+    level,
+    message,
+    timestamp: new Date().toISOString(),
+    runtime: isServer ? "server" : "client",
+    ...(error !== undefined ? { error: serializeError(error) } : {}),
+    ...rest,
+  };
+}
+
+// The single emit point. Extend this to forward to an external service (e.g.
+// Sentry.captureException using entry.level / entry.error) without touching any
+// call site.
+function dispatch(entry: LogEntry): void {
+  const sink =
+    entry.level === "error"
+      ? console.error
+      : entry.level === "warn"
+        ? console.warn
+        : entry.level === "debug"
+          ? console.debug
+          : console.log;
+
+  if (isProduction) {
+    sink(JSON.stringify(entry));
+  } else {
+    const { level, message, timestamp, runtime, ...rest } = entry;
+    sink(
+      `[${timestamp}] ${level.toUpperCase()} (${runtime}) ${message}`,
+      Object.keys(rest).length ? rest : "",
+    );
+  }
+}
+
+function log(level: LogLevel, message: string, context?: LogContext): void {
+  // Drop debug noise in production.
+  if (level === "debug" && isProduction) return;
+  dispatch(buildEntry(level, message, context));
+}
+
+export const logger = {
+  debug: (message: string, context?: LogContext) => log("debug", message, context),
+  info: (message: string, context?: LogContext) => log("info", message, context),
+  warn: (message: string, context?: LogContext) => log("warn", message, context),
+  error: (message: string, context?: LogContext) => log("error", message, context),
+};
+
+export type Logger = typeof logger;

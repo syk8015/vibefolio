@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { logger } from "@/lib/logger";
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
@@ -17,30 +18,36 @@ export async function GET(request: NextRequest) {
       : "/";
 
   if (code) {
-    // Create the redirect response first so we can set cookies on it
-    const response = NextResponse.redirect(`${origin}${next}`);
+    try {
+      // Create the redirect response first so we can set cookies on it
+      const response = NextResponse.redirect(`${origin}${next}`);
 
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll() {
-            return request.cookies.getAll();
+      const supabase = createServerClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        {
+          cookies: {
+            getAll() {
+              return request.cookies.getAll();
+            },
+            setAll(cookiesToSet) {
+              // Must set cookies directly on the response object in Route Handlers
+              cookiesToSet.forEach(({ name, value, options }) =>
+                response.cookies.set(name, value, options)
+              );
+            },
           },
-          setAll(cookiesToSet) {
-            // Must set cookies directly on the response object in Route Handlers
-            cookiesToSet.forEach(({ name, value, options }) =>
-              response.cookies.set(name, value, options)
-            );
-          },
-        },
+        }
+      );
+
+      const { error } = await supabase.auth.exchangeCodeForSession(code);
+      if (!error) {
+        return response;
       }
-    );
-
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
-    if (!error) {
-      return response;
+    } catch (err) {
+      // Unexpected failure during code exchange — never 500 the browser on an
+      // auth callback; fall through to the same graceful /login redirect.
+      logger.error("auth/callback: code exchange threw", { error: err });
     }
   }
 
