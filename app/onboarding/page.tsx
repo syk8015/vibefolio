@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
@@ -139,8 +140,8 @@ export default function OnboardingPage() {
         {/* Avatar + heading */}
         <div className="mb-8 text-center">
           {avatarUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={avatarUrl} alt="" className="w-16 h-16 rounded-full mx-auto mb-4 object-cover"
+            <Image src={avatarUrl} alt="" width={64} height={64} unoptimized
+              className="w-16 h-16 rounded-full mx-auto mb-4 object-cover"
               style={{ border: "2px solid var(--border-bright)" }} />
           ) : (
             <div className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center text-2xl font-black"

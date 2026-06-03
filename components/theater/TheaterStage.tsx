@@ -52,7 +52,12 @@ function LivePreview({ project }: { project: Project }) {
       unoptimized /* user-supplied thumbnail URL — skip optimizer (any host, no SSRF) */
       alt={project.title}
       fill
-      priority
+      // Next 16 deprecated `priority`. This stage is the LCP, but it renders in
+      // both the mobile and desktop variants (one is display:none), so per the
+      // Next docs we use eager + high fetchPriority for a multi-candidate LCP
+      // rather than a `preload` link that would be emitted twice.
+      loading="eager"
+      fetchPriority="high"
       sizes="(max-width: 768px) 100vw, 65vw"
       className="object-cover"
     />

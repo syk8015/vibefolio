@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { unstable_cache } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createPublicClient } from "@/lib/supabase/public";
 import HomeProfileMenu from "@/components/HomeProfileMenu";
 import PortfolioPipSection from "@/components/PortfolioPipSection";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -13,24 +15,48 @@ interface FeaturedProfile {
   name: string | null;
 }
 
+// The landing page's public reads — total user count, the recent-profiles pool,
+// and the project-owner rows used to find who has enough work to showcase — are
+// identical for every visitor, so we cache them through a cookie-free anon
+// client (same pattern + `portfolio` tag as the profile pages). Auth stays
+// per-request below. 60s keeps new signups showing up in the showcase quickly.
+const getLandingData = unstable_cache(
+  async () => {
+    const supabase = createPublicClient();
+    const [
+      { count: userCount },
+      { data: featuredProfiles },
+      { data: projectOwners },
+    ] = await Promise.all([
+      supabase.from("profiles").select("*", { count: "exact", head: true }),
+      supabase.from("profiles")
+        .select("id, username, name")
+        .order("updated_at", { ascending: true })
+        .limit(40),
+      // Just the owner column — counted in JS to find who has enough work to
+      // showcase, without leaning on an embedded-relationship name.
+      supabase.from("projects").select("user_id"),
+    ]);
+    return {
+      userCount: userCount ?? 0,
+      featuredProfiles: (featuredProfiles as (FeaturedProfile & { id: string })[] | null) ?? [],
+      projectOwners: (projectOwners as { user_id: string }[] | null) ?? [],
+    };
+  },
+  ["landing-data"],
+  { revalidate: 60, tags: ["portfolio"] }
+);
+
 export default async function LandingPage() {
   const supabase = await createClient();
 
+  // Auth is per-request (cookies); the public reads are cached. Run both at once.
   const [
     { data: { user } },
-    { count: userCount },
-    { data: featuredProfiles },
-    { data: projectOwners },
+    { userCount, featuredProfiles, projectOwners },
   ] = await Promise.all([
     supabase.auth.getUser(),
-    supabase.from("profiles").select("*", { count: "exact", head: true }),
-    supabase.from("profiles")
-      .select("id, username, name")
-      .order("updated_at", { ascending: true })
-      .limit(40),
-    // Just the owner column — counted in JS to find who has enough work to
-    // showcase, without leaning on an embedded-relationship name.
-    supabase.from("projects").select("user_id"),
+    getLandingData(),
   ]);
 
   const meta = user?.user_metadata || {};

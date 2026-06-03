@@ -49,6 +49,7 @@ export default function PortfolioPipSection({ profiles }: Props) {
   const [title] = useState(() => TITLE_VARIANTS[Math.floor(Math.random() * TITLE_VARIANTS.length)]);
 
   const [loaded, setLoaded] = useState(false);
+  const [shouldLoadIframe, setShouldLoadIframe] = useState(false);
   const [winW, setWinW] = useState(1440);
   const [winH, setWinH] = useState(900);
   const [isMobile, setIsMobile] = useState(false);
@@ -146,6 +147,30 @@ export default function PortfolioPipSection({ profiles }: Props) {
     // visible zoom-in. The reveal clock waits until the section is on screen.
     if (!isMobileRef.current && setupCloseup() && inViewRef.current) startReveal();
   };
+
+  // Defer loading the embedded profile (a full page plus its demo video) until
+  // the section is within ~1.5 screens of the viewport. The card sits far below
+  // the fold, so loading it at mount would compete with the landing hero's first
+  // paint for no benefit. The generous rootMargin preserves the cinematic — the
+  // iframe still loads, and the close-up is set up, before the viewer reaches it
+  // on a normal scroll, so there's no visible zoom-in. If the section is already
+  // near the viewport at mount the observer fires immediately (no regression).
+  useEffect(() => {
+    if (shouldLoadIframe) return;
+    const el = mockupRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          setShouldLoadIframe(true);
+          io.disconnect();
+        }
+      },
+      { rootMargin: "1500px 0px" }
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [shouldLoadIframe]);
 
   // Observe the mockup; the reveal clock starts only once the whole close-up
   // window is on screen. If the viewer leaves the section half-scrolled it stays
@@ -290,17 +315,19 @@ export default function PortfolioPipSection({ profiles }: Props) {
                 willChange: "transform",
               }}
             >
-              <iframe
-                key={profile.username}
-                ref={iframeRef}
-                src={`/${profile.username}?showcase=1`}
-                width={baseIframeW}
-                height={baseIframeH}
-                style={{ border: "none", display: "block", opacity: loaded ? 1 : 0, transition: "opacity 0.4s ease" }}
-                onLoad={handleLoad}
-                sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-forms"
-                title={`${profile.name || profile.username}의 명함`}
-              />
+              {shouldLoadIframe && (
+                <iframe
+                  key={profile.username}
+                  ref={iframeRef}
+                  src={`/${profile.username}?showcase=1`}
+                  width={baseIframeW}
+                  height={baseIframeH}
+                  style={{ border: "none", display: "block", opacity: loaded ? 1 : 0, transition: "opacity 0.4s ease" }}
+                  onLoad={handleLoad}
+                  sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-forms"
+                  title={`${profile.name || profile.username}의 명함`}
+                />
+              )}
             </div>
           </div>
         </div>

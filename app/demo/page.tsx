@@ -57,7 +57,10 @@ export default function Home() {
             alt={profile.name}
             fill
             className="object-cover"
-            priority
+            // Next 16 deprecated `priority`; eager + high fetchPriority is the
+            // replacement for this above-the-fold hero avatar.
+            loading="eager"
+            fetchPriority="high"
           />
         </div>
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import Image from "next/image";
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 
@@ -164,7 +165,7 @@ export default function ProfileTab({ user }: { user: User }) {
       {/* Identity preview — serif display */}
       <div className="text-center pb-2">
         <div
-          className="mx-auto mb-5 w-28 h-28 rounded-full flex items-center justify-center overflow-hidden"
+          className="relative mx-auto mb-5 w-28 h-28 rounded-full flex items-center justify-center overflow-hidden"
           style={{
             background: "var(--surface-soft)",
             color: "var(--text-primary)",
@@ -174,7 +175,7 @@ export default function ProfileTab({ user }: { user: User }) {
           }}
         >
           {form.avatarUrl
-            ? <img src={form.avatarUrl} alt="avatar" className="w-full h-full object-cover" />
+            ? <Image src={form.avatarUrl} alt="avatar" fill sizes="112px" unoptimized className="object-cover" />
             : avatarInitial}
         </div>
         <p

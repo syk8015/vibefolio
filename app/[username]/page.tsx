@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { unstable_cache } from "next/cache";
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
@@ -126,10 +127,21 @@ export default async function UserPortfolioPage({
   // only browse this person's projects.
   const isShowcase = showcase === "1";
 
+  // The auth read (cookies → Supabase) is independent of the cached profile and
+  // project reads, so kick it off up front and let it overlap them instead of
+  // trailing serially after. .catch keeps a transient auth failure from
+  // rejecting the whole render — an anonymous view is the correct fallback.
+  const authPromise = createClient()
+    .then((c) => c.auth.getUser())
+    .catch(() => null);
+
   const profile = await getProfile(username);
   if (!profile) notFound();
 
-  const dbProjects = await getProjects(profile.id);
+  const [dbProjects, authResult] = await Promise.all([
+    getProjects(profile.id),
+    authPromise,
+  ]);
 
   const projects: Project[] = dbProjects.map((p, i) => ({
     id: i + 1,
@@ -167,9 +179,9 @@ export default async function UserPortfolioPage({
         p.github ? `https://github.com/${p.github}` : "",
       ].filter(Boolean);
   // Auth stays dynamic & per-request (reads cookies) — only the public profile
-  // and project reads above are cached.
-  const supabase = await createClient();
-  const { data: { user: rawUser } } = await supabase.auth.getUser();
+  // and project reads above are cached. The read was started before the project
+  // fetch above so the two overlap rather than running back to back.
+  const rawUser = authResult?.data.user ?? null;
   // In embed (mobile-preview iframe) and showcase (landing PiP) modes, render
   // as if the visitor is not logged in so no owner-only chrome leaks in.
   const currentUser = (isEmbed || isShowcase) ? null : rawUser;
@@ -262,12 +274,12 @@ export default async function UserPortfolioPage({
               }}
             >
               {currentUser.user_metadata?.avatar_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
+                <Image
                   src={currentUser.user_metadata.avatar_url as string}
                   alt=""
                   width={16}
                   height={16}
+                  unoptimized
                   style={{ borderRadius: "50%", display: "block", flexShrink: 0 }}
                 />
               ) : (

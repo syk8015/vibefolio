@@ -7,6 +7,7 @@
 //                      reads as a personal seal rather than a generic 印
 
 import Link from "next/link";
+import Image from "next/image";
 import { QRCodeSVG } from "qrcode.react";
 import { getSocialMeta } from "@/components/SocialBadge";
 
@@ -393,12 +394,12 @@ export function MeishiInline({
 function Avatar({ profile, size, fontSize }: { profile: MeishiProfile; size: number; fontSize: number }) {
   if (profile.avatar_url) {
     return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
+      <Image
         src={profile.avatar_url}
         alt={displayName(profile)}
         width={size}
         height={size}
+        unoptimized /* user-supplied avatar URL — skip optimizer (any host, no SSRF) */
         style={{
           width: size,
           height: size,

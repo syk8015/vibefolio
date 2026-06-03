@@ -3,13 +3,28 @@
 import { useState, useEffect } from "react";
 import type { User } from "@supabase/supabase-js";
 import Link from "next/link";
+import Image from "next/image";
+import dynamic from "next/dynamic";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter, useSearchParams } from "next/navigation";
 import ProfileTab from "./ProfileTab";
-import ProjectsTab from "./ProjectsTab";
-import CustomTab from "./CustomTab";
-import AnalyticsTab from "./AnalyticsTab";
 import ThemeToggle from "@/components/ThemeToggle";
+
+// "profile" is the default tab, so it stays in the initial bundle. The other
+// three tabs (ProjectsTab alone is ~1900 lines) are split into their own chunks
+// and only fetched when the user actually opens them — they never render on the
+// initial dashboard paint, so this is pure bundle weight removed from first load.
+const TabFallback = () => (
+  <div className="flex justify-center py-20">
+    <div
+      className="animate-spin"
+      style={{ width: 22, height: 22, borderRadius: "50%", border: "2px solid var(--border)", borderTopColor: "var(--text-secondary)" }}
+    />
+  </div>
+);
+const ProjectsTab = dynamic(() => import("./ProjectsTab"), { loading: TabFallback });
+const AnalyticsTab = dynamic(() => import("./AnalyticsTab"), { loading: TabFallback });
+const CustomTab = dynamic(() => import("./CustomTab"), { loading: TabFallback });
 
 type Tab = "profile" | "projects" | "analytics" | "custom";
 
@@ -74,7 +89,7 @@ export default function DashboardClient({ user }: { user: User }) {
 
           {/* Avatar */}
           <div
-            className="w-8 h-8 rounded-full flex items-center justify-center overflow-hidden"
+            className="relative w-8 h-8 rounded-full flex items-center justify-center overflow-hidden"
             style={{
               background: "var(--surface-soft)",
               color: "var(--text-primary)",
@@ -85,7 +100,7 @@ export default function DashboardClient({ user }: { user: User }) {
             }}
           >
             {avatarUrl
-              ? <img src={avatarUrl} alt={name} className="w-full h-full object-cover" />
+              ? <Image src={avatarUrl} alt={name} fill sizes="32px" unoptimized className="object-cover" />
               : avatarLetter}
           </div>
           {/* Logout — hidden on mobile */}
