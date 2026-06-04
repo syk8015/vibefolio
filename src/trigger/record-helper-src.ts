@@ -105,6 +105,7 @@ let FRAMES_DIR = null;
 let frameCount = 0;
 let captureDeadline = Infinity; // wall-clock; set when virtual time starts
 let captureStopped = false;     // true once we hit the budget/cap (stop advancing)
+let captureRetries = 0;         // screenshot retries (diagnostic; no time distortion)
 
 // Advance virtual time by exactly one 60fps frame and return the freshly rendered
 // JPEG (base64). The budget advance must IMMEDIATELY precede the screenshot:
@@ -113,20 +114,23 @@ let captureStopped = false;     // true once we hit the budget/cap (stop advanci
 // (scripts/vt-probe2); the 1.2s guard bounds a persistent-network stall; the 5s
 // guard bounds a stuck capture. Throws on capture timeout.
 async function grabFrame(quality) {
-  // Page.captureScreenshot intermittently stalls under virtual time on this
-  // headed sandbox (works dozens of times, then one call hangs). It's transient,
-  // so retry the whole advance+capture a few times rather than treat one stall as
-  // fatal. "advance" ALWAYS consumes the budget and fires the event (even with
-  // pending network), so the event reliably precedes each capture.
+  // Advance virtual time by EXACTLY one frame — ONCE. The advance must NOT be
+  // inside the capture-retry loop: re-advancing would move the page's clock
+  // forward again while still producing a single output frame, so the app would
+  // play back sped up (worse the more captures retry). "advance" always consumes
+  // the budget and fires the event, even with pending network.
+  const expired = new Promise((res) => {
+    const t = setTimeout(res, 1500);
+    cdp.once("Emulation.virtualTimeBudgetExpired", () => { clearTimeout(t); res(); });
+  });
+  await cdp.send("Emulation.setVirtualTimePolicy", { policy: "advance", budget: FRAME_MS });
+  await expired;
+  // Retry ONLY the screenshot of this single advanced frame (no extra advance).
+  // The paint pump keeps a fresh frame available, so a transient stall recaptures
+  // the same moment cleanly without distorting time.
   let lastErr = null;
-  for (let attempt = 0; attempt < 4; attempt++) {
+  for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      const expired = new Promise((res) => {
-        const t = setTimeout(res, 1500);
-        cdp.once("Emulation.virtualTimeBudgetExpired", () => { clearTimeout(t); res(); });
-      });
-      await cdp.send("Emulation.setVirtualTimePolicy", { policy: "advance", budget: FRAME_MS });
-      await expired;
       const s = await Promise.race([
         cdp.send("Page.captureScreenshot", { format: "jpeg", quality: quality || 85 }),
         new Promise((_, rej) => setTimeout(() => rej(new Error("captureScreenshot timeout")), 2500)),
@@ -134,6 +138,7 @@ async function grabFrame(quality) {
       return s.data;
     } catch (e) {
       lastErr = e;
+      if (attempt > 0) captureRetries++;
     }
   }
   throw lastErr || new Error("grabFrame failed");
@@ -852,6 +857,7 @@ async function runScroll(page) {
       steps,
       frames: frameCount,
       fps: FPS,
+      captureRetries,
       durationMs: interactionEnd - interactionStart,
       visibleChars,
       cuError,
