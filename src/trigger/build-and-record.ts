@@ -127,6 +127,11 @@ type RecorderMeta = {
   tight?: boolean;
   capDurMs?: number;
   tightDurMs?: number;
+  // Real captured framerate signals (the container tag always lies — x11grab
+  // tags 60 even when it grabbed dupes). grabFps = sustained real-time grab rate;
+  // uniqueFps = unique (non-duplicate) frames / sec ≈ genuine motion smoothness.
+  grabFps?: number;
+  uniqueFps?: number;
   cuts?: number;
 };
 
@@ -364,6 +369,8 @@ export const buildAndRecord = task({
       cuts: meta.cuts,
       capDurMs: meta.capDurMs,
       tightDurMs: meta.tightDurMs,
+      grabFps: meta.grabFps,
+      uniqueFps: meta.uniqueFps,
       cuError: meta.cuError ?? undefined,
     });
 
@@ -387,11 +394,15 @@ export const buildAndRecord = task({
     const clipLen = Math.max(2, Math.min(MAX_VIDEO_SEC, srcDur || RECORD_DURATION_SEC));
     const fadeOutStart = Math.max(0, clipLen - 0.5).toFixed(2);
     logger.log("post-process", { src, srcDur, clipLen });
-    // 1280×800 @60fps -> 720p @60fps for the Theater card (still small at card
-    // size). Keep 60fps; that smoothness is the whole point of this rewrite.
+    // 1280×800 -> 720p for the Theater card (still small at card size). Pin the
+    // SHIPPED file to constant 60fps: `-r 60 -fps_mode cfr`. tight.mp4 is already
+    // CFR 60, but the raw cap.mp4 fallback inherits whatever irregular timestamps
+    // x11grab produced — without this the Theater clip could ship sub-60. Forcing
+    // it here guarantees the deliverable is always 60fps regardless of the path.
     const ffmpegCmd =
       `cd /tmp/rec && ffmpeg -y -i ${src} -t ${clipLen.toFixed(2)} ` +
       `-vf "scale=-2:720,fade=t=in:st=0:d=0.4,fade=t=out:st=${fadeOutStart}:d=0.5" ` +
+      `-r 60 -fps_mode cfr ` +
       `-c:v libx264 -preset medium -crf 26 -pix_fmt yuv420p -an ` +
       `-movflags +faststart demo.mp4`;
     const ffmpegResult = await sandbox.commands.run(ffmpegCmd, {

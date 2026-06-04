@@ -588,6 +588,15 @@ async function runScroll(page) {
       "--ozone-platform=x11",
       "--disable-infobars",
       "--force-device-scale-factor=1",
+      // Uncap frame production. By default Chromium throttles its compositor to
+      // the display's vsync (on the software Xvfb display that's a low refresh),
+      // so CSS animations only PAINT a handful of unique frames per second. x11grab
+      // still grabs 60×/s, but most grabs are byte-identical dupes → the clip is
+      // tagged 60fps yet looks choppy. These two flags tell Chromium to present as
+      // fast as it can render, so the X framebuffer actually changes ~60×/s and the
+      // grab catches genuine unique frames.
+      "--disable-gpu-vsync",
+      "--disable-frame-rate-limit",
     ],
   });
   // viewport:null -> the page adopts the real (maximized) window size.
@@ -699,6 +708,33 @@ async function runScroll(page) {
   if (!fs.existsSync(capPath)) throw new Error("capture file missing: " + capPath);
   const stat = fs.statSync(capPath);
 
+  // --- Measure what we ACTUALLY captured ---------------------------------
+  // x11grab always tags the file CAPTURE_FPS, so the container framerate lies.
+  // Two honest signals: (1) the last fps= ffmpeg printed while grabbing — the
+  // real-time rate it sustained; (2) mpdecimate, which drops near-duplicate
+  // frames, so unique frames / duration ~= the genuine motion fps. If that's far
+  // below 60, the bottleneck is the producer (Chromium/Xvfb repaint rate), not
+  // the encode.
+  let grabFps = 0;
+  try {
+    const log = fs.readFileSync(path.join(OUTPUT_DIR, "ffmpeg-grab.log"), "utf8");
+    const m = log.match(/fps=\s*([\d.]+)/g);
+    if (m && m.length) grabFps = parseFloat(m[m.length - 1].replace(/fps=\s*/, "")) || 0;
+  } catch {}
+  let uniqueFps = 0;
+  try {
+    const r = spawnSync(
+      "ffmpeg",
+      ["-y", "-i", capPath, "-vf", "mpdecimate", "-fps_mode", "vfr", "-f", "null", "-"],
+      { encoding: "utf8" },
+    );
+    const out = (r.stderr || "") + (r.stdout || "");
+    const fm = out.match(/frame=\s*(\d+)/g);
+    const kept = fm && fm.length ? parseInt(fm[fm.length - 1].replace(/frame=\s*/, ""), 10) : 0;
+    const d = probeDur(capPath);
+    if (kept && d) uniqueFps = +(kept / d).toFixed(1);
+  } catch {}
+
   // --- Cut the API-wait dead air -----------------------------------------
   // The capture is real-time, so the agent's thinking pauses sit in the clip as
   // frozen stretches. We recorded those exact windows; drop them (keeping a small
@@ -764,6 +800,8 @@ async function runScroll(page) {
       tight: useTight,
       capDurMs: Math.round(capDurSec * 1000),
       tightDurMs: Math.round(tightDurSec * 1000),
+      grabFps,
+      uniqueFps,
       cuts: cutCount,
       pageErrors: pageErrors.slice(0, 5),
     }),
