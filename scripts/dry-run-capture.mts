@@ -17,7 +17,7 @@ const RECORD_PREFIX =
   "export NODE_PATH=/usr/local/lib/node_modules && " +
   "export PLAYWRIGHT_BROWSERS_PATH=/opt/playwright && ";
 
-const sandbox = await Sandbox.create("nookframe-builder", { timeoutMs: 420_000 });
+const sandbox = await Sandbox.create("nookframe-builder", { timeoutMs: 600_000 });
 console.log("sandbox:", sandbox.sandboxId, "| target:", URL);
 async function sh(cmd: string, opts: any = {}) {
   const r: any = await sandbox.commands
@@ -51,7 +51,7 @@ try {
   console.log("\n--- running recorder ---");
   const rec = await sh(
     `${RECORD_PREFIX}mkdir -p /tmp/rec && node /tmp/record-helper.js ${URL} /tmp/rec ${RECORD_DURATION_SEC}`,
-    { timeoutMs: 300_000, envs: recordEnvs },
+    { timeoutMs: 480_000, envs: recordEnvs },
   );
   console.log("recorder exit:", rec.exitCode);
   console.log("recorder stdout:\n", rec.stdout?.slice(-1500));

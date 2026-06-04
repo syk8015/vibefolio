@@ -35,13 +35,15 @@ export type BuildResult = {
   videoUrl?: string;
 };
 
-const SANDBOX_TIMEOUT_MS = 600_000;
+const SANDBOX_TIMEOUT_MS = 900_000;
 const CLONE_TIMEOUT_MS = 120_000;
 const INSTALL_TIMEOUT_MS = 600_000;
 const READY_TIMEOUT_MS = 90_000;
 // The computer-use agent loop (screenshots + API round-trips + actions) plus
-// the initial load wait can run well past two minutes. Give it room.
-const RECORD_TIMEOUT_MS = 300_000;
+// the initial load wait can run well past two minutes — and the cinematics are
+// now captured in ×SLOWMO slow motion (compressed back in post), so the record
+// step takes proportionally longer. Give it generous room.
+const RECORD_TIMEOUT_MS = 480_000;
 const RECORD_DURATION_SEC = 15;
 // Hard cap on the final clip length, regardless of how long the agent ran.
 const MAX_VIDEO_SEC = 30;
@@ -132,6 +134,9 @@ type RecorderMeta = {
   // uniqueFps = unique (non-duplicate) frames / sec ≈ genuine motion smoothness.
   grabFps?: number;
   uniqueFps?: number;
+  // Slow-motion factor the cinematics were captured at and compressed back from
+  // (1 = no slow-mo, e.g. scroll fallback).
+  slowmo?: number;
   cuts?: number;
 };
 
@@ -371,6 +376,7 @@ export const buildAndRecord = task({
       tightDurMs: meta.tightDurMs,
       grabFps: meta.grabFps,
       uniqueFps: meta.uniqueFps,
+      slowmo: meta.slowmo,
       cuError: meta.cuError ?? undefined,
     });
 
