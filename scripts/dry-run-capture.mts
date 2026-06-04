@@ -80,7 +80,8 @@ try {
   console.log("src:", src, "dur:", srcDur, "-> clipLen:", clipLen);
   const post = await sh(
     `cd /tmp/rec && ffmpeg -y -i ${src} -t ${clipLen.toFixed(2)} ` +
-      `-vf "scale=-2:720,fade=t=in:st=0:d=0.5,fade=t=out:st=${fadeOutStart}:d=0.5" ` +
+      `-vf "scale=-2:720,fade=t=in:st=0:d=0.4,fade=t=out:st=${fadeOutStart}:d=0.5" ` +
+      `-r 60 -fps_mode cfr ` +
       `-c:v libx264 -preset medium -crf 26 -pix_fmt yuv420p -an -movflags +faststart demo.mp4`,
     { timeoutMs: 120_000 },
   );

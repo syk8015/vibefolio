@@ -95,6 +95,27 @@ function probeDur(file) {
   }
 }
 
+// Unique (non-duplicate) frames per second: mpdecimate drops near-identical
+// frames, so kept/duration ~= the genuine motion smoothness, independent of the
+// container's (always-60) fps tag. Measure this on the SHIPPED clip, not the raw
+// capture — the raw clip is padded with API-wait dead air that deflates the rate.
+function uniqueFpsOf(file) {
+  try {
+    const r = spawnSync(
+      "ffmpeg",
+      ["-y", "-i", file, "-vf", "mpdecimate", "-fps_mode", "vfr", "-f", "null", "-"],
+      { encoding: "utf8" },
+    );
+    const out = (r.stderr || "") + (r.stdout || "");
+    const fm = out.match(/frame=\s*(\d+)/g);
+    const kept = fm && fm.length ? parseInt(fm[fm.length - 1].replace(/frame=\s*/, ""), 10) : 0;
+    const d = probeDur(file);
+    return kept && d ? +(kept / d).toFixed(1) : 0;
+  } catch (e) {
+    return 0;
+  }
+}
+
 const MODS = {
   ctrl: "Control", control: "Control", alt: "Alt", option: "Alt",
   shift: "Shift", super: "Meta", meta: "Meta", cmd: "Meta", command: "Meta",
@@ -588,15 +609,13 @@ async function runScroll(page) {
       "--ozone-platform=x11",
       "--disable-infobars",
       "--force-device-scale-factor=1",
-      // Uncap frame production. By default Chromium throttles its compositor to
-      // the display's vsync (on the software Xvfb display that's a low refresh),
-      // so CSS animations only PAINT a handful of unique frames per second. x11grab
-      // still grabs 60×/s, but most grabs are byte-identical dupes → the clip is
-      // tagged 60fps yet looks choppy. These two flags tell Chromium to present as
-      // fast as it can render, so the X framebuffer actually changes ~60×/s and the
-      // grab catches genuine unique frames.
-      "--disable-gpu-vsync",
-      "--disable-frame-rate-limit",
+      // NOTE: do NOT add frame-uncap / GPU-compositing flags here. Measured on this
+      // Xvfb sandbox (dry-run uniqueFps): default raster ~10.5, +disable-gpu-vsync/
+      // disable-frame-rate-limit = no change (no-op without a real GPU present path),
+      // +use-angle=swiftshader/gpu-rasterization = WORSE (~4.7, software-GL compositor
+      // is slower than software raster). grabFps stays 60 throughout, so grab/encode
+      // is never the bottleneck — Chromium's software paint rate is. There is no
+      // launch-flag path to 60fps unique motion here; see [[pending-cinematic-smoothness]].
     ],
   });
   // viewport:null -> the page adopts the real (maximized) window size.
@@ -708,31 +727,17 @@ async function runScroll(page) {
   if (!fs.existsSync(capPath)) throw new Error("capture file missing: " + capPath);
   const stat = fs.statSync(capPath);
 
-  // --- Measure what we ACTUALLY captured ---------------------------------
+  // --- Measure the real-time grab rate -----------------------------------
   // x11grab always tags the file CAPTURE_FPS, so the container framerate lies.
-  // Two honest signals: (1) the last fps= ffmpeg printed while grabbing — the
-  // real-time rate it sustained; (2) mpdecimate, which drops near-duplicate
-  // frames, so unique frames / duration ~= the genuine motion fps. If that's far
-  // below 60, the bottleneck is the producer (Chromium/Xvfb repaint rate), not
-  // the encode.
+  // The last fps= ffmpeg printed while grabbing is the rate it actually sustained;
+  // if that's ~60 the grab/encode kept up and any choppiness is producer-side
+  // (Chromium's paint rate), not the capture. uniqueFps (motion smoothness) is
+  // measured on the shipped clip further down, after the dead-air cut.
   let grabFps = 0;
   try {
     const log = fs.readFileSync(path.join(OUTPUT_DIR, "ffmpeg-grab.log"), "utf8");
     const m = log.match(/fps=\s*([\d.]+)/g);
     if (m && m.length) grabFps = parseFloat(m[m.length - 1].replace(/fps=\s*/, "")) || 0;
-  } catch {}
-  let uniqueFps = 0;
-  try {
-    const r = spawnSync(
-      "ffmpeg",
-      ["-y", "-i", capPath, "-vf", "mpdecimate", "-fps_mode", "vfr", "-f", "null", "-"],
-      { encoding: "utf8" },
-    );
-    const out = (r.stderr || "") + (r.stdout || "");
-    const fm = out.match(/frame=\s*(\d+)/g);
-    const kept = fm && fm.length ? parseInt(fm[fm.length - 1].replace(/frame=\s*/, ""), 10) : 0;
-    const d = probeDur(capPath);
-    if (kept && d) uniqueFps = +(kept / d).toFixed(1);
   } catch {}
 
   // --- Cut the API-wait dead air -----------------------------------------
@@ -784,6 +789,9 @@ async function runScroll(page) {
   } catch (e) {
     console.error("dead-air cut failed:", e && e.message ? e.message : e);
   }
+
+  // Motion smoothness of the SHIPPED clip (tight if the cut succeeded, else raw).
+  const uniqueFps = uniqueFpsOf(useTight ? tightPath : capPath);
 
   console.log(
     JSON.stringify({
