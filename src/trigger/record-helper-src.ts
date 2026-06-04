@@ -143,13 +143,19 @@ async function ensureCinema(page) {
     cur.id = "__demo_cursor";
     cur.style.cssText =
       "position:fixed;left:50%;top:50%;width:24px;height:24px;margin-left:-12px;" +
-      "margin-top:-12px;border-radius:50%;background:rgba(15,15,20,0.22);" +
-      "border:2px solid rgba(255,255,255,0.95);box-shadow:0 3px 10px rgba(0,0,0,0.4);" +
+      "margin-top:-12px;border-radius:50%;background:rgba(20,20,28,0.28);" +
+      // Dual shadow: a soft translucent-white halo ring keeps the cursor legible on
+      // dark AND light target apps, plus a deeper drop shadow for premium depth.
+      "border:2px solid rgba(255,255,255,0.96);box-shadow:0 0 0 5px rgba(255,255,255,0.12),0 5px 16px rgba(0,0,0,0.5);" +
       "z-index:2147483647;pointer-events:none;will-change:left,top,transform;" +
-      // Apple-style spring glide: a brisk, gently decelerating ease so the cursor
-      // slides to its target with a premium feel that still reads as snappy. The
-      // press scale stays snappy (0.12s) — that's click feedback, not a glide.
-      "transition:left 0.55s cubic-bezier(0.32,0.72,0,1),top 0.55s cubic-bezier(0.32,0.72,0,1),transform 0.12s ease;";
+      // Cinematic glide: an even ease-in-out (accelerate, then decelerate into the
+      // target — like a deliberate hand) instead of a fast-start ease-out. The
+      // fast start front-loaded ~14% of the travel into the first frame, which the
+      // Xvfb software compositor undersampled (few unique frames captured during
+      // the flick → a visible jump). This curve caps per-frame travel at ~8% and
+      // centers it, so x11grab catches a smooth slide. Press scale stays snappy
+      // (0.12s) — that's click feedback, not a glide.
+      "transition:left 0.55s cubic-bezier(0.4,0,0.2,1),top 0.55s cubic-bezier(0.4,0,0.2,1),transform 0.12s ease;";
     var rip = doc.createElement("div");
     rip.id = "__demo_ripple";
     rip.style.cssText =
@@ -160,12 +166,15 @@ async function ensureCinema(page) {
     doc.documentElement.appendChild(rip);
     var body = doc.body;
     if (body) {
-      // Same Apple-style spring as the cursor, a touch faster (0.5s) so the camera
-      // push-in reads as a brisk, confident zoom. Set with !important so an
+      // Cinematic dolly push-in: the same even ease-in-out as the cursor, over
+      // 0.5s. A camera that accelerates then decelerates reads as a real push-in
+      // AND keeps the per-frame scale delta low (~9% peak vs ~14% for a fast-start
+      // ease-out), so the Xvfb compositor presents — and x11grab captures — a
+      // smooth ramp instead of undersampling the fast start. !important so an
       // arbitrary target app's CSS reset can't strip it (zoom() re-asserts too).
       body.style.setProperty(
         "transition",
-        "transform 0.5s cubic-bezier(0.32,0.72,0,1)",
+        "transform 0.5s cubic-bezier(0.4,0,0.2,1)",
         "important",
       );
       body.style.willChange = "transform";
@@ -208,7 +217,7 @@ async function ensureCinema(page) {
         var oy = y + (window.pageYOffset || 0);
         body.style.setProperty(
           "transition",
-          "transform 0.5s cubic-bezier(0.32,0.72,0,1)",
+          "transform 0.5s cubic-bezier(0.4,0,0.2,1)",
           "important",
         );
         body.style.transformOrigin = ox + "px " + oy + "px";
