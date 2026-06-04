@@ -5,6 +5,8 @@ import Image from "next/image";
 import type { Project } from "@/lib/data";
 import { detectVideoKind, getYouTubeEmbedUrl, getVimeoEmbedUrl } from "@/lib/video";
 import { toPreviewUrl } from "@/lib/previewOrigin";
+import type { MeishiProfile } from "./Meishi";
+import type { IdentityLine } from "@/lib/identityLine";
 
 function isFileUpload(url: string | undefined): boolean {
   return !!url && url.startsWith("/api/preview/");
@@ -268,9 +270,17 @@ interface StageProps {
   project: Project;
   index: number; // 0-based — displayed as NO. 01 etc.
   variant: "mobile" | "desktop";
+  // Mobile hero only — identity overlay 데이터. Desktop은 무시(전달 안 됨).
+  profile?: MeishiProfile;
+  identity?: IdentityLine;
 }
 
-export default function TheaterStage({ project, index, variant }: StageProps) {
+export default function TheaterStage({ project, index, variant, profile, identity }: StageProps) {
+  // ── 모바일은 완전히 분리된 히어로로 분기. 데스크탑 코드 경로는 아래 그대로 보존(byte-identical) ──
+  if (variant === "mobile") {
+    return <MobileStage project={project} index={index} profile={profile} identity={identity} />;
+  }
+
   const href = safeHref(project.demoUrl);
   const isFile = isFileUpload(project.demoUrl);
   const numberLabel = String(index + 1).padStart(2, "0");
@@ -587,6 +597,377 @@ export default function TheaterStage({ project, index, variant }: StageProps) {
           style={{ borderRadius: 14, boxShadow: "inset 0 0 0 1px rgba(0,0,0,0.18)", zIndex: 6 }}
         />
       )}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════
+// MOBILE HERO (< md) — 풀블리드 앵비언트 영상 + 정체성 오버레이
+//
+// 접속 즉시 대표작 영상이 원본 비율 그대로(크롭 0) 가운데 재생되고,
+// 같은 소스를 cover+blur로 깔아 좌우/상하 여백을 채워 풀블리드가 된다.
+// 위에는 [아바타 + 이름 + 자동 한 줄 + 주력 툴], 아래에는 [슬림 메타 +
+// 작품 제목 + 체험 CTA]가 프로스티드 패널로 얹혀 라이트/다크 모두 가독성 확보.
+// 색·글자색은 모두 CSS 변수(--bg/--text-*/--blue/--border*) 기반.
+// ════════════════════════════════════════════════════════════════
+
+// 마운트 직후 muted+play 강제(데스크탑 DirectVideo와 동일한 React 19 우회).
+// prefers-reduced-motion이면 재생하지 않고 포스터에서 정지.
+function MobileVideo({
+  url,
+  poster,
+  layer,
+}: {
+  url: string;
+  poster: string;
+  layer: "sharp" | "ambient";
+}) {
+  const ref = useRef<HTMLVideoElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.muted = true;
+    const reduce =
+      typeof window !== "undefined" &&
+      window.matchMedia &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduce) {
+      el.pause();
+    } else {
+      el.play().catch(() => { /* 사용자 인터랙션 전 거부 가능 */ });
+    }
+  }, [url]);
+  return (
+    <video
+      key={`${layer}-${url}`}
+      ref={ref}
+      autoPlay
+      loop
+      muted
+      playsInline
+      poster={poster}
+      preload="auto"
+      className={layer === "ambient" ? "vf-mhero-ambient" : "vf-mhero-media"}
+      aria-hidden={layer === "ambient" ? true : undefined}
+    >
+      <source src={url} />
+    </video>
+  );
+}
+
+// 앵비언트 블러 배경 + 선명한(크롭 0) 전경을 함께 렌더.
+//  • 다이렉트 mp4(수동 video_url=direct / 자동 demo_video_url): 같은 영상을
+//    blur cover로 깔고, 같은 영상을 contain으로 선명하게.
+//  • YouTube/Vimeo/파일 업로드 iframe: 전경은 iframe(contain), 배경은
+//    thumbnail blur cover(임베드 중복 재생 회피).
+//  • 영상이 전혀 없으면 thumbnail을 contain 전경 + blur cover 배경으로 동일 처리.
+function MobileHeroMedia({ project }: { project: Project }) {
+  const videoKind = project.videoUrl ? detectVideoKind(project.videoUrl) : "unknown";
+  const hasManualVideo = !!project.videoUrl && videoKind !== "unknown";
+  const isFile = isFileUpload(project.demoUrl);
+
+  // "같은 소스" 블러 배경이 가능한 다이렉트 mp4 URL (있으면)
+  const directUrl =
+    hasManualVideo && videoKind === "direct"
+      ? project.videoUrl!
+      : project.demoVideoUrl
+      ? project.demoVideoUrl
+      : null;
+
+  // ── 배경(앵비언트) 레이어 ──
+  const ambient = directUrl ? (
+    <MobileVideo url={directUrl} poster={project.thumbnail} layer="ambient" />
+  ) : (
+    <Image
+      src={project.thumbnail}
+      unoptimized
+      alt=""
+      aria-hidden
+      fill
+      sizes="100vw"
+      className="vf-mhero-ambient"
+    />
+  );
+
+  // ── 전경(선명) 레이어 — 절대 크롭 금지 ──
+  let sharp: React.ReactNode;
+  if (hasManualVideo && videoKind === "youtube") {
+    const embed = getYouTubeEmbedUrl(project.videoUrl!);
+    sharp = embed ? (
+      <iframe
+        src={embed}
+        title={project.title}
+        className="vf-mhero-media pointer-events-none"
+        style={{ border: "none" }}
+        allow="autoplay; encrypted-media; picture-in-picture"
+        allowFullScreen
+      />
+    ) : null;
+  } else if (hasManualVideo && videoKind === "vimeo") {
+    const embed = getVimeoEmbedUrl(project.videoUrl!);
+    sharp = embed ? (
+      <iframe
+        src={embed}
+        title={project.title}
+        className="vf-mhero-media pointer-events-none"
+        style={{ border: "none" }}
+        allow="autoplay; fullscreen; picture-in-picture"
+        allowFullScreen
+      />
+    ) : null;
+  } else if (directUrl) {
+    sharp = <MobileVideo url={directUrl} poster={project.thumbnail} layer="sharp" />;
+  } else if (isFile && project.demoUrl) {
+    sharp = (
+      <iframe
+        src={toPreviewUrl(project.demoUrl)}
+        className="vf-mhero-media"
+        style={{ border: "none" }}
+        sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+        title={project.title}
+      />
+    );
+  } else {
+    sharp = (
+      <Image
+        src={project.thumbnail}
+        unoptimized
+        alt={project.title}
+        fill
+        loading="eager"
+        fetchPriority="high"
+        sizes="100vw"
+        className="vf-mhero-media"
+      />
+    );
+  }
+
+  return (
+    <>
+      {ambient}
+      {/* 배경을 살짝 더 가라앉혀 전경 영상과 오버레이 텍스트를 분리 */}
+      <div className="vf-mhero-veil" aria-hidden />
+      {sharp}
+    </>
+  );
+}
+
+function HeroAvatar({ profile, size = 38 }: { profile?: MeishiProfile; size?: number }) {
+  const name = profile?.name || profile?.username || "?";
+  const letter = name.trim().charAt(0).toUpperCase();
+  if (profile?.avatar_url) {
+    return (
+      <Image
+        src={profile.avatar_url}
+        alt={name}
+        width={size}
+        height={size}
+        unoptimized
+        style={{
+          width: size,
+          height: size,
+          borderRadius: 999,
+          objectFit: "cover",
+          flexShrink: 0,
+          border: "1.5px solid var(--border-bright)",
+        }}
+      />
+    );
+  }
+  return (
+    <div
+      aria-hidden
+      style={{
+        width: size,
+        height: size,
+        borderRadius: 999,
+        background: "var(--text-primary)",
+        color: "var(--bg)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontSize: size * 0.44,
+        fontWeight: 900,
+        flexShrink: 0,
+        fontFamily: "var(--font-nunito)",
+      }}
+    >
+      {letter}
+    </div>
+  );
+}
+
+function MobileStage({
+  project,
+  index,
+  profile,
+  identity,
+}: {
+  project: Project;
+  index: number;
+  profile?: MeishiProfile;
+  identity?: IdentityLine;
+}) {
+  const href = safeHref(project.demoUrl);
+  const isFile = isFileUpload(project.demoUrl);
+  const numberLabel = String(index + 1).padStart(2, "0");
+  const displayName = profile?.name || profile?.username || "";
+
+  const contentLabel = project.contentType ? CONTENT_TYPE_LABELS[project.contentType] : undefined;
+  const aiTools = project.tags.length ? project.tags.join(" · ") : undefined;
+  const metaParts = [contentLabel, aiTools, project.year].filter(Boolean) as string[];
+
+  const headline = identity?.headline;
+  const tools = identity?.tools ?? [];
+
+  return (
+    <div className="vf-mhero">
+      {/* 풀블리드 영상: 같은 소스 blur cover 배경 + 원본 비율 contain 전경 */}
+      <MobileHeroMedia project={project} />
+
+      {/* ── 상단 오버레이: 정체성 (아바타 · 이름 · 자동 한 줄 · 주력 툴) ── */}
+      <div className="vf-mhero-top vf-mhero-scrim-top vf-mhero-fade">
+        <div className="vf-mhero-id-row">
+          <HeroAvatar profile={profile} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div
+              className="vf-serif-display"
+              style={{
+                fontWeight: 700,
+                fontSize: 19,
+                lineHeight: 1.1,
+                color: "var(--text-primary)",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {displayName}
+            </div>
+            {profile?.username && (
+              <div
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 10,
+                  letterSpacing: "0.06em",
+                  color: "var(--text-secondary)",
+                  marginTop: 2,
+                }}
+              >
+                @{profile.username}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {headline && (
+          <p
+            className="vf-serif-display"
+            style={{
+              margin: "12px 0 0",
+              fontSize: 22,
+              lineHeight: 1.3,
+              fontWeight: 600,
+              color: "var(--text-primary)",
+              textWrap: "pretty",
+            }}
+          >
+            {headline}
+          </p>
+        )}
+
+        {tools.length > 0 && (
+          <div
+            style={{
+              marginTop: 8,
+              display: "flex",
+              alignItems: "center",
+              gap: 7,
+              flexWrap: "wrap",
+              fontFamily: "var(--font-mono)",
+              fontSize: 11,
+              letterSpacing: "0.04em",
+              color: "var(--text-secondary)",
+            }}
+          >
+            {tools.map((t, i) => (
+              <span key={t} style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
+                {i > 0 && <span style={{ opacity: 0.5 }}>·</span>}
+                {t}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ── 하단 오버레이: 작품 (슬림 메타 · 제목 · CTA) ── */}
+      <div className="vf-mhero-bottom vf-mhero-scrim-bottom vf-mhero-fade">
+        <div className="vf-mhero-meta">
+          <span>NO. {numberLabel}</span>
+          {metaParts.map((part, i) => (
+            <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+              <span style={{ width: 12, height: 1, background: "var(--border-bright)" }} />
+              <span>{part}</span>
+            </span>
+          ))}
+        </div>
+        <div className="vf-mhero-titlerow">
+          <h2
+            className="vf-serif-display"
+            style={{
+              flex: 1,
+              fontWeight: 700,
+              fontSize: 24,
+              color: "var(--text-primary)",
+              lineHeight: 1.1,
+              margin: 0,
+              minWidth: 0,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {project.title}
+          </h2>
+          {href && (
+            <a
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                flex: "0 0 auto",
+                background: "var(--blue)",
+                color: "var(--bg)",
+                padding: "10px 16px",
+                borderRadius: 999,
+                border: "none",
+                fontFamily: "var(--font-nunito)",
+                fontSize: 12,
+                fontWeight: 800,
+                letterSpacing: "0.02em",
+                cursor: "pointer",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                textDecoration: "none",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {isFile ? "전체화면 체험" : "체험하러 가기"}
+              <span
+                style={{
+                  display: "inline-block",
+                  width: 0,
+                  height: 0,
+                  borderLeft: "6px solid currentColor",
+                  borderTop: "4px solid transparent",
+                  borderBottom: "4px solid transparent",
+                }}
+              />
+            </a>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

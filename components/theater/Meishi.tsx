@@ -341,11 +341,14 @@ export function MeishiInline({
   profile,
   profileUrl,
   socialLinks = [],
+  bio,
   style,
 }: {
   profile: MeishiProfile;
   profileUrl: string;
   socialLinks?: string[];
+  // 슬림 About: 짧은 bio를 카드 안에 2줄 말줄임으로 동반(정체성 한 줄은 히어로에 있으므로 중복 회피).
+  bio?: string | null;
   style?: React.CSSProperties;
 }) {
   const hasSocials = socialLinks.length > 0;
@@ -378,6 +381,29 @@ export function MeishiInline({
         </div>
         <StampSeal size={28} label={initial(profile)} />
       </div>
+
+      {/* 짧은 bio — 2줄 말줄임. 정체성 한 줄(관찰형)은 히어로 오버레이에 이미 있으므로
+          여기서는 자유형 소개만 압축해 보여준다. */}
+      {bio && (
+        <p
+          style={{
+            position: "relative",
+            margin: 0,
+            fontSize: 12.5,
+            lineHeight: 1.6,
+            color: "var(--text-secondary)",
+            fontFamily: "var(--font-nunito)",
+            fontWeight: 400,
+            display: "-webkit-box",
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: "vertical",
+            overflow: "hidden",
+            whiteSpace: "pre-line",
+          }}
+        >
+          {bio}
+        </p>
+      )}
 
       {/* Bottom rail: socials (or the card URL when there are none) on the left,
           a scannable QR on the right — gives the mobile card the same

@@ -523,3 +523,123 @@ body::before {
   }
   .vf-step-enter { animation: none !important; }
 }
+
+/* =============================================================
+   Mobile meishi hero (< md / 768px) — 풀블리드 앵비언트 영상 스테이지
+   모두 768px 게이트 뒤에 있어 데스크탑 스테이지에는 절대 닿지 않는다.
+   색은 전부 CSS 변수 → 라이트/다크 자동 대응.
+   ============================================================= */
+@media (max-width: 767px) {
+  /* Stage frame — full-bleed, letterbox margins filled by the ambient layer. */
+  .vf-mhero {
+    position: relative;
+    width: 100%;
+    height: clamp(460px, 78vh, 720px);
+    background: var(--bg);
+    overflow: hidden;
+    isolation: isolate;
+  }
+
+  /* Ambient backdrop — same source, cover + heavy blur, slightly sunken.
+     transform scale hides the blur's soft edges; never interactive. */
+  .vf-mhero-ambient {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    filter: blur(34px) saturate(1.15) brightness(0.92);
+    transform: scale(1.25);
+    pointer-events: none;
+    z-index: 0;
+  }
+  [data-theme="dark"] .vf-mhero-ambient { filter: blur(34px) saturate(1.1) brightness(0.7); }
+
+  /* Tiny veil so the contained demo + frosted panels read above the backdrop. */
+  .vf-mhero-veil {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1;
+    background: radial-gradient(120% 80% at 50% 50%,
+      transparent 0%,
+      color-mix(in srgb, var(--bg) 22%, transparent) 100%);
+  }
+
+  /* Sharp foreground — ORIGINAL ratio, never cropped. */
+  .vf-mhero-media {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    z-index: 2;
+  }
+
+  /* Frosted identity / meta panels — tinted with the page colour so
+     var(--text-*) stays legible over any video, light or dark. */
+  .vf-mhero-top,
+  .vf-mhero-bottom {
+    position: absolute;
+    left: 0;
+    right: 0;
+    z-index: 4;
+    padding: 16px 18px;
+  }
+  .vf-mhero-top { top: 0; }
+  .vf-mhero-bottom { bottom: 0; }
+
+  .vf-mhero-scrim-top {
+    background: linear-gradient(180deg,
+      color-mix(in srgb, var(--bg) 80%, transparent) 0%,
+      color-mix(in srgb, var(--bg) 64%, transparent) 70%,
+      transparent 100%);
+    -webkit-backdrop-filter: blur(14px) saturate(1.1);
+    backdrop-filter: blur(14px) saturate(1.1);
+    padding-bottom: 26px;
+  }
+  .vf-mhero-scrim-bottom {
+    background: linear-gradient(0deg,
+      color-mix(in srgb, var(--bg) 82%, transparent) 0%,
+      color-mix(in srgb, var(--bg) 66%, transparent) 72%,
+      transparent 100%);
+    -webkit-backdrop-filter: blur(14px) saturate(1.1);
+    backdrop-filter: blur(14px) saturate(1.1);
+    padding-top: 26px;
+  }
+
+  .vf-mhero-id-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .vf-mhero-meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 10px;
+    font-family: var(--font-mono), monospace;
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+  }
+
+  .vf-mhero-titlerow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  /* Gentle entrance for the overlay copy. Transform-only (no opacity) so the
+     content is ALWAYS visible — print, PDF export, reduced-motion, and any
+     capture context that freezes the animation clock show the resting state
+     rather than a stuck opacity:0. */
+  @keyframes vf-mhero-rise { from { transform: translateY(16px); } to { transform: translateY(0); } }
+  @media (prefers-reduced-motion: no-preference) {
+    .vf-mhero-fade { animation: vf-mhero-rise 0.5s cubic-bezier(0.22, 1, 0.36, 1); }
+  }
+}

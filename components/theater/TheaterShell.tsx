@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Image from "next/image";
 import type { Project } from "@/lib/data";
+import { buildIdentityLine } from "@/lib/identityLine";
 import TheaterStage from "./TheaterStage";
 import { MeishiBig, MeishiInline, type MeishiProfile } from "./Meishi";
 
@@ -330,6 +331,12 @@ export default function TheaterShell({ profile, profileUrl, projects, initialAct
 
   const activeProject = projects[activeIndex];
   const total = projects.length;
+  // 모바일 히어로 정체성 한 줄 — 기존 프로젝트 데이터에서 파생(새 DB 필드 없음).
+  // 데스크탑 경로는 이 값을 사용하지 않으므로 영향 없음.
+  const identity = useMemo(
+    () => buildIdentityLine(projects, { name: profile.name, bio: profile.bio }),
+    [projects, profile.name, profile.bio]
+  );
   const goPrev = () => setActiveIndex((i) => (i - 1 + total) % total);
   const goNext = () => setActiveIndex((i) => (i + 1) % total);
 
@@ -337,8 +344,14 @@ export default function TheaterShell({ profile, profileUrl, projects, initialAct
     <>
       {/* ───────────────────── MOBILE ───────────────────── */}
       <div className="md:hidden">
-        {/* Stage runs full-bleed under the nav. */}
-        <TheaterStage project={activeProject} index={activeIndex} variant="mobile" />
+        {/* Stage runs full-bleed under the nav — 풀블리드 앵비언트 히어로 + 자동 한 줄. */}
+        <TheaterStage
+          project={activeProject}
+          index={activeIndex}
+          variant="mobile"
+          profile={profile}
+          identity={identity}
+        />
 
         {/* Reel */}
         <div className="px-5 pt-7">
@@ -362,26 +375,18 @@ export default function TheaterShell({ profile, profileUrl, projects, initialAct
           ))}
         </div>
 
-        {/* About */}
+        {/* About — 정체성 한 줄은 이미 히어로에 있으므로 압축: 슬림 명함 카드 한 장
+            (짧은 bio 2줄 말줄임 + 소셜 + QR). */}
         <div className="px-5 pt-10 pb-8">
           <SectionHeader label="명함 · About" />
           <div className="mt-5">
-            <MeishiInline profile={profile} profileUrl={profileUrl} socialLinks={socialLinks} />
+            <MeishiInline
+              profile={profile}
+              profileUrl={profileUrl}
+              socialLinks={socialLinks}
+              bio={profile.bio}
+            />
           </div>
-          {profile.bio && (
-            <p
-              className="mt-5 whitespace-pre-line"
-              style={{
-                fontSize: 13,
-                lineHeight: 1.7,
-                color: "var(--text-secondary)",
-                fontFamily: "var(--font-nunito)",
-                fontWeight: 400,
-              }}
-            >
-              {profile.bio}
-            </p>
-          )}
         </div>
       </div>
 
