@@ -56,14 +56,16 @@ try {
   console.log("recorder exit:", rec.exitCode);
   console.log("recorder stdout:\n", rec.stdout?.slice(-1500));
   if (rec.stderr) console.log("recorder stderr (tail):\n", rec.stderr.slice(-800));
+  const diag = await sh("echo '--errors--'; cat /tmp/rec/errors.txt 2>/dev/null; echo '--progress--'; cat /tmp/rec/progress.txt 2>/dev/null; echo");
+  console.log(diag.stdout);
   if (rec.exitCode !== 0) {
-    const log = await sh("tail -40 /tmp/rec/ffmpeg-grab.log 2>/dev/null");
-    console.log("ffmpeg-grab.log tail:\n", log.stdout);
+    const prog = await sh("echo '--progress--'; cat /tmp/rec/progress.txt 2>/dev/null; echo; echo '--errors--'; cat /tmp/rec/errors.txt 2>/dev/null; echo '--frames--'; ls /tmp/rec/frames 2>/dev/null | wc -l");
+    console.log(prog.stdout);
     throw new Error("recorder failed");
   }
 
-  // post-process (mirror build-and-record): recorder already cut dead air into
-  // tight.mp4 — prefer it, fall back to the raw cap.mp4.
+  // post-process (mirror build-and-record): recorder writes a 60fps cap.mp4 from
+  // virtual-time frames (no tight.mp4 anymore) — probe tight first, fall back.
   const probe = async (f: string) =>
     parseFloat(
       (await sh(`ffprobe -v error -show_entries format=duration -of default=nk=1:nw=1 /tmp/rec/${f}`))

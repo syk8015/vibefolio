@@ -120,24 +120,18 @@ type RecorderMeta = {
   mode?: string;
   steps?: number;
   durationMs?: number;
-  contentW?: number;
-  contentH?: number;
-  cropY?: number;
   visibleChars?: number;
   cuError?: string | null;
-  // The recorder cuts API-wait dead air into tight.mp4 and reports it here.
+  // Always false now (no dead-air cut under virtual time); kept so the src
+  // selection below stays a no-op pointing at cap.mp4.
   tight?: boolean;
   capDurMs?: number;
-  tightDurMs?: number;
-  // Real captured framerate signals (the container tag always lies — x11grab
-  // tags 60 even when it grabbed dupes). grabFps = sustained real-time grab rate;
-  // uniqueFps = unique (non-duplicate) frames / sec ≈ genuine motion smoothness.
-  grabFps?: number;
+  // Number of 60fps frames the recorder captured + assembled, and the fps.
+  frames?: number;
+  fps?: number;
+  // unique (non-duplicate) frames / sec via mpdecimate ≈ genuine motion
+  // smoothness (the container tag always reads 60). Static holds pull it down.
   uniqueFps?: number;
-  // Slow-motion factor the cinematics were captured at and compressed back from
-  // (1 = no slow-mo, e.g. scroll fallback).
-  slowmo?: number;
-  cuts?: number;
 };
 
 // The recorder prints a JSON summary as its last stdout line. Parse it (from the
@@ -362,21 +356,18 @@ export const buildAndRecord = task({
       );
     }
 
-    // cap.mp4 is a real-time 1280×800 @60fps grab. The recorder already cut the
-    // API-wait dead air into tight.mp4 (keeping all gesture motion + zoom holds at
-    // real-time speed) and tells us whether that succeeded.
+    // cap.mp4 is a constant-60fps clip the recorder assembled from per-frame
+    // screenshots taken under CDP virtual time (deterministic 60fps, true app
+    // speed, no dead air — virtual time is paused during the agent's API waits).
     const meta = parseRecorderMeta(recordResult.stdout);
     logger.log("recorder meta", {
       mode: meta.mode,
       steps: meta.steps,
+      frames: meta.frames,
+      fps: meta.fps,
       durationMs: meta.durationMs,
-      tight: meta.tight,
-      cuts: meta.cuts,
       capDurMs: meta.capDurMs,
-      tightDurMs: meta.tightDurMs,
-      grabFps: meta.grabFps,
       uniqueFps: meta.uniqueFps,
-      slowmo: meta.slowmo,
       cuError: meta.cuError ?? undefined,
     });
 
@@ -388,23 +379,15 @@ export const buildAndRecord = task({
           )
         ).stdout.trim(),
       ) || 0;
-    // Prefer the recorder's dead-air-cut clip; fall back to the raw capture if the
-    // cut didn't run (e.g. scroll fallback) or collapsed too far.
-    let src = meta.tight ? "tight.mp4" : "cap.mp4";
-    let srcDur = await probe(src);
-    if (srcDur < 2) {
-      src = "cap.mp4";
-      srcDur = await probe("cap.mp4");
-      logger.log("tight clip unusable; using raw capture", { srcDur });
-    }
+    // The recorder assembles its virtual-time frames into cap.mp4 (constant 60fps).
+    const src = "cap.mp4";
+    const srcDur = await probe(src);
     const clipLen = Math.max(2, Math.min(MAX_VIDEO_SEC, srcDur || RECORD_DURATION_SEC));
     const fadeOutStart = Math.max(0, clipLen - 0.5).toFixed(2);
     logger.log("post-process", { src, srcDur, clipLen });
-    // 1280×800 -> 720p for the Theater card (still small at card size). Pin the
-    // SHIPPED file to constant 60fps: `-r 60 -fps_mode cfr`. tight.mp4 is already
-    // CFR 60, but the raw cap.mp4 fallback inherits whatever irregular timestamps
-    // x11grab produced — without this the Theater clip could ship sub-60. Forcing
-    // it here guarantees the deliverable is always 60fps regardless of the path.
+    // 1280×800 -> 720p for the Theater card (still small at card size). Re-assert
+    // constant 60fps (-r 60 -fps_mode cfr) on the shipped file as a belt-and-braces
+    // guarantee regardless of the fade filtering.
     const ffmpegCmd =
       `cd /tmp/rec && ffmpeg -y -i ${src} -t ${clipLen.toFixed(2)} ` +
       `-vf "scale=-2:720,fade=t=in:st=0:d=0.4,fade=t=out:st=${fadeOutStart}:d=0.5" ` +

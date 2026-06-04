@@ -12,7 +12,7 @@ export const RECORD_HELPER_SRC = String.raw`// Run inside the E2B sandbox.
 const { chromium } = require("playwright");
 const fs = require("node:fs");
 const path = require("node:path");
-const { spawn, spawnSync } = require("node:child_process");
+const { spawnSync } = require("node:child_process");
 
 const [, , URL, OUTPUT_DIR, DURATION_SEC_STR] = process.argv;
 if (!URL || !OUTPUT_DIR || !DURATION_SEC_STR) {
@@ -26,7 +26,6 @@ if (!/^https?:\/\//i.test(URL)) {
   console.error("refusing non-http(s) target: " + URL);
   process.exit(1);
 }
-const DURATION_MS = parseFloat(DURATION_SEC_STR) * 1000;
 const FONT_WAIT_MS = 8000;
 const CONTENT_WAIT_MS = 12000;
 const MIN_VISIBLE_CHARS = 20;
@@ -37,15 +36,27 @@ const MIN_VISIBLE_CHARS = 20;
 const VIEW_W = 1280;
 const VIEW_H = 800;
 
-// --- Headed capture (Xvfb + ffmpeg x11grab) ------------------------------
-// We render headed Chromium onto a virtual X display and screen-grab it at a
-// real 60fps. Headless Playwright recordVideo only captured ~4.5 unique fps
-// (Chromium repaints on-demand in headless), which looked choppy. The Xvfb
-// display is VIEW_H + the browser toolbar tall; we grab only the content
-// region below the toolbar so the toolbar never shows in the video.
+// --- Deterministic virtual-time capture ----------------------------------
+// We render headed Chromium onto a virtual X display (Xvfb) for rendering
+// fidelity, but DON'T screen-grab it. Instead we drive CDP virtual time
+// (Emulation.setVirtualTimePolicy) one 60fps frame-budget at a time and take a
+// Page.captureScreenshot after each step. Two things this buys, both verified on
+// this sandbox (scripts/vt-probe2.mts): (1) the page's OWN clock advances at TRUE
+// speed per frame (setInterval/rAF/CSS/caret), so dynamic apps never run fast or
+// frantic; (2) one fresh render per step = a genuine 60 unique fps, decoupled
+// from how slowly the software compositor paints in wall-clock. Frames are then
+// assembled into cap.mp4 at 60fps. No x11grab, no dead-air cut (virtual time is
+// PAUSED during the Claude API round-trips, so the page simply doesn't advance).
 const DISPLAY = process.env.DISPLAY || ":99";
-const DISPLAY_H = parseInt(process.env.DEMO_DISPLAY_H || "887", 10);
-const CAPTURE_FPS = 60;
+const FPS = 60;
+const FRAME_MS = 1000 / FPS;
+// Hard cap on captured frames so a long agent run can't balloon the clip /
+// screenshot cost. MAX_VIDEO_SEC (30) * 60fps.
+const MAX_FRAMES = 30 * FPS;
+// Wall-clock budget for the whole capture. Each frame costs a CDP round-trip +
+// screenshot, so a demo is slower than real time; this guarantees we stop and
+// assemble what we have well before the outer record timeout kills us.
+const CAPTURE_BUDGET_MS = 240000;
 
 // --- Computer use config -------------------------------------------------
 const API_KEY = process.env.ANTHROPIC_API_KEY || "";
@@ -57,21 +68,11 @@ const MODEL = process.env.DEMO_CU_MODEL || "claude-sonnet-4-5";
 // so each step now yields ~3-4s of footage. 7 steps ~= a 25s demo (cap 30s) and
 // fewer Claude calls = lower cost.
 const CU_MAX_STEPS = 7;         // hard cap on agent turns (cost guard)
-const ACTION_PACING_MS = 200;   // execAction now self-paces the cinematics; small extra dwell
-
-// --- Slow-motion capture, then time-compress in post ---------------------
-// Xvfb software rendering paints the full-page transform:scale() zoom at only
-// ~14 unique fps in wall-clock (measured). The grab itself sustains 60fps, so
-// the fix is to render the cinematics in SLOW MOTION (every camera CSS duration
-// and every staging sleep ×SLOWMO) — that gives ~SLOWMO× more unique painted
-// frames for the same on-screen move — then speed the clip back up by SLOWMO in
-// post. ~14fps × 5 = ~70 unique fps of motion -> downsampled to a smooth 60.
-// Costs only wall-clock capture time (acceptable); Claude API usage is unchanged
-// (same agent loop, same CU_MAX_STEPS — only presentational timings stretch).
-const SLOWMO = 5;
-// Wall-clock budget for the interaction. The cinematics now run ×SLOWMO longer,
-// so this must scale with it (was 90s at 1x). The agent still stops early once it
-// has shown the core feature; this is just the ceiling.
+const ACTION_PACING_MS = 200;   // small extra dwell rendered after each action
+// Wall-clock budget for the interaction. Each captured frame costs a CDP budget
+// round-trip + a screenshot, and a demo is ~1000-1500 frames, so the capture is
+// slower than real time. The agent still stops early once it has shown the core
+// feature; this is just the ceiling.
 const CU_MAX_MS = 330000;
 
 const SYSTEM_PROMPT = [
@@ -95,12 +96,86 @@ const SYSTEM_PROMPT = [
 ].join("\n");
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-// Cinematic sleep: a staging pause that should hold for the SLOWMO-stretched
-// duration of a camera animation, so the slow capture catches every paint. The
-// post-capture speedup compresses it back to ms of final playback. Use this for
-// presentational dwells ONLY — never for app-interaction timing (key holds, mouse
-// down/up) or API retry backoffs, which must stay at real wall-clock.
-const csleep = (ms) => sleep(Math.round(ms * SLOWMO));
+
+// --- Virtual-time frame capture ------------------------------------------
+// Set once the CDP session + frames dir are ready (in main). cdp drives virtual
+// time; FRAMES_DIR collects the JPEGs; frameCount is the running index/cap.
+let cdp = null;
+let FRAMES_DIR = null;
+let frameCount = 0;
+let captureDeadline = Infinity; // wall-clock; set when virtual time starts
+let captureStopped = false;     // true once we hit the budget/cap (stop advancing)
+
+// Advance virtual time by exactly one 60fps frame and return the freshly rendered
+// JPEG (base64). The budget advance must IMMEDIATELY precede the screenshot:
+// captureScreenshot waits on a fresh compositor frame, so a bare capture with no
+// preceding advance hangs. pauseIfNetworkFetchesPending matches the verified probe
+// (scripts/vt-probe2); the 1.2s guard bounds a persistent-network stall; the 5s
+// guard bounds a stuck capture. Throws on capture timeout.
+async function grabFrame(quality) {
+  // Page.captureScreenshot intermittently stalls under virtual time on this
+  // headed sandbox (works dozens of times, then one call hangs). It's transient,
+  // so retry the whole advance+capture a few times rather than treat one stall as
+  // fatal. "advance" ALWAYS consumes the budget and fires the event (even with
+  // pending network), so the event reliably precedes each capture.
+  let lastErr = null;
+  for (let attempt = 0; attempt < 4; attempt++) {
+    try {
+      const expired = new Promise((res) => {
+        const t = setTimeout(res, 1500);
+        cdp.once("Emulation.virtualTimeBudgetExpired", () => { clearTimeout(t); res(); });
+      });
+      await cdp.send("Emulation.setVirtualTimePolicy", { policy: "advance", budget: FRAME_MS });
+      await expired;
+      const s = await Promise.race([
+        cdp.send("Page.captureScreenshot", { format: "jpeg", quality: quality || 85 }),
+        new Promise((_, rej) => setTimeout(() => rej(new Error("captureScreenshot timeout")), 2500)),
+      ]);
+      return s.data;
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  throw lastErr || new Error("grabFrame failed");
+}
+
+// Capture one VIDEO frame. While we're not calling this (e.g. during a Claude API
+// round-trip) the page is frozen, so there's no dead air and the app never runs
+// ahead. On capture trouble we stop and assemble what we have rather than wedge.
+async function vtStep() {
+  if (!cdp || captureStopped) return;
+  if (frameCount >= MAX_FRAMES || Date.now() > captureDeadline) {
+    captureStopped = true;
+    return;
+  }
+  let data = null;
+  try {
+    data = await grabFrame(85);
+  } catch (e) {
+    try { fs.appendFileSync(path.join(OUTPUT_DIR, "errors.txt"), "shot@" + frameCount + ": " + (e && e.message) + "\n"); } catch {}
+    captureStopped = true;
+    return;
+  }
+  fs.writeFileSync(path.join(FRAMES_DIR, "f_" + String(frameCount).padStart(6, "0") + ".jpg"), Buffer.from(data, "base64"));
+  frameCount++;
+  // Progress to a file (survives a SIGKILL, unlike buffered stdout) so a timeout
+  // can be diagnosed as hang-vs-slow.
+  try {
+    fs.writeFileSync(
+      path.join(OUTPUT_DIR, "progress.txt"),
+      "frames=" + frameCount + " elapsedMs=" + (Date.now() - (captureDeadline - CAPTURE_BUDGET_MS)),
+    );
+  } catch {}
+}
+
+// Render ms of final playback time as 60fps frames. Replaces every cinematic
+// sleep(): instead of waiting in wall-clock, we advance virtual time frame by
+// frame and capture each. App animations (CSS/rAF/caret) advance with it at true
+// speed; our camera CSS transitions animate the same way -> smooth 60fps.
+async function vt(ms) {
+  const n = Math.max(1, Math.round(ms / FRAME_MS));
+  for (let i = 0; i < n && !captureStopped; i++) await vtStep();
+}
 
 function probeDur(file) {
   try {
@@ -164,9 +239,24 @@ function mapKey(k) {
   return out.join("+");
 }
 
+// Screenshot of the CURRENT (virtual-time-frozen) state for the agent to look at.
+// Does NOT advance virtual time or add a video frame. Uses page.screenshot (with a
+// timeout) for the same reason as frame capture — raw CDP captureScreenshot can
+// hang in headed mode under virtual time.
 async function shot(page) {
-  const buf = await page.screenshot({ type: "png" });
-  return buf.toString("base64");
+  // Agent observation: just reuse the most recently captured VIDEO frame — it IS
+  // the current state (we always vt()/capture right before observing). Avoids a
+  // separate captureScreenshot, which intermittently stalls when not immediately
+  // preceded by its own budget advance. Falls back to a fresh grab only if nothing
+  // has been captured yet. Returns JPEG base64.
+  if (frameCount > 0) {
+    try {
+      return fs.readFileSync(
+        path.join(FRAMES_DIR, "f_" + String(frameCount - 1).padStart(6, "0") + ".jpg"),
+      ).toString("base64");
+    } catch {}
+  }
+  return await grabFrame(80);
 }
 
 // --- Cinematic camera layer ---------------------------------------------
@@ -177,135 +267,132 @@ async function shot(page) {
 // is the fixed point of the scale transform, so the real page.mouse click at
 // the same viewport coordinate still lands on the same element.
 async function ensureCinema(page) {
-  await page.evaluate((slowmo) => {
+  await page.evaluate(() => {
     if (window.__demoCam) return;
-    var doc = document;
-    // Every camera animation runs ×slowmo longer in wall-clock so the slow Xvfb
-    // paint produces ~slowmo× more unique frames; the whole clip is sped back up
-    // by the same factor in post. Durations are built by string concatenation
-    // (this file is one big template literal — no JS interpolation allowed here).
-    var D_GLIDE = 0.55 * slowmo;   // cursor travel
-    var D_PRESS = 0.12 * slowmo;   // click-feedback scale
-    var D_ZOOM = 0.5 * slowmo;     // camera dolly push-in
-    var D_RIPPLE = 0.55 * slowmo;  // click ripple
+    var doc = document, body = doc.body;
     var cur = doc.createElement("div");
     cur.id = "__demo_cursor";
+    // No CSS transitions and no will-change: ALL motion is driven explicitly by a
+    // perpetual rAF below, setting styles per frame. CSS transitions stall
+    // Page.captureScreenshot under virtual time (verified); rAF-driven explicit
+    // animation captures cleanly (scripts/vt-probe2). The perpetual rAF also keeps
+    // the compositor producing frames, so capture never waits on an idle surface.
     cur.style.cssText =
       "position:fixed;left:50%;top:50%;width:24px;height:24px;margin-left:-12px;" +
       "margin-top:-12px;border-radius:50%;background:rgba(20,20,28,0.28);" +
-      // Dual shadow: a soft translucent-white halo ring keeps the cursor legible on
-      // dark AND light target apps, plus a deeper drop shadow for premium depth.
       "border:2px solid rgba(255,255,255,0.96);box-shadow:0 0 0 5px rgba(255,255,255,0.12),0 5px 16px rgba(0,0,0,0.5);" +
-      "z-index:2147483647;pointer-events:none;will-change:left,top,transform;" +
-      // Cinematic glide: an even ease-in-out (accelerate, then decelerate into the
-      // target — like a deliberate hand). Durations ×slowmo for the slow-mo capture.
-      "transition:left " + D_GLIDE + "s cubic-bezier(0.4,0,0.2,1),top " + D_GLIDE +
-      "s cubic-bezier(0.4,0,0.2,1),transform " + D_PRESS + "s ease;";
+      "z-index:2147483647;pointer-events:none;";
     var rip = doc.createElement("div");
     rip.id = "__demo_ripple";
     rip.style.cssText =
       "position:fixed;left:0;top:0;width:18px;height:18px;margin-left:-9px;margin-top:-9px;" +
       "border-radius:50%;border:2px solid rgba(90,150,255,0.95);z-index:2147483646;" +
-      "pointer-events:none;opacity:0;transform:scale(1);will-change:transform,opacity;";
+      "pointer-events:none;opacity:0;transform:scale(1);";
     doc.documentElement.appendChild(cur);
     doc.documentElement.appendChild(rip);
-    var body = doc.body;
-    if (body) {
-      // Cinematic dolly push-in: even ease-in-out, over D_ZOOM (=0.5s ×slowmo).
-      // !important so an arbitrary target app's CSS reset can't strip it (zoom()
-      // re-asserts too).
-      body.style.setProperty(
-        "transition",
-        "transform " + D_ZOOM + "s cubic-bezier(0.4,0,0.2,1)",
-        "important",
-      );
-      body.style.willChange = "transform";
+
+    // Paint pump: a perpetual rAF that changes ONE near-invisible pixel every
+    // frame. Page.captureScreenshot under virtual time stalls when the page is
+    // idle (no compositor frame being produced) in some states; a rAF that paints
+    // each frame keeps fresh frames flowing so capture never waits. (A perpetual
+    // rAF that does NOT paint does not help — it must dirty something.) Verified
+    // good pattern: the probe's per-frame-painting rAF captured 120/120.
+    var pump = doc.createElement("div");
+    pump.style.cssText =
+      "position:fixed;left:0;top:0;width:2px;height:2px;z-index:2147483647;pointer-events:none;opacity:0.02;";
+    doc.documentElement.appendChild(pump);
+    var pumpN = 0;
+    (function pumpLoop() {
+      pumpN = (pumpN + 1) % 2;
+      pump.style.background = pumpN ? "#000" : "#fff";
+      requestAnimationFrame(pumpLoop);
+    })();
+
+    function easeInOut(p) { return p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2; }
+
+    var cx = window.innerWidth / 2, cy = window.innerHeight / 2; // cursor pos (current)
+    var px0 = cx, py0 = cy, pxT = cx, pyT = cy, pStart = -1, pDur = 0; // pos tween
+    var cs = 1, cs0 = 1, csT = 1, csStart = -1, csDur = 0;          // cursor press-scale tween
+    var zs = 1, zs0 = 1, zsT = 1, zsStart = -1, zsDur = 0;          // zoom-scale tween
+    var rActive = false, rStart = -1, rDur = 550;                  // ripple
+    var running = false;
+    cur.style.left = cx + "px"; cur.style.top = cy + "px";
+
+    function active() { return pDur > 0 || csDur > 0 || zsDur > 0 || rActive; }
+    // Animator: explicit per-frame style updates WHILE a tween is active, then it
+    // stops (no pending rAF). ALL tween clocks are the rAF timestamp ts (a start of
+    // -1 means init on the first frame) — never performance.now(), which doesn't
+    // track CDP virtual time and made every tween jump to its end in one frame.
+    // A painting rAF also keeps capture healthy under virtual time.
+    function frame(ts) {
+      if (pDur > 0) {
+        if (pStart < 0) pStart = ts;
+        var e = easeInOut(Math.min(1, (ts - pStart) / pDur));
+        cx = px0 + (pxT - px0) * e; cy = py0 + (pyT - py0) * e;
+        cur.style.left = cx + "px"; cur.style.top = cy + "px";
+        if (ts - pStart >= pDur) pDur = 0;
+      }
+      if (csDur > 0) {
+        if (csStart < 0) csStart = ts;
+        var e2 = easeInOut(Math.min(1, (ts - csStart) / csDur));
+        cs = cs0 + (csT - cs0) * e2;
+        cur.style.transform = "scale(" + cs + ")";
+        if (ts - csStart >= csDur) csDur = 0;
+      }
+      if (zsDur > 0 && body) {
+        if (zsStart < 0) zsStart = ts;
+        var e3 = easeInOut(Math.min(1, (ts - zsStart) / zsDur));
+        zs = zs0 + (zsT - zs0) * e3;
+        body.style.transform = "scale(" + zs + ")";
+        if (ts - zsStart >= zsDur) zsDur = 0;
+      }
+      if (rActive) {
+        if (rStart < 0) rStart = ts;
+        var p4 = Math.min(1, (ts - rStart) / rDur);
+        rip.style.transform = "scale(" + (1 + 2.4 * p4) + ")";
+        rip.style.opacity = String(0.85 * (1 - p4));
+        if (p4 >= 1) rActive = false;
+      }
+      if (active()) requestAnimationFrame(frame);
+      else running = false;
     }
-    var lastX = window.innerWidth / 2;
-    var lastY = window.innerHeight / 2;
-    cur.style.left = lastX + "px";
-    cur.style.top = lastY + "px";
+    function kick() { if (!running) { running = true; requestAnimationFrame(frame); } }
+
     window.__demoCam = {
-      move: function (x, y) {
-        cur.style.left = x + "px";
-        cur.style.top = y + "px";
-        lastX = x;
-        lastY = y;
-      },
+      move: function (x, y) { px0 = cx; py0 = cy; pxT = x; pyT = y; pStart = -1; pDur = 550; kick(); },
       press: function () {
-        cur.style.transform = "scale(0.78)";
-        rip.style.transition = "none";
-        rip.style.left = lastX + "px";
-        rip.style.top = lastY + "px";
-        rip.style.opacity = "0.85";
-        rip.style.transform = "scale(1)";
-        requestAnimationFrame(function () {
-          rip.style.transition =
-            "transform " + D_RIPPLE + "s ease-out,opacity " + D_RIPPLE + "s ease-out";
-          rip.style.transform = "scale(3.4)";
-          rip.style.opacity = "0";
-        });
+        cs0 = cs; csT = 0.78; csStart = -1; csDur = 120;
+        rip.style.left = cx + "px"; rip.style.top = cy + "px";
+        rip.style.transform = "scale(1)"; rip.style.opacity = "0.85";
+        rActive = true; rStart = -1; kick();
       },
-      release: function () {
-        cur.style.transform = "scale(1)";
-      },
-      // Always called from scale(1), so transform-origin only takes visible
-      // effect for the upcoming zoom — no jump from a stale origin. Re-assert the
-      // transition with !important every time: the target app is arbitrary, and a
-      // global "* { transition: none }" (or an !important reset) would otherwise
-      // strip ours and make the scale snap straight to its final value.
+      release: function () { cs0 = cs; csT = 1; csStart = -1; csDur = 160; kick(); },
+      // Set transform-origin to the click point (the fixed point of the scale), so
+      // a real page.mouse click at the same viewport coord still hits the element.
       zoom: function (x, y, s) {
         if (!body) return;
-        var ox = x + (window.pageXOffset || 0);
-        var oy = y + (window.pageYOffset || 0);
-        body.style.setProperty(
-          "transition",
-          "transform " + D_ZOOM + "s cubic-bezier(0.4,0,0.2,1)",
-          "important",
-        );
-        body.style.transformOrigin = ox + "px " + oy + "px";
-        body.style.transform = "scale(1)"; // pin an explicit start state
-        // Force the new origin + start scale to be committed and PAINTED before we
-        // flip to the target scale. A lone synchronous reflow was getting coalesced
-        // under Xvfb (the zoom jumped straight to the end — the "snap"); reading
-        // offsetHeight commits the start, and a double rAF guarantees that start
-        // frame actually paints, so the browser animates instead of skipping.
-        void body.offsetHeight;
-        requestAnimationFrame(function () {
-          requestAnimationFrame(function () {
-            body.style.transform = "scale(" + s + ")";
-          });
-        });
+        body.style.transformOrigin =
+          (x + (window.pageXOffset || 0)) + "px " + (y + (window.pageYOffset || 0)) + "px";
+        zs0 = zs; zsT = s; zsStart = -1; zsDur = 500; kick();
       },
-      reset: function () {
-        if (body) body.style.transform = "scale(1)";
-      },
-      // Controlled-duration smooth scroll. The browser's native
-      // scrollTo({behavior:"smooth"}) runs for a FIXED duration we can't stretch,
-      // so under the ×slowmo capture it would paint too few frames and then play
-      // too fast after the post speedup. This rAF tween lets us span the full
-      // slowed duration, so the scroll gets ~slowmo× more frames like every other
-      // camera move. Resolves when done.
+      reset: function () { if (body) { zs0 = zs; zsT = 1; zsStart = -1; zsDur = 500; kick(); } },
+      // rAF scroll tween (resolves when done); driven by vt() advancing time.
       scrollByDur: function (dx, dy, durMs) {
         return new Promise(function (resolve) {
           var el = doc.scrollingElement || doc.documentElement;
-          var sx = el.scrollLeft, sy = el.scrollTop;
-          var t0 = 0;
+          var sx = el.scrollLeft, sy = el.scrollTop, t0 = 0;
           function step(ts) {
             if (!t0) t0 = ts;
             var p = Math.min(1, (ts - t0) / durMs);
-            // even ease-in-out, matching the camera curve
-            var e = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
-            el.scrollLeft = sx + dx * e;
-            el.scrollTop = sy + dy * e;
-            if (p < 1) requestAnimationFrame(step);
-            else resolve();
+            var e = easeInOut(p);
+            el.scrollLeft = sx + dx * e; el.scrollTop = sy + dy * e;
+            if (p < 1) requestAnimationFrame(step); else resolve();
           }
           requestAnimationFrame(step);
         });
       },
     };
-  }, SLOWMO);
+  });
 }
 
 // Convenience: fire a __demoCam method on the page, swallowing the rare case
@@ -345,16 +432,16 @@ async function execAction(page, input, state) {
     const heldMods = input.text
       ? String(input.text).split("+").map(mapMod).filter(Boolean)
       : [];
-    // Human-paced click: glide the cursor over (slow, like a real hand), pause
-    // to "acquire" the target, zoom in, click, then HOLD on the zoomed result so
-    // the viewer can read what happened, and ease back out. csleep() stretches
-    // each staging pause ×SLOWMO to match the slowed camera CSS, so the slow
-    // capture catches every paint; the post speedup compresses it back. The
-    // dead-air cut still removes only the Claude API-wait freezes.
+    // Human-paced click: glide the cursor over (like a real hand), pause to
+    // "acquire" the target, zoom in, click, HOLD on the zoomed result so the
+    // viewer can read what happened, ease back out. Each vt() renders that span
+    // as 60fps frames under virtual time — the camera CSS transitions AND the
+    // app's own reaction (which fires on the click) advance together at true
+    // speed. No dead air: while we're not in vt(), the page is frozen.
     await cam(page, "move", [state.x, state.y]);
-    await csleep(650); // cursor glide + settle before acting
+    await vt(700); // cursor glide (550ms tween) + settle before acting
     await cam(page, "zoom", [state.x, state.y, 1.42]);
-    await csleep(600); // zoom-in + brief settle
+    await vt(620); // zoom-in (500ms tween) + brief settle
     await cam(page, "press");
     for (const m of heldMods) await page.keyboard.down(m);
     if (action === "double_click") {
@@ -365,11 +452,11 @@ async function execAction(page, input, state) {
       await page.mouse.click(state.x, state.y, { button: btn });
     }
     for (const m of heldMods) await page.keyboard.up(m);
-    await csleep(120);
+    await vt(120);
     await cam(page, "release");
-    await csleep(800); // hold the zoom so the result reads
+    await vt(440); // brief hold so the click result reads, then ease back out
     await cam(page, "reset");
-    await csleep(600); // zoom back out + settle before screenshot
+    await vt(640); // let the 500ms zoom-out FULLY play before the next action
     return;
   }
 
@@ -378,12 +465,12 @@ async function execAction(page, input, state) {
     case "cursor_position":
       break;
     case "wait":
-      await csleep(Math.min(3000, (input.duration || 1) * 1000));
+      await vt(Math.min(3000, (input.duration || 1) * 1000));
       break;
     case "mouse_move":
       await cam(page, "move", [state.x, state.y]);
       await page.mouse.move(state.x, state.y);
-      await csleep(500);
+      await vt(500);
       break;
     case "left_mouse_down":
       await cam(page, "move", [state.x, state.y]);
@@ -399,42 +486,42 @@ async function execAction(page, input, state) {
           ? input.start_coordinate
           : [state.x, state.y];
       await cam(page, "move", [start[0], start[1]]);
-      await csleep(300);
+      await vt(300);
       await page.mouse.move(start[0], start[1]);
       await page.mouse.down();
       await cam(page, "move", [state.x, state.y]);
       await page.mouse.move(state.x, state.y, { steps: 18 });
       await page.mouse.up();
-      await csleep(200);
+      await vt(200);
       break;
     }
     case "type": {
       // Cinematic typing: zoom onto the field, settle, then emit one character
       // at a time with a randomized human cadence so the text visibly appears
-      // letter by letter (a single keyboard.type call tended to paint the whole
-      // string in one frame). Every sleep here is intentional staging — it runs
-      // strictly AFTER the freeze window measured around callClaude, so it is
-      // never counted as API dead air and always survives the cut at real speed.
+      // letter by letter. vt() after each char renders that beat (incl. the
+      // caret blink, which now advances at TRUE speed under virtual time).
       const text = String(input.text || "");
       await cam(page, "zoom", [state.x, state.y, 1.3]); // >=1.3x onto the field
-      await csleep(560); // let the zoom-in settle before typing
+      await vt(560); // let the zoom-in settle before typing
       for (const ch of text) {
         await page.keyboard.type(ch);
-        await csleep(50 + Math.floor(Math.random() * 101)); // 50-150ms per char (final)
+        await vt(50 + Math.floor(Math.random() * 101)); // 50-150ms per char
       }
-      await csleep(700); // hold on the finished text so the viewer can read it
+      await vt(700); // hold on the finished text so the viewer can read it
       await cam(page, "reset");
-      await csleep(600); // let the zoom-out finish before the screenshot
+      await vt(600); // let the zoom-out finish before the screenshot
       break;
     }
     case "key":
       await page.keyboard.press(mapKey(input.text || ""));
-      await csleep(160);
+      await vt(160);
       break;
     case "hold_key": {
       const kk = mapKey(input.text || "");
       await page.keyboard.down(kk);
-      await sleep(Math.min(2000, (input.duration || 0.5) * 1000));
+      // Hold the key physically while virtual time advances by duration, so the app
+      // sees it held for that long and we capture the result frame by frame.
+      await vt(Math.min(2000, (input.duration || 0.5) * 1000));
       await page.keyboard.up(kk);
       break;
     }
@@ -443,17 +530,19 @@ async function execAction(page, input, state) {
       const dir = input.scroll_direction || "down";
       const dx = dir === "right" ? amt : dir === "left" ? -amt : 0;
       const dy = dir === "down" ? amt : dir === "up" ? -amt : 0;
-      // Scrolls read best at 1x — reset any zoom, then scroll smoothly. Use our
-      // controlled-duration tween (≈0.7s ×SLOWMO) instead of the browser's
-      // fixed-duration smooth scroll, so it gets the same slow-mo frame density
-      // and survives the post speedup. The promise resolves when the scroll ends.
+      // Scrolls read best at 1x — reset any zoom, then kick off the rAF scroll
+      // tween WITHOUT awaiting it (its promise only resolves as virtual time
+      // advances, which we do via vt() right after — awaiting it here would
+      // deadlock). vt() then drives + captures the scroll at 60fps.
       await cam(page, "reset");
       await cam(page, "move", [state.x, state.y]);
-      await page.evaluate(
-        (d) => window.__demoCam && window.__demoCam.scrollByDur(d[0], d[1], d[2]),
-        [dx, dy, Math.round(700 * SLOWMO)],
-      ).catch(() => {});
-      await csleep(300); // a beat to read after the scroll settles
+      await page
+        .evaluate(
+          (d) => { if (window.__demoCam) window.__demoCam.scrollByDur(d[0], d[1], d[2]); },
+          [dx, dy, 700],
+        )
+        .catch(() => {});
+      await vt(900); // 0.7s scroll + a beat to read
       break;
     }
     default:
@@ -558,15 +647,15 @@ function applyCache(messages) {
   setBreak(messages[messages.length - 1]);
 }
 
-// Drives the app with Claude. Returns { steps, freezes } where freezes is a list
-// of [startMs, endMs] windows (relative to capT0, the capture start) during which
-// the agent was blocked on a Claude API response and the screen sat frozen. The
-// caller cuts those windows so the demo keeps only real motion at real-time speed.
+// Drives the app with Claude under virtual time. Returns { steps }. There is no
+// dead air to track: virtual time is PAUSED during each callClaude round-trip, so
+// the page (and thus the captured clip) simply doesn't advance while the agent
+// thinks. Every frame the clip contains is produced by execAction's vt() calls.
 // Throws if the API key is missing or any request fails (caller falls back).
-async function runComputerUse(page, capT0) {
+async function runComputerUse(page) {
   if (!API_KEY) throw new Error("ANTHROPIC_API_KEY not set");
   await ensureCinema(page); // synthetic cursor visible from the first frame
-  const freezes = [];
+  await vt(450); // a short opening beat on the app before the first action
   const state = { x: Math.floor(VIEW_W / 2), y: Math.floor(VIEW_H / 2) };
   const messages = [
     {
@@ -580,7 +669,7 @@ async function runComputerUse(page, capT0) {
         },
         {
           type: "image",
-          source: { type: "base64", media_type: "image/png", data: await shot(page) },
+          source: { type: "base64", media_type: "image/jpeg", data: await shot(page) },
         },
       ],
     },
@@ -588,18 +677,9 @@ async function runComputerUse(page, capT0) {
 
   const started = Date.now();
   let steps = 0;
-  while (steps < CU_MAX_STEPS && Date.now() - started < CU_MAX_MS) {
+  while (steps < CU_MAX_STEPS && Date.now() - started < CU_MAX_MS && !captureStopped) {
     applyCache(messages);
-    // Dead-air invariant: a freeze window spans the callClaude round-trip ONLY.
-    // fStart is sampled immediately before the request, the end immediately after
-    // the response — so the only sleeps inside it are callClaude's own retry
-    // backoffs (genuine API wait). Every cinematic sleep (cursor glide, zoom
-    // holds, per-char typing) lives in execAction, which runs strictly AFTER this
-    // push, so it is never measured here and always survives the dead-air cut at
-    // real-time speed. Do not move any staging sleep between these two lines.
-    const fStart = Date.now() - capT0;
     const resp = await callClaude(messages);
-    freezes.push([fStart, Date.now() - capT0]);
     messages.push({ role: "assistant", content: resp.content || [] });
     const toolUses = (resp.content || []).filter((b) => b && b.type === "tool_use");
     if (!toolUses.length) break; // Claude ended its turn -> demo complete
@@ -611,14 +691,14 @@ async function runComputerUse(page, capT0) {
       } catch (e) {
         console.error("action error", tu.input && tu.input.action, e && e.message);
       }
-      await sleep(ACTION_PACING_MS);
+      await vt(ACTION_PACING_MS); // small rendered dwell before the next observation
       results.push({
         type: "tool_result",
         tool_use_id: tu.id,
         content: [
           {
             type: "image",
-            source: { type: "base64", media_type: "image/png", data: await shot(page) },
+            source: { type: "base64", media_type: "image/jpeg", data: await shot(page) },
           },
         ],
       });
@@ -626,31 +706,40 @@ async function runComputerUse(page, capT0) {
     messages.push({ role: "user", content: results });
     steps++;
   }
-  return { steps: steps, freezes: freezes };
+  return { steps: steps };
 }
 
-// Original behaviour: gentle top->bottom scroll, easing to ~85% and resting
-// there so the final frames sit on content, not empty void past the page end.
+// Fallback: gentle top->bottom scroll, easing to ~85%, captured under virtual
+// time. scrollByDur is kicked off without awaiting (its rAF loop advances only as
+// vt() grants budget); vt() then drives + captures it at 60fps.
 async function runScroll(page) {
+  await ensureCinema(page);
   const pageInfo = await page.evaluate(() => ({
     scrollHeight: document.documentElement.scrollHeight,
     innerHeight: window.innerHeight,
   }));
   const maxScroll = Math.max(0, pageInfo.scrollHeight - pageInfo.innerHeight);
-  const start = Date.now();
-  while (Date.now() - start < DURATION_MS) {
-    const t = (Date.now() - start) / DURATION_MS;
-    const target = maxScroll * Math.min(0.85, t);
-    await page.evaluate((y) => window.scrollTo({ top: y, behavior: "smooth" }), target);
-    await sleep(700);
+  await vt(450); // opening beat
+  const passes = 6;
+  let prev = 0;
+  for (let i = 1; i <= passes && !captureStopped; i++) {
+    const target = maxScroll * Math.min(0.85, i / passes);
+    const delta = target - prev;
+    prev = target;
+    await page
+      .evaluate((d) => { if (window.__demoCam) window.__demoCam.scrollByDur(0, d, 900); }, delta)
+      .catch(() => {});
+    await vt(1100); // 0.9s scroll + a beat to read
   }
 }
 
 (async () => {
   fs.mkdirSync(OUTPUT_DIR, { recursive: true });
-  // Headed Chromium rendered onto the Xvfb display (DISPLAY env). A window
-  // manager (matchbox) maximizes the window; --ozone-platform=x11 makes it
-  // paint to X. No Playwright recordVideo — we screen-grab the X display below.
+  // Headed Chromium on the Xvfb display (DISPLAY env) for rendering fidelity (some
+  // target apps render differently / blank in headless). We don't screen-grab it
+  // though — frames come from CDP Page.captureScreenshot under virtual time, which
+  // forces a fresh render each frame regardless of the compositor's wall-clock
+  // paint rate. Verified on this sandbox to yield true 60fps (scripts/vt-probe2).
   const browser = await chromium.launch({
     headless: false,
     args: [
@@ -659,17 +748,12 @@ async function runScroll(page) {
       "--ozone-platform=x11",
       "--disable-infobars",
       "--force-device-scale-factor=1",
-      // NOTE: do NOT add frame-uncap / GPU-compositing flags here. Measured on this
-      // Xvfb sandbox (dry-run uniqueFps): default raster ~10.5, +disable-gpu-vsync/
-      // disable-frame-rate-limit = no change (no-op without a real GPU present path),
-      // +use-angle=swiftshader/gpu-rasterization = WORSE (~4.7, software-GL compositor
-      // is slower than software raster). grabFps stays 60 throughout, so grab/encode
-      // is never the bottleneck — Chromium's software paint rate is. There is no
-      // launch-flag path to 60fps unique motion here; see [[pending-cinematic-smoothness]].
     ],
   });
-  // viewport:null -> the page adopts the real (maximized) window size.
-  const context = await browser.newContext({ viewport: null });
+  // Fixed viewport so screenshots are a deterministic 1280×800 (= the computer-use
+  // coordinate space). page.screenshot/captureScreenshot grab only the viewport,
+  // so there's no browser toolbar to crop and no Xvfb geometry to reason about.
+  const context = await browser.newContext({ viewport: { width: VIEW_W, height: VIEW_H } });
   const page = await context.newPage();
 
   const pageErrors = [];
@@ -682,7 +766,8 @@ async function runScroll(page) {
   } catch {}
 
   // Bounded wait for the target's webfonts. Many pages gate visible content on
-  // document.fonts.ready; if a font stalls we still want to proceed.
+  // document.fonts.ready; if a font stalls we still want to proceed. (Real time —
+  // virtual time is only enabled after the page is ready.)
   await page
     .evaluate(
       (ms) =>
@@ -707,146 +792,57 @@ async function runScroll(page) {
     await sleep(500);
   }
 
-  // The window is now maximized to fill the Xvfb display; innerHeight is the
-  // content area below the browser toolbar, so the toolbar height (the y-offset
-  // we grab from) is DISPLAY_H - innerHeight. Grab only that content region so
-  // the toolbar never appears in the video.
-  const dim = await page.evaluate(() => ({ w: window.innerWidth, h: window.innerHeight }));
-  const cropY = Math.max(0, DISPLAY_H - dim.h);
+  // Page is loaded & painted. Switch to virtual time (paused) and capture frames
+  // deterministically from here. vtStep() advances 1/60s of virtual time and
+  // writes one JPEG per call; the agent loop / scroll fallback drive it.
   const capPath = path.join(OUTPUT_DIR, "cap.mp4");
-  const grabLog = fs.openSync(path.join(OUTPUT_DIR, "ffmpeg-grab.log"), "w");
-  // -draw_mouse 0: don't capture the real X pointer (we draw our own synthetic
-  // cursor). ultrafast/crf18: cheap high-quality intermediate; the task does the
-  // 720p + fade pass afterwards.
-  // capT0 ≈ cap.mp4 t=0 (ffmpeg starts grabbing ~immediately after spawn). All
-  // freeze windows are measured against this so we can cut them out below.
-  const capT0 = Date.now();
-  const ff = spawn(
-    "ffmpeg",
-    [
-      "-y", "-draw_mouse", "0",
-      "-f", "x11grab", "-framerate", String(CAPTURE_FPS),
-      "-video_size", dim.w + "x" + dim.h,
-      "-i", DISPLAY + "+0," + cropY,
-      "-c:v", "libx264", "-preset", "ultrafast", "-crf", "18", "-pix_fmt", "yuv420p",
-      capPath,
-    ],
-    { stdio: ["ignore", grabLog, grabLog], env: Object.assign({}, process.env, { DISPLAY: DISPLAY }) },
-  );
-  let ffExited = false;
-  ff.on("exit", () => { ffExited = true; });
-  await sleep(500); // let ffmpeg start grabbing before the first action
+  FRAMES_DIR = path.join(OUTPUT_DIR, "frames");
+  fs.mkdirSync(FRAMES_DIR, { recursive: true });
+  cdp = await context.newCDPSession(page);
+  await cdp.send("Emulation.setVirtualTimePolicy", { policy: "pause" });
+  captureDeadline = Date.now() + CAPTURE_BUDGET_MS;
 
   const interactionStart = Date.now();
   let mode = "computer-use";
   let steps = 0;
-  let freezes = [];
   let cuError = null;
   try {
-    const cu = await runComputerUse(page, capT0);
+    const cu = await runComputerUse(page);
     steps = cu.steps;
-    freezes = cu.freezes;
     if (!steps) throw new Error("computer-use produced no steps");
   } catch (e) {
     cuError = String(e && e.message ? e.message : e);
     console.error("computer-use fallback to scroll:", cuError);
     mode = "scroll-fallback";
-    try {
-      await page.evaluate(() => window.scrollTo({ top: 0 }));
-    } catch {}
-    await runScroll(page);
+    try { await page.evaluate(() => window.scrollTo({ top: 0 })); } catch {}
+    try { await runScroll(page); } catch (e2) { console.error("scroll fallback failed:", e2 && e2.message); }
   }
   const interactionEnd = Date.now();
-
-  // Stop the grab cleanly — SIGINT lets ffmpeg finalize the mp4 (moov atom).
-  if (!ffExited) {
-    await new Promise((res) => {
-      const t = setTimeout(() => {
-        try { ff.kill("SIGKILL"); } catch {}
-        res();
-      }, 8000);
-      ff.on("exit", () => { clearTimeout(t); res(); });
-      try { ff.kill("SIGINT"); } catch { clearTimeout(t); res(); }
-    });
-  }
-  try { fs.closeSync(grabLog); } catch {}
 
   await context.close();
   await browser.close();
 
-  if (!fs.existsSync(capPath)) throw new Error("capture file missing: " + capPath);
-  const stat = fs.statSync(capPath);
+  if (frameCount < 2) throw new Error("captured too few frames: " + frameCount);
 
-  // --- Measure the real-time grab rate -----------------------------------
-  // x11grab always tags the file CAPTURE_FPS, so the container framerate lies.
-  // The last fps= ffmpeg printed while grabbing is the rate it actually sustained;
-  // if that's ~60 the grab/encode kept up and any choppiness is producer-side
-  // (Chromium's paint rate), not the capture. uniqueFps (motion smoothness) is
-  // measured on the shipped clip further down, after the dead-air cut.
-  let grabFps = 0;
-  try {
-    const log = fs.readFileSync(path.join(OUTPUT_DIR, "ffmpeg-grab.log"), "utf8");
-    const m = log.match(/fps=\s*([\d.]+)/g);
-    if (m && m.length) grabFps = parseFloat(m[m.length - 1].replace(/fps=\s*/, "")) || 0;
-  } catch {}
-
-  // --- Cut the API-wait dead air + time-compress the slow-mo ---------------
-  // The capture is real-time, so the agent's thinking pauses sit in the clip as
-  // frozen stretches. We recorded those exact windows; drop them (keeping a small
-  // guard so motion is never clipped). In computer-use mode the cinematics were
-  // also rendered ×SLOWMO (so the slow Xvfb paint produced enough unique frames),
-  // so we compress the kept remainder back by SLOWMO here: setpts=N/FRAME_RATE/
-  // SLOWMO/TB packs the post-select frames at 60×SLOWMO fps, then -r 60 -fps_mode
-  // cfr downsamples to a constant 60 — keeping the dense unique frames, dropping
-  // the duplicates the slow paint emitted. Holds shrink by the same factor back to
-  // their intended length. (Scroll-fallback never slow-mos, so divisor = 1.)
-  const tightPath = path.join(OUTPUT_DIR, "tight.mp4");
-  const capDurSec = probeDur(capPath);
-  const ptsDiv = mode === "computer-use" ? SLOWMO : 1;
-  let useTight = false;
-  let tightDurSec = 0;
-  let cutCount = 0;
-  try {
-    const G = 0.18;       // guard seconds kept on each side of a cut
-    const MIN_CUT = 0.6;  // ignore freezes too short to be worth cutting
-    const cuts = [];
-    freezes.forEach(function (f, i) {
-      let s = i === 0 ? 0 : f[0] / 1000 + G; // also drop the static warmup lead-in
-      const e = f[1] / 1000 - G;
-      const minLen = i === 0 ? 0.2 : MIN_CUT;
-      if (e - s >= minLen) cuts.push([s, e]);
-    });
-    cuts.sort(function (a, b) { return a[0] - b[0]; });
-    const keeps = [];
-    let cur = 0;
-    for (const c of cuts) {
-      if (c[0] > cur) keeps.push([cur, c[0]]);
-      cur = Math.max(cur, c[1]);
-    }
-    if (capDurSec - cur > 0.05) keeps.push([cur, capDurSec]);
-    cutCount = cuts.length;
-    if (cuts.length && keeps.length) {
-      const expr =
-        "select='" +
-        keeps.map(function (k) { return "between(t," + k[0].toFixed(3) + "," + k[1].toFixed(3) + ")"; }).join("+") +
-        "',setpts=N/FRAME_RATE/" + ptsDiv + "/TB";
-      const r = spawnSync(
-        "ffmpeg",
-        ["-y", "-i", capPath, "-vf", expr, "-fps_mode", "cfr", "-r", "60", "-an",
-         "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p", tightPath],
-        { stdio: "ignore" },
-      );
-      if (r.status === 0 && fs.existsSync(tightPath)) {
-        tightDurSec = probeDur(tightPath);
-        if (tightDurSec >= 2) useTight = true;
-      }
-    }
-  } catch (e) {
-    console.error("dead-air cut failed:", e && e.message ? e.message : e);
+  // Assemble the captured frames into a constant-60fps clip. build-and-record then
+  // does the 720p scale + fade + length clamp on this (tight:false -> uses cap.mp4).
+  const asm = spawnSync(
+    "ffmpeg",
+    ["-y", "-framerate", String(FPS), "-start_number", "0",
+     "-i", path.join(FRAMES_DIR, "f_%06d.jpg"),
+     "-r", String(FPS), "-fps_mode", "cfr",
+     "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p",
+     "-movflags", "+faststart", capPath],
+    { stdio: "ignore" },
+  );
+  if (asm.status !== 0 || !fs.existsSync(capPath)) {
+    throw new Error("frame assembly failed (status " + asm.status + ")");
   }
-
-  // Motion smoothness of the SHIPPED clip (tight if the cut succeeded, else raw).
-  const uniqueFps = uniqueFpsOf(useTight ? tightPath : capPath);
+  const stat = fs.statSync(capPath);
+  const capDurSec = probeDur(capPath);
+  // Should now be ~60 during motion; holds (static, by design) pull the average
+  // down. A genuinely smooth clip reads high here vs the old ~13.
+  const uniqueFps = uniqueFpsOf(capPath);
 
   console.log(
     JSON.stringify({
@@ -854,19 +850,14 @@ async function runScroll(page) {
       bytes: stat.size,
       mode,
       steps,
+      frames: frameCount,
+      fps: FPS,
       durationMs: interactionEnd - interactionStart,
-      contentW: dim.w,
-      contentH: dim.h,
-      cropY,
       visibleChars,
       cuError,
-      tight: useTight,
+      tight: false,
       capDurMs: Math.round(capDurSec * 1000),
-      tightDurMs: Math.round(tightDurSec * 1000),
-      grabFps,
       uniqueFps,
-      slowmo: ptsDiv,
-      cuts: cutCount,
       pageErrors: pageErrors.slice(0, 5),
     }),
   );
