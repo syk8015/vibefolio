@@ -1,9 +1,26 @@
 // 2·3단계 검증: 실제 RECORD_HELPER_SRC를 샌드박스에서 prod와 동일 경로로 돌려
-// 헤디드 x11grab 캡처 + 후처리까지 e2e 확인. manual 모드(DB 미접근).
+// 가상시간 캡처 + zoompan 후처리까지 e2e 확인. manual 모드(DB 미접근).
 // 실행: npx tsx --env-file=.env.local scripts/dry-run-capture.ts [URL]
 import { Sandbox } from "e2b";
 import { writeFileSync } from "node:fs";
 import { RECORD_HELPER_SRC } from "../src/trigger/record-helper-src";
+import { buildZoomFilter } from "../src/trigger/build-and-record";
+
+// Mirror parseRecorderMeta: the recorder's last stdout line is a JSON summary.
+function lastJson(stdout: string): any {
+  const lines = (stdout || "").trim().split("\n");
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const line = lines[i].trim();
+    if (line.startsWith("{") && line.endsWith("}")) {
+      try {
+        return JSON.parse(line);
+      } catch {
+        /* keep scanning */
+      }
+    }
+  }
+  return {};
+}
 
 const URL = process.argv[2] || "https://demo.playwright.dev/todomvc";
 const DISPLAY_NUM = ":99";
@@ -71,18 +88,22 @@ try {
       (await sh(`ffprobe -v error -show_entries format=duration -of default=nk=1:nw=1 /tmp/rec/${f}`))
         .stdout.trim(),
     ) || 0;
-  let src = "tight.mp4";
-  let srcDur = await probe(src);
-  if (srcDur < 2) {
-    src = "cap.mp4";
-    srcDur = await probe(src);
-  }
+  const src = "cap.mp4";
+  const srcDur = await probe(src);
   const clipLen = Math.max(2, Math.min(MAX_VIDEO_SEC, srcDur || RECORD_DURATION_SEC));
   const fadeOutStart = Math.max(0, clipLen - 0.5).toFixed(2);
-  console.log("src:", src, "dur:", srcDur, "-> clipLen:", clipLen);
+  // Apply the SAME cinematic zoom as build-and-record: parse the recorder's camera
+  // keyframe events and expand them into an ffmpeg zoompan focal push-in + lanczos.
+  const meta = lastJson(rec.stdout || "");
+  const camEvents = Array.isArray(meta.cameraEvents) ? meta.cameraEvents : [];
+  const zoomFilter = buildZoomFilter(camEvents, 60, 1280, 800);
+  const vf =
+    (zoomFilter ? zoomFilter + "," : "") +
+    `scale=-2:720:flags=lanczos,fade=t=in:st=0:d=0.4,fade=t=out:st=${fadeOutStart}:d=0.5`;
+  console.log("src:", src, "dur:", srcDur, "-> clipLen:", clipLen, "| camEvents:", camEvents.length);
   const post = await sh(
     `cd /tmp/rec && ffmpeg -y -i ${src} -t ${clipLen.toFixed(2)} ` +
-      `-vf "scale=-2:720,fade=t=in:st=0:d=0.4,fade=t=out:st=${fadeOutStart}:d=0.5" ` +
+      `-vf "${vf}" ` +
       `-r 60 -fps_mode cfr ` +
       `-c:v libx264 -preset medium -crf 26 -pix_fmt yuv420p -an -movflags +faststart demo.mp4`,
     { timeoutMs: 120_000 },
@@ -98,7 +119,7 @@ try {
   );
   console.log(uniq.stdout);
 
-  for (const f of ["demo.mp4", "tight.mp4", "cap.mp4"]) {
+  for (const f of ["demo.mp4", "cap.mp4"]) {
     const bytes = await sandbox.files.read("/tmp/rec/" + f, { format: "bytes" }).catch(() => null);
     if (bytes) {
       writeFileSync("/tmp/dryrun_" + f, Buffer.from(bytes as Uint8Array));
