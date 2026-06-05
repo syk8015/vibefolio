@@ -1,0 +1,5 @@
+{
+  "name": "nookframe-local-runner",
+  "private": true,
+  "type": "module"
+}
