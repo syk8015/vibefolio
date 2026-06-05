@@ -117,16 +117,21 @@ export function buildZoomFilter(
 
 // ── New "예고 → 결과" zoom spec (CameraTrack) ─────────────────────────────────
 
-// Zoom magnitude (unchanged from v2; tune in PoC).
-export const ZOOM_LEVEL = 1.32;
-// Push-in lasts this long and COMPLETES exactly as the cursor reaches the target.
-export const ZOOM_IN_MS = 600;
+// Zoom magnitude. 2.0 on a native-2× capture (2560×1440) means the push-in crops
+// to exactly 1280×720 → 720p output 1:1, i.e. NO upscaling at peak zoom (crisper
+// than 1.32 ever was). User 2026-06-06: bump to 2×.
+export const ZOOM_LEVEL = 2.0;
+// Push-in BEGINS once the cursor is ~1/5 into its glide (user 2026-06-06: the old
+// fixed-600ms-before-arrival started the zoom too late — it only kicked in near
+// the destination). It still COMPLETES exactly on arrival, so its duration scales
+// with the glide (= 80% of it).
+export const ZOOM_IN_START_FRAC = 0.2;
 // Pull-out lasts this long and COMPLETES exactly as the click lands (→ 1x reveal).
 export const ZOOM_OUT_MS = 460;
 
 // Cursor glide is slowed to ~60% speed (user spec 2026-06-05): a longer, calmer
-// approach. The glide MUST be longer than ZOOM_IN_MS so the push-in can sit in its
-// tail and finish on arrival (a positive "short wait" before the zoom begins).
+// approach. The push-in begins partway into the glide (ZOOM_IN_START_FRAC) and
+// finishes on arrival, so a slower glide naturally lengthens the zoom too.
 export const CURSOR_SLOWDOWN = 1.67; // 1 / 0.6
 
 // Glide duration as a function of straight-line travel distance (logical px),
@@ -175,10 +180,10 @@ export class CameraTrack {
     if (this.z !== 1) return false; // already zoomed (shouldn't happen in-sequence)
     if (dist < this.distThreshold) return false; // small move → stay at 1x
 
-    const arrival = Date.now() + glideMs;
+    const startOffset = ZOOM_IN_START_FRAC * glideMs; // begin ~1/5 into the travel
     this.events.push({
-      startFrame: this.frameOf(arrival - ZOOM_IN_MS), // finishes ON arrival
-      durMs: ZOOM_IN_MS,
+      startFrame: this.frameOf(Date.now() + startOffset),
+      durMs: glideMs - startOffset, // …and finish exactly ON arrival
       fromZoom: 1,
       toZoom: ZOOM_LEVEL,
       fromFocalX: target.x,

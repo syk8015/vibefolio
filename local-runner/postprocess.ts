@@ -46,13 +46,11 @@ export async function postprocess(input: PostInput): Promise<{
     }));
     // zoompan at native 2× (no pre-upscale — the raw already is the supersample).
     const zoom = buildZoomFilter(scaled, FPS, rawW, rawH);
-    vf =
-      `${zoom},scale=-2:720:flags=lanczos,` +
-      `fade=t=in:st=0:d=0.4,fade=t=out:st=${fadeOutStart}:d=0.5`;
+    // No fade-IN: the raw is bright from frame 0 (verified), so a fade-in just
+    // opens on black before the intro hold (user 2026-06-06). Keep the fade-OUT.
+    vf = `${zoom},scale=-2:720:flags=lanczos,fade=t=out:st=${fadeOutStart}:d=0.5`;
   } else {
-    vf =
-      `scale=-2:720:flags=lanczos,` +
-      `fade=t=in:st=0:d=0.4,fade=t=out:st=${fadeOutStart}:d=0.5`;
+    vf = `scale=-2:720:flags=lanczos,fade=t=out:st=${fadeOutStart}:d=0.5`;
   }
 
   const { code, stderr } = await run(

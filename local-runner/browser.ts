@@ -12,10 +12,16 @@ import { VIEW_W, VIEW_H, WINDOW_POSITION } from "./config";
 import { sleep } from "./util";
 
 export async function launchChromium(): Promise<Browser> {
+  // Escape hatch for a broken SYSTEM DNS resolver (e.g. a flaky phone hotspot whose
+  // resolver stops answering on :53 while IP routing still works): set
+  // NF_HOST_RESOLVER_RULES='MAP host 1.2.3.4' to resolve in-browser via a fixed IP,
+  // no system change. Empty by default.
+  const resolverRules = process.env.NF_HOST_RESOLVER_RULES;
   return chromium.launch({
     headless: false,
     channel: "chrome", // system Chrome; playwright-core ships no browser binary
     args: [
+      ...(resolverRules ? [`--host-resolver-rules=${resolverRules}`] : []),
       `--window-position=${WINDOW_POSITION.x},${WINDOW_POSITION.y}`,
       // Generous height so the toolbar fits and innerHeight can still reach
       // VIEW_H; the exact size is set precisely via CDP after launch.

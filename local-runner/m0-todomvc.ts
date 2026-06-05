@@ -41,7 +41,10 @@ const browser = await launchChromium();
 try {
   const { page } = await newRecordingPage(browser);
   await injectCursorOverlay(page); // registers + installs on current doc
-  await page.goto(TODOMVC_URL, { waitUntil: "networkidle" });
+  // domcontentloaded (not networkidle): todomvc.com can hold a keepalive
+  // connection that never reaches idle; we wait on the actual app element instead.
+  await page.goto(TODOMVC_URL, { waitUntil: "domcontentloaded" });
+  await page.locator(".new-todo").waitFor({ state: "visible", timeout: 15000 });
   const sized = await ensureExactViewport(browser, page);
   await page.bringToFront();
   await ensureCursor(page);
