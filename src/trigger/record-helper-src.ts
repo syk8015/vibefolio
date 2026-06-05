@@ -83,26 +83,35 @@ const CU_MAX_MS = 330000;
 
 const SYSTEM_PROMPT = [
   "You are a product demo presenter recording a short, polished walkthrough video of a web app.",
-  "The app is already open. Your job: show a reviewer the app's core value by actually USING it —",
-  "clicking its most important controls and exercising its standout features, one clear action at a time.",
+  "The app is already open. Your job: show a reviewer the app's core value by actually USING its real",
+  "features — clicking its most important controls and exercising what makes it special, one clear",
+  "action at a time.",
   "",
-  "Rules:",
-  "- Stay on this app. Never navigate to external sites, never open new tabs, never touch the URL bar.",
-  "- Lead with the hero: click the single most eye-catching primary call-to-action or the flashiest",
-  "  interactive element first. Opening with the boldest control makes the demo instantly compelling.",
-  "- Scrolling alone is NOT a demo. You MUST click / open / toggle / type into at least one real",
-  "  interactive control. Use scrolling only to REACH a control, then interact with it.",
-  "- Prefer actions that visibly change the screen: click buttons, open menus/modals, switch tabs,",
-  "  toggle views, type into a short demo input, drag a slider.",
-  "- Keep going until you have shown several (aim for 6-9) DISTINCT, meaningful interactions across",
-  "  different features or screens. Each action should reveal something new.",
-  "- Do not repeat yourself: never click the same element, or another element with the same purpose,",
-  "  twice. Always move on to a NEW control or screen — a different tab, a search field, a new modal.",
-  "- Do NOT perform destructive or irreversible actions (delete, purchase, pay, sign out, send a real",
-  "  message). If a form looks like sign-up / login / payment, skip it and show something else.",
+  "NEVER click any of these (this is critical — clicking them ruins the demo):",
+  "- Login, sign-in, sign-up, register, 'get started', 'create account', or any account / auth button",
+  "  or link. These lead to forms, not features.",
+  "- Empty space, blank areas, decorative images, or anything that is not OBVIOUSLY an interactive",
+  "  control. If you are not confident an element is a real button/tab/toggle/input, do NOT click it.",
+  "- Destructive or irreversible actions: delete, purchase, pay, sign out, send a real message.",
+  "",
+  "What to do:",
+  "- Lead with the hero feature: the most eye-catching real control that demonstrates the product",
+  "  (NOT a sign-up CTA). Opening with the boldest genuine feature makes the demo instantly compelling.",
+  "- Prefer actions that visibly change the screen: click buttons that DO something, open menus/modals,",
+  "  switch tabs, toggle views, type into a short demo input, drag a slider, expand a card.",
+  "- Aim for 6-9 DISTINCT, meaningful interactions across different features or screens. Each action",
+  "  should reveal something new. Never click the same element, or another with the same purpose, twice.",
   "- One clear, unhurried action at a time.",
-  "- Only end your turn (no tool call) once you have shown the core features well AND there is no",
-  "  genuinely new interactive element left to demonstrate. Do not pad with pointless or repeated clicks.",
+  "",
+  "If this page is only a MARKETING / LANDING page that gates its real app behind sign-up/login (there",
+  "are no usable in-page features — just hero text, sections, a sign-up CTA), then do NOT force clicks",
+  "and do NOT click sign-up/login. Instead present it as a smooth scroll-tour: scroll unhurriedly down",
+  "the page, pausing to let each key section (hero, features, FAQ, showcase) read. That IS the demo for",
+  "a landing page.",
+  "",
+  "Only end your turn (no tool call) once you've shown the product well AND there is no genuinely new",
+  "interactive feature (or, for a landing, no more sections) left to show. Do not pad with pointless or",
+  "repeated clicks.",
 ].join("\n");
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -118,23 +127,69 @@ let captureStopped = false;     // true once we hit the budget/cap (stop advanci
 let captureRetries = 0;         // screenshot retries (diagnostic; no time distortion)
 
 // --- Camera keyframe track (for the POST-processed cinematic zoom) -------
-// The recorder no longer zooms the DOM. Instead each click/type records WHEN
-// (the current frame index), WHERE (focal point in the 1280×800 viewport =
-// capture-frame space) and HOW FAR to push in. build-and-record expands these
-// into an ffmpeg zoompan focal push-in applied to the flat capture, so layout is
-// never distorted and the zoom is a clean camera move rather than a DOM re-raster.
+// The recorder no longer zooms the DOM. Instead it records camera keyframe events
+// — WHEN (frame index), and how the zoom + focal point (in 1280×800 viewport =
+// capture-frame space) ease from one state to another — and build-and-record
+// expands them into an ffmpeg zoompan move on the flat capture. Layout is never
+// distorted and the zoom is a clean camera move, not a DOM re-raster.
+//
+// Smart-zoom policy (Screen-Studio style): cursor move + zoom happen as ONE
+// motion; we DON'T pump a zoom-in/out on every click. We push in when arriving
+// from 1x or from a far region, PAN the focal at the held zoom for a nearby next
+// target, and only zoom out on a far jump or at the end — so the click result
+// stays readable and the camera doesn't bounce.
+const ZOOM_LEVEL = 1.32;   // how far to push in on an interaction
+const NEAR_PX = 360;       // moves under this stay in-region (pan, no re-zoom)
+const ZOOM_IN_MS = 600;    // ease for a fresh zoom-in
+const PAN_MS = 520;        // ease for a focal pan at the held zoom
+const ZOOM_OUT_MS = 460;   // ease for a zoom-out (far jump / end of demo)
 let camZoom = 1;
+let camFocalX = Math.floor(VIEW_W / 2);
+let camFocalY = Math.floor(VIEW_H / 2);
 const cameraEvents = [];
-function pushCam(toZoom, focalX, focalY, durMs) {
+function pushCamEvent(fromZoom, toZoom, fromFx, fromFy, toFx, toFy, durMs) {
   cameraEvents.push({
     startFrame: frameCount,
-    fromZoom: camZoom,
+    fromZoom: fromZoom,
     toZoom: toZoom,
-    focalX: Math.round(focalX),
-    focalY: Math.round(focalY),
+    fromFocalX: Math.round(fromFx),
+    fromFocalY: Math.round(fromFy),
+    toFocalX: Math.round(toFx),
+    toFocalY: Math.round(toFy),
     durMs: durMs,
   });
-  camZoom = toZoom;
+}
+
+// Glide the cursor to (x,y) while the camera moves as one motion. Push in from
+// 1x; PAN the focal (no re-zoom) for a nearby target; take a quick zoom-out
+// "breath" then push back in for a far jump. Leaves the camera zoomed.
+async function cinematicApproach(page, x, y) {
+  await cam(page, "move", [x, y]); // synthetic cursor glide (concurrent)
+  const dist = Math.hypot(x - camFocalX, y - camFocalY);
+  if (camZoom === 1) {
+    pushCamEvent(1, ZOOM_LEVEL, x, y, x, y, ZOOM_IN_MS);
+    camZoom = ZOOM_LEVEL; camFocalX = x; camFocalY = y;
+    await vt(ZOOM_IN_MS + 140);
+  } else if (dist <= NEAR_PX) {
+    pushCamEvent(camZoom, camZoom, camFocalX, camFocalY, x, y, PAN_MS); // pan focal
+    camFocalX = x; camFocalY = y;
+    await vt(PAN_MS + 120);
+  } else {
+    pushCamEvent(camZoom, 1, camFocalX, camFocalY, camFocalX, camFocalY, ZOOM_OUT_MS);
+    camZoom = 1;
+    await vt(ZOOM_OUT_MS + 80);
+    pushCamEvent(1, ZOOM_LEVEL, x, y, x, y, ZOOM_IN_MS);
+    camZoom = ZOOM_LEVEL; camFocalX = x; camFocalY = y;
+    await vt(ZOOM_IN_MS + 120);
+  }
+}
+
+// Ease the camera back to 1x (used before a scroll and at the very end).
+async function cinematicZoomOut(page) {
+  if (camZoom === 1) return;
+  pushCamEvent(camZoom, 1, camFocalX, camFocalY, camFocalX, camFocalY, ZOOM_OUT_MS);
+  camZoom = 1;
+  await vt(ZOOM_OUT_MS + 80);
 }
 
 // Advance virtual time by exactly one 60fps frame and return the freshly rendered
@@ -453,16 +508,13 @@ async function execAction(page, input, state) {
     const heldMods = input.text
       ? String(input.text).split("+").map(mapMod).filter(Boolean)
       : [];
-    // Human-paced click: glide the cursor over (like a real hand), pause to
-    // "acquire" the target, zoom in, click, HOLD on the zoomed result so the
-    // viewer can read what happened, ease back out. Each vt() renders that span
-    // as 60fps frames under virtual time — the camera CSS transitions AND the
-    // app's own reaction (which fires on the click) advance together at true
-    // speed. No dead air: while we're not in vt(), the page is frozen.
-    await cam(page, "move", [state.x, state.y]);
-    await vt(700); // cursor glide (550ms tween) + settle before acting
-    pushCam(1.42, state.x, state.y, 500); // post-zoom push-in toward the click
-    await vt(620); // zoom-in (500ms ease, applied in post) + brief settle
+    // Smart cinematic camera: glide the cursor over WHILE the camera pushes in
+    // (or pans, for a nearby target) as one motion, click, then HOLD on the
+    // zoomed result so the viewer can read what happened. The zoom-out is lazy
+    // (only on a far jump or at the end) so successive clicks don't pump. Each
+    // vt() renders that span as 60fps frames under virtual time — the cursor
+    // glide AND the app's own reaction advance together at true speed.
+    await cinematicApproach(page, state.x, state.y);
     await cam(page, "press");
     for (const m of heldMods) await page.keyboard.down(m);
     if (action === "double_click") {
@@ -475,9 +527,7 @@ async function execAction(page, input, state) {
     for (const m of heldMods) await page.keyboard.up(m);
     await vt(120);
     await cam(page, "release");
-    await vt(440); // brief hold so the click result reads, then ease back out
-    pushCam(1, state.x, state.y, 500); // post-zoom out from the same focal
-    await vt(640); // let the 500ms zoom-out FULLY play before the next action
+    await vt(560); // hold on the zoomed result so the viewer can read it
     return;
   }
 
@@ -517,20 +567,18 @@ async function execAction(page, input, state) {
       break;
     }
     case "type": {
-      // Cinematic typing: zoom onto the field, settle, then emit one character
-      // at a time with a randomized human cadence so the text visibly appears
-      // letter by letter. vt() after each char renders that beat (incl. the
-      // caret blink, which now advances at TRUE speed under virtual time).
+      // Cinematic typing: glide/zoom onto the field (smart approach), then emit
+      // one character at a time with a randomized human cadence so the text
+      // visibly appears letter by letter. vt() after each char renders that beat
+      // (incl. the caret blink, at TRUE speed under virtual time). The camera
+      // stays zoomed (lazy zoom-out) so the typed result reads.
       const text = String(input.text || "");
-      pushCam(1.3, state.x, state.y, 500); // post-zoom onto the field
-      await vt(560); // let the zoom-in settle before typing
+      await cinematicApproach(page, state.x, state.y);
       for (const ch of text) {
         await page.keyboard.type(ch);
         await vt(50 + Math.floor(Math.random() * 101)); // 50-150ms per char
       }
-      await vt(700); // hold on the finished text so the viewer can read it
-      pushCam(1, state.x, state.y, 500); // post-zoom out
-      await vt(600); // let the zoom-out finish before the screenshot
+      await vt(680); // hold on the finished text so the viewer can read it
       break;
     }
     case "key":
@@ -551,12 +599,12 @@ async function execAction(page, input, state) {
       const dir = input.scroll_direction || "down";
       const dx = dir === "right" ? amt : dir === "left" ? -amt : 0;
       const dy = dir === "down" ? amt : dir === "up" ? -amt : 0;
-      // Scrolls read best at 1x — make sure the post-zoom is flat (normally it
-      // already is, since every click/type ends zoomed out), then kick off the
-      // rAF scroll tween WITHOUT awaiting it (its promise only resolves as virtual
-      // time advances, which we do via vt() right after — awaiting it here would
-      // deadlock). vt() then drives + captures the scroll at 60fps.
-      if (camZoom !== 1) pushCam(1, state.x, state.y, 300); // ensure flat before scrolling
+      // Scrolls read best at 1x — ease the camera out first (the smart-zoom
+      // leaves it zoomed after a click), then kick off the rAF scroll tween
+      // WITHOUT awaiting it (its promise only resolves as virtual time advances,
+      // which we do via vt() right after — awaiting it here would deadlock).
+      // vt() then drives + captures the scroll at 60fps.
+      await cinematicZoomOut(page);
       await cam(page, "move", [state.x, state.y]);
       await page
         .evaluate(
@@ -721,9 +769,10 @@ async function runComputerUse(page) {
       if (reprompts < CU_MAX_REPROMPTS && (tooShort || neverInteracted)) {
         reprompts++;
         const text = neverInteracted
-          ? "You've only scrolled so far — scrolling alone is not a demo. Click the single most " +
-            "prominent interactive control NOW (a hero button, a tab, a toggle, or a field to type " +
-            "into), then show one or two more distinct features."
+          ? "You've only scrolled so far. If this app has a real interactive feature, click the most " +
+            "prominent one NOW (a hero button that DOES something, a tab, a toggle, a field to type " +
+            "into) — but NOT sign-up/login. If this is only a marketing landing gated by sign-up, keep " +
+            "touring its sections by scrolling instead. Then show one or two more parts."
           : "Good start. Before you finish, show one or two MORE distinct features — a different " +
             "button, tab, or section you haven't used yet. Don't repeat anything you've already done.";
         messages.push({ role: "user", content: [{ type: "text", text: text }] });
@@ -756,6 +805,7 @@ async function runComputerUse(page) {
     messages.push({ role: "user", content: results });
     steps++;
   }
+  await cinematicZoomOut(page); // end the demo eased back to 1x
   return { steps: steps, interactions: interactions, reprompts: reprompts };
 }
 

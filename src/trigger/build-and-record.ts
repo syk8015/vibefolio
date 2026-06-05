@@ -145,17 +145,21 @@ type RecorderMeta = {
   cameraEvents?: CameraEvent[];
 };
 
-// One keyframe of the cinematic camera: at frame `startFrame` begin easing the
-// zoom from `fromZoom` to `toZoom` over `durMs`, pushing in toward the focal
-// point (focalX/Y, in 1280×800 capture-frame space). Emitted by the recorder;
-// expanded into an ffmpeg zoompan filter by buildZoomFilter.
+// One keyframe of the cinematic camera: starting at frame `startFrame`, over
+// `durMs`, ease the zoom from `fromZoom`→`toZoom` AND the focal point from
+// (fromFocalX,fromFocalY)→(toFocalX,toFocalY) (in 1280×800 capture-frame space).
+// Constant zoom with a moving focal = a PAN; constant focal with changing zoom =
+// a push-in/out. Emitted by the recorder; expanded into ffmpeg zoompan by
+// buildZoomFilter.
 type CameraEvent = {
   startFrame: number;
+  durMs: number;
   fromZoom: number;
   toZoom: number;
-  focalX: number;
-  focalY: number;
-  durMs: number;
+  fromFocalX: number;
+  fromFocalY: number;
+  toFocalX: number;
+  toFocalY: number;
 };
 
 // The recorder prints a JSON summary as its last stdout line. Parse it (from the
@@ -197,37 +201,52 @@ export function buildZoomFilter(
 ): string {
   if (!events.length) return "";
 
-  // Non-overlapping segments tiling the timeline: each is an eased zoom ramp or a
-  // constant hold, and each carries the focal that governs it (so the push-in stays
-  // anchored through zoom-in → hold → zoom-out).
-  type Seg =
-    | { a: number; b: number; kind: "ease"; from: number; to: number; fx: number; fy: number }
-    | { a: number; b: number; kind: "hold"; z: number; fx: number; fy: number };
+  // Non-overlapping segments tiling the timeline. Each segment eases zoom + focal
+  // from a start state to an end state (a "hold" is just start===end). zoom and
+  // both focal axes are stored as [from,to] pairs so a pan (constant zoom, moving
+  // focal) and a push-in (moving zoom, constant focal) use the same machinery.
+  type Seg = {
+    a: number;
+    b: number;
+    z: [number, number];
+    fx: [number, number];
+    fy: [number, number];
+  };
   const segs: Seg[] = [];
   const cx = Math.round(w / 2);
   const cy = Math.round(h / 2);
   let prevEnd = 0;
-  let prevZoom = 1;
-  let prevFx = cx;
-  let prevFy = cy;
+  let pz = 1;
+  let pfx = cx;
+  let pfy = cy;
   const sorted = [...events].sort((p, q) => p.startFrame - q.startFrame);
   for (const e of sorted) {
     const a = Math.max(prevEnd, Math.round(e.startFrame));
     const d = Math.max(1, Math.round((e.durMs / 1000) * fps));
     const b = a + d;
     if (a > prevEnd) {
-      segs.push({ a: prevEnd, b: a, kind: "hold", z: prevZoom, fx: prevFx, fy: prevFy });
+      segs.push({ a: prevEnd, b: a, z: [pz, pz], fx: [pfx, pfx], fy: [pfy, pfy] }); // hold
     }
-    segs.push({ a, b, kind: "ease", from: e.fromZoom, to: e.toZoom, fx: e.focalX, fy: e.focalY });
+    segs.push({
+      a,
+      b,
+      z: [e.fromZoom, e.toZoom],
+      fx: [e.fromFocalX, e.toFocalX],
+      fy: [e.fromFocalY, e.toFocalY],
+    });
     prevEnd = b;
-    prevZoom = e.toZoom;
-    prevFx = e.focalX;
-    prevFy = e.focalY;
+    pz = e.toZoom;
+    pfx = e.toFocalX;
+    pfy = e.toFocalY;
   }
 
-  // easeInOut cubic, inlined as an ffmpeg expression over the P substring.
-  const ease = (P: string) =>
-    `if(lt(${P},0.5),4*pow(${P},3),1-pow(-2*${P}+2,3)/2)`;
+  // easeInOut cubic interpolation from `from`→`to` over [a, a+dur), as an ffmpeg
+  // expression. Constant when from===to (cheap, exact).
+  const easeSeg = (a: number, from: number, to: number, dur: number): string => {
+    if (from === to) return `${from}`;
+    const P = `((on-${a})/${dur})`;
+    return `(${from}+(${to - from})*(if(lt(${P},0.5),4*pow(${P},3),1-pow(-2*${P}+2,3)/2)))`;
+  };
 
   // Nested if() over segments, built end-first so the innermost else is the default
   // (z=1, focal=center → a whole-frame no-op crop).
@@ -236,18 +255,11 @@ export function buildZoomFilter(
   let fyExpr = String(cy);
   for (let i = segs.length - 1; i >= 0; i--) {
     const s = segs[i];
+    const dur = s.b - s.a;
     const cond = `between(on,${s.a},${s.b - 1})`;
-    let zSeg: string;
-    if (s.kind === "ease") {
-      const dur = s.b - s.a;
-      const P = `((on-${s.a})/${dur})`;
-      zSeg = `(${s.from}+(${s.to}-${s.from})*(${ease(P)}))`;
-    } else {
-      zSeg = `${s.z}`;
-    }
-    zExpr = `if(${cond},${zSeg},${zExpr})`;
-    fxExpr = `if(${cond},${s.fx},${fxExpr})`;
-    fyExpr = `if(${cond},${s.fy},${fyExpr})`;
+    zExpr = `if(${cond},${easeSeg(s.a, s.z[0], s.z[1], dur)},${zExpr})`;
+    fxExpr = `if(${cond},${easeSeg(s.a, s.fx[0], s.fx[1], dur)},${fxExpr})`;
+    fyExpr = `if(${cond},${easeSeg(s.a, s.fy[0], s.fy[1], dur)},${fyExpr})`;
   }
 
   // Clamp x/y so the zoom window can never reference pixels outside the frame
@@ -495,15 +507,31 @@ export const buildAndRecord = task({
     // Cinematic camera zoom (applied here in post, on the flat capture). Empty for
     // the scroll fallback (no events) → plain scale+fade as before.
     const camEvents = Array.isArray(meta.cameraEvents) ? meta.cameraEvents : [];
-    const zoomFilter = buildZoomFilter(camEvents, 60, CAP_W, CAP_H);
     logger.log("post-process", { src, srcDur, clipLen, camEvents: camEvents.length });
-    // zoompan (focal push-in) at 1280×800 -> lanczos downscale to 720p for the
-    // Theater card (lanczos keeps zoomed text crisp and damps sub-pixel shimmer).
+    // To kill zoompan's integer-position shimmer we SUPERSAMPLE: upscale the 1280×800
+    // source ×SS first (finer sub-pixel granularity for the zoom window), run zoompan
+    // at that size, then lanczos-downscale to 720p. (Focal coords scale by SS too.)
     // Re-assert constant 60fps (-r 60 -fps_mode cfr) as a belt-and-braces guarantee.
-    const vf =
-      (zoomFilter ? zoomFilter + "," : "") +
-      `scale=-2:720:flags=lanczos,` +
-      `fade=t=in:st=0:d=0.4,fade=t=out:st=${fadeOutStart}:d=0.5`;
+    const SS = 2;
+    let vf: string;
+    if (camEvents.length) {
+      const ssEvents = camEvents.map((e) => ({
+        ...e,
+        fromFocalX: e.fromFocalX * SS,
+        fromFocalY: e.fromFocalY * SS,
+        toFocalX: e.toFocalX * SS,
+        toFocalY: e.toFocalY * SS,
+      }));
+      const zoomFilter = buildZoomFilter(ssEvents, 60, CAP_W * SS, CAP_H * SS);
+      vf =
+        `scale=${CAP_W * SS}:${CAP_H * SS}:flags=lanczos,${zoomFilter},` +
+        `scale=-2:720:flags=lanczos,` +
+        `fade=t=in:st=0:d=0.4,fade=t=out:st=${fadeOutStart}:d=0.5`;
+    } else {
+      vf =
+        `scale=-2:720:flags=lanczos,` +
+        `fade=t=in:st=0:d=0.4,fade=t=out:st=${fadeOutStart}:d=0.5`;
+    }
     const ffmpegCmd =
       `cd /tmp/rec && ffmpeg -y -i ${src} -t ${clipLen.toFixed(2)} ` +
       `-vf "${vf}" ` +

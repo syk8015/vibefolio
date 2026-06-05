@@ -93,13 +93,26 @@ try {
   const clipLen = Math.max(2, Math.min(MAX_VIDEO_SEC, srcDur || RECORD_DURATION_SEC));
   const fadeOutStart = Math.max(0, clipLen - 0.5).toFixed(2);
   // Apply the SAME cinematic zoom as build-and-record: parse the recorder's camera
-  // keyframe events and expand them into an ffmpeg zoompan focal push-in + lanczos.
+  // keyframe events and run the 2x-supersampled zoompan focal move + lanczos.
   const meta = lastJson(rec.stdout || "");
   const camEvents = Array.isArray(meta.cameraEvents) ? meta.cameraEvents : [];
-  const zoomFilter = buildZoomFilter(camEvents, 60, 1280, 800);
-  const vf =
-    (zoomFilter ? zoomFilter + "," : "") +
-    `scale=-2:720:flags=lanczos,fade=t=in:st=0:d=0.4,fade=t=out:st=${fadeOutStart}:d=0.5`;
+  const SS = 2;
+  let vf: string;
+  if (camEvents.length) {
+    const ssEvents = camEvents.map((e: any) => ({
+      ...e,
+      fromFocalX: e.fromFocalX * SS,
+      fromFocalY: e.fromFocalY * SS,
+      toFocalX: e.toFocalX * SS,
+      toFocalY: e.toFocalY * SS,
+    }));
+    const zoomFilter = buildZoomFilter(ssEvents, 60, 1280 * SS, 800 * SS);
+    vf =
+      `scale=${1280 * SS}:${800 * SS}:flags=lanczos,${zoomFilter},` +
+      `scale=-2:720:flags=lanczos,fade=t=in:st=0:d=0.4,fade=t=out:st=${fadeOutStart}:d=0.5`;
+  } else {
+    vf = `scale=-2:720:flags=lanczos,fade=t=in:st=0:d=0.4,fade=t=out:st=${fadeOutStart}:d=0.5`;
+  }
   console.log("src:", src, "dur:", srcDur, "-> clipLen:", clipLen, "| camEvents:", camEvents.length);
   const post = await sh(
     `cd /tmp/rec && ffmpeg -y -i ${src} -t ${clipLen.toFixed(2)} ` +
