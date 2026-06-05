@@ -55,8 +55,10 @@ const FRAME_MS = 1000 / FPS;
 const MAX_FRAMES = 30 * FPS;
 // Wall-clock budget for the whole capture. Each frame costs a CDP round-trip +
 // screenshot, so a demo is slower than real time; this guarantees we stop and
-// assemble what we have well before the outer record timeout kills us.
-const CAPTURE_BUDGET_MS = 240000;
+// assemble what we have well before the outer record timeout kills us. Sized
+// above a full-length (~25s) interactive demo's capture + API time, and ordered
+// below CU_MAX_MS (330s) < RECORD_TIMEOUT (480s).
+const CAPTURE_BUDGET_MS = 300000;
 
 // --- Computer use config -------------------------------------------------
 const API_KEY = process.env.ANTHROPIC_API_KEY || "";
@@ -64,10 +66,14 @@ const API_KEY = process.env.ANTHROPIC_API_KEY || "";
 // the computer_20250124 tool for them). The latest computer-use-capable Sonnet
 // is 4.5 — keep this here, override via DEMO_CU_MODEL if needed.
 const MODEL = process.env.DEMO_CU_MODEL || "claude-sonnet-4-5";
-// Fewer, slower steps: the dead-air cut keeps every action at real-time speed,
-// so each step now yields ~3-4s of footage. 7 steps ~= a 25s demo (cap 30s) and
-// fewer Claude calls = lower cost.
-const CU_MAX_STEPS = 7;         // hard cap on agent turns (cost guard)
+// We want a 15-25s demo that actually exercises several features. Each step
+// yields ~2-3s of footage under virtual time, and prompt caching keeps every
+// extra Claude call cheap, so allow more turns and enforce a FLOOR via the
+// re-prompts in runComputerUse (don't accept a too-short / scroll-only demo).
+const CU_MAX_STEPS = 11;        // hard cap on agent turns (cost guard)
+const CU_MIN_STEPS = 5;         // floor: re-prompt rather than end below this
+const CU_MAX_REPROMPTS = 2;     // bounded nudges when the agent ends too early
+const MIN_CLIP_FRAMES = 8 * FPS; // ~8s of footage floor before accepting an end
 const ACTION_PACING_MS = 200;   // small extra dwell rendered after each action
 // Wall-clock budget for the interaction. Each captured frame costs a CDP budget
 // round-trip + a screenshot, and a demo is ~1000-1500 frames, so the capture is
@@ -76,23 +82,27 @@ const ACTION_PACING_MS = 200;   // small extra dwell rendered after each action
 const CU_MAX_MS = 330000;
 
 const SYSTEM_PROMPT = [
-  "You are operating a web app inside a browser to record a short, attractive product demo video.",
-  "The app is already open. Your goal: in a handful of deliberate actions, exercise the app's most",
-  "visually interesting primary feature so a viewer instantly understands what it does.",
+  "You are a product demo presenter recording a short, polished walkthrough video of a web app.",
+  "The app is already open. Your job: show a reviewer the app's core value by actually USING it —",
+  "clicking its most important controls and exercising its standout features, one clear action at a time.",
   "",
   "Rules:",
   "- Stay on this app. Never navigate to external sites, never open new tabs, never touch the URL bar.",
-  "- Prioritize the most eye-catching primary call-to-action (CTA) button or the flashiest interactive",
-  "  element first. Leading with the boldest, most visually striking control makes the demo instantly",
-  "  compelling — go for the hero button, the standout feature, the thing the page clearly wants clicked.",
+  "- Lead with the hero: click the single most eye-catching primary call-to-action or the flashiest",
+  "  interactive element first. Opening with the boldest control makes the demo instantly compelling.",
+  "- Scrolling alone is NOT a demo. You MUST click / open / toggle / type into at least one real",
+  "  interactive control. Use scrolling only to REACH a control, then interact with it.",
   "- Prefer actions that visibly change the screen: click buttons, open menus/modals, switch tabs,",
   "  toggle views, type into a short demo input, drag a slider.",
+  "- Keep going until you have shown several (aim for 6-9) DISTINCT, meaningful interactions across",
+  "  different features or screens. Each action should reveal something new.",
+  "- Do not repeat yourself: never click the same element, or another element with the same purpose,",
+  "  twice. Always move on to a NEW control or screen — a different tab, a search field, a new modal.",
   "- Do NOT perform destructive or irreversible actions (delete, purchase, pay, sign out, send a real",
   "  message). If a form looks like sign-up / login / payment, skip it and show something else.",
   "- One clear, unhurried action at a time.",
-  "- Be economical: after roughly 4-6 meaningful actions, or once you've shown the core feature well,",
-  "  stop by ending your turn without any tool call. Do not pad with extra steps.",
-  "- If the screen is mostly static marketing text, scroll to reveal more, then interact with any visible controls.",
+  "- Only end your turn (no tool call) once you have shown the core features well AND there is no",
+  "  genuinely new interactive element left to demonstrate. Do not pad with pointless or repeated clicks.",
 ].join("\n");
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -680,21 +690,49 @@ async function runComputerUse(page) {
     },
   ];
 
+  // Actions that count as a real interaction (vs scroll/wait/observe). Used to
+  // reject a "scroll-only" demo and nudge the agent to actually click something.
+  const INTERACTIVE = {
+    left_click: 1, right_click: 1, middle_click: 1, double_click: 1, triple_click: 1,
+    type: 1, key: 1, left_click_drag: 1, hold_key: 1,
+  };
   const started = Date.now();
   let steps = 0;
+  let interactions = 0; // meaningful, non-scroll actions actually performed
+  let reprompts = 0;    // bounded nudges issued when the agent ended too early
   while (steps < CU_MAX_STEPS && Date.now() - started < CU_MAX_MS && !captureStopped) {
     applyCache(messages);
     const resp = await callClaude(messages);
     messages.push({ role: "assistant", content: resp.content || [] });
     const toolUses = (resp.content || []).filter((b) => b && b.type === "tool_use");
-    if (!toolUses.length) break; // Claude ended its turn -> demo complete
+    if (!toolUses.length) {
+      // Claude ended its turn. Don't accept a demo that's too short or that never
+      // actually interacted (scroll-only) — nudge it to keep going, bounded so a
+      // stubborn end can't loop forever or balloon cost. Otherwise it's complete.
+      const tooShort = steps < CU_MIN_STEPS || frameCount < MIN_CLIP_FRAMES;
+      const neverInteracted = interactions === 0;
+      if (reprompts < CU_MAX_REPROMPTS && (tooShort || neverInteracted)) {
+        reprompts++;
+        const text = neverInteracted
+          ? "You've only scrolled so far — scrolling alone is not a demo. Click the single most " +
+            "prominent interactive control NOW (a hero button, a tab, a toggle, or a field to type " +
+            "into), then show one or two more distinct features."
+          : "Good start. Before you finish, show one or two MORE distinct features — a different " +
+            "button, tab, or section you haven't used yet. Don't repeat anything you've already done.";
+        messages.push({ role: "user", content: [{ type: "text", text: text }] });
+        continue; // re-ask without consuming a step
+      }
+      break; // demo complete
+    }
 
     const results = [];
     for (const tu of toolUses) {
+      const act = tu.input && tu.input.action;
       try {
         await execAction(page, tu.input || {}, state);
+        if (act && INTERACTIVE[act]) interactions++;
       } catch (e) {
-        console.error("action error", tu.input && tu.input.action, e && e.message);
+        console.error("action error", act, e && e.message);
       }
       await vt(ACTION_PACING_MS); // small rendered dwell before the next observation
       results.push({
@@ -711,7 +749,7 @@ async function runComputerUse(page) {
     messages.push({ role: "user", content: results });
     steps++;
   }
-  return { steps: steps };
+  return { steps: steps, interactions: interactions, reprompts: reprompts };
 }
 
 // Fallback: gentle top->bottom scroll, easing to ~85%, captured under virtual
@@ -810,10 +848,14 @@ async function runScroll(page) {
   const interactionStart = Date.now();
   let mode = "computer-use";
   let steps = 0;
+  let interactions = 0;
+  let reprompts = 0;
   let cuError = null;
   try {
     const cu = await runComputerUse(page);
     steps = cu.steps;
+    interactions = cu.interactions;
+    reprompts = cu.reprompts;
     if (!steps) throw new Error("computer-use produced no steps");
   } catch (e) {
     cuError = String(e && e.message ? e.message : e);
@@ -855,6 +897,8 @@ async function runScroll(page) {
       bytes: stat.size,
       mode,
       steps,
+      interactions,
+      reprompts,
       frames: frameCount,
       fps: FPS,
       captureRetries,

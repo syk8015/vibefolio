@@ -119,6 +119,10 @@ async function recordFailedStatus(projectId: string, error: unknown) {
 type RecorderMeta = {
   mode?: string;
   steps?: number;
+  // Meaningful (non-scroll) actions performed, and how many times the agent had
+  // to be nudged to keep going / actually interact (length + interaction guards).
+  interactions?: number;
+  reprompts?: number;
   durationMs?: number;
   visibleChars?: number;
   cuError?: string | null;
@@ -363,6 +367,8 @@ export const buildAndRecord = task({
     logger.log("recorder meta", {
       mode: meta.mode,
       steps: meta.steps,
+      interactions: meta.interactions,
+      reprompts: meta.reprompts,
       frames: meta.frames,
       fps: meta.fps,
       durationMs: meta.durationMs,
