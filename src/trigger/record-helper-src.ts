@@ -117,6 +117,26 @@ let captureDeadline = Infinity; // wall-clock; set when virtual time starts
 let captureStopped = false;     // true once we hit the budget/cap (stop advancing)
 let captureRetries = 0;         // screenshot retries (diagnostic; no time distortion)
 
+// --- Camera keyframe track (for the POST-processed cinematic zoom) -------
+// The recorder no longer zooms the DOM. Instead each click/type records WHEN
+// (the current frame index), WHERE (focal point in the 1280×800 viewport =
+// capture-frame space) and HOW FAR to push in. build-and-record expands these
+// into an ffmpeg zoompan focal push-in applied to the flat capture, so layout is
+// never distorted and the zoom is a clean camera move rather than a DOM re-raster.
+let camZoom = 1;
+const cameraEvents = [];
+function pushCam(toZoom, focalX, focalY, durMs) {
+  cameraEvents.push({
+    startFrame: frameCount,
+    fromZoom: camZoom,
+    toZoom: toZoom,
+    focalX: Math.round(focalX),
+    focalY: Math.round(focalY),
+    durMs: durMs,
+  });
+  camZoom = toZoom;
+}
+
 // Advance virtual time by exactly one 60fps frame and return the freshly rendered
 // JPEG (base64). The budget advance must IMMEDIATELY precede the screenshot:
 // captureScreenshot waits on a fresh compositor frame, so a bare capture with no
@@ -276,11 +296,14 @@ async function shot(page) {
 
 // --- Cinematic camera layer ---------------------------------------------
 // Headless Chromium renders no OS cursor, so a real click looks like "nothing
-// happened". We inject a synthetic cursor + click ripple, and an Apple-ad-style
-// camera that zooms toward each click. The trick that keeps clicks accurate
-// while zoomed: set the page's transform-origin to the click point. That point
-// is the fixed point of the scale transform, so the real page.mouse click at
-// the same viewport coordinate still lands on the same element.
+// happened". We inject a synthetic cursor + click ripple. The Apple-ad-style
+// zoom toward each click is NOT done in the DOM anymore (a body transform makes
+// that body the containing block for every fixed/sticky descendant — so headers,
+// sticky navs and modals get displaced/clipped — and re-rasterizes the whole page
+// on the software compositor). Instead the recorder records camera keyframe events
+// (focal + zoom + frame index) and build-and-record applies the push-in in post
+// with ffmpeg zoompan. The page is therefore always captured FLAT at 1x: layout
+// never distorts and clicks always map 1:1 to what the agent sees.
 async function ensureCinema(page) {
   await page.evaluate(() => {
     if (window.__demoCam) return;
@@ -328,12 +351,11 @@ async function ensureCinema(page) {
     var cx = window.innerWidth / 2, cy = window.innerHeight / 2; // cursor pos (current)
     var px0 = cx, py0 = cy, pxT = cx, pyT = cy, pStart = -1, pDur = 0; // pos tween
     var cs = 1, cs0 = 1, csT = 1, csStart = -1, csDur = 0;          // cursor press-scale tween
-    var zs = 1, zs0 = 1, zsT = 1, zsStart = -1, zsDur = 0;          // zoom-scale tween
     var rActive = false, rStart = -1, rDur = 550;                  // ripple
     var running = false;
     cur.style.left = cx + "px"; cur.style.top = cy + "px";
 
-    function active() { return pDur > 0 || csDur > 0 || zsDur > 0 || rActive; }
+    function active() { return pDur > 0 || csDur > 0 || rActive; }
     // Animator: explicit per-frame style updates WHILE a tween is active, then it
     // stops (no pending rAF). ALL tween clocks are the rAF timestamp ts (a start of
     // -1 means init on the first frame) — never performance.now(), which doesn't
@@ -353,13 +375,6 @@ async function ensureCinema(page) {
         cs = cs0 + (csT - cs0) * e2;
         cur.style.transform = "scale(" + cs + ")";
         if (ts - csStart >= csDur) csDur = 0;
-      }
-      if (zsDur > 0 && body) {
-        if (zsStart < 0) zsStart = ts;
-        var e3 = easeInOut(Math.min(1, (ts - zsStart) / zsDur));
-        zs = zs0 + (zsT - zs0) * e3;
-        body.style.transform = "scale(" + zs + ")";
-        if (ts - zsStart >= zsDur) zsDur = 0;
       }
       if (rActive) {
         if (rStart < 0) rStart = ts;
@@ -382,15 +397,6 @@ async function ensureCinema(page) {
         rActive = true; rStart = -1; kick();
       },
       release: function () { cs0 = cs; csT = 1; csStart = -1; csDur = 160; kick(); },
-      // Set transform-origin to the click point (the fixed point of the scale), so
-      // a real page.mouse click at the same viewport coord still hits the element.
-      zoom: function (x, y, s) {
-        if (!body) return;
-        body.style.transformOrigin =
-          (x + (window.pageXOffset || 0)) + "px " + (y + (window.pageYOffset || 0)) + "px";
-        zs0 = zs; zsT = s; zsStart = -1; zsDur = 500; kick();
-      },
-      reset: function () { if (body) { zs0 = zs; zsT = 1; zsStart = -1; zsDur = 500; kick(); } },
       // rAF scroll tween (resolves when done); driven by vt() advancing time.
       scrollByDur: function (dx, dy, durMs) {
         return new Promise(function (resolve) {
@@ -455,8 +461,8 @@ async function execAction(page, input, state) {
     // speed. No dead air: while we're not in vt(), the page is frozen.
     await cam(page, "move", [state.x, state.y]);
     await vt(700); // cursor glide (550ms tween) + settle before acting
-    await cam(page, "zoom", [state.x, state.y, 1.42]);
-    await vt(620); // zoom-in (500ms tween) + brief settle
+    pushCam(1.42, state.x, state.y, 500); // post-zoom push-in toward the click
+    await vt(620); // zoom-in (500ms ease, applied in post) + brief settle
     await cam(page, "press");
     for (const m of heldMods) await page.keyboard.down(m);
     if (action === "double_click") {
@@ -470,7 +476,7 @@ async function execAction(page, input, state) {
     await vt(120);
     await cam(page, "release");
     await vt(440); // brief hold so the click result reads, then ease back out
-    await cam(page, "reset");
+    pushCam(1, state.x, state.y, 500); // post-zoom out from the same focal
     await vt(640); // let the 500ms zoom-out FULLY play before the next action
     return;
   }
@@ -516,14 +522,14 @@ async function execAction(page, input, state) {
       // letter by letter. vt() after each char renders that beat (incl. the
       // caret blink, which now advances at TRUE speed under virtual time).
       const text = String(input.text || "");
-      await cam(page, "zoom", [state.x, state.y, 1.3]); // >=1.3x onto the field
+      pushCam(1.3, state.x, state.y, 500); // post-zoom onto the field
       await vt(560); // let the zoom-in settle before typing
       for (const ch of text) {
         await page.keyboard.type(ch);
         await vt(50 + Math.floor(Math.random() * 101)); // 50-150ms per char
       }
       await vt(700); // hold on the finished text so the viewer can read it
-      await cam(page, "reset");
+      pushCam(1, state.x, state.y, 500); // post-zoom out
       await vt(600); // let the zoom-out finish before the screenshot
       break;
     }
@@ -545,11 +551,12 @@ async function execAction(page, input, state) {
       const dir = input.scroll_direction || "down";
       const dx = dir === "right" ? amt : dir === "left" ? -amt : 0;
       const dy = dir === "down" ? amt : dir === "up" ? -amt : 0;
-      // Scrolls read best at 1x — reset any zoom, then kick off the rAF scroll
-      // tween WITHOUT awaiting it (its promise only resolves as virtual time
-      // advances, which we do via vt() right after — awaiting it here would
+      // Scrolls read best at 1x — make sure the post-zoom is flat (normally it
+      // already is, since every click/type ends zoomed out), then kick off the
+      // rAF scroll tween WITHOUT awaiting it (its promise only resolves as virtual
+      // time advances, which we do via vt() right after — awaiting it here would
       // deadlock). vt() then drives + captures the scroll at 60fps.
-      await cam(page, "reset");
+      if (camZoom !== 1) pushCam(1, state.x, state.y, 300); // ensure flat before scrolling
       await cam(page, "move", [state.x, state.y]);
       await page
         .evaluate(
@@ -908,6 +915,7 @@ async function runScroll(page) {
       tight: false,
       capDurMs: Math.round(capDurSec * 1000),
       uniqueFps,
+      cameraEvents,
       pageErrors: pageErrors.slice(0, 5),
     }),
   );

@@ -40,9 +40,9 @@ const CLONE_TIMEOUT_MS = 120_000;
 const INSTALL_TIMEOUT_MS = 600_000;
 const READY_TIMEOUT_MS = 90_000;
 // The computer-use agent loop (screenshots + API round-trips + actions) plus
-// the initial load wait can run well past two minutes — and the cinematics are
-// now captured in ×SLOWMO slow motion (compressed back in post), so the record
-// step takes proportionally longer. Give it generous room.
+// the initial load wait can run well past two minutes — and virtual-time capture
+// takes a CDP round-trip + screenshot per frame, so a full ~25s demo is slower
+// than real time to capture. Give it generous room.
 const RECORD_TIMEOUT_MS = 480_000;
 const RECORD_DURATION_SEC = 15;
 // Hard cap on the final clip length, regardless of how long the agent ran.
@@ -52,6 +52,11 @@ const MAX_VIDEO_SEC = 30;
 const DISPLAY_NUM = ":99";
 const DISPLAY_W = 1280;
 const DISPLAY_H = 887;
+// The recorder captures the 1280×800 viewport (VIEW_W/H in record-helper-src) and
+// assembles cap.mp4 at that size; the post-zoom focal coordinates live in this
+// space, so buildZoomFilter operates on these dimensions before the 720p scale.
+const CAP_W = 1280;
+const CAP_H = 800;
 const DEV_PORT = 3000;
 const NODE_PATH_PREFIX = "export PATH=/opt/node/bin:$PATH && ";
 const RECORD_PREFIX =
@@ -136,6 +141,21 @@ type RecorderMeta = {
   // unique (non-duplicate) frames / sec via mpdecimate ≈ genuine motion
   // smoothness (the container tag always reads 60). Static holds pull it down.
   uniqueFps?: number;
+  // Camera keyframe track for the post-processed cinematic zoom (see CameraEvent).
+  cameraEvents?: CameraEvent[];
+};
+
+// One keyframe of the cinematic camera: at frame `startFrame` begin easing the
+// zoom from `fromZoom` to `toZoom` over `durMs`, pushing in toward the focal
+// point (focalX/Y, in 1280×800 capture-frame space). Emitted by the recorder;
+// expanded into an ffmpeg zoompan filter by buildZoomFilter.
+type CameraEvent = {
+  startFrame: number;
+  fromZoom: number;
+  toZoom: number;
+  focalX: number;
+  focalY: number;
+  durMs: number;
 };
 
 // The recorder prints a JSON summary as its last stdout line. Parse it (from the
@@ -154,6 +174,88 @@ function parseRecorderMeta(stdout: string): RecorderMeta {
     }
   }
   return {};
+}
+
+// Expand the recorder's camera keyframe events into an ffmpeg `zoompan` filter
+// that applies an Apple-ad focal push-in to the FLAT capture. We do the zoom here
+// in post (not in the DOM) so the page layout — fixed/sticky headers, modals — is
+// never distorted, and so the zoom is a clean pixel camera move. Source is 1280×800
+// and is downscaled to 720 afterwards, which (with lanczos) hides most zoompan
+// sub-pixel shimmer.
+//
+// Math: to keep the focal point (fx,fy) fixed on screen while zooming by z, the
+// crop window (iw/z × ih/z) top-left must be x=fx·(1−1/z), y=fy·(1−1/z), clamped
+// to the frame. zoompan exposes `zoom` (this frame's z) and iw/ih in the x/y
+// expressions, so x/y track z automatically and only the focal needs to be
+// piecewise. Returns "" when there are no events (e.g. the scroll fallback).
+// Exported for the expression unit test (scripts/test-zoom-filter.mts).
+export function buildZoomFilter(
+  events: CameraEvent[],
+  fps: number,
+  w: number,
+  h: number,
+): string {
+  if (!events.length) return "";
+
+  // Non-overlapping segments tiling the timeline: each is an eased zoom ramp or a
+  // constant hold, and each carries the focal that governs it (so the push-in stays
+  // anchored through zoom-in → hold → zoom-out).
+  type Seg =
+    | { a: number; b: number; kind: "ease"; from: number; to: number; fx: number; fy: number }
+    | { a: number; b: number; kind: "hold"; z: number; fx: number; fy: number };
+  const segs: Seg[] = [];
+  const cx = Math.round(w / 2);
+  const cy = Math.round(h / 2);
+  let prevEnd = 0;
+  let prevZoom = 1;
+  let prevFx = cx;
+  let prevFy = cy;
+  const sorted = [...events].sort((p, q) => p.startFrame - q.startFrame);
+  for (const e of sorted) {
+    const a = Math.max(prevEnd, Math.round(e.startFrame));
+    const d = Math.max(1, Math.round((e.durMs / 1000) * fps));
+    const b = a + d;
+    if (a > prevEnd) {
+      segs.push({ a: prevEnd, b: a, kind: "hold", z: prevZoom, fx: prevFx, fy: prevFy });
+    }
+    segs.push({ a, b, kind: "ease", from: e.fromZoom, to: e.toZoom, fx: e.focalX, fy: e.focalY });
+    prevEnd = b;
+    prevZoom = e.toZoom;
+    prevFx = e.focalX;
+    prevFy = e.focalY;
+  }
+
+  // easeInOut cubic, inlined as an ffmpeg expression over the P substring.
+  const ease = (P: string) =>
+    `if(lt(${P},0.5),4*pow(${P},3),1-pow(-2*${P}+2,3)/2)`;
+
+  // Nested if() over segments, built end-first so the innermost else is the default
+  // (z=1, focal=center → a whole-frame no-op crop).
+  let zExpr = "1";
+  let fxExpr = String(cx);
+  let fyExpr = String(cy);
+  for (let i = segs.length - 1; i >= 0; i--) {
+    const s = segs[i];
+    const cond = `between(on,${s.a},${s.b - 1})`;
+    let zSeg: string;
+    if (s.kind === "ease") {
+      const dur = s.b - s.a;
+      const P = `((on-${s.a})/${dur})`;
+      zSeg = `(${s.from}+(${s.to}-${s.from})*(${ease(P)}))`;
+    } else {
+      zSeg = `${s.z}`;
+    }
+    zExpr = `if(${cond},${zSeg},${zExpr})`;
+    fxExpr = `if(${cond},${s.fx},${fxExpr})`;
+    fyExpr = `if(${cond},${s.fy},${fyExpr})`;
+  }
+
+  // Clamp x/y so the zoom window can never reference pixels outside the frame
+  // (e.g. a click in a corner) — zoompan would otherwise error / show black.
+  const xExpr = `max(0,min(iw-iw/zoom,(${fxExpr})*(1-1/zoom)))`;
+  const yExpr = `max(0,min(ih-ih/zoom,(${fyExpr})*(1-1/zoom)))`;
+
+  return `zoompan=z='${zExpr}':x='${xExpr}':y='${yExpr}':d=1:s=${w}x${h}:fps=${fps}`;
 }
 
 export const buildAndRecord = task({
@@ -390,13 +492,21 @@ export const buildAndRecord = task({
     const srcDur = await probe(src);
     const clipLen = Math.max(2, Math.min(MAX_VIDEO_SEC, srcDur || RECORD_DURATION_SEC));
     const fadeOutStart = Math.max(0, clipLen - 0.5).toFixed(2);
-    logger.log("post-process", { src, srcDur, clipLen });
-    // 1280×800 -> 720p for the Theater card (still small at card size). Re-assert
-    // constant 60fps (-r 60 -fps_mode cfr) on the shipped file as a belt-and-braces
-    // guarantee regardless of the fade filtering.
+    // Cinematic camera zoom (applied here in post, on the flat capture). Empty for
+    // the scroll fallback (no events) → plain scale+fade as before.
+    const camEvents = Array.isArray(meta.cameraEvents) ? meta.cameraEvents : [];
+    const zoomFilter = buildZoomFilter(camEvents, 60, CAP_W, CAP_H);
+    logger.log("post-process", { src, srcDur, clipLen, camEvents: camEvents.length });
+    // zoompan (focal push-in) at 1280×800 -> lanczos downscale to 720p for the
+    // Theater card (lanczos keeps zoomed text crisp and damps sub-pixel shimmer).
+    // Re-assert constant 60fps (-r 60 -fps_mode cfr) as a belt-and-braces guarantee.
+    const vf =
+      (zoomFilter ? zoomFilter + "," : "") +
+      `scale=-2:720:flags=lanczos,` +
+      `fade=t=in:st=0:d=0.4,fade=t=out:st=${fadeOutStart}:d=0.5`;
     const ffmpegCmd =
       `cd /tmp/rec && ffmpeg -y -i ${src} -t ${clipLen.toFixed(2)} ` +
-      `-vf "scale=-2:720,fade=t=in:st=0:d=0.4,fade=t=out:st=${fadeOutStart}:d=0.5" ` +
+      `-vf "${vf}" ` +
       `-r 60 -fps_mode cfr ` +
       `-c:v libx264 -preset medium -crf 26 -pix_fmt yuv420p -an ` +
       `-movflags +faststart demo.mp4`;
