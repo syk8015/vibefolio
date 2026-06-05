@@ -40,7 +40,31 @@ export const FPS = 60;
 export const OUT_DIR = "/tmp/nf-runner";
 
 // Hard cap on the shipped clip length (mirrors the E2B path's MAX_VIDEO_SEC).
-export const MAX_VIDEO_SEC = 30;
+// M0 holds a slightly higher cap so the longer mechanism-demo isn't truncated
+// mid-action; trim back toward ~20–25s once the cinematic timing is judged.
+export const MAX_VIDEO_SEC = 34;
 
 // Supabase Storage bucket for demo videos (same bucket the E2B path writes to).
 export const DEMO_BUCKET = "project-files";
+
+// ── Timeline anchors (trap C) ─────────────────────────────────────────────────
+
+// Wall-clock baseline correction: recStartTime = (Date.now() at spawn) +
+// CAPTURE_WARMUP_MS is treated as the wall-clock of raw frame 0, because
+// avfoundation takes a moment to produce its first frame. Camera frame indices
+// derive from this, so if the post-zoom lands consistently LATE relative to the
+// action, INCREASE this; if EARLY, decrease (may go negative). Tune by eyeball on
+// the demo/contact-sheet.
+// Measured on this M5 (wall-record − captured-duration): warmup+flush ≈ 0.32–0.39s.
+// Frame-checked the crossover: at 0ms the click result appears mid-zoom (~0.5s
+// early); at 330ms it lands ~0.25s after the 1x reveal. 250ms puts the click ~on
+// the 1x frame (within the ±70ms run-to-run warmup jitter), so the result is
+// revealed at fullscreen as specced.
+export const CAPTURE_WARMUP_MS = 250;
+
+// Intro: record the main page for a beat before any interaction (hero impression).
+// Happens AFTER recording starts, so every camera event is naturally offset by it.
+export const INTRO_MS = 3000;
+
+// Tail: hold the final state at 1x before stopping the recording.
+export const TAIL_MS = 1100;
