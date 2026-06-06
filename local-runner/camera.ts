@@ -19,6 +19,12 @@ import { FPS } from "./config";
 // (fromFocalX,fromFocalY)→(toFocalX,toFocalY) (in capture-frame space). Constant
 // zoom with a moving focal = a PAN; constant focal with changing zoom = a
 // push-in/out. Expanded into an ffmpeg zoompan by buildZoomFilter.
+// Easing for a segment's interpolation. "inout" = cubic ease-in-out (default,
+// matches the E2B path). "out" = ease-OUT cubic (fast start, gentle settle) —
+// used for the push-in so the zoom is clearly growing from early in the cursor's
+// travel rather than back-loaded near arrival. "in" = ease-in cubic.
+export type Ease = "inout" | "out" | "in";
+
 export type CameraEvent = {
   startFrame: number;
   durMs: number;
@@ -28,6 +34,7 @@ export type CameraEvent = {
   fromFocalY: number;
   toFocalX: number;
   toFocalY: number;
+  ease?: Ease;
 };
 
 // Expand the camera keyframe events into an ffmpeg `zoompan` filter that applies
@@ -57,6 +64,7 @@ export function buildZoomFilter(
     z: [number, number];
     fx: [number, number];
     fy: [number, number];
+    ease: Ease;
   };
   const segs: Seg[] = [];
   const cx = Math.round(w / 2);
@@ -71,7 +79,8 @@ export function buildZoomFilter(
     const d = Math.max(1, Math.round((e.durMs / 1000) * fps));
     const b = a + d;
     if (a > prevEnd) {
-      segs.push({ a: prevEnd, b: a, z: [pz, pz], fx: [pfx, pfx], fy: [pfy, pfy] }); // hold
+      // hold (constant; ease irrelevant)
+      segs.push({ a: prevEnd, b: a, z: [pz, pz], fx: [pfx, pfx], fy: [pfy, pfy], ease: "inout" });
     }
     segs.push({
       a,
@@ -79,6 +88,7 @@ export function buildZoomFilter(
       z: [e.fromZoom, e.toZoom],
       fx: [e.fromFocalX, e.toFocalX],
       fy: [e.fromFocalY, e.toFocalY],
+      ease: e.ease ?? "inout",
     });
     prevEnd = b;
     pz = e.toZoom;
@@ -86,12 +96,19 @@ export function buildZoomFilter(
     pfy = e.toFocalY;
   }
 
-  // easeInOut cubic interpolation from `from`→`to` over [a, a+dur), as an ffmpeg
-  // expression. Constant when from===to (cheap, exact).
-  const easeSeg = (a: number, from: number, to: number, dur: number): string => {
+  // Cubic interpolation from `from`→`to` over [a, a+dur), as an ffmpeg expression,
+  // with selectable easing. Constant when from===to (cheap, exact).
+  const easeCurve = (P: string, ease: Ease): string => {
+    if (ease === "out") return `(1-pow(1-${P},3))`; // fast start, gentle settle
+    if (ease === "in") return `pow(${P},3)`; // gentle start, fast end
+    return `(if(lt(${P},0.5),4*pow(${P},3),1-pow(-2*${P}+2,3)/2))`; // in-out
+  };
+  const easeSeg = (
+    a: number, from: number, to: number, dur: number, ease: Ease,
+  ): string => {
     if (from === to) return `${from}`;
     const P = `((on-${a})/${dur})`;
-    return `(${from}+(${to - from})*(if(lt(${P},0.5),4*pow(${P},3),1-pow(-2*${P}+2,3)/2)))`;
+    return `(${from}+(${to - from})*${easeCurve(P, ease)})`;
   };
 
   // Nested if() over segments, built end-first so the innermost else is the default
@@ -103,9 +120,9 @@ export function buildZoomFilter(
     const s = segs[i];
     const dur = s.b - s.a;
     const cond = `between(on,${s.a},${s.b - 1})`;
-    zExpr = `if(${cond},${easeSeg(s.a, s.z[0], s.z[1], dur)},${zExpr})`;
-    fxExpr = `if(${cond},${easeSeg(s.a, s.fx[0], s.fx[1], dur)},${fxExpr})`;
-    fyExpr = `if(${cond},${easeSeg(s.a, s.fy[0], s.fy[1], dur)},${fyExpr})`;
+    zExpr = `if(${cond},${easeSeg(s.a, s.z[0], s.z[1], dur, s.ease)},${zExpr})`;
+    fxExpr = `if(${cond},${easeSeg(s.a, s.fx[0], s.fx[1], dur, s.ease)},${fxExpr})`;
+    fyExpr = `if(${cond},${easeSeg(s.a, s.fy[0], s.fy[1], dur, s.ease)},${fyExpr})`;
   }
 
   // Clamp x/y so the zoom window can never reference pixels outside the frame.
@@ -190,6 +207,10 @@ export class CameraTrack {
       fromFocalY: target.y,
       toFocalX: target.x,
       toFocalY: target.y,
+      // ease-OUT: the zoom grows fast right after it starts (tracking the cursor's
+      // travel) and settles gently into peak on arrival — not back-loaded near the
+      // end like in-out, which read as "the zoom only starts once the cursor lands".
+      ease: "out",
     });
     this.z = ZOOM_LEVEL;
     this.focal = { ...target };

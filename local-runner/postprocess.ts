@@ -35,8 +35,16 @@ export async function postprocess(input: PostInput): Promise<{
 
   let vf: string;
   if (events.length) {
-    const sx = rawW / logicalW; // ≈ DPR
-    const sy = rawH / logicalH;
+    // SUPERSAMPLE the native-2× raw by a further ×SS before zoompan. zoompan snaps
+    // its crop-window position to integer SOURCE pixels; at ZOOM_LEVEL 2 that
+    // stepping is telephoto-amplified into a visible shake (user 2026-06-06). At
+    // native 2× a step is 0.5 output px; ×2 more makes it 0.25 px → smooth. Cost is
+    // a ~4K zoompan (M5 handles it; see timeout below). Focal scales by DPR·SS.
+    const SS = 2;
+    const zw = rawW * SS;
+    const zh = rawH * SS;
+    const sx = (rawW / logicalW) * SS; // logical px → supersampled-capture px
+    const sy = (rawH / logicalH) * SS;
     const scaled = events.map((e) => ({
       ...e,
       fromFocalX: e.fromFocalX * sx,
@@ -44,11 +52,12 @@ export async function postprocess(input: PostInput): Promise<{
       fromFocalY: e.fromFocalY * sy,
       toFocalY: e.toFocalY * sy,
     }));
-    // zoompan at native 2× (no pre-upscale — the raw already is the supersample).
-    const zoom = buildZoomFilter(scaled, FPS, rawW, rawH);
+    const zoom = buildZoomFilter(scaled, FPS, zw, zh);
     // No fade-IN: the raw is bright from frame 0 (verified), so a fade-in just
     // opens on black before the intro hold (user 2026-06-06). Keep the fade-OUT.
-    vf = `${zoom},scale=-2:720:flags=lanczos,fade=t=out:st=${fadeOutStart}:d=0.5`;
+    vf =
+      `scale=${zw}:${zh}:flags=lanczos,${zoom},` +
+      `scale=-2:720:flags=lanczos,fade=t=out:st=${fadeOutStart}:d=0.5`;
   } else {
     vf = `scale=-2:720:flags=lanczos,fade=t=out:st=${fadeOutStart}:d=0.5`;
   }
@@ -70,7 +79,7 @@ export async function postprocess(input: PostInput): Promise<{
       "-movflags", "+faststart",
       outPath,
     ],
-    { timeoutMs: 180_000 },
+    { timeoutMs: 360_000 }, // ~4K zoompan supersample is heavier
   );
   if (code !== 0) {
     throw new Error(`ffmpeg post-process failed (exit ${code}): ${stderr.slice(-600)}`);
