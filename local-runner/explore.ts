@@ -1,0 +1,446 @@
+// Explore (M1) — a READ-ONLY computer-use pass that produces an element-based
+// Script (plan §5.3). This is NOT recorded: the AI clicks around the live app to
+// discover its structure, and we capture a stable selector (+ coordinate fallback)
+// for each meaningful action, in order. That trace IS the demo script; replay.ts
+// re-runs it on a clean reset page (no AI loop in the take = no dead-air).
+//
+// Adapted from src/trigger/record-helper-src.ts's computer-use loop, with the
+// VIRTUAL-TIME core dropped entirely (trap A): no vt(), no frame grabbing, no
+// paint pump. Screenshots are plain page.screenshot() on a fixed 1280×720 DSF=1
+// context, so the image is 1:1 with the declared computer-use display and the
+// model's coordinates are logical CSS px (= the space replay records in).
+//
+// trap (__name): every in-page probe ships as a STRING and is evaluated via an
+// IIFE. esbuild/tsx rewrap *named* nested arrows (e.g. `const interactive = …`)
+// with a `__name(...)` helper that is undefined in the page; a raw string is never
+// touched. (Inline anonymous arrows with NO inner named bindings stay safe — but
+// these probes have inner helpers, so they must be strings.)
+import type { Page } from "playwright-core";
+import {
+  VIEW_W,
+  VIEW_H,
+  EXPLORE_MODEL,
+  EXPLORE_MAX_STEPS,
+  EXPLORE_MIN_INTERACTIONS,
+  EXPLORE_MAX_REPROMPTS,
+  EXPLORE_MAX_MS,
+} from "./config";
+import type { Script, ScriptAction } from "./script";
+import { sleep } from "./util";
+
+// ── System prompt (read-only presenter) ─────────────────────────────────────────
+
+const SYSTEM_PROMPT = [
+  "You are a product demo presenter doing a READ-ONLY walkthrough of a web app to capture a short,",
+  "polished demo video. The app is already open. Show a reviewer its core value by USING real features —",
+  "but WITHOUT changing any data, submitting anything, or leaving the app.",
+  "",
+  "HARD RULES — NEVER click any of these (doing so mutates real data or ruins the demo):",
+  "- Submit / Save / Post / Publish / Send / Pay / Buy / Checkout / Order / Confirm / Subscribe — anything",
+  "  that COMMITS data. You MAY fill a form to show it off, but never press its final submit button.",
+  "- Delete / Remove / Archive / Cancel — any destructive or irreversible action.",
+  "- Like / Favorite / Follow / Vote / Upvote / Star / React — these flip persistent state and look wrong",
+  "  on replay. Don't.",
+  "- Login / Sign-in / Sign-up / Register / 'Get started' / 'Create account' / any auth button or link.",
+  "- Empty space, decorative images, or anything not OBVIOUSLY an interactive control. If unsure, skip it.",
+  "",
+  "What to DO (read & simulate only):",
+  "- Lead with the hero feature: the boldest genuine control that shows what the product IS.",
+  "- Prefer actions that visibly change the SCREEN without writing data: open menus/modals (then close",
+  "  them), switch tabs, toggle views/filters, expand cards, type into a SEARCH or FILTER box to show live",
+  "  results, drag a slider, hover to reveal a tooltip or menu.",
+  "- One clear, unhurried action at a time. Aim for 5-8 DISTINCT, meaningful interactions across different",
+  "  features. Never repeat an element, or another with the same purpose.",
+  "- Move FORWARD only — a clean LINEAR walkthrough. Every action becomes part of the final demo, in order,",
+  "  so do NOT backtrack, undo, or wander. If a popup/modal is in the way, close it (its X or Escape) and",
+  "  continue.",
+  "",
+  "If this is only a MARKETING / LANDING page gated behind sign-up (no usable in-page features — just hero",
+  "text, sections and a sign-up CTA), do NOT force clicks and do NOT click sign-up/login. Present it as a",
+  "smooth scroll-tour: scroll unhurriedly, pausing on each key section (hero, features, FAQ, showcase).",
+  "That IS the demo for a landing page.",
+  "",
+  "End your turn (no tool call) once you've shown the product well and there is no genuinely new",
+  "interactive feature (or, for a landing, no more sections) left to show. Don't pad with repeated or",
+  "pointless actions.",
+].join("\n");
+
+const REPROMPT_TEXT =
+  "You've barely interacted yet. If this app has a real interactive feature, use the most prominent one " +
+  "NOW (a hero control that DOES something on screen, a tab, a toggle, a filter, a search box) — but NOT " +
+  "submit / login / like / delete. If this is only a sign-up-gated landing, keep touring its sections by " +
+  "scrolling. Then show one or two more distinct parts.";
+
+// ── In-page probes (strings — see trap note) ─────────────────────────────────────
+
+// Resolve a stable selector for the interactive element under (x, y). Climbs to
+// the nearest meaningful interactive ancestor, then picks the most stable handle:
+// data-testid > stable #id > [aria-label] > [placeholder] > short nth-of-type CSS
+// path. Returns { selector, label } (selector null only if nothing is there).
+const SELECTOR_SRC = `(x, y) => {
+  var esc = function (s) {
+    if (window.CSS && CSS.escape) return CSS.escape(s);
+    return String(s).replace(/[^a-zA-Z0-9_-]/g, function (c) { return "\\\\" + c; });
+  };
+  var stableId = function (id) {
+    return !!id && /^[A-Za-z][\\w-]{0,40}$/.test(id) && !/\\d{4,}/.test(id);
+  };
+  var uniq = function (sel) { try { return document.querySelectorAll(sel).length === 1; } catch (e) { return false; } };
+  var interactive = function (e) {
+    var t = e.tagName ? e.tagName.toLowerCase() : "";
+    if (["button","a","input","select","textarea","summary","label"].indexOf(t) >= 0) return true;
+    var r = e.getAttribute ? e.getAttribute("role") : null;
+    if (r && ["button","link","tab","menuitem","menuitemcheckbox","checkbox","switch","option","radio"].indexOf(r) >= 0) return true;
+    if (e.hasAttribute && e.hasAttribute("data-testid")) return true;
+    if (e.getAttribute && e.getAttribute("contenteditable") === "true") return true;
+    return false;
+  };
+  var el = document.elementFromPoint(x, y);
+  if (!el) return { selector: null, label: "" };
+  var node = el, hops = 0;
+  while (node && node !== document.body && hops < 5) {
+    if (interactive(node)) break;
+    node = node.parentElement; hops++;
+  }
+  var target = (node && node !== document.body) ? node : el;
+  var label = (((target.getAttribute && target.getAttribute("aria-label")) || target.textContent || "") + "").trim().replace(/\\s+/g, " ").slice(0, 60);
+  var testid = target.getAttribute && target.getAttribute("data-testid");
+  if (testid) { var s = "[data-testid=" + JSON.stringify(testid) + "]"; if (uniq(s)) return { selector: s, label: label }; }
+  if (stableId(target.id)) { var s2 = "#" + esc(target.id); if (uniq(s2)) return { selector: s2, label: label }; }
+  var al = target.getAttribute && target.getAttribute("aria-label");
+  if (al) { var s3 = "[aria-label=" + JSON.stringify(al) + "]"; if (uniq(s3)) return { selector: s3, label: label }; }
+  var ph = target.getAttribute && target.getAttribute("placeholder");
+  if (ph) { var s4 = "[placeholder=" + JSON.stringify(ph) + "]"; if (uniq(s4)) return { selector: s4, label: label }; }
+  var parts = [], cur = target, depth = 0;
+  while (cur && cur.nodeType === 1 && cur !== document.documentElement && depth < 5) {
+    if (stableId(cur.id)) { parts.unshift("#" + esc(cur.id)); break; }
+    var seg = cur.tagName.toLowerCase();
+    var p = cur.parentElement;
+    if (p) {
+      var sames = [];
+      for (var i = 0; i < p.children.length; i++) if (p.children[i].tagName === cur.tagName) sames.push(p.children[i]);
+      if (sames.length > 1) seg += ":nth-of-type(" + (sames.indexOf(cur) + 1) + ")";
+    }
+    parts.unshift(seg);
+    cur = p; depth++;
+  }
+  return { selector: parts.join(" > "), label: label };
+}`;
+
+// Selector for the currently focused field (for a `type` action). Inputs rarely
+// have stable text, so prefer name/placeholder over the generic path.
+const ACTIVE_SRC = `() => {
+  var el = document.activeElement;
+  if (!el || el === document.body || el === document.documentElement) return { selector: null, label: "" };
+  var uniq = function (sel) { try { return document.querySelectorAll(sel).length === 1; } catch (e) { return false; } };
+  var stableId = function (id) { return !!id && /^[A-Za-z][\\w-]{0,40}$/.test(id) && !/\\d{4,}/.test(id); };
+  var label = (((el.getAttribute && (el.getAttribute("aria-label") || el.getAttribute("placeholder") || el.getAttribute("name"))) || "") + "").slice(0, 60);
+  var testid = el.getAttribute && el.getAttribute("data-testid");
+  if (testid) { var s = "[data-testid=" + JSON.stringify(testid) + "]"; if (uniq(s)) return { selector: s, label: label }; }
+  if (stableId(el.id)) { var s2 = "#" + (window.CSS && CSS.escape ? CSS.escape(el.id) : el.id); if (uniq(s2)) return { selector: s2, label: label }; }
+  var nm = el.getAttribute && el.getAttribute("name");
+  if (nm) { var s3 = el.tagName.toLowerCase() + "[name=" + JSON.stringify(nm) + "]"; if (uniq(s3)) return { selector: s3, label: label }; }
+  var ph = el.getAttribute && el.getAttribute("placeholder");
+  if (ph) { var s4 = "[placeholder=" + JSON.stringify(ph) + "]"; if (uniq(s4)) return { selector: s4, label: label }; }
+  return { selector: null, label: label };
+}`;
+
+// Login-gate heuristic (plan §4.7): a visible password field with little else to
+// do = the app is gated; index.ts skips it.
+const GATED_SRC = `() => {
+  var vis = function (e) { var r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+  var pw = 0, els = document.querySelectorAll('input[type="password"]');
+  for (var i = 0; i < els.length; i++) if (vis(els[i])) pw++;
+  var ctrls = 0, cs = document.querySelectorAll('button, a[href], input:not([type=hidden]), select, [role=button], [role=tab]');
+  for (var j = 0; j < cs.length; j++) if (vis(cs[j])) ctrls++;
+  return pw >= 1 && ctrls < 8;
+}`;
+
+type Resolved = { selector: string | null; label: string };
+
+function evalCall<T>(page: Page, src: string, ...args: number[]): Promise<T> {
+  return page.evaluate(`(${src})(${args.join(",")})`) as Promise<T>;
+}
+
+export function isLoginGated(page: Page): Promise<boolean> {
+  return evalCall<boolean>(page, GATED_SRC);
+}
+
+// ── Anthropic computer-use plumbing (adapted from record-helper-src.ts) ─────────
+
+type Block = { type: string; [k: string]: unknown };
+type Msg = { role: "user" | "assistant"; content: Block[] };
+type CUInput = {
+  action?: string;
+  coordinate?: number[];
+  start_coordinate?: number[];
+  text?: string;
+  duration?: number;
+  scroll_amount?: number;
+  scroll_direction?: string;
+};
+
+async function shot(page: Page): Promise<string> {
+  const buf = await page.screenshot({ type: "jpeg", quality: 70 });
+  return buf.toString("base64");
+}
+
+async function callClaude(messages: Msg[], apiKey: string): Promise<{ content: Block[] }> {
+  const body = JSON.stringify({
+    model: EXPLORE_MODEL,
+    max_tokens: 1024,
+    system: SYSTEM_PROMPT,
+    tools: [
+      {
+        type: "computer_20250124",
+        name: "computer",
+        display_width_px: VIEW_W,
+        display_height_px: VIEW_H,
+        display_number: 1,
+        // Static cache anchor: tools + system never change across the loop.
+        cache_control: { type: "ephemeral" },
+      },
+    ],
+    messages,
+  });
+  let attempt = 0;
+  while (true) {
+    let res: Response;
+    try {
+      res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+          "anthropic-beta": "computer-use-2025-01-24",
+        },
+        body,
+      });
+    } catch (netErr) {
+      if (attempt < 4) {
+        const waitMs = Math.min(15000, 2000 * Math.pow(2, attempt));
+        console.error(`anthropic fetch error — retry in ${waitMs}ms`);
+        await sleep(waitMs);
+        attempt++;
+        continue;
+      }
+      throw new Error(`anthropic fetch failed: ${netErr instanceof Error ? netErr.message : netErr}`);
+    }
+    if (res.ok) return (await res.json()) as { content: Block[] };
+    const text = await res.text().catch(() => "");
+    const retriable = res.status === 429 || res.status === 529 || res.status >= 500;
+    if (retriable && attempt < 4) {
+      const ra = parseFloat(res.headers.get("retry-after") || "");
+      const waitMs = Number.isFinite(ra)
+        ? Math.min(20000, ra * 1000)
+        : Math.min(15000, 2000 * Math.pow(2, attempt));
+      console.error(`anthropic ${res.status} — retry in ${waitMs}ms`);
+      await sleep(waitMs);
+      attempt++;
+      continue;
+    }
+    throw new Error(`anthropic ${res.status}: ${text.slice(0, 300)}`);
+  }
+}
+
+// Append-only prompt caching: re-anchor the fixed head prefix (survives the 5-min
+// TTL) and roll a tail breakpoint over the whole conversation. (tools carries its
+// own static cache_control, so this stays within the 4-breakpoint max.)
+function applyCache(messages: Msg[]): void {
+  for (const m of messages) {
+    if (!Array.isArray(m.content)) continue;
+    for (const b of m.content) {
+      const blk = b as Record<string, unknown>;
+      if (blk.cache_control) delete blk.cache_control;
+    }
+  }
+  const setBreak = (m: Msg | undefined) => {
+    if (m && Array.isArray(m.content) && m.content.length) {
+      (m.content[m.content.length - 1] as Record<string, unknown>).cache_control = { type: "ephemeral" };
+    }
+  };
+  setBreak(messages[0]);
+  setBreak(messages[messages.length - 1]);
+}
+
+// ── Action execution → Script trace ─────────────────────────────────────────────
+
+const ACTION_PACING_MS = 420; // let the UI settle before the next observation
+const TYPE_DELAY_MS = 40;
+
+const clampX = (n: number) => Math.max(0, Math.min(VIEW_W - 1, Math.round(n)));
+const clampY = (n: number) => Math.max(0, Math.min(VIEW_H - 1, Math.round(n)));
+
+function mapKey(k: string): string {
+  const m: Record<string, string> = {
+    return: "Enter", enter: "Enter", esc: "Escape", escape: "Escape", tab: "Tab",
+    space: "Space", backspace: "Backspace", delete: "Delete",
+    up: "ArrowUp", down: "ArrowDown", left: "ArrowLeft", right: "ArrowRight",
+    page_down: "PageDown", page_up: "PageUp", home: "Home", end: "End",
+  };
+  return m[k.toLowerCase()] || k;
+}
+
+const CLICKS = new Set(["left_click", "right_click", "middle_click", "double_click", "triple_click"]);
+const INTERACTIONS = new Set([...CLICKS, "type", "key", "left_click_drag"]);
+
+export type ExploreResult = Script & { steps: number; interactions: number };
+
+export async function explore(page: Page): Promise<ExploreResult> {
+  const apiKey = process.env.ANTHROPIC_API_KEY || "";
+  if (!apiKey) throw new Error("ANTHROPIC_API_KEY not set (.env.local)");
+
+  const actions: ScriptAction[] = [];
+  const state = { x: Math.floor(VIEW_W / 2), y: Math.floor(VIEW_H / 2) };
+
+  // Run one computer-use action on the live page, recording the resulting Script
+  // action (with a resolved selector + coordinate fallback). Returns whether it
+  // counted as a real interaction (for the min-interactions floor).
+  async function perform(input: CUInput): Promise<boolean> {
+    const action = input.action || "";
+    const coord = input.coordinate;
+    if (Array.isArray(coord) && coord.length === 2) {
+      state.x = clampX(coord[0]);
+      state.y = clampY(coord[1]);
+    }
+
+    if (CLICKS.has(action)) {
+      const { selector, label } = await evalCall<Resolved>(page, SELECTOR_SRC, state.x, state.y);
+      const button = action === "right_click" ? "right" : action === "middle_click" ? "middle" : "left";
+      const clickCount = action === "double_click" ? 2 : action === "triple_click" ? 3 : 1;
+      await page.mouse.click(state.x, state.y, { button, clickCount });
+      actions.push({ kind: "click", selector: selector ?? "", x: state.x, y: state.y, label });
+      return true;
+    }
+
+    switch (action) {
+      case "type": {
+        const text = String(input.text || "");
+        const { selector, label } = await evalCall<Resolved>(page, ACTIVE_SRC);
+        const prev = actions[actions.length - 1];
+        // Merge a "click field → type" pair into one type action: replay's type
+        // already approaches+clicks the field, so the standalone click is redundant.
+        if (prev && prev.kind === "click" && (selector === null || prev.selector === selector)) {
+          actions[actions.length - 1] = {
+            kind: "type",
+            selector: selector ?? prev.selector,
+            text,
+            x: prev.x,
+            y: prev.y,
+            label: prev.label ?? label,
+          };
+        } else {
+          actions.push({ kind: "type", selector: selector ?? "", text, x: state.x, y: state.y, label });
+        }
+        await page.keyboard.type(text, { delay: TYPE_DELAY_MS });
+        return true;
+      }
+      case "key": {
+        const k = String(input.text || "");
+        if (/(^|\+)(return|enter)$/i.test(k)) {
+          const prev = actions[actions.length - 1];
+          if (prev && prev.kind === "type") prev.submit = true;
+          await page.keyboard.press("Enter");
+        } else if (/esc/i.test(k)) {
+          await page.keyboard.press("Escape"); // transient (dismiss) — not scripted
+        } else {
+          await page.keyboard.press(mapKey(k));
+        }
+        return true;
+      }
+      case "scroll": {
+        const amt = (input.scroll_amount || 3) * 100;
+        const dir = input.scroll_direction || "down";
+        const dy = dir === "up" ? -amt : dir === "down" ? amt : 0;
+        const dx = dir === "left" ? -amt : dir === "right" ? amt : 0;
+        await page.mouse.wheel(dx, dy);
+        if (dy) actions.push({ kind: "scroll", dy });
+        return false;
+      }
+      case "left_click_drag": {
+        const s =
+          Array.isArray(input.start_coordinate) && input.start_coordinate.length === 2
+            ? [clampX(input.start_coordinate[0]), clampY(input.start_coordinate[1])]
+            : [state.x, state.y];
+        await page.mouse.move(s[0], s[1]);
+        await page.mouse.down();
+        await page.mouse.move(state.x, state.y, { steps: 18 });
+        await page.mouse.up();
+        return true;
+      }
+      case "mouse_move":
+        await page.mouse.move(state.x, state.y);
+        return false;
+      case "wait":
+        await sleep(Math.min(2500, (input.duration || 1) * 1000));
+        return false;
+      default:
+        return false; // screenshot, cursor_position, unknown → just re-observe
+    }
+  }
+
+  const messages: Msg[] = [
+    {
+      role: "user",
+      content: [
+        {
+          type: "text",
+          text:
+            "The web app is open and ready (screenshot below). Do a short, polished READ-ONLY product " +
+            "demo by interacting with its main features. Begin now.",
+        },
+        { type: "image", source: { type: "base64", media_type: "image/jpeg", data: await shot(page) } },
+      ],
+    },
+  ];
+
+  const started = Date.now();
+  let steps = 0;
+  let interactions = 0;
+  let reprompts = 0;
+  while (steps < EXPLORE_MAX_STEPS && Date.now() - started < EXPLORE_MAX_MS) {
+    applyCache(messages);
+    const resp = await callClaude(messages, apiKey);
+    messages.push({ role: "assistant", content: resp.content || [] });
+    const toolUses = (resp.content || []).filter((b) => b && b.type === "tool_use") as Array<
+      Block & { id: string; input?: CUInput }
+    >;
+
+    if (!toolUses.length) {
+      if (reprompts < EXPLORE_MAX_REPROMPTS && interactions < EXPLORE_MIN_INTERACTIONS) {
+        reprompts++;
+        messages.push({ role: "user", content: [{ type: "text", text: REPROMPT_TEXT }] });
+        continue; // re-ask without consuming a step
+      }
+      break; // explore complete
+    }
+
+    const results: Block[] = [];
+    for (const tu of toolUses) {
+      const act = tu.input?.action;
+      try {
+        const wasInteraction = await perform(tu.input || {});
+        if (wasInteraction && act && INTERACTIONS.has(act)) interactions++;
+      } catch (e) {
+        console.error("explore action error", act, e instanceof Error ? e.message : e);
+      }
+      await sleep(ACTION_PACING_MS);
+      results.push({
+        type: "tool_result",
+        tool_use_id: tu.id,
+        content: [{ type: "image", source: { type: "base64", media_type: "image/jpeg", data: await shot(page) } }],
+      });
+    }
+    messages.push({ role: "user", content: results });
+    steps++;
+  }
+
+  return {
+    actions,
+    loginGated: false,
+    notes: `explore: ${steps} steps, ${interactions} interactions, ${reprompts} reprompts`,
+    steps,
+    interactions,
+  };
+}

@@ -3,12 +3,16 @@
 // it from a read-only computer-use pass. Selectors should be stable
 // (data-testid > role+name > stable text > short CSS); replay.ts recomputes live
 // positions from them each frame so moving/relaid-out elements still work.
+// `x`/`y` are the logical-px coordinates the action was observed at during explore
+// (same 1280×720 space replay records in). Selector is primary — replay recomputes
+// the live position from it each frame — but a coordinate fallback keeps replay
+// robust when an explore-derived selector doesn't resolve on the reset page.
 export type ScriptAction =
-  | { kind: "click"; selector: string; label?: string }
-  | { kind: "type"; selector: string; text: string; submit?: boolean; label?: string }
+  | { kind: "click"; selector: string; x?: number; y?: number; label?: string }
+  | { kind: "type"; selector: string; text: string; submit?: boolean; x?: number; y?: number; label?: string }
   | { kind: "scroll"; dy: number }
   // M1 (explore) emits these; replay handles them then.
-  | { kind: "hover"; selector: string }
+  | { kind: "hover"; selector: string; x?: number; y?: number }
   | { kind: "dismiss"; selector: string };
 
 export type Script = {

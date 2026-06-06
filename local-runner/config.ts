@@ -1,5 +1,11 @@
 // Static configuration for the local (M5) recording worker.
 //
+// Loads .env.local once at import time (Node ≥20.12 ships process.loadEnvFile).
+// Resolved from this file's location, not cwd, so the worker runs from anywhere.
+// Harmless for M0 (which needs no keys); M1+ reads ANTHROPIC_API_KEY / Supabase
+// service-role from here. Lazy reads (inside functions) are still preferred for
+// keys so import-order can never strand a value.
+//
 // Hardware facts verified on this machine (2026-06-06):
 //   - Apple M5 / 16GB / macOS 26.4.1
 //   - Built-in Liquid Retina, scaled "looks like" 1470×956, NATIVE 2x.
@@ -10,6 +16,14 @@
 //      constant, so a different display/scale still works — see record.ts.)
 //   - ffmpeg 8.1.1 with videotoolbox (hardware H.264 encode) + libx264.
 //   - System Chrome present at /Applications/Google Chrome.app => channel:"chrome".
+import { fileURLToPath } from "node:url";
+
+try {
+  // path arg => independent of the process working directory
+  process.loadEnvFile(fileURLToPath(new URL("../.env.local", import.meta.url)));
+} catch {
+  // missing .env.local is fine for paths that don't need keys (M0)
+}
 
 // avfoundation video input index for the main display screen-capture device.
 export const SCREEN_DEVICE_INDEX = 2;
@@ -68,3 +82,23 @@ export const INTRO_MS = 3000;
 
 // Tail: hold the final state at 1x before stopping the recording.
 export const TAIL_MS = 1100;
+
+// ── Explore (M1) ────────────────────────────────────────────────────────────────
+
+// Computer-use model. 4.6/4.8 don't expose the computer tool yet; the latest
+// computer-use-capable Sonnet is the floor here (mirrors the E2B path's MODEL).
+export const EXPLORE_MODEL = process.env.DEMO_CU_MODEL || "claude-sonnet-4-5";
+
+// Hard cap on agent turns during the read-only explore pass (cost guard). Explore
+// is NOT recorded, so steps don't affect clip length — only API cost.
+export const EXPLORE_MAX_STEPS = 14;
+
+// Floor: re-prompt rather than accept a demo that touched fewer real interactions
+// than this (a scroll-only / one-click pass isn't worth shipping).
+export const EXPLORE_MIN_INTERACTIONS = 4;
+
+// Bounded re-prompts when the agent ends early (too few interactions).
+export const EXPLORE_MAX_REPROMPTS = 2;
+
+// Wall-clock budget for the whole explore loop (cost + hang guard).
+export const EXPLORE_MAX_MS = 4 * 60_000;

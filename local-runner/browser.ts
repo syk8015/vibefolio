@@ -27,7 +27,12 @@ export async function launchChromium(): Promise<Browser> {
       // VIEW_H; the exact size is set precisely via CDP after launch.
       `--window-size=${VIEW_W},${VIEW_H + 160}`,
       "--hide-scrollbars",
-      "--disable-features=Translate,InfobarsBarsMessage",
+      // Translate AND TranslateUI: the former disables the engine, but the little
+      // "영어/한국어" bubble (TranslateUI) still popped into the top-right of the
+      // capture when the Chrome UI locale differs from the page language. Context
+      // locale:"en-US" (newRecordingPage) stops the offer firing for English pages.
+      "--disable-features=Translate,TranslateUI,InfobarsBarsMessage",
+      "--lang=en-US",
       "--disable-infobars",
       "--no-first-run",
       "--no-default-browser-check",
@@ -50,9 +55,11 @@ export async function newRecordingPage(
   browser: Browser,
   storageState?: StorageState,
 ): Promise<{ context: BrowserContext; page: Page }> {
-  const context = await browser.newContext(
-    storageState ? { viewport: null, storageState } : { viewport: null },
-  );
+  const context = await browser.newContext({
+    viewport: null,
+    locale: "en-US", // matches the page language → no Translate offer in the capture
+    ...(storageState ? { storageState } : {}),
+  });
   const page = await context.newPage();
   await page.bringToFront();
   return { context, page };

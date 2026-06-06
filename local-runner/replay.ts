@@ -24,6 +24,29 @@ async function centerOf(loc: Locator): Promise<Pt> {
   return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
 }
 
+// Selector-first, coordinate-fallback target resolution. The selector is primary
+// (recomputes the live position so relaid-out elements still work); when an
+// explore-derived selector doesn't resolve on the reset page, we fall back to the
+// logical-px coordinate explore observed (same 1280×720 space). M0's hand-written
+// selector-only scripts always hit the selector path.
+async function resolveTarget(
+  page: Page,
+  act: { selector?: string; x?: number; y?: number },
+): Promise<Pt> {
+  if (act.selector) {
+    try {
+      const loc = page.locator(act.selector).first();
+      await loc.waitFor({ state: "visible", timeout: 7000 });
+      return await centerOf(loc);
+    } catch (e) {
+      if (act.x === undefined || act.y === undefined) throw e;
+      console.error(`selector "${act.selector}" failed; using coordinate fallback`);
+    }
+  }
+  if (act.x !== undefined && act.y !== undefined) return { x: act.x, y: act.y };
+  throw new Error("action has neither a resolvable selector nor a coordinate fallback");
+}
+
 // Glide the synthetic cursor to `to`, scheduling a preview push-in for long static
 // jumps. Skips entirely when the target is essentially where we already are.
 async function approach(page: Page, cam: CameraTrack, to: Pt): Promise<void> {
@@ -63,10 +86,9 @@ async function runAction(page: Page, cam: CameraTrack, act: ScriptAction): Promi
     return;
   }
   if (act.kind === "hover") {
-    const loc = page.locator(act.selector).first();
-    await loc.waitFor({ state: "visible", timeout: 8000 });
-    await approach(page, cam, await centerOf(loc));
-    await page.mouse.move((await centerOf(loc)).x, (await centerOf(loc)).y);
+    const to = await resolveTarget(page, act);
+    await approach(page, cam, to);
+    await page.mouse.move(to.x, to.y);
     await sleep(HOLD_MS);
     return;
   }
@@ -77,9 +99,7 @@ async function runAction(page: Page, cam: CameraTrack, act: ScriptAction): Promi
   }
 
   // click | type
-  const loc = page.locator(act.selector).first();
-  await loc.waitFor({ state: "visible", timeout: 8000 });
-  const to = await centerOf(loc);
+  const to = await resolveTarget(page, act);
   await approach(page, cam, to);
   await revealAndClick(page, cam, to);
 
