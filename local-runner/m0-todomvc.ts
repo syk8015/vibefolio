@@ -1,7 +1,7 @@
 // M0 — mechanism check (plan §8). Drives the full local pipeline against TodoMVC:
 //   launch headed GPU Chrome → inject synthetic cursor → record (avfoundation,
-//   real-time 60fps) → intro → one-take replay (ease cursor + new "예고→결과" zoom)
-//   → post-process zoompan → demo.mp4 + contact sheet + report.
+//   real-time 60fps) → intro → one-take replay (ease cursor + cursor-centered
+//   hold-zoom) → post-process zoompan(+pad) → demo.mp4 + contact sheet + report.
 //
 // Run: npx -y tsx local-runner/m0-todomvc.ts
 //

@@ -30,12 +30,13 @@ export const TODOMVC_URL = "https://todomvc.com/examples/react/dist/";
 // ONLY straight-line jumps ≥ VIEW_H/2 (=360px, the zoom threshold) are between the
 // top input (~790,163) and a BOTTOM todo's checkbox (~535,520+). Toggle→toggle and
 // the filter bar are short, and filters reflow the list (moving targets), so we
-// avoid them: a stable "input ↔ bottom checkbox" axis exercises the new preview→
-// reveal zoom honestly (push-in finishes on arrival, pull-out lands the click at
-// 1x), interleaved with one short hop for no-zoom contrast.
+// avoid them: a stable "input ↔ bottom checkbox" axis exercises the cursor-centered
+// hold-zoom honestly (push-in on a far jump → click AT the held zoom, cursor
+// centered; a short adjacent hop pans without re-zooming), interleaved with one
+// short hop for no-zoom contrast. The camera pulls out only on a far jump / the end.
 export const TODOMVC_SCRIPT: Script = {
   loginGated: false,
-  notes: "M0 mechanism check: real-time capture, ease cursor, new 예고→결과 zoom.",
+  notes: "M0 mechanism check: real-time capture, ease cursor, cursor-centered hold-zoom.",
   actions: [
     // Build a 6-item list — same input, so 2–6 are zero-distance (type only, no
     // zoom). Todo 1 is a short glide from center (248px < 360 → no zoom).
@@ -45,13 +46,13 @@ export const TODOMVC_SCRIPT: Script = {
     { kind: "type", selector: ".new-todo", text: "Polish the empty state", submit: true },
     { kind: "type", selector: ".new-todo", text: "Write the release notes", submit: true },
     { kind: "type", selector: ".new-todo", text: "Ship to production", submit: true },
-    // input → bottom checkbox (442px) → ZOOM. Reveal: todo 6 checked, at 1x.
+    // input → bottom checkbox (442px) → push IN (enter region); click #6 at zoom.
     { kind: "click", selector: ".todo-list li:nth-child(6) .toggle", label: "complete #6 (zoom)" },
-    // bottom → adjacent checkbox (58px) → no zoom (contrast). Reveal: todo 5 checked.
-    { kind: "click", selector: ".todo-list li:nth-child(5) .toggle", label: "complete #5 (short)" },
-    // back up to the input (396px) → ZOOM. Reveal: a 7th todo typed in, at 1x.
-    { kind: "type", selector: ".new-todo", text: "Tell a friend", submit: true, label: "add #7 (zoom)" },
-    // input → new bottom checkbox (490px) → ZOOM. Reveal: todo 7 checked, at 1x.
-    { kind: "click", selector: ".todo-list li:nth-child(7) .toggle", label: "complete #7 (zoom)" },
+    // bottom → adjacent checkbox (58px) → PAN, hold zoom (cursor stays centered).
+    { kind: "click", selector: ".todo-list li:nth-child(5) .toggle", label: "complete #5 (pan)" },
+    // back up to the input (~405px) → PAN at held zoom; type the 7th todo in close-up.
+    { kind: "type", selector: ".new-todo", text: "Tell a friend", submit: true, label: "add #7 (pan)" },
+    // input → new bottom checkbox (490px) → region change: pull out → push back in.
+    { kind: "click", selector: ".todo-list li:nth-child(7) .toggle", label: "complete #7 (re-zoom)" },
   ],
 };

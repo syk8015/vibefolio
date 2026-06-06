@@ -3,16 +3,28 @@
 // The zoom is applied in POST (ffmpeg zoompan on the flat capture), never in the
 // DOM — so page layout (fixed/sticky headers, modals) is never distorted and
 // clicks map 1:1. This module owns two things:
-//   1. CameraEvent + buildZoomFilter  — COPIED verbatim from
-//      src/trigger/build-and-record.ts:154-271 (trap E: importing it would drag
-//      the whole e2b/trigger/RECORD_HELPER_SRC graph into this lightweight worker).
-//      The filter is unchanged and already unit-tested (scripts/test-zoom-filter.mts);
-//      only WHEN/HOW we emit events differs.
-//   2. CameraTrack — the NEW "예고 → 결과" (preview → reveal) zoom spec the user
-//      specified (2026-06-05), replacing the rejected v2 held-zoom/pan behaviour.
+//   1. CameraEvent + buildZoomFilter  — the zoompan expression builder. Forked
+//      from src/trigger/build-and-record.ts (trap E: importing it would drag the
+//      whole e2b/trigger graph into this lightweight worker). DIVERGED from the
+//      E2B copy: the x/y framing now supports CENTER_BIAS (cursor-centered crop +
+//      pad margin), so do NOT re-sync it verbatim.
+//   2. CameraTrack — the "cursor-centered hold-zoom" policy (user 2026-06-07):
+//      push in once on region ENTRY, then hold the zoom and pan the focal so the
+//      cursor stays screen-centered, pulling out only on a far jump or the end.
 import { FPS } from "./config";
+import {
+  ZOOM_MIN,
+  ZOOM_MAX,
+  ZOOM_ENTER_DIST,
+  ZOOM_FAR_DIST,
+  ZOOM_REGION_PX,
+  ZOOM_OUT_MS,
+  EDGE_SAFE_PX,
+  EDGE_MIN_FACTOR,
+  ZOOM_FLOOR,
+} from "./config";
 
-// ── CameraEvent + buildZoomFilter (copied; do not edit independently) ─────────
+// ── CameraEvent + buildZoomFilter ─────────────────────────────────────────────
 
 // One keyframe of the cinematic camera: starting at frame `startFrame`, over
 // `durMs`, ease the zoom from `fromZoom`→`toZoom` AND the focal point from
@@ -20,9 +32,8 @@ import { FPS } from "./config";
 // zoom with a moving focal = a PAN; constant focal with changing zoom = a
 // push-in/out. Expanded into an ffmpeg zoompan by buildZoomFilter.
 // Easing for a segment's interpolation. "inout" = cubic ease-in-out (default,
-// matches the E2B path). "out" = ease-OUT cubic (fast start, gentle settle) —
-// used for the push-in so the zoom is clearly growing from early in the cursor's
-// travel rather than back-loaded near arrival. "in" = ease-in cubic.
+// and what the synthetic cursor uses — so a focal PAN tracks the cursor exactly).
+// "out"/"in" remain available for hand-tuned moves.
 export type Ease = "inout" | "out" | "in";
 
 export type CameraEvent = {
@@ -42,18 +53,26 @@ export type CameraEvent = {
 // downscaled to 720 afterwards, which (with lanczos) hides most zoompan sub-pixel
 // shimmer.
 //
-// Math: to keep the focal point (fx,fy) fixed on screen while zooming by z, the
-// crop window (iw/z × ih/z) top-left must be x=fx·(1−1/z), y=fy·(1−1/z), clamped
-// to the frame. zoompan exposes `zoom` and iw/ih in the x/y expressions, so x/y
-// track z automatically and only the focal needs to be piecewise. Returns "" when
-// there are no events.
+// Framing math (two modes, blended by `centerBias` ∈ [0,1]):
+//   proportional (bias 0): the focal keeps its RELATIVE position in the frame as
+//     it zooms — top-left x = fx·(1−1/z). No out-of-bounds risk; corners cramp.
+//   centered (bias 1): the focal is pinned to the screen CENTER — top-left x =
+//     fx − (iw/z)/2. Needs head-room (a padded canvas) or it clamps at edges.
+// The crop window is iw/z × ih/z; x/y are clamped to the frame so zoompan never
+// references pixels outside it. Returns "" when there are no events.
 export function buildZoomFilter(
   events: CameraEvent[],
   fps: number,
   w: number,
   h: number,
+  opts: { centerBias?: number; baseZoom?: number } = {},
 ): string {
   if (!events.length) return "";
+  const B = opts.centerBias ?? 0;
+  // The state for un-keyframed frames (the intro hold, gaps, and the tail). With a
+  // pad margin this is NOT 1 (= whole padded canvas incl. all margin) but padScale
+  // (= the window region fills the frame). focal defaults to center either way.
+  const baseZoom = opts.baseZoom ?? 1;
 
   // Non-overlapping segments tiling the timeline. Each segment eases zoom + focal
   // from a start state to an end state (a "hold" is start===end). zoom and both
@@ -70,7 +89,7 @@ export function buildZoomFilter(
   const cx = Math.round(w / 2);
   const cy = Math.round(h / 2);
   let prevEnd = 0;
-  let pz = 1;
+  let pz = baseZoom;
   let pfx = cx;
   let pfy = cy;
   const sorted = [...events].sort((p, q) => p.startFrame - q.startFrame);
@@ -112,8 +131,8 @@ export function buildZoomFilter(
   };
 
   // Nested if() over segments, built end-first so the innermost else is the default
-  // (z=1, focal=center → a whole-frame no-op crop).
-  let zExpr = "1";
+  // (z=baseZoom, focal=center → the window region fills the frame).
+  let zExpr = String(baseZoom);
   let fxExpr = String(cx);
   let fyExpr = String(cy);
   for (let i = segs.length - 1; i >= 0; i--) {
@@ -125,115 +144,150 @@ export function buildZoomFilter(
     fyExpr = `if(${cond},${easeSeg(s.a, s.fy[0], s.fy[1], dur, s.ease)},${fyExpr})`;
   }
 
-  // Clamp x/y so the zoom window can never reference pixels outside the frame.
-  const xExpr = `max(0,min(iw-iw/zoom,(${fxExpr})*(1-1/zoom)))`;
-  const yExpr = `max(0,min(ih-ih/zoom,(${fyExpr})*(1-1/zoom)))`;
+  // Blend the proportional and centered top-left, then clamp so the crop window
+  // can never reference pixels outside the frame. B=0 → proportional (legacy);
+  // B=1 → centered (cursor pinned to screen center, relies on the pad margin).
+  const xCore = `((${fxExpr})*(1-1/zoom)*(1-${B})+((${fxExpr})-iw/(2*zoom))*${B})`;
+  const yCore = `((${fyExpr})*(1-1/zoom)*(1-${B})+((${fyExpr})-ih/(2*zoom))*${B})`;
+  const xExpr = `max(0,min(iw-iw/zoom,${xCore}))`;
+  const yExpr = `max(0,min(ih-ih/zoom,${yCore}))`;
 
   return `zoompan=z='${zExpr}':x='${xExpr}':y='${yExpr}':d=1:s=${w}x${h}:fps=${fps}`;
 }
 
-// ── New "예고 → 결과" zoom spec (CameraTrack) ─────────────────────────────────
-
-// Zoom magnitude. 2.0 on a native-2× capture (2560×1440) means the push-in crops
-// to exactly 1280×720 → 720p output 1:1, i.e. NO upscaling at peak zoom (crisper
-// than 1.32 ever was). User 2026-06-06: bump to 2×.
-export const ZOOM_LEVEL = 2.0;
-// Push-in BEGINS once the cursor is ~1/5 into its glide (user 2026-06-06: the old
-// fixed-600ms-before-arrival started the zoom too late — it only kicked in near
-// the destination). It still COMPLETES exactly on arrival, so its duration scales
-// with the glide (= 80% of it).
-export const ZOOM_IN_START_FRAC = 0.2;
-// Pull-out lasts this long and COMPLETES exactly as the click lands (→ 1x reveal).
-export const ZOOM_OUT_MS = 460;
+// ── Cursor glide speed ────────────────────────────────────────────────────────
 
 // Cursor glide is slowed to ~60% speed (user spec 2026-06-05): a longer, calmer
-// approach. The push-in begins partway into the glide (ZOOM_IN_START_FRAC) and
-// finishes on arrival, so a slower glide naturally lengthens the zoom too.
+// approach. The camera zoom/pan rides the SAME glide window, so a slower glide
+// naturally lengthens the camera move too.
 export const CURSOR_SLOWDOWN = 1.67; // 1 / 0.6
 
 // Glide duration as a function of straight-line travel distance (logical px),
-// with the 60% slowdown baked in. Far moves land ~1.0–1.5s (room for the 600ms
-// push-in + a "short wait"); tiny moves still take ~0.6s so motion reads.
+// with the 60% slowdown baked in. Far moves land ~1.0–1.5s; tiny moves still take
+// ~0.6s so motion reads.
 export function glideMsFor(dist: number): number {
   const base = 320 + dist * 0.9; // px → ms, pre-slowdown
   return Math.round(Math.min(900, Math.max(260, base)) * CURSOR_SLOWDOWN);
 }
 
-type Pt = { x: number; y: number };
+// ── Cursor-centered hold-zoom policy (CameraTrack) ────────────────────────────
 
-// Builds the CameraEvent track during a one-take replay. State machine: at 1x we
-// may push IN toward a far static target (preview), then pull OUT to land the
-// click at 1x (reveal). Frame indices are wall-clock relative to the recording's
+type Pt = { x: number; y: number };
+const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
+
+// Builds the CameraEvent track during a one-take replay. Invariant: whenever the
+// logical zoom is 1×, the focal is the viewport CENTER (so 1× always frames the
+// whole window); whenever zoomed, the focal is the cursor/target (kept centered by
+// the post CENTER_BIAS). Frame indices are wall-clock relative to the recording's
 // frame-0 (trap C).
 export class CameraTrack {
   readonly events: CameraEvent[] = [];
   private z = 1;
-  private cursor: Pt;
-  private focal: Pt;
-  private readonly distThreshold: number;
+  private focal: Pt; // camera center (logical); === center while at 1×
+  private readonly center: Pt;
 
   constructor(
     private readonly recStartTime: number, // wall-clock (ms) of raw frame 0
-    viewW: number,
-    viewH: number,
+    private readonly viewW: number,
+    private readonly viewH: number,
   ) {
-    this.cursor = { x: viewW / 2, y: viewH / 2 };
-    this.focal = { x: viewW / 2, y: viewH / 2 };
-    // "직선 이동거리 ≥ 뷰포트 세로의 절반" → push-in only on long jumps.
-    this.distThreshold = viewH * 0.5;
+    this.center = { x: viewW / 2, y: viewH / 2 };
+    this.focal = { ...this.center };
   }
 
   private frameOf(wallMs: number): number {
     return Math.max(0, Math.round(((wallMs - this.recStartTime) / 1000) * FPS));
   }
 
-  // Call the instant the cursor starts gliding toward `target` (logical px).
-  // Schedules a push-in (focal = target) that COMPLETES at arrival, iff the
-  // target is static and the jump is long. Returns whether a zoom-in was emitted.
-  onMoveStart(target: Pt, glideMs: number, moving: boolean): boolean {
-    const dist = Math.hypot(target.x - this.cursor.x, target.y - this.cursor.y);
-    this.cursor = { ...target }; // the glide ends here
-    if (moving) return false; // moving target → no zoom (§4.2; M0 has none)
-    if (this.z !== 1) return false; // already zoomed (shouldn't happen in-sequence)
-    if (dist < this.distThreshold) return false; // small move → stay at 1x
-
-    const startOffset = ZOOM_IN_START_FRAC * glideMs; // begin ~1/5 into the travel
-    this.events.push({
-      startFrame: this.frameOf(Date.now() + startOffset),
-      durMs: glideMs - startOffset, // …and finish exactly ON arrival
-      fromZoom: 1,
-      toZoom: ZOOM_LEVEL,
-      fromFocalX: target.x,
-      fromFocalY: target.y,
-      toFocalX: target.x,
-      toFocalY: target.y,
-      // ease-OUT: the zoom grows fast right after it starts (tracking the cursor's
-      // travel) and settles gently into peak on arrival — not back-loaded near the
-      // end like in-out, which read as "the zoom only starts once the cursor lands".
-      ease: "out",
-    });
-    this.z = ZOOM_LEVEL;
-    this.focal = { ...target };
-    return true;
+  isZoomed(): boolean {
+    return this.z > 1.001;
   }
 
-  // Call right before the click is dispatched. If currently zoomed, emits a
-  // pull-out that STARTS now and completes in ZOOM_OUT_MS — the caller then waits
-  // that long and clicks, so the click lands exactly at 1x (result revealed).
-  // Returns the ms to wait before clicking (0 when already at 1x).
-  onBeforeClick(): number {
-    if (this.z === 1) return 0;
+  // Dynamic zoom magnitude for a jump of `dist` landing on `target`: scales with
+  // distance (ZOOM_MIN→ZOOM_MAX over ZOOM_ENTER_DIST→ZOOM_FAR_DIST) and backs off
+  // toward viewport edges so a centered crop doesn't over-reveal the pad margin.
+  private zoomFor(dist: number, target: Pt): number {
+    const span = ZOOM_FAR_DIST - ZOOM_ENTER_DIST;
+    const t = clamp((dist - ZOOM_ENTER_DIST) / (span > 0 ? span : 1), 0, 1);
+    const base = ZOOM_MIN + (ZOOM_MAX - ZOOM_MIN) * t;
+    const edge = Math.min(
+      target.x, this.viewW - target.x, target.y, this.viewH - target.y,
+    );
+    const ef =
+      edge >= EDGE_SAFE_PX
+        ? 1
+        : EDGE_MIN_FACTOR + (1 - EDGE_MIN_FACTOR) * clamp(edge / EDGE_SAFE_PX, 0, 1);
+    return clamp(base * ef, ZOOM_FLOOR, ZOOM_MAX);
+  }
+
+  private emit(
+    startWall: number, durMs: number,
+    fromZoom: number, toZoom: number,
+    fromFocal: Pt, toFocal: Pt, ease: Ease = "inout",
+  ): void {
     this.events.push({
-      startFrame: this.frameOf(Date.now()),
-      durMs: ZOOM_OUT_MS,
-      fromZoom: this.z,
-      toZoom: 1,
-      fromFocalX: this.focal.x,
-      fromFocalY: this.focal.y,
-      toFocalX: this.focal.x,
-      toFocalY: this.focal.y,
+      startFrame: this.frameOf(startWall),
+      durMs,
+      fromZoom, toZoom,
+      fromFocalX: fromFocal.x, fromFocalY: fromFocal.y,
+      toFocalX: toFocal.x, toFocalY: toFocal.y,
+      ease,
     });
+  }
+
+  // Call the instant the cursor begins gliding from `from` to `target` over
+  // `glideMs` (logical px). The camera move rides the SAME window so it eases in
+  // lockstep with the synthetic cursor (both cubic in-out). No-op for tiny hops.
+  onApproach(from: Pt, target: Pt, glideMs: number, moving: boolean): void {
+    const dist = Math.hypot(target.x - from.x, target.y - from.y);
+    const now = Date.now();
+
+    if (moving) {
+      // Moving/relaid-out target: never commit the camera to it. Settle wide if we
+      // were zoomed so a shifting target can't desync the framing.
+      if (this.isZoomed()) {
+        this.emit(now, Math.min(ZOOM_OUT_MS, glideMs), this.z, 1, this.focal, this.center);
+        this.z = 1;
+        this.focal = { ...this.center };
+      }
+      return;
+    }
+
+    if (!this.isZoomed()) {
+      if (dist < ZOOM_ENTER_DIST) return; // short hop → stay wide
+      const Z = this.zoomFor(dist, target);
+      // Push in: 1× (whole window, focal=center) → Z (cursor-centered on target).
+      this.emit(now, glideMs, 1, Z, this.center, target);
+      this.z = Z;
+      this.focal = { ...target };
+      return;
+    }
+
+    // Already zoomed.
+    if (dist <= ZOOM_REGION_PX) {
+      // Same region → PAN at the held zoom; focal tracks the cursor, so it stays
+      // screen-centered for the whole glide.
+      this.emit(now, glideMs, this.z, this.z, this.focal, target);
+      this.focal = { ...target };
+      return;
+    }
+
+    // Region change → pull out to 1× over the first half of the glide (the far
+    // travel reads wide), then push back in to the new target over the rest.
+    const outMs = Math.min(ZOOM_OUT_MS, Math.max(1, Math.round(glideMs * 0.5)));
+    this.emit(now, outMs, this.z, 1, this.focal, this.center);
+    const Z = this.zoomFor(dist, target);
+    this.emit(now + outMs, Math.max(1, glideMs - outMs), 1, Z, this.center, target);
+    this.z = Z;
+    this.focal = { ...target };
+  }
+
+  // End of take: settle back to 1× so the final hold frames the whole window.
+  // Call after the last action, before the tail hold (which gives it frames).
+  finish(): void {
+    if (!this.isZoomed()) return;
+    this.emit(Date.now(), ZOOM_OUT_MS, this.z, 1, this.focal, this.center);
     this.z = 1;
-    return ZOOM_OUT_MS;
+    this.focal = { ...this.center };
   }
 }

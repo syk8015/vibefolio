@@ -47,25 +47,24 @@ async function resolveTarget(
   throw new Error("action has neither a resolvable selector nor a coordinate fallback");
 }
 
-// Glide the synthetic cursor to `to`, scheduling a preview push-in for long static
-// jumps. Skips entirely when the target is essentially where we already are.
+// Glide the synthetic cursor to `to`; the camera rides the same glide (push in on
+// region entry, pan while held, pull out on a far jump). Skips entirely when the
+// target is essentially where we already are.
 async function approach(page: Page, cam: CameraTrack, to: Pt): Promise<void> {
   const cur = (await cursorPos(page)) as Pt;
   const dist = Math.hypot(to.x - cur.x, to.y - cur.y);
   if (dist < SAME_PLACE_PX) return; // already here
   const glideMs = glideMsFor(dist);
-  cam.onMoveStart(to, glideMs, /* moving */ false); // emits zoom-in iff far
+  cam.onApproach(cur, to, glideMs, /* moving */ false);
   await page.mouse.move(to.x, to.y); // real cursor too (drives hover states)
   await cursorMoveTo(page, to.x, to.y, glideMs); // synthetic glide (awaits arrival)
 }
 
-// Dwell (so the zoomed target is seen), pull out, and click so the click lands at
-// 1x. cam.onBeforeClick returns 0 when we were never zoomed (→ just a small beat).
-async function revealAndClick(page: Page, cam: CameraTrack, to: Pt): Promise<void> {
-  await sleep(SETTLE_MS);
-  const waitMs = cam.onBeforeClick(); // schedules pull-out (or 0)
-  if (waitMs === 0) await sleep(PRECLICK_PAUSE_MS);
-  else await sleep(waitMs); // let the pull-out finish → frame is at 1x
+// Brief settle so the (centered) target is seen, then click. With the hold-zoom
+// policy the click lands AT the held zoom — no pull-out — so the result is revealed
+// in close-up; the camera only pulls out on a far jump (region change) or the end.
+async function settleAndClick(page: Page, cam: CameraTrack, to: Pt): Promise<void> {
+  await sleep(cam.isZoomed() ? SETTLE_MS : PRECLICK_PAUSE_MS);
   cursorPress(page); // ripple (fire-and-forget, overlaps the real click)
   await page.mouse.click(to.x, to.y);
 }
@@ -78,6 +77,7 @@ export async function replay(
   for (const act of script.actions) {
     await runAction(page, cam, act);
   }
+  cam.finish(); // settle to 1× so the tail hold frames the whole window
 }
 
 async function runAction(page: Page, cam: CameraTrack, act: ScriptAction): Promise<void> {
@@ -101,7 +101,7 @@ async function runAction(page: Page, cam: CameraTrack, act: ScriptAction): Promi
   // click | type
   const to = await resolveTarget(page, act);
   await approach(page, cam, to);
-  await revealAndClick(page, cam, to);
+  await settleAndClick(page, cam, to);
 
   if (act.kind === "type") {
     if (act.text) await page.keyboard.type(act.text, { delay: TYPE_DELAY_MS });

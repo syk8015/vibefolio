@@ -9,7 +9,7 @@
 // (getBoundingClientRect space) and are scaled to capture px here.
 import type { CameraEvent } from "./camera";
 import { buildZoomFilter } from "./camera";
-import { FPS, MAX_VIDEO_SEC } from "./config";
+import { FPS, MAX_VIDEO_SEC, PAD_FRAC, PAD_COLOR, CENTER_BIAS } from "./config";
 import { run, ffprobeValue } from "./util";
 
 export type PostInput = {
@@ -36,27 +36,43 @@ export async function postprocess(input: PostInput): Promise<{
   let vf: string;
   if (events.length) {
     // SUPERSAMPLE the native-2× raw by a further ×SS before zoompan. zoompan snaps
-    // its crop-window position to integer SOURCE pixels; at ZOOM_LEVEL 2 that
-    // stepping is telephoto-amplified into a visible shake (user 2026-06-06). At
-    // native 2× a step is 0.5 output px; ×2 more makes it 0.25 px → smooth. Cost is
-    // a ~4K zoompan (M5 handles it; see timeout below). Focal scales by DPR·SS.
+    // its crop-window position to integer SOURCE pixels; at ZOOM_MAX 2 that stepping
+    // is telephoto-amplified into a visible shake (user 2026-06-06). At native 2× a
+    // step is 0.5 output px; ×2 more makes it 0.25 px → smooth. Focal scales by DPR·SS.
     const SS = 2;
     const zw = rawW * SS;
     const zh = rawH * SS;
     const sx = (rawW / logicalW) * SS; // logical px → supersampled-capture px
     const sy = (rawH / logicalH) * SS;
+    // PAD a solid margin around the supersampled capture so a cursor-CENTERED crop
+    // (CENTER_BIAS) near an edge pans into the margin instead of clamping. padX/Y is
+    // per side; padded canvas = ~1.5× (8K on the M5 — benchmarked ~36s for a 30s
+    // clip, well under the timeout). padScale makes logical z=1 crop exactly the
+    // WINDOW region back out of the padded frame, and the window center == padded
+    // center, so the camera's z=1/focal=center invariant frames the whole window.
+    const padX = Math.round(zw * PAD_FRAC);
+    const padY = Math.round(zh * PAD_FRAC);
+    const pw = zw + 2 * padX;
+    const ph = zh + 2 * padY;
+    const padScale = pw / zw;
     const scaled = events.map((e) => ({
       ...e,
-      fromFocalX: e.fromFocalX * sx,
-      toFocalX: e.toFocalX * sx,
-      fromFocalY: e.fromFocalY * sy,
-      toFocalY: e.toFocalY * sy,
+      fromZoom: e.fromZoom * padScale,
+      toZoom: e.toZoom * padScale,
+      fromFocalX: e.fromFocalX * sx + padX,
+      toFocalX: e.toFocalX * sx + padX,
+      fromFocalY: e.fromFocalY * sy + padY,
+      toFocalY: e.toFocalY * sy + padY,
     }));
-    const zoom = buildZoomFilter(scaled, FPS, zw, zh);
+    const zoom = buildZoomFilter(scaled, FPS, pw, ph, {
+      centerBias: CENTER_BIAS,
+      baseZoom: padScale, // un-keyframed frames frame the window, not the whole pad
+    });
     // No fade-IN: the raw is bright from frame 0 (verified), so a fade-in just
     // opens on black before the intro hold (user 2026-06-06). Keep the fade-OUT.
     vf =
-      `scale=${zw}:${zh}:flags=lanczos,${zoom},` +
+      `scale=${zw}:${zh}:flags=lanczos,` +
+      `pad=${pw}:${ph}:${padX}:${padY}:color=${PAD_COLOR},${zoom},` +
       `scale=-2:720:flags=lanczos,fade=t=out:st=${fadeOutStart}:d=0.5`;
   } else {
     vf = `scale=-2:720:flags=lanczos,fade=t=out:st=${fadeOutStart}:d=0.5`;

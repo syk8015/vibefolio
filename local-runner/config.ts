@@ -83,6 +83,52 @@ export const INTRO_MS = 3000;
 // Tail: hold the final state at 1x before stopping the recording.
 export const TAIL_MS = 1100;
 
+// ── Camera v3 (cursor-centered hold-zoom) ─────────────────────────────────────
+// Replaces the per-click "예고→결과" pump (which always pulled back to 1× on every
+// click). New policy (user 2026-06-07, Screen-Studio style): push in once when
+// ENTERING a region, then HOLD the zoom and PAN the focal so the cursor stays
+// screen-centered across nearby interactions, and only pull out for a far jump
+// (region change) or the end of the take. Zoom magnitude scales with the jump
+// distance instead of a flat constant, and backs off near viewport edges.
+
+// Dynamic zoom range. ZOOM_MAX 2.0 on a native-2× capture = a 1280×720 crop = 720p
+// 1:1 (no upscale) at peak; anything below 2.0 crops less → MORE source px → only
+// sharper, so dynamic zoom is free of any quality cost.
+export const ZOOM_MIN = 1.3;
+export const ZOOM_MAX = 2.0;
+// From 1×, a straight-line jump shorter than this stays wide (no zoom). = VIEW_H/2.
+export const ZOOM_ENTER_DIST = VIEW_H * 0.5; // 360
+// Jump distance (logical px) at which the dynamic zoom reaches ZOOM_MAX. Tune the
+// "breathing": lower → cross-screen hops zoom harder; higher → calmer.
+export const ZOOM_FAR_DIST = 900;
+// While zoomed, a next target within this distance is treated as the SAME region:
+// hold the zoom and pan (cursor stays centered). Farther → region change (out→in).
+export const ZOOM_REGION_PX = 420;
+// Ease (ms) for a pull-out (region change / end of take).
+export const ZOOM_OUT_MS = 460;
+// Edge backoff: targets within EDGE_SAFE_PX of a viewport edge zoom LESS (down to
+// ×EDGE_MIN_FACTOR at the very edge). A tighter crop on an edge target would
+// otherwise spill far into the pad margin; backing the zoom off keeps the reveal
+// of the solid margin small. Lower floor than ZOOM_MIN is allowed for edges.
+export const EDGE_SAFE_PX = 180;
+export const EDGE_MIN_FACTOR = 0.66;
+export const ZOOM_FLOOR = 1.12;
+
+// ── Post camera framing (cursor centering + margin) ───────────────────────────
+// CENTER_BIAS interpolates the post-zoom crop between two framings:
+//   0 → legacy "focal keeps its RELATIVE screen position" (corners stay cramped),
+//   1 → focal pinned to screen CENTER (cursor always centered when zoomed).
+// User 2026-06-07: pin to center. This is the single knob to dial the feel if full
+// centering reads as too "sliding" (try 0.6–0.85).
+export const CENTER_BIAS = 1.0;
+// Solid margin composited around the flat capture (fraction of the window, each
+// side) so a cursor-centered crop near an edge can pan into the margin instead of
+// clamping to the frame. f=0.25 → padded canvas = 1.5× window (1280×720 → exactly
+// the 1920×1080 the expert suggested), enough to center a window CORNER at ZOOM_MAX.
+// PAD_COLOR shows briefly only at high edge zoom (eyeball this — it's the framing).
+export const PAD_FRAC = 0.25;
+export const PAD_COLOR = "0x0E0E12"; // near-black cinematic margin
+
 // ── Explore (M1) ────────────────────────────────────────────────────────────────
 
 // Computer-use model. 4.6/4.8 don't expose the computer tool yet; the latest
