@@ -3,7 +3,7 @@
 // position, let the camera schedule its preview push-in, dwell, pull out so the
 // click lands at 1x, then hold to show the result. Camera keyframes are collected
 // in `cam` for the post-process zoom.
-import type { Page, Locator } from "playwright-core";
+import type { Page } from "playwright-core";
 import { CameraTrack, glideMsFor } from "./camera";
 import type { Script, ScriptAction } from "./script";
 import { cursorMoveTo, cursorPos, cursorPress } from "./cursor";
@@ -18,17 +18,19 @@ const TYPE_DELAY_MS = 55; // per-keystroke (human-like)
 
 type Pt = { x: number; y: number };
 
-async function centerOf(loc: Locator): Promise<Pt> {
-  const box = await loc.boundingBox();
-  if (!box) throw new Error("element has no box (not visible/laid out)");
-  return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
-}
-
 // Selector-first, coordinate-fallback target resolution. The selector is primary
 // (recomputes the live position so relaid-out elements still work); when an
 // explore-derived selector doesn't resolve on the reset page, we fall back to the
 // logical-px coordinate explore observed (same 1280×720 space). M0's hand-written
 // selector-only scripts always hit the selector path.
+//
+// Within a resolved element, element-CENTER is only right for point controls
+// (buttons/inputs). For large containers it rewrites the click's meaning: a
+// full-viewport <canvas> centers onto whatever UI overlays its middle —
+// excalidraw's welcome-screen "Open" sat at (640,360) and got clicked, summoning
+// the file picker. If explore's observed coordinate still lands inside the live
+// box it IS the intended point; recompute center only when the element moved out
+// from under it.
 async function resolveTarget(
   page: Page,
   act: { selector?: string; x?: number; y?: number },
@@ -37,7 +39,16 @@ async function resolveTarget(
     try {
       const loc = page.locator(act.selector).first();
       await loc.waitFor({ state: "visible", timeout: 7000 });
-      return await centerOf(loc);
+      const box = await loc.boundingBox();
+      if (!box) throw new Error("element has no box (not visible/laid out)");
+      if (
+        act.x !== undefined && act.y !== undefined &&
+        act.x >= box.x && act.x <= box.x + box.width &&
+        act.y >= box.y && act.y <= box.y + box.height
+      ) {
+        return { x: act.x, y: act.y };
+      }
+      return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
     } catch (e) {
       if (act.x === undefined || act.y === undefined) throw e;
       console.error(`selector "${act.selector}" failed; using coordinate fallback`);

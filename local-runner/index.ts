@@ -15,6 +15,7 @@ import {
   launchRecordingContext,
   ensureExactViewport,
   installCaptureCleanliness,
+  parkPhysicalCursor,
 } from "./browser";
 import { computeCropRect, startRecording } from "./record";
 import { injectCursorOverlay, ensureCursor, cursorSetPos } from "./cursor";
@@ -130,6 +131,9 @@ try {
   const cx = crop.logical.iw / 2;
   const cy = crop.logical.ih / 2;
   await cursorSetPos(page, cx, cy);
+  // Park the REAL cursor on our chrome strip (mid address bar, above the crop) so
+  // it can't hover the Dock / menu bar and film a tooltip into the take.
+  await parkPhysicalCursor(crop.x / crop.dpr + crop.logical.iw * 0.5, Math.max(8, crop.y / crop.dpr - 35));
   await sleep(450); // capture warm + cursor paint at center
 
   const rec = startRecording(raw, crop);

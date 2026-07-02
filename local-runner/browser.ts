@@ -11,7 +11,7 @@ import {
 import { mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { VIEW_W, VIEW_H, WINDOW_POSITION, OUT_DIR } from "./config";
-import { sleep } from "./util";
+import { sleep, run } from "./util";
 
 // Shared launch env + args for both the explore browser and the recording
 // profile. LANGUAGE/LANG force English on the Linux path; the mac translate kill
@@ -145,15 +145,43 @@ export async function installCaptureCleanliness(
   page: Page,
 ): Promise<void> {
   await context.addInitScript({ content: NEUTER_NATIVE_PICKERS_SRC });
-  // Classic <input type=file>: Playwright holds the native dialog and hands us a
-  // FileChooser instead — cancel it so nothing is left open on screen.
+  // Classic <input type=file>: registering a filechooser listener makes Playwright
+  // hold the native dialog. Do NOT setFiles([]) — an empty change event makes the
+  // site's fallback read files[0]===undefined and crash with an in-app error modal
+  // (excalidraw: "Symbol(fileNormalized)"). Leaving the chooser un-actioned keeps
+  // the page's promise pending forever: nothing on screen, nothing to crash.
   page.on("filechooser", (fc) => {
-    fc.setFiles([]).catch(() => {});
+    console.log(`[cleanliness] file chooser suppressed (left pending): ${fc.page().url().slice(0, 80)}`);
   });
   // alert/confirm/beforeunload are native surfaces too — dismiss, never film them.
   page.on("dialog", (d) => {
     d.dismiss().catch(() => {});
   });
+}
+
+// The avfoundation grab is cursor-less, but the PHYSICAL cursor still has side
+// effects the crop can film: resting on the Dock pops the app-name tooltip (a
+// "Tailscale" label leaked into a take's bottom-right), and menu-bar extras can
+// tooltip too. Before capture, teleport it onto the browser's own chrome strip
+// just above the content crop — inside our window, outside the filmed rect.
+// CGWarpMouseCursorPosition emits no input events (no page hover, no tooltip
+// tracking) and needs no Accessibility permission. Coordinates are logical
+// (global display space). Non-fatal on failure.
+const WARP_PY = [
+  "import ctypes, sys",
+  "cg = ctypes.CDLL('/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics')",
+  "class P(ctypes.Structure): _fields_ = [('x', ctypes.c_double), ('y', ctypes.c_double)]",
+  "cg.CGWarpMouseCursorPosition.argtypes = [P]",
+  "cg.CGWarpMouseCursorPosition(P(float(sys.argv[1]), float(sys.argv[2])))",
+].join("\n");
+
+export async function parkPhysicalCursor(x: number, y: number): Promise<void> {
+  try {
+    await run("python3", ["-c", WARP_PY, String(x), String(y)]);
+    console.log(`[cleanliness] physical cursor parked at (${Math.round(x)}, ${Math.round(y)})`);
+  } catch (e) {
+    console.error("[cleanliness] cursor park failed (non-fatal):", (e as Error).message);
+  }
 }
 
 // A cookies+localStorage snapshot (from context.storageState()), used to start
