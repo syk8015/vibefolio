@@ -8,39 +8,151 @@ import {
   type BrowserContext,
   type Page,
 } from "playwright-core";
-import { VIEW_W, VIEW_H, WINDOW_POSITION } from "./config";
+import { mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { join } from "node:path";
+import { VIEW_W, VIEW_H, WINDOW_POSITION, OUT_DIR } from "./config";
 import { sleep } from "./util";
 
-export async function launchChromium(): Promise<Browser> {
+// Shared launch env + args for both the explore browser and the recording
+// profile. LANGUAGE/LANG force English on the Linux path; the mac translate kill
+// is the profile pref in ensureEnglishProfile (flags alone don't do it).
+const ENGLISH_ENV = {
+  ...process.env,
+  LANGUAGE: "en_US:en",
+  LANG: "en_US.UTF-8",
+  LC_ALL: "en_US.UTF-8",
+};
+
+function baseChromeArgs(): string[] {
   // Escape hatch for a broken SYSTEM DNS resolver (e.g. a flaky phone hotspot whose
   // resolver stops answering on :53 while IP routing still works): set
   // NF_HOST_RESOLVER_RULES='MAP host 1.2.3.4' to resolve in-browser via a fixed IP,
   // no system change. Empty by default.
   const resolverRules = process.env.NF_HOST_RESOLVER_RULES;
+  return [
+    ...(resolverRules ? [`--host-resolver-rules=${resolverRules}`] : []),
+    `--window-position=${WINDOW_POSITION.x},${WINDOW_POSITION.y}`,
+    // Generous height so the toolbar fits and innerHeight can still reach VIEW_H;
+    // the exact size is set precisely via CDP after launch.
+    `--window-size=${VIEW_W},${VIEW_H + 160}`,
+    "--hide-scrollbars",
+    // Suppress the "지원되지 않는 명령줄 플래그(--no-sandbox)" warning infobar that
+    // Playwright's persistent context triggers — it stole ~56px of window height
+    // (viewport pinned to 692 instead of 720). --test-type is the canonical flag
+    // for this and does not change sandboxing.
+    "--test-type",
+    "--disable-features=Translate,TranslateUI",
+    "--lang=en-US",
+    "--disable-infobars",
+    "--no-first-run",
+    "--no-default-browser-check",
+    "--disable-session-crashed-bubble",
+    "--disable-popup-blocking",
+    // NOTE: do NOT add --headless / --use-gl=swiftshader — that kills the GPU
+    // path and reintroduces the soft-compositor problems we left E2B to escape.
+  ];
+}
+
+// Explore browser (NOT recorded): a plain launch is fine — the translate bubble
+// only has to be gone from the *recorded* window, which uses the profile below.
+export async function launchChromium(): Promise<Browser> {
   return chromium.launch({
     headless: false,
     channel: "chrome", // system Chrome; playwright-core ships no browser binary
-    args: [
-      ...(resolverRules ? [`--host-resolver-rules=${resolverRules}`] : []),
-      `--window-position=${WINDOW_POSITION.x},${WINDOW_POSITION.y}`,
-      // Generous height so the toolbar fits and innerHeight can still reach
-      // VIEW_H; the exact size is set precisely via CDP after launch.
-      `--window-size=${VIEW_W},${VIEW_H + 160}`,
-      "--hide-scrollbars",
-      // Translate AND TranslateUI: the former disables the engine, but the little
-      // "영어/한국어" bubble (TranslateUI) still popped into the top-right of the
-      // capture when the Chrome UI locale differs from the page language. Context
-      // locale:"en-US" (newRecordingPage) stops the offer firing for English pages.
-      "--disable-features=Translate,TranslateUI,InfobarsBarsMessage",
-      "--lang=en-US",
-      "--disable-infobars",
-      "--no-first-run",
-      "--no-default-browser-check",
-      "--disable-session-crashed-bubble",
-      "--disable-popup-blocking",
-      // NOTE: do NOT add --headless / --use-gl=swiftshader — that kills the GPU
-      // path and reintroduces the soft-compositor problems we left E2B to escape.
-    ],
+    env: ENGLISH_ENV,
+    args: baseChromeArgs(),
+  });
+}
+
+// A disposable Chrome profile whose Preferences disable Translate and put English
+// in the language list. The "영어/한국어" translate bubble is driven by the PROFILE
+// language list (intl.accept_languages), NOT by --disable-features / --accept-lang
+// — verified: Chrome received --disable-features=Translate yet still offered to
+// translate on a Korean-locale macOS. A profile pref is the only reliable kill,
+// and chromium.launch rejects --user-data-dir, so the recording pass must use
+// launchPersistentContext with this profile. Wiped each run for clean footing.
+function ensureEnglishProfile(): string {
+  const dir = join(OUT_DIR, "chrome-profile");
+  rmSync(dir, { recursive: true, force: true }); // clean state + no stale SingletonLock
+  mkdirSync(join(dir, "Default"), { recursive: true });
+  writeFileSync(
+    join(dir, "Default", "Preferences"),
+    JSON.stringify({
+      translate: { enabled: false },
+      translate_blocked_languages: ["en", "en-US"],
+      intl: { accept_languages: "en-US,en", selected_languages: "en-US,en" },
+      bookmark_bar: { show_on_all_tabs: false }, // no bookmark strip eating window height
+    }),
+  );
+  writeFileSync(join(dir, "Local State"), JSON.stringify({ intl: { app_locale: "en-US" } }));
+  return dir;
+}
+
+// Recording context: a headed, GPU-backed PERSISTENT context on the English
+// profile (so the capture is translate-bubble-free), viewport:null so the real OS
+// window dictates what avfoundation grabs. Seeds the explore pass's cookies for
+// the same footing (§4.6). Capture-cleanliness (native-picker neuter) is installed
+// before any navigation.
+export async function launchRecordingContext(
+  storageState?: StorageState,
+): Promise<{ context: BrowserContext; page: Page }> {
+  const context = await chromium.launchPersistentContext(ensureEnglishProfile(), {
+    headless: false,
+    channel: "chrome",
+    viewport: null,
+    locale: "en-US",
+    env: ENGLISH_ENV,
+    args: baseChromeArgs(),
+    // Playwright suppresses the "controlled by automated test software" infobar on
+    // a normal launch but NOT on a persistent context — left in, it stole ~56px of
+    // window height (viewport pinned to 692 instead of 720). Drop the flag.
+    ignoreDefaultArgs: ["--enable-automation"],
+  });
+  if (storageState?.cookies?.length) {
+    await context.addCookies(storageState.cookies).catch(() => {});
+  }
+  const page = context.pages()[0] ?? (await context.newPage());
+  await installCaptureCleanliness(context, page);
+  await page.bringToFront();
+  return { context, page };
+}
+
+// ── Capture-cleanliness guard (native-surface leakage) ────────────────────────
+// A safety layer DISTINCT from the network write-blocking in safety.ts. The
+// avfoundation screen-grab captures whatever OS window sits over the crop rect,
+// so any *native* surface a page can summon — a file picker, a JS dialog — gets
+// filmed. Excalidraw's "Open" (Cmd+O) uses the File System Access API
+// (window.showOpenFilePicker), a real macOS picker Playwright can NOT intercept;
+// it leaked the user's Documents into the demo. We neuter those APIs before any
+// page script runs so the site falls back to a classic <input type=file> (which
+// Playwright DOES intercept), then cancel any file chooser / dialog that opens.
+//
+// MUST ship as a STRING: esbuild wraps named functions with __name(...), which is
+// undefined in-page and throws (same reason cursor.ts's OVERLAY_SRC is a string).
+// Plain JS only, no backticks inside.
+const NEUTER_NATIVE_PICKERS_SRC = `(() => {
+  var names = ["showOpenFilePicker", "showSaveFilePicker", "showDirectoryPicker"];
+  for (var i = 0; i < names.length; i++) {
+    try { delete window[names[i]]; } catch (e) {}
+    try { delete Window.prototype[names[i]]; } catch (e) {}
+  }
+})();`;
+
+// Install on a context+page pair BEFORE any navigation. The addInitScript is on
+// the context, so it re-runs on every page and every navigation within the take.
+export async function installCaptureCleanliness(
+  context: BrowserContext,
+  page: Page,
+): Promise<void> {
+  await context.addInitScript({ content: NEUTER_NATIVE_PICKERS_SRC });
+  // Classic <input type=file>: Playwright holds the native dialog and hands us a
+  // FileChooser instead — cancel it so nothing is left open on screen.
+  page.on("filechooser", (fc) => {
+    fc.setFiles([]).catch(() => {});
+  });
+  // alert/confirm/beforeunload are native surfaces too — dismiss, never film them.
+  page.on("dialog", (d) => {
+    d.dismiss().catch(() => {});
   });
 }
 
@@ -48,43 +160,26 @@ export async function launchChromium(): Promise<Browser> {
 // the recording context on the same footing the explore pass reached (§4.6).
 export type StorageState = Awaited<ReturnType<BrowserContext["storageState"]>>;
 
-// Open a fresh context+page sized to the window (viewport:null => the OS window
-// dictates the viewport, which is what we capture). Optionally seed it with a
-// prior storageState snapshot.
-export async function newRecordingPage(
-  browser: Browser,
-  storageState?: StorageState,
-): Promise<{ context: BrowserContext; page: Page }> {
-  const context = await browser.newContext({
-    viewport: null,
-    locale: "en-US", // matches the page language → no Translate offer in the capture
-    ...(storageState ? { storageState } : {}),
-  });
-  const page = await context.newPage();
-  await page.bringToFront();
-  return { context, page };
-}
-
 // Pin the content area to exactly w×h logical px using CDP Browser.setWindowBounds.
 // macOS reports outer/inner deltas (the toolbar/tab strip height); we set the
-// window frame to target + that delta, then re-measure and converge.
+// window frame to target + that delta, then re-measure and converge. The Browser.*
+// commands go over a PAGE CDP session (not a browser-level one) so this works for
+// the persistent recording context, which exposes no browser() object.
 export async function ensureExactViewport(
-  browser: Browser,
   page: Page,
   w = VIEW_W,
   h = VIEW_H,
 ): Promise<{ iw: number; ih: number }> {
-  const bs = await browser.newBrowserCDPSession();
-  const ps = await page.context().newCDPSession(page);
-  const { targetInfo } = (await ps.send("Target.getTargetInfo")) as {
+  const cdp = await page.context().newCDPSession(page);
+  const { targetInfo } = (await cdp.send("Target.getTargetInfo")) as {
     targetInfo: { targetId: string };
   };
-  const { windowId } = (await bs.send("Browser.getWindowForTarget", {
+  const { windowId } = (await cdp.send("Browser.getWindowForTarget", {
     targetId: targetInfo.targetId,
   })) as { windowId: number };
 
   // Make sure it isn't maximized/fullscreen first.
-  await bs.send("Browser.setWindowBounds", {
+  await cdp.send("Browser.setWindowBounds", {
     windowId,
     bounds: { windowState: "normal" },
   });
@@ -102,7 +197,7 @@ export async function ensureExactViewport(
     if (Math.abs(m.iw - w) <= 1 && Math.abs(m.ih - h) <= 1) break;
     const dw = m.ow - m.iw; // horizontal chrome (≈0 on mac)
     const dh = m.oh - m.ih; // vertical chrome (toolbar + tab strip)
-    await bs.send("Browser.setWindowBounds", {
+    await cdp.send("Browser.setWindowBounds", {
       windowId,
       bounds: {
         left: WINDOW_POSITION.x,

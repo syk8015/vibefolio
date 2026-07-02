@@ -8,11 +8,7 @@
 // Verifies the NEW mechanisms (real-time capture, cursor feel, new zoom timing,
 // one-take) with zero safety/explore complexity. Output is judged by eye.
 import { mkdirSync } from "node:fs";
-import {
-  launchChromium,
-  newRecordingPage,
-  ensureExactViewport,
-} from "./browser";
+import { launchRecordingContext, ensureExactViewport } from "./browser";
 import { computeCropRect, startRecording } from "./record";
 import {
   injectCursorOverlay,
@@ -37,15 +33,14 @@ const raw = `${OUT_DIR}/raw.mp4`;
 const demo = `${OUT_DIR}/demo.mp4`;
 const sheet = `${OUT_DIR}/demo-sheet.png`;
 
-const browser = await launchChromium();
+const { context, page } = await launchRecordingContext();
 try {
-  const { page } = await newRecordingPage(browser);
   await injectCursorOverlay(page); // registers + installs on current doc
   // domcontentloaded (not networkidle): todomvc.com can hold a keepalive
   // connection that never reaches idle; we wait on the actual app element instead.
   await page.goto(TODOMVC_URL, { waitUntil: "domcontentloaded" });
   await page.locator(".new-todo").waitFor({ state: "visible", timeout: 15000 });
-  const sized = await ensureExactViewport(browser, page);
+  const sized = await ensureExactViewport(page);
   await page.bringToFront();
   await ensureCursor(page);
   console.log("viewport:", sized);
@@ -116,5 +111,5 @@ try {
     );
   }
 } finally {
-  await browser.close();
+  await context.close();
 }

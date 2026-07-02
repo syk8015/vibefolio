@@ -10,7 +10,7 @@
 //   /tmp/nf-runner/cropped.png  (should be PURE magenta w/ green edges + corners)
 // If cropped.png shows any desktop sliver or a clipped border, the crop is off.
 import { mkdirSync } from "node:fs";
-import { launchChromium, newRecordingPage, ensureExactViewport } from "./browser";
+import { launchRecordingContext, ensureExactViewport } from "./browser";
 import { computeCropRect, captureFullFrame, cropImage } from "./record";
 import { VIEW_W, VIEW_H, OUT_DIR } from "./config";
 import { sleep } from "./util";
@@ -35,11 +35,10 @@ const CAL_HTML = `<!doctype html><html><head><meta charset="utf-8"><style>
 
 mkdirSync(OUT_DIR, { recursive: true });
 
-const browser = await launchChromium();
+const { context, page } = await launchRecordingContext();
 try {
-  const { page } = await newRecordingPage(browser);
   await page.setContent(CAL_HTML, { waitUntil: "load" });
-  const sized = await ensureExactViewport(browser, page, VIEW_W, VIEW_H);
+  const sized = await ensureExactViewport(page, VIEW_W, VIEW_H);
   console.log("viewport after pin:", sized);
   await page.bringToFront();
   await sleep(500); // let the window settle + paint before grabbing
@@ -53,5 +52,5 @@ try {
   console.log("  " + OUT_DIR + "/full.png   (full screen)");
   console.log("  " + OUT_DIR + "/cropped.png (should be pure magenta + green edges)");
 } finally {
-  await browser.close();
+  await context.close();
 }

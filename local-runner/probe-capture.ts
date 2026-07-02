@@ -7,7 +7,7 @@
 // raw clip's dimensions / container fps / mpdecimate uniqueFps and writes a
 // contact sheet to /tmp/nf-runner/sheet.png for a visual smoothness check.
 import { mkdirSync } from "node:fs";
-import { launchChromium, newRecordingPage, ensureExactViewport } from "./browser";
+import { launchRecordingContext, ensureExactViewport } from "./browser";
 import { computeCropRect, startRecording } from "./record";
 import { VIEW_W, VIEW_H, OUT_DIR } from "./config";
 import { sleep, run, ffprobeValue } from "./util";
@@ -41,11 +41,10 @@ const ANIM_HTML = `<!doctype html><html><head><meta charset="utf-8"><style>
 mkdirSync(OUT_DIR, { recursive: true });
 const raw = `${OUT_DIR}/raw.mp4`;
 
-const browser = await launchChromium();
+const { context, page } = await launchRecordingContext();
 try {
-  const { page } = await newRecordingPage(browser);
   await page.setContent(ANIM_HTML, { waitUntil: "load" });
-  const sized = await ensureExactViewport(browser, page, VIEW_W, VIEW_H);
+  const sized = await ensureExactViewport(page, VIEW_W, VIEW_H);
   console.log("viewport after pin:", sized);
   await page.bringToFront();
   await sleep(400);
@@ -93,5 +92,5 @@ try {
   console.log(`raw clip   : ${raw}`);
   console.log(`contact    : ${OUT_DIR}/sheet.png`);
 } finally {
-  await browser.close();
+  await context.close();
 }

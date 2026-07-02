@@ -10,7 +10,12 @@
 // Verification goals (M1): 0 mutating requests reach the server (blockedWrites is
 // the count we intercepted) and the read-only demo is watchable. Judge demo.mp4.
 import { mkdirSync } from "node:fs";
-import { launchChromium, newRecordingPage, ensureExactViewport } from "./browser";
+import {
+  launchChromium,
+  launchRecordingContext,
+  ensureExactViewport,
+  installCaptureCleanliness,
+} from "./browser";
 import { computeCropRect, startRecording } from "./record";
 import { injectCursorOverlay, ensureCursor, cursorSetPos } from "./cursor";
 import { CameraTrack } from "./camera";
@@ -62,6 +67,7 @@ async function gotoSettled(page: import("playwright-core").Page, target: string)
 }
 
 const browser = await launchChromium();
+let recCtx: import("playwright-core").BrowserContext | undefined;
 try {
   // ── 1) Explore (NOT recorded) ──────────────────────────────────────────────
   // Fixed 1280×720 DSF=1 context so screenshots are 1:1 with the computer-use
@@ -74,6 +80,7 @@ try {
   });
   const explorePage = await exploreCtx.newPage();
   await installSafety(explorePage, policy, onBlocked);
+  await installCaptureCleanliness(exploreCtx, explorePage);
   await gotoSettled(explorePage, url);
 
   if (await isLoginGated(explorePage)) {
@@ -85,6 +92,7 @@ try {
   const storage0 = await exploreCtx.storageState(); // shared footing for the take
   const script = await explore(explorePage);
   await exploreCtx.close();
+  await browser.close(); // explore done — no stray window at (0,0) during capture
   console.log(`[explore] ${script.notes}`);
   console.log(`[explore] script actions (${script.actions.length}):`);
   for (const a of script.actions) {
@@ -103,11 +111,12 @@ try {
   }
 
   // ── 2) Reset (same footing) + 3) Record + intro ──────────────────────────────
-  const { page } = await newRecordingPage(browser, storage0);
+  const { context: recordingCtx, page } = await launchRecordingContext(storage0);
+  recCtx = recordingCtx;
   await installSafety(page, policy, onBlocked);
   await injectCursorOverlay(page);
   await gotoSettled(page, url);
-  const sized = await ensureExactViewport(browser, page);
+  const sized = await ensureExactViewport(page);
   await page.bringToFront();
   await ensureCursor(page);
   console.log("[record] viewport:", sized);
@@ -173,5 +182,6 @@ try {
   console.log(`contact     : ${sheet}`);
   if (uploaded) console.log(`uploaded    : ${uploaded}`);
 } finally {
-  await browser.close();
+  if (recCtx) await recCtx.close();
+  await browser.close().catch(() => {});
 }
