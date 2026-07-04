@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "trigger:dev": "trigger dev",
-    "trigger:deploy": "trigger deploy"
+    "trigger:deploy": "trigger deploy",
+    "demo:worker": "npx -y tsx local-runner/worker.ts"
   },
   "dependencies": {
     "@browserbasehq/sdk": "^2.12.0",
