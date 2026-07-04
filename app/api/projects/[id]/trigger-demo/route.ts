@@ -89,6 +89,19 @@ export async function POST(
       });
     }
 
+    // DEMO_RUNNER=local routes jobs to the M5 recording worker instead of the
+    // E2B cloud task: the pending row written above IS the queue entry —
+    // local-runner/worker.ts polls it, claims it (pending→building, conditional
+    // update), records on real hardware and marks done/failed. Re-record bursts
+    // collapse into the single row, so no explicit debounce is needed there.
+    if (process.env.DEMO_RUNNER === "local") {
+      return NextResponse.json({
+        ok: true,
+        runId: "local-queue",
+        source: { type: payload.sourceType, value: payload.sourceValue },
+      });
+    }
+
     // Cost guard: collapse re-record click bursts (and accidental double-fires) for
     // the same project into ONE run. Trailing mode means the latest payload wins, so
     // editing the source then re-recording still uses the fresh source. The task's
