@@ -16,6 +16,7 @@
 // touched. (Inline anonymous arrows with NO inner named bindings stay safe — but
 // these probes have inner helpers, so they must be strings.)
 import type { Page } from "playwright-core";
+import { writeFileSync } from "node:fs";
 import {
   VIEW_W,
   VIEW_H,
@@ -24,9 +25,12 @@ import {
   EXPLORE_MIN_INTERACTIONS,
   EXPLORE_MAX_REPROMPTS,
   EXPLORE_MAX_MS,
+  EXPLORE_NOOP_SSIM,
+  EXPLORE_NOOP_SSIM_LOCAL,
+  OUT_DIR,
 } from "./config";
 import type { Script, ScriptAction } from "./script";
-import { sleep } from "./util";
+import { sleep, run } from "./util";
 
 // ── System prompt (read-only presenter) ─────────────────────────────────────────
 
@@ -42,6 +46,9 @@ const SYSTEM_PROMPT = [
   "- Like / Favorite / Follow / Vote / Upvote / Star / React — these flip persistent state and look wrong",
   "  on replay. Don't.",
   "- Login / Sign-in / Sign-up / Register / 'Get started' / 'Create account' / any auth button or link.",
+  "- Open / Import / Upload / Save / Export / Download / 'Choose file' — ANY control that opens a file",
+  "  picker or OS dialog. File dialogs are unavailable in this environment: the click does nothing and",
+  "  wastes a beat of the film.",
   "- Empty space, decorative images, or anything not OBVIOUSLY an interactive control. If unsure, skip it.",
   "",
   "What to DO (read & simulate only):",
@@ -51,6 +58,8 @@ const SYSTEM_PROMPT = [
   "  results, drag a slider, hover to reveal a tooltip or menu.",
   "- One clear, unhurried action at a time. Aim for 5-8 DISTINCT, meaningful interactions across different",
   "  features. Never repeat an element, or another with the same purpose.",
+  "- Every click must visibly change the screen. If a click did nothing visible, do NOT repeat or linger",
+  "  on it — move on to a control that clearly does something.",
   "- Move FORWARD only — a clean LINEAR walkthrough. Every action becomes part of the final demo, in order,",
   "  so do NOT backtrack, undo, or wander. If a popup/modal is in the way, close it (its X or Escape) and",
   "  continue.",
@@ -156,6 +165,25 @@ const GATED_SRC = `() => {
   return pw >= 1 && ctrls < 8;
 }`;
 
+// Is a TEXT-ENTRY element focused? A click that changed nothing VISIBLE may still
+// have focused a field (the caret is invisible at JPEG q70) — such a click is kept:
+// it precedes a `type` and merges into it in perform()'s click→type coalescing.
+// Deliberately narrow: input[type=button|submit|checkbox|...] and <select> are NOT
+// text entry — an inert click on those should still be prunable (their real state
+// changes are caught by the local SSIM patch instead).
+const FOCUSED_INPUT_SRC = `() => {
+  var el = document.activeElement;
+  if (!el) return false;
+  var t = el.tagName ? el.tagName.toLowerCase() : "";
+  if (t === "textarea") return true;
+  if (t === "input") {
+    var ty = ((el.getAttribute && el.getAttribute("type")) || "text").toLowerCase();
+    return ["text", "search", "email", "url", "tel", "password", "number"].indexOf(ty) >= 0;
+  }
+  if (el.getAttribute && el.getAttribute("contenteditable") === "true") return true;
+  return false;
+}`;
+
 type Resolved = { selector: string | null; label: string };
 
 function evalCall<T>(page: Page, src: string, ...args: number[]): Promise<T> {
@@ -180,9 +208,47 @@ type CUInput = {
   scroll_direction?: string;
 };
 
-async function shot(page: Page): Promise<string> {
-  const buf = await page.screenshot({ type: "jpeg", quality: 70 });
-  return buf.toString("base64");
+async function shotBuf(page: Page): Promise<Buffer> {
+  return await page.screenshot({ type: "jpeg", quality: 70 });
+}
+
+// Structural similarity of two same-size JPEG screenshots via ffmpeg (parses the
+// stderr "All:0.9987" score). 1.0 = pixel-identical. Optional crop applies the
+// same patch to both inputs before scoring.
+async function ssim(
+  a: Buffer,
+  b: Buffer,
+  crop?: { x: number; y: number; w: number; h: number },
+): Promise<number> {
+  const pa = `${OUT_DIR}/explore-diff-a.jpg`;
+  const pb = `${OUT_DIR}/explore-diff-b.jpg`;
+  writeFileSync(pa, a);
+  writeFileSync(pb, b);
+  const c = crop ? `crop=${crop.w}:${crop.h}:${crop.x}:${crop.y}` : "";
+  const lavfi = crop ? `[0:v]${c}[a];[1:v]${c}[b];[a][b]ssim` : "ssim";
+  const { stderr } = await run(
+    "ffmpeg",
+    ["-hide_banner", "-i", pa, "-i", pb, "-lavfi", lavfi, "-f", "null", "-"],
+    { timeoutMs: 15000 },
+  );
+  const m = /All:([0-9.]+)/.exec(stderr);
+  return m ? parseFloat(m[1]) : 0; // unparseable → treat as "changed" (keep the action)
+}
+
+// "No visible change" = the WHOLE frame and a 300×300 patch around the click point
+// BOTH read as unchanged. Global-only misses small controls (a toolbar toggle is
+// <0.5% of the frame, the mean barely moves); local-only misses far-away effects
+// (a click that opens a side panel). Pruning a real beat desyncs the script from
+// the live page, so both must agree before a click is cut.
+async function noVisibleChange(before: Buffer, after: Buffer, cx: number, cy: number): Promise<boolean> {
+  const g = await ssim(before, after);
+  if (g < EXPLORE_NOOP_SSIM) return false;
+  const w = 300;
+  const h = 300;
+  const x = Math.max(0, Math.min(VIEW_W - w, Math.round(cx) - w / 2));
+  const y = Math.max(0, Math.min(VIEW_H - h, Math.round(cy) - h / 2));
+  const l = await ssim(before, after, { x, y, w, h });
+  return l >= EXPLORE_NOOP_SSIM_LOCAL;
 }
 
 async function callClaude(messages: Msg[], apiKey: string): Promise<{ content: Block[] }> {
@@ -294,6 +360,22 @@ export async function explore(page: Page): Promise<ExploreResult> {
   const actions: ScriptAction[] = [];
   const state = { x: Math.floor(VIEW_W / 2), y: Math.floor(VIEW_H / 2) };
 
+  // File choosers are suppressed (browser.ts) — count arrivals so a click that
+  // summoned one can be cut from the script. A monotonic counter, not a reset
+  // boolean: a late-arriving event can then never be misattributed to the NEXT
+  // click (a late event from click A is at worst missed, never pinned on B).
+  let chooserCount = 0;
+  page.on("filechooser", () => {
+    chooserCount++;
+  });
+
+  // Back-reference guards, set per tool_use by the main loop: perform() may only
+  // merge/mutate the action of the IMMEDIATELY preceding tool_use, and only if it
+  // survived pruning — a pruned click must not let a following `type` rewrite an
+  // older beat, nor an Enter mark submit on a stale type.
+  let mergeableClick = false;
+  let lastWasType = false;
+
   // Run one computer-use action on the live page, recording the resulting Script
   // action (with a resolved selector + coordinate fallback). Returns whether it
   // counted as a real interaction (for the min-interactions floor).
@@ -321,7 +403,9 @@ export async function explore(page: Page): Promise<ExploreResult> {
         const prev = actions[actions.length - 1];
         // Merge a "click field → type" pair into one type action: replay's type
         // already approaches+clicks the field, so the standalone click is redundant.
-        if (prev && prev.kind === "click" && (selector === null || prev.selector === selector)) {
+        // Guarded by mergeableClick: only the immediately preceding tool_use's
+        // SURVIVING click may be rewritten (a prune breaks the adjacency).
+        if (mergeableClick && prev && prev.kind === "click" && (selector === null || prev.selector === selector)) {
           actions[actions.length - 1] = {
             kind: "type",
             selector: selector ?? prev.selector,
@@ -340,7 +424,9 @@ export async function explore(page: Page): Promise<ExploreResult> {
         const k = String(input.text || "");
         if (/(^|\+)(return|enter)$/i.test(k)) {
           const prev = actions[actions.length - 1];
-          if (prev && prev.kind === "type") prev.submit = true;
+          // lastWasType guard: Enter only marks submit on the type from the
+          // IMMEDIATELY preceding tool_use, never a stale one exposed by a prune.
+          if (lastWasType && prev && prev.kind === "type") prev.submit = true;
           await page.keyboard.press("Enter");
         } else if (/esc/i.test(k)) {
           await page.keyboard.press("Escape"); // transient (dismiss) — not scripted
@@ -380,6 +466,7 @@ export async function explore(page: Page): Promise<ExploreResult> {
     }
   }
 
+  const firstShot = await shotBuf(page);
   const messages: Msg[] = [
     {
       role: "user",
@@ -390,7 +477,7 @@ export async function explore(page: Page): Promise<ExploreResult> {
             "The web app is open and ready (screenshot below). Do a short, polished READ-ONLY product " +
             "demo by interacting with its main features. Begin now.",
         },
-        { type: "image", source: { type: "base64", media_type: "image/jpeg", data: await shot(page) } },
+        { type: "image", source: { type: "base64", media_type: "image/jpeg", data: firstShot.toString("base64") } },
       ],
     },
   ];
@@ -399,6 +486,7 @@ export async function explore(page: Page): Promise<ExploreResult> {
   let steps = 0;
   let interactions = 0;
   let reprompts = 0;
+  let pruned = 0;
   while (steps < EXPLORE_MAX_STEPS && Date.now() - started < EXPLORE_MAX_MS) {
     applyCache(messages);
     const resp = await callClaude(messages, apiKey);
@@ -418,19 +506,82 @@ export async function explore(page: Page): Promise<ExploreResult> {
 
     const results: Block[] = [];
     for (const tu of toolUses) {
-      const act = tu.input?.action;
+      const act = tu.input?.action || "";
+      const isClick = CLICKS.has(act);
+      const lenBefore = actions.length;
+      const chooserBefore = chooserCount;
+      const urlBefore = page.url();
+      // Fresh before-frame per click: the previous tool_result frame is stale by a
+      // whole model turn — passive motion during API latency (a toast fading, a
+      // carousel) would mask a genuine no-op.
+      const before = isClick ? await shotBuf(page) : undefined;
+      let wasInteraction = false;
       try {
-        const wasInteraction = await perform(tu.input || {});
-        if (wasInteraction && act && INTERACTIONS.has(act)) interactions++;
+        wasInteraction = await perform(tu.input || {});
       } catch (e) {
         console.error("explore action error", act, e instanceof Error ? e.message : e);
       }
       await sleep(ACTION_PACING_MS);
-      results.push({
-        type: "tool_result",
-        tool_use_id: tu.id,
-        content: [{ type: "image", source: { type: "base64", media_type: "image/jpeg", data: await shot(page) } }],
-      });
+      let cur = await shotBuf(page);
+
+      // Prune clicks that cannot be a beat in the film: file-picker summons (the
+      // chooser is suppressed → nothing on screen) and visually no-op clicks. The
+      // model gets told, so it steers toward effectful controls. Conservative by
+      // design — navigation and delayed effects are re-checked, and any error in
+      // the check keeps the click (false-keep is a minor flaw; false-prune desyncs
+      // the script from the page state later actions were recorded against).
+      let note: string | undefined;
+      let prunedThis = false;
+      if (isClick && actions.length > lenBefore) {
+        const clicked = actions[lenBefore] as { selector?: string; label?: string; x?: number; y?: number };
+        const name = clicked.label || clicked.selector || "(coord)";
+        try {
+          if (chooserCount > chooserBefore) {
+            actions.splice(lenBefore);
+            prunedThis = true;
+            console.log(`[explore] pruned click (file picker): ${name}`);
+            note =
+              "That control opens a file picker — file dialogs are unavailable in this environment, so " +
+              "nothing happened and the click was cut from the demo script. Do not click Open / Import / " +
+              "Upload / Save / Export controls; show a different feature.";
+          } else if (
+            before &&
+            page.url() === urlBefore &&
+            (await noVisibleChange(before, cur, clicked.x ?? state.x, clicked.y ?? state.y))
+          ) {
+            // Might be a slow effect (navigation committing, spinner-less async
+            // UI): give it one more beat and prune only if STILL unchanged.
+            await sleep(600);
+            cur = await shotBuf(page);
+            if (
+              page.url() === urlBefore &&
+              (await noVisibleChange(before, cur, clicked.x ?? state.x, clicked.y ?? state.y)) &&
+              !(await evalCall<boolean>(page, FOCUSED_INPUT_SRC))
+            ) {
+              actions.splice(lenBefore);
+              prunedThis = true;
+              console.log(`[explore] pruned click (no visible change): ${name}`);
+              note =
+                "That click produced no visible change, so it was cut from the demo script. Don't click " +
+                "empty space or inert elements; pick a control that visibly does something.";
+            }
+          }
+        } catch (e) {
+          console.error("[explore] prune check failed — keeping the click:", e instanceof Error ? e.message : e);
+        }
+      }
+      if (prunedThis) pruned++;
+      if (wasInteraction && act && INTERACTIONS.has(act) && !prunedThis) interactions++;
+
+      // Back-reference eligibility for the NEXT tool_use (see declarations above).
+      mergeableClick = isClick && !prunedThis && actions.length > lenBefore;
+      lastWasType = act === "type";
+
+      const content: Block[] = [
+        { type: "image", source: { type: "base64", media_type: "image/jpeg", data: cur.toString("base64") } },
+      ];
+      if (note) content.unshift({ type: "text", text: note });
+      results.push({ type: "tool_result", tool_use_id: tu.id, content });
     }
     messages.push({ role: "user", content: results });
     steps++;
@@ -439,7 +590,7 @@ export async function explore(page: Page): Promise<ExploreResult> {
   return {
     actions,
     loginGated: false,
-    notes: `explore: ${steps} steps, ${interactions} interactions, ${reprompts} reprompts`,
+    notes: `explore: ${steps} steps, ${interactions} interactions, ${pruned} pruned, ${reprompts} reprompts`,
     steps,
     interactions,
   };

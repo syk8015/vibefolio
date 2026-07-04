@@ -146,5 +146,17 @@ export const EXPLORE_MIN_INTERACTIONS = 4;
 // Bounded re-prompts when the agent ends early (too few interactions).
 export const EXPLORE_MAX_REPROMPTS = 2;
 
+// A click whose before/after screenshots score at least this (ffmpeg SSIM All)
+// changed nothing visible → it is cut from the demo script (unless it focused a
+// text field, which precedes a `type`). Hover residue keeps ~0.998+; any real UI
+// change (menu, panel, modal, selection) drops well below this.
+export const EXPLORE_NOOP_SSIM = 0.995;
+
+// Same idea for a 300×300 patch centered on the click point: a small control's
+// change (toolbar toggle, checkbox) barely moves the GLOBAL mean, so a click is
+// pruned only when global AND local both read "unchanged". False-keep is a minor
+// film flaw; false-prune desyncs the script from the live page — stay conservative.
+export const EXPLORE_NOOP_SSIM_LOCAL = 0.998;
+
 // Wall-clock budget for the whole explore loop (cost + hang guard).
 export const EXPLORE_MAX_MS = 4 * 60_000;
