@@ -682,7 +682,6 @@ export const buildAndRecord = task({
         .from("projects")
         .update({
           demo_video_url: publicUrl,
-          demo_poster_url: posterUrl ?? null,
           demo_build_status: "done",
           demo_generated_at: new Date().toISOString(),
         })

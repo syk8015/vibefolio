@@ -32,6 +32,15 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "i.pravatar.cc" },
     ],
   },
+  async redirects() {
+    // Public profiles live at /{username}; the @-prefixed form is what people
+    // type from social bios and what the endcap/share copy shows. Map it back to
+    // the canonical path. Runs before middleware, so no wasted auth round-trip.
+    return [
+      { source: "/@:username", destination: "/:username", permanent: false },
+      { source: "/@:username/:slug", destination: "/:username/:slug", permanent: false },
+    ];
+  },
   async headers() {
     return [
       {
