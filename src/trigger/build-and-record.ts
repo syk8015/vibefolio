@@ -598,6 +598,29 @@ export const buildAndRecord = task({
     const buf = Buffer.from(videoBytes);
     logger.log("video downloaded", { bytes: buf.length });
 
+    // Poster frame for the watch-page og:image (best-effort). NOTE: the cloud
+    // film has no in-video endcap yet (this machine's endcap uses a headless
+    // Chrome render that the sandbox path doesn't run) — the chip/end card live
+    // only on the local recorder. demo.mp4 is all body here, so any frame works.
+    let posterBuf: Buffer | null = null;
+    try {
+      const ss = Math.max(0.5, clipLen * 0.4).toFixed(2);
+      const posterRes = await sandbox.commands.run(
+        `cd /tmp/rec && ffmpeg -y -ss ${ss} -i demo.mp4 -frames:v 1 -q:v 3 poster.jpg`,
+        { timeoutMs: 30_000 },
+      );
+      if (posterRes.exitCode === 0) {
+        const posterBytes = await retry.onThrow(
+          async () => sandbox.files.read("/tmp/rec/poster.jpg", { format: "bytes" }),
+          { maxAttempts: 3, minTimeoutInMs: 1000, factor: 2 },
+        );
+        posterBuf = Buffer.from(posterBytes);
+        logger.log("poster extracted", { bytes: posterBuf.length });
+      }
+    } catch (e) {
+      logger.log("poster extraction failed (non-fatal)", { error: (e as Error).message });
+    }
+
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -624,10 +647,14 @@ export const buildAndRecord = task({
     // on the fixed key otherwise so the pipeline works before R2 is provisioned.
     let storagePath: string;
     let publicUrl: string;
+    let posterUrl: string | undefined;
     if (isR2Configured()) {
       const ts = Date.now();
       storagePath = `${prefix}demo-${ts}.mp4`;
       publicUrl = await uploadToR2(storagePath, buf, "video/mp4");
+      if (posterBuf) {
+        posterUrl = await uploadToR2(`${prefix}poster-${ts}.jpg`, posterBuf, "image/jpeg");
+      }
       await pruneR2PrefixExcept(prefix, String(ts)).catch((e) =>
         logger.log("R2 prune failed (non-fatal)", { error: (e as Error).message }),
       );
@@ -639,14 +666,23 @@ export const buildAndRecord = task({
       if (uploadErr)
         throw new Error(`storage upload failed: ${uploadErr.message}`);
       publicUrl = supabase.storage.from(DEMO_BUCKET).getPublicUrl(storagePath).data.publicUrl;
+      if (posterBuf) {
+        const posterKey = `${prefix}poster.jpg`;
+        const { error: pErr } = await supabase.storage
+          .from(DEMO_BUCKET)
+          .upload(posterKey, posterBuf, { contentType: "image/jpeg", upsert: true });
+        if (!pErr)
+          posterUrl = supabase.storage.from(DEMO_BUCKET).getPublicUrl(posterKey).data.publicUrl;
+      }
     }
-    logger.log("video uploaded", { storagePath, publicUrl });
+    logger.log("video uploaded", { storagePath, publicUrl, poster: Boolean(posterUrl) });
 
     if (isRealProject) {
       const { error: updErr } = await supabase
         .from("projects")
         .update({
           demo_video_url: publicUrl,
+          demo_poster_url: posterUrl ?? null,
           demo_build_status: "done",
           demo_generated_at: new Date().toISOString(),
         })
