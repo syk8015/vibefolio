@@ -404,6 +404,9 @@ export default function ProjectsTab({ user }: { user: User }) {
     const supabase = createClient();
     const project = projects.find(p => p.id === id);
     if (project) await deleteProjectStorage(supabase, project);
+    // Clean the demo's R2 assets (versioned mp4 + poster) server-side. Best-effort,
+    // and BEFORE the row delete — the route verifies ownership from the row.
+    await fetch(`/api/projects/${id}/demo-assets`, { method: "DELETE" }).catch(() => {});
     await supabase.from("projects").delete().eq("id", id);
     setProjects(prev => prev.filter(p => p.id !== id));
   }
