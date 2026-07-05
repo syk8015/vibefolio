@@ -5,11 +5,12 @@ import Image from "next/image";
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import ProjectCard from "@/components/ProjectCard";
+import ShareKit from "@/components/dashboard/ShareKit";
 import type { Project } from "@/lib/data";
 import { detectDemoSource } from "@/lib/demoSource";
 import { screenshotUrl } from "@/lib/thumbnail";
 
-const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
 
 const MIME_TYPES: Record<string, string> = {
   html: "text/html", htm: "text/html", css: "text/css",
@@ -312,6 +313,8 @@ async function deleteSwappedAssets(
 }
 
 export default function ProjectsTab({ user }: { user: User }) {
+  // Same derivation as DashboardClient — the canonical profile handle for links.
+  const username = user.user_metadata?.username || user.email?.split("@")[0] || "me";
   const [projects, setProjects] = useState<DBProject[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -554,6 +557,7 @@ export default function ProjectsTab({ user }: { user: User }) {
             <ProjectRow
               key={project.id}
               project={project}
+              username={username}
               onDelete={() => handleDelete(project.id)}
               onEdit={() => setEditProject(project)}
               onToggleFeatured={() => handleToggleFeatured(project.id)}
@@ -690,8 +694,9 @@ function RerecordButton({
   );
 }
 
-function ProjectRow({ project, onDelete, onEdit, onToggleFeatured, onRerecord, onMoveUp, onMoveDown, canMoveUp, canMoveDown, isDragging, isDragOver, isLast, onDragStart, onDragOver, onDrop, onDragEnd }: {
+function ProjectRow({ project, username, onDelete, onEdit, onToggleFeatured, onRerecord, onMoveUp, onMoveDown, canMoveUp, canMoveDown, isDragging, isDragOver, isLast, onDragStart, onDragOver, onDrop, onDragEnd }: {
   project: DBProject;
+  username: string;
   onDelete: () => void;
   onEdit: () => void;
   onToggleFeatured: () => void;
@@ -814,6 +819,15 @@ function ProjectRow({ project, onDelete, onEdit, onToggleFeatured, onRerecord, o
             status={project.demo_build_status}
             onRerecord={onRerecord}
           />
+
+          {project.demo_video_url && (
+            <ShareKit
+              username={username}
+              projectId={project.id}
+              demoVideoUrl={project.demo_video_url}
+              projectTitle={project.title}
+            />
+          )}
 
           <button
             onClick={onToggleFeatured}
