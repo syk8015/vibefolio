@@ -1,16 +1,19 @@
-// Upload the finished demo.mp4 to Supabase Storage and mark the project done.
-// Cloned from src/trigger/build-and-record.ts:600-648 (plan §5.11), with one
-// difference: local Node (25) HAS native WebSocket, so the supabase-js Realtime
-// client initializes fine WITHOUT injecting the `ws` transport that the Node-21
-// Trigger.dev worker needed. service-role key bypasses RLS for the write.
+// Upload the finished demo.mp4 to storage and mark the project done.
+//
+// Storage backend: Cloudflare R2 when configured (versioned key demo-{ts}.mp4 so
+// each re-record gets a fresh immutable URL + free egress for og:video unfurls),
+// otherwise a Supabase Storage fallback on the fixed demo.mp4 key (byte-identical
+// to the pre-R2 behaviour) so the pipeline keeps working before R2 is provisioned.
+//
+// service-role key bypasses RLS for the DB write. manual-* projectIds are dry-runs:
+// upload under _test/ and DON'T touch the DB.
 import { readFile } from "node:fs/promises";
 import { createClient } from "@supabase/supabase-js";
 import { DEMO_BUCKET } from "./config";
+import { isR2Configured, uploadToR2, pruneR2PrefixExcept } from "../lib/r2";
 
 export type UploadResult = { storagePath: string; publicUrl: string };
 
-// manual-* projectIds are dry-runs: upload under _test/ and DON'T touch the DB
-// (same convention as the E2B path's `isRealProject` guard).
 export async function uploadAndMarkDone(
   projectId: string,
   videoPath: string,
@@ -35,18 +38,27 @@ export async function uploadAndMarkDone(
     userId = data.user_id;
   }
 
-  const storagePath = isRealProject
-    ? `${userId}/${projectId}/demo.mp4`
-    : `_test/${projectId}/demo.mp4`;
+  const prefix = isRealProject ? `${userId}/${projectId}/` : `_test/${projectId}/`;
 
-  const { error: uploadErr } = await supabase.storage
-    .from(DEMO_BUCKET)
-    .upload(storagePath, buf, { contentType: "video/mp4", upsert: true });
-  if (uploadErr) throw new Error(`storage upload failed: ${uploadErr.message}`);
-
-  const {
-    data: { publicUrl },
-  } = supabase.storage.from(DEMO_BUCKET).getPublicUrl(storagePath);
+  let storagePath: string;
+  let publicUrl: string;
+  if (isR2Configured()) {
+    // Versioned key → immutable URL per re-record; prune older versions after.
+    const ts = Date.now();
+    storagePath = `${prefix}demo-${ts}.mp4`;
+    publicUrl = await uploadToR2(storagePath, buf, "video/mp4");
+    await pruneR2PrefixExcept(prefix, String(ts)).catch((e) =>
+      console.error("[upload] R2 prune failed (non-fatal):", (e as Error).message),
+    );
+  } else {
+    // Supabase fallback: fixed key + upsert (no orphans), same as before R2.
+    storagePath = `${prefix}demo.mp4`;
+    const { error: uploadErr } = await supabase.storage
+      .from(DEMO_BUCKET)
+      .upload(storagePath, buf, { contentType: "video/mp4", upsert: true });
+    if (uploadErr) throw new Error(`storage upload failed: ${uploadErr.message}`);
+    publicUrl = supabase.storage.from(DEMO_BUCKET).getPublicUrl(storagePath).data.publicUrl;
+  }
 
   if (isRealProject) {
     const { error: updErr } = await supabase

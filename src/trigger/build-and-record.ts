@@ -3,6 +3,7 @@ import Sandbox from "e2b";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import ws from "ws";
 import { RECORD_HELPER_SRC } from "./record-helper-src";
+import { isR2Configured, uploadToR2, pruneR2PrefixExcept } from "../../lib/r2";
 
 // Trigger.dev 워커는 Node 21이라 native WebSocket이 없음.
 // supabase-js의 RealtimeClient가 ws를 못 잡으면 초기화에서 throw해서
@@ -615,22 +616,30 @@ export const buildAndRecord = task({
       userId = data.user_id;
     }
 
-    const storagePath = isRealProject
-      ? `${userId}/${payload.projectId}/demo.mp4`
-      : `_test/${payload.projectId}/demo.mp4`;
+    const prefix = isRealProject
+      ? `${userId}/${payload.projectId}/`
+      : `_test/${payload.projectId}/`;
 
-    const { error: uploadErr } = await supabase.storage
-      .from(DEMO_BUCKET)
-      .upload(storagePath, buf, {
-        contentType: "video/mp4",
-        upsert: true,
-      });
-    if (uploadErr)
-      throw new Error(`storage upload failed: ${uploadErr.message}`);
-
-    const {
-      data: { publicUrl },
-    } = supabase.storage.from(DEMO_BUCKET).getPublicUrl(storagePath);
+    // R2 when configured (versioned, immutable, free egress); Supabase fallback
+    // on the fixed key otherwise so the pipeline works before R2 is provisioned.
+    let storagePath: string;
+    let publicUrl: string;
+    if (isR2Configured()) {
+      const ts = Date.now();
+      storagePath = `${prefix}demo-${ts}.mp4`;
+      publicUrl = await uploadToR2(storagePath, buf, "video/mp4");
+      await pruneR2PrefixExcept(prefix, String(ts)).catch((e) =>
+        logger.log("R2 prune failed (non-fatal)", { error: (e as Error).message }),
+      );
+    } else {
+      storagePath = `${prefix}demo.mp4`;
+      const { error: uploadErr } = await supabase.storage
+        .from(DEMO_BUCKET)
+        .upload(storagePath, buf, { contentType: "video/mp4", upsert: true });
+      if (uploadErr)
+        throw new Error(`storage upload failed: ${uploadErr.message}`);
+      publicUrl = supabase.storage.from(DEMO_BUCKET).getPublicUrl(storagePath).data.publicUrl;
+    }
     logger.log("video uploaded", { storagePath, publicUrl });
 
     if (isRealProject) {
