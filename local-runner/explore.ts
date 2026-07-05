@@ -99,7 +99,7 @@ const SELECTOR_SRC = `(x, y) => {
     var t = e.tagName ? e.tagName.toLowerCase() : "";
     if (["button","a","input","select","textarea","summary","label"].indexOf(t) >= 0) return true;
     var r = e.getAttribute ? e.getAttribute("role") : null;
-    if (r && ["button","link","tab","menuitem","menuitemcheckbox","checkbox","switch","option","radio"].indexOf(r) >= 0) return true;
+    if (r && ["button","link","tab","menuitem","menuitemcheckbox","checkbox","switch","option","radio","slider"].indexOf(r) >= 0) return true;
     if (e.hasAttribute && e.hasAttribute("data-testid")) return true;
     if (e.getAttribute && e.getAttribute("contenteditable") === "true") return true;
     return false;
@@ -449,10 +449,23 @@ export async function explore(page: Page): Promise<ExploreResult> {
           Array.isArray(input.start_coordinate) && input.start_coordinate.length === 2
             ? [clampX(input.start_coordinate[0]), clampY(input.start_coordinate[1])]
             : [state.x, state.y];
+        // Resolve the grabbed control BEFORE the gesture — the thumb moves with it.
+        // Recording is unconditional: an executed-but-unscripted drag would leave
+        // the live page in a state replay never reproduces (script↔page desync).
+        const { selector, label } = await evalCall<Resolved>(page, SELECTOR_SRC, s[0], s[1]);
         await page.mouse.move(s[0], s[1]);
         await page.mouse.down();
         await page.mouse.move(state.x, state.y, { steps: 18 });
         await page.mouse.up();
+        actions.push({
+          kind: "drag",
+          selector: selector ?? "",
+          x: s[0],
+          y: s[1],
+          toX: state.x,
+          toY: state.y,
+          label,
+        });
         return true;
       }
       case "mouse_move":

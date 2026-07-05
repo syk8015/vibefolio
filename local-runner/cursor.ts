@@ -22,6 +22,8 @@ export type NfCursor = {
   pos(): { x: number; y: number };
   moveTo(x: number, y: number, dur: number): Promise<void>;
   press(): void;
+  down(): void; // grab: ripple + ring eases to pressed scale and HOLDS (drag)
+  up(): void; // release: ring eases back to rest
   reset(): void;
 };
 
@@ -56,7 +58,8 @@ const OVERLAY_SRC = `(() => {
     var easeInOut = (p) => p < 0.5 ? 4*p*p*p : 1 - Math.pow(-2*p+2, 3)/2;
     var cx = window.innerWidth/2, cy = window.innerHeight/2, scale = 1;
     var glide = null, pressT0 = -1, raf = 0;
-    var PRESS_MS = 260, RIPPLE_MS = 520;
+    var holdT0 = -1, releaseT0 = -1;
+    var PRESS_MS = 260, RIPPLE_MS = 520, HOLD_EASE_MS = 140, HOLD_SCALE = 0.82;
     var ripples = [];
 
     var draw = () => {
@@ -90,7 +93,16 @@ const OVERLAY_SRC = `(() => {
         cy = glide.y0 + (glide.yT - glide.y0)*e;
         if (p >= 1) { var r = glide.resolve; glide = null; r(); } else busy = true;
       }
-      if (pressT0 >= 0) {
+      if (holdT0 >= 0) {
+        // Drag grab: ease down to the held scale and STAY there until up().
+        var hp = Math.min(1, (now - holdT0) / HOLD_EASE_MS);
+        scale = 1 - (1 - HOLD_SCALE)*easeInOut(hp);
+        if (hp < 1) busy = true;
+      } else if (releaseT0 >= 0) {
+        var rlp = Math.min(1, (now - releaseT0) / HOLD_EASE_MS);
+        scale = HOLD_SCALE + (1 - HOLD_SCALE)*easeInOut(rlp);
+        if (rlp >= 1) { releaseT0 = -1; scale = 1; } else busy = true;
+      } else if (pressT0 >= 0) {
         var pp = Math.min(1, (now - pressT0) / PRESS_MS);
         scale = pp < 0.5 ? 1 - 0.2*easeInOut(pp/0.5) : 0.8 + 0.2*easeInOut((pp - 0.5)/0.5);
         if (pp >= 1) { pressT0 = -1; scale = 1; } else busy = true;
@@ -113,8 +125,18 @@ const OVERLAY_SRC = `(() => {
         ripples.push({ x: cx, y: cy, t0: performance.now() });
         kick();
       },
+      down: () => {
+        holdT0 = performance.now(); releaseT0 = -1; pressT0 = -1;
+        ripples.push({ x: cx, y: cy, t0: performance.now() });
+        kick();
+      },
+      up: () => {
+        if (holdT0 < 0) return;
+        holdT0 = -1; releaseT0 = performance.now(); kick();
+      },
       reset: () => {
-        glide = null; pressT0 = -1; ripples.length = 0; scale = 1;
+        glide = null; pressT0 = -1; holdT0 = -1; releaseT0 = -1;
+        ripples.length = 0; scale = 1;
         cx = window.innerWidth/2; cy = window.innerHeight/2; kick();
       },
     };
@@ -155,3 +177,9 @@ export const cursorMoveTo = (page: Page, x: number, y: number, dur: number) =>
 // real click. Not awaited so the ripple overlaps the actual mouse event.
 export const cursorPress = (page: Page) =>
   page.evaluate(() => window.__nfCursor!.press()).catch(() => {});
+
+// Drag grab/release visuals (fire-and-forget, same rationale as cursorPress).
+export const cursorDown = (page: Page) =>
+  page.evaluate(() => window.__nfCursor!.down()).catch(() => {});
+export const cursorUp = (page: Page) =>
+  page.evaluate(() => window.__nfCursor!.up()).catch(() => {});

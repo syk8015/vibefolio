@@ -13,7 +13,12 @@ export type ScriptAction =
   | { kind: "scroll"; dy: number }
   // M1 (explore) emits these; replay handles them then.
   | { kind: "hover"; selector: string; x?: number; y?: number }
-  | { kind: "dismiss"; selector: string };
+  | { kind: "dismiss"; selector: string }
+  // Drag gesture (slider, reorder handle, canvas). Unlike click, BOTH coordinate
+  // pairs are required — the gesture IS the start→end vector; the selector only
+  // re-anchors it: replay resolves the live start from the selector and translates
+  // the end by the same offset, preserving the drag's shape relative to the control.
+  | { kind: "drag"; selector: string; x: number; y: number; toX: number; toY: number; label?: string };
 
 export type Script = {
   actions: ScriptAction[];

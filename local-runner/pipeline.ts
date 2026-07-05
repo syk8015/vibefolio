@@ -121,7 +121,9 @@ export async function recordDemo(opts: RecordDemoOptions): Promise<RecordDemoRes
           ? ` "${a.text}"${a.submit ? " ⏎" : ""}`
           : a.kind === "scroll"
             ? ` dy=${a.dy}`
-            : "";
+            : a.kind === "drag"
+              ? ` (${a.x},${a.y})→(${a.toX},${a.toY})`
+              : "";
       const sel = "selector" in a ? a.selector || "(coord)" : "";
       console.log(`   ${a.kind.padEnd(7)} ${sel}${tail}`);
     }
