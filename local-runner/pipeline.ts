@@ -24,7 +24,7 @@ import { replay } from "./replay";
 import { postprocess } from "./postprocess";
 import { explore, isLoginGated } from "./explore";
 import { installSafety, type BlockedWrite, type SafetyPolicy } from "./safety";
-import { uploadAndMarkDone, type UploadResult } from "./upload";
+import { uploadAndMarkDone, fetchUsername, type UploadResult } from "./upload";
 import {
   VIEW_W,
   VIEW_H,
@@ -168,7 +168,9 @@ export async function recordDemo(opts: RecordDemoOptions): Promise<RecordDemoRes
 
     // ── 5) Post-process ───────────────────────────────────────────────────────────
     await opts.onPhase?.("editing");
-    const { durationSec, clipLen } = await postprocess({
+    // Owner handle for the endcap chip / end card. "preview" for dry-runs.
+    const username = (await fetchUsername(projectId)) ?? "preview";
+    const { durationSec, clipLen, posterPath } = await postprocess({
       rawPath: raw,
       outPath: demo,
       events: cam.events,
@@ -176,6 +178,7 @@ export async function recordDemo(opts: RecordDemoOptions): Promise<RecordDemoRes
       rawH: crop.h,
       logicalW: crop.logical.iw,
       logicalH: crop.logical.ih,
+      username,
     });
 
     // ── Measure + contact sheet ───────────────────────────────────────────────────
@@ -190,7 +193,7 @@ export async function recordDemo(opts: RecordDemoOptions): Promise<RecordDemoRes
     // ── 6) Upload (optional) ────────────────────────────────────────────────────
     let uploaded: UploadResult | undefined;
     if (opts.upload) {
-      uploaded = await uploadAndMarkDone(projectId, demo);
+      uploaded = await uploadAndMarkDone(projectId, demo, posterPath);
       console.log(`[upload] ${uploaded.storagePath}`);
     }
 

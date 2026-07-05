@@ -1,5 +1,7 @@
 // Post-process the raw capture into the shipped demo.mp4: apply the cinematic
-// zoompan (camera events), downscale to 720p, fade in/out.
+// zoompan (camera events), downscale to 720p, fade in/out, then append the endcap
+// (a username chip in the last few seconds + a cream end card) and extract a
+// poster frame for OG images.
 //
 // trap B: the raw is ALREADY native 2× (e.g. 2560×1440 = 1280×720 logical × DPR2),
 // so it IS the supersample — we DROP the E2B path's leading `scale=CAP*SS` step
@@ -7,10 +9,25 @@
 // native 2× size (finer sub-pixel granularity → no integer-position shimmer),
 // then a single lanczos downscale to 720p. Focal coords come in as LOGICAL px
 // (getBoundingClientRect space) and are scaled to capture px here.
+//
+// trap (endcap): this machine's ffmpeg has NO libfreetype (no `drawtext`), so the
+// chip + end card text is rasterized in a headless Chrome (endcap.ts) and composed
+// with `overlay` + `concat`. The endcap is best-effort — any failure ships the
+// plain film rather than failing the take.
+import { writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
 import type { CameraEvent } from "./camera";
 import { buildZoomFilter } from "./camera";
 import { FPS, MAX_VIDEO_SEC, PAD_FRAC, PAD_COLOR, CENTER_BIAS } from "./config";
 import { run, ffprobeValue } from "./util";
+import { renderEndcapAssets } from "./endcap";
+
+// Endcap timing.
+const CHIP_LEAD_SEC = 4; // chip visible for the last N seconds only (clean body)
+const CHIP_FADE_SEC = 0.5;
+const CHIP_MARGIN = 28; // px inset from the bottom-right corner (720p space)
+const ENDCARD_SEC = 1.2;
+const ENDCARD_FADE_SEC = 0.3; // fades in from black (body fades OUT to black → smooth)
 
 export type PostInput = {
   rawPath: string;
@@ -22,18 +39,30 @@ export type PostInput = {
   rawH: number;
   logicalW: number;
   logicalH: number;
+  // "@handle" burned into the endcap chip + end card. "@preview" for dry-runs.
+  username: string;
 };
 
 export async function postprocess(input: PostInput): Promise<{
   durationSec: number;
   clipLen: number;
+  posterPath?: string;
 }> {
-  const { rawPath, outPath, events, rawW, rawH, logicalW, logicalH } = input;
+  const { rawPath, outPath, events, rawW, rawH, logicalW, logicalH, username } = input;
+  const outDir = dirname(outPath);
   const durationSec = await ffprobeValue(rawPath, "format=duration");
   const clipLen = Math.max(2, Math.min(MAX_VIDEO_SEC, durationSec || 0));
   const fadeOutStart = Math.max(0, clipLen - 0.5).toFixed(2);
 
-  let vf: string;
+  // Final frame size. Height is fixed 720p; width follows the logical viewport
+  // aspect (rounded even). We force BOTH the body and the end card to exactly
+  // these dims so the concat is dimension-clean by construction.
+  const outH = 720;
+  const outWraw = Math.round((logicalW / logicalH) * outH);
+  const outW = outWraw % 2 ? outWraw + 1 : outWraw;
+
+  // ── base chain (everything up to the 720p downscale, no fade yet) ────────────
+  let baseChain: string;
   if (events.length) {
     // SUPERSAMPLE the native-2× raw by a further ×SS before zoompan. zoompan snaps
     // its crop-window position to integer SOURCE pixels; at ZOOM_MAX 2 that stepping
@@ -45,11 +74,7 @@ export async function postprocess(input: PostInput): Promise<{
     const sx = (rawW / logicalW) * SS; // logical px → supersampled-capture px
     const sy = (rawH / logicalH) * SS;
     // PAD a solid margin around the supersampled capture so a cursor-CENTERED crop
-    // (CENTER_BIAS) near an edge pans into the margin instead of clamping. padX/Y is
-    // per side; padded canvas = ~1.5× (8K on the M5 — benchmarked ~36s for a 30s
-    // clip, well under the timeout). padScale makes logical z=1 crop exactly the
-    // WINDOW region back out of the padded frame, and the window center == padded
-    // center, so the camera's z=1/focal=center invariant frames the whole window.
+    // (CENTER_BIAS) near an edge pans into the margin instead of clamping.
     const padX = Math.round(zw * PAD_FRAC);
     const padY = Math.round(zh * PAD_FRAC);
     const pw = zw + 2 * padX;
@@ -68,37 +93,164 @@ export async function postprocess(input: PostInput): Promise<{
       centerBias: CENTER_BIAS,
       baseZoom: padScale, // un-keyframed frames frame the window, not the whole pad
     });
-    // No fade-IN: the raw is bright from frame 0 (verified), so a fade-in just
-    // opens on black before the intro hold (user 2026-06-06). Keep the fade-OUT.
-    vf =
+    baseChain =
       `scale=${zw}:${zh}:flags=lanczos,` +
       `pad=${pw}:${ph}:${padX}:${padY}:color=${PAD_COLOR},${zoom},` +
-      `scale=-2:720:flags=lanczos,fade=t=out:st=${fadeOutStart}:d=0.5`;
+      `scale=${outW}:${outH}:flags=lanczos`;
   } else {
-    vf = `scale=-2:720:flags=lanczos,fade=t=out:st=${fadeOutStart}:d=0.5`;
+    baseChain = `scale=${outW}:${outH}:flags=lanczos`;
   }
 
-  const { code, stderr } = await run(
+  // ── endcap (best-effort) ─────────────────────────────────────────────────────
+  const handle = "@" + username;
+  const bodyPath = `${outDir}/body.mp4`;
+  const endcardMp4 = `${outDir}/endcard.mp4`;
+  let usedEndcap = false;
+  let posterSource = outPath;
+  try {
+    const { chipPath, endcardPath } = await renderEndcapAssets({
+      handle,
+      width: outW,
+      height: outH,
+      outDir,
+    });
+
+    // Body: base chain → chip overlay (fades in for the last CHIP_LEAD_SEC) → fade out.
+    const chipStart = Math.max(0, clipLen - CHIP_LEAD_SEC).toFixed(2);
+    const fc =
+      `[0:v]${baseChain}[base];` +
+      `[1:v]format=rgba,fade=t=in:st=${chipStart}:d=${CHIP_FADE_SEC}:alpha=1[chip];` +
+      `[base][chip]overlay=x=W-w-${CHIP_MARGIN}:y=H-h-${CHIP_MARGIN}[ov];` +
+      `[ov]fade=t=out:st=${fadeOutStart}:d=0.5,format=yuv420p[v]`;
+    await ff(
+      [
+        "-y",
+        "-i", rawPath,
+        "-loop", "1", "-framerate", String(FPS), "-i", chipPath,
+        "-filter_complex", fc,
+        "-map", "[v]",
+        "-t", clipLen.toFixed(2),
+        ...ENCODE_ARGS,
+        "-movflags", "+faststart",
+        bodyPath,
+      ],
+      360_000,
+      "body",
+    );
+
+    // End card clip: cream still → 1.2s, fades in from black.
+    await ff(
+      [
+        "-y",
+        "-loop", "1", "-t", ENDCARD_SEC.toFixed(2), "-i", endcardPath,
+        "-vf", `scale=${outW}:${outH}:flags=lanczos,fade=t=in:st=0:d=${ENDCARD_FADE_SEC},format=yuv420p`,
+        ...ENCODE_ARGS,
+        endcardMp4,
+      ],
+      60_000,
+      "endcard",
+    );
+
+    await concatSegments(bodyPath, endcardMp4, outPath, outDir);
+    usedEndcap = true;
+    posterSource = bodyPath; // grab the poster from the film, not the end card
+  } catch (e) {
+    console.error(
+      "[postprocess] endcap failed (non-fatal), shipping plain film:",
+      (e as Error).message,
+    );
+    usedEndcap = false;
+  }
+
+  // Plain film (no endcap): single pass straight to outPath (legacy behaviour).
+  if (!usedEndcap) {
+    await ff(
+      [
+        "-y",
+        "-i", rawPath,
+        "-vf", `${baseChain},fade=t=out:st=${fadeOutStart}:d=0.5`,
+        "-t", clipLen.toFixed(2),
+        ...ENCODE_ARGS,
+        "-movflags", "+faststart",
+        outPath,
+      ],
+      360_000,
+      "plain",
+    );
+    posterSource = outPath;
+  }
+
+  // ── poster (best-effort) ─────────────────────────────────────────────────────
+  let posterPath: string | undefined;
+  try {
+    const p = `${outDir}/poster.jpg`;
+    const ss = Math.max(0.5, clipLen * 0.4).toFixed(2);
+    const { code, stderr } = await run(
+      "ffmpeg",
+      ["-y", "-ss", ss, "-i", posterSource, "-frames:v", "1", "-q:v", "3", p],
+      { timeoutMs: 30_000 },
+    );
+    if (code !== 0) throw new Error(stderr.slice(-300));
+    posterPath = p;
+  } catch (e) {
+    console.error("[postprocess] poster extraction failed (non-fatal):", (e as Error).message);
+  }
+
+  return { durationSec, clipLen, posterPath };
+}
+
+// Shared libx264 encode args (identical across body + end card so the concat can
+// stream-copy without a re-encode).
+const ENCODE_ARGS = [
+  "-r", String(FPS),
+  "-fps_mode", "cfr",
+  "-c:v", "libx264",
+  "-preset", "medium",
+  "-crf", "26",
+  "-pix_fmt", "yuv420p",
+  "-an",
+];
+
+async function ff(args: string[], timeoutMs: number, label: string): Promise<void> {
+  const { code, stderr } = await run("ffmpeg", args, { timeoutMs });
+  if (code !== 0) {
+    throw new Error(`ffmpeg ${label} failed (exit ${code}): ${stderr.slice(-600)}`);
+  }
+}
+
+// Join body + end card. Both share identical codec params, so try a lossless
+// stream-copy via the concat demuxer first; fall back to a filter re-encode if
+// the copy is rejected (SPS/timebase mismatch).
+async function concatSegments(
+  bodyPath: string,
+  endcardPath: string,
+  outPath: string,
+  outDir: string,
+): Promise<void> {
+  const listPath = `${outDir}/concat.txt`;
+  await writeFile(listPath, `file '${bodyPath}'\nfile '${endcardPath}'\n`);
+  const copy = await run(
+    "ffmpeg",
+    ["-y", "-f", "concat", "-safe", "0", "-i", listPath, "-c", "copy", "-movflags", "+faststart", outPath],
+    { timeoutMs: 60_000 },
+  );
+  if (copy.code === 0) return;
+  const enc = await run(
     "ffmpeg",
     [
       "-y",
-      "-i", rawPath,
-      "-t", clipLen.toFixed(2),
-      "-vf", vf,
-      "-r", String(FPS),
-      "-fps_mode", "cfr",
-      "-c:v", "libx264",
-      "-preset", "medium",
-      "-crf", "26",
-      "-pix_fmt", "yuv420p",
-      "-an",
-      "-movflags", "+faststart",
+      "-i", bodyPath,
+      "-i", endcardPath,
+      "-filter_complex", "[0:v][1:v]concat=n=2:v=1:a=0[v]",
+      "-map", "[v]",
+      "-r", String(FPS), "-fps_mode", "cfr",
+      "-c:v", "libx264", "-preset", "medium", "-crf", "20",
+      "-pix_fmt", "yuv420p", "-an", "-movflags", "+faststart",
       outPath,
     ],
-    { timeoutMs: 360_000 }, // ~4K zoompan supersample is heavier
+    { timeoutMs: 180_000 },
   );
-  if (code !== 0) {
-    throw new Error(`ffmpeg post-process failed (exit ${code}): ${stderr.slice(-600)}`);
+  if (enc.code !== 0) {
+    throw new Error(`concat failed (exit ${enc.code}): ${enc.stderr.slice(-500)}`);
   }
-  return { durationSec, clipLen };
 }

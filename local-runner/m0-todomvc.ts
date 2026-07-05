@@ -76,6 +76,7 @@ try {
     rawH: crop.h,
     logicalW: crop.logical.iw,
     logicalH: crop.logical.ih,
+    username: "preview",
   });
 
   // ── Measure + contact sheet ───────────────────────────────────────────────────
