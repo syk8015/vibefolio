@@ -102,6 +102,16 @@ export default function OnboardingPage() {
     router.refresh();
   }
 
+  // Escape hatch: a visitor who signed in with the wrong account lands here and
+  // — since the middleware sends every username-less user to /onboarding — has no
+  // other way out. Let them sign out and pick a different account.
+  async function handleSignOut() {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push("/login");
+    router.refresh();
+  }
+
   const canSubmit = !loading && usernameStatus !== "taken" && usernameStatus !== "invalid" && usernameStatus !== "checking";
 
   if (initLoading) {
@@ -211,6 +221,15 @@ export default function OnboardingPage() {
             {loading ? "저장 중..." : "시작하기 →"}
           </button>
         </form>
+
+        {/* Escape hatch for a wrong-account sign-in */}
+        <div className="mt-6 text-center">
+          <button type="button" onClick={handleSignOut}
+            className="text-xs font-semibold transition-opacity hover:opacity-70"
+            style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", background: "none", border: "none", cursor: "pointer" }}>
+            다른 계정으로 로그인
+          </button>
+        </div>
       </div>
     </main>
   );
