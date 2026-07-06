@@ -6,6 +6,7 @@ import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import ProjectCard from "@/components/ProjectCard";
 import ShareKit from "@/components/dashboard/ShareKit";
+import { RerecordRequestModal } from "@/components/dashboard/RerecordRequestModal";
 import type { Project } from "@/lib/data";
 import { detectDemoSource } from "@/lib/demoSource";
 import { screenshotUrl } from "@/lib/thumbnail";
@@ -121,7 +122,8 @@ type DemoBuildStatus =
   | "recording"
   | "editing"
   | "done"
-  | "failed";
+  | "failed"
+  | "held";
 
 interface DBProject {
   id: string;
@@ -276,6 +278,14 @@ export default function ProjectsTab({ user }: { user: User }) {
   const [editProject, setEditProject] = useState<DBProject | null>(null);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [rerecordModal, setRerecordModal] = useState<{ id: string; title: string } | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!notice) return;
+    const t = setTimeout(() => setNotice(null), 4500);
+    return () => clearTimeout(t);
+  }, [notice]);
 
   useEffect(() => { loadProjects(); }, []);
 
@@ -391,15 +401,40 @@ export default function ProjectsTab({ user }: { user: User }) {
   }
 
   async function handleRerecord(id: string) {
-    // 옵티미스틱 pending. 라우트가 DB 갱신하면 realtime이 덮어쓰지만 그 전에 UI 반응 즉시.
+    const project = projects.find(p => p.id === id);
+    // A landed video is locked to one take — collect a change request for an admin
+    // instead of silently re-shooting (and re-spending).
+    if (project && (project.demo_video_url || project.demo_build_status === "done")) {
+      setRerecordModal({ id, title: project.title });
+      return;
+    }
+
+    // Otherwise this is a retry of a never-run / failed take. Optimistic pending;
+    // realtime overwrites it once the row actually moves.
+    const prevStatus = project?.demo_build_status ?? null;
     setProjects(prev => prev.map(p => p.id === id
       ? { ...p, demo_build_status: "pending", demo_build_error: null }
       : p));
     try {
       const res = await fetch(`/api/projects/${id}/trigger-demo`, { method: "POST" });
+      const body = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
+        // Retry budget spent / already has a video → escalate to an approval request.
+        if (res.status === 409 && (body.code === "ALREADY_HAS_DEMO" || body.code === "ATTEMPT_LIMIT")) {
+          setProjects(prev => prev.map(p => p.id === id
+            ? { ...p, demo_build_status: prevStatus }
+            : p));
+          setRerecordModal({ id, title: project?.title ?? "" });
+          return;
+        }
         throw new Error(body.error || `HTTP ${res.status}`);
+      }
+      // Held (daily cap) — reflect immediately; realtime confirms.
+      if (body.held) {
+        setProjects(prev => prev.map(p => p.id === id
+          ? { ...p, demo_build_status: "held", demo_build_error: null }
+          : p));
+        setNotice(body.message ?? "관리자 승인 대기로 전환했어요.");
       }
     } catch (err) {
       // 트리거 자체 실패 시 failed로 표시 (잡이 안 돌았으니 catchError로 잡힐 일도 없음)
@@ -551,6 +586,29 @@ export default function ProjectsTab({ user }: { user: User }) {
           onSubmit={form => handleEdit(editProject.id, form)}
           submitLabel="저장하기" userId={user.id} />
       )}
+
+      {rerecordModal && (
+        <RerecordRequestModal
+          projectId={rerecordModal.id}
+          projectTitle={rerecordModal.title}
+          onClose={() => setRerecordModal(null)}
+          onSubmitted={() => {
+            setRerecordModal(null);
+            setNotice("재촬영 요청을 보냈어요. 관리자 승인 후 다시 촬영돼요.");
+          }}
+        />
+      )}
+
+      {notice && (
+        <div
+          className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-full shadow-lg text-sm cursor-pointer"
+          style={{ background: "var(--text-primary)", color: "var(--bg)", fontFamily: "var(--font-nunito)" }}
+          onClick={() => setNotice(null)}
+          role="status"
+        >
+          {notice}
+        </div>
+      )}
     </div>
   );
 }
@@ -579,6 +637,25 @@ function DemoBuildBadge({
         title={error ? `자동 시연 영상 생성 실패\n\n${error}` : "자동 시연 영상 생성 실패"}
       >
         시연 영상 실패
+      </span>
+    );
+  }
+
+  if (status === "held") {
+    return (
+      <span
+        className="px-2 py-0.5 rounded-full text-xs shrink-0"
+        style={{
+          background: "var(--surface-soft)",
+          color: "var(--text-secondary)",
+          fontFamily: "var(--font-nunito)",
+          fontSize: "0.6rem",
+          fontWeight: 600,
+          cursor: "help",
+        }}
+        title="하루 자동 시연 한도를 넘어 관리자 승인 대기 중이에요. 승인 전까지는 이미지로 표시돼요."
+      >
+        승인 대기 · 이미지 표시
       </span>
     );
   }
@@ -612,26 +689,30 @@ function DemoBuildBadge({
 function RerecordButton({
   sourceValue,
   status,
+  hasVideo,
   onRerecord,
 }: {
   sourceValue: string | null;
   status: DemoBuildStatus | null;
+  hasVideo: boolean;
   onRerecord: () => void;
 }) {
   // 녹화할 소스가 없으면 버튼 자체를 숨김 (예: 파일 업로드 미완료 + URL도 없음)
   if (!sourceValue) return null;
-  // 진행 중이어도 클릭 가능 — stuck row를 풀려면 강제 재시도가 필요함.
   const inFlight = status === "pending" || status === "building" || status === "recording" || status === "editing";
+  // 진행 중이거나 승인 대기(held)면 유저가 지금 할 수 있는 액션이 없음 → 버튼 숨김.
+  if (inFlight || status === "held") return null;
+  // 영상이 이미 있으면(done) 재촬영은 관리자 승인 요청, 실패면 재시도.
+  const title =
+    hasVideo || status === "done"
+      ? "재촬영 요청 (관리자 승인 필요)"
+      : status === "failed"
+        ? "다시 시도"
+        : "시연 영상 만들기";
   return (
     <button
       onClick={onRerecord}
-      title={
-        inFlight
-          ? "녹화 진행 중 (강제로 다시 시도)"
-          : status === "failed"
-            ? "다시 녹화 시도"
-            : "시연 영상 다시 녹화"
-      }
+      title={title}
       className="p-2 rounded-full transition-colors"
       style={{
         background: "var(--surface-soft)",
@@ -775,6 +856,7 @@ function ProjectRow({ project, username, onDelete, onEdit, onToggleFeatured, onR
           <RerecordButton
             sourceValue={project.demo_source_value}
             status={project.demo_build_status}
+            hasVideo={!!project.demo_video_url}
             onRerecord={onRerecord}
           />
 

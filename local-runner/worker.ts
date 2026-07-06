@@ -23,6 +23,7 @@ import { createClient } from "@supabase/supabase-js";
 import "./config"; // side-effect: load .env.local
 import { runJob, type JobPhase } from "./job";
 import type { SourceType } from "./safety";
+import { DEMO_QUOTA } from "../lib/demoQuota";
 
 const POLL_MS = 10_000;
 // Per-session retry cap: a job whose failure-write itself failed (or a row
@@ -83,14 +84,40 @@ async function recoverStuckJobs() {
 
 type PendingRow = {
   id: string;
+  user_id: string;
   demo_source_type: SourceType | null;
   demo_source_value: string | null;
 };
 
+// Wallet backstop, independent of the route's admission caps: the worker refuses
+// to record more than GLOBAL_DRAIN_DAILY jobs per rolling window. Even a row that
+// reached 'pending' some other way can never push daily spend past this ceiling.
+async function drainedInWindow(): Promise<number> {
+  const cutoff = new Date(Date.now() - DEMO_QUOTA.WINDOW_HOURS * 3_600_000).toISOString();
+  const { count, error } = await supabase
+    .from("demo_events")
+    .select("*", { count: "exact", head: true })
+    .eq("kind", "drain")
+    .gt("created_at", cutoff);
+  if (error) {
+    // Fail open: admission already bounds spend, and halting the core product on a
+    // transient count error is worse than briefly trusting it. Loud log, proceed.
+    console.error(`[worker] drain-count failed: ${error.message}`);
+    return 0;
+  }
+  return count ?? 0;
+}
+
 async function claimNext(): Promise<PendingRow | null> {
+  if ((await drainedInWindow()) >= DEMO_QUOTA.GLOBAL_DRAIN_DAILY) {
+    console.warn(
+      `[worker] daily drain ceiling (${DEMO_QUOTA.GLOBAL_DRAIN_DAILY}) reached — pausing new jobs`,
+    );
+    return null;
+  }
   const { data, error } = await supabase
     .from("projects")
-    .select("id, demo_source_type, demo_source_value")
+    .select("id, user_id, demo_source_type, demo_source_value")
     .eq("demo_build_status", "pending")
     .not("demo_source_type", "is", null)
     .limit(5);
@@ -111,7 +138,14 @@ async function claimNext(): Promise<PendingRow | null> {
       console.error(`[worker] claim failed for ${row.id}: ${claimErr.message}`);
       continue;
     }
-    if (claimed && claimed.length === 1) return row;
+    if (claimed && claimed.length === 1) {
+      // Log the spend the instant we own the job — before the explore fee starts.
+      const { error: evErr } = await supabase
+        .from("demo_events")
+        .insert({ user_id: row.user_id, project_id: row.id, kind: "drain" });
+      if (evErr) console.error(`[worker] drain-event write failed for ${row.id}: ${evErr.message}`);
+      return row;
+    }
   }
   return null;
 }
