@@ -238,28 +238,6 @@ async function expandUploadEntries(
   return out;
 }
 
-// supabase storage list는 한 단계만 본다. zip 업로드는 중첩 디렉터리(src/,
-// public/, ...)를 가질 수 있어서 BFS로 모든 파일 경로를 모은다.
-async function listFilesRecursive(
-  supabase: ReturnType<typeof createClient>,
-  bucket: string,
-  prefix: string,
-): Promise<string[]> {
-  const out: string[] = [];
-  const queue: string[] = [prefix];
-  while (queue.length) {
-    const dir = queue.shift()!;
-    const { data } = await supabase.storage.from(bucket).list(dir, { limit: 1000 });
-    for (const entry of data ?? []) {
-      const full = `${dir}/${entry.name}`;
-      // 디렉터리 placeholder는 id=null로 돌아온다.
-      if (entry.id === null) queue.push(full);
-      else out.push(full);
-    }
-  }
-  return out;
-}
-
 // project-files public URL에서 스토리지 객체 경로를 뽑는다.
 // 외부 URL·picsum·thum.io·빈 값이면 우리 객체가 아니므로 null.
 const PUBLIC_OBJECT_PREFIX = "/storage/v1/object/public/project-files/";
@@ -269,29 +247,6 @@ function storagePathFromPublicUrl(url: string | null | undefined): string | null
   if (i === -1) return null;
   const path = url.slice(i + PUBLIC_OBJECT_PREFIX.length);
   return path ? decodeURIComponent(path) : null;
-}
-
-// 프로젝트가 소유한 모든 스토리지 객체 제거: 업로드 사이트 폴더
-// ({user}/{project}/… — 자동 시연 mp4도 여기 있음) + 폴더 밖에 따로 사는
-// 업로드 영상({user}/videos/…)과 업로드 썸네일({user}/thumbnails/…).
-async function deleteProjectStorage(
-  supabase: ReturnType<typeof createClient>,
-  project: Pick<DBProject, "demo_url" | "video_url" | "thumbnail">,
-) {
-  try {
-    const paths: string[] = [];
-    if (isUploadedProject(project.demo_url)) {
-      const [userId, projectId] = project.demo_url.replace("/api/preview/", "").split("/");
-      if (userId && projectId) {
-        paths.push(...(await listFilesRecursive(supabase, "project-files", `${userId}/${projectId}`)));
-      }
-    }
-    const videoPath = storagePathFromPublicUrl(project.video_url);
-    if (videoPath) paths.push(videoPath);
-    const thumbPath = storagePathFromPublicUrl(project.thumbnail);
-    if (thumbPath) paths.push(thumbPath);
-    if (paths.length) await supabase.storage.from("project-files").remove(paths);
-  } catch { /* ignore */ }
 }
 
 // 수정 저장 후, 교체·제거된 이전 업로드 영상/썸네일 객체를 청소한다.
@@ -402,10 +357,10 @@ export default function ProjectsTab({ user }: { user: User }) {
   async function handleDelete(id: string) {
     if (!confirm("이 프로젝트를 삭제할까요?")) return;
     const supabase = createClient();
-    const project = projects.find(p => p.id === id);
-    if (project) await deleteProjectStorage(supabase, project);
-    // Clean the demo's R2 assets (versioned mp4 + poster) server-side. Best-effort,
-    // and BEFORE the row delete — the route verifies ownership from the row.
+    // Purge all of the project's storage (uploaded files + demo/poster + video/
+    // thumbnail on Supabase, and demo assets on R2) server-side with admin rights —
+    // the old client-side removal was silently blocked by storage RLS. Runs BEFORE
+    // the row delete (the route verifies ownership from the row).
     await fetch(`/api/projects/${id}/demo-assets`, { method: "DELETE" }).catch(() => {});
     await supabase.from("projects").delete().eq("id", id);
     setProjects(prev => prev.filter(p => p.id !== id));
