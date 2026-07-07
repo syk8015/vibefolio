@@ -55,14 +55,20 @@ const SYSTEM_PROMPT = [
   "- Lead with the hero feature: the boldest genuine control that shows what the product IS.",
   "- Prefer actions that visibly change the SCREEN without writing data: open menus/modals (then close",
   "  them), switch tabs, toggle views/filters, expand cards, type into a SEARCH or FILTER box to show live",
-  "  results, drag a slider, hover to reveal a tooltip or menu.",
+  "  results, hover to reveal a tooltip or menu.",
+  "- DRAG the controls that are MEANT to be dragged — a slider/range, a reorderable list or board (a kanban),",
+  "  a drag handle, or a canvas. Use a click-and-drag (grab the control and move it from its start to its",
+  "  target), NOT a plain click: clicking a draggable card only opens it and HIDES the feature; a slider",
+  "  reads as a click if you tap it. If the page has ANY draggable control, your walkthrough MUST include at",
+  "  least one real drag.",
   "- One clear, unhurried action at a time. Aim for 5-8 DISTINCT, meaningful interactions across different",
   "  features. Never repeat an element, or another with the same purpose.",
   "- Every click must visibly change the screen. If a click did nothing visible, do NOT repeat or linger",
   "  on it — move on to a control that clearly does something.",
-  "- Move FORWARD only — a clean LINEAR walkthrough. Every action becomes part of the final demo, in order,",
-  "  so do NOT backtrack, undo, or wander. If a popup/modal is in the way, close it (its X or Escape) and",
-  "  continue.",
+  "- Move FORWARD only — a clean LINEAR walkthrough. If a suggested tour order is given below, FOLLOW it in",
+  "  sequence starting at its FIRST item; otherwise work top-to-bottom down the page. Every action becomes",
+  "  part of the final demo, in order, so do NOT backtrack, jump to the middle, undo, or wander. If a",
+  "  popup/modal is in the way, close it (its X or Escape) and continue.",
   "",
   "If this is only a MARKETING / LANDING page gated behind sign-up (no usable in-page features — just hero",
   "text, sections and a sign-up CTA), do NOT force clicks and do NOT click sign-up/login. Present it as a",
@@ -182,6 +188,37 @@ const FOCUSED_INPUT_SRC = `() => {
   }
   if (el.getAttribute && el.getAttribute("contenteditable") === "true") return true;
   return false;
+}`;
+
+// Ordered "tour spine" for storytelling: a numbered steps rail / nav / headings in
+// document order, injected as a suggested order so explore follows a coherent
+// sequence instead of starting mid-page. (Verified 2026-07-07: a numbered rail on
+// its own did NOT guide it — it opened at step 2 and backtracked.) Best-effort and
+// generic — falls back to h1/h2/h3 for apps with no rail.
+const OUTLINE_SRC = `() => {
+  var vis = function (e) { var r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+  var txt = function (e) { return ((e.textContent || "").trim().replace(/\\s+/g, " ")).replace(/^[0-9]+[.)\\s]*/, "").slice(0, 40); };
+  var pick = function (sel) {
+    var seen = {}, out = [], els = document.querySelectorAll(sel);
+    for (var i = 0; i < els.length; i++) { if (!vis(els[i])) continue; var t = txt(els[i]); if (t && !seen[t]) { seen[t] = 1; out.push(t); } }
+    return out;
+  };
+  var steps = pick('[data-testid^="step-"], nav li, nav a, [role="tab"]');
+  if (steps.length >= 2 && steps.length <= 8) return steps;
+  return pick("h1, h2, h3").slice(0, 8);
+}`;
+
+// Visible draggable affordances. explore is vision-only and defaults to CLICKING
+// draggable things (verified 2026-07-07: kanban card -> click->modal, slider ->
+// click). We surface them in the opening brief so it demonstrates a real drag.
+const DRAGGABLE_SRC = `() => {
+  var vis = function (e) { var r = e.getBoundingClientRect(); return r.width > 4 && r.height > 4 && r.bottom > 0 && r.top < innerHeight; };
+  var any = function (sel) { var els = document.querySelectorAll(sel); for (var i = 0; i < els.length; i++) if (vis(els[i])) return true; return false; };
+  var out = [];
+  if (any('input[type="range"], [role="slider"]')) out.push("a slider/range you drag to set a value");
+  if (any('[draggable="true"], [data-testid*="handle" i], [class*="sortable" i], [class*="kanban" i], [class*="draggable" i]')) out.push("a reorderable list or board you drag items within");
+  if (any("canvas")) out.push("a canvas you draw on by dragging");
+  return out;
 }`;
 
 type Resolved = { selector: string | null; label: string };
@@ -480,6 +517,19 @@ export async function explore(page: Page): Promise<ExploreResult> {
   }
 
   const firstShot = await shotBuf(page);
+  // Page-derived guidance: a suggested tour order (fixes mid-page starts) + a list
+  // of draggable controls to demonstrate (fixes drag-blindness). Both best-effort.
+  const outline = await evalCall<string[]>(page, OUTLINE_SRC).catch(() => [] as string[]);
+  const draggables = await evalCall<string[]>(page, DRAGGABLE_SRC).catch(() => [] as string[]);
+  let guide = "";
+  if (Array.isArray(outline) && outline.length) {
+    guide += "\n\nSuggested tour order (follow it in sequence, START at the first — do not begin mid-page):\n  " +
+      outline.join("  →  ");
+  }
+  if (Array.isArray(draggables) && draggables.length) {
+    guide += "\n\nDraggable controls are present — you MUST demonstrate at least ONE with a real click-and-drag (never a plain click):\n" +
+      draggables.map((d) => "  - " + d).join("\n");
+  }
   const messages: Msg[] = [
     {
       role: "user",
@@ -488,7 +538,7 @@ export async function explore(page: Page): Promise<ExploreResult> {
           type: "text",
           text:
             "The web app is open and ready (screenshot below). Do a short, polished READ-ONLY product " +
-            "demo by interacting with its main features. Begin now.",
+            "demo by interacting with its main features. Begin now." + guide,
         },
         { type: "image", source: { type: "base64", media_type: "image/jpeg", data: firstShot.toString("base64") } },
       ],
