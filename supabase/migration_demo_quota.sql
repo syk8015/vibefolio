@@ -1,16 +1,16 @@
--- Demo cost guards (2026-07-06) — stop a burst of demo requests from draining the
+-- Demo cost guards (2026-07-06) -- stop a burst of demo requests from draining the
 -- Anthropic/E2B budget in one moment. See lib/demoQuota.ts for the numbers and
 -- project-viral-strategy for the policy. Run in Supabase Dashboard > SQL Editor.
 --
 -- Layers this adds:
---   1. demo_events   — append-only counting log (per-user / global / drain).
---   2. demo_requests — the admin approval queue (over-cap holds + re-record asks).
---   3. 'held'        — a new demo_build_status: no auto video, show fallback image,
+--   1. demo_events   -- append-only counting log (per-user / global / drain).
+--   2. demo_requests -- the admin approval queue (over-cap holds + re-record asks).
+--   3. 'held'        -- a new demo_build_status: no auto video, show fallback image,
 --                      awaiting admin review.
---   4. guard trigger — end users can no longer write the demo_* pipeline columns
+--   4. guard trigger -- end users can no longer write the demo_* pipeline columns
 --                      directly (the RLS bypass hole), so the ONLY way to enqueue
 --                      a demo is through request_demo() / an admin (service role).
---   5. request_demo()— atomic admission: check caps + enqueue in one transaction.
+--   5. request_demo()-- atomic admission: check caps + enqueue in one transaction.
 
 -- ---------------------------------------------------------------------------
 -- 1. Counting log
@@ -26,7 +26,7 @@ create index if not exists demo_events_kind_time on demo_events (kind, created_a
 create index if not exists demo_events_user_time on demo_events (user_id, kind, created_at);
 
 alter table demo_events enable row level security;
--- No policies at all → default-deny for anon/authenticated. Only the table owner
+-- No policies at all -> default-deny for anon/authenticated. Only the table owner
 -- (the SECURITY DEFINER request_demo) and the service_role (worker/admin) touch it.
 
 -- ---------------------------------------------------------------------------
@@ -49,10 +49,10 @@ create unique index if not exists demo_requests_one_pending
   on demo_requests (project_id, kind) where status = 'pending';
 
 alter table demo_requests enable row level security;
--- Users may read their own request status (dashboard shows "심사 중"); all writes
--- go through the service role (rerecord route + admin route), which bypasses RLS.
-drop policy if exists "본인 요청 읽기" on demo_requests;
-create policy "본인 요청 읽기" on demo_requests for select using (auth.uid() = user_id);
+-- Users may read their own request status; all writes go through the service role
+-- (rerecord route + admin route), which bypasses RLS.
+drop policy if exists demo_requests_select_own on demo_requests;
+create policy demo_requests_select_own on demo_requests for select using (auth.uid() = user_id);
 
 -- ---------------------------------------------------------------------------
 -- 3. New 'held' status
@@ -83,7 +83,7 @@ alter table projects add constraint projects_demo_build_status_check
 -- 4. Guard: block end users from writing the demo_* pipeline columns directly.
 --    Without this, a user could skip the quota'd route and set
 --    demo_build_status='pending' straight on their own row (RLS lets them UPDATE
---    their projects) — the worker would then record it, bypassing every cap.
+--    their projects) -- the worker would then record it, bypassing every cap.
 -- ---------------------------------------------------------------------------
 create or replace function guard_demo_columns() returns trigger
 language plpgsql
@@ -91,7 +91,7 @@ set search_path = pg_catalog, public
 as $$
 begin
   -- Privileged writers are exempt: the service_role (worker + admin routes) and
-  -- request_demo() (SECURITY DEFINER → runs as the table owner). Only ordinary
+  -- request_demo() (SECURITY DEFINER -> runs as the table owner). Only ordinary
   -- end-user sessions run as 'authenticated' / 'anon'.
   if current_user not in ('authenticated', 'anon') then
     return new;
@@ -117,7 +117,7 @@ create trigger projects_guard_demo
 
 -- ---------------------------------------------------------------------------
 -- 5. Atomic admission. Called by the trigger-demo route with the user's JWT, so
---    auth.uid() inside is the caller. SECURITY DEFINER → runs as owner, so it can
+--    auth.uid() inside is the caller. SECURITY DEFINER -> runs as owner, so it can
 --    write the guarded columns and read the RLS-locked counting tables. Returns
 --    jsonb: { ok, status?, code?, reason?, deduped? }.
 --
@@ -166,7 +166,7 @@ begin
     return jsonb_build_object('ok', false, 'code', 'FORBIDDEN');
   end if;
 
-  -- Already queued / in flight / held → idempotent no-op (also stops a re-fire
+  -- Already queued / in flight / held -> idempotent no-op (also stops a re-fire
   -- from stacking duplicate hold requests).
   if v_status in ('pending', 'building', 'recording', 'editing', 'held') then
     return jsonb_build_object('ok', true, 'status', v_status, 'deduped', true);
@@ -177,7 +177,7 @@ begin
     return jsonb_build_object('ok', false, 'code', 'ALREADY_HAS_DEMO');
   end if;
 
-  -- Retry budget for landing the first take is exhausted → needs approval.
+  -- Retry budget for landing the first take is exhausted -> needs approval.
   if v_attempts >= v_per_project_max then
     return jsonb_build_object('ok', false, 'code', 'ATTEMPT_LIMIT');
   end if;
@@ -190,7 +190,7 @@ begin
   from demo_events
   where kind in ('auto', 'approved') and created_at > v_cutoff;
 
-  -- Over the per-user daily allowance or the global ceiling → HOLD for review.
+  -- Over the per-user daily allowance or the global ceiling -> HOLD for review.
   if v_user_cnt >= v_per_user_daily or v_glob_cnt >= v_global_daily then
     update projects set
       demo_source_type  = p_source_type,
