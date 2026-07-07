@@ -368,23 +368,25 @@ export default function ProjectsTab({ user }: { user: User }) {
     if (!confirm("이 프로젝트를 삭제할까요?")) return;
 
     // Optimistic: drop the row from the list immediately so the click feels instant.
-    // The storage purge + row delete take a few seconds (BFS storage listing +
-    // chunked removes + R2), and awaiting them before updating state left the row
-    // frozen in place the whole time — that was the perceived lag.
+    // The delete takes a few seconds (BFS storage listing + chunked removes + R2),
+    // and awaiting it before updating state left the row frozen in place the whole
+    // time — that was the perceived lag.
     const removed = projects.find(p => p.id === id);
     const removedIndex = projects.findIndex(p => p.id === id);
     setProjects(prev => prev.filter(p => p.id !== id));
 
-    const supabase = createClient();
-    // Purge all of the project's storage (uploaded files + demo/poster + video/
-    // thumbnail on Supabase, and demo assets on R2) server-side with admin rights —
-    // the old client-side removal was silently blocked by storage RLS. Runs BEFORE
-    // the row delete (the route verifies ownership from the still-existing row).
-    await fetch(`/api/projects/${id}/demo-assets`, { method: "DELETE" }).catch(() => {});
-    const { error } = await supabase.from("projects").delete().eq("id", id);
+    // A single server call purges ALL of the project's storage (uploaded files +
+    // demo/poster + video/thumbnail on Supabase, demo assets on R2) AND deletes the
+    // row. keepalive lets it run to completion even if the user closes the tab right
+    // after the row vanishes — otherwise a two-request client sequence could be cut
+    // off between the purge and the row delete, leaving the project half-deleted.
+    const res = await fetch(`/api/projects/${id}/demo-assets`, {
+      method: "DELETE",
+      keepalive: true,
+    }).catch(() => null);
 
-    if (error && removed) {
-      // Row delete failed — restore it at its original position and let the user retry.
+    if ((!res || !res.ok) && removed) {
+      // Delete failed — restore the row at its original position and let the user retry.
       setProjects(prev => {
         if (prev.some(p => p.id === id)) return prev;
         const next = [...prev];

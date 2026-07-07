@@ -89,8 +89,16 @@ export async function DELETE(
       r2Removed = await deleteR2Prefix(`${project.user_id}/${id}/`);
     }
 
-    logger.info("project assets purged", { projectId: id, sbRemoved, r2Removed });
-    return NextResponse.json({ ok: true, sbRemoved, r2Removed });
+    // Finally delete the row itself — server-side, in this same request, so the whole
+    // delete (storage + row) is ONE call the client fires with keepalive. Even if the
+    // user closes the tab the instant the row disappears from the list, the server
+    // still runs to here; there is no client-side second request left to be cut off.
+    // Ownership was verified above; the RLS-scoped user client is a second guard.
+    const { error: rowErr } = await supabase.from("projects").delete().eq("id", id);
+    if (rowErr) throw new Error(`row delete failed: ${rowErr.message}`);
+
+    logger.info("project deleted", { projectId: id, sbRemoved, r2Removed });
+    return NextResponse.json({ ok: true, sbRemoved, r2Removed, rowDeleted: true });
   } catch (err) {
     return apiError({
       status: 500,
