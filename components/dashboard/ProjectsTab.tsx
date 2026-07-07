@@ -366,14 +366,33 @@ export default function ProjectsTab({ user }: { user: User }) {
 
   async function handleDelete(id: string) {
     if (!confirm("이 프로젝트를 삭제할까요?")) return;
+
+    // Optimistic: drop the row from the list immediately so the click feels instant.
+    // The storage purge + row delete take a few seconds (BFS storage listing +
+    // chunked removes + R2), and awaiting them before updating state left the row
+    // frozen in place the whole time — that was the perceived lag.
+    const removed = projects.find(p => p.id === id);
+    const removedIndex = projects.findIndex(p => p.id === id);
+    setProjects(prev => prev.filter(p => p.id !== id));
+
     const supabase = createClient();
     // Purge all of the project's storage (uploaded files + demo/poster + video/
     // thumbnail on Supabase, and demo assets on R2) server-side with admin rights —
     // the old client-side removal was silently blocked by storage RLS. Runs BEFORE
-    // the row delete (the route verifies ownership from the row).
+    // the row delete (the route verifies ownership from the still-existing row).
     await fetch(`/api/projects/${id}/demo-assets`, { method: "DELETE" }).catch(() => {});
-    await supabase.from("projects").delete().eq("id", id);
-    setProjects(prev => prev.filter(p => p.id !== id));
+    const { error } = await supabase.from("projects").delete().eq("id", id);
+
+    if (error && removed) {
+      // Row delete failed — restore it at its original position and let the user retry.
+      setProjects(prev => {
+        if (prev.some(p => p.id === id)) return prev;
+        const next = [...prev];
+        next.splice(Math.min(removedIndex, next.length), 0, removed);
+        return next;
+      });
+      setNotice("프로젝트 삭제에 실패했어요. 잠시 후 다시 시도해 주세요.");
+    }
   }
 
   async function handleAdd(form: ProjectForm) {
