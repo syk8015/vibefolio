@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>NookGym — demo fixture</title>
+<!--
+  Consolidated interaction fixture for the auto-demo recorder (computer-use +
+  replay + camera). ONE explore pass over this page should exercise the whole
+  matrix, so we pay a single explore fee to test coverage AND sequencing:
+    click, toggle, type, live-search, drag-reorder (kanban), drag-slider,
+    native <select>, custom dropdown, modal + dismiss, hover tooltip, scroll-reveal.
+  The left "storyline" rail (1>2>3>4) seeds an intended tour order so we can judge
+  whether explore demos the app as a coherent story vs jumping around.
+
+  Drag is POINTER-based (mousedown/mousemove/mouseup), NOT HTML5 DnD, so a
+  synthetic mouse drag (what replay performs) actually moves things. Every
+  interactive element carries a stable data-testid for explore-derived selectors.
+  Fully self-contained (no external assets) so it loads instantly over localhost.
+-->
+<style>
+  :root{
+    --bg:#f6f7fb; --surface:#ffffff; --ink:#1b1f2a; --muted:#6b7280;
+    --line:#e7e9f0; --accent:#4f46e5; --accent-soft:#eef0fe; --shadow:0 1px 2px rgba(16,24,40,.06),0 8px 24px rgba(16,24,40,.06);
+    --ok:#16a34a; --warn:#d97706;
+  }
+  body.dark{
+    --bg:#0f1117; --surface:#171a22; --ink:#e8eaf0; --muted:#9aa1b2;
+    --line:#262a35; --accent:#818cf8; --accent-soft:#20233a; --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg); color:var(--ink); -webkit-font-smoothing:antialiased;
+    transition:background .3s,color .3s;
+  }
+  .app{display:grid; grid-template-columns:220px 1fr; min-height:100vh}
+
+  /* ── Storyline rail ────────────────────────────────────────────── */
+  .rail{position:sticky; top:0; align-self:start; height:100vh; padding:22px 16px;
+    background:var(--surface); border-right:1px solid var(--line)}
+  .brand{display:flex; align-items:center; gap:9px; font-weight:800; font-size:17px; margin-bottom:24px}
+  .brand .dot{width:22px;height:22px;border-radius:7px;background:var(--accent);display:inline-block}
+  .steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+  .steps li{display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:10px;color:var(--muted);
+    font-weight:600;font-size:14px;cursor:pointer;transition:.15s}
+  .steps li .n{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:12px;
+    background:var(--accent-soft);color:var(--accent)}
+  .steps li:hover{background:var(--accent-soft)}
+  .steps li[aria-current="true"]{background:var(--accent-soft);color:var(--ink)}
+  .rail .hint{position:absolute;bottom:20px;left:16px;right:16px;font-size:12px;color:var(--muted);line-height:1.5}
+
+  /* ── Main ──────────────────────────────────────────────────────── */
+  .main{padding:0 32px 120px}
+  .topbar{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;
+    padding:18px 0;background:linear-gradient(var(--bg),var(--bg) 70%,transparent)}
+  .topbar h1{font-size:19px;margin:0}
+  .topbar .right{display:flex;align-items:center;gap:14px}
+  .btn{border:0;border-radius:10px;padding:9px 16px;font-weight:700;font-size:14px;cursor:pointer;
+    background:var(--accent);color:#fff;box-shadow:var(--shadow)}
+  .btn.ghost{background:var(--surface);color:var(--ink);border:1px solid var(--line);box-shadow:none}
+  /* toggle switch */
+  .switch{display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:var(--muted);user-select:none}
+  .switch .track{width:42px;height:24px;border-radius:99px;background:var(--line);position:relative;transition:.2s}
+  .switch .knob{position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+  body.dark .switch .track{background:var(--accent)}
+  body.dark .switch .knob{left:21px}
+
+  section{margin-top:26px}
+  .sec-head{display:flex;align-items:baseline;gap:10px;margin-bottom:14px}
+  .sec-head .k{width:24px;height:24px;border-radius:50%;background:var(--accent);color:#fff;display:grid;place-items:center;font-size:12px;font-weight:700}
+  .sec-head h2{font-size:16px;margin:0}
+  .sec-head p{margin:0;color:var(--muted);font-size:13px}
+  .panel{background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:18px}
+
+  /* search */
+  .search{display:flex;gap:10px;align-items:center}
+  .search input{flex:1;border:1px solid var(--line);background:var(--bg);color:var(--ink);
+    border-radius:10px;padding:11px 14px;font-size:14px;outline:none}
+  .search input:focus{border-color:var(--accent)}
+
+  /* board */
+  .board{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  .col{background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:12px;min-height:230px;transition:background .15s,border-color .15s}
+  .col.drop{background:var(--accent-soft);border-color:var(--accent)}
+  .col h3{font-size:13px;margin:2px 4px 12px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+  .col-body{display:flex;flex-direction:column;gap:10px;min-height:40px}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:11px;padding:11px 12px;
+    box-shadow:var(--shadow);display:flex;gap:9px;align-items:flex-start;cursor:pointer;transition:transform .05s}
+  .card.dragging{opacity:.92;transform:scale(1.02);z-index:1000;box-shadow:0 12px 30px rgba(16,24,40,.25)}
+  .handle{cursor:grab;color:var(--muted);font-size:15px;line-height:1.1;padding-top:1px;user-select:none}
+  .card .body{flex:1}
+  .card .t{font-weight:600;font-size:14px}
+  .card .m{font-size:12px;color:var(--muted);margin-top:3px}
+  .tag{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;background:var(--accent-soft);color:var(--accent)}
+
+  /* focus controls */
+  .controls{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+  .field label{display:block;font-size:13px;font-weight:600;margin-bottom:9px}
+  .field .val{color:var(--accent);font-weight:800}
+  input[type=range]{width:100%;accent-color:var(--accent)}
+  select{width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font-size:14px}
+  .dropdown{position:relative}
+  .dropdown>button{width:100%;text-align:left;display:flex;justify-content:space-between;align-items:center;
+    padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font-size:14px;cursor:pointer}
+  .menu{position:absolute;top:calc(100% + 6px);left:0;right:0;background:var(--surface);border:1px solid var(--line);
+    border-radius:10px;box-shadow:var(--shadow);padding:6px;display:none;z-index:20}
+  .menu.open{display:block}
+  .menu div{padding:9px 10px;border-radius:8px;font-size:14px;cursor:pointer}
+  .menu div:hover{background:var(--accent-soft)}
+
+  /* tooltip */
+  [data-tip]{position:relative}
+  [data-tip]:hover::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);
+    background:var(--ink);color:var(--bg);font-size:12px;font-weight:600;white-space:nowrap;padding:6px 9px;border-radius:7px;z-index:30}
+
+  /* review stats */
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  .stat{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px;box-shadow:var(--shadow)}
+  .stat .big{font-size:32px;font-weight:800;letter-spacing:-.02em}
+  .stat .lbl{color:var(--muted);font-size:13px;margin-top:2px}
+  .bar{height:8px;border-radius:99px;background:var(--line);margin-top:12px;overflow:hidden}
+  .bar > i{display:block;height:100%;width:0;background:var(--accent);transition:width 1.1s cubic-bezier(.2,.7,.2,1)}
+  .spacer{height:120px}
+
+  /* modal */
+  .scrim{position:fixed;inset:0;background:rgba(10,12,20,.5);display:none;align-items:center;justify-content:center;z-index:100}
+  .scrim.open{display:flex}
+  .modal{background:var(--surface);border-radius:16px;box-shadow:0 24px 60px rgba(0,0,0,.35);width:420px;max-width:92vw;padding:22px}
+  .modal h3{margin:0 0 6px}
+  .modal p{color:var(--muted);font-size:14px;line-height:1.6;margin:0 0 18px}
+  .modal .row{display:flex;justify-content:flex-end;gap:10px}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- Storyline rail: the intended tour order (1 → 2 → 3 → 4). -->
+  <nav class="rail">
+    <div class="brand"><span class="dot"></span> NookGym</div>
+    <ul class="steps" id="steps">
+      <li data-testid="step-capture" data-target="sec-capture" aria-current="true"><span class="n">1</span> Capture</li>
+      <li data-testid="step-organize" data-target="sec-organize"><span class="n">2</span> Organize</li>
+      <li data-testid="step-focus" data-target="sec-focus"><span class="n">3</span> Focus</li>
+      <li data-testid="step-review" data-target="sec-review"><span class="n">4</span> Review</li>
+    </ul>
+    <div class="hint">A tiny task studio. Follow the steps to plan, prioritize, and review your week.</div>
+  </nav>
+
+  <main class="main">
+    <div class="topbar">
+      <h1>This week</h1>
+      <div class="right">
+        <button class="btn ghost" data-testid="start-tour">Start tour</button>
+        <label class="switch" data-testid="theme-toggle"><span class="track"><span class="knob"></span></span> Dark</label>
+        <button class="btn" data-testid="new-task">+ New task</button>
+      </div>
+    </div>
+
+    <!-- ① Capture: live search + add -->
+    <section id="sec-capture">
+      <div class="sec-head"><span class="k">1</span><div><h2>Capture</h2></div><p>Type to filter, press Enter to add.</p></div>
+      <div class="panel">
+        <div class="search">
+          <input data-testid="search-input" id="search" placeholder="Search or add a task…" autocomplete="off" />
+          <button class="btn" data-testid="add-task-btn" id="addBtn">Add</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ② Organize: pointer-drag kanban -->
+    <section id="sec-organize">
+      <div class="sec-head"><span class="k">2</span><div><h2>Organize</h2></div><p>Drag cards between columns.</p></div>
+      <div class="board" id="board">
+        <div class="col" data-testid="col-todo" data-col="To do"><h3>To do</h3><div class="col-body"></div></div>
+        <div class="col" data-testid="col-doing" data-col="Doing"><h3>Doing</h3><div class="col-body"></div></div>
+        <div class="col" data-testid="col-done" data-col="Done"><h3>Done</h3><div class="col-body"></div></div>
+      </div>
+    </section>
+
+    <!-- ③ Focus: sliders + native select + custom dropdown -->
+    <section id="sec-focus">
+      <div class="sec-head"><span class="k">3</span><div><h2>Focus</h2></div><p>Tune your session.</p></div>
+      <div class="panel controls">
+        <div class="field">
+          <label>Focus length <span class="val" id="focusVal">25</span> min</label>
+          <input type="range" min="5" max="90" value="25" step="5" data-testid="focus-slider" id="focusSlider" />
+          <label style="margin-top:18px">Priority <span class="val" id="prioVal">3</span></label>
+          <input type="range" min="1" max="5" value="3" data-testid="priority-slider" id="prioSlider" />
+        </div>
+        <div class="field">
+          <label>Sort by (native)</label>
+          <select data-testid="sort-select" id="sortSelect">
+            <option>Priority</option><option>Due date</option><option>Name</option><option>Recently added</option>
+          </select>
+          <label style="margin-top:18px">Theme accent (custom)</label>
+          <div class="dropdown">
+            <button data-testid="accent-dropdown" id="accentBtn">Indigo <span>▾</span></button>
+            <div class="menu" id="accentMenu">
+              <div data-accent="#4f46e5">Indigo</div>
+              <div data-accent="#0ea5e9">Sky</div>
+              <div data-accent="#16a34a">Green</div>
+              <div data-accent="#db2777">Pink</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ④ Review: scroll-reveal stats + hover tooltips -->
+    <div class="spacer"></div>
+    <section id="sec-review">
+      <div class="sec-head"><span class="k">4</span><div><h2>Review</h2></div><p>Your week at a glance.</p></div>
+      <div class="stats" id="stats">
+        <div class="stat" data-tip="Tasks you finished this week"><div class="big" data-count="18">0</div><div class="lbl">Completed</div><div class="bar"><i data-w="82%"></i></div></div>
+        <div class="stat" data-tip="Focused minutes logged"><div class="big" data-count="240">0</div><div class="lbl">Focus minutes</div><div class="bar"><i data-w="64%"></i></div></div>
+        <div class="stat" data-tip="Your longest streak"><div class="big" data-count="6">0</div><div class="lbl">Day streak</div><div class="bar"><i data-w="43%"></i></div></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- Card detail modal -->
+<div class="scrim" id="scrim">
+  <div class="modal">
+    <h3 id="mTitle">Task</h3>
+    <p id="mBody">Details about this task.</p>
+    <div class="row">
+      <button class="btn ghost" data-testid="modal-close" id="mClose">Close</button>
+      <button class="btn" data-testid="modal-done">Mark done</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var accent = '#4f46e5';
+  var seed = [
+    {t:'Design the landing page', m:'Marketing', col:0},
+    {t:'Record the demo video', m:'Growth', col:0},
+    {t:'Fix the signup bug', m:'Bugs', col:1},
+    {t:'Write release notes', m:'Docs', col:0},
+    {t:'Ship dark mode', m:'Design', col:2}
+  ];
+
+  // ── Build cards ──────────────────────────────────────────────
+  var bodies = document.querySelectorAll('.col-body');
+  function makeCard(task){
+    var el = document.createElement('div');
+    el.className = 'card';
+    el.setAttribute('data-testid','card');
+    el.innerHTML = '<span class="handle" data-testid="card-handle" title="Drag">⠿</span>'
+      + '<div class="body"><div class="t"></div><div class="m"><span class="tag"></span></div></div>';
+    el.querySelector('.t').textContent = task.t;
+    el.querySelector('.tag').textContent = task.m;
+    el.addEventListener('click', function(e){
+      if(el.dataset.moved === '1'){ el.dataset.moved=''; return; } // ignore the click that ends a drag
+      if(e.target.classList.contains('handle')) return;
+      openModal(task.t, 'This is a demo task in the "'+ (el.closest('.col').dataset.col) +'" column. Everything here is a fixture for testing the recorder.');
+    });
+    el.querySelector('.handle').addEventListener('mousedown', function(e){ startDrag(el, e); });
+    return el;
+  }
+  seed.forEach(function(t){ bodies[t.col].appendChild(makeCard(t)); });
+
+  // ── Pointer-drag kanban (works with synthetic mouse events) ───
+  var cols = [].slice.call(document.querySelectorAll('.col'));
+  var drag = null;
+  function colUnder(x,y){
+    for(var i=0;i<cols.length;i++){ var r=cols[i].getBoundingClientRect();
+      if(x>=r.left&&x<=r.right&&y>=r.top&&y<=r.bottom) return cols[i]; }
+    return null;
+  }
+  function startDrag(el, e){
+    var r = el.getBoundingClientRect();
+    drag = { el:el, dx:e.clientX-r.left, dy:e.clientY-r.top, w:r.width, moved:false };
+    el.classList.add('dragging');
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', endDrag);
+    e.preventDefault();
+  }
+  function onMove(e){
+    if(!drag) return;
+    drag.moved = true;
+    var el = drag.el;
+    el.style.position='fixed'; el.style.width=drag.w+'px'; el.style.pointerEvents='none';
+    el.style.left=(e.clientX-drag.dx)+'px'; el.style.top=(e.clientY-drag.dy)+'px';
+    cols.forEach(function(c){ c.classList.remove('drop'); });
+    var c = colUnder(e.clientX, e.clientY); if(c) c.classList.add('drop');
+  }
+  function endDrag(e){
+    if(!drag) return;
+    var el = drag.el, c = colUnder(e.clientX, e.clientY);
+    el.style.position=''; el.style.left=''; el.style.top=''; el.style.width=''; el.style.pointerEvents='';
+    el.classList.remove('dragging');
+    cols.forEach(function(x){ x.classList.remove('drop'); });
+    if(c) c.querySelector('.col-body').appendChild(el);
+    if(drag.moved) el.dataset.moved='1'; // suppress the trailing click → modal
+    window.removeEventListener('mousemove', onMove);
+    window.removeEventListener('mouseup', endDrag);
+    drag = null;
+  }
+
+  // ── Live search + add ────────────────────────────────────────
+  var search = document.getElementById('search');
+  function applyFilter(){
+    var q = search.value.trim().toLowerCase();
+    document.querySelectorAll('.card').forEach(function(card){
+      var hit = card.querySelector('.t').textContent.toLowerCase().indexOf(q) > -1;
+      card.style.display = (!q || hit) ? '' : 'none';
+    });
+  }
+  function addTask(){
+    var v = search.value.trim(); if(!v) return;
+    bodies[0].appendChild(makeCard({t:v, m:'New'}));
+    search.value=''; applyFilter();
+  }
+  search.addEventListener('input', applyFilter);
+  search.addEventListener('keydown', function(e){ if(e.key==='Enter') addTask(); });
+  document.getElementById('addBtn').addEventListener('click', addTask);
+  document.getElementById('new-task') && null;
+  document.querySelector('[data-testid=new-task]').addEventListener('click', function(){ search.focus(); });
+  document.querySelector('[data-testid=start-tour]').addEventListener('click', function(){
+    document.getElementById('sec-capture').scrollIntoView({behavior:'smooth'});
+  });
+
+  // ── Sliders ──────────────────────────────────────────────────
+  var fs=document.getElementById('focusSlider'), ps=document.getElementById('prioSlider');
+  fs.addEventListener('input', function(){ document.getElementById('focusVal').textContent=fs.value; });
+  ps.addEventListener('input', function(){ document.getElementById('prioVal').textContent=ps.value; });
+
+  // ── Custom dropdown + accent recolor ─────────────────────────
+  var accentBtn=document.getElementById('accentBtn'), accentMenu=document.getElementById('accentMenu');
+  accentBtn.addEventListener('click', function(e){ e.stopPropagation(); accentMenu.classList.toggle('open'); });
+  accentMenu.querySelectorAll('div').forEach(function(opt){
+    opt.addEventListener('click', function(){
+      accent = opt.dataset.accent;
+      document.documentElement.style.setProperty('--accent', accent);
+      accentBtn.firstChild.textContent = opt.textContent + ' ';
+      accentMenu.classList.remove('open');
+    });
+  });
+  document.addEventListener('click', function(){ accentMenu.classList.remove('open'); });
+
+  // ── Dark toggle ──────────────────────────────────────────────
+  document.querySelector('[data-testid=theme-toggle]').addEventListener('click', function(){
+    document.body.classList.toggle('dark');
+  });
+
+  // ── Modal ────────────────────────────────────────────────────
+  var scrim=document.getElementById('scrim');
+  function openModal(title, body){
+    document.getElementById('mTitle').textContent=title;
+    document.getElementById('mBody').textContent=body;
+    scrim.classList.add('open');
+  }
+  function closeModal(){ scrim.classList.remove('open'); }
+  document.getElementById('mClose').addEventListener('click', closeModal);
+  document.querySelector('[data-testid=modal-done]').addEventListener('click', closeModal);
+  scrim.addEventListener('click', function(e){ if(e.target===scrim) closeModal(); });
+
+  // ── Rail active-step + scroll-reveal stats ───────────────────
+  var steps=[].slice.call(document.querySelectorAll('.steps li'));
+  steps.forEach(function(li){ li.addEventListener('click', function(){
+    document.getElementById(li.dataset.target).scrollIntoView({behavior:'smooth'});
+  });});
+  var revealed=false;
+  var io=new IntersectionObserver(function(ents){
+    ents.forEach(function(en){
+      var idx = steps.findIndex(function(s){ return s.dataset.target===en.target.id; });
+      if(en.isIntersecting && idx>-1){ steps.forEach(function(s){ s.setAttribute('aria-current','false'); }); steps[idx].setAttribute('aria-current','true'); }
+      if(en.target.id==='sec-review' && en.isIntersecting && !revealed){
+        revealed=true;
+        document.querySelectorAll('.stat .big').forEach(function(n){
+          var to=+n.dataset.count, t0=null;
+          function step(ts){ if(!t0)t0=ts; var p=Math.min(1,(ts-t0)/900); n.textContent=Math.round(to*p); if(p<1)requestAnimationFrame(step); }
+          requestAnimationFrame(step);
+        });
+        document.querySelectorAll('.bar > i').forEach(function(b){ b.style.width=b.dataset.w; });
+      }
+    });
+  },{threshold:.4});
+  ['sec-capture','sec-organize','sec-focus','sec-review'].forEach(function(id){ io.observe(document.getElementById(id)); });
+})();
+</script>
+</body>
+</html>

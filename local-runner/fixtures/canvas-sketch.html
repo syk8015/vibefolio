@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sketch — canvas fixture</title>
+<!--
+  Isolated HARD-CASE fixture: freehand canvas drawing. A drawing is a CONTINUOUS
+  pointer path (mousedown → many mousemoves → mouseup); the recorder's Script models
+  a drag as a single start→end vector, so this is where computer-use is expected to
+  struggle. Kept separate from nookgym.html so a derailed run here can't tank the
+  main coverage test. Also exercises: color swatch clicks + a brush-size slider drag.
+  Self-contained; pointer-based so synthetic mouse events actually draw.
+-->
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+    background:#0f1117;color:#e8eaf0;display:grid;grid-template-rows:auto 1fr;height:100vh}
+  header{display:flex;align-items:center;gap:18px;padding:14px 22px;border-bottom:1px solid #262a35;background:#171a22}
+  header .title{font-weight:800;font-size:16px;margin-right:6px}
+  .swatches{display:flex;gap:8px}
+  .sw{width:26px;height:26px;border-radius:50%;cursor:pointer;border:2px solid transparent}
+  .sw[aria-pressed=true]{border-color:#fff}
+  .brush{display:flex;align-items:center;gap:9px;font-size:13px;color:#9aa1b2}
+  input[type=range]{accent-color:#818cf8}
+  .btn{margin-left:auto;border:1px solid #262a35;background:#20233a;color:#e8eaf0;border-radius:9px;
+    padding:8px 14px;font-weight:700;font-size:13px;cursor:pointer}
+  .stage{position:relative}
+  canvas{display:block;width:100%;height:100%;background:#fbfbfe;cursor:crosshair}
+  .hint{position:absolute;top:16px;left:20px;color:#9aa1b2;font-size:14px;font-weight:600;pointer-events:none}
+</style>
+</head>
+<body>
+  <header>
+    <span class="title">Sketch</span>
+    <div class="swatches" id="swatches">
+      <span class="sw" data-testid="color-ink"    style="background:#1b1f2a" data-color="#1b1f2a" aria-pressed="true"></span>
+      <span class="sw" data-testid="color-red"    style="background:#e5484d" data-color="#e5484d" aria-pressed="false"></span>
+      <span class="sw" data-testid="color-blue"   style="background:#4f46e5" data-color="#4f46e5" aria-pressed="false"></span>
+      <span class="sw" data-testid="color-green"  style="background:#16a34a" data-color="#16a34a" aria-pressed="false"></span>
+    </div>
+    <label class="brush">Brush
+      <input type="range" min="2" max="40" value="8" data-testid="brush-slider" id="brush" />
+      <span id="brushVal">8</span>px
+    </label>
+    <button class="btn" data-testid="clear-btn" id="clear">Clear</button>
+  </header>
+  <div class="stage">
+    <canvas data-testid="draw-canvas" id="c"></canvas>
+    <div class="hint" id="hint">Draw something — hold and drag on the canvas.</div>
+  </div>
+
+<script>
+(function(){
+  var canvas=document.getElementById('c'), ctx=canvas.getContext('2d');
+  var color='#1b1f2a', size=8, drawing=false, last=null;
+  function fit(){ var r=canvas.getBoundingClientRect(); var img=ctx.getImageData?null:null;
+    canvas.width=r.width; canvas.height=r.height; ctx.lineCap='round'; ctx.lineJoin='round'; }
+  window.addEventListener('resize', fit); fit();
+
+  function pos(e){ var r=canvas.getBoundingClientRect(); return {x:e.clientX-r.left, y:e.clientY-r.top}; }
+  canvas.addEventListener('mousedown', function(e){
+    drawing=true; last=pos(e);
+    ctx.beginPath(); ctx.arc(last.x,last.y,size/2,0,7); ctx.fillStyle=color; ctx.fill();
+    document.getElementById('hint').style.display='none';
+    e.preventDefault();
+  });
+  window.addEventListener('mousemove', function(e){
+    if(!drawing) return; var p=pos(e);
+    ctx.strokeStyle=color; ctx.lineWidth=size;
+    ctx.beginPath(); ctx.moveTo(last.x,last.y); ctx.lineTo(p.x,p.y); ctx.stroke();
+    last=p;
+  });
+  window.addEventListener('mouseup', function(){ drawing=false; last=null; });
+
+  var sw=document.getElementById('swatches');
+  sw.querySelectorAll('.sw').forEach(function(s){
+    s.addEventListener('click', function(){
+      color=s.dataset.color;
+      sw.querySelectorAll('.sw').forEach(function(x){ x.setAttribute('aria-pressed', x===s ? 'true':'false'); });
+    });
+  });
+  var brush=document.getElementById('brush');
+  brush.addEventListener('input', function(){ size=+brush.value; document.getElementById('brushVal').textContent=brush.value; });
+  document.getElementById('clear').addEventListener('click', function(){ ctx.clearRect(0,0,canvas.width,canvas.height); });
+})();
+</script>
+</body>
+</html>
