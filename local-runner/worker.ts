@@ -19,11 +19,33 @@
 // in those states at startup is a previous local run that died mid-job → mark
 // failed with a friendly message. Caught errors mark failed immediately; only a
 // hard process death leaves a row for startup recovery.
+import * as Sentry from "@sentry/node";
 import { createClient } from "@supabase/supabase-js";
 import "./config"; // side-effect: load .env.local
 import { runJob, type JobPhase } from "./job";
 import type { SourceType } from "./safety";
 import { DEMO_QUOTA } from "../lib/demoQuota";
+
+// This worker is the single-machine SPOF for the whole demo pipeline, so it wires
+// Sentry directly (it does not use lib/logger). Gated on DSN only — NOT on
+// NODE_ENV — because the worker runs on a real machine even though its process
+// env is not "production". Errors only (tracesSampleRate 0) to stay on the free
+// tier. Silent no-op when SENTRY_DSN is unset.
+if (process.env.SENTRY_DSN) {
+  Sentry.init({ dsn: process.env.SENTRY_DSN, tracesSampleRate: 0 });
+}
+
+// A hard process death (out-of-memory, ffmpeg cascade, unref'd rejection) is the
+// exact failure this SPOF fears — capture and flush before the process goes down.
+process.on("uncaughtException", (err) => {
+  console.error("[worker] uncaught exception:", err);
+  Sentry.captureException(err);
+  void Sentry.flush(2000).finally(() => process.exit(1));
+});
+process.on("unhandledRejection", (reason) => {
+  console.error("[worker] unhandled rejection:", reason);
+  Sentry.captureException(reason);
+});
 
 const POLL_MS = 10_000;
 // Per-session retry cap: a job whose failure-write itself failed (or a row
@@ -181,6 +203,9 @@ async function processOne(row: PendingRow) {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(`[worker] job ${row.id} failed: ${message}`);
+    Sentry.captureException(err, {
+      extra: { projectId: row.id, sourceType: row.demo_source_type },
+    });
     await markFailed(row.id, message);
   }
 }

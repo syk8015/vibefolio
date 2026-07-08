@@ -14,6 +14,17 @@ export type LogLevel = "debug" | "info" | "warn" | "error";
 
 export type LogContext = Record<string, unknown> & { error?: unknown };
 
+// An error-level log forwarded to an external reporter (e.g. Sentry). It carries
+// the ORIGINAL thrown value — not the serialised shape dispatch() logs — so the
+// reporter keeps the real Error instance for accurate stack traces and grouping.
+export interface ErrorReport {
+  message: string;
+  error?: unknown;
+  context: Record<string, unknown>;
+}
+
+type ErrorReporter = (report: ErrorReport) => void;
+
 const isServer = typeof window === "undefined";
 const isProduction = process.env.NODE_ENV === "production";
 
@@ -87,10 +98,31 @@ function dispatch(entry: LogEntry): void {
   }
 }
 
+// Optional external sink for error-level logs, registered once at process start
+// (instrumentation.ts on the server, instrumentation-client.ts in the browser,
+// the recorder worker's entry point). Keeping it here means the many
+// logger.error() call sites never import Sentry directly — this stays the single
+// choke point the whole app funnels through.
+let errorReporter: ErrorReporter | null = null;
+
+export function setErrorReporter(reporter: ErrorReporter | null): void {
+  errorReporter = reporter;
+}
+
 function log(level: LogLevel, message: string, context?: LogContext): void {
   // Drop debug noise in production.
   if (level === "debug" && isProduction) return;
   dispatch(buildEntry(level, message, context));
+
+  // Forward errors to the external reporter with the raw thrown value intact.
+  if (level === "error" && errorReporter) {
+    const { error, ...rest } = context ?? {};
+    try {
+      errorReporter({ message, error, context: rest });
+    } catch {
+      // A reporter failure must never break the code path that logged.
+    }
+  }
 }
 
 export const logger = {
