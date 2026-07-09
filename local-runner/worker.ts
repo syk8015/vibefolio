@@ -52,6 +52,29 @@ const POLL_MS = 10_000;
 // Per-session retry cap: a job whose failure-write itself failed (or a row
 // re-queued while we crash-loop) must not burn an explore fee every poll.
 const MAX_ATTEMPTS_PER_SESSION = 2;
+// Hard self-heal cap. runJob has no cancellation, so a truly hung job (frozen
+// browser / stalled ffmpeg) would block this single-threaded worker forever. Past
+// this we mark it failed and process.exit(1) — launchd restarts a clean worker and
+// the dying process takes its hung children with it. Set well above a normal job
+// (dashboard says "보통 1–3분") so it only ever catches real hangs.
+const JOB_HARD_TIMEOUT_MS = 10 * 60_000;
+
+class JobTimeoutError extends Error {}
+
+async function withHardTimeout<T>(work: Promise<T>): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(
+      () => reject(new JobTimeoutError(`job exceeded ${JOB_HARD_TIMEOUT_MS / 60_000}min hard timeout`)),
+      JOB_HARD_TIMEOUT_MS,
+    );
+  });
+  try {
+    return await Promise.race([work, timeout]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
 
 const IN_FLIGHT_STATUSES = ["building", "recording", "editing"] as const;
 
@@ -227,13 +250,15 @@ async function processOne(row: PendingRow) {
     if (!row.demo_source_type || !row.demo_source_value) {
       throw new Error("job row is missing demo_source_type/value");
     }
-    const outcome = await runJob({
-      projectId: row.id,
-      sourceType: row.demo_source_type,
-      sourceValue: row.demo_source_value,
-      upload: true, // uploadAndMarkDone sets status=done on success
-      onPhase: (phase) => setStatus(row.id, phase),
-    });
+    const outcome = await withHardTimeout(
+      runJob({
+        projectId: row.id,
+        sourceType: row.demo_source_type,
+        sourceValue: row.demo_source_value,
+        upload: true, // uploadAndMarkDone sets status=done on success
+        onPhase: (phase) => setStatus(row.id, phase),
+      }),
+    );
     if (outcome.status === "login-gated") {
       await markFailed(row.id, "로그인이 필요한 사이트라 자동 시연을 만들 수 없어요. 비로그인으로 볼 수 있는 URL로 다시 시도해 주세요.");
       await trackAnalytics(AnalyticsEvent.DemoFailed, row.user_id, {
@@ -251,6 +276,7 @@ async function processOne(row: PendingRow) {
     console.log(`[worker] job ${row.id} done → ${outcome.publicUrl ?? "(no upload)"}`);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
+    const timedOut = err instanceof JobTimeoutError;
     console.error(`[worker] job ${row.id} failed: ${message}`);
     Sentry.captureException(err, {
       extra: { projectId: row.id, sourceType: row.demo_source_type },
@@ -258,10 +284,17 @@ async function processOne(row: PendingRow) {
     await trackAnalytics(AnalyticsEvent.DemoFailed, row.user_id, {
       projectId: row.id,
       sourceType: row.demo_source_type,
-      reason: "error",
+      reason: timedOut ? "timeout" : "error",
       message,
     });
     await markFailed(row.id, message);
+    if (timedOut) {
+      // The job is marked failed; now exit so launchd restarts a clean worker and
+      // the hung child processes (browser/ffmpeg) die with us.
+      console.error("[worker] hard timeout — exiting for a clean launchd restart");
+      await Sentry.flush(2000);
+      process.exit(1);
+    }
   }
 }
 
