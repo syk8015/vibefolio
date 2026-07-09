@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
@@ -60,7 +61,12 @@ export default async function AdminPage() {
       className="max-w-2xl mx-auto px-5 py-12"
       style={{ fontFamily: "var(--font-nunito)", color: "var(--text-primary)" }}
     >
-      <h1 className="vf-serif-display text-2xl mb-1">시연 영상 승인 대기</h1>
+      <div className="flex items-center justify-between mb-1">
+        <h1 className="vf-serif-display text-2xl">시연 영상 승인 대기</h1>
+        <Link href="/admin/metrics" className="text-sm vf-mono" style={{ color: "var(--text-muted)" }}>
+          지표 →
+        </Link>
+      </div>
       <p className="text-sm mb-8" style={{ color: "var(--text-secondary)" }}>
         재촬영 요청과 하루 한도 초과 보류 건이에요. 승인하면 바로 촬영 대기열로 들어가요.
       </p>

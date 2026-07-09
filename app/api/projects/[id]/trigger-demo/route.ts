@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { detectDemoSource } from "@/lib/demoSource";
 import { resolveBuildPayload } from "@/lib/demoPayload";
 import { apiError } from "@/lib/apiError";
+import { trackServerEvent } from "@/lib/analytics";
+import { AnalyticsEvent } from "@/lib/analytics-events";
 import type { buildAndRecord, BuildPayload } from "@/src/trigger/build-and-record";
 
 // Shape returned by the request_demo() SQL function (supabase/migration_demo_quota.sql).
@@ -109,6 +111,10 @@ export async function POST(
     // Held for admin review — nothing is spent. The row is already 'held'; the
     // dashboard shows the fallback image + a review badge (not an error).
     if (result.status === "held") {
+      await trackServerEvent(AnalyticsEvent.DemoHeld, {
+        userId: user.id,
+        props: { projectId: id, reason: result.reason ?? null },
+      });
       return NextResponse.json({
         ok: true,
         held: true,
@@ -123,6 +129,20 @@ export async function POST(
     // off a run — otherwise a double-fire would spawn a second recording.
     const admitted = result.status === "pending" && !result.deduped;
     const sourceMeta = { type: payload.sourceType, value: payload.sourceValue };
+
+    // Server-authoritative: a fresh admit means a real recording job just entered
+    // the pipeline (denominator of build success rate). Dedupe hits / already
+    // in-flight rows are NOT re-counted.
+    if (admitted) {
+      await trackServerEvent(AnalyticsEvent.DemoRequested, {
+        userId: user.id,
+        props: {
+          projectId: id,
+          sourceType: payload.sourceType,
+          runner: process.env.DEMO_RUNNER === "local" ? "local" : "cloud",
+        },
+      });
+    }
 
     // DEMO_RUNNER=local routes jobs to the M5 recording worker instead of the
     // E2B cloud task: the pending row written by request_demo IS the queue entry —

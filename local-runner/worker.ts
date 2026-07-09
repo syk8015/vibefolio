@@ -25,6 +25,7 @@ import "./config"; // side-effect: load .env.local
 import { runJob, type JobPhase } from "./job";
 import type { SourceType } from "./safety";
 import { DEMO_QUOTA } from "../lib/demoQuota";
+import { AnalyticsEvent } from "../lib/analytics-events";
 
 // This worker is the single-machine SPOF for the whole demo pipeline, so it wires
 // Sentry directly (it does not use lib/logger). Gated on DSN only — NOT on
@@ -86,6 +87,21 @@ async function markFailed(projectId: string, message: string) {
     .update({ demo_build_status: "failed", demo_build_error: truncated })
     .eq("id", projectId);
   if (error) console.error(`[worker] failed-status write failed for ${projectId}: ${error.message}`);
+}
+
+// Product analytics — SEPARATE from demo_events (which counts quota). Written via
+// this worker's own service-role client so it stays out of the Next `server-only`
+// analytics module. Fire-and-forget: a failed insert must never fail the job.
+// NOTE: this is the LOCAL (DEMO_RUNNER=local) recorder — the live path. The cloud
+// Trigger.dev task (src/trigger/build-and-record.ts) does not yet emit these, so
+// build success rate is only accurate while jobs run locally.
+async function trackAnalytics(
+  event: string,
+  userId: string | null,
+  props: Record<string, unknown>,
+) {
+  const { error } = await supabase.from("analytics_events").insert({ event, user_id: userId, props });
+  if (error) console.error(`[worker] analytics(${event}) write failed: ${error.message}`);
 }
 
 // Startup recovery: repair rows a dead local worker left in-flight.
@@ -196,15 +212,30 @@ async function processOne(row: PendingRow) {
     });
     if (outcome.status === "login-gated") {
       await markFailed(row.id, "로그인이 필요한 사이트라 자동 시연을 만들 수 없어요. 비로그인으로 볼 수 있는 URL로 다시 시도해 주세요.");
+      await trackAnalytics(AnalyticsEvent.DemoFailed, row.user_id, {
+        projectId: row.id,
+        sourceType: row.demo_source_type,
+        reason: "login-gated",
+      });
       console.log(`[worker] job ${row.id} skipped (login-gated)`);
       return;
     }
+    await trackAnalytics(AnalyticsEvent.DemoSucceeded, row.user_id, {
+      projectId: row.id,
+      sourceType: row.demo_source_type,
+    });
     console.log(`[worker] job ${row.id} done → ${outcome.publicUrl ?? "(no upload)"}`);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(`[worker] job ${row.id} failed: ${message}`);
     Sentry.captureException(err, {
       extra: { projectId: row.id, sourceType: row.demo_source_type },
+    });
+    await trackAnalytics(AnalyticsEvent.DemoFailed, row.user_id, {
+      projectId: row.id,
+      sourceType: row.demo_source_type,
+      reason: "error",
+      message,
     });
     await markFailed(row.id, message);
   }
