@@ -31,8 +31,13 @@ export default async function AdminMetricsPage() {
     .gte("created_at", since)
     .order("created_at", { ascending: true });
 
-  // 42P01 = undefined_table: migration_analytics.sql not applied yet.
-  const tableMissing = error?.code === "42P01";
+  // Table not applied yet. Through PostgREST (supabase-js) a missing table comes
+  // back as PGRST205 ("could not find the table in the schema cache"), not the raw
+  // Postgres 42P01 — handle both so the notice actually shows.
+  const tableMissing =
+    error?.code === "PGRST205" ||
+    error?.code === "42P01" ||
+    (typeof error?.message === "string" && error.message.includes("schema cache"));
   const rows = (data ?? []) as Row[];
 
   const counts: Record<string, number> = {};
