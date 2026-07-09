@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  LaunchAgent for the Nookframe local demo recorder. install.sh substitutes the
+  __PLACEHOLDERS__ with this machine's absolute paths and copies the result to
+  ~/Library/LaunchAgents. Do NOT load this template directly (the placeholders are
+  not valid paths).
+
+  It runs in the user's GUI (Aqua) session — required, because recording drives the
+  real screen. RunAtLoad starts it at login; KeepAlive restarts it on any exit
+  (crash, OOM, hard kill); ThrottleInterval keeps a crash-loop from hammering.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.nookframe.demo-worker</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>__RUN_SCRIPT__</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <string>__PROJECT_DIR__</string>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+  </dict>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <key>KeepAlive</key>
+  <true/>
+
+  <key>ThrottleInterval</key>
+  <integer>30</integer>
+
+  <key>ProcessType</key>
+  <string>Interactive</string>
+
+  <key>StandardOutPath</key>
+  <string>__LOG_DIR__/nookframe-demo-worker.log</string>
+  <key>StandardErrorPath</key>
+  <string>__LOG_DIR__/nookframe-demo-worker.err.log</string>
+</dict>
+</plist>

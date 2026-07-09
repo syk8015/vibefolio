@@ -104,6 +104,30 @@ async function trackAnalytics(
   if (error) console.error(`[worker] analytics(${event}) write failed: ${error.message}`);
 }
 
+// Heartbeat + kill-switch in ONE round-trip: stamp system_status.worker_last_seen_at
+// (so a watchdog / launchd can tell this worker is alive) and read demo_paused back
+// (P0.5 drain-stop) at the same time. Returns whether draining is paused. Degrades
+// gracefully if the table isn't there yet (warns once, keeps working, never pauses).
+let heartbeatWarned = false;
+async function heartbeat(status: "idle" | "busy"): Promise<boolean> {
+  const now = new Date().toISOString();
+  const { data, error } = await supabase
+    .from("system_status")
+    .update({ worker_last_seen_at: now, worker_status: status, updated_at: now })
+    .eq("id", "singleton")
+    .select("demo_paused")
+    .single();
+  if (error) {
+    if (!heartbeatWarned) {
+      console.error(`[worker] heartbeat failed (system_status missing? apply migration): ${error.message}`);
+      heartbeatWarned = true;
+    }
+    return false;
+  }
+  heartbeatWarned = false;
+  return !!data?.demo_paused;
+}
+
 // Startup recovery: repair rows a dead local worker left in-flight.
 async function recoverStuckJobs() {
   const { data, error } = await supabase
@@ -246,9 +270,17 @@ console.log(`[worker] polling every ${POLL_MS / 1000}s — Ctrl-C to stop`);
 await recoverStuckJobs();
 
 while (!stopping) {
+  const paused = await heartbeat(busy ? "busy" : "idle");
+  if (paused) {
+    // Kill switch on (e.g. credits exhausted): stay alive + keep heartbeating,
+    // but don't claim/record — no explore spend while paused.
+    await new Promise((r) => setTimeout(r, POLL_MS));
+    continue;
+  }
   const row = await claimNext();
   if (row) {
     busy = true;
+    await heartbeat("busy");
     await processOne(row);
     busy = false;
     continue; // drain the queue before idling again
