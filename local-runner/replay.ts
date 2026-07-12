@@ -49,7 +49,9 @@ async function resolveTarget(
   if (act.selector) {
     try {
       const loc = page.locator(act.selector).first();
-      await loc.waitFor({ state: "visible", timeout: 7000 });
+      // 2.5s, not longer: the coordinate fallback below is a fine answer, and a
+      // miss costs real FILM time — two 7s waits once burned 14s of a 34s cap.
+      await loc.waitFor({ state: "visible", timeout: 2500 });
       const box = await loc.boundingBox();
       if (!box) throw new Error("element has no box (not visible/laid out)");
       if (
@@ -95,9 +97,24 @@ export async function replay(
   page: Page,
   script: Script,
   cam: CameraTrack,
+  // Wall-clock budget for the whole take. A rich script (multi-stroke drawings,
+  // selector misses) can run far past MAX_VIDEO_SEC — without this the clip cap
+  // amputated films MID-GESTURE (2026-07-12: 77-105s replays cut at 34s). Stopping
+  // at an action boundary instead ships a shorter but COMPLETE-feeling story.
+  budgetMs: number = Infinity,
 ): Promise<void> {
+  const t0 = Date.now();
+  let done = 0;
   for (const act of script.actions) {
+    if (Date.now() - t0 > budgetMs) {
+      console.log(
+        `[replay] time budget (${Math.round(budgetMs / 1000)}s) reached — ` +
+          `stopping cleanly after ${done}/${script.actions.length} actions`,
+      );
+      break;
+    }
     await runAction(page, cam, act);
+    done++;
   }
   cam.finish(); // settle to 1× so the tail hold frames the whole window
 }

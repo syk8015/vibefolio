@@ -32,6 +32,7 @@ import {
   INTRO_MS,
   TAIL_MS,
   CAPTURE_WARMUP_MS,
+  MAX_VIDEO_SEC,
 } from "./config";
 import { sleep, run, ffprobeValue } from "./util";
 
@@ -166,7 +167,10 @@ export async function recordDemo(opts: RecordDemoOptions): Promise<RecordDemoRes
     const cam = new CameraTrack(recStartTime, crop.logical.iw, crop.logical.ih);
 
     await sleep(INTRO_MS); // hero beat
-    await replay(page, script, cam); // one-take, no AI loop
+    // Budget the take so intro + actions + tail fit inside the clip cap — replay
+    // stops at an action boundary rather than letting the cap cut mid-gesture.
+    const replayBudget = MAX_VIDEO_SEC * 1000 - INTRO_MS - TAIL_MS - 900; // fade slack
+    await replay(page, script, cam, replayBudget); // one-take, no AI loop
     await sleep(TAIL_MS);
     await rec.stop();
     console.log("[record] stopped; camera events:", cam.events.length);
