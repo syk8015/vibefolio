@@ -79,6 +79,8 @@
   .search input{flex:1;border:1px solid var(--line);background:var(--bg);color:var(--ink);
     border-radius:10px;padding:11px 14px;font-size:14px;outline:none}
   .search input:focus{border-color:var(--accent)}
+  .cap-list{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+  .note{padding:10px 14px;background:var(--bg);border:1px solid var(--line);border-radius:10px;font-size:14px}
 
   /* board */
   .board{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
@@ -164,6 +166,17 @@
         <div class="search">
           <input data-testid="search-input" id="search" placeholder="Search or add a task…" autocomplete="off" />
           <button class="btn" data-testid="add-task-btn" id="addBtn">Add</button>
+        </div>
+        <!-- The search's OWN list. Until 2026-07-12 the search filtered the BOARD
+             (the page's only .card set), so the ①→② tour order baked in a
+             "filter, then drag a changed board" trap — explore grabbed an empty
+             column twice (run2 + take3). Live-search now demos against these
+             notes and the kanban stays untouched. -->
+        <div class="cap-list" id="capList">
+          <div class="note">Design the landing page</div>
+          <div class="note">Refactor billing hooks</div>
+          <div class="note">Write the launch tweet</div>
+          <div class="note">Review quarterly goals</div>
         </div>
       </div>
     </section>
@@ -305,9 +318,11 @@
   var search = document.getElementById('search');
   function applyFilter(){
     var q = search.value.trim().toLowerCase();
-    document.querySelectorAll('.card').forEach(function(card){
-      var hit = card.querySelector('.t').textContent.toLowerCase().indexOf(q) > -1;
-      card.style.display = (!q || hit) ? '' : 'none';
+    // Scoped to the capture notes ONLY — filtering the board too made the ①→②
+    // tour order a drag trap (see the cap-list comment above).
+    document.querySelectorAll('#capList .note').forEach(function(note){
+      var hit = note.textContent.toLowerCase().indexOf(q) > -1;
+      note.style.display = (!q || hit) ? '' : 'none';
     });
   }
   function addTask(){
