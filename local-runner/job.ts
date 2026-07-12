@@ -20,6 +20,9 @@ export type JobInput = {
   sourceType: SourceType;
   sourceValue: string;
   upload: boolean;
+  // Creator-written core-feature description (projects.demo_user_hint) — steers
+  // what explore demonstrates. Optional; untrusted user data end to end.
+  userHint?: string;
   // Explicit operator override (CLI only). The worker never sets this — the
   // policy gate must stay automatic on queue jobs.
   policyOverride?: SafetyPolicy;
@@ -59,6 +62,7 @@ export async function runJob(job: JobInput): Promise<JobOutcome> {
       projectId: job.projectId,
       policy,
       upload: job.upload,
+      userHint: job.userHint,
       onPhase: job.onPhase,
     });
 

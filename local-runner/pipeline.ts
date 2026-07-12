@@ -44,6 +44,9 @@ export type RecordDemoOptions = {
   projectId: string;
   policy: SafetyPolicy;
   upload: boolean;
+  // Creator-written core-feature description (projects.demo_user_hint) — passed
+  // through to explore's opening brief. Optional; untrusted user data.
+  userHint?: string;
   onPhase?: (phase: PipelinePhase) => void | Promise<void>;
 };
 
@@ -110,7 +113,7 @@ export async function recordDemo(opts: RecordDemoOptions): Promise<RecordDemoRes
     }
 
     const storage0 = await exploreCtx.storageState(); // shared footing for the take
-    const script = await explore(explorePage);
+    const script = await explore(explorePage, { userHint: opts.userHint });
     await exploreCtx.close();
     await browser.close(); // explore done — no stray window at (0,0) during capture
     console.log(`[explore] ${script.notes}`);
@@ -123,7 +126,9 @@ export async function recordDemo(opts: RecordDemoOptions): Promise<RecordDemoRes
             ? ` dy=${a.dy}`
             : a.kind === "drag"
               ? ` (${a.x},${a.y})→(${a.toX},${a.toY})`
-              : "";
+              : a.kind === "path"
+                ? ` ${a.points.length} pts${a.label ? ` "${a.label}"` : ""}`
+                : "";
       const sel = "selector" in a ? a.selector || "(coord)" : "";
       console.log(`   ${a.kind.padEnd(7)} ${sel}${tail}`);
     }

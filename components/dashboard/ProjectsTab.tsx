@@ -145,6 +145,9 @@ interface DBProject {
   demo_build_error: string | null;
   demo_video_url: string | null;
   demo_generated_at: string | null;
+  // 사용자 유도형 데모 변형①: 제작자가 쓴 "핵심 기능" 설명. 녹화 워커가 explore
+  // 브리핑에 주입한다. 가드 트리거의 파이프라인 컬럼이 아니라 유저가 직접 수정 가능.
+  demo_user_hint: string | null;
 }
 
 type ProjectForm = Omit<
@@ -171,6 +174,7 @@ const EMPTY_FORM: ProjectForm = {
   demo_url: "",
   comment: "",
   video_url: "",
+  demo_user_hint: null,
 };
 
 function isUploadedProject(demoUrl: string) {
@@ -401,7 +405,12 @@ export default function ProjectsTab({ user }: { user: User }) {
     const supabase = createClient();
     const { data, error } = await supabase
       .from("projects")
-      .insert({ ...form, user_id: user.id, sort_order: projects.length })
+      .insert({
+        ...form,
+        demo_user_hint: form.demo_user_hint?.trim() || null,
+        user_id: user.id,
+        sort_order: projects.length,
+      })
       .select().single();
     if (error) throw new Error(error.message);
     if (data) {
@@ -470,7 +479,9 @@ export default function ProjectsTab({ user }: { user: User }) {
     const supabase = createClient();
     const before = projects.find(p => p.id === id);
     const { data, error } = await supabase
-      .from("projects").update(form).eq("id", id).select().single();
+      .from("projects")
+      .update({ ...form, demo_user_hint: form.demo_user_hint?.trim() || null })
+      .eq("id", id).select().single();
     if (error) throw new Error(error.message);
     if (data) {
       setProjects(prev => prev.map(p => p.id === id ? (data as DBProject) : p));
@@ -602,6 +613,7 @@ export default function ProjectsTab({ user }: { user: User }) {
             tags: editProject.tags, demo_url: editProject.demo_url,
             comment: editProject.comment,
             video_url: editProject.video_url ?? "",
+            demo_user_hint: editProject.demo_user_hint ?? null,
           }}
           onClose={() => setEditProject(null)}
           onSubmit={form => handleEdit(editProject.id, form)}
@@ -998,6 +1010,26 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
     setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
   }
 
+  // 사용자 유도형 데모 변형①: 자동 시연이 "무엇을" 보여줘야 하는지 제작자에게 직접
+  // 받는다 (explore는 캔버스·에디터류의 핵심 UX를 픽셀만 보고 못 잡음). step 2의
+  // URL/파일 두 모드가 공유.
+  const demoHintField = (
+    <div className="flex flex-col gap-1.5 w-full" style={{ maxWidth: 680, margin: "18px auto 0" }}>
+      <label className="text-sm" htmlFor="demo_user_hint"
+        style={{ fontFamily: "var(--font-nunito)", fontWeight: 600 }}>
+        핵심 기능 소개 <span style={{ color: "var(--text-secondary)", fontWeight: 400 }}>(선택)</span>
+      </label>
+      <textarea className="vf-input" id="demo_user_hint" name="demo_user_hint" rows={2}
+        placeholder="예: 캔버스에 마우스로 자유롭게 그림을 그릴 수 있어요. 상단에서 브러시 색과 굵기를 바꿔보세요."
+        value={form.demo_user_hint ?? ""} onChange={handleChange}
+        maxLength={500}
+        style={{ resize: "none", fontSize: "0.9rem", lineHeight: 1.6 }} />
+      <p className="text-xs" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
+        자동 시연 영상이 이 설명을 보고 핵심 기능부터 보여드려요.
+      </p>
+    </div>
+  );
+
   async function handleVideoFile(file: File) {
     setVideoError("");
     const MAX_VIDEO_BYTES = 20 * 1024 * 1024;
@@ -1257,7 +1289,7 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
           {step === 2 && (
             <div className="flex-1 flex flex-col min-h-0">
               {uploadMode === "url" ? (
-                <div className="flex-1 flex items-center justify-center">
+                <div className="flex-1 flex flex-col items-center justify-center">
                   <div className="w-full" style={{ maxWidth: 680 }}>
                     <input className="vf-input" name="demo_url" type="url"
                       placeholder="https://myproject.vercel.app"
@@ -1265,6 +1297,7 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
                       autoFocus
                       style={{ fontSize: "1.4rem", padding: "1.4rem 1.6rem", textAlign: "center" }} />
                   </div>
+                  {demoHintField}
                 </div>
               ) : (
                 <>
@@ -1318,6 +1351,7 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
                       </p>
                     )}
                   </div>
+                  {demoHintField}
                 </>
               )}
             </div>

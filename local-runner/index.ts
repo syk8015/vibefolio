@@ -23,7 +23,7 @@ const flag = (name: string, dflt?: string) => {
   return i >= 0 && argv[i + 1] && !argv[i + 1].startsWith("--") ? argv[i + 1] : dflt;
 };
 
-const positionalUrl = argv.find((a) => !a.startsWith("--") && a !== flag("project") && a !== flag("policy") && a !== flag("type") && a !== flag("value"));
+const positionalUrl = argv.find((a) => !a.startsWith("--") && a !== flag("project") && a !== flag("policy") && a !== flag("type") && a !== flag("value") && a !== flag("hint"));
 const typeFlag = flag("type");
 const valueFlag = flag("value");
 
@@ -45,8 +45,8 @@ if (typeFlag) {
   sourceValue = positionalUrl;
 } else {
   console.error(
-    "usage: tsx local-runner/index.ts <url> [--project <id>] [--policy read-only|full] [--upload]\n" +
-      "       tsx local-runner/index.ts --type github|zip|live_url --value <v> [--project <id>] [--upload]",
+    "usage: tsx local-runner/index.ts <url> [--project <id>] [--policy read-only|full] [--upload] [--hint <core-feature>]\n" +
+      "       tsx local-runner/index.ts --type github|zip|live_url --value <v> [--project <id>] [--upload] [--hint <core-feature>]",
   );
   process.exit(1);
 }
@@ -56,12 +56,15 @@ const policyFlag = flag("policy");
 const policyOverride: SafetyPolicy | undefined =
   policyFlag === "full" ? "full" : policyFlag === "read-only" ? "read-only" : undefined;
 const doUpload = argv.includes("--upload");
+// Creator core-feature hint (변형① dry-runs): --hint "캔버스에 그림을 그리는 앱"
+const userHint = flag("hint");
 
 const outcome = await runJob({
   projectId,
   sourceType,
   sourceValue,
   upload: doUpload,
+  userHint,
   policyOverride,
 });
 if (outcome.status === "login-gated") process.exit(0);

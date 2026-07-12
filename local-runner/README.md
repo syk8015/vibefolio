@@ -35,7 +35,16 @@ E2B가 빌드/서빙(공개 URL만 넘어옴), 이 맥북이 탐색·녹화·후
 ## CLI (큐 없이 단발 실행/드라이런)
 
 ```bash
-npx -y tsx local-runner/index.ts <url|github-url> [--project <id>] [--policy read-only|full] [--upload]
+npx -y tsx local-runner/index.ts <url|github-url> [--project <id>] [--policy read-only|full] [--upload] [--hint "핵심 기능 설명"]
 ```
 
 `--project` 없이 돌리면 `manual-*` 드라이런: DB를 건드리지 않고 `_test/`에 업로드.
+`--hint`는 제작자 "핵심 기능" 설명(= `projects.demo_user_hint`)을 explore 브리핑에
+주입한다 — 큐 경로에선 워커가 행에서 자동으로 읽으므로 CLI 검증용.
+
+## 무API 프로브
+
+```bash
+npx -y tsx local-runner/probe-drag.ts    # drag 액션 (슬라이더 값·링·카메라)
+npx -y tsx local-runner/probe-sketch.ts  # path 액션 (프리핸드 스트로크·잉크 픽셀)
+```

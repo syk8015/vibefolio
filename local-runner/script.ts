@@ -18,7 +18,13 @@ export type ScriptAction =
   // pairs are required — the gesture IS the start→end vector; the selector only
   // re-anchors it: replay resolves the live start from the selector and translates
   // the end by the same offset, preserving the drag's shape relative to the control.
-  | { kind: "drag"; selector: string; x: number; y: number; toX: number; toY: number; label?: string };
+  | { kind: "drag"; selector: string; x: number; y: number; toX: number; toY: number; label?: string }
+  // Freehand stroke (drawing canvas): ONE continuous pointer-down polyline through
+  // `points` in order. computer-use's left_click_drag can only express a straight
+  // start→end vector, so explore emits this from its draw_path tool instead. Same
+  // re-anchor policy as drag: resolve the live element via the selector and shift
+  // EVERY point by however far it moved — the stroke's shape is what matters.
+  | { kind: "path"; selector: string; points: [number, number][]; label?: string };
 
 export type Script = {
   actions: ScriptAction[];

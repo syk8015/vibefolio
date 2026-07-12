@@ -41,14 +41,20 @@ const OVERLAY_SRC = `(() => {
     if (window.__nfCursor) return;
     var canvas = document.createElement("canvas");
     canvas.id = "__nf_cursor_canvas";
-    canvas.style.cssText = "position:fixed;inset:0;pointer-events:none;z-index:2147483647;";
+    // background/border/filter/opacity carry !important: the overlay is a CANVAS
+    // element, so a target app's bare "canvas { background: ... }" rule would
+    // otherwise paint it OPAQUE over the whole viewport and blank the entire take
+    // (found 2026-07-12 via probe-sketch — the sketch fixture styles bare canvas).
+    canvas.style.cssText = "position:fixed !important;inset:0 !important;pointer-events:none !important;" +
+      "z-index:2147483647 !important;background:transparent !important;border:none !important;" +
+      "filter:none !important;opacity:1 !important;";
     var ctx = canvas.getContext("2d");
     var sizeCanvas = () => {
       var dpr = window.devicePixelRatio || 1;
       canvas.width = Math.round(window.innerWidth * dpr);
       canvas.height = Math.round(window.innerHeight * dpr);
-      canvas.style.width = window.innerWidth + "px";
-      canvas.style.height = window.innerHeight + "px";
+      canvas.style.setProperty("width", window.innerWidth + "px", "important");
+      canvas.style.setProperty("height", window.innerHeight + "px", "important");
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     };
     sizeCanvas();

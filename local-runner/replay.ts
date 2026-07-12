@@ -18,6 +18,10 @@ const HOLD_MS = 600; // hold at 1x after a click so the result reads
 const TYPE_DELAY_MS = 55; // per-keystroke (human-like)
 const DRAG_MIN_MS = 520; // even a short slider pull should read as a deliberate gesture
 const DRAG_STEP_MS = 25; // real-mouse update cadence along the drag ease
+// Freehand stroke pacing: per-SEGMENT, snappier than a UI drag — a sketch is a
+// flowing gesture, not a deliberate slider pull. A 10-point smiley lands ~2s.
+const PATH_SEG_MIN_MS = 160;
+const PATH_SEG_MAX_MS = 650;
 
 // Same cubic in-out the cursor overlay and camera use — the real mouse steps this
 // exact curve during a drag so the app's thumb tracks the visible ring.
@@ -131,6 +135,25 @@ async function runAction(page: Page, cam: CameraTrack, act: ScriptAction): Promi
     await sleep(HOLD_MS);
     return;
   }
+  if (act.kind === "path") {
+    // Freehand stroke: drag's re-anchor policy applied to the WHOLE polyline —
+    // resolve the live first point via the selector, then shift every waypoint by
+    // how far the surface moved. Shape is what matters; clamp keeps a relaid-out
+    // canvas from pushing the stroke off-window.
+    const pts = act.points;
+    const start = await resolveTarget(page, { selector: act.selector, x: pts[0][0], y: pts[0][1] });
+    const dx = start.x - pts[0][0];
+    const dy = start.y - pts[0][1];
+    const shifted: Pt[] = pts.map(([px, py]) => ({
+      x: Math.max(0, Math.min(VIEW_W - 1, px + dx)),
+      y: Math.max(0, Math.min(VIEW_H - 1, py + dy)),
+    }));
+    await approach(page, cam, shifted[0]);
+    await sleep(cam.isZoomed() ? SETTLE_MS : PRECLICK_PAUSE_MS);
+    await strokePath(page, cam, shifted);
+    await sleep(HOLD_MS);
+    return;
+  }
 
   // click | type
   const to = await resolveTarget(page, act);
@@ -168,6 +191,36 @@ async function dragTo(page: Page, cam: CameraTrack, from: Pt, to: Pt): Promise<v
   }
   await ringArrival;
   cursorUp(page); // ring eases back to rest over the release
+  await page.mouse.up();
+}
+
+// Press at the first waypoint, ease through every segment, release at the last —
+// dragTo's triple sync (synthetic ring, real mouse, camera) applied per segment,
+// with ONE press held across the whole stroke so the app draws a single
+// continuous line. The camera pans segment by segment, so a held zoom tracks the
+// pen exactly as it tracks a drag.
+async function strokePath(page: Page, cam: CameraTrack, pts: Pt[]): Promise<void> {
+  await page.mouse.move(pts[0].x, pts[0].y);
+  cursorDown(page); // ring holds pressed for the whole stroke
+  await page.mouse.down();
+  for (let i = 1; i < pts.length; i++) {
+    const from = pts[i - 1];
+    const to = pts[i];
+    const dist = Math.hypot(to.x - from.x, to.y - from.y);
+    const segMs = Math.max(PATH_SEG_MIN_MS, Math.min(PATH_SEG_MAX_MS, glideMsFor(dist) * 0.5));
+    cam.onApproach(from, to, segMs, /* moving */ false);
+    const ringArrival = cursorMoveTo(page, to.x, to.y, segMs);
+    const t0 = Date.now();
+    for (;;) {
+      const p = Math.min(1, (Date.now() - t0) / segMs);
+      const e = easeInOut(p);
+      await page.mouse.move(from.x + (to.x - from.x) * e, from.y + (to.y - from.y) * e);
+      if (p >= 1) break;
+      await sleep(DRAG_STEP_MS);
+    }
+    await ringArrival;
+  }
+  cursorUp(page); // ring eases back over the release
   await page.mouse.up();
 }
 

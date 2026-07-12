@@ -91,6 +91,7 @@ const supabase = db();
 const attempts = new Map<string, number>();
 let stopping = false;
 let busy = false;
+let hintColumnMissing = false; // set on first 42703 → poll drops the column
 
 process.on("SIGINT", () => {
   if (!busy) {
@@ -172,6 +173,7 @@ type PendingRow = {
   user_id: string;
   demo_source_type: SourceType | null;
   demo_source_value: string | null;
+  demo_user_hint?: string | null;
 };
 
 // Wallet backstop, independent of the route's admission caps: the worker refuses
@@ -202,15 +204,31 @@ async function claimNext(): Promise<PendingRow | null> {
   }
   const { data, error } = await supabase
     .from("projects")
-    .select("id, user_id, demo_source_type, demo_source_value")
+    .select(
+      hintColumnMissing
+        ? "id, user_id, demo_source_type, demo_source_value"
+        : "id, user_id, demo_source_type, demo_source_value, demo_user_hint",
+    )
     .eq("demo_build_status", "pending")
     .not("demo_source_type", "is", null)
     .limit(5);
   if (error) {
+    // Graceful degrade while migration_demo_user_hint.sql isn't applied yet: a
+    // missing column is 42703 — drop it from the select instead of failing every
+    // poll (same policy as the heartbeat's missing-table degrade).
+    if (!hintColumnMissing && error.code === "42703" && error.message.includes("demo_user_hint")) {
+      hintColumnMissing = true;
+      console.error(
+        "[worker] projects.demo_user_hint missing — polling without hints (apply migration_demo_user_hint.sql)",
+      );
+      return null;
+    }
     console.error(`[worker] poll failed: ${error.message}`);
     return null;
   }
-  for (const row of (data ?? []) as PendingRow[]) {
+  // Double cast: the DYNAMIC select string (hint-column degrade above) defeats
+  // supabase-js's literal column parser, so `data` types as a ParserError union.
+  for (const row of (data ?? []) as unknown as PendingRow[]) {
     if ((attempts.get(row.id) ?? 0) >= MAX_ATTEMPTS_PER_SESSION) continue;
     // Conditional claim: only wins if the row is still pending.
     const { data: claimed, error: claimErr } = await supabase
@@ -256,6 +274,7 @@ async function processOne(row: PendingRow) {
         sourceType: row.demo_source_type,
         sourceValue: row.demo_source_value,
         upload: true, // uploadAndMarkDone sets status=done on success
+        userHint: row.demo_user_hint ?? undefined,
         onPhase: (phase) => setStatus(row.id, phase),
       }),
     );
