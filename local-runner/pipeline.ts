@@ -9,7 +9,7 @@
 //
 // Recording needs this machine's screen exclusively (avfoundation grabs the real
 // display) — callers must never run two takes concurrently.
-import { mkdirSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import {
   launchChromium,
   launchRecordingContext,
@@ -175,6 +175,23 @@ export async function recordDemo(opts: RecordDemoOptions): Promise<RecordDemoRes
     await opts.onPhase?.("editing");
     // Owner handle for the endcap chip / end card. "preview" for dry-runs.
     const username = (await fetchUsername(projectId)) ?? "preview";
+    // Persist everything post needs BEFORE running it: if only the post stage
+    // dies, reprocess.ts re-runs it from raw.mp4 + this file — no new explore fee,
+    // no re-record (the 2026-07-12 zoompan failure burned a take this would have
+    // saved).
+    writeFileSync(
+      `${OUT_DIR}/take-meta.json`,
+      JSON.stringify(
+        {
+          url, projectId, policy, username,
+          rawW: crop.w, rawH: crop.h,
+          logicalW: crop.logical.iw, logicalH: crop.logical.ih,
+          script, events: cam.events,
+        },
+        null,
+        2,
+      ),
+    );
     const { durationSec, clipLen, posterPath } = await postprocess({
       rawPath: raw,
       outPath: demo,

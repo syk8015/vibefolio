@@ -68,11 +68,27 @@ export function buildZoomFilter(
   opts: { centerBias?: number; baseZoom?: number } = {},
 ): string {
   if (!events.length) return "";
+  // Round before building: focal to 0.1px, zoom to 4dp. Raw replay values are
+  // full-precision doubles (~18 chars each) and the x/y expressions embed the
+  // whole focal chain TWICE — unrounded, a path-heavy take's filter arg crosses
+  // ffmpeg's expression limit and zoompan fails to configure (-22, found
+  // 2026-07-12: 58 real events ≈ >48k chars → exit 234; rounded ≈ 1/3 the size).
+  const r1 = (v: number) => Math.round(v * 10) / 10;
+  const r4 = (v: number) => Math.round(v * 10000) / 10000;
+  events = events.map((e) => ({
+    ...e,
+    fromZoom: r4(e.fromZoom),
+    toZoom: r4(e.toZoom),
+    fromFocalX: r1(e.fromFocalX),
+    toFocalX: r1(e.toFocalX),
+    fromFocalY: r1(e.fromFocalY),
+    toFocalY: r1(e.toFocalY),
+  }));
   const B = opts.centerBias ?? 0;
   // The state for un-keyframed frames (the intro hold, gaps, and the tail). With a
   // pad margin this is NOT 1 (= whole padded canvas incl. all margin) but padScale
   // (= the window region fills the frame). focal defaults to center either way.
-  const baseZoom = opts.baseZoom ?? 1;
+  const baseZoom = r4(opts.baseZoom ?? 1);
 
   // Non-overlapping segments tiling the timeline. Each segment eases zoom + focal
   // from a start state to an end state (a "hold" is start===end). zoom and both
@@ -153,6 +169,45 @@ export function buildZoomFilter(
   const yExpr = `max(0,min(ih-ih/zoom,${yCore}))`;
 
   return `zoompan=z='${zExpr}':x='${xExpr}':y='${yExpr}':d=1:s=${w}x${h}:fps=${fps}`;
+}
+
+// Merge adjacent camera events until at most `max` remain — the safety valve for
+// pathological takes whose zoompan expression would otherwise cross ffmpeg's
+// parse limit. Prefers merging same-zoom pan pairs (pure pans blend invisibly);
+// falls back to the shortest adjacent pair. The merged event spans both and eases
+// start-of-first → end-of-second; intermediate waypoints are lost, which is the
+// accepted cost of shipping at all.
+export function coalescePans(events: CameraEvent[], max: number, fps: number): CameraEvent[] {
+  const ev = [...events].sort((p, q) => p.startFrame - q.startFrame);
+  const merge = (i: number) => {
+    const a = ev[i];
+    const b = ev[i + 1];
+    const endB = b.startFrame + (b.durMs / 1000) * fps;
+    ev.splice(i, 2, {
+      ...a,
+      durMs: Math.max(a.durMs, ((endB - a.startFrame) / fps) * 1000),
+      toZoom: b.toZoom,
+      toFocalX: b.toFocalX,
+      toFocalY: b.toFocalY,
+    });
+  };
+  while (ev.length > max && ev.length >= 2) {
+    let best = -1;
+    let bestDur = Infinity;
+    for (let i = 0; i < ev.length - 1; i++) {
+      const a = ev[i];
+      const b = ev[i + 1];
+      const samePan =
+        a.fromZoom === a.toZoom && b.fromZoom === b.toZoom && a.toZoom === b.fromZoom;
+      const dur = a.durMs + b.durMs + (samePan ? 0 : 10_000); // heavily prefer pan pairs
+      if (dur < bestDur) {
+        bestDur = dur;
+        best = i;
+      }
+    }
+    merge(best);
+  }
+  return ev;
 }
 
 // ── Cursor glide speed ────────────────────────────────────────────────────────

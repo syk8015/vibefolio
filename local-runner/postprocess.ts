@@ -17,8 +17,11 @@
 import { writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import type { CameraEvent } from "./camera";
-import { buildZoomFilter } from "./camera";
-import { FPS, MAX_VIDEO_SEC, PAD_FRAC, PAD_COLOR, CENTER_BIAS } from "./config";
+import { buildZoomFilter, coalescePans } from "./camera";
+import {
+  FPS, MAX_VIDEO_SEC, PAD_FRAC, PAD_COLOR, CENTER_BIAS,
+  CAMERA_MAX_EVENTS, CAMERA_VF_MAX_CHARS,
+} from "./config";
 import { run, ffprobeValue } from "./util";
 import { renderEndcapAssets } from "./endcap";
 
@@ -80,23 +83,40 @@ export async function postprocess(input: PostInput): Promise<{
     const pw = zw + 2 * padX;
     const ph = zh + 2 * padY;
     const padScale = pw / zw;
-    const scaled = events.map((e) => ({
-      ...e,
-      fromZoom: e.fromZoom * padScale,
-      toZoom: e.toZoom * padScale,
-      fromFocalX: e.fromFocalX * sx + padX,
-      toFocalX: e.toFocalX * sx + padX,
-      fromFocalY: e.fromFocalY * sy + padY,
-      toFocalY: e.toFocalY * sy + padY,
-    }));
-    const zoom = buildZoomFilter(scaled, FPS, pw, ph, {
-      centerBias: CENTER_BIAS,
-      baseZoom: padScale, // un-keyframed frames frame the window, not the whole pad
-    });
-    baseChain =
-      `scale=${zw}:${zh}:flags=lanczos,` +
-      `pad=${pw}:${ph}:${padX}:${padY}:color=${PAD_COLOR},${zoom},` +
-      `scale=${outW}:${outH}:flags=lanczos`;
+    const build = (evs: CameraEvent[]): string => {
+      const scaled = evs.map((e) => ({
+        ...e,
+        fromZoom: e.fromZoom * padScale,
+        toZoom: e.toZoom * padScale,
+        fromFocalX: e.fromFocalX * sx + padX,
+        toFocalX: e.toFocalX * sx + padX,
+        fromFocalY: e.fromFocalY * sy + padY,
+        toFocalY: e.toFocalY * sy + padY,
+      }));
+      const zoom = buildZoomFilter(scaled, FPS, pw, ph, {
+        centerBias: CENTER_BIAS,
+        baseZoom: padScale, // un-keyframed frames frame the window, not the whole pad
+      });
+      return (
+        `scale=${zw}:${zh}:flags=lanczos,` +
+        `pad=${pw}:${ph}:${padX}:${padY}:color=${PAD_COLOR},${zoom},` +
+        `scale=${outW}:${outH}:flags=lanczos`
+      );
+    };
+    // Expression guard: an event-heavy take must never kill the post again (the
+    // 2026-07-12 take died here with 58 events). Cap the count, then verify the
+    // BUILT length and coalesce harder if some future shape still blows past it.
+    let ev = events;
+    if (ev.length > CAMERA_MAX_EVENTS) {
+      ev = coalescePans(ev, CAMERA_MAX_EVENTS, FPS);
+      console.log(`[postprocess] coalesced camera events ${events.length} → ${ev.length} (zoompan guard)`);
+    }
+    baseChain = build(ev);
+    while (baseChain.length > CAMERA_VF_MAX_CHARS && ev.length > 12) {
+      ev = coalescePans(ev, Math.max(12, Math.floor(ev.length / 2)), FPS);
+      baseChain = build(ev);
+      console.log(`[postprocess] filter ${baseChain.length} chars after coalescing to ${ev.length} events`);
+    }
   } else {
     baseChain = `scale=${outW}:${outH}:flags=lanczos`;
   }

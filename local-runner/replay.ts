@@ -195,24 +195,33 @@ async function dragTo(page: Page, cam: CameraTrack, from: Pt, to: Pt): Promise<v
 }
 
 // Press at the first waypoint, ease through every segment, release at the last —
-// dragTo's triple sync (synthetic ring, real mouse, camera) applied per segment,
 // with ONE press held across the whole stroke so the app draws a single
-// continuous line. The camera pans segment by segment, so a held zoom tracks the
-// pen exactly as it tracks a drag.
+// continuous line. Ring + real mouse move per segment; the CAMERA gets a single
+// pan for the whole stroke (start → final point, total duration): per-segment
+// camera events made a path-heavy take emit 50+ events, whose zoompan expression
+// crossed ffmpeg's parse limit (2026-07-12). A drawing is compact relative to the
+// held-zoom window, so one smooth pan keeps the pen comfortably in frame.
 async function strokePath(page: Page, cam: CameraTrack, pts: Pt[]): Promise<void> {
+  const segMs: number[] = [];
+  let totalMs = 0;
+  for (let i = 1; i < pts.length; i++) {
+    const dist = Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
+    const ms = Math.max(PATH_SEG_MIN_MS, Math.min(PATH_SEG_MAX_MS, glideMsFor(dist) * 0.5));
+    segMs.push(ms);
+    totalMs += ms;
+  }
   await page.mouse.move(pts[0].x, pts[0].y);
   cursorDown(page); // ring holds pressed for the whole stroke
   await page.mouse.down();
+  cam.onApproach(pts[0], pts[pts.length - 1], totalMs, /* moving */ false);
   for (let i = 1; i < pts.length; i++) {
     const from = pts[i - 1];
     const to = pts[i];
-    const dist = Math.hypot(to.x - from.x, to.y - from.y);
-    const segMs = Math.max(PATH_SEG_MIN_MS, Math.min(PATH_SEG_MAX_MS, glideMsFor(dist) * 0.5));
-    cam.onApproach(from, to, segMs, /* moving */ false);
-    const ringArrival = cursorMoveTo(page, to.x, to.y, segMs);
+    const ms = segMs[i - 1];
+    const ringArrival = cursorMoveTo(page, to.x, to.y, ms);
     const t0 = Date.now();
     for (;;) {
-      const p = Math.min(1, (Date.now() - t0) / segMs);
+      const p = Math.min(1, (Date.now() - t0) / ms);
       const e = easeInOut(p);
       await page.mouse.move(from.x + (to.x - from.x) * e, from.y + (to.y - from.y) * e);
       if (p >= 1) break;

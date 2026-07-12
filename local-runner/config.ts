@@ -160,3 +160,10 @@ export const EXPLORE_NOOP_SSIM_LOCAL = 0.998;
 
 // Wall-clock budget for the whole explore loop (cost + hang guard).
 export const EXPLORE_MAX_MS = 4 * 60_000;
+
+// zoompan expression guards (2026-07-12): ffmpeg fails to configure zoompan once
+// the piecewise expr passes its parse limit (measured: ~31k chars OK, ~48k fails,
+// exit 234 "-22 Invalid argument"). Above the event cap the camera track is
+// coalesced; if the built filter still exceeds the char cap it coalesces harder.
+export const CAMERA_MAX_EVENTS = 40;
+export const CAMERA_VF_MAX_CHARS = 26_000;
