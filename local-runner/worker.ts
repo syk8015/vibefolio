@@ -26,6 +26,7 @@ import { runJob, type JobPhase } from "./job";
 import type { SourceType } from "./safety";
 import { DEMO_QUOTA } from "../lib/demoQuota";
 import { AnalyticsEvent } from "../lib/analytics-events";
+import { formatDemoFailure } from "../lib/demo-failure";
 
 // This worker is the single-machine SPOF for the whole demo pipeline, so it wires
 // Sentry directly (it does not use lib/logger). Gated on DSN only — NOT on
@@ -164,7 +165,10 @@ async function recoverStuckJobs() {
   }
   for (const row of data ?? []) {
     console.log(`[worker] recovering stuck job ${row.id} → failed`);
-    await markFailed(row.id, "로컬 녹화 워커가 재시작되어 작업이 중단됐어요. 다시 시도해 주세요.");
+    await markFailed(
+      row.id,
+      formatDemoFailure("interrupted", "녹화 장비가 재시작되어 작업이 중단됐어요. 다시 시도해 주세요."),
+    );
   }
 }
 
@@ -279,7 +283,10 @@ async function processOne(row: PendingRow) {
       }),
     );
     if (outcome.status === "login-gated") {
-      await markFailed(row.id, "로그인이 필요한 사이트라 자동 시연을 만들 수 없어요. 비로그인으로 볼 수 있는 URL로 다시 시도해 주세요.");
+      await markFailed(
+        row.id,
+        formatDemoFailure("login-gated", "로그인이 필요한 사이트라 자동 시연을 만들 수 없어요. 비로그인으로 볼 수 있는 URL로 다시 시도해 주세요."),
+      );
       await trackAnalytics(AnalyticsEvent.DemoFailed, row.user_id, {
         projectId: row.id,
         sourceType: row.demo_source_type,
@@ -306,7 +313,7 @@ async function processOne(row: PendingRow) {
       reason: timedOut ? "timeout" : "error",
       message,
     });
-    await markFailed(row.id, message);
+    await markFailed(row.id, formatDemoFailure(timedOut ? "timeout" : "error", message));
     if (timedOut) {
       // The job is marked failed; now exit so launchd restarts a clean worker and
       // the hung child processes (browser/ffmpeg) die with us.

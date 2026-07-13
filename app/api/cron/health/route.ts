@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { logger } from "@/lib/logger";
 import { trackServerEvent } from "@/lib/analytics";
 import { AnalyticsEvent } from "@/lib/analytics-events";
+import { formatDemoFailure } from "@/lib/demo-failure";
 
 // Stuck-job watchdog (P0.4). Hit on a schedule by an EXTERNAL free cron
 // (cron-job.org etc.) which sends the shared secret. It:
@@ -22,8 +23,10 @@ const STUCK_INFLIGHT_MIN = 15;
 const HEARTBEAT_STALE_MIN = 12;
 const STUCK_PENDING_MIN = 15;
 
-const REAP_MESSAGE =
-  "시연 생성이 예상보다 오래 걸려 중단됐어요. 다시 시도해 주세요.";
+const REAP_MESSAGE = formatDemoFailure(
+  "stuck",
+  "시연 생성이 예상보다 오래 걸려 중단됐어요. 다시 시도해 주세요.",
+);
 
 function authorize(req: NextRequest): "ok" | "unconfigured" | "denied" {
   const secret = process.env.CRON_SECRET;

@@ -9,6 +9,7 @@ import ShareKit from "@/components/dashboard/ShareKit";
 import { RerecordRequestModal } from "@/components/dashboard/RerecordRequestModal";
 import type { Project } from "@/lib/data";
 import { detectDemoSource } from "@/lib/demoSource";
+import { parseDemoFailure, type DemoFailureCode } from "@/lib/demo-failure";
 import { screenshotUrl } from "@/lib/thumbnail";
 
 const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
@@ -646,31 +647,141 @@ export default function ProjectsTab({ user }: { user: User }) {
   );
 }
 
+// 실패 코드별 카피 — 유저가 "왜 실패했고 뭘 하면 되는지"를 raw 에러 없이 알 수 있게.
+// raw 메시지는 팝오버의 "기술 정보" 토글 뒤로. 코드 없는(구형/클라이언트 기록) 행은
+// error 카피로 폴백하고 원문을 그대로 기술 정보에 보존한다.
+const DEMO_FAILURE_COPY: Record<DemoFailureCode, { title: string; body: string }> = {
+  "login-gated": {
+    title: "로그인이 필요한 사이트예요",
+    body: "지금은 로그인 없이 볼 수 있는 화면만 촬영할 수 있어요. 공개로 접속되는 URL로 바꾼 뒤 다시 시도해 주세요.",
+  },
+  timeout: {
+    title: "촬영이 너무 오래 걸렸어요",
+    body: "사이트 로딩이 느리거나 중간에 멈춘 것 같아요. 잠시 후 한 번 더 시도해 주세요.",
+  },
+  interrupted: {
+    title: "촬영이 중간에 끊겼어요",
+    body: "녹화 장비가 재시작되면서 작업이 중단됐어요. 다시 시도하면 처음부터 새로 촬영해요.",
+  },
+  stuck: {
+    title: "생성이 오래 걸려 중단됐어요",
+    body: "예상보다 오래 걸려 자동으로 멈췄어요. 한 번 더 시도해 주시고, 반복되면 사이트가 정상 접속되는지 확인해 주세요.",
+  },
+  error: {
+    title: "촬영 중 문제가 생겼어요",
+    body: "일시적인 문제일 수 있어요. 한 번 더 시도해 보고, 반복되면 URL이 브라우저에서 정상 접속되는지 확인해 주세요.",
+  },
+};
+
+const DEMO_PHASE_LABEL: Record<Exclude<DemoBuildStatus, "done" | "failed" | "held">, string> = {
+  pending: "촬영 대기",
+  building: "앱 준비 중",
+  recording: "촬영 중",
+  editing: "편집 중",
+};
+
 function DemoBuildBadge({
   status,
   error,
+  onRetry,
 }: {
   status: DemoBuildStatus | null;
   error: string | null;
+  onRetry?: () => void;
 }) {
+  const [open, setOpen] = useState(false);
   if (!status || status === "done") return null;
 
   if (status === "failed") {
+    const { code, message } = parseDemoFailure(error);
+    const copy = DEMO_FAILURE_COPY[code ?? "error"];
     return (
-      <span
-        className="px-2 py-0.5 rounded-full text-xs shrink-0"
-        style={{
-          background: "rgba(179, 71, 71, 0.12)",
-          color: "#8e3535",
-          fontFamily: "var(--font-nunito)",
-          fontSize: "0.6rem",
-          fontWeight: 600,
-          cursor: error ? "help" : "default",
-        }}
-        title={error ? `자동 시연 영상 생성 실패\n\n${error}` : "자동 시연 영상 생성 실패"}
-      >
-        시연 영상 실패
-      </span>
+      <div className="shrink-0" style={{ position: "relative", display: "inline-flex" }}>
+        <button
+          onClick={() => setOpen(o => !o)}
+          className="px-2 py-0.5 rounded-full text-xs"
+          style={{
+            background: "rgba(179, 71, 71, 0.12)",
+            color: "#8e3535",
+            fontFamily: "var(--font-nunito)",
+            fontSize: "0.6rem",
+            fontWeight: 600,
+            border: "none",
+            cursor: "pointer",
+          }}
+        >
+          시연 영상 실패
+        </button>
+        {open && (
+          <>
+            <div style={{ position: "fixed", inset: 0, zIndex: 40 }} onClick={() => setOpen(false)} />
+            <div
+              className="rounded-2xl"
+              style={{
+                position: "absolute",
+                top: "calc(100% + 6px)",
+                left: 0,
+                zIndex: 50,
+                width: 264,
+                padding: "0.9rem 1rem",
+                background: "var(--surface)",
+                boxShadow: "0 12px 32px rgba(0, 0, 0, 0.16)",
+                textAlign: "left",
+              }}
+            >
+              <p style={{ fontSize: "0.78rem", fontWeight: 700, color: "var(--text-primary)", fontFamily: "var(--font-nunito)", margin: 0 }}>
+                {copy.title}
+              </p>
+              <p style={{ fontSize: "0.7rem", color: "var(--text-secondary)", lineHeight: 1.6, fontFamily: "var(--font-nunito)", margin: "0.4rem 0 0" }}>
+                {copy.body}
+              </p>
+              {onRetry && (
+                <button
+                  onClick={() => { setOpen(false); onRetry(); }}
+                  className="rounded-full"
+                  style={{
+                    marginTop: "0.7rem",
+                    padding: "0.4rem 0.95rem",
+                    background: "var(--text-primary)",
+                    color: "var(--bg)",
+                    border: "none",
+                    fontSize: "0.68rem",
+                    fontWeight: 600,
+                    fontFamily: "var(--font-nunito)",
+                    cursor: "pointer",
+                  }}
+                >
+                  다시 시도
+                </button>
+              )}
+              {message && (
+                <details style={{ marginTop: "0.6rem" }}>
+                  <summary style={{ fontSize: "0.6rem", color: "var(--text-muted)", cursor: "pointer", fontFamily: "var(--font-nunito)" }}>
+                    기술 정보
+                  </summary>
+                  <pre
+                    style={{
+                      margin: "0.35rem 0 0",
+                      padding: "0.5rem 0.6rem",
+                      background: "var(--surface-soft)",
+                      borderRadius: 10,
+                      fontSize: "0.58rem",
+                      lineHeight: 1.5,
+                      whiteSpace: "pre-wrap",
+                      wordBreak: "break-word",
+                      color: "var(--text-secondary)",
+                      maxHeight: 120,
+                      overflowY: "auto",
+                    }}
+                  >
+                    {message}
+                  </pre>
+                </details>
+              )}
+            </div>
+          </>
+        )}
+      </div>
     );
   }
 
@@ -686,14 +797,14 @@ function DemoBuildBadge({
           fontWeight: 600,
           cursor: "help",
         }}
-        title="하루 자동 시연 한도를 넘어 관리자 승인 대기 중이에요. 승인 전까지는 이미지로 표시돼요."
+        title="하루 자동 시연 한도를 넘어 승인 대기 중이에요. 보통 24시간 안에 처리되고, 그동안은 이미지로 표시돼요."
       >
         승인 대기 · 이미지 표시
       </span>
     );
   }
 
-  // pending | building | recording | editing
+  // pending | building | recording | editing — 단계 서사 + 기대 시간
   return (
     <span
       className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs shrink-0"
@@ -714,7 +825,7 @@ function DemoBuildBadge({
           borderTopColor: "transparent",
         }}
       />
-      시연 영상 만드는 중…
+      {DEMO_PHASE_LABEL[status]} · 보통 1–3분
     </span>
   );
 }
@@ -839,7 +950,11 @@ function ProjectRow({ project, username, onDelete, onEdit, onToggleFeatured, onR
                 upload
               </span>
             )}
-            <DemoBuildBadge status={project.demo_build_status} error={project.demo_build_error} />
+            <DemoBuildBadge
+              status={project.demo_build_status}
+              error={project.demo_build_error}
+              onRetry={project.demo_source_value ? onRerecord : undefined}
+            />
           </div>
           <div className="flex flex-wrap gap-1.5">
             {(project.tags ?? []).map(tag => (
