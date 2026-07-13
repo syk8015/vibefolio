@@ -689,7 +689,9 @@ function DemoBuildBadge({
   error: string | null;
   onRetry?: () => void;
 }) {
-  const [open, setOpen] = useState(false);
+  // 팝오버는 fixed + 버튼 rect 앵커 — 리스트 카드(vf-card overflow-hidden)가
+  // absolute 팝오버를 클리핑하는 것을 실측으로 확인(2026-07-13), fixed로 탈출.
+  const [anchor, setAnchor] = useState<{ top: number; left: number } | null>(null);
   if (!status || status === "done") return null;
 
   if (status === "failed") {
@@ -698,7 +700,13 @@ function DemoBuildBadge({
     return (
       <div className="shrink-0" style={{ position: "relative", display: "inline-flex" }}>
         <button
-          onClick={() => setOpen(o => !o)}
+          onClick={e => {
+            const r = e.currentTarget.getBoundingClientRect();
+            setAnchor(a => (a ? null : {
+              top: r.bottom + 6,
+              left: Math.max(8, Math.min(r.left, window.innerWidth - 264 - 8)),
+            }));
+          }}
           className="px-2 py-0.5 rounded-full text-xs"
           style={{
             background: "rgba(179, 71, 71, 0.12)",
@@ -712,17 +720,19 @@ function DemoBuildBadge({
         >
           시연 영상 실패
         </button>
-        {open && (
+        {anchor && (
           <>
-            <div style={{ position: "fixed", inset: 0, zIndex: 40 }} onClick={() => setOpen(false)} />
+            <div style={{ position: "fixed", inset: 0, zIndex: 40 }} onClick={() => setAnchor(null)} />
             <div
               className="rounded-2xl"
               style={{
-                position: "absolute",
-                top: "calc(100% + 6px)",
-                left: 0,
+                position: "fixed",
+                top: anchor.top,
+                left: anchor.left,
                 zIndex: 50,
                 width: 264,
+                maxHeight: `calc(100vh - ${anchor.top}px - 12px)`,
+                overflowY: "auto",
                 padding: "0.9rem 1rem",
                 background: "var(--surface)",
                 boxShadow: "0 12px 32px rgba(0, 0, 0, 0.16)",
@@ -737,7 +747,7 @@ function DemoBuildBadge({
               </p>
               {onRetry && (
                 <button
-                  onClick={() => { setOpen(false); onRetry(); }}
+                  onClick={() => { setAnchor(null); onRetry(); }}
                   className="rounded-full"
                   style={{
                     marginTop: "0.7rem",
