@@ -49,6 +49,12 @@ export default async function AdminMetricsPage() {
   const held = counts[AnalyticsEvent.DemoHeld] ?? 0;
   const successRate = requested > 0 ? Math.round((succeeded / requested) * 100) : null;
 
+  // 공유율 = 공유 행동(share_copied + demo_downloaded) / 시연 성공. 목표 ≥30%
+  // ([[project_viral_strategy]] 성공지표) — 실패면 웻지 자체를 의심.
+  const shares =
+    (counts[AnalyticsEvent.ShareCopied] ?? 0) + (counts[AnalyticsEvent.DemoDownloaded] ?? 0);
+  const shareRate = succeeded > 0 ? Math.round((shares / succeeded) * 100) : null;
+
   // Daily series for the last CHART_DAYS days (UTC buckets).
   const days: string[] = [];
   for (let i = CHART_DAYS - 1; i >= 0; i--) {
@@ -69,6 +75,7 @@ export default async function AdminMetricsPage() {
     { label: "프로젝트 생성", value: counts[AnalyticsEvent.ProjectCreated] ?? 0 },
     { label: "시연 요청", value: requested },
     { label: "시연 성공", value: succeeded },
+    { label: "공유·다운로드", value: shares },
   ];
   const funnelMax = Math.max(1, ...funnel.map((f) => f.value));
 
@@ -99,12 +106,17 @@ export default async function AdminMetricsPage() {
       ) : (
         <>
           {/* Headline stat cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-8">
             <StatCard
               label="빌드 성공률"
               value={successRate === null ? "—" : `${successRate}%`}
               hint={`${succeeded}/${requested}`}
               accent
+            />
+            <StatCard
+              label="공유율"
+              value={shareRate === null ? "—" : `${shareRate}%`}
+              hint={`공유·다운로드 ${shares}`}
             />
             <StatCard label="시연 요청" value={requested} hint={`${WINDOW_DAYS}일`} />
             <StatCard label="성공 / 실패" value={`${succeeded} / ${failed}`} />

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { AnalyticsEvent, trackClientEvent } from "@/lib/analytics-client";
 
 type UsernameStatus = "idle" | "checking" | "available" | "taken" | "invalid";
 
@@ -97,6 +98,9 @@ export default function OnboardingPage() {
       bio: form.bio,
       updated_at: new Date().toISOString(),
     });
+
+    // 퍼널 첫 단 — 온보딩(username 확정)이 "가입 완료"의 정의.
+    trackClientEvent(AnalyticsEvent.SignupCompleted);
 
     router.push("/dashboard?welcome=1");
     router.refresh();

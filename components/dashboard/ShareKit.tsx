@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { AnalyticsEvent, trackClientEvent } from "@/lib/analytics-client";
 
 // Per-project share affordance, shown in the dashboard row once a demo exists.
 // A single button opens a small popover with three actions: copy the watch link,
@@ -53,6 +54,7 @@ export default function ShareKit({
   }
 
   async function downloadMp4() {
+    trackClientEvent(AnalyticsEvent.DemoDownloaded, { projectId });
     try {
       // R2/Supabase are cross-origin; fetch→blob forces a real download (the
       // <a download> attribute is ignored cross-origin). Needs bucket CORS to
@@ -95,7 +97,10 @@ export default function ShareKit({
   return (
     <div style={{ position: "relative", display: "inline-flex" }}>
       <button
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => {
+          if (!open) trackClientEvent(AnalyticsEvent.ShareOpened, { projectId });
+          setOpen(!open);
+        }}
         title="공유"
         className="p-2 rounded-full transition-colors"
         style={{ background: open ? "var(--surface-soft-hover)" : "var(--surface-soft)", border: "none", cursor: "pointer" }}
@@ -132,6 +137,7 @@ export default function ShareKit({
               style={itemStyle}
               onClick={async () => {
                 await copyText(watchUrl);
+                trackClientEvent(AnalyticsEvent.ShareCopied, { projectId, kind: "watch_link" });
                 flash("link");
               }}
               onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-soft)")}
@@ -144,6 +150,7 @@ export default function ShareKit({
               style={itemStyle}
               onClick={async () => {
                 await copyText(xText);
+                trackClientEvent(AnalyticsEvent.ShareCopied, { projectId, kind: "x_post" });
                 flash("x");
               }}
               onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-soft)")}

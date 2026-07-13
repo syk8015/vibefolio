@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { getProfileByUsername, getProjectById, posterFromDemo } from "@/lib/portfolio";
+import WatchPing from "@/components/WatchPing";
 
 // The public per-project watch page. Its whole job is to unfurl the demo mp4 as
 // og:video (Discord/Slack/Telegram/iMessage inline-play it) and hand the viewer a
@@ -98,6 +99,7 @@ export default async function WatchPage({ params }: Params) {
       className="relative min-h-screen flex flex-col"
       style={{ background: "var(--bg)" }}
     >
+      <WatchPing projectId={project.id} username={profile.username} />
       {/* Top bar */}
       <header className="flex items-center justify-between px-5 md:px-8 py-4">
         <Link href="/" className="flex items-center gap-2.5" style={{ textDecoration: "none" }}>

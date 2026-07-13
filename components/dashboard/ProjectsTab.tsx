@@ -10,6 +10,7 @@ import { RerecordRequestModal } from "@/components/dashboard/RerecordRequestModa
 import type { Project } from "@/lib/data";
 import { detectDemoSource } from "@/lib/demoSource";
 import { parseDemoFailure, type DemoFailureCode } from "@/lib/demo-failure";
+import { AnalyticsEvent, trackClientEvent } from "@/lib/analytics-client";
 import { screenshotUrl } from "@/lib/thumbnail";
 
 const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
@@ -422,6 +423,10 @@ export default function ProjectsTab({ user }: { user: User }) {
         ? { ...inserted, demo_build_status: "pending", demo_source_type: source.type, demo_source_value: source.value }
         : inserted;
       setProjects(prev => [...prev, optimistic]);
+      trackClientEvent(AnalyticsEvent.ProjectCreated, {
+        projectId: inserted.id,
+        demoSource: source?.type ?? null,
+      });
       if (source) {
         fetch(`/api/projects/${inserted.id}/trigger-demo`, {
           method: "POST",
