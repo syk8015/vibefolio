@@ -3,7 +3,9 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { logger } from "@/lib/logger";
 import { trackServerEvent } from "@/lib/analytics";
 import { AnalyticsEvent } from "@/lib/analytics-events";
-import { formatDemoFailure } from "@/lib/demo-failure";
+import { formatDemoFailure, DEMO_FAILURE_COPY } from "@/lib/demo-failure";
+import { sendEmail, isEmailConfigured, alertRecipients } from "@/lib/email";
+import { demoFailedEmail, adminAlertEmail, SITE_URL } from "@/lib/email-templates";
 
 // Stuck-job watchdog (P0.4). Hit on a schedule by an EXTERNAL free cron
 // (cron-job.org etc.) which sends the shared secret. It:
@@ -57,7 +59,7 @@ export async function GET(req: NextRequest) {
   let reaped = 0;
   const { data: stuck, error: stuckErr } = await admin
     .from("projects")
-    .select("id, user_id, demo_build_status, demo_status_changed_at")
+    .select("id, user_id, title, demo_build_status, demo_status_changed_at")
     .in("demo_build_status", [...IN_FLIGHT])
     .lt("demo_status_changed_at", inflightCutoff);
 
@@ -85,6 +87,26 @@ export async function GET(req: NextRequest) {
           userId: r.user_id,
           props: { projectId: r.id, reason: "stuck-reaped", stuckStatus: r.demo_build_status },
         });
+      }
+      // 이탈 후 통보 (T4): 리핑 = 유저가 스피너를 떠난 지 오래인 케이스라 이메일이
+      // 사실상 유일한 통보 채널. 행이 방금 failed로 확정됐으니 재발송 걱정 없음.
+      if (isEmailConfigured()) {
+        for (const r of stuck) {
+          try {
+            const { data: u } = await admin.auth.admin.getUserById(r.user_id);
+            const to = u?.user?.email;
+            if (!to) continue;
+            await sendEmail({
+              to,
+              ...demoFailedEmail({
+                projectTitle: (r.title as string | null) || "내 프로젝트",
+                copy: DEMO_FAILURE_COPY.stuck,
+              }),
+            });
+          } catch (err) {
+            logger.warn("watchdog: reap email failed", { error: err, projectId: r.id });
+          }
+        }
       }
       alerts.push(`reaped:${reaped}`);
     }
@@ -140,6 +162,19 @@ export async function GET(req: NextRequest) {
     // If the worker is stale, the worker-stale alert already explains the backlog.
   }
 
+  // ── 4. Alert email (T4) — deduped so a persistent condition mails once per
+  // window, not every cron tick ────────────────────────────────────────────────
+  const emailed =
+    alerts.length > 0
+      ? await emailWatchdogAlert(admin, alerts, {
+          reaped,
+          lastSeenAt: lastSeenAt as string | null,
+          staleMinutes: staleMs !== null ? Math.round(staleMs / 60_000) : null,
+          pendingStuck: pendingStuck ?? 0,
+          paused,
+        })
+      : false;
+
   return NextResponse.json({
     ok: true,
     checkedAt: new Date(now).toISOString(),
@@ -153,6 +188,101 @@ export async function GET(req: NextRequest) {
     },
     pendingStuck: pendingStuck ?? 0,
     alerts,
+    emailed,
     healthy: alerts.length === 0,
+  });
+}
+
+// Per-alert-key suppression window. Sentry gets every occurrence; the email
+// channel is for "a human should look now", so repeats inside the window stay
+// silent instead of paging every 5 minutes while the worker machine is off.
+const ALERT_SUPPRESS_MS = 6 * 3_600_000;
+// Drop dedup entries that haven't fired in a week so alerts_state can't grow.
+const ALERT_STATE_TTL_MS = 7 * 24 * 3_600_000;
+
+// `reaped:3` and `reaped:1` are the same condition for dedup purposes.
+function alertKey(alert: string): string {
+  return alert.startsWith("reaped:") ? "reaped" : alert;
+}
+
+async function emailWatchdogAlert(
+  admin: ReturnType<typeof createAdminClient>,
+  alerts: string[],
+  detail: {
+    reaped: number;
+    lastSeenAt: string | null;
+    staleMinutes: number | null;
+    pendingStuck: number;
+    paused: boolean;
+  },
+): Promise<boolean> {
+  if (!isEmailConfigured()) return false;
+
+  // Dedup state is jsonb {key: lastSentIso} on the system_status singleton.
+  // Read separately from the main health select so a missing column (migration
+  // not applied yet) degrades to "no email, Sentry only" without breaking checks.
+  const { data, error } = await admin
+    .from("system_status")
+    .select("alerts_state")
+    .eq("id", "singleton")
+    .single();
+  if (error) {
+    logger.warn(
+      "watchdog: alerts_state unavailable — alert email skipped (apply migration_stuck_watchdog.sql)",
+      { error },
+    );
+    return false;
+  }
+
+  const state = (data?.alerts_state ?? {}) as Record<string, string>;
+  const now = Date.now();
+  const keys = [...new Set(alerts.map(alertKey))];
+  const fresh = keys.filter((k) => {
+    const last = state[k] ? Date.parse(state[k]) : NaN;
+    return !(Number.isFinite(last) && now - last < ALERT_SUPPRESS_MS);
+  });
+  if (fresh.length === 0) return false;
+
+  // Write-first (at-most-once): if this stamp fails we send nothing — otherwise
+  // a failing write would re-email every cron tick. Sentry stays the backstop.
+  const next: Record<string, string> = {};
+  for (const [k, v] of Object.entries(state)) {
+    const t = Date.parse(v);
+    if (Number.isFinite(t) && now - t < ALERT_STATE_TTL_MS) next[k] = v;
+  }
+  for (const k of keys) next[k] = new Date(now).toISOString();
+  const { error: writeErr } = await admin
+    .from("system_status")
+    .update({ alerts_state: next, updated_at: new Date(now).toISOString() })
+    .eq("id", "singleton");
+  if (writeErr) {
+    logger.error("watchdog: alerts_state write failed — alert email skipped", { error: writeErr });
+    return false;
+  }
+
+  const lines: string[] = [];
+  if (detail.reaped > 0)
+    lines.push(`스턱 잡 ${detail.reaped}건을 failed로 정리했어요 (유저에게는 실패 메일을 보냈어요).`);
+  if (keys.includes("worker-stale"))
+    lines.push(
+      `워커 하트비트가 ${detail.staleMinutes ?? "?"}분째 없어요 (마지막: ${detail.lastSeenAt ?? "기록 없음"}).`,
+    );
+  if (keys.includes("pending-no-worker"))
+    lines.push(`대기 중인 시연 ${detail.pendingStuck}건이 있는데 워커가 한 번도 체크인하지 않았어요.`);
+  if (keys.includes("pending-not-draining"))
+    lines.push(`워커는 살아있는데 대기열 ${detail.pendingStuck}건이 빠지지 않고 있어요.`);
+  if (keys.includes("stuck-query-failed") || keys.includes("reap-update-failed"))
+    lines.push("워치독 DB 쿼리/업데이트가 실패했어요 — Sentry를 확인해 주세요.");
+  if (detail.paused) lines.push("demo_paused=true — 드레인이 멈춰 있는 상태예요.");
+  lines.push(`경보 키: ${alerts.join(", ")}`);
+
+  return sendEmail({
+    to: alertRecipients(),
+    ...adminAlertEmail({
+      title: "워치독 경보",
+      lines,
+      ctaLabel: "관리자 콘솔 열기",
+      ctaUrl: `${SITE_URL}/admin`,
+    }),
   });
 }

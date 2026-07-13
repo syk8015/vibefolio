@@ -52,6 +52,9 @@ update projects set demo_build_status = 'pending', demo_build_error = null
 `ANTHROPIC_API_KEY`, `E2B_API_KEY`, `NEXT_PUBLIC_SUPABASE_URL`,
 `SUPABASE_SERVICE_ROLE_KEY` — config.ts가 `process.loadEnvFile`로 로드.
 
+선택: `RESEND_API_KEY`가 있으면 완성/실패 메일(소유자)과 크레딧 소진 경보(관리자)를
+보낸다. 없으면 전부 무동작 — 절차는 `docs/resend-setup.md`.
+
 ## CLI (큐 없이 단발 실행/드라이런)
 
 ```bash

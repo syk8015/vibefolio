@@ -26,7 +26,10 @@ import { runJob, type JobPhase } from "./job";
 import type { SourceType } from "./safety";
 import { DEMO_QUOTA } from "../lib/demoQuota";
 import { AnalyticsEvent } from "../lib/analytics-events";
-import { formatDemoFailure } from "../lib/demo-failure";
+import { formatDemoFailure, DEMO_FAILURE_COPY, type DemoFailureCode } from "../lib/demo-failure";
+import { sendEmail, isEmailConfigured, alertRecipients } from "../lib/email";
+import { demoReadyEmail, demoFailedEmail, adminAlertEmail, posterFromDemoUrl, SITE_URL } from "../lib/email-templates";
+import { fetchUsername } from "./upload";
 import { CreditExhaustedError, CREDIT_HOLD_MARKER } from "./errors";
 
 // This worker is the single-machine SPOF for the whole demo pipeline, so it wires
@@ -154,11 +157,90 @@ async function heartbeat(status: "idle" | "busy"): Promise<boolean> {
   return !!data?.demo_paused;
 }
 
+// ── Notification emails (T4) ─────────────────────────────────────────────────
+// Strictly best-effort: the DB row is the source of truth and these run AFTER
+// the status write. Every path is caught — a mail outage must never fail a job.
+// Silent no-ops until RESEND_API_KEY is set (lib/email gate).
+
+async function ownerEmail(userId: string): Promise<string | null> {
+  try {
+    const { data, error } = await supabase.auth.admin.getUserById(userId);
+    if (error) {
+      console.error(`[worker] owner-email lookup failed for ${userId}: ${error.message}`);
+      return null;
+    }
+    return data.user?.email ?? null;
+  } catch (err) {
+    console.error(`[worker] owner-email lookup threw: ${err instanceof Error ? err.message : err}`);
+    return null;
+  }
+}
+
+// 완성 통보 — 이탈했던 유저를 watch 페이지(공유 대상 링크)로 복귀시키는 메일.
+async function notifyDemoReady(row: { id: string; user_id: string; title: string | null }, videoUrl?: string) {
+  if (!isEmailConfigured()) return;
+  try {
+    const to = await ownerEmail(row.user_id);
+    if (!to) return;
+    const username = await fetchUsername(row.id);
+    const watchUrl = username
+      ? `${SITE_URL}/${encodeURIComponent(username)}/${row.id}`
+      : `${SITE_URL}/dashboard`;
+    // 포스터 추출은 best-effort — 파생 키가 실제로 존재할 때만 싣는다 (완성 메일
+    // 상단에 깨진 이미지가 뜨는 것보다 이미지 없는 메일이 낫다).
+    let posterUrl = posterFromDemoUrl(videoUrl);
+    if (posterUrl) {
+      const ok = await fetch(posterUrl, { method: "HEAD" }).then((r) => r.ok).catch(() => false);
+      if (!ok) posterUrl = undefined;
+    }
+    const mail = demoReadyEmail({
+      projectTitle: row.title || "내 프로젝트",
+      watchUrl,
+      posterUrl,
+    });
+    const sent = await sendEmail({ to, ...mail });
+    if (sent) console.log(`[worker] demo-ready email → ${to}`);
+  } catch (err) {
+    console.error(`[worker] demo-ready email failed: ${err instanceof Error ? err.message : err}`);
+  }
+}
+
+// 실패 통보 — 대시보드 배지와 같은 코드별 카피(DEMO_FAILURE_COPY). raw 에러 미포함.
+async function notifyDemoFailed(
+  row: { id: string; user_id: string; title: string | null },
+  code: DemoFailureCode,
+) {
+  if (!isEmailConfigured()) return;
+  try {
+    const to = await ownerEmail(row.user_id);
+    if (!to) return;
+    const mail = demoFailedEmail({
+      projectTitle: row.title || "내 프로젝트",
+      copy: DEMO_FAILURE_COPY[code],
+    });
+    const sent = await sendEmail({ to, ...mail });
+    if (sent) console.log(`[worker] demo-failed(${code}) email → ${to}`);
+  } catch (err) {
+    console.error(`[worker] demo-failed email failed: ${err instanceof Error ? err.message : err}`);
+  }
+}
+
+// 운영 경보(관리자) — Sentry와 별개로 사람 눈에 바로 닿는 채널.
+async function notifyAdmin(title: string, lines: string[]) {
+  if (!isEmailConfigured()) return;
+  try {
+    const mail = adminAlertEmail({ title, lines, ctaLabel: "관리자 콘솔 열기", ctaUrl: `${SITE_URL}/admin` });
+    await sendEmail({ to: alertRecipients(), ...mail });
+  } catch (err) {
+    console.error(`[worker] admin alert email failed: ${err instanceof Error ? err.message : err}`);
+  }
+}
+
 // Startup recovery: repair rows a dead local worker left in-flight.
 async function recoverStuckJobs() {
   const { data, error } = await supabase
     .from("projects")
-    .select("id")
+    .select("id, user_id, title")
     .in("demo_build_status", [...IN_FLIGHT_STATUSES]);
   if (error) {
     console.error(`[worker] recovery scan failed: ${error.message}`);
@@ -170,12 +252,14 @@ async function recoverStuckJobs() {
       row.id,
       formatDemoFailure("interrupted", "녹화 장비가 재시작되어 작업이 중단됐어요. 다시 시도해 주세요."),
     );
+    await notifyDemoFailed(row, "interrupted");
   }
 }
 
 type PendingRow = {
   id: string;
   user_id: string;
+  title: string | null;
   demo_source_type: SourceType | null;
   demo_source_value: string | null;
   demo_user_hint?: string | null;
@@ -211,8 +295,8 @@ async function claimNext(): Promise<PendingRow | null> {
     .from("projects")
     .select(
       hintColumnMissing
-        ? "id, user_id, demo_source_type, demo_source_value"
-        : "id, user_id, demo_source_type, demo_source_value, demo_user_hint",
+        ? "id, user_id, title, demo_source_type, demo_source_value"
+        : "id, user_id, title, demo_source_type, demo_source_value, demo_user_hint",
     )
     .eq("demo_build_status", "pending")
     .not("demo_source_type", "is", null)
@@ -293,6 +377,7 @@ async function processOne(row: PendingRow) {
         sourceType: row.demo_source_type,
         reason: "login-gated",
       });
+      await notifyDemoFailed(row, "login-gated");
       console.log(`[worker] job ${row.id} skipped (login-gated)`);
       return;
     }
@@ -300,6 +385,7 @@ async function processOne(row: PendingRow) {
       projectId: row.id,
       sourceType: row.demo_source_type,
     });
+    await notifyDemoReady(row, outcome.publicUrl);
     console.log(`[worker] job ${row.id} done → ${outcome.publicUrl ?? "(no upload)"}`);
   } catch (err) {
     // 크레딧 소진(P0.5): 유저 잘못이 아니다 — failed 대신 held(폴백 이미지 유지),
@@ -326,6 +412,11 @@ async function processOne(row: PendingRow) {
         tags: { alert: "credit_exhausted" },
         extra: { projectId: row.id },
       });
+      await notifyAdmin("크레딧 소진 — 시연 드레인 정지", [
+        "Anthropic 크레딧이 소진돼 녹화를 멈췄어요.",
+        `잡 ${row.id}는 held로 보관됐고 재시도 횟수는 소모되지 않았어요.`,
+        "system_status.demo_paused=true — 충전 후 해제 절차는 local-runner/README.md에 있어요.",
+      ]);
       await Sentry.flush(2000);
       return;
     }
@@ -342,6 +433,7 @@ async function processOne(row: PendingRow) {
       message,
     });
     await markFailed(row.id, formatDemoFailure(timedOut ? "timeout" : "error", message));
+    await notifyDemoFailed(row, timedOut ? "timeout" : "error");
     if (timedOut) {
       // The job is marked failed; now exit so launchd restarts a clean worker and
       // the hung child processes (browser/ffmpeg) die with us.

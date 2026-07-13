@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { apiError } from "@/lib/apiError";
+import { sendEmail, alertRecipients } from "@/lib/email";
+import { adminAlertEmail, SITE_URL } from "@/lib/email-templates";
 
 // A project gets ONE auto demo. Re-recording a landed video (or getting another
 // take after the retry budget is spent) is not self-serve — the owner files a
@@ -42,7 +44,7 @@ export async function POST(
 
     const { data: project, error: selErr } = await supabase
       .from("projects")
-      .select("id, user_id, demo_build_status")
+      .select("id, user_id, title, demo_build_status")
       .eq("id", id)
       .single();
     if (selErr || !project) {
@@ -97,6 +99,22 @@ export async function POST(
         context: { projectId: id },
       });
     }
+
+    // 승인 대기 알림 (T4) — 새 요청이 실제로 접수됐을 때만 (already 경로 제외).
+    // sendEmail은 절대 throw 하지 않으므로 요청 접수 응답을 위협하지 않는다.
+    await sendEmail({
+      to: alertRecipients(),
+      ...adminAlertEmail({
+        title: "재촬영 요청 접수",
+        lines: [
+          `프로젝트: ${project.title ?? "(제목 없음)"} (${id})`,
+          `요청 내용: ${reason.length > 200 ? reason.slice(0, 200) + "…" : reason}`,
+          "승인해야 재촬영이 시작돼요 — 승인 전까지는 아무것도 과금되지 않아요.",
+        ],
+        ctaLabel: "승인 콘솔 열기",
+        ctaUrl: `${SITE_URL}/admin`,
+      }),
+    });
 
     return NextResponse.json({ ok: true });
   } catch (err) {

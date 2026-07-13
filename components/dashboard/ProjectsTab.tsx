@@ -9,7 +9,7 @@ import ShareKit from "@/components/dashboard/ShareKit";
 import { RerecordRequestModal } from "@/components/dashboard/RerecordRequestModal";
 import type { Project } from "@/lib/data";
 import { detectDemoSource } from "@/lib/demoSource";
-import { parseDemoFailure, type DemoFailureCode } from "@/lib/demo-failure";
+import { parseDemoFailure, DEMO_FAILURE_COPY } from "@/lib/demo-failure";
 import { AnalyticsEvent, trackClientEvent } from "@/lib/analytics-client";
 import { screenshotUrl } from "@/lib/thumbnail";
 
@@ -652,31 +652,8 @@ export default function ProjectsTab({ user }: { user: User }) {
   );
 }
 
-// 실패 코드별 카피 — 유저가 "왜 실패했고 뭘 하면 되는지"를 raw 에러 없이 알 수 있게.
-// raw 메시지는 팝오버의 "기술 정보" 토글 뒤로. 코드 없는(구형/클라이언트 기록) 행은
-// error 카피로 폴백하고 원문을 그대로 기술 정보에 보존한다.
-const DEMO_FAILURE_COPY: Record<DemoFailureCode, { title: string; body: string }> = {
-  "login-gated": {
-    title: "로그인이 필요한 사이트예요",
-    body: "지금은 로그인 없이 볼 수 있는 화면만 촬영할 수 있어요. 공개로 접속되는 URL로 바꾼 뒤 다시 시도해 주세요.",
-  },
-  timeout: {
-    title: "촬영이 너무 오래 걸렸어요",
-    body: "사이트 로딩이 느리거나 중간에 멈춘 것 같아요. 잠시 후 한 번 더 시도해 주세요.",
-  },
-  interrupted: {
-    title: "촬영이 중간에 끊겼어요",
-    body: "녹화 장비가 재시작되면서 작업이 중단됐어요. 다시 시도하면 처음부터 새로 촬영해요.",
-  },
-  stuck: {
-    title: "생성이 오래 걸려 중단됐어요",
-    body: "예상보다 오래 걸려 자동으로 멈췄어요. 한 번 더 시도해 주시고, 반복되면 사이트가 정상 접속되는지 확인해 주세요.",
-  },
-  error: {
-    title: "촬영 중 문제가 생겼어요",
-    body: "일시적인 문제일 수 있어요. 한 번 더 시도해 보고, 반복되면 URL이 브라우저에서 정상 접속되는지 확인해 주세요.",
-  },
-};
+// 실패 코드별 카피는 lib/demo-failure.ts의 DEMO_FAILURE_COPY — 실패 알림 이메일과
+// 공유하므로 여기서 따로 들지 않는다. raw 메시지는 팝오버의 "기술 정보" 토글 뒤로.
 
 const DEMO_PHASE_LABEL: Record<Exclude<DemoBuildStatus, "done" | "failed" | "held">, string> = {
   pending: "촬영 대기",

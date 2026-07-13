@@ -37,3 +37,9 @@ drop trigger if exists projects_stamp_demo_status on projects;
 create trigger projects_stamp_demo_status
   before insert or update on projects
   for each row execute function stamp_demo_status_changed();
+
+-- (2026-07-13, T4 Resend) Watchdog alert-email dedup — {alert_key: last_sent_iso}
+-- on the system_status singleton. /api/cron/health stamps keys before sending so
+-- a persistent condition (worker off overnight) emails once per suppression
+-- window instead of every cron tick. Guarded: safe to re-run.
+alter table system_status add column if not exists alerts_state jsonb not null default '{}'::jsonb;

@@ -6,6 +6,8 @@ import { resolveBuildPayload } from "@/lib/demoPayload";
 import { apiError } from "@/lib/apiError";
 import { trackServerEvent } from "@/lib/analytics";
 import { AnalyticsEvent } from "@/lib/analytics-events";
+import { sendEmail, alertRecipients } from "@/lib/email";
+import { adminAlertEmail, SITE_URL } from "@/lib/email-templates";
 import type { buildAndRecord, BuildPayload } from "@/src/trigger/build-and-record";
 
 // Shape returned by the request_demo() SQL function (supabase/migration_demo_quota.sql).
@@ -32,7 +34,7 @@ export async function POST(
 
     const { data: project, error: selErr } = await supabase
       .from("projects")
-      .select("id, user_id, demo_url")
+      .select("id, user_id, title, demo_url")
       .eq("id", id)
       .single();
     if (selErr || !project) {
@@ -115,6 +117,25 @@ export async function POST(
         userId: user.id,
         props: { projectId: id, reason: result.reason ?? null },
       });
+      // 승인 대기 알림 (T4): "보통 24h내" 약속은 관리자가 큐를 봐야 지켜진다.
+      // deduped 재발화(이미 held인 행 재클릭)는 메일도 재발송하지 않는다.
+      if (!result.deduped) {
+        await sendEmail({
+          to: alertRecipients(),
+          ...adminAlertEmail({
+            title: "시연 승인 대기 — 한도 초과 요청",
+            lines: [
+              `프로젝트: ${project.title ?? "(제목 없음)"} (${id})`,
+              result.reason === "global"
+                ? "사유: 전역 일일 한도 초과."
+                : "사유: 유저 일일 한도 초과.",
+              "승인 전까지 대시보드에는 폴백 이미지로 표시돼요.",
+            ],
+            ctaLabel: "승인 콘솔 열기",
+            ctaUrl: `${SITE_URL}/admin`,
+          }),
+        });
+      }
       return NextResponse.json({
         ok: true,
         held: true,

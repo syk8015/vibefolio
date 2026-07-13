@@ -1,0 +1,33 @@
+<!-- Supabase Dashboard → Authentication → Email Templates → "Confirm signup" 본문에
+     그대로 붙여넣기. 제목(Subject) 필드: 메일 주소만 확인하면 가입이 끝나요
+     {{ .ConfirmationURL }} 변수는 반드시 유지. 시각 언어는 lib/email-templates.ts 셸과 동일. -->
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+</head>
+<body style="margin:0;padding:0;background:#f3ecd9;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3ecd9;">
+  <tr><td align="center" style="padding:40px 16px;">
+    <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;">
+      <tr><td style="padding:0 8px 16px;">
+        <span style="font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;font-size:15px;font-weight:800;letter-spacing:0.02em;color:#1a1612;">Nookframe</span>
+      </td></tr>
+      <tr><td style="background:#fdfaf3;border-radius:20px;padding:36px 32px;">
+        <h1 style="margin:0 0 12px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;font-size:20px;line-height:1.4;font-weight:800;color:#1a1612;">메일 주소만 확인하면 끝나요</h1>
+        <p style="margin:0 0 20px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;font-size:14px;line-height:1.7;color:#1a1612;">아래 버튼을 누르면 가입이 완료돼요. 본인이 요청한 게 아니라면 이 메일은 무시해도 돼요.</p>
+        <a href="{{ .ConfirmationURL }}" target="_blank"
+          style="display:inline-block;background:#1a1612;color:#fdfaf3;text-decoration:none;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;font-size:14px;font-weight:700;line-height:1;padding:13px 26px;border-radius:999px;">이메일 인증하기</a>
+        <p style="margin:20px 0 0;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;font-size:12.5px;line-height:1.7;color:#6a5e4e;">버튼이 열리지 않으면 이 링크를 브라우저에 붙여넣어 주세요.<br>
+        <a href="{{ .ConfirmationURL }}" style="color:#6a5e4e;word-break:break-all;">{{ .ConfirmationURL }}</a></p>
+      </td></tr>
+      <tr><td style="padding:18px 8px 0;">
+        <p style="margin:0;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;font-size:12px;line-height:1.6;color:#6a5e4e;">Nookframe 가입 인증 메일이에요. 궁금한 점은 이 메일에 회신해 주세요.</p>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>
