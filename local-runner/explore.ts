@@ -17,6 +17,7 @@
 // these probes have inner helpers, so they must be strings.)
 import type { Page } from "playwright-core";
 import { writeFileSync } from "node:fs";
+import { CreditExhaustedError, isCreditExhaustion } from "./errors";
 import {
   VIEW_W,
   VIEW_H,
@@ -372,6 +373,11 @@ async function callClaude(messages: Msg[], apiKey: string): Promise<{ content: B
     ],
     messages,
   });
+  // 무과금 테스트 훅: 크레딧 소진 경로(worker의 held+pause+경보)를 실제 API 호출
+  // 없이 끝까지 태우기 위한 escape hatch. 운영 env에는 절대 설정하지 않는다.
+  if (process.env.NF_FAKE_CREDIT_402) {
+    throw new CreditExhaustedError("anthropic 402: fake credit exhaustion (NF_FAKE_CREDIT_402)");
+  }
   let attempt = 0;
   while (true) {
     let res: Response;
@@ -408,6 +414,9 @@ async function callClaude(messages: Msg[], apiKey: string): Promise<{ content: B
       await sleep(waitMs);
       attempt++;
       continue;
+    }
+    if (isCreditExhaustion(res.status, text)) {
+      throw new CreditExhaustedError(`anthropic ${res.status}: ${text.slice(0, 300)}`);
     }
     throw new Error(`anthropic ${res.status}: ${text.slice(0, 300)}`);
   }

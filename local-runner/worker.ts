@@ -27,6 +27,7 @@ import type { SourceType } from "./safety";
 import { DEMO_QUOTA } from "../lib/demoQuota";
 import { AnalyticsEvent } from "../lib/analytics-events";
 import { formatDemoFailure } from "../lib/demo-failure";
+import { CreditExhaustedError, CREDIT_HOLD_MARKER } from "./errors";
 
 // This worker is the single-machine SPOF for the whole demo pipeline, so it wires
 // Sentry directly (it does not use lib/logger). Gated on DSN only — NOT on
@@ -301,6 +302,33 @@ async function processOne(row: PendingRow) {
     });
     console.log(`[worker] job ${row.id} done → ${outcome.publicUrl ?? "(no upload)"}`);
   } catch (err) {
+    // 크레딧 소진(P0.5): 유저 잘못이 아니다 — failed 대신 held(폴백 이미지 유지),
+    // 세션 attempt 반환, 드레인 정지(demo_paused), fatal 경보. 해제=README 절차.
+    if (err instanceof CreditExhaustedError) {
+      console.error(`[worker] CREDIT EXHAUSTED — holding job ${row.id} and pausing drain: ${err.message}`);
+      attempts.set(row.id, Math.max(0, (attempts.get(row.id) ?? 1) - 1));
+      const { error: holdErr } = await supabase
+        .from("projects")
+        .update({ demo_build_status: "held", demo_build_error: CREDIT_HOLD_MARKER })
+        .eq("id", row.id);
+      if (holdErr) console.error(`[worker] credit-hold write failed for ${row.id}: ${holdErr.message}`);
+      const { error: pauseErr } = await supabase
+        .from("system_status")
+        .update({ demo_paused: true, updated_at: new Date().toISOString() })
+        .eq("id", "singleton");
+      if (pauseErr) console.error(`[worker] demo_paused flip failed: ${pauseErr.message}`);
+      await trackAnalytics(AnalyticsEvent.DemoHeld, row.user_id, {
+        projectId: row.id,
+        reason: "credit_exhausted",
+      });
+      Sentry.captureException(err, {
+        level: "fatal",
+        tags: { alert: "credit_exhausted" },
+        extra: { projectId: row.id },
+      });
+      await Sentry.flush(2000);
+      return;
+    }
     const message = err instanceof Error ? err.message : String(err);
     const timedOut = err instanceof JobTimeoutError;
     console.error(`[worker] job ${row.id} failed: ${message}`);
