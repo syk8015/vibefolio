@@ -1,20 +1,34 @@
-# Unattended demo worker (macOS launchd)
+# Unattended demo worker (macOS launchd + Terminal)
 
-Runs `npm run demo:worker` as a LaunchAgent so the local M5 recorder survives
-crashes and logins without anyone babysitting a terminal. This is P0.1 A — the
-worker was a manual, foreground, single-machine SPOF.
+Keeps `npm run demo:worker` alive without babysitting — survives crashes and
+logins. This is P0.1 A; the worker was a manual, foreground, single-machine SPOF.
 
-## What it does
+## Architecture (2026-07-13 TCC rework)
 
-- **RunAtLoad** — starts at login.
-- **KeepAlive** — restarts on any exit (crash, OOM, hard kill). `ThrottleInterval`
-  (30s) keeps a crash-loop from hammering. A poison job can't re-bill in a loop:
-  on restart `recoverStuckJobs()` marks any in-flight row `failed`, so it is never
-  re-claimed.
-- **caffeinate** (`-dis`) — holds the display + system awake while recording.
-- **Heartbeat** — every poll the worker stamps `system_status.worker_last_seen_at`
-  (needs `supabase/migration_system_status.sql` applied) so a watchdog / you can
-  tell it's alive, and reads `demo_paused` back as a drain kill-switch.
+```
+launchd agent (headless, no TCC)          Terminal.app (owns all TCC grants)
+└─ supervisor.sh @login + every 60s   →   └─ worker-loop.sh
+   "worker loop alive? if not,               restarts `npm run demo:worker` on
+    open it in a Terminal window"            crash (30s delay); caffeinate -dis
+```
+
+**Why the worker is NOT run under launchd directly**: launchd's bash has no TCC
+grants — it cannot even read `~/Desktop` (exit 126 "Operation not permitted",
+discovered live 2026-07-13), and recording would additionally need Screen
+Recording + Accessibility grants that only Terminal already holds. So the worker
+lives in a visible Terminal window; launchd only guarantees that window exists.
+
+Consequences:
+
+- The worker is a **Terminal window on your desktop**. Closing it = supervisor
+  reopens it within 60s. Stopping for real = `uninstall.sh`.
+- Crash-restart happens **inside** the loop (one window forever), not by
+  spawning new windows.
+- `worker-loop.sh` refuses to start a second worker if one is already running
+  (two workers fighting over the screen would corrupt takes).
+- First install triggers a one-time macOS **Automation** prompt ("control
+  Terminal") — click Allow. If you misclicked Deny: System Settings → Privacy &
+  Security → Automation → allow Terminal for the supervisor.
 
 ## Install / update
 
@@ -22,9 +36,11 @@ worker was a manual, foreground, single-machine SPOF.
 bash local-runner/launchd/install.sh
 ```
 
-Idempotent — re-run after pulling. It substitutes this machine's absolute paths
-into the plist, writes it to `~/Library/LaunchAgents`, and (re)starts the agent.
-Refuses to install unless `.env.local` has `DEMO_RUNNER=local` (cloud mode would
+Idempotent — re-run after pulling. Substitutes absolute paths, installs
+`supervisor.sh` outside the repo (`~/Library/Application Support/Nookframe`,
+launchd can't read ~/Desktop), writes the plist, (re)starts the agent, and
+removes the old broken `com.nookframe.demo-worker` agent if present. Refuses to
+install unless `.env.local` has `DEMO_RUNNER=local` (cloud mode would
 double-record).
 
 ## Stop / remove
@@ -36,24 +52,29 @@ bash local-runner/launchd/uninstall.sh
 ## Check it
 
 ```bash
-launchctl print gui/$(id -u)/com.nookframe.demo-worker | grep -E 'state|pid'
-tail -f ~/Library/Logs/nookframe-demo-worker.log
+launchctl print gui/$(id -u)/com.nookframe.worker-supervisor | grep -E 'state|pid'
+tail -f ~/Library/Logs/nookframe-supervisor.log   # supervisor decisions
+# worker output: the Terminal window itself
 ```
+
+Heartbeat: every poll the worker stamps `system_status.worker_last_seen_at`
+(needs `supabase/migration_system_status.sql`) and reads `demo_paused` back as a
+drain kill-switch.
 
 ## ⚠️ Screen must stay unlocked
 
-Recording drives the **real screen**. Keep the Mac awake, logged in, and unlocked:
-System Settings → Lock Screen → set "Require password after…" to off / screen
-never locks. A locked screen or screensaver breaks the capture. `caffeinate` stops
-*sleep* but cannot stop a password *lock*.
+Recording drives the **real screen**. Keep the Mac awake, logged in, and
+unlocked: System Settings → Lock Screen → "Require password after…" off. A
+locked screen or screensaver breaks the capture. `caffeinate` stops *sleep* but
+cannot stop a password *lock*.
 
 ## Pause without a deploy
 
-Set `system_status.demo_paused = true` (SQL Editor). The worker keeps running and
-heartbeating but stops claiming/recording — no explore spend. Set back to `false`
-to resume. (P0.5 will flip this automatically on credit exhaustion.)
+Set `system_status.demo_paused = true` (SQL Editor). The worker keeps running
+and heartbeating but stops claiming/recording — no explore spend. Set back to
+`false` to resume. (P0.5 flips this automatically on credit exhaustion.)
 
 ## Run only ONE worker
 
-Once this is installed, don't also run `npm run demo:worker` by hand — two
-processes fighting over the screen will corrupt takes.
+Don't also run `npm run demo:worker` by hand while this is installed — the loop
+guards against it, but don't tempt it.
