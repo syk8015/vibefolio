@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { logger } from "@/lib/logger";
+import { rateLimit, clientIpKey } from "@/lib/rate-limit";
 
 // Usernames are alphanumeric + _ . - (see onboarding); reject anything else early
 // so a junk/huge value never reaches the DB lookup.
@@ -10,7 +11,7 @@ const MAX_UA_LEN = 500;
 
 // Keep an arbitrary string within a length and coerce non-strings to null. These
 // land in portfolio_views rows, so capping length blunts row-bloat / storage abuse
-// from a flood of oversized analytics POSTs (rate limiting proper still needs infra).
+// from a flood of oversized analytics POSTs.
 function clampStr(v: unknown, max: number): string | null {
   if (typeof v !== "string") return null;
   const t = v.trim();
@@ -27,6 +28,18 @@ export async function POST(req: NextRequest) {
     if (typeof username !== "string" || !USERNAME_RE.test(username)) {
       return NextResponse.json({ ok: false });
     }
+
+    // Real browsing opens a handful of profiles per minute at most; a flood of
+    // POSTs (view-count forging, row bloat) gets silently dropped past this.
+    // Same silent {ok:false} as the validation failures above — no signal for
+    // a prober, and the limiter fails open so tracking never breaks on infra.
+    const allowed = await rateLimit({
+      name: "track",
+      key: clientIpKey(req),
+      windowSeconds: 60,
+      max: 20,
+    });
+    if (!allowed) return NextResponse.json({ ok: false });
 
     const supabase = await createClient();
 

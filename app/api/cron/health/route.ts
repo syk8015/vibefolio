@@ -162,7 +162,15 @@ export async function GET(req: NextRequest) {
     // If the worker is stale, the worker-stale alert already explains the backlog.
   }
 
-  // ── 4. Alert email (T4) — deduped so a persistent condition mails once per
+  // ── 4. Sweep expired rate-limit windows (T6) — keeps rate_limits at ~distinct
+  // active keys. Best-effort: a missing table (migration pending) just logs. ───
+  const { error: rlErr } = await admin
+    .from("rate_limits")
+    .delete()
+    .lt("window_start", new Date(now - 24 * 3_600_000).toISOString());
+  if (rlErr) logger.warn("watchdog: rate_limits sweep failed", { error: rlErr });
+
+  // ── 5. Alert email (T4) — deduped so a persistent condition mails once per
   // window, not every cron tick ────────────────────────────────────────────────
   const emailed =
     alerts.length > 0
