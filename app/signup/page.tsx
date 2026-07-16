@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import TurnstileWidget, { turnstileEnabled, resetTurnstile } from "@/components/TurnstileWidget";
 
 type Step = "form" | "check-email";
 
@@ -12,6 +13,7 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [form, setForm] = useState({ name: "", username: "", email: "", password: "" });
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -32,11 +34,15 @@ export default function SignupPage() {
           name: form.name,
           username: form.username,
         },
+        captchaToken: captchaToken ?? undefined,
       },
     });
 
     setLoading(false);
     if (error) {
+      // Turnstile tokens are single-use — the failed attempt consumed this one.
+      resetTurnstile();
+      setCaptchaToken(null);
       setError(errorMessage(error.message));
     } else {
       setStep("check-email");
@@ -167,7 +173,9 @@ export default function SignupPage() {
               </p>
             )}
 
-            <button type="submit" disabled={loading}
+            <TurnstileWidget onToken={setCaptchaToken} />
+
+            <button type="submit" disabled={loading || (turnstileEnabled && !captchaToken)}
               className="w-full py-3.5 rounded-xl font-black text-sm mt-2 transition-opacity hover:opacity-85 disabled:opacity-50"
               style={{ background: "var(--blue)", color: "var(--bg)", fontFamily: "var(--font-nunito)", cursor: loading ? "not-allowed" : "pointer", border: "none", boxShadow: "0 0 20px var(--blue-glow)" }}>
               {loading ? "가입 중..." : "무료로 시작하기"}
@@ -202,6 +210,7 @@ function errorMessage(msg: string) {
   if (msg.includes("already registered")) return "이미 사용 중인 이메일이에요.";
   if (msg.includes("Password")) return "비밀번호는 8자 이상이어야 해요.";
   if (msg.includes("valid email")) return "올바른 이메일 형식을 입력해주세요.";
+  if (msg.toLowerCase().includes("captcha")) return "보안 확인에 실패했어요. 다시 확인 후 시도해주세요.";
   return "오류가 발생했어요. 잠시 후 다시 시도해주세요.";
 }
 

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import TurnstileWidget, { turnstileEnabled, resetTurnstile } from "@/components/TurnstileWidget";
 
 const RETURNING_USER_KEY = "vf-returning-user";
 
@@ -13,6 +14,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [form, setForm] = useState({ email: "", password: "" });
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [isReturning, setIsReturning] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -33,10 +35,14 @@ export default function LoginPage() {
     const { error } = await supabase.auth.signInWithPassword({
       email: form.email,
       password: form.password,
+      options: { captchaToken: captchaToken ?? undefined },
     });
 
     setLoading(false);
     if (error) {
+      // Turnstile tokens are single-use — the failed attempt consumed this one.
+      resetTurnstile();
+      setCaptchaToken(null);
       setError(errorMessage(error.message));
     } else {
       localStorage.setItem(RETURNING_USER_KEY, "1");
@@ -131,7 +137,9 @@ export default function LoginPage() {
               </p>
             )}
 
-            <button type="submit" disabled={loading}
+            <TurnstileWidget onToken={setCaptchaToken} />
+
+            <button type="submit" disabled={loading || (turnstileEnabled && !captchaToken)}
               className="w-full py-3.5 rounded-xl font-black text-sm mt-2 transition-opacity hover:opacity-85 disabled:opacity-50"
               style={{ background: "var(--blue)", color: "var(--bg)", fontFamily: "var(--font-nunito)", cursor: loading ? "not-allowed" : "pointer", border: "none", boxShadow: "0 0 20px var(--blue-glow)" }}>
               {loading ? "로그인 중..." : "로그인"}
@@ -147,6 +155,7 @@ function errorMessage(msg: string) {
   if (msg.includes("Invalid login")) return "이메일 또는 비밀번호가 올바르지 않아요.";
   if (msg.includes("Email not confirmed")) return "이메일 인증을 먼저 완료해주세요.";
   if (msg.includes("Too many requests")) return "잠시 후 다시 시도해주세요.";
+  if (msg.toLowerCase().includes("captcha")) return "보안 확인에 실패했어요. 다시 확인 후 시도해주세요.";
   return "오류가 발생했어요. 잠시 후 다시 시도해주세요.";
 }
 

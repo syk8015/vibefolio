@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import TurnstileWidget, { turnstileEnabled, resetTurnstile } from "@/components/TurnstileWidget";
 
 type Step = "form" | "sent";
 
@@ -11,6 +12,7 @@ export default function ForgotPasswordPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [email, setEmail] = useState("");
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -20,10 +22,14 @@ export default function ForgotPasswordPage() {
     const supabase = createClient();
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${location.origin}/auth/callback?next=/reset-password`,
+      captchaToken: captchaToken ?? undefined,
     });
 
     setLoading(false);
     if (error) {
+      // Turnstile tokens are single-use — the failed attempt consumed this one.
+      resetTurnstile();
+      setCaptchaToken(null);
       setError(errorMessage(error.message));
     } else {
       setStep("sent");
@@ -101,7 +107,9 @@ export default function ForgotPasswordPage() {
               </p>
             )}
 
-            <button type="submit" disabled={loading}
+            <TurnstileWidget onToken={setCaptchaToken} />
+
+            <button type="submit" disabled={loading || (turnstileEnabled && !captchaToken)}
               className="w-full py-3.5 rounded-xl font-black text-sm mt-2 transition-opacity hover:opacity-85 disabled:opacity-50"
               style={{ background: "var(--blue)", color: "var(--bg)", fontFamily: "var(--font-nunito)", cursor: loading ? "not-allowed" : "pointer", border: "none", boxShadow: "0 0 20px var(--blue-glow)" }}>
               {loading ? "보내는 중..." : "재설정 링크 보내기"}
@@ -116,5 +124,6 @@ export default function ForgotPasswordPage() {
 function errorMessage(msg: string) {
   if (msg.includes("rate limit") || msg.includes("Too many")) return "잠시 후 다시 시도해주세요.";
   if (msg.includes("valid email")) return "올바른 이메일 형식을 입력해주세요.";
+  if (msg.toLowerCase().includes("captcha")) return "보안 확인에 실패했어요. 다시 확인 후 시도해주세요.";
   return "오류가 발생했어요. 잠시 후 다시 시도해주세요.";
 }
