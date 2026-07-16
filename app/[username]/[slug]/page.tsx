@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { getProfileByUsername, getProjectById, posterFromDemo } from "@/lib/portfolio";
 import WatchPing from "@/components/WatchPing";
+import ReportButton from "@/components/ReportButton";
 
 // The public per-project watch page. Its whole job is to unfurl the demo mp4 as
 // og:video (Discord/Slack/Telegram/iMessage inline-play it) and hand the viewer a
@@ -257,6 +258,7 @@ export default async function WatchPage({ params }: Params) {
         <span style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem" }}>
           © {new Date().getFullYear()} Nookframe
         </span>
+        <ReportButton targetType="project" targetId={project.id} locale="en" />
       </footer>
     </main>
   );
