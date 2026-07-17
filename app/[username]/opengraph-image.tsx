@@ -88,7 +88,11 @@ export default async function Image({
             letterSpacing: "0.08em",
           }}
         >
-          @{username}
+          {/* satori: `@{username}` would be TWO child nodes ("@" + value) and
+              satori demands explicit display:flex on multi-child divs — a single
+              template string keeps it one node. This exact pattern 500'd every
+              profile OG image in prod. */}
+          {`@${username}`}
         </div>
 
         {/* Bio */}
