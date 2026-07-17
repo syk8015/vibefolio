@@ -103,17 +103,31 @@ function dispatch(entry: LogEntry): void {
 // the recorder worker's entry point). Keeping it here means the many
 // logger.error() call sites never import Sentry directly — this stays the single
 // choke point the whole app funnels through.
-let errorReporter: ErrorReporter | null = null;
+//
+// ⚠️ Stored on globalThis, NOT module scope. On Vercel the instrumentation
+// bundle and each route bundle can hold their OWN copy of this module, so a
+// module-scoped variable wired by instrumentation.ts is invisible to routes
+// (observed in prod: reporterWired:false while register() had run — every
+// logger.error capture silently dropped). The Sentry SDK survives the same
+// split because it keeps its client on a global carrier; do the same here.
+const REPORTER_KEY = "__nookframeErrorReporter" as const;
+type GlobalWithReporter = typeof globalThis & {
+  [REPORTER_KEY]?: ErrorReporter | null;
+};
 
 export function setErrorReporter(reporter: ErrorReporter | null): void {
-  errorReporter = reporter;
+  (globalThis as GlobalWithReporter)[REPORTER_KEY] = reporter;
+}
+
+function getErrorReporter(): ErrorReporter | null {
+  return (globalThis as GlobalWithReporter)[REPORTER_KEY] ?? null;
 }
 
 // Diagnostic: is an external reporter (Sentry) actually wired in this runtime?
 // Surfaced by the protected /api/cron/health response so a broken instrumentation
 // path is visible from outside instead of failing silently.
 export function hasErrorReporter(): boolean {
-  return errorReporter !== null;
+  return getErrorReporter() !== null;
 }
 
 function log(level: LogLevel, message: string, context?: LogContext): void {
@@ -122,10 +136,11 @@ function log(level: LogLevel, message: string, context?: LogContext): void {
   dispatch(buildEntry(level, message, context));
 
   // Forward errors to the external reporter with the raw thrown value intact.
-  if (level === "error" && errorReporter) {
+  const reporter = level === "error" ? getErrorReporter() : null;
+  if (reporter) {
     const { error, ...rest } = context ?? {};
     try {
-      errorReporter({ message, error, context: rest });
+      reporter({ message, error, context: rest });
     } catch {
       // A reporter failure must never break the code path that logged.
     }
