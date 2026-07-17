@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { logger } from "@/lib/logger";
+import { logger, hasErrorReporter } from "@/lib/logger";
 import { trackServerEvent } from "@/lib/analytics";
 import { AnalyticsEvent } from "@/lib/analytics-events";
 import { formatDemoFailure, DEMO_FAILURE_COPY } from "@/lib/demo-failure";
@@ -198,6 +198,14 @@ export async function GET(req: NextRequest) {
     alerts,
     emailed,
     healthy: alerts.length === 0,
+    // Sentry wiring diagnostics — this route is the natural probe point since the
+    // external cron exercises it anyway and it's secret-gated.
+    sentry: {
+      reporterWired: hasErrorReporter(),
+      dsnPresent: Boolean(process.env.SENTRY_DSN ?? process.env.NEXT_PUBLIC_SENTRY_DSN),
+      nodeEnv: process.env.NODE_ENV ?? null,
+      nextRuntime: process.env.NEXT_RUNTIME ?? null,
+    },
   });
 }
 

@@ -109,6 +109,13 @@ export function setErrorReporter(reporter: ErrorReporter | null): void {
   errorReporter = reporter;
 }
 
+// Diagnostic: is an external reporter (Sentry) actually wired in this runtime?
+// Surfaced by the protected /api/cron/health response so a broken instrumentation
+// path is visible from outside instead of failing silently.
+export function hasErrorReporter(): boolean {
+  return errorReporter !== null;
+}
+
 function log(level: LogLevel, message: string, context?: LogContext): void {
   // Drop debug noise in production.
   if (level === "debug" && isProduction) return;
