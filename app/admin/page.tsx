@@ -6,6 +6,7 @@ import { hasErrorReporter } from "@/lib/logger";
 import { isR2Configured, r2Usage } from "@/lib/r2";
 import { parseDemoFailure } from "@/lib/demo-failure";
 import { AnalyticsEvent } from "@/lib/analytics-events";
+import { classifyTrafficSource } from "@/lib/traffic-source";
 import { AdminRequestList, type AdminRequestItem } from "./AdminRequestList";
 import { ReportInbox, type ReportItem } from "./ReportInbox";
 import {
@@ -126,7 +127,7 @@ export default async function AdminPage() {
     // column is `viewed_at`, not created_at — checked against the live schema.
     admin
       .from("portfolio_views")
-      .select("referrer, country, viewed_at")
+      .select("referrer, country, viewed_at, user_agent")
       .gte("viewed_at", since)
       .order("viewed_at", { ascending: false })
       .limit(5000),
@@ -276,9 +277,13 @@ export default async function AdminPage() {
 
   // ── 유입 · 확산 (T7 — 실사용 소스 분해) ─────────────────────────────────────
   const views = viewsRes.data ?? [];
+  const viewChannelCounts: Record<string, number> = {};
   const viewRefCounts: Record<string, number> = {};
   const viewCountryCounts: Record<string, number> = {};
   for (const v of views) {
+    // 채널 = UA 인앱 시그니처(카톡·인스타·Threads…) → 리퍼러 도메인 → 직접.
+    // 인앱 브라우저는 Referer를 지우지만 UA는 남기므로 소급 분류가 된다.
+    bump(viewChannelCounts, classifyTrafficSource({ referrer: v.referrer, userAgent: v.user_agent }));
     bump(viewRefCounts, refHost(v.referrer));
     bump(viewCountryCounts, (v.country as string | null) ?? "(알 수 없음)");
   }
@@ -299,7 +304,14 @@ export default async function AdminPage() {
     } else if (r.event === AnalyticsEvent.DemoDownloaded) {
       bump(shareKindCounts, "영상 다운로드");
     } else if (r.event === AnalyticsEvent.WatchView) {
-      bump(watchRefCounts, refHost(p.referrer));
+      // channel은 /api/analytics가 서버측에서 스탬프. 구이벤트(스탬프 이전)는
+      // referrer/via로 재분류해 같은 축으로 합산.
+      bump(
+        watchRefCounts,
+        typeof p.channel === "string"
+          ? p.channel
+          : classifyTrafficSource({ referrer: p.referrer, via: p.via }),
+      );
       if (typeof p.projectId === "string") bump(watchProjectCounts, p.projectId);
     } else if (r.event === AnalyticsEvent.SignupCompleted) {
       const source =
@@ -605,6 +617,12 @@ export default async function AdminPage() {
                     </div>
                   </div>
                   <RankList rows={topCounts(shareKindCounts, 5)} empty="아직 공유 행동이 없어요." />
+                  {Object.keys(watchRefCounts).length > 0 && (
+                    <div className="mt-4">
+                      <div className="vf-label" style={{ color: "var(--text-muted)" }}>watch 유입 채널</div>
+                      <RankList rows={topCounts(watchRefCounts, 6)} empty="" />
+                    </div>
+                  )}
                   {watchTopRows.length > 0 && (
                     <div className="mt-4">
                       <div className="vf-label" style={{ color: "var(--text-muted)" }}>watch 귀속 상위</div>
@@ -637,10 +655,16 @@ export default async function AdminPage() {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 items-start">
           <Panel
-            title="명함 조회 유입"
+            title="명함 조회 유입 채널"
             aside={<MonoAside>조회 {views.length}</MonoAside>}
           >
-            <RankList rows={topCounts(viewRefCounts, 8)} empty="아직 조회가 없어요." />
+            <RankList rows={topCounts(viewChannelCounts, 8)} empty="아직 조회가 없어요." />
+            {topCounts(viewRefCounts, 6).some((r) => r.label !== "(직접/알 수 없음)") && (
+              <div className="mt-4">
+                <div className="vf-label" style={{ color: "var(--text-muted)" }}>리퍼러 도메인 원본</div>
+                <RankList rows={topCounts(viewRefCounts, 6)} empty="" />
+              </div>
+            )}
           </Panel>
           <Panel title="조회 국가">
             <RankList rows={topCounts(viewCountryCounts, 8)} empty="아직 조회가 없어요." />

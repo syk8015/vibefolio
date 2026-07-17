@@ -46,7 +46,10 @@ export default function ShareKit({
       ? `${window.location.origin}/${username}/${projectId}`
       : `https://nookframe.com/${username}/${projectId}`;
 
-  const xText = `${projectTitle} — no human recorded this. Nookframe filmed it straight from the live app.\n\n${watchUrl}`;
+  // ?via= marks share-link provenance for channel attribution (lib/traffic-source).
+  // The watch route ignores unknown query params, and OG scrapers resolve fine.
+  const watchShareUrl = `${watchUrl}?via=share`;
+  const xText = `${projectTitle} — no human recorded this. Nookframe filmed it straight from the live app.\n\n${watchUrl}?via=x`;
 
   function flash(which: "link" | "x") {
     setCopied(which);
@@ -136,7 +139,7 @@ export default function ShareKit({
             <button
               style={itemStyle}
               onClick={async () => {
-                await copyText(watchUrl);
+                await copyText(watchShareUrl);
                 trackClientEvent(AnalyticsEvent.ShareCopied, { projectId, kind: "watch_link" });
                 flash("link");
               }}
