@@ -15,6 +15,7 @@ import ViewportFrame from "@/components/ViewportFrame";
 import EmbedLoginButton from "@/components/EmbedLoginButton";
 import TheaterShell from "@/components/theater/TheaterShell";
 import ReportButton from "@/components/ReportButton";
+import Logo from "@/components/Logo";
 
 // Public portfolio data is identical for every visitor, so we cache the two
 // Supabase reads instead of hitting the DB on every pageview. A 60s window
@@ -202,33 +203,7 @@ export default async function UserPortfolioPage({
           borderBottom: "1px solid var(--border)",
         }}
       >
-        {isEmbed ? (
-          <div className="flex items-center gap-3" style={{ cursor: "default" }}>
-            <div
-              className="w-2 h-2 rounded-full"
-              style={{ background: "var(--blue)", boxShadow: "0 0 8px var(--blue)" }}
-            />
-            <span
-              className="font-black text-base"
-              style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}
-            >
-              Nookframe
-            </span>
-          </div>
-        ) : (
-          <Link href="/" className="flex items-center gap-3" style={{ textDecoration: "none" }}>
-            <div
-              className="w-2 h-2 rounded-full"
-              style={{ background: "var(--blue)", boxShadow: "0 0 8px var(--blue)" }}
-            />
-            <span
-              className="font-black text-base"
-              style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}
-            >
-              Nookframe
-            </span>
-          </Link>
-        )}
+        <Logo href={isEmbed ? null : "/"} />
         <div className="flex items-center gap-3">
           <span
             className="hidden sm:inline text-xs tracking-widest uppercase"

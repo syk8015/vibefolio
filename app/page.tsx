@@ -9,6 +9,7 @@ import LoggedInHeadline from "@/components/LoggedInHeadline";
 import FaqRepliesSection from "@/components/FaqRepliesSection";
 import TypingTagline from "@/components/TypingTagline";
 import ScrollHint from "@/components/ScrollHint";
+import Logo from "@/components/Logo";
 
 interface FeaturedProfile {
   username: string;
@@ -164,20 +165,3 @@ export default async function LandingPage() {
   );
 }
 
-function Logo() {
-  return (
-    <Link href="/" style={{ textDecoration: "none" }}>
-      <span
-        style={{
-          color: "var(--text-primary)",
-          fontFamily: "var(--font-mono), monospace",
-          fontWeight: 500,
-          fontSize: "0.95rem",
-          letterSpacing: "-0.01em",
-        }}
-      >
-        nookframe
-      </span>
-    </Link>
-  );
-}

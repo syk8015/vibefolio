@@ -1,6 +1,7 @@
 import Image from "next/image";
 import ProjectsSection from "@/components/ProjectsSection";
 import { profile, projects } from "@/lib/data";
+import Logo from "@/components/Logo";
 
 export default function Home() {
   return (
@@ -15,18 +16,7 @@ export default function Home() {
           borderBottom: "1px solid var(--border)",
         }}
       >
-        <div className="flex items-center gap-3">
-          <div
-            className="w-2 h-2 rounded-full"
-            style={{ background: "var(--blue)", boxShadow: "0 0 8px var(--blue)" }}
-          />
-          <span
-            className="text-sm tracking-[0.25em] uppercase font-medium"
-            style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}
-          >
-            Nookframe
-          </span>
-        </div>
+        <Logo href={null} />
         <span
           className="text-xs tracking-widest uppercase"
           style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}

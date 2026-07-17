@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { AnalyticsEvent, trackClientEvent, firstTouch } from "@/lib/analytics-client";
+import Logo from "@/components/Logo";
 
 type UsernameStatus = "idle" | "checking" | "available" | "taken" | "invalid";
 
@@ -144,11 +145,8 @@ export default function OnboardingPage() {
     <main className="min-h-screen flex flex-col items-center justify-center px-6 py-12" style={{ background: "var(--bg)" }}>
 
       {/* Logo */}
-      <div className="flex items-center gap-2 mb-10">
-        <div className="w-2 h-2 rounded-full" style={{ background: "var(--blue)", boxShadow: "0 0 8px var(--blue)" }} />
-        <span className="font-black text-base" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}>
-          Nookframe
-        </span>
+      <div className="mb-10">
+        <Logo href={null} />
       </div>
 
       <div className="w-full max-w-sm">

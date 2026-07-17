@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import Logo from "@/components/Logo";
 
 type Step = "loading" | "form" | "done" | "invalid";
 
@@ -119,10 +120,7 @@ export default function ResetPasswordPage() {
   return (
     <main className="min-h-screen flex flex-col" style={{ background: "var(--bg)" }}>
       <nav className="flex items-center justify-between px-4 md:px-8 py-4 md:py-5">
-        <Link href="/" style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: "8px" }}>
-          <div className="w-2 h-2 rounded-full" style={{ background: "var(--blue)", boxShadow: "0 0 8px var(--blue)" }} />
-          <span className="font-black text-base" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}>Nookframe</span>
-        </Link>
+        <Logo />
       </nav>
 
       <div className="flex-1 flex items-center justify-center px-6 py-12">

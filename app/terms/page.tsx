@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import Logo from "@/components/Logo";
 
 export const metadata: Metadata = {
   title: "이용약관 | Nookframe",
@@ -9,10 +10,7 @@ export default function TermsPage() {
   return (
     <main className="min-h-screen" style={{ background: "var(--bg)" }}>
       <nav className="flex items-center justify-between px-6 md:px-12 py-4" style={{ borderBottom: "1px solid var(--border)" }}>
-        <Link href="/" className="flex items-center gap-2" style={{ textDecoration: "none" }}>
-          <div className="w-2 h-2 rounded-full" style={{ background: "var(--blue)", boxShadow: "0 0 8px var(--blue)" }} />
-          <span className="font-black text-base" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}>Nookframe</span>
-        </Link>
+        <Logo />
       </nav>
 
       <div className="max-w-2xl mx-auto px-6 py-16">
