@@ -1,7 +1,7 @@
 // Post-process the raw capture into the shipped demo.mp4: apply the cinematic
 // zoompan (camera events), downscale to 720p, fade in/out, then append the endcap
-// (a username chip in the last few seconds + a cream end card) and extract a
-// poster frame for OG images.
+// (the typing brand scene — nookframe.com/@handle typed and erased, landing on
+// the n+block logo) and extract a poster frame for OG images.
 //
 // trap B: the raw is ALREADY native 2× (e.g. 2560×1440 = 1280×720 logical × DPR2),
 // so it IS the supersample — we DROP the E2B path's leading `scale=CAP*SS` step
@@ -11,9 +11,9 @@
 // (getBoundingClientRect space) and are scaled to capture px here.
 //
 // trap (endcap): this machine's ffmpeg has NO libfreetype (no `drawtext`), so the
-// chip + end card text is rasterized in a headless Chrome (endcap.ts) and composed
-// with `overlay` + `concat`. The endcap is best-effort — any failure ships the
-// plain film rather than failing the take.
+// endcap frames are rasterized in a headless Chrome (endcap.ts) and appended with
+// `concat`. The endcap is best-effort — any failure ships the plain film rather
+// than failing the take.
 import { writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import type { CameraEvent } from "./camera";
@@ -23,14 +23,7 @@ import {
   CAMERA_MAX_EVENTS, CAMERA_VF_MAX_CHARS,
 } from "./config";
 import { run, ffprobeValue } from "./util";
-import { renderEndcapAssets } from "./endcap";
-
-// Endcap timing.
-const CHIP_LEAD_SEC = 4; // chip visible for the last N seconds only (clean body)
-const CHIP_FADE_SEC = 0.5;
-const CHIP_MARGIN = 28; // px inset from the bottom-right corner (720p space)
-const ENDCARD_SEC = 1.2;
-const ENDCARD_FADE_SEC = 0.3; // fades in from black (body fades OUT to black → smooth)
+import { renderEndcapVideo } from "./endcap";
 
 export type PostInput = {
   rawPath: string;
@@ -124,31 +117,25 @@ export async function postprocess(input: PostInput): Promise<{
   // ── endcap (best-effort) ─────────────────────────────────────────────────────
   const handle = "@" + username;
   const bodyPath = `${outDir}/body.mp4`;
-  const endcardMp4 = `${outDir}/endcard.mp4`;
   let usedEndcap = false;
   let posterSource = outPath;
   try {
-    const { chipPath, endcardPath } = await renderEndcapAssets({
+    // Typing brand scene (dark, matches the body's fade-to-black → no cream flash).
+    const { endcapPath } = await renderEndcapVideo({
       handle,
       width: outW,
       height: outH,
+      fps: FPS,
       outDir,
+      encodeArgs: ENCODE_ARGS,
     });
 
-    // Body: base chain → chip overlay (fades in for the last CHIP_LEAD_SEC) → fade out.
-    const chipStart = Math.max(0, clipLen - CHIP_LEAD_SEC).toFixed(2);
-    const fc =
-      `[0:v]${baseChain}[base];` +
-      `[1:v]format=rgba,fade=t=in:st=${chipStart}:d=${CHIP_FADE_SEC}:alpha=1[chip];` +
-      `[base][chip]overlay=x=W-w-${CHIP_MARGIN}:y=H-h-${CHIP_MARGIN}[ov];` +
-      `[ov]fade=t=out:st=${fadeOutStart}:d=0.5,format=yuv420p[v]`;
+    // Body: base chain → fade out (chip removed 2026-07-18 — clean film body).
     await ff(
       [
         "-y",
         "-i", rawPath,
-        "-loop", "1", "-framerate", String(FPS), "-i", chipPath,
-        "-filter_complex", fc,
-        "-map", "[v]",
+        "-vf", `${baseChain},fade=t=out:st=${fadeOutStart}:d=0.5,format=yuv420p`,
         "-t", clipLen.toFixed(2),
         ...ENCODE_ARGS,
         "-movflags", "+faststart",
@@ -158,22 +145,9 @@ export async function postprocess(input: PostInput): Promise<{
       "body",
     );
 
-    // End card clip: cream still → 1.2s, fades in from black.
-    await ff(
-      [
-        "-y",
-        "-loop", "1", "-t", ENDCARD_SEC.toFixed(2), "-i", endcardPath,
-        "-vf", `scale=${outW}:${outH}:flags=lanczos,fade=t=in:st=0:d=${ENDCARD_FADE_SEC},format=yuv420p`,
-        ...ENCODE_ARGS,
-        endcardMp4,
-      ],
-      60_000,
-      "endcard",
-    );
-
-    await concatSegments(bodyPath, endcardMp4, outPath, outDir);
+    await concatSegments(bodyPath, endcapPath, outPath, outDir);
     usedEndcap = true;
-    posterSource = bodyPath; // grab the poster from the film, not the end card
+    posterSource = bodyPath; // grab the poster from the film, not the endcap
   } catch (e) {
     console.error(
       "[postprocess] endcap failed (non-fatal), shipping plain film:",
