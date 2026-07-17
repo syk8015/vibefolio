@@ -366,7 +366,9 @@ export default async function AdminPage() {
     {
       label: "녹화 워커",
       value: paused ? "일시정지" : workerStale ? "멈춤" : "가동",
-      sub: `하트비트 ${ago(lastSeen, now)}`,
+      sub: paused
+        ? "의도적 정지 · 시연 요청은 대기열 보존"
+        : `하트비트 ${ago(lastSeen, now)}`,
       state: paused ? "warn" : workerStale ? "bad" : "ok",
     },
     {

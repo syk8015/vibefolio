@@ -154,12 +154,25 @@ export async function GET(req: NextRequest) {
     // Missing table / row — surfaced but not fatal (migration may be pending).
     logger.warn("watchdog: system_status read failed", { error: sysErr });
   } else if (workerStale) {
-    logger.error("watchdog: worker heartbeat stale", {
-      lastSeenAt,
-      staleMinutes: Math.round((staleMs as number) / 60_000),
-      workerStatus: sys?.worker_status,
-    });
-    alerts.push("worker-stale");
+    if (paused) {
+      // demo_paused = the worker is off ON PURPOSE (operator stop, or the
+      // credit-exhaustion hold which already alerted loudly once when it
+      // engaged). A stale heartbeat is the EXPECTED state here — paging every
+      // 6h/erroring Sentry every tick is pure noise. Queue stays safely
+      // pending; the admin tower ledger shows 일시정지. Info-level so the
+      // Vercel log still records the condition.
+      logger.info("watchdog: worker stale while intentionally paused — alert suppressed", {
+        lastSeenAt,
+        staleMinutes: Math.round((staleMs as number) / 60_000),
+      });
+    } else {
+      logger.error("watchdog: worker heartbeat stale", {
+        lastSeenAt,
+        staleMinutes: Math.round((staleMs as number) / 60_000),
+        workerStatus: sys?.worker_status,
+      });
+      alerts.push("worker-stale");
+    }
   }
 
   // ── 3. Pending jobs not draining ────────────────────────────────────────────
