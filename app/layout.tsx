@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, Hahmlet, JetBrains_Mono } from "next/font/google";
+import FirstTouch from "@/components/FirstTouch";
 import "./globals.css";
 
 const inter = Inter({
@@ -62,7 +63,10 @@ export default function RootLayout({
 (function(){try{var s=localStorage.getItem('vf-theme');document.documentElement.setAttribute('data-theme',(s==='dark'||s==='light')?s:'light');}catch(e){}})();
         `.trim() }} />
       </head>
-      <body className="min-h-screen">{children}</body>
+      <body className="min-h-screen">
+        <FirstTouch />
+        {children}
+      </body>
     </html>
   );
 }

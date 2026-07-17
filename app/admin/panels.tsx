@@ -339,6 +339,59 @@ export function AlertList({
   );
 }
 
+// Ranked breakdown (referrer hosts, share channels, signup sources…) — label +
+// tint bar + tabular count. Single-hue magnitude, so no categorical palette.
+export function RankList({
+  rows,
+  empty,
+}: {
+  rows: { label: string; count: number }[];
+  empty: string;
+}) {
+  if (rows.length === 0) {
+    return (
+      <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+        {empty}
+      </p>
+    );
+  }
+  const max = Math.max(1, ...rows.map((r) => r.count));
+  return (
+    <div className="flex flex-col gap-1.5">
+      {rows.map((r) => (
+        <div key={r.label} className="flex items-center gap-3" title={`${r.label} ${r.count}`}>
+          <span
+            className="text-sm shrink-0 truncate"
+            style={{ width: "9rem", color: "var(--text-secondary)" }}
+          >
+            {r.label}
+          </span>
+          <div
+            className="relative flex-1 rounded"
+            style={{ height: "0.85rem", background: "var(--surface-sunken)" }}
+          >
+            <div
+              className="absolute inset-y-0 left-0 rounded"
+              style={{ width: `${(r.count / max) * 100}%`, background: "var(--blue-tint-strong)" }}
+            />
+          </div>
+          <span
+            className="vf-mono shrink-0 text-right"
+            style={{
+              fontSize: "0.7rem",
+              width: "2.6rem",
+              color: "var(--text-secondary)",
+              fontVariantNumeric: "tabular-nums",
+            }}
+          >
+            {r.count}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function EventBreakdown({ events }: { events: [string, number][] }) {
   if (events.length === 0) {
     return (

@@ -18,6 +18,7 @@ import {
   DistributionChips,
   AlertList,
   EventBreakdown,
+  RankList,
   statusMeta,
   ago,
   fmtBytes,
@@ -39,6 +40,28 @@ const WINDOW_DAYS = 30;
 const CHART_DAYS = 14;
 const DAY_MS = 86_400_000;
 const dayKey = (iso: string) => iso.slice(0, 10); // YYYY-MM-DD (UTC)
+
+// Referrer URL → bare host for ranking ("어디서 왔나"). Nulls (direct visits,
+// referrer-stripping browsers) bucket together instead of disappearing.
+function refHost(ref: unknown): string {
+  if (typeof ref !== "string" || !ref) return "(직접/알 수 없음)";
+  try {
+    return new URL(ref).hostname.replace(/^www\./, "");
+  } catch {
+    return "(직접/알 수 없음)";
+  }
+}
+
+function topCounts(map: Record<string, number>, n: number): { label: string; count: number }[] {
+  return Object.entries(map)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, n)
+    .map(([label, count]) => ({ label, count }));
+}
+
+function bump(map: Record<string, number>, key: string) {
+  map[key] = (map[key] ?? 0) + 1;
+}
 
 // Status tokens for this page only — validated against both paper surfaces
 // (see panels.tsx header). Follows the site convention: :root default +
@@ -65,6 +88,7 @@ export default async function AdminPage() {
     profileCountRes,
     reportsRes,
     eventsRes,
+    viewsRes,
   ] = await Promise.all([
     admin
       .from("demo_requests")
@@ -92,9 +116,17 @@ export default async function AdminPage() {
       .limit(20),
     admin
       .from("analytics_events")
-      .select("event, created_at")
+      .select("event, created_at, props")
       .gte("created_at", since)
       .order("created_at", { ascending: true }),
+    // ⚠️ portfolio_views is a remote-only table (no local SQL) and its timestamp
+    // column is `viewed_at`, not created_at — checked against the live schema.
+    admin
+      .from("portfolio_views")
+      .select("referrer, country, viewed_at")
+      .gte("viewed_at", since)
+      .order("viewed_at", { ascending: false })
+      .limit(5000),
   ]);
 
   // ── approval queue ─────────────────────────────────────────────────────────
@@ -202,7 +234,11 @@ export default async function AdminPage() {
     eventsRes.error?.code === "PGRST205" ||
     eventsRes.error?.code === "42P01" ||
     (typeof eventsRes.error?.message === "string" && eventsRes.error.message.includes("schema cache"));
-  const rows = (eventsRes.data ?? []) as { event: string; created_at: string }[];
+  const rows = (eventsRes.data ?? []) as {
+    event: string;
+    created_at: string;
+    props: Record<string, unknown> | null;
+  }[];
   const counts: Record<string, number> = {};
   for (const r of rows) counts[r.event] = (counts[r.event] ?? 0) + 1;
   const requested = counts[AnalyticsEvent.DemoRequested] ?? 0;
@@ -233,6 +269,51 @@ export default async function AdminPage() {
   ];
   const funnelMax = Math.max(1, ...funnelSteps.map((f) => f.value));
   const allEvents = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+
+  // ── 유입 · 확산 (T7 — 실사용 소스 분해) ─────────────────────────────────────
+  const views = viewsRes.data ?? [];
+  const viewRefCounts: Record<string, number> = {};
+  const viewCountryCounts: Record<string, number> = {};
+  for (const v of views) {
+    bump(viewRefCounts, refHost(v.referrer));
+    bump(viewCountryCounts, (v.country as string | null) ?? "(알 수 없음)");
+  }
+
+  const shareKindCounts: Record<string, number> = {};
+  const watchRefCounts: Record<string, number> = {};
+  const watchProjectCounts: Record<string, number> = {};
+  const signupSourceCounts: Record<string, number> = {};
+  const SHARE_KIND_LABEL: Record<string, string> = {
+    watch_link: "워치 링크 복사",
+    x_post: "X 포스트",
+  };
+  for (const r of rows) {
+    const p = r.props ?? {};
+    if (r.event === AnalyticsEvent.ShareCopied) {
+      const kind = typeof p.kind === "string" ? (SHARE_KIND_LABEL[p.kind] ?? p.kind) : "기타 복사";
+      bump(shareKindCounts, kind);
+    } else if (r.event === AnalyticsEvent.DemoDownloaded) {
+      bump(shareKindCounts, "영상 다운로드");
+    } else if (r.event === AnalyticsEvent.WatchView) {
+      bump(watchRefCounts, refHost(p.referrer));
+      if (typeof p.projectId === "string") bump(watchProjectCounts, p.projectId);
+    } else if (r.event === AnalyticsEvent.SignupCompleted) {
+      const source =
+        (typeof p.utm_source === "string" && p.utm_source) || refHost(p.ref ?? null);
+      bump(signupSourceCounts, source);
+    }
+  }
+
+  // Top watch-attributed projects need titles for display.
+  const watchTop = topCounts(watchProjectCounts, 6);
+  const { data: watchProjects } = watchTop.length
+    ? await admin.from("projects").select("id, title").in("id", watchTop.map((w) => w.label))
+    : { data: [] as { id: string; title: string | null }[] };
+  const watchTitleById = new Map((watchProjects ?? []).map((p) => [p.id, p.title]));
+  const watchTopRows = watchTop.map((w) => ({
+    label: watchTitleById.get(w.label) ?? "(삭제된 프로젝트)",
+    count: w.count,
+  }));
 
   // ── storage ────────────────────────────────────────────────────────────────
   let storage: { objects: number; bytes: number } | null = null;
@@ -459,6 +540,52 @@ export default async function AdminPage() {
               </Panel>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* 유입 · 확산 — where visitors come from, where shares go */}
+      <div className="mt-8">
+        <ColumnTitle>유입 · 확산 ({WINDOW_DAYS}일)</ColumnTitle>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 items-start">
+          <Panel
+            title="명함 조회 유입"
+            aside={
+              <span className="vf-mono" style={{ fontSize: "0.68rem", color: "var(--text-muted)" }}>
+                조회 {views.length}
+              </span>
+            }
+          >
+            <RankList
+              rows={topCounts(viewRefCounts, 8)}
+              empty="아직 조회가 없어요."
+            />
+          </Panel>
+          <Panel title="조회 국가">
+            <RankList
+              rows={topCounts(viewCountryCounts, 8)}
+              empty="아직 조회가 없어요."
+            />
+          </Panel>
+          <Panel title="공유 채널">
+            <RankList
+              rows={topCounts(shareKindCounts, 8)}
+              empty="아직 공유 행동이 없어요."
+            />
+            {watchTopRows.length > 0 && (
+              <div className="mt-4">
+                <div className="vf-label mb-2" style={{ color: "var(--text-muted)" }}>
+                  watch 귀속 상위
+                </div>
+                <RankList rows={watchTopRows} empty="" />
+              </div>
+            )}
+          </Panel>
+          <Panel title="가입 유입 소스">
+            <RankList
+              rows={topCounts(signupSourceCounts, 8)}
+              empty="아직 없어요 — 이 배포부터 첫 방문 referrer/UTM이 가입에 붙어요."
+            />
+          </Panel>
         </div>
       </div>
     </main>

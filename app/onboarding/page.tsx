@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { AnalyticsEvent, trackClientEvent } from "@/lib/analytics-client";
+import { AnalyticsEvent, trackClientEvent, firstTouch } from "@/lib/analytics-client";
 
 type UsernameStatus = "idle" | "checking" | "available" | "taken" | "invalid";
 
@@ -99,8 +99,21 @@ export default function OnboardingPage() {
       updated_at: new Date().toISOString(),
     });
 
-    // 퍼널 첫 단 — 온보딩(username 확정)이 "가입 완료"의 정의.
-    trackClientEvent(AnalyticsEvent.SignupCompleted);
+    // 퍼널 첫 단 — 온보딩(username 확정)이 "가입 완료"의 정의. 첫 방문 시 담아둔
+    // referrer/UTM을 실어 보내 "어디서 가입됐나"를 관제탑에서 셀 수 있게 한다.
+    const ft = firstTouch();
+    trackClientEvent(
+      AnalyticsEvent.SignupCompleted,
+      ft
+        ? {
+            ref: ft.referrer,
+            utm_source: ft.utm_source,
+            utm_medium: ft.utm_medium,
+            utm_campaign: ft.utm_campaign,
+            landing: ft.landing,
+          }
+        : undefined,
+    );
 
     router.push("/dashboard?welcome=1");
     router.refresh();

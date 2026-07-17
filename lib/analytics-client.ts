@@ -23,6 +23,46 @@ function sessionId(): string | null {
   }
 }
 
+// First-touch attribution (T7): where did this visitor originally come from?
+// Captured ONCE per browser on the first page they ever land on (components/
+// FirstTouch.tsx in the root layout) and attached to signup_completed, so the
+// admin tower can answer "어디서 가입됐나". Referrer + UTM only — no third-party
+// anything, and it never leaves our own analytics table.
+const FT_KEY = "nf_first_touch";
+
+export function captureFirstTouch(): void {
+  try {
+    if (localStorage.getItem(FT_KEY)) return;
+    const params = new URLSearchParams(location.search);
+    const ft = {
+      referrer: document.referrer || null,
+      utm_source: params.get("utm_source"),
+      utm_medium: params.get("utm_medium"),
+      utm_campaign: params.get("utm_campaign"),
+      landing: location.pathname,
+      at: new Date().toISOString(),
+    };
+    localStorage.setItem(FT_KEY, JSON.stringify(ft));
+  } catch {
+    // storage blocked — attribution simply degrades to "(알 수 없음)"
+  }
+}
+
+export function firstTouch(): {
+  referrer: string | null;
+  utm_source: string | null;
+  utm_medium: string | null;
+  utm_campaign: string | null;
+  landing: string | null;
+  at: string | null;
+} | null {
+  try {
+    return JSON.parse(localStorage.getItem(FT_KEY) ?? "null");
+  } catch {
+    return null;
+  }
+}
+
 export function trackClientEvent(
   event: AnalyticsEventName,
   props?: Record<string, unknown>,
