@@ -11,22 +11,25 @@ import { ReportInbox, type ReportItem } from "./ReportInbox";
 import {
   Ledger,
   type LedgerEntry,
-  ColumnTitle,
+  AlertTicker,
+  SectionTitle,
+  MonoAside,
   Panel,
-  DailyChart,
+  ColumnChart,
+  RatioRing,
+  StatSpark,
   Funnel,
-  DistributionChips,
-  AlertList,
-  EventBreakdown,
+  StatusBars,
   RankList,
+  EventBreakdown,
   statusMeta,
   ago,
   fmtBytes,
 } from "./panels";
 
-// 관제탑 — the whole admin surface on one full-width screen: what needs a hand
-// (approvals, reports), whether the machine is alive (worker/cron/Sentry,
-// alerts, pipeline), and whether the product is growing (funnel, daily demos).
+// 관제탑 — the whole admin surface on one full-width screen, read in triage
+// order: ① 생존 (is the machine alive) → ② 손이 필요한 것 (approvals, reports)
+// → ③ 시연 파이프라인 (throughput, quality) → ④ 성장 (funnel, spread, reach).
 // Gated to ADMIN_EMAILS; 404 to everyone else. Always rendered fresh.
 export const dynamic = "force-dynamic";
 
@@ -260,6 +263,7 @@ export default async function AdminPage() {
     else if (r.event === AnalyticsEvent.DemoFailed) bucket.failed++;
   }
   const maxDaily = Math.max(1, ...days.map((d) => daily.get(d)!.requested));
+  const failed14 = days.reduce((a, d) => a + daily.get(d)!.failed, 0);
   const funnelSteps = [
     { label: "가입", value: counts[AnalyticsEvent.SignupCompleted] ?? 0 },
     { label: "프로젝트 생성", value: counts[AnalyticsEvent.ProjectCreated] ?? 0 },
@@ -315,6 +319,25 @@ export default async function AdminPage() {
     count: w.count,
   }));
 
+  // ── 30d daily series for sparklines (signups, card views) ─────────────────
+  const days30: string[] = [];
+  for (let i = WINDOW_DAYS - 1; i >= 0; i--) days30.push(dayKey(new Date(now - i * DAY_MS).toISOString()));
+  const signupsByDay = new Map(days30.map((d) => [d, 0]));
+  const viewsByDay = new Map(days30.map((d) => [d, 0]));
+  for (const r of rows) {
+    if (r.event !== AnalyticsEvent.SignupCompleted) continue;
+    const k = dayKey(r.created_at);
+    if (signupsByDay.has(k)) signupsByDay.set(k, signupsByDay.get(k)! + 1);
+  }
+  for (const v of views) {
+    const k = dayKey(v.viewed_at as string);
+    if (viewsByDay.has(k)) viewsByDay.set(k, viewsByDay.get(k)! + 1);
+  }
+  const signupSpark = days30.map((d) => signupsByDay.get(d)!);
+  const viewSpark = days30.map((d) => viewsByDay.get(d)!);
+  const signups30 = funnelSteps[0].value;
+  const overallConv = signups30 > 0 ? Math.round((shares / signups30) * 100) : null;
+
   // ── storage ────────────────────────────────────────────────────────────────
   let storage: { objects: number; bytes: number } | null = null;
   let storageError = false;
@@ -326,8 +349,8 @@ export default async function AdminPage() {
     }
   }
 
-  // ── ledger entries ─────────────────────────────────────────────────────────
-  const ledger: LedgerEntry[] = [
+  // ── ① 생존 — system ledger + verdict ──────────────────────────────────────
+  const systemEntries: LedgerEntry[] = [
     {
       label: "녹화 워커",
       value: paused ? "일시정지" : workerStale ? "멈춤" : "가동",
@@ -347,30 +370,40 @@ export default async function AdminPage() {
       state: sentryWired ? "ok" : "bad",
     },
     {
-      label: "승인 대기",
-      value: approvalItems.length,
-      sub: approvalItems.length > 0 ? "결정 필요" : "비어 있음",
-      state: approvalItems.length > 0 ? "warn" : "plain",
-    },
-    {
-      label: "열린 신고",
-      value: reports.length,
-      sub: reports.length > 0 ? "인박스 확인" : "없음",
-      state: reports.length > 0 ? "warn" : "plain",
-    },
-    {
-      label: "빌드 성공률",
-      value: successRate === null ? "—" : `${successRate}%`,
-      sub: `${succeeded}/${requested} · ${WINDOW_DAYS}일`,
-      state: "plain",
-    },
-    {
-      label: "가입자",
-      value: profileCountRes.count ?? 0,
-      sub: "profiles 총계",
-      state: "plain",
+      label: "R2 저장소",
+      value: storage ? fmtBytes(storage.bytes) : storageError ? "조회 실패" : "미설정",
+      sub: storage
+        ? `파일 ${storage.objects}개`
+        : storageError
+          ? "Cloudflare 대시보드 확인"
+          : "Supabase Storage 폴백",
+      state: storage ? "ok" : storageError ? "bad" : "plain",
     },
   ];
+  const nBad = systemEntries.filter((e) => e.state === "bad").length;
+  const nWarn = systemEntries.filter((e) => e.state === "warn").length;
+  const firstIssue =
+    systemEntries.find((e) => e.state === "bad") ?? systemEntries.find((e) => e.state === "warn");
+  const latestAlert = alertEntries[0] ?? null;
+  const alertFresh = latestAlert ? now - Date.parse(latestAlert[1]) < DAY_MS : false;
+  const ledger: LedgerEntry[] = [
+    {
+      label: "시스템",
+      value: nBad > 0 ? `이상 ${nBad}건` : nWarn > 0 ? `주의 ${nWarn}건` : "정상 운항",
+      sub: firstIssue ? `${firstIssue.label} 확인` : "워커·크론·Sentry·R2 정상",
+      state: nBad > 0 ? "bad" : nWarn > 0 ? "warn" : "ok",
+      emph: true,
+    },
+    ...systemEntries,
+    {
+      label: "최근 경보",
+      value: alertEntries.length > 0 ? alertEntries.length : "없음",
+      sub: latestAlert ? `마지막 ${ago(latestAlert[1], now)}` : "기록 없음",
+      state: alertFresh ? "warn" : "plain",
+    },
+  ];
+
+  const todoCount = approvalItems.length + reports.length;
 
   return (
     <main
@@ -410,175 +443,207 @@ export default async function AdminPage() {
         </div>
       </div>
 
-      {/* Annunciator ledger */}
+      {/* ① 생존 — annunciator ledger (verdict first) + alert log line */}
       <div className="mb-8">
         <Ledger entries={ledger} />
+        <AlertTicker entries={alertEntries} now={now} />
       </div>
 
-      {/* Triage grid: needs-a-hand | pipeline | health & growth */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-12 gap-5 items-start">
-        <div className="xl:col-span-4 flex flex-col gap-5">
-          <div>
-            <ColumnTitle>손이 필요한 것</ColumnTitle>
-            <div className="flex flex-col gap-5">
-              <Panel
-                title="시연 승인 대기"
-                aside={
-                  <span className="vf-mono" style={{ fontSize: "0.68rem", color: "var(--text-muted)" }}>
-                    승인하면 바로 촬영 대기열로
-                  </span>
-                }
-              >
-                <AdminRequestList items={approvalItems} />
-              </Panel>
-              <Panel title="신고 인박스">
-                <ReportInbox items={reports} />
-              </Panel>
-            </div>
+      {/* ② 손이 필요한 것 */}
+      <section className="mb-8">
+        <SectionTitle
+          aside={
+            <MonoAside tone={todoCount > 0 ? "warn" : undefined}>
+              승인 {approvalItems.length} · 신고 {reports.length}
+              {todoCount > 0 ? " — 결정 필요" : ""}
+            </MonoAside>
+          }
+        >
+          손이 필요한 것
+        </SectionTitle>
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 items-start">
+          <div className="xl:col-span-7">
+            <Panel
+              title={`시연 승인 대기 · ${approvalItems.length}`}
+              aside={<MonoAside>승인하면 바로 촬영 대기열로</MonoAside>}
+            >
+              <AdminRequestList items={approvalItems} />
+            </Panel>
+          </div>
+          <div className="xl:col-span-5">
+            <Panel title={`신고 인박스 · ${reports.length}`}>
+              <ReportInbox items={reports} />
+            </Panel>
           </div>
         </div>
+      </section>
 
-        <div className="xl:col-span-5 flex flex-col gap-5">
-          <div>
-            <ColumnTitle>파이프라인</ColumnTitle>
-            <div className="flex flex-col gap-5">
-              <Panel title="시연 상태" aside={
-                <span className="vf-mono" style={{ fontSize: "0.68rem", color: "var(--text-muted)" }}>
-                  대기 {pendingCount} · 진행 {inFlightCount}
-                </span>
-              }>
-                <div className="mb-4">
-                  <DistributionChips distribution={distribution} />
-                </div>
-                {recent.length > 0 && (
-                  <div className="flex flex-col gap-1.5">
-                    {recent.map((r) => {
-                      const meta = statusMeta(r.demo_build_status as string);
-                      const failure =
-                        r.demo_build_status === "failed" ? parseDemoFailure(r.demo_build_error) : null;
-                      return (
-                        <div
-                          key={r.id}
-                          className="flex items-center gap-3 text-sm py-1"
-                          style={{ borderBottom: "1px solid var(--border)" }}
-                        >
-                          <span
-                            style={{ color: meta.color, fontWeight: 700, width: "2.6rem", flexShrink: 0 }}
-                          >
-                            {meta.label}
+      {/* ③ 시연 파이프라인 */}
+      <section className="mb-8">
+        <SectionTitle
+          aside={
+            <MonoAside>
+              대기 {pendingCount} · 진행 {inFlightCount}
+              {metricsMissing ? "" : ` · 실패 ${failed} (${WINDOW_DAYS}일)`}
+            </MonoAside>
+          }
+        >
+          시연 파이프라인
+        </SectionTitle>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-12 gap-5 items-start">
+          <div className="xl:col-span-5">
+            <Panel
+              title={`일별 시연 (${CHART_DAYS}일)`}
+              aside={metricsMissing ? undefined : <MonoAside>실패 {failed14} · {CHART_DAYS}일</MonoAside>}
+            >
+              {metricsMissing ? <MetricsMissingNotice /> : (
+                <ColumnChart days={days} daily={daily} maxDaily={maxDaily} />
+              )}
+            </Panel>
+          </div>
+          <div className="xl:col-span-4">
+            <Panel
+              title="시연 상태"
+              aside={<MonoAside>대기 {pendingCount} · 진행 {inFlightCount}</MonoAside>}
+            >
+              <StatusBars distribution={distribution} />
+              {recent.length > 0 && (
+                <div className="flex flex-col gap-1.5 mt-4 pt-3" style={{ borderTop: "1px solid var(--border)" }}>
+                  <span className="vf-label" style={{ margin: 0, color: "var(--text-muted)" }}>최근 10건</span>
+                  {recent.map((r) => {
+                    const meta = statusMeta(r.demo_build_status as string);
+                    const failure =
+                      r.demo_build_status === "failed" ? parseDemoFailure(r.demo_build_error) : null;
+                    return (
+                      <div
+                        key={r.id}
+                        className="flex items-center gap-3 text-sm py-1"
+                        style={{ borderBottom: "1px solid var(--border)" }}
+                      >
+                        <span style={{ color: meta.color, fontWeight: 700, width: "2.6rem", flexShrink: 0 }}>
+                          {meta.label}
+                        </span>
+                        <span className="truncate flex-1" style={{ color: "var(--text-primary)" }}>
+                          {r.title ?? "(제목 없음)"}
+                          <span style={{ color: "var(--text-muted)" }}>
+                            {" "}· @{usernameById.get(r.user_id) ?? "?"}
                           </span>
-                          <span className="truncate flex-1" style={{ color: "var(--text-primary)" }}>
-                            {r.title ?? "(제목 없음)"}
-                            <span style={{ color: "var(--text-muted)" }}>
-                              {" "}· @{usernameById.get(r.user_id) ?? "?"}
+                          {failure && (
+                            <span className="vf-mono" style={{ fontSize: "0.68rem", color: "var(--ops-bad)" }}>
+                              {" "}[{failure.code}]
                             </span>
-                            {failure && (
-                              <span className="vf-mono" style={{ fontSize: "0.68rem", color: "var(--ops-bad)" }}>
-                                {" "}[{failure.code}]
-                              </span>
-                            )}
-                          </span>
-                          <span
-                            className="vf-mono shrink-0"
-                            style={{ fontSize: "0.68rem", color: "var(--text-muted)" }}
-                          >
-                            {ago(r.demo_status_changed_at, now)}
-                          </span>
-                        </div>
-                      );
-                    })}
+                          )}
+                        </span>
+                        <span
+                          className="vf-mono shrink-0"
+                          style={{ fontSize: "0.68rem", color: "var(--text-muted)" }}
+                        >
+                          {ago(r.demo_status_changed_at, now)}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </Panel>
+          </div>
+          <div className="xl:col-span-3">
+            <Panel title={`빌드 성공률 (${WINDOW_DAYS}일)`}>
+              {metricsMissing ? <MetricsMissingNotice /> : (
+                <div className="flex flex-col items-center gap-3 py-2">
+                  <RatioRing pct={successRate} />
+                  <div
+                    className="vf-mono text-center"
+                    style={{ fontSize: "0.7rem", color: "var(--text-muted)", fontVariantNumeric: "tabular-nums" }}
+                  >
+                    성공 {succeeded} / 요청 {requested} · 실패 {failed}
                   </div>
-                )}
-              </Panel>
-              <Panel title={`일별 시연 (${CHART_DAYS}일)`}>
-                {metricsMissing ? <MetricsMissingNotice /> : (
-                  <DailyChart days={days} daily={daily} maxDaily={maxDaily} />
-                )}
-              </Panel>
-            </div>
+                </div>
+              )}
+            </Panel>
           </div>
         </div>
+      </section>
 
-        <div className="xl:col-span-3 flex flex-col gap-5 lg:col-span-2">
-          <div>
-            <ColumnTitle>건강 · 성장</ColumnTitle>
-            <div className="flex flex-col gap-5">
-              <Panel title="최근 경보" aside={
-                <span className="vf-mono" style={{ fontSize: "0.68rem", color: "var(--text-muted)" }}>
-                  메일 발송 기준 · 6h 디듑
-                </span>
-              }>
-                <AlertList entries={alertEntries} now={now} />
-              </Panel>
-              <Panel title={`퍼널 (${WINDOW_DAYS}일)`} aside={
-                <span className="vf-mono" style={{ fontSize: "0.68rem", color: "var(--text-muted)" }}>
-                  공유율 {shareRate === null ? "—" : `${shareRate}%`} / 목표 30%
-                </span>
-              }>
-                {metricsMissing ? <MetricsMissingNotice /> : (
-                  <Funnel steps={funnelSteps} max={funnelMax} />
-                )}
-              </Panel>
-              <Panel title="R2 저장소">
-                {storage ? (
-                  <p className="text-sm">
-                    <strong className="vf-serif-display" style={{ fontSize: "1.3rem" }}>
-                      {fmtBytes(storage.bytes)}
-                    </strong>
-                    <span style={{ color: "var(--text-muted)" }}> · 파일 {storage.objects}개</span>
-                  </p>
-                ) : (
-                  <p className="text-sm" style={{ color: "var(--text-muted)" }}>
-                    {storageError
-                      ? "R2 조회에 실패했어요 — Cloudflare 대시보드에서 확인해 주세요."
-                      : "R2 환경변수가 없어요 (Supabase Storage 폴백 사용 중)."}
-                  </p>
-                )}
-              </Panel>
-              <Panel title={`이벤트별 (${WINDOW_DAYS}일)`}>
-                {metricsMissing ? <MetricsMissingNotice /> : <EventBreakdown events={allEvents} />}
-              </Panel>
-            </div>
+      {/* ④ 성장 */}
+      <section>
+        <SectionTitle
+          aside={
+            <MonoAside>
+              {metricsMissing ? "" : `가입 ${signups30} · `}조회 {views.length} · {WINDOW_DAYS}일
+            </MonoAside>
+          }
+        >
+          성장
+        </SectionTitle>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-12 gap-5 items-start mb-5">
+          <div className="xl:col-span-5">
+            <Panel
+              title={`퍼널 (${WINDOW_DAYS}일)`}
+              aside={
+                metricsMissing || overallConv === null ? undefined : (
+                  <MonoAside>가입→공유 {overallConv}%</MonoAside>
+                )
+              }
+            >
+              {metricsMissing ? <MetricsMissingNotice /> : (
+                <Funnel steps={funnelSteps} max={funnelMax} />
+              )}
+            </Panel>
+          </div>
+          <div className="xl:col-span-4">
+            <Panel title="공유 · 확산" aside={<MonoAside>목표 30%</MonoAside>}>
+              {metricsMissing ? <MetricsMissingNotice /> : (
+                <>
+                  <div className="flex items-center gap-4 mb-4">
+                    <RatioRing pct={shareRate} size={96} goal={30} />
+                    <div className="text-sm" style={{ color: "var(--text-secondary)" }}>
+                      성공한 시연 {succeeded}건 중 {shares}건이 공유·다운로드로 이어졌어요.
+                      <div className="vf-mono mt-1" style={{ fontSize: "0.66rem", color: "var(--text-muted)" }}>
+                        링 눈금 = 목표 30%
+                      </div>
+                    </div>
+                  </div>
+                  <RankList rows={topCounts(shareKindCounts, 5)} empty="아직 공유 행동이 없어요." />
+                  {watchTopRows.length > 0 && (
+                    <div className="mt-4">
+                      <div className="vf-label" style={{ color: "var(--text-muted)" }}>watch 귀속 상위</div>
+                      <RankList rows={watchTopRows} empty="" />
+                    </div>
+                  )}
+                </>
+              )}
+            </Panel>
+          </div>
+          <div className="xl:col-span-3">
+            <Panel title="규모">
+              <div className="flex flex-col gap-4">
+                <StatSpark
+                  label="가입자"
+                  value={profileCountRes.count ?? 0}
+                  points={signupSpark}
+                  sub={`최근 ${WINDOW_DAYS}일 +${signups30} · profiles 총계`}
+                />
+                <div style={{ borderTop: "1px solid var(--border)" }} />
+                <StatSpark
+                  label="명함 조회"
+                  value={views.length}
+                  points={viewSpark}
+                  sub={`일별 추이 · ${WINDOW_DAYS}일`}
+                />
+              </div>
+            </Panel>
           </div>
         </div>
-      </div>
-
-      {/* 유입 · 확산 — where visitors come from, where shares go */}
-      <div className="mt-8">
-        <ColumnTitle>유입 · 확산 ({WINDOW_DAYS}일)</ColumnTitle>
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 items-start">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 items-start">
           <Panel
             title="명함 조회 유입"
-            aside={
-              <span className="vf-mono" style={{ fontSize: "0.68rem", color: "var(--text-muted)" }}>
-                조회 {views.length}
-              </span>
-            }
+            aside={<MonoAside>조회 {views.length}</MonoAside>}
           >
-            <RankList
-              rows={topCounts(viewRefCounts, 8)}
-              empty="아직 조회가 없어요."
-            />
+            <RankList rows={topCounts(viewRefCounts, 8)} empty="아직 조회가 없어요." />
           </Panel>
           <Panel title="조회 국가">
-            <RankList
-              rows={topCounts(viewCountryCounts, 8)}
-              empty="아직 조회가 없어요."
-            />
-          </Panel>
-          <Panel title="공유 채널">
-            <RankList
-              rows={topCounts(shareKindCounts, 8)}
-              empty="아직 공유 행동이 없어요."
-            />
-            {watchTopRows.length > 0 && (
-              <div className="mt-4">
-                <div className="vf-label mb-2" style={{ color: "var(--text-muted)" }}>
-                  watch 귀속 상위
-                </div>
-                <RankList rows={watchTopRows} empty="" />
-              </div>
-            )}
+            <RankList rows={topCounts(viewCountryCounts, 8)} empty="아직 조회가 없어요." />
           </Panel>
           <Panel title="가입 유입 소스">
             <RankList
@@ -587,7 +652,19 @@ export default async function AdminPage() {
             />
           </Panel>
         </div>
-      </div>
+        {/* 원본 이벤트 카운트 — 진단용이라 접어 둔다 */}
+        <details className="mt-6" style={{ borderTop: "1px solid var(--border)" }}>
+          <summary
+            className="vf-mono"
+            style={{ fontSize: "0.7rem", color: "var(--text-muted)", cursor: "pointer", padding: "10px 0" }}
+          >
+            이벤트 원본 카운트 ({WINDOW_DAYS}일) · {allEvents.length}종
+          </summary>
+          <div style={{ maxWidth: "560px", paddingBottom: "12px" }}>
+            {metricsMissing ? <MetricsMissingNotice /> : <EventBreakdown events={allEvents} />}
+          </div>
+        </details>
+      </section>
     </main>
   );
 }
