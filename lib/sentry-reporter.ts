@@ -20,7 +20,18 @@ interface SentryLike {
   captureMessage(message: string, hint?: CaptureContext): unknown;
 }
 
-export function wireLoggerToSentry(Sentry: SentryLike): void {
+export function wireLoggerToSentry(
+  Sentry: SentryLike,
+  opts?: {
+    // Runs right after each capture. The serverless entry point uses this to
+    // schedule a transport flush past the response (next/server `after`) —
+    // without it Vercel freezes the function on response end and the buffered
+    // event dies with it (observed: prod watchdog alerts never reached Sentry).
+    // Browser and worker runtimes don't need it: the browser transport sends
+    // immediately and the worker process is long-lived.
+    afterCapture?: () => void;
+  },
+): void {
   setErrorReporter(({ message, error, context }: ErrorReport) => {
     const extra = { logMessage: message, ...context };
     if (error !== undefined) {
@@ -29,5 +40,6 @@ export function wireLoggerToSentry(Sentry: SentryLike): void {
       // No throwable attached — record the message so silent error logs still alert.
       Sentry.captureMessage(message, { level: "error", extra });
     }
+    opts?.afterCapture?.();
   });
 }

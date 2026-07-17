@@ -22,8 +22,22 @@ export async function register() {
     tracesSampleRate: 0,
   });
 
+  const { after } = await import("next/server");
   const { wireLoggerToSentry } = await import("@/lib/sentry-reporter");
-  wireLoggerToSentry(Sentry);
+  wireLoggerToSentry(Sentry, {
+    // Vercel freezes the function the moment the response is done; a captured
+    // event still sitting in the SDK's buffer is lost with it. `after` keeps the
+    // function alive until the flush promise settles. Outside a request scope
+    // (boot, background) `after` throws — fall back to a best-effort flush.
+    afterCapture: () => {
+      const flushed = Sentry.flush(2000).catch(() => false);
+      try {
+        after(flushed);
+      } catch {
+        // no request scope — the promise still runs, just without a keep-alive
+      }
+    },
+  });
 }
 
 // Next calls this for uncaught server errors (Server Components, route handlers,
@@ -32,4 +46,6 @@ export const onRequestError: Instrumentation.onRequestError = async (err, reques
   if (!enabled()) return;
   const Sentry = await import("@sentry/nextjs");
   Sentry.captureRequestError(err, request, context);
+  // Same freeze hazard as above — Next awaits this hook, so flush inline.
+  await Sentry.flush(2000).catch(() => {});
 };
