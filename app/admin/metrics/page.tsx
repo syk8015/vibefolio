@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isAdminEmail } from "@/lib/demoQuota";
 import { AnalyticsEvent } from "@/lib/analytics-events";
+import { StatCard } from "../StatCard";
 
 // Product analytics panel (P0.2). Reuses the /admin email gate; 404s to everyone
 // else. Aggregates raw analytics_events in TS — fine at this volume, no SQL view
@@ -88,9 +89,14 @@ export default async function AdminMetricsPage() {
     >
       <div className="flex items-center justify-between mb-1">
         <h1 className="vf-serif-display text-2xl">지표</h1>
-        <Link href="/admin" className="text-sm vf-mono" style={{ color: "var(--text-muted)" }}>
-          승인 대기 →
-        </Link>
+        <div className="flex gap-4">
+          <Link href="/admin" className="text-sm vf-mono" style={{ color: "var(--text-muted)" }}>
+            승인 대기 →
+          </Link>
+          <Link href="/admin/ops" className="text-sm vf-mono" style={{ color: "var(--text-muted)" }}>
+            관제 →
+          </Link>
+        </div>
       </div>
       <p className="text-sm mb-8" style={{ color: "var(--text-secondary)" }}>
         최근 {WINDOW_DAYS}일. 서버 권위 지표(요청·성공·실패)는 정확하고, 클라이언트 지표는 최선 노력이에요.
@@ -228,33 +234,5 @@ export default async function AdminMetricsPage() {
         </>
       )}
     </main>
-  );
-}
-
-function StatCard({
-  label,
-  value,
-  hint,
-  accent,
-}: {
-  label: string;
-  value: string | number;
-  hint?: string;
-  accent?: boolean;
-}) {
-  return (
-    <div className={accent ? "vf-card-accent p-4" : "vf-card p-4"}>
-      <div className="vf-label" style={{ color: "var(--text-muted)" }}>
-        {label}
-      </div>
-      <div className="vf-serif-display" style={{ fontSize: "1.6rem", lineHeight: 1.1, marginTop: "0.35rem" }}>
-        {value}
-      </div>
-      {hint && (
-        <div className="vf-mono" style={{ fontSize: "0.68rem", color: "var(--text-muted)", marginTop: "0.2rem" }}>
-          {hint}
-        </div>
-      )}
-    </div>
   );
 }

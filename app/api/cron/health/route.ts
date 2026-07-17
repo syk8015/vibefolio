@@ -55,6 +55,31 @@ export async function GET(req: NextRequest) {
 
   const alerts: string[] = [];
 
+  // ── 0. Stamp cron liveness ──────────────────────────────────────────────────
+  // The external cron leaves no DB trace on a healthy tick, so /admin/ops would
+  // have nothing to show for "is the cron alive?". Reserve a "_cron_last_tick"
+  // key inside alerts_state (values are ISO dates like real alert entries, so the
+  // TTL sweep in emailWatchdogAlert keeps it). Best-effort: a missing column
+  // (migration pending) must not break the health checks below.
+  {
+    const { data: st } = await admin
+      .from("system_status")
+      .select("alerts_state")
+      .eq("id", "singleton")
+      .single();
+    if (st) {
+      await admin
+        .from("system_status")
+        .update({
+          alerts_state: {
+            ...((st.alerts_state ?? {}) as Record<string, string>),
+            _cron_last_tick: new Date(now).toISOString(),
+          },
+        })
+        .eq("id", "singleton");
+    }
+  }
+
   // ── 1. Reap in-flight jobs stuck past the cutoff ────────────────────────────
   let reaped = 0;
   const { data: stuck, error: stuckErr } = await admin

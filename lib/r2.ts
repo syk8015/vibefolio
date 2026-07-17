@@ -81,6 +81,28 @@ export async function uploadToR2(
   return r2PublicUrl(key);
 }
 
+// Whole-bucket usage for the admin ops console. A full ListObjectsV2 walk —
+// fine at current scale (a handful of demos, ~2 objects each); revisit with a
+// cached rollup if the bucket ever grows past tens of thousands of objects.
+export async function r2Usage(): Promise<{ objects: number; bytes: number }> {
+  const c = client();
+  const bucket = env().bucket;
+  let objects = 0;
+  let bytes = 0;
+  let token: string | undefined;
+  do {
+    const list = await c.send(
+      new ListObjectsV2Command({ Bucket: bucket, ContinuationToken: token }),
+    );
+    for (const o of list.Contents ?? []) {
+      objects++;
+      bytes += o.Size ?? 0;
+    }
+    token = list.IsTruncated ? list.NextContinuationToken : undefined;
+  } while (token);
+  return { objects, bytes };
+}
+
 // List + delete every object under a prefix. Idempotent (no-op on an empty prefix).
 // Used to clean up a project's demo assets on project deletion.
 export async function deleteR2Prefix(prefix: string): Promise<number> {

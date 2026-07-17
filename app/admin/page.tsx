@@ -63,9 +63,14 @@ export default async function AdminPage() {
     >
       <div className="flex items-center justify-between mb-1">
         <h1 className="vf-serif-display text-2xl">시연 영상 승인 대기</h1>
-        <Link href="/admin/metrics" className="text-sm vf-mono" style={{ color: "var(--text-muted)" }}>
-          지표 →
-        </Link>
+        <div className="flex gap-4">
+          <Link href="/admin/metrics" className="text-sm vf-mono" style={{ color: "var(--text-muted)" }}>
+            지표 →
+          </Link>
+          <Link href="/admin/ops" className="text-sm vf-mono" style={{ color: "var(--text-muted)" }}>
+            관제 →
+          </Link>
+        </div>
       </div>
       <p className="text-sm mb-8" style={{ color: "var(--text-secondary)" }}>
         재촬영 요청과 하루 한도 초과 보류 건이에요. 승인하면 바로 촬영 대기열로 들어가요.
