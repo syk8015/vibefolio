@@ -375,15 +375,24 @@
   scrim.addEventListener('click', function(e){ if(e.target===scrim) closeModal(); });
 
   // ── Rail active-step + scroll-reveal stats ───────────────────
+  // 2026-07-18 take verdict: last-entry-wins scrollspy let the NEIGHBOR section
+  // steal aria-current right after a rail click (clicked "2" while "3" lit — the
+  // 3-way cursor/highlight/active mismatch on film). Now a click sets the active
+  // state itself and locks the spy until the smooth scroll settles; when the spy
+  // runs, it picks the MOST-VISIBLE section instead of the last-reported one.
   var steps=[].slice.call(document.querySelectorAll('.steps li'));
-  steps.forEach(function(li){ li.addEventListener('click', function(){
+  function setActive(idx){ steps.forEach(function(s){ s.setAttribute('aria-current','false'); }); if(steps[idx]) steps[idx].setAttribute('aria-current','true'); }
+  var spyLockUntil=0;
+  steps.forEach(function(li,idx){ li.addEventListener('click', function(){
+    setActive(idx);
+    spyLockUntil=Date.now()+900; // ignore the observer while the click-scroll flies
     document.getElementById(li.dataset.target).scrollIntoView({behavior:'smooth'});
   });});
   var revealed=false;
+  var ratios={};
   var io=new IntersectionObserver(function(ents){
     ents.forEach(function(en){
-      var idx = steps.findIndex(function(s){ return s.dataset.target===en.target.id; });
-      if(en.isIntersecting && idx>-1){ steps.forEach(function(s){ s.setAttribute('aria-current','false'); }); steps[idx].setAttribute('aria-current','true'); }
+      ratios[en.target.id]=en.isIntersecting?en.intersectionRatio:0;
       if(en.target.id==='sec-review' && en.isIntersecting && !revealed){
         revealed=true;
         document.querySelectorAll('.stat .big').forEach(function(n){
@@ -394,7 +403,11 @@
         document.querySelectorAll('.bar > i').forEach(function(b){ b.style.width=b.dataset.w; });
       }
     });
-  },{threshold:.4});
+    if(Date.now()<spyLockUntil) return;
+    var best=-1, bestR=0;
+    steps.forEach(function(s,idx){ var r=ratios[s.dataset.target]||0; if(r>bestR){bestR=r; best=idx;} });
+    if(best>-1) setActive(best);
+  },{threshold:[.15,.4,.7]});
   ['sec-capture','sec-organize','sec-focus','sec-review'].forEach(function(id){ io.observe(document.getElementById(id)); });
 })();
 </script>
