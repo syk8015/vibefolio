@@ -15,6 +15,7 @@
 import { Sandbox } from "e2b";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { DEMO_BUCKET } from "./config";
+import { BuildFailedError, NotAWebappError } from "./errors";
 
 // Single-quote a value so it is always exactly ONE shell argument, regardless of
 // metacharacters (same sink-hardening as the cloud task: a repo URL like
@@ -98,6 +99,64 @@ async function collectRepoFiles(
   return files;
 }
 
+// Serve a static directory (no build step) on the same public port the recorder
+// hits. Uses a dependency-free Node http server written into the sandbox — no
+// `npx` download, works offline. index.html is the directory default.
+async function serveStatic(
+  sandbox: Sandbox,
+  serveDir: string,
+  repoFiles: Record<string, string>,
+): Promise<BuiltApp> {
+  const server = `
+const http=require('http'),fs=require('fs'),path=require('path'),root=${JSON.stringify(serveDir)};
+const MIME={'.html':'text/html; charset=utf-8','.css':'text/css','.js':'application/javascript','.mjs':'application/javascript','.json':'application/json','.svg':'image/svg+xml','.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.gif':'image/gif','.webp':'image/webp','.ico':'image/x-icon','.woff':'font/woff','.woff2':'font/woff2','.ttf':'font/ttf'};
+http.createServer((req,res)=>{
+  let p=decodeURIComponent(req.url.split('?')[0]);
+  if(p.endsWith('/'))p+='index.html';
+  const f=path.normalize(path.join(root,p));
+  if(!f.startsWith(root)){res.writeHead(403);return res.end('forbidden');}
+  fs.readFile(f,(e,b)=>{
+    if(e){ // SPA-ish fallback: unknown path → root index.html
+      fs.readFile(path.join(root,'index.html'),(e2,b2)=>{ if(e2){res.writeHead(404);return res.end('not found');} res.writeHead(200,{'Content-Type':'text/html; charset=utf-8'});res.end(b2); });
+      return;
+    }
+    res.writeHead(200,{'Content-Type':MIME[path.extname(f).toLowerCase()]||'application/octet-stream'});res.end(b);
+  });
+}).listen(${DEV_PORT},'0.0.0.0',()=>console.log('static server up'));
+`;
+  await sandbox.files.write("/tmp/static-server.js", server);
+  await sandbox.commands.run(
+    `${NODE_PATH_PREFIX}node /tmp/static-server.js > /tmp/dev.log 2>&1`,
+    { background: true },
+  );
+  const host = sandbox.getHost(DEV_PORT);
+  const url = `https://${host}`;
+  const deadline = Date.now() + READY_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+      if (res.status < 500) break;
+    } catch {
+      /* not up yet */
+    }
+    await new Promise((r) => setTimeout(r, 1000));
+  }
+  try {
+    await sandbox.setTimeout(SERVE_EXTENSION_MS);
+  } catch {
+    /* older SDK / transient — initial budget usually suffices */
+  }
+  console.log(`[build] static server reachable: ${url}`);
+  return {
+    url,
+    sandboxId: sandbox.sandboxId,
+    repoFiles,
+    close: async () => {
+      await sandbox.kill().catch(() => {});
+    },
+  };
+}
+
 // Build the source in a sandbox and serve it on a public URL. Caller MUST call
 // close() when the recording is done (also safe to call on failure paths).
 export async function buildAndServe(
@@ -122,7 +181,7 @@ export async function buildAndServe(
       if (clone.exitCode !== 0) {
         // Fail HERE with the real reason (audit C-G1) — before this, a bad URL /
         // private repo coasted to a vague "dev server not reachable" 90s later.
-        throw new Error(`git clone failed (exit ${clone.exitCode}): ${(clone.stderr || clone.stdout || "").slice(-300)}`);
+        throw new BuildFailedError(`git clone failed (exit ${clone.exitCode}): ${(clone.stderr || clone.stdout || "").slice(-300)}`);
       }
     } else {
       // zip: supabase storage prefix 아래 모든 파일을 받아 샌드박스에 펼친다.
@@ -166,6 +225,31 @@ export async function buildAndServe(
     const repoFiles = await collectRepoFiles(sandbox, repoPath);
     console.log(`[build] policy scan: ${Object.keys(repoFiles).length} env/config files`);
 
+    // Static-vs-build decision (2026-07-19, input matrix gap #1). zip already gets
+    // this on the web side via package.json, but github ALWAYS reached here and
+    // ran `npm run dev` — a static-HTML repo (the most common vibe-coder upload:
+    // "I pushed my Claude artifact") had no dev script and died "not reachable".
+    // Buildable = package.json with a dev/start script; otherwise serve statically
+    // if there's any HTML, else it isn't a web app at all.
+    const hasDevScript = await sandbox.commands
+      .run(`test -f ${repoPath}/package.json && node -e "const s=require('${repoPath}/package.json').scripts||{};process.exit(s.dev||s.start?0:1)"`)
+      .then((r) => r.exitCode === 0)
+      .catch(() => false);
+
+    if (!hasDevScript) {
+      // Find the shallowest index.html (root, or dist/build/public/ from a checked-in build).
+      const found = await sandbox.commands.run(
+        `find ${repoPath} -maxdepth 3 -name index.html -not -path '*/node_modules/*' -printf '%d %p\\n' 2>/dev/null | sort -n | head -1 | cut -d' ' -f2-`,
+      );
+      const indexPath = found.stdout.trim();
+      if (!indexPath) {
+        throw new NotAWebappError("no dev script and no index.html — nothing to serve");
+      }
+      const serveDir = indexPath.replace(/\/index\.html$/, "");
+      console.log(`[build] static site (no dev script) → serving ${serveDir}`);
+      return await serveStatic(sandbox, serveDir, repoFiles);
+    }
+
     const install = await sandbox.commands.run(
       `${NODE_PATH_PREFIX}cd ${repoPath} && npm install --no-audit --no-fund --prefer-offline`,
       { timeoutMs: INSTALL_TIMEOUT_MS },
@@ -173,7 +257,7 @@ export async function buildAndServe(
     console.log(`[build] npm install exit ${install.exitCode}`);
     if (install.exitCode !== 0) {
       // Same principle as the clone check (audit C-G2).
-      throw new Error(`npm install failed (exit ${install.exitCode}): ${(install.stderr || install.stdout || "").slice(-300)}`);
+      throw new BuildFailedError(`npm install failed (exit ${install.exitCode}): ${(install.stderr || install.stdout || "").slice(-300)}`);
     }
 
     // The public host is known before the server starts; hand it to Vite's
@@ -214,7 +298,7 @@ export async function buildAndServe(
     }
     if (!ready) {
       const tail = await sandbox.commands.run("tail -80 /tmp/dev.log");
-      throw new Error(
+      throw new BuildFailedError(
         `Dev server did not become reachable within ${READY_TIMEOUT_MS / 1000}s (${lastNote}).\n--- dev.log tail ---\n${tail.stdout}`,
       );
     }

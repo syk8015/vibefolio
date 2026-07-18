@@ -1203,7 +1203,7 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
 
     const totalSize = entries.reduce((acc, e) => acc + e.data.size, 0);
     if (totalSize > MAX_UPLOAD_BYTES) {
-      setUploadError(`총 파일 크기가 10MB를 초과해요. (현재 ${(totalSize / 1024 / 1024).toFixed(1)}MB)`);
+      setUploadError(`총 파일 크기가 25MB를 초과해요. (현재 ${(totalSize / 1024 / 1024).toFixed(1)}MB)`);
       setUploading(false);
       return;
     }
@@ -1228,9 +1228,14 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
 
     if (indexHtmlStoragePath) {
       setForm(prev => ({ ...prev, demo_url: `/api/preview/${indexHtmlStoragePath}` }));
+      setUploading(false);
+      setUploadDone(true);
+    } else {
+      // No HTML → demo_url stays empty and the trigger silently no-ops. Tell the
+      // user instead of letting them wonder why nothing happened (input matrix #2).
+      setUploading(false);
+      setUploadError("웹페이지(HTML) 파일이 없어요. 자동 시연은 브라우저에 뜨는 화면을 촬영해요 — index.html이 포함됐는지 확인해 주세요.");
     }
-    setUploading(false);
-    setUploadDone(true);
   }
 
   function toggleTool(id: string) {
@@ -1431,7 +1436,7 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
                       </button>
                     </div>
                     <p className="text-xs text-center" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", maxWidth: 520, lineHeight: 1.65 }}>
-                      React/Vue/Vite는 <code className="vf-mono" style={{ background: "var(--surface)", padding: "1px 5px", borderRadius: 4, fontSize: "0.7rem" }}>npm run build</code> 후 생성된 <code className="vf-mono" style={{ background: "var(--surface)", padding: "1px 5px", borderRadius: 4, fontSize: "0.7rem" }}>dist/</code> 폴더를 올려주세요. 순수 HTML/CSS/JS는 그대로, <code className="vf-mono" style={{ background: "var(--surface)", padding: "1px 5px", borderRadius: 4, fontSize: "0.7rem" }}>.zip</code>도 가능. 최대 10MB
+                      React/Vue/Vite는 <code className="vf-mono" style={{ background: "var(--surface)", padding: "1px 5px", borderRadius: 4, fontSize: "0.7rem" }}>npm run build</code> 후 생성된 <code className="vf-mono" style={{ background: "var(--surface)", padding: "1px 5px", borderRadius: 4, fontSize: "0.7rem" }}>dist/</code> 폴더를 올려주세요. 순수 HTML/CSS/JS는 그대로, <code className="vf-mono" style={{ background: "var(--surface)", padding: "1px 5px", borderRadius: 4, fontSize: "0.7rem" }}>.zip</code>도 가능. 최대 25MB
                     </p>
                     {uploading && (
                       <div className="w-full max-w-md flex flex-col gap-2 mt-1">
@@ -1908,7 +1913,7 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
                       </button>
                     </div>
                     <p className="text-xs text-center" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", maxWidth: 520, lineHeight: 1.65 }}>
-                      React/Vue/Vite는 <code className="vf-mono" style={{ background: "var(--surface)", padding: "1px 5px", borderRadius: 4, fontSize: "0.7rem" }}>npm run build</code> 후 생성된 <code className="vf-mono" style={{ background: "var(--surface)", padding: "1px 5px", borderRadius: 4, fontSize: "0.7rem" }}>dist/</code> 폴더를 올려주세요. 순수 HTML/CSS/JS는 그대로, <code className="vf-mono" style={{ background: "var(--surface)", padding: "1px 5px", borderRadius: 4, fontSize: "0.7rem" }}>.zip</code>도 가능. 최대 10MB
+                      React/Vue/Vite는 <code className="vf-mono" style={{ background: "var(--surface)", padding: "1px 5px", borderRadius: 4, fontSize: "0.7rem" }}>npm run build</code> 후 생성된 <code className="vf-mono" style={{ background: "var(--surface)", padding: "1px 5px", borderRadius: 4, fontSize: "0.7rem" }}>dist/</code> 폴더를 올려주세요. 순수 HTML/CSS/JS는 그대로, <code className="vf-mono" style={{ background: "var(--surface)", padding: "1px 5px", borderRadius: 4, fontSize: "0.7rem" }}>.zip</code>도 가능. 최대 25MB
                     </p>
                     {uploading && (
                       <div className="w-full max-w-md flex flex-col gap-2 mt-1">
@@ -2206,7 +2211,7 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
                 style={{ background: "var(--surface-soft)" }}>
                 <div className="text-3xl">📂</div>
                 <p className="text-xs text-center" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
-                  HTML, CSS, JS, 이미지 파일 지원 · 최대 10MB
+                  HTML, CSS, JS, 이미지 파일 지원 · 최대 25MB
                 </p>
                 <div className="flex gap-2">
                   <button type="button" onClick={() => fileInputRef.current?.click()}

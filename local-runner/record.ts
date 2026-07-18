@@ -6,6 +6,7 @@ import { spawn, type ChildProcess } from "node:child_process";
 import type { Page } from "playwright-core";
 import { SCREEN_DEVICE_INDEX, FPS } from "./config";
 import { run } from "./util";
+import { BlankCaptureError } from "./errors";
 
 export type CropRect = { x: number; y: number; w: number; h: number };
 export type CropInfo = CropRect & {
@@ -118,9 +119,13 @@ export async function assertRawHasContent(rawPath: string): Promise<void> {
   }
   const spread = Math.max(...maxs) - Math.min(...mins);
   if (spread < 40) {
-    throw new Error(
-      `capture looks blank (luminance spread ${spread.toFixed(0)} < 40) — ` +
-        "screen-recording permission (TCC) or capture surface is broken; refusing to ship",
+    // Blank frames = either an empty/placeholder USER PAGE (the common case — we
+    // classify it as "blank" for the user) or a broken capture surface / revoked
+    // TCC (rarer — visible to the operator in logs). The message stays honest
+    // about both; the code maps to the user-facing "blank" copy.
+    throw new BlankCaptureError(
+      `capture rendered nothing (luminance spread ${spread.toFixed(0)} < 40) — ` +
+        "the page is blank/placeholder, or (rarely) screen-recording (TCC)/capture is broken",
     );
   }
 }

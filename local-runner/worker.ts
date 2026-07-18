@@ -30,7 +30,10 @@ import { formatDemoFailure, DEMO_FAILURE_COPY, type DemoFailureCode } from "../l
 import { sendEmail, isEmailConfigured, alertRecipients } from "../lib/email";
 import { demoReadyEmail, demoFailedEmail, adminAlertEmail, posterFromDemoUrl, SITE_URL } from "../lib/email-templates";
 import { fetchUsername } from "./upload";
-import { CreditExhaustedError, TransientApiError, CREDIT_HOLD_MARKER } from "./errors";
+import {
+  CreditExhaustedError, TransientApiError, CREDIT_HOLD_MARKER,
+  BuildFailedError, NotAWebappError, BlankCaptureError,
+} from "./errors";
 
 // This worker is the single-machine SPOF for the whole demo pipeline, so it wires
 // Sentry directly (it does not use lib/logger). Gated on DSN only — NOT on
@@ -454,18 +457,29 @@ async function processOne(row: PendingRow) {
     }
     const message = err instanceof Error ? err.message : String(err);
     const timedOut = err instanceof JobTimeoutError;
-    console.error(`[worker] job ${row.id} failed: ${message}`);
+    // Classify by error type so the dashboard shows a cause-specific message
+    // instead of the generic "error" (2026-07-19 input matrix).
+    const code = timedOut
+      ? "timeout"
+      : err instanceof BuildFailedError
+        ? "build-failed"
+        : err instanceof NotAWebappError
+          ? "not-a-webapp"
+          : err instanceof BlankCaptureError
+            ? "blank"
+            : "error";
+    console.error(`[worker] job ${row.id} failed (${code}): ${message}`);
     Sentry.captureException(err, {
       extra: { projectId: row.id, sourceType: row.demo_source_type },
     });
     await trackAnalytics(AnalyticsEvent.DemoFailed, row.user_id, {
       projectId: row.id,
       sourceType: row.demo_source_type,
-      reason: timedOut ? "timeout" : "error",
+      reason: code,
       message,
     });
-    await markFailed(row.id, formatDemoFailure(timedOut ? "timeout" : "error", message));
-    await notifyDemoFailed(row, timedOut ? "timeout" : "error");
+    await markFailed(row.id, formatDemoFailure(code, message));
+    await notifyDemoFailed(row, code);
     if (timedOut) {
       // The job is marked failed; now exit so launchd restarts a clean worker and
       // the hung child processes (browser/ffmpeg) die with us.

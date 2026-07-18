@@ -1,0 +1,48 @@
+- generic [active] [ref=f9e1]:
+  - main [ref=f9e2]:
+    - generic [ref=f9e3]:
+      - navigation [ref=f9e4]:
+        - link [ref=f9e5] [cursor=pointer]:
+          - /url: /
+        - generic [ref=f9e8]:
+          - button "라이트 모드로 전환" [ref=f9e9] [cursor=pointer]
+          - link "로그인" [ref=f9e16] [cursor=pointer]:
+            - /url: /login
+          - link "시작하기" [ref=f9e17] [cursor=pointer]:
+            - /url: /signup
+      - heading [level=1] [ref=f9e18]
+    - generic [ref=f9e20]:
+      - generic [ref=f9e21]:
+        - paragraph [ref=f9e22]:
+          - generic [ref=f9e23]: Q01
+        - generic [ref=f9e26]:
+          - generic [ref=f9e27]: →
+          - paragraph [ref=f9e28]
+      - generic [ref=f9e31]:
+        - paragraph [ref=f9e32]:
+          - generic [ref=f9e33]: Q02
+        - generic [ref=f9e36]:
+          - generic [ref=f9e37]: →
+          - paragraph [ref=f9e38]
+      - generic [ref=f9e41]:
+        - paragraph [ref=f9e42]:
+          - generic [ref=f9e43]: Q03
+        - generic [ref=f9e46]:
+          - generic [ref=f9e47]: →
+          - paragraph [ref=f9e48]
+      - generic [ref=f9e51]:
+        - paragraph [ref=f9e52]:
+          - generic [ref=f9e53]: Q04
+        - generic [ref=f9e56]:
+          - generic [ref=f9e57]: →
+          - paragraph [ref=f9e58]
+    - generic [ref=f9e61]:
+      - link "이용약관" [ref=f9e62] [cursor=pointer]:
+        - /url: /terms
+      - link "개인정보처리방침" [ref=f9e63] [cursor=pointer]:
+        - /url: /privacy
+      - link "문의" [ref=f9e64] [cursor=pointer]:
+        - /url: mailto:vivestarter@gmail.com
+      - generic [ref=f9e65]: © 2026 Nookframe
+  - button "Open Next.js Dev Tools" [ref=f9e71] [cursor=pointer]
+  - alert [ref=f9e75]

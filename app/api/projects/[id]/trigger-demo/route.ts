@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { tasks } from "@trigger.dev/sdk";
 import { createClient } from "@/lib/supabase/server";
-import { detectDemoSource } from "@/lib/demoSource";
+import { detectDemoSource, liveUrlIssue } from "@/lib/demoSource";
 import { resolveBuildPayload } from "@/lib/demoPayload";
+import { assertSafePublicUrl, SsrfError } from "@/lib/ssrf";
 import { apiError } from "@/lib/apiError";
 import { trackServerEvent } from "@/lib/analytics";
 import { AnalyticsEvent } from "@/lib/analytics-events";
@@ -51,6 +52,41 @@ export async function POST(
         message: "자동 시연을 만들 수 없는 소스예요.",
         code: "UNSUPPORTED_SOURCE",
       });
+    }
+
+    // Guard external live URLs (not our own /api/preview uploads): a content host
+    // pasted into the demo field would film someone else's site, and a private /
+    // localhost address would point the recorder at itself or an internal host.
+    if (source.type === "live_url" && !source.value.startsWith("/api/preview/")) {
+      const issue = liveUrlIssue(source.value);
+      if (issue?.kind === "content-host") {
+        return apiError({
+          status: 400,
+          code: "CONTENT_HOST",
+          message: `${issue.host}는 자동 시연으로 촬영하는 '내 작품' 주소가 아니에요. 영상 링크라면 '영상 URL' 칸에 넣어주세요.`,
+        });
+      }
+      if (issue?.kind === "private-host") {
+        return apiError({
+          status: 400,
+          code: "PRIVATE_HOST",
+          message: "localhost나 내부 주소는 촬영할 수 없어요. 공개로 접속되는 배포 URL로 올려주세요.",
+        });
+      }
+      // Full SSRF defense: DNS-resolve the host and reject any private/reserved IP
+      // (catches domains that resolve inward, decimal/hex IP notations, etc.).
+      try {
+        await assertSafePublicUrl(source.value);
+      } catch (e) {
+        if (e instanceof SsrfError) {
+          return apiError({
+            status: 400,
+            code: "PRIVATE_HOST",
+            message: "공개 인터넷에서 접속되는 주소가 아니에요. 배포된 공개 URL로 올려주세요.",
+          });
+        }
+        throw e;
+      }
     }
 
     // Uploaded projects need a build (zip) vs static-serve (live_url) decision;

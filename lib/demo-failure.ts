@@ -13,6 +13,9 @@ export const DEMO_FAILURE_CODES = [
   "timeout", // job hit the worker's hard timeout
   "interrupted", // worker restarted mid-job (startup recovery)
   "stuck", // health-cron reaped a row stuck in-flight
+  "build-failed", // github/zip build broke (clone/install/dev server)
+  "not-a-webapp", // nothing serveable — no web page, or backend-only repo
+  "blank", // page loaded but rendered nothing (empty/placeholder)
   "error", // anything else (raw pipeline message follows)
 ] as const;
 
@@ -54,6 +57,18 @@ export const DEMO_FAILURE_COPY: Record<DemoFailureCode, { title: string; body: s
   stuck: {
     title: "생성이 오래 걸려 중단됐어요",
     body: "예상보다 오래 걸려 자동으로 멈췄어요. 한 번 더 시도해 주시고, 반복되면 사이트가 정상 접속되는지 확인해 주세요.",
+  },
+  "build-failed": {
+    title: "프로젝트를 빌드하지 못했어요",
+    body: "코드를 설치하거나 실행하는 중에 멈췄어요. 로컬에서 npm install · npm run dev가 잘 되는지 확인하거나, 빌드된 결과물(dist 폴더)이나 배포된 URL로 올려주세요.",
+  },
+  "not-a-webapp": {
+    title: "보여줄 웹 화면을 찾지 못했어요",
+    body: "웹페이지(HTML)가 없는 것 같아요. 자동 시연은 브라우저에 뜨는 화면을 촬영해요. 웹앱이라면 index.html이 포함됐는지, 백엔드·CLI 프로젝트라면 시연 촬영 대상이 아닌지 확인해 주세요.",
+  },
+  blank: {
+    title: "화면에 아무것도 나오지 않았어요",
+    body: "페이지는 열렸는데 아직 아무것도 그려지지 않았어요. 만들다 만 빈 화면이거나 로딩이 끝나지 않은 것 같아요. 화면에 뭔가 보이는 상태로 다시 올려주세요.",
   },
   error: {
     title: "촬영 중 문제가 생겼어요",

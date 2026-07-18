@@ -41,11 +41,23 @@ export async function runJob(job: JobInput): Promise<JobOutcome> {
 
     if (job.sourceType === "live_url") {
       // The route sanitized this before storing, but the worker consumes DB rows —
-      // re-validate the protocol at the sink so a tampered row can't make the
-      // recorder navigate to file:// or an arbitrary scheme.
+      // re-validate at the sink so a tampered row can't make the recorder navigate
+      // to file://, an arbitrary scheme, or (belt-and-suspenders to the route's
+      // full SSRF check) an obvious localhost/private literal on THIS machine.
+      // /api/preview uploads are our own origin — skip the host check for them.
       const parsed = new URL(job.sourceValue);
       if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
         throw new Error(`live_url must be http(s), got '${parsed.protocol}'`);
+      }
+      if (!job.sourceValue.includes("/api/preview/")) {
+        const h = parsed.hostname.toLowerCase().replace(/^\[/, "").replace(/\]$/, "");
+        const v4 = h.match(/^(\d{1,3})\.(\d{1,3})\.\d{1,3}\.\d{1,3}$/);
+        const priv = h === "localhost" || h.endsWith(".local") || h === "::1" ||
+          (!!v4 && (() => { const a = +v4[1], b = +v4[2];
+            return a === 10 || a === 127 || a === 0 ||
+              (a === 192 && b === 168) || (a === 172 && b >= 16 && b <= 31) ||
+              (a === 169 && b === 254) || (a === 100 && b >= 64 && b <= 127); })());
+        if (priv) throw new Error(`refusing to record a private/local host: ${h}`);
       }
       url = job.sourceValue;
       policy = job.policyOverride ?? "read-only";

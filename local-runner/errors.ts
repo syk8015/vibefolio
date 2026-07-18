@@ -8,6 +8,13 @@
 
 export class CreditExhaustedError extends Error {}
 
+// Classified pipeline failures (2026-07-19, input matrix). worker.ts maps each to
+// a demo_build_error code so the dashboard shows a cause-specific message instead
+// of the generic "error".
+export class BuildFailedError extends Error {} // clone/install/dev-server broke
+export class NotAWebappError extends Error {} // nothing serveable (no html / backend-only)
+export class BlankCaptureError extends Error {} // page rendered nothing
+
 // Sustained-but-temporary API outage (429/529/5xx that survived all in-call
 // retries, or repeated network failures). Not the user's fault and not
 // permanent: worker.ts requeues the job WITHOUT burning a session attempt
