@@ -10,7 +10,7 @@
 // recording): the piecewise-static states (text length × cursor phase) are
 // screenshotted once each, expanded to a numbered frame sequence, and encoded
 // with the same args as the body so the concat can stream-copy.
-import { copyFile, mkdir } from "node:fs/promises";
+import { copyFile, mkdir, rm } from "node:fs/promises";
 import { chromium } from "playwright-core";
 import { run } from "./util";
 
@@ -120,7 +120,11 @@ export async function renderEndcapVideo(opts: {
   };
 
   // ── raster unique states, expand to the frame sequence ──────────────────────
+  // Wipe stale frames from a previous take: the image2 demuxer reads EVERY
+  // consecutive f%06d.png, so a shorter word would silently inherit the tail
+  // of a longer earlier render.
   const framesDir = `${outDir}/endcap-frames`;
+  await rm(framesDir, { recursive: true, force: true });
   await mkdir(framesDir, { recursive: true });
   const frameCount = Math.ceil(durationSec * fps);
 

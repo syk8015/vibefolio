@@ -14,7 +14,7 @@
 // endcap frames are rasterized in a headless Chrome (endcap.ts) and appended with
 // `concat`. The endcap is best-effort — any failure ships the plain film rather
 // than failing the take.
-import { writeFile } from "node:fs/promises";
+import { copyFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import type { CameraEvent } from "./camera";
 import { buildZoomFilter, coalescePans } from "./camera";
@@ -114,13 +114,31 @@ export async function postprocess(input: PostInput): Promise<{
     baseChain = `scale=${outW}:${outH}:flags=lanczos`;
   }
 
-  // ── endcap (best-effort) ─────────────────────────────────────────────────────
+  // ── body (always) ────────────────────────────────────────────────────────────
+  // The body IS the plain film (chip removed 2026-07-18 — clean film body).
+  // Encode it once, unconditionally, so a body failure surfaces as its own error
+  // instead of masquerading as an endcap failure — and the endcap fallback below
+  // needs no second identical encode.
   const handle = "@" + username;
   const bodyPath = `${outDir}/body.mp4`;
-  let usedEndcap = false;
-  let posterSource = outPath;
+  await ff(
+    [
+      "-y",
+      "-i", rawPath,
+      "-vf", `${baseChain},fade=t=out:st=${fadeOutStart}:d=0.5,format=yuv420p`,
+      "-t", clipLen.toFixed(2),
+      ...ENCODE_ARGS,
+      "-movflags", "+faststart",
+      bodyPath,
+    ],
+    360_000,
+    "body",
+  );
+  const posterSource = bodyPath; // grab the poster from the film, not the endcap
+
+  // ── endcap (best-effort) ─────────────────────────────────────────────────────
+  // Typing brand scene (dark, matches the body's fade-to-black → no cream flash).
   try {
-    // Typing brand scene (dark, matches the body's fade-to-black → no cream flash).
     const { endcapPath } = await renderEndcapVideo({
       handle,
       width: outW,
@@ -129,49 +147,13 @@ export async function postprocess(input: PostInput): Promise<{
       outDir,
       encodeArgs: ENCODE_ARGS,
     });
-
-    // Body: base chain → fade out (chip removed 2026-07-18 — clean film body).
-    await ff(
-      [
-        "-y",
-        "-i", rawPath,
-        "-vf", `${baseChain},fade=t=out:st=${fadeOutStart}:d=0.5,format=yuv420p`,
-        "-t", clipLen.toFixed(2),
-        ...ENCODE_ARGS,
-        "-movflags", "+faststart",
-        bodyPath,
-      ],
-      360_000,
-      "body",
-    );
-
     await concatSegments(bodyPath, endcapPath, outPath, outDir);
-    usedEndcap = true;
-    posterSource = bodyPath; // grab the poster from the film, not the endcap
   } catch (e) {
     console.error(
       "[postprocess] endcap failed (non-fatal), shipping plain film:",
       (e as Error).message,
     );
-    usedEndcap = false;
-  }
-
-  // Plain film (no endcap): single pass straight to outPath (legacy behaviour).
-  if (!usedEndcap) {
-    await ff(
-      [
-        "-y",
-        "-i", rawPath,
-        "-vf", `${baseChain},fade=t=out:st=${fadeOutStart}:d=0.5`,
-        "-t", clipLen.toFixed(2),
-        ...ENCODE_ARGS,
-        "-movflags", "+faststart",
-        outPath,
-      ],
-      360_000,
-      "plain",
-    );
-    posterSource = outPath;
+    await copyFile(bodyPath, outPath);
   }
 
   // ── poster (best-effort) ─────────────────────────────────────────────────────
