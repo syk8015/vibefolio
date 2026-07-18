@@ -17,7 +17,7 @@ import {
   installCaptureCleanliness,
   parkPhysicalCursor,
 } from "./browser";
-import { computeCropRect, startRecording } from "./record";
+import { computeCropRect, startRecording, resolveScreenDevice, assertRawHasContent } from "./record";
 import { injectCursorOverlay, ensureCursor, cursorSetPos } from "./cursor";
 import { CameraTrack } from "./camera";
 import { replay } from "./replay";
@@ -162,23 +162,41 @@ export async function recordDemo(opts: RecordDemoOptions): Promise<RecordDemoRes
     await parkPhysicalCursor(crop.x / crop.dpr + crop.logical.iw * 0.5, Math.max(8, crop.y / crop.dpr - 35));
     await sleep(450); // capture warm + cursor paint at center
 
-    const rec = startRecording(raw, crop);
+    const screenDev = await resolveScreenDevice(); // display setup may have changed since config
+    const rec = startRecording(raw, crop, screenDev);
     const recStartTime = Date.now() + CAPTURE_WARMUP_MS;
     const cam = new CameraTrack(recStartTime, crop.logical.iw, crop.logical.ih);
 
-    await sleep(INTRO_MS); // hero beat
-    // Budget the take so intro + actions + tail fit inside the clip cap — replay
-    // stops at an action boundary rather than letting the cap cut mid-gesture.
-    const replayBudget = MAX_VIDEO_SEC * 1000 - INTRO_MS - TAIL_MS - 900; // fade slack
-    await replay(page, script, cam, replayBudget); // one-take, no AI loop
-    await sleep(TAIL_MS);
+    // Keep the recorded window frontmost for the WHOLE take (audit B-A1): a
+    // window stealing focus mid-capture films itself into the crop and can
+    // throttle the compositor. bringToFront is a no-op when already front.
+    const frontGuard = setInterval(() => void page.bringToFront().catch(() => {}), 2000);
+    try {
+      await sleep(INTRO_MS); // hero beat
+      // Budget the take so intro + actions + tail fit inside the clip cap — replay
+      // stops at an action boundary rather than letting the cap cut mid-gesture.
+      const replayBudget = MAX_VIDEO_SEC * 1000 - INTRO_MS - TAIL_MS - 900; // fade slack
+      await replay(page, script, cam, replayBudget); // one-take, no AI loop
+      await sleep(TAIL_MS);
+    } finally {
+      clearInterval(frontGuard);
+    }
     await rec.stop();
     console.log("[record] stopped; camera events:", cam.events.length);
+    // Fail loud on a black/blank capture (TCC revoked, wrong surface) instead of
+    // shipping darkness through every "successful" later stage (audit B-F2/F3).
+    await assertRawHasContent(raw);
 
     // ── 5) Post-process ───────────────────────────────────────────────────────────
     await opts.onPhase?.("editing");
-    // Owner handle for the endcap chip / end card. "preview" for dry-runs.
-    const username = (await fetchUsername(projectId)) ?? "preview";
+    // Owner handle burned into the endcap. "preview" is ONLY for dry-runs: a real
+    // project whose username can't be resolved must fail (and retry) rather than
+    // permanently brand the film "@preview" (audit C-D4).
+    const fetched = await fetchUsername(projectId);
+    if (!fetched && !projectId.startsWith("manual-")) {
+      throw new Error(`could not resolve profiles.username for project ${projectId} — refusing to brand the endcap "@preview"`);
+    }
+    const username = fetched ?? "preview";
     // Persist everything post needs BEFORE running it: if only the post stage
     // dies, reprocess.ts re-runs it from raw.mp4 + this file — no new explore fee,
     // no re-record (the 2026-07-12 zoompan failure burned a take this would have

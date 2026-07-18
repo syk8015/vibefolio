@@ -1,7 +1,7 @@
 // Post-process the raw capture into the shipped demo.mp4: apply the cinematic
-// zoompan (camera events), downscale to 720p, fade in/out, then append the endcap
-// (the typing brand scene — nookframe.com/@handle typed and erased, landing on
-// the n+block logo) and extract a poster frame for OG images.
+// zoompan (camera events), downscale to 720p, then the endcap — the film's last
+// frame blurs in and the typing brand line (nookframe.com/@handle → n+block
+// logo) plays on top (endcap.ts) — and extract a poster frame for OG images.
 //
 // trap B: the raw is ALREADY native 2× (e.g. 2560×1440 = 1280×720 logical × DPR2),
 // so it IS the supersample — we DROP the E2B path's leading `scale=CAP*SS` step
@@ -10,11 +10,10 @@
 // then a single lanczos downscale to 720p. Focal coords come in as LOGICAL px
 // (getBoundingClientRect space) and are scaled to capture px here.
 //
-// trap (endcap): this machine's ffmpeg has NO libfreetype (no `drawtext`), so the
-// endcap frames are rasterized in a headless Chrome (endcap.ts) and appended with
-// `concat`. The endcap is best-effort — any failure ships the plain film rather
-// than failing the take.
-import { copyFile, writeFile } from "node:fs/promises";
+// trap (endcap): this machine's ffmpeg has NO libfreetype (no `drawtext`), so
+// the typing overlay is rasterized in a headless Chrome (endcap.ts) and
+// composited with xfade+overlay. The endcap is best-effort — any failure ships
+// the plain film (body + fade-out) rather than failing the take.
 import { dirname } from "node:path";
 import type { CameraEvent } from "./camera";
 import { buildZoomFilter, coalescePans } from "./camera";
@@ -23,7 +22,7 @@ import {
   CAMERA_MAX_EVENTS, CAMERA_VF_MAX_CHARS,
 } from "./config";
 import { run, ffprobeValue } from "./util";
-import { renderEndcapVideo } from "./endcap";
+import { appendEndcap } from "./endcap";
 
 export type PostInput = {
   rawPath: string;
@@ -47,7 +46,12 @@ export async function postprocess(input: PostInput): Promise<{
   const { rawPath, outPath, events, rawW, rawH, logicalW, logicalH, username } = input;
   const outDir = dirname(outPath);
   const durationSec = await ffprobeValue(rawPath, "format=duration");
-  const clipLen = Math.max(2, Math.min(MAX_VIDEO_SEC, durationSec || 0));
+  // Fail loud on an unreadable raw (audit C-B3): the old max(2,…) floor silently
+  // shipped a 2-second stub off a moov-less capture.
+  if (!durationSec || durationSec < 1) {
+    throw new Error(`raw duration unreadable (${durationSec}) — capture is likely corrupt; refusing to ship a stub`);
+  }
+  const clipLen = Math.max(2, Math.min(MAX_VIDEO_SEC, durationSec));
   const fadeOutStart = Math.max(0, clipLen - 0.5).toFixed(2);
 
   // Final frame size. Height is fixed 720p; width follows the logical viewport
@@ -115,17 +119,16 @@ export async function postprocess(input: PostInput): Promise<{
   }
 
   // ── body (always) ────────────────────────────────────────────────────────────
-  // The body IS the plain film (chip removed 2026-07-18 — clean film body).
-  // Encode it once, unconditionally, so a body failure surfaces as its own error
-  // instead of masquerading as an endcap failure — and the endcap fallback below
-  // needs no second identical encode.
+  // Encoded once, unconditionally, with NO fade-out: the endcap's blur crossfade
+  // consumes the live tail. A body failure surfaces as its own error instead of
+  // masquerading as an endcap failure.
   const handle = "@" + username;
   const bodyPath = `${outDir}/body.mp4`;
   await ff(
     [
       "-y",
       "-i", rawPath,
-      "-vf", `${baseChain},fade=t=out:st=${fadeOutStart}:d=0.5,format=yuv420p`,
+      "-vf", `${baseChain},format=yuv420p`,
       "-t", clipLen.toFixed(2),
       ...ENCODE_ARGS,
       "-movflags", "+faststart",
@@ -137,23 +140,38 @@ export async function postprocess(input: PostInput): Promise<{
   const posterSource = bodyPath; // grab the poster from the film, not the endcap
 
   // ── endcap (best-effort) ─────────────────────────────────────────────────────
-  // Typing brand scene (dark, matches the body's fade-to-black → no cream flash).
+  // Blur-in over the film's own last frame + auto-contrast typing overlay.
   try {
-    const { endcapPath } = await renderEndcapVideo({
+    const { tone } = await appendEndcap({
+      bodyPath,
+      outPath,
       handle,
       width: outW,
       height: outH,
       fps: FPS,
+      clipLen,
       outDir,
       encodeArgs: ENCODE_ARGS,
     });
-    await concatSegments(bodyPath, endcapPath, outPath, outDir);
+    console.log(`[postprocess] endcap composited (tone: ${tone})`);
   } catch (e) {
     console.error(
       "[postprocess] endcap failed (non-fatal), shipping plain film:",
       (e as Error).message,
     );
-    await copyFile(bodyPath, outPath);
+    // Plain film needs the classic fade-out ending the endcap would have replaced.
+    await ff(
+      [
+        "-y",
+        "-i", bodyPath,
+        "-vf", `fade=t=out:st=${fadeOutStart}:d=0.5,format=yuv420p`,
+        ...ENCODE_ARGS,
+        "-movflags", "+faststart",
+        outPath,
+      ],
+      120_000,
+      "plain",
+    );
   }
 
   // ── poster (best-effort) ─────────────────────────────────────────────────────
@@ -194,39 +212,3 @@ async function ff(args: string[], timeoutMs: number, label: string): Promise<voi
   }
 }
 
-// Join body + end card. Both share identical codec params, so try a lossless
-// stream-copy via the concat demuxer first; fall back to a filter re-encode if
-// the copy is rejected (SPS/timebase mismatch).
-async function concatSegments(
-  bodyPath: string,
-  endcardPath: string,
-  outPath: string,
-  outDir: string,
-): Promise<void> {
-  const listPath = `${outDir}/concat.txt`;
-  await writeFile(listPath, `file '${bodyPath}'\nfile '${endcardPath}'\n`);
-  const copy = await run(
-    "ffmpeg",
-    ["-y", "-f", "concat", "-safe", "0", "-i", listPath, "-c", "copy", "-movflags", "+faststart", outPath],
-    { timeoutMs: 60_000 },
-  );
-  if (copy.code === 0) return;
-  const enc = await run(
-    "ffmpeg",
-    [
-      "-y",
-      "-i", bodyPath,
-      "-i", endcardPath,
-      "-filter_complex", "[0:v][1:v]concat=n=2:v=1:a=0[v]",
-      "-map", "[v]",
-      "-r", String(FPS), "-fps_mode", "cfr",
-      "-c:v", "libx264", "-preset", "medium", "-crf", "20",
-      "-pix_fmt", "yuv420p", "-an", "-movflags", "+faststart",
-      outPath,
-    ],
-    { timeoutMs: 180_000 },
-  );
-  if (enc.code !== 0) {
-    throw new Error(`concat failed (exit ${enc.code}): ${enc.stderr.slice(-500)}`);
-  }
-}

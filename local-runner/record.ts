@@ -79,6 +79,52 @@ export async function cropImage(
   ]);
 }
 
+// Resolve the avfoundation index of "Capture screen 0" at runtime (audit B-F7):
+// plugging/unplugging a display shifts device indices, and a stale hard-coded
+// index silently films the WRONG screen. Falls back to the configured constant
+// only if the device list can't be parsed at all.
+export async function resolveScreenDevice(): Promise<number> {
+  const { stderr } = await run("ffmpeg", [
+    "-hide_banner", "-f", "avfoundation", "-list_devices", "true", "-i", "",
+  ]);
+  const m = stderr.match(/\[(\d+)\] Capture screen 0/);
+  if (!m) {
+    console.error("[record] device list unparsable — falling back to configured index", SCREEN_DEVICE_INDEX);
+    return SCREEN_DEVICE_INDEX;
+  }
+  const idx = Number(m[1]);
+  if (idx !== SCREEN_DEVICE_INDEX) {
+    console.log(`[record] screen device shifted: config ${SCREEN_DEVICE_INDEX} → live ${idx} (display setup changed)`);
+  }
+  return idx;
+}
+
+// Refuse to ship a black/blank capture (audit B-F2/F3): if screen-recording
+// permission flips mid-run (or the wrong surface was grabbed), avfoundation
+// happily records darkness and every later stage "succeeds". Same signal as the
+// E2B blank-frame guard: sampled luminance spread — an all-black or all-cream
+// capture stays < 40, any real UI (text on paper) spans 180+.
+export async function assertRawHasContent(rawPath: string): Promise<void> {
+  const { stdout } = await run("ffmpeg", [
+    "-hide_banner", "-i", rawPath,
+    "-vf", "fps=2,signalstats,metadata=print:file=-",
+    "-f", "null", "-",
+  ], { timeoutMs: 60_000 });
+  const mins = [...stdout.matchAll(/lavfi\.signalstats\.YMIN=([\d.]+)/g)].map((m) => Number(m[1]));
+  const maxs = [...stdout.matchAll(/lavfi\.signalstats\.YMAX=([\d.]+)/g)].map((m) => Number(m[1]));
+  if (!mins.length || !maxs.length) {
+    console.error("[record] blank-guard: signalstats unparsable — skipping the check");
+    return;
+  }
+  const spread = Math.max(...maxs) - Math.min(...mins);
+  if (spread < 40) {
+    throw new Error(
+      `capture looks blank (luminance spread ${spread.toFixed(0)} < 40) — ` +
+        "screen-recording permission (TCC) or capture surface is broken; refusing to ship",
+    );
+  }
+}
+
 export type Recording = {
   proc: ChildProcess;
   stop: () => Promise<void>;
@@ -87,7 +133,7 @@ export type Recording = {
 // Start a real-time 60fps capture of the cropped content region to outPath.
 // Hardware H.264 (videotoolbox) keeps the M5 CPU free for the browser so we
 // don't drop frames; this is a high-bitrate intermediate (re-encoded in post).
-export function startRecording(outPath: string, crop: CropRect): Recording {
+export function startRecording(outPath: string, crop: CropRect, deviceIndex: number = SCREEN_DEVICE_INDEX): Recording {
   const args = [
     "-hide_banner",
     "-f",
@@ -99,7 +145,7 @@ export function startRecording(outPath: string, crop: CropRect): Recording {
     "-framerate",
     String(FPS),
     "-i",
-    `${SCREEN_DEVICE_INDEX}:none`,
+    `${deviceIndex}:none`,
     "-vf",
     `crop=${crop.w}:${crop.h}:${crop.x}:${crop.y}`,
     "-r",
@@ -117,10 +163,18 @@ export function startRecording(outPath: string, crop: CropRect): Recording {
   ];
   const proc = spawn("ffmpeg", args, { stdio: ["pipe", "ignore", "pipe"] });
   let stderr = "";
+  let spawnError: Error | undefined;
   proc.stderr.on("data", (d) => (stderr += d.toString()));
+  // Without this, a spawn failure (ffmpeg missing/broken) is an unhandled
+  // 'error' event that kills the whole process (audit B-F1).
+  proc.on("error", (e) => {
+    spawnError = e;
+    console.error("[record] ffmpeg spawn error:", e.message);
+  });
 
   const stop = () =>
     new Promise<void>((resolve, reject) => {
+      if (spawnError) return reject(spawnError);
       if (proc.exitCode !== null) return resolve();
       const onClose = () => resolve();
       proc.once("close", onClose);

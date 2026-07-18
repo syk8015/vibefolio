@@ -132,8 +132,14 @@ async function runAction(page: Page, cam: CameraTrack, act: ScriptAction): Promi
     return;
   }
   if (act.kind === "dismiss") {
-    // M0 never emits this; M1 explore will. Best-effort, no camera move.
-    await page.locator(act.selector).first().click({ timeout: 3000 }).catch(() => {});
+    // Best-effort, no camera move. viaKey / empty selector = the explore pass
+    // closed this surface with Escape — mirror that (audit A-C1).
+    if (act.viaKey || !act.selector) {
+      await page.keyboard.press("Escape").catch(() => {});
+    } else {
+      await page.locator(act.selector).first().click({ timeout: 3000 }).catch(() => {});
+    }
+    await sleep(HOLD_MS / 2);
     return;
   }
   if (act.kind === "drag") {
@@ -149,6 +155,9 @@ async function runAction(page: Page, cam: CameraTrack, act: ScriptAction): Promi
     await approach(page, cam, start);
     await sleep(cam.isZoomed() ? SETTLE_MS : PRECLICK_PAUSE_MS);
     await dragTo(page, cam, start, end);
+    // A text-grab drag smears a blue selection across the film (2026-07-18 take);
+    // the gesture is over, so clearing it is invisible except for removing the smear.
+    await page.evaluate("window.getSelection() && window.getSelection().removeAllRanges()").catch(() => {});
     await sleep(HOLD_MS);
     return;
   }

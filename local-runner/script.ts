@@ -13,7 +13,9 @@ export type ScriptAction =
   | { kind: "scroll"; dy: number }
   // M1 (explore) emits these; replay handles them then.
   | { kind: "hover"; selector: string; x?: number; y?: number }
-  | { kind: "dismiss"; selector: string }
+  // viaKey: the dismissal explore observed was an Escape press (no element to
+  // click on the reset page) — replay presses Escape instead of clicking.
+  | { kind: "dismiss"; selector: string; viaKey?: boolean }
   // Drag gesture (slider, reorder handle, canvas). Unlike click, BOTH coordinate
   // pairs are required — the gesture IS the start→end vector; the selector only
   // re-anchors it: replay resolves the live start from the selector and translates

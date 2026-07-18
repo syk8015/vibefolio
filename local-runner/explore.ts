@@ -61,7 +61,8 @@ const SYSTEM_PROMPT = [
   "  a drag handle, or a canvas. Use a click-and-drag (grab the control and move it from its start to its",
   "  target), NOT a plain click: clicking a draggable card only opens it and HIDES the feature; a slider",
   "  reads as a click if you tap it. If the page has ANY draggable control, your walkthrough MUST include at",
-  "  least one real drag.",
+  "  least one real drag. If the item shows a grip HANDLE (⠿ / ⋮⋮ dot icon at its edge), grab the HANDLE",
+  "  itself — pressing on the item's TEXT usually just selects text and moves nothing.",
   "- On a DRAWING canvas (a paint / sketch / whiteboard / signature app), a straight drag reads as an",
   "  accidental scribble. Use the draw_path tool instead to draw ONE simple, recognizable thing (a smiley",
   "  face, a star, a little house, a wave) in a clear empty area — that stroke IS the hero demo of a drawing",
@@ -381,6 +382,10 @@ async function callClaude(messages: Msg[], apiKey: string): Promise<{ content: B
   let attempt = 0;
   while (true) {
     let res: Response;
+    // Hard per-request deadline (audit A-A2): a dead connection that never
+    // errors would otherwise block the loop until EXPLORE_MAX_MS with no retry.
+    const ac = new AbortController();
+    const deadline = setTimeout(() => ac.abort(new Error("anthropic request timed out (120s)")), 120_000);
     try {
       res = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
@@ -391,8 +396,10 @@ async function callClaude(messages: Msg[], apiKey: string): Promise<{ content: B
           "anthropic-beta": "computer-use-2025-01-24",
         },
         body,
+        signal: ac.signal,
       });
     } catch (netErr) {
+      clearTimeout(deadline);
       if (attempt < 4) {
         const waitMs = Math.min(15000, 2000 * Math.pow(2, attempt));
         console.error(`anthropic fetch error — retry in ${waitMs}ms`);
@@ -402,6 +409,7 @@ async function callClaude(messages: Msg[], apiKey: string): Promise<{ content: B
       }
       throw new Error(`anthropic fetch failed: ${netErr instanceof Error ? netErr.message : netErr}`);
     }
+    clearTimeout(deadline);
     if (res.ok) return (await res.json()) as { content: Block[] };
     const text = await res.text().catch(() => "");
     const retriable = res.status === 429 || res.status === 529 || res.status >= 500;
@@ -550,7 +558,10 @@ export async function explore(page: Page, opts: ExploreOptions = {}): Promise<Ex
           if (lastWasType && prev && prev.kind === "type") prev.submit = true;
           await page.keyboard.press("Enter");
         } else if (/esc/i.test(k)) {
-          await page.keyboard.press("Escape"); // transient (dismiss) — not scripted
+          await page.keyboard.press("Escape");
+          // Scripted since 2026-07-18 (audit A-C1): an unrecorded Escape left the
+          // replay with a modal the explore pass had closed, covering later beats.
+          actions.push({ kind: "dismiss", selector: "", viaKey: true });
         } else {
           await page.keyboard.press(mapKey(k));
         }
@@ -578,6 +589,11 @@ export async function explore(page: Page, opts: ExploreOptions = {}): Promise<Ex
         await page.mouse.down();
         await page.mouse.move(state.x, state.y, { steps: 18 });
         await page.mouse.up();
+        // Clear any text selection the gesture smeared BEFORE the after-shot: a
+        // grab on an item's text selects instead of moving, and the blue smear
+        // read as "visible change" to the pruner — the 2026-07-18 phantom drags.
+        // With the selection gone, a move-nothing drag prunes as a true no-op.
+        await page.evaluate("window.getSelection() && window.getSelection().removeAllRanges()").catch(() => {});
         actions.push({
           kind: "drag",
           selector: selector ?? "",
