@@ -17,7 +17,7 @@
 // these probes have inner helpers, so they must be strings.)
 import type { Page } from "playwright-core";
 import { writeFileSync } from "node:fs";
-import { CreditExhaustedError, isCreditExhaustion } from "./errors";
+import { CreditExhaustedError, TransientApiError, isCreditExhaustion } from "./errors";
 import {
   VIEW_W,
   VIEW_H,
@@ -225,6 +225,12 @@ const OUTLINE_SRC = `() => {
 // Visible draggable affordances. explore is vision-only and defaults to CLICKING
 // draggable things (verified 2026-07-07: kanban card -> click->modal, slider ->
 // click). We surface them in the opening brief so it demonstrates a real drag.
+// Auth-flow controls the executor refuses to click (audit A-B1): label match on
+// the resolved element. Deliberately tight — in-app "Delete"/"Save" stay allowed
+// (the network back-stop owns those); only session-leaving auth entries gate.
+const AUTH_CONTROL_RE =
+  /(log ?in|log ?out|sign ?in|sign ?up|register\b|create (an )?account|continue with (google|github|apple|kakao|facebook)|로그인|로그아웃|회원가입|가입하기)/i;
+
 const DRAGGABLE_SRC = `() => {
   var vis = function (e) { var r = e.getBoundingClientRect(); return r.width > 4 && r.height > 4 && r.bottom > 0 && r.top < innerHeight; };
   var any = function (sel) { var els = document.querySelectorAll(sel); for (var i = 0; i < els.length; i++) if (vis(els[i])) return true; return false; };
@@ -407,7 +413,7 @@ async function callClaude(messages: Msg[], apiKey: string): Promise<{ content: B
         attempt++;
         continue;
       }
-      throw new Error(`anthropic fetch failed: ${netErr instanceof Error ? netErr.message : netErr}`);
+      throw new TransientApiError(`anthropic fetch failed after retries: ${netErr instanceof Error ? netErr.message : netErr}`);
     }
     clearTimeout(deadline);
     if (res.ok) return (await res.json()) as { content: Block[] };
@@ -425,6 +431,10 @@ async function callClaude(messages: Msg[], apiKey: string): Promise<{ content: B
     }
     if (isCreditExhaustion(res.status, text)) {
       throw new CreditExhaustedError(`anthropic ${res.status}: ${text.slice(0, 300)}`);
+    }
+    if (retriable) {
+      // Outage persisted through every in-call retry → requeue-able, not fatal.
+      throw new TransientApiError(`anthropic ${res.status} persisted after retries: ${text.slice(0, 200)}`);
     }
     throw new Error(`anthropic ${res.status}: ${text.slice(0, 300)}`);
   }
@@ -504,6 +514,9 @@ export async function explore(page: Page, opts: ExploreOptions = {}): Promise<Ex
   // older beat, nor an Enter mark submit on a stale type.
   let mergeableClick = false;
   let lastWasType = false;
+  // Set by perform() when the auth gate refuses a click — surfaced to the model
+  // as the turn's note (no action was pushed, so the prune path never runs).
+  let clickGateNote: string | undefined;
 
   // Run one computer-use action on the live page, recording the resulting Script
   // action (with a resolved selector + coordinate fallback). Returns whether it
@@ -518,9 +531,22 @@ export async function explore(page: Page, opts: ExploreOptions = {}): Promise<Ex
 
     if (CLICKS.has(action)) {
       const { selector, label } = await evalCall<Resolved>(page, SELECTOR_SRC, state.x, state.y);
+      // Enforced auth gate (audit A-B1): the prompt already forbids these, but a
+      // login/signup click NAVIGATES — the network back-stop can't undo leaving
+      // the app. Refuse at the executor, tell the model, film stays on-site.
+      if (AUTH_CONTROL_RE.test(label ?? "")) {
+        clickGateNote =
+          "That control is a login/sign-up entry — auth flows are off-limits (the demo must stay " +
+          "inside the app). The click was not performed; show an in-app feature instead.";
+        return false;
+      }
       const button = action === "right_click" ? "right" : action === "middle_click" ? "middle" : "left";
       const clickCount = action === "double_click" ? 2 : action === "triple_click" ? 3 : 1;
       await page.mouse.click(state.x, state.y, { button, clickCount });
+      // Collapse the aiming hover: a mouse_move onto the same element right
+      // before a click is aim, not a hover beat.
+      const prevA = actions[actions.length - 1];
+      if (prevA && prevA.kind === "hover" && prevA.selector === (selector ?? "")) actions.pop();
       actions.push({ kind: "click", selector: selector ?? "", x: state.x, y: state.y, label });
       return true;
     }
@@ -556,6 +582,7 @@ export async function explore(page: Page, opts: ExploreOptions = {}): Promise<Ex
           // lastWasType guard: Enter only marks submit on the type from the
           // IMMEDIATELY preceding tool_use, never a stale one exposed by a prune.
           if (lastWasType && prev && prev.kind === "type") prev.submit = true;
+          else actions.push({ kind: "key", key: "Enter" }); // standalone Enter beat (audit A-C2)
           await page.keyboard.press("Enter");
         } else if (/esc/i.test(k)) {
           await page.keyboard.press("Escape");
@@ -563,7 +590,9 @@ export async function explore(page: Page, opts: ExploreOptions = {}): Promise<Ex
           // replay with a modal the explore pass had closed, covering later beats.
           actions.push({ kind: "dismiss", selector: "", viaKey: true });
         } else {
-          await page.keyboard.press(mapKey(k));
+          const mapped = mapKey(k);
+          await page.keyboard.press(mapped);
+          actions.push({ kind: "key", key: mapped }); // arrows/Tab/etc. (audit A-C2)
         }
         return true;
       }
@@ -573,7 +602,8 @@ export async function explore(page: Page, opts: ExploreOptions = {}): Promise<Ex
         const dy = dir === "up" ? -amt : dir === "down" ? amt : 0;
         const dx = dir === "left" ? -amt : dir === "right" ? amt : 0;
         await page.mouse.wheel(dx, dy);
-        if (dy) actions.push({ kind: "scroll", dy });
+        // Horizontal scrolls are beats too (carousel/board panning, audit A-C4).
+        if (dy || dx) actions.push({ kind: "scroll", dy, ...(dx ? { dx } : {}) });
         return false;
       }
       case "left_click_drag": {
@@ -585,6 +615,9 @@ export async function explore(page: Page, opts: ExploreOptions = {}): Promise<Ex
         // Recording is unconditional: an executed-but-unscripted drag would leave
         // the live page in a state replay never reproduces (script↔page desync).
         const { selector, label } = await evalCall<Resolved>(page, SELECTOR_SRC, s[0], s[1]);
+        // Aiming hover onto the drag target is aim, not a hover beat.
+        const prevD = actions[actions.length - 1];
+        if (prevD && prevD.kind === "hover" && prevD.selector === (selector ?? "")) actions.pop();
         await page.mouse.move(s[0], s[1]);
         await page.mouse.down();
         await page.mouse.move(state.x, state.y, { steps: 18 });
@@ -605,9 +638,23 @@ export async function explore(page: Page, opts: ExploreOptions = {}): Promise<Ex
         });
         return true;
       }
-      case "mouse_move":
+      case "mouse_move": {
         await page.mouse.move(state.x, state.y);
+        // Record a standalone hover beat (audit A-C3) so hover-revealed UI
+        // (tooltips, hover menus) replays. Aiming moves collapse: a click/drag
+        // on the same element pops the hover (see those branches).
+        const { selector } = await evalCall<Resolved>(page, SELECTOR_SRC, state.x, state.y);
+        if (selector) {
+          const prevH = actions[actions.length - 1];
+          if (prevH && prevH.kind === "hover" && prevH.selector === selector) {
+            prevH.x = state.x;
+            prevH.y = state.y;
+          } else {
+            actions.push({ kind: "hover", selector, x: state.x, y: state.y });
+          }
+        }
         return false;
+      }
       case "wait":
         await sleep(Math.min(2500, (input.duration || 1) * 1000));
         return false;
@@ -842,6 +889,10 @@ export async function explore(page: Page, opts: ExploreOptions = {}): Promise<Ex
         } catch (e) {
           console.error("[explore] drag prune check failed — keeping the drag:", e instanceof Error ? e.message : e);
         }
+      }
+      if (!note && clickGateNote) {
+        note = clickGateNote; // auth gate refusal — no action was pushed
+        clickGateNote = undefined;
       }
       if (prunedThis) pruned++;
       if (wasInteraction && act && INTERACTIONS.has(act) && !prunedThis) interactions++;

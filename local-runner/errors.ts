@@ -8,6 +8,12 @@
 
 export class CreditExhaustedError extends Error {}
 
+// Sustained-but-temporary API outage (429/529/5xx that survived all in-call
+// retries, or repeated network failures). Not the user's fault and not
+// permanent: worker.ts requeues the job WITHOUT burning a session attempt
+// (bounded — a persisting outage still fails normally). Audit A-A1.
+export class TransientApiError extends Error {}
+
 // Anthropic signals empty credits as 400/402 with a billing message in the body
 // (e.g. "Your credit balance is too low to access the Anthropic API").
 export function isCreditExhaustion(status: number, bodyText: string): boolean {

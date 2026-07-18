@@ -30,7 +30,7 @@ import { formatDemoFailure, DEMO_FAILURE_COPY, type DemoFailureCode } from "../l
 import { sendEmail, isEmailConfigured, alertRecipients } from "../lib/email";
 import { demoReadyEmail, demoFailedEmail, adminAlertEmail, posterFromDemoUrl, SITE_URL } from "../lib/email-templates";
 import { fetchUsername } from "./upload";
-import { CreditExhaustedError, CREDIT_HOLD_MARKER } from "./errors";
+import { CreditExhaustedError, TransientApiError, CREDIT_HOLD_MARKER } from "./errors";
 
 // This worker is the single-machine SPOF for the whole demo pipeline, so it wires
 // Sentry directly (it does not use lib/logger). Gated on DSN only — NOT on
@@ -63,15 +63,20 @@ const MAX_ATTEMPTS_PER_SESSION = 2;
 // the dying process takes its hung children with it. Set well above a normal job
 // (dashboard says "보통 1–3분") so it only ever catches real hangs.
 const JOB_HARD_TIMEOUT_MS = 10 * 60_000;
+// github/zip jobs legitimately spend longer than the live_url ceiling: the E2B
+// build alone budgets clone 2min + install 10min + readiness 1.5min BEFORE the
+// ~8min explore+take+post (audit C-F3 — the old flat 10min killed slow installs
+// mid-npm). Still a hang-catcher, just sized to the real budget.
+const BUILD_JOB_HARD_TIMEOUT_MS = 25 * 60_000;
 
 class JobTimeoutError extends Error {}
 
-async function withHardTimeout<T>(work: Promise<T>): Promise<T> {
+async function withHardTimeout<T>(work: Promise<T>, timeoutMs: number = JOB_HARD_TIMEOUT_MS): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_, reject) => {
     timer = setTimeout(
-      () => reject(new JobTimeoutError(`job exceeded ${JOB_HARD_TIMEOUT_MS / 60_000}min hard timeout`)),
-      JOB_HARD_TIMEOUT_MS,
+      () => reject(new JobTimeoutError(`job exceeded ${timeoutMs / 60_000}min hard timeout`)),
+      timeoutMs,
     );
   });
   try {
@@ -94,6 +99,9 @@ function db() {
 
 const supabase = db();
 const attempts = new Map<string, number>();
+// Transient-API requeues per job this session (audit A-A1): bounded so a
+// persisting outage still fails normally instead of looping forever.
+const transientRequeues = new Map<string, number>();
 let stopping = false;
 let busy = false;
 let hintColumnMissing = false; // set on first 42703 → poll drops the column
@@ -366,6 +374,8 @@ async function processOne(row: PendingRow) {
         userHint: row.demo_user_hint ?? undefined,
         onPhase: (phase) => setStatus(row.id, phase),
       }),
+      // Built sources get the E2B-sized ceiling; live_url keeps the tight one.
+      row.demo_source_type === "live_url" ? JOB_HARD_TIMEOUT_MS : BUILD_JOB_HARD_TIMEOUT_MS,
     );
     if (outcome.status === "login-gated") {
       await markFailed(
@@ -419,6 +429,28 @@ async function processOne(row: PendingRow) {
       ]);
       await Sentry.flush(2000);
       return;
+    }
+    // Sustained API outage (audit A-A1): not the user's fault, usually short —
+    // requeue without burning their attempt, up to twice per session.
+    if (err instanceof TransientApiError) {
+      const n = (transientRequeues.get(row.id) ?? 0) + 1;
+      transientRequeues.set(row.id, n);
+      if (n <= 2) {
+        console.error(`[worker] transient API outage — requeueing job ${row.id} (${n}/2): ${err.message}`);
+        attempts.set(row.id, Math.max(0, (attempts.get(row.id) ?? 1) - 1));
+        const { error: reqErr } = await supabase
+          .from("projects")
+          .update({ demo_build_status: "pending", demo_build_error: null })
+          .eq("id", row.id);
+        if (reqErr) console.error(`[worker] requeue write failed for ${row.id}: ${reqErr.message}`);
+        Sentry.captureMessage(`transient API outage — job requeued (${n}/2)`, {
+          level: "warning",
+          extra: { projectId: row.id, message: err.message },
+        });
+        await new Promise((r) => setTimeout(r, 60_000)); // cool-off before next poll
+        return;
+      }
+      console.error(`[worker] transient outage persisted for ${row.id} — treating as failure`);
     }
     const message = err instanceof Error ? err.message : String(err);
     const timedOut = err instanceof JobTimeoutError;

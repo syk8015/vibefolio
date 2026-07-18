@@ -104,15 +104,25 @@ export async function uploadAndMarkDone(
   }
 
   if (isRealProject) {
-    const { error: updErr } = await supabase
-      .from("projects")
-      .update({
-        demo_video_url: publicUrl,
-        demo_build_status: "done",
-        demo_generated_at: new Date().toISOString(),
-      })
-      .eq("id", projectId);
-    if (updErr) throw new Error(`projects update failed: ${updErr.message}`);
+    // The video is already uploaded — a transient DB blip here must not strand a
+    // finished film as "failed" (audit C-D1). Retry briefly before giving up.
+    let updErr: { message: string } | null = null;
+    for (let i = 0; i < 3; i++) {
+      ({ error: updErr } = await supabase
+        .from("projects")
+        .update({
+          demo_video_url: publicUrl,
+          demo_build_status: "done",
+          demo_generated_at: new Date().toISOString(),
+        })
+        .eq("id", projectId));
+      if (!updErr) break;
+      console.error(`[upload] projects update failed (try ${i + 1}/3): ${updErr.message}`);
+      await new Promise((r) => setTimeout(r, 1500 * (i + 1)));
+    }
+    if (updErr) {
+      throw new Error(`projects update failed after retries: ${updErr.message} (video already at ${publicUrl})`);
+    }
   }
 
   return { storagePath, publicUrl, posterUrl };

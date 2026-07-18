@@ -10,7 +10,10 @@
 export type ScriptAction =
   | { kind: "click"; selector: string; x?: number; y?: number; label?: string }
   | { kind: "type"; selector: string; text: string; submit?: boolean; x?: number; y?: number; label?: string }
-  | { kind: "scroll"; dy: number }
+  | { kind: "scroll"; dy: number; dx?: number }
+  // Non-typing key beat (standalone Enter, arrows, Tab…) — replay presses it so
+  // keyboard-driven UI (slider nudges, focus moves) stays in sync (audit A-C2).
+  | { kind: "key"; key: string }
   // M1 (explore) emits these; replay handles them then.
   | { kind: "hover"; selector: string; x?: number; y?: number }
   // viaKey: the dismissal explore observed was an Escape press (no element to

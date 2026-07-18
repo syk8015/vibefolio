@@ -9,7 +9,8 @@
 //
 // Recording needs this machine's screen exclusively (avfoundation grabs the real
 // display) — callers must never run two takes concurrently.
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, renameSync, statfsSync, writeFileSync } from "node:fs";
+import { spawn } from "node:child_process";
 import {
   launchChromium,
   launchRecordingContext,
@@ -85,10 +86,37 @@ export async function recordDemo(opts: RecordDemoOptions): Promise<RecordDemoRes
   const demo = `${OUT_DIR}/demo.mp4`;
   const sheet = `${OUT_DIR}/demo-sheet.png`;
 
+  // Disk pre-check (audit B-F4/C-H2): a take writes a ~200MB raw + supersampled
+  // intermediates — a full /tmp otherwise surfaces as a cryptic ffmpeg death
+  // AFTER the explore fee is spent.
+  const disk = statfsSync(OUT_DIR);
+  const freeGiB = (disk.bsize * disk.bavail) / 1024 ** 3;
+  if (freeGiB < 2) {
+    throw new Error(`low disk: ${freeGiB.toFixed(1)}GiB free under ${OUT_DIR} (need ≥2GiB)`);
+  }
+
+  // Archive the previous take's raw + meta (audit C-E2): the fixed filenames
+  // meant the NEXT take destroyed the only inputs a delayed reprocess needs.
+  // One-deep archive — reprocess.ts reads the live paths; prev-take/ is the
+  // manual salvage copy.
+  if (existsSync(raw)) {
+    const prevDir = `${OUT_DIR}/prev-take`;
+    mkdirSync(prevDir, { recursive: true });
+    for (const f of ["raw.mp4", "take-meta.json", "body.mp4"]) {
+      if (existsSync(`${OUT_DIR}/${f}`)) renameSync(`${OUT_DIR}/${f}`, `${prevDir}/${f}`);
+    }
+    console.log("[pipeline] previous take archived → prev-take/");
+  }
+
   const blockedWrites: BlockedWrite[] = [];
   const onBlocked = (w: BlockedWrite) => blockedWrites.push(w);
 
   await opts.onPhase?.("recording");
+
+  // Keep the display awake for the whole take (audit B-F5): avfoundation films
+  // darkness if the screen sleeps mid-capture. -d display, -i idle, -s system.
+  const caffeinate = spawn("caffeinate", ["-dis"], { stdio: "ignore" });
+  caffeinate.on("error", () => console.error("[pipeline] caffeinate unavailable — display sleep unguarded"));
 
   const browser = await launchChromium();
   let recCtx: import("playwright-core").BrowserContext | undefined;
@@ -269,6 +297,7 @@ export async function recordDemo(opts: RecordDemoOptions): Promise<RecordDemoRes
       uploaded,
     };
   } finally {
+    caffeinate.kill();
     if (recCtx) await recCtx.close();
     await browser.close().catch(() => {});
   }

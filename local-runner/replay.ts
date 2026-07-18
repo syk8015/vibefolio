@@ -121,7 +121,12 @@ export async function replay(
 
 async function runAction(page: Page, cam: CameraTrack, act: ScriptAction): Promise<void> {
   if (act.kind === "scroll") {
-    await smoothScroll(page, act.dy);
+    await smoothScroll(page, act.dy, act.dx ?? 0);
+    return;
+  }
+  if (act.kind === "key") {
+    await page.keyboard.press(act.key).catch(() => {});
+    await sleep(HOLD_MS / 2);
     return;
   }
   if (act.kind === "hover") {
@@ -260,10 +265,10 @@ async function strokePath(page: Page, cam: CameraTrack, pts: Pt[]): Promise<void
 }
 
 // Smooth wheel scroll in small steps (TodoMVC M0 doesn't use it; here for parity).
-async function smoothScroll(page: Page, dy: number): Promise<void> {
+async function smoothScroll(page: Page, dy: number, dx = 0): Promise<void> {
   const steps = 24;
   for (let i = 0; i < steps; i++) {
-    await page.mouse.wheel(0, dy / steps);
+    await page.mouse.wheel(dx / steps, dy / steps);
     await sleep(16);
   }
 }

@@ -236,5 +236,14 @@ export async function ensureExactViewport(
     });
     await sleep(140);
   }
+  // Fail loud (audit B-C6): a viewport stuck off-size (Dock/display constraint
+  // change) skews the crop AND every recorded coordinate — a silently mis-cropped
+  // take costs an explore fee and ships garbage.
+  if (Math.abs(last.iw - w) > 1 || Math.abs(last.ih - h) > 1) {
+    throw new Error(
+      `viewport did not converge to ${w}×${h} (got ${last.iw}×${last.ih}) — ` +
+        "display/Dock constraints changed; aborting instead of filming a mis-cropped take",
+    );
+  }
   return last;
 }

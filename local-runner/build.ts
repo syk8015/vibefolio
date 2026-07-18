@@ -119,6 +119,11 @@ export async function buildAndServe(
         { timeoutMs: CLONE_TIMEOUT_MS },
       );
       console.log(`[build] git clone exit ${clone.exitCode}`);
+      if (clone.exitCode !== 0) {
+        // Fail HERE with the real reason (audit C-G1) — before this, a bad URL /
+        // private repo coasted to a vague "dev server not reachable" 90s later.
+        throw new Error(`git clone failed (exit ${clone.exitCode}): ${(clone.stderr || clone.stdout || "").slice(-300)}`);
+      }
     } else {
       // zip: supabase storage prefix 아래 모든 파일을 받아 샌드박스에 펼친다.
       const supabase = serviceClient();
@@ -166,6 +171,10 @@ export async function buildAndServe(
       { timeoutMs: INSTALL_TIMEOUT_MS },
     );
     console.log(`[build] npm install exit ${install.exitCode}`);
+    if (install.exitCode !== 0) {
+      // Same principle as the clone check (audit C-G2).
+      throw new Error(`npm install failed (exit ${install.exitCode}): ${(install.stderr || install.stdout || "").slice(-300)}`);
+    }
 
     // The public host is known before the server starts; hand it to Vite's
     // host-header allowlist escape hatch (vite ≥5.4.12/6.0.9 reject unknown Host
