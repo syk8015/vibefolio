@@ -68,3 +68,12 @@ const outcome = await runJob({
   policyOverride,
 });
 if (outcome.status === "login-gated") process.exit(0);
+if (outcome.status === "moderation-held") {
+  // CLI runs are operator-driven — report the verdict and stop; DB parking is
+  // the queue worker's job (a real project reached here only via --project).
+  console.log(
+    `[cli] moderation flagged [${outcome.categories.join(", ")}]: ${outcome.reason}` +
+      (outcome.quarantine ? `\n[cli] quarantined at ${outcome.quarantine.videoKey}` : ""),
+  );
+  process.exit(0);
+}

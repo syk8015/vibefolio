@@ -25,7 +25,14 @@ import { replay } from "./replay";
 import { postprocess } from "./postprocess";
 import { explore, isLoginGated } from "./explore";
 import { installSafety, type BlockedWrite, type SafetyPolicy } from "./safety";
-import { uploadAndMarkDone, fetchUsername, type UploadResult } from "./upload";
+import { extractModerationFrames, moderateDemo } from "./moderate";
+import {
+  uploadAndMarkDone,
+  uploadQuarantined,
+  fetchUsername,
+  type UploadResult,
+  type QuarantineUpload,
+} from "./upload";
 import {
   VIEW_W,
   VIEW_H,
@@ -49,11 +56,23 @@ export type RecordDemoOptions = {
   // Creator-written core-feature description (projects.demo_user_hint) — passed
   // through to explore's opening brief. Optional; untrusted user data.
   userHint?: string;
+  // Project title, shown to the moderation classifier as extra (untrusted)
+  // context — a phishing page often names its target brand in the title.
+  projectTitle?: string;
   onPhase?: (phase: PipelinePhase) => void | Promise<void>;
 };
 
 export type RecordDemoResult =
   | { kind: "login-gated" }
+  | {
+      // Content scan flagged the take: artifacts are quarantined (uploaded but
+      // unlinked) and the caller parks the row as held for admin review.
+      kind: "moderation-held";
+      categories: string[];
+      reason: string;
+      model: string;
+      quarantine?: QuarantineUpload;
+    }
   | {
       kind: "ok";
       rawPath: string;
@@ -68,6 +87,8 @@ export type RecordDemoResult =
       demoH: number;
       demoDur: number;
       uploaded?: UploadResult;
+      // Scan couldn't run and the take shipped unscanned — worker Sentry-flags it.
+      moderationFailedOpen?: boolean;
     };
 
 // Robust load for an arbitrary SPA: domcontentloaded (networkidle can hang on
@@ -262,6 +283,41 @@ export async function recordDemo(opts: RecordDemoOptions): Promise<RecordDemoRes
       "-vf", "fps=1,scale=320:-1,tile=5x5", "-frames:v", "1", "-y", sheet,
     ]);
 
+    // ── 5.5) Content scan (real published takes only) ────────────────────────────
+    // Dry-runs (manual-*) and no-upload runs skip the scan: nothing gets published,
+    // so scanning fixtures/판정 촬영 would only burn API fee. Frames come from
+    // body.mp4 (pre-endcap film) so the brand outro never dilutes the sample.
+    const shouldModerate = opts.upload && !projectId.startsWith("manual-");
+    let moderationFailedOpen = false;
+    if (shouldModerate) {
+      const bodyPath = existsSync(`${OUT_DIR}/body.mp4`) ? `${OUT_DIR}/body.mp4` : demo;
+      const frames = await extractModerationFrames(bodyPath, `${OUT_DIR}/mod-frames`);
+      const verdict = await moderateDemo({
+        framePaths: frames,
+        projectTitle: opts.projectTitle,
+      });
+      console.log(
+        `[moderate] ${verdict.verdict}` +
+          (verdict.categories.length ? ` [${verdict.categories.join(", ")}]` : "") +
+          (verdict.failedOpen ? " (failed open — unscanned)" : "") +
+          ` — ${verdict.reason}`,
+      );
+      moderationFailedOpen = verdict.failedOpen;
+      if (verdict.verdict === "flag") {
+        // Quarantine: upload for admin review, but leave demo_video_url alone —
+        // the caller (worker) parks the row as held + files the review item.
+        const quarantine = await uploadQuarantined(projectId, demo, posterPath);
+        console.log(`[moderate] quarantined → ${quarantine.videoKey} (${quarantine.storage})`);
+        return {
+          kind: "moderation-held",
+          categories: verdict.categories,
+          reason: verdict.reason,
+          model: verdict.model,
+          quarantine,
+        };
+      }
+    }
+
     // ── 6) Upload (optional) ────────────────────────────────────────────────────
     let uploaded: UploadResult | undefined;
     if (opts.upload) {
@@ -295,6 +351,7 @@ export async function recordDemo(opts: RecordDemoOptions): Promise<RecordDemoRes
       demoH: dh,
       demoDur: ddur,
       uploaded,
+      moderationFailedOpen,
     };
   } finally {
     caffeinate.kill();

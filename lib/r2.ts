@@ -103,6 +103,19 @@ export async function r2Usage(): Promise<{ objects: number; bytes: number }> {
   return { objects, bytes };
 }
 
+// Delete specific keys (moderation reject path). Idempotent — S3 delete on a
+// missing key succeeds, so a quarantine already pruned by a newer take is fine.
+export async function deleteR2Objects(keys: string[]): Promise<void> {
+  const valid = keys.filter(Boolean);
+  if (!valid.length) return;
+  await client().send(
+    new DeleteObjectsCommand({
+      Bucket: env().bucket,
+      Delete: { Objects: valid.map((Key) => ({ Key })), Quiet: true },
+    }),
+  );
+}
+
 // List + delete every object under a prefix. Idempotent (no-op on an empty prefix).
 // Used to clean up a project's demo assets on project deletion.
 export async function deleteR2Prefix(prefix: string): Promise<number> {

@@ -9,6 +9,7 @@ import { AnalyticsEvent } from "@/lib/analytics-events";
 import { classifyTrafficSource } from "@/lib/traffic-source";
 import { AdminRequestList, type AdminRequestItem } from "./AdminRequestList";
 import { ReportInbox, type ReportItem } from "./ReportInbox";
+import { ModerationInbox, type ModerationItem } from "./ModerationInbox";
 import {
   Ledger,
   type LedgerEntry,
@@ -91,6 +92,7 @@ export default async function AdminPage() {
     recentRes,
     profileCountRes,
     reportsRes,
+    moderationRes,
     eventsRes,
     viewsRes,
   ] = await Promise.all([
@@ -115,6 +117,12 @@ export default async function AdminPage() {
     admin
       .from("content_reports")
       .select("id, target_type, target_id, reason, detail, reporter_user_id, reporter_key, created_at")
+      .eq("status", "open")
+      .order("created_at", { ascending: false })
+      .limit(20),
+    admin
+      .from("demo_moderation")
+      .select("id, project_id, video_url, poster_url, categories, reason, model, created_at")
       .eq("status", "open")
       .order("created_at", { ascending: false })
       .limit(20),
@@ -230,6 +238,40 @@ export default async function AdminPage() {
       targetLabel: `${project?.title ?? "(삭제된 프로젝트)"} · @${username}`,
       targetUrl: project ? `/${username}/${project.id}` : "#",
       reason: r.reason, detail: r.detail, reporter, createdAt: r.created_at,
+    };
+  });
+
+  // ── moderation inbox ───────────────────────────────────────────────────────
+  // Missing table (migration_demo_moderation.sql not applied yet) degrades to a
+  // notice instead of breaking the tower — same policy as analytics_events.
+  const moderationMissing =
+    moderationRes.error?.code === "PGRST205" ||
+    moderationRes.error?.code === "42P01" ||
+    (typeof moderationRes.error?.message === "string" &&
+      moderationRes.error.message.includes("schema cache"));
+  const rawModeration = moderationRes.data ?? [];
+  const modProjectIds = [...new Set(rawModeration.map((m) => m.project_id))];
+  const { data: modProjects } = modProjectIds.length
+    ? await admin.from("projects").select("id, title, user_id").in("id", modProjectIds)
+    : { data: [] as { id: string; title: string | null; user_id: string }[] };
+  const modOwnerIds = [...new Set((modProjects ?? []).map((p) => p.user_id))];
+  const { data: modOwners } = modOwnerIds.length
+    ? await admin.from("profiles").select("id, username").in("id", modOwnerIds)
+    : { data: [] as { id: string; username: string }[] };
+  const modProjectById = new Map((modProjects ?? []).map((p) => [p.id, p]));
+  const modOwnerById = new Map((modOwners ?? []).map((o) => [o.id, o.username]));
+  const moderationItems: ModerationItem[] = rawModeration.map((m) => {
+    const project = modProjectById.get(m.project_id);
+    return {
+      id: m.id,
+      projectTitle: project?.title ?? "(삭제된 프로젝트)",
+      username: project ? (modOwnerById.get(project.user_id) ?? null) : null,
+      videoUrl: m.video_url,
+      posterUrl: m.poster_url,
+      categories: (m.categories ?? []) as string[],
+      reason: m.reason,
+      model: m.model,
+      createdAt: m.created_at,
     };
   });
 
@@ -417,7 +459,7 @@ export default async function AdminPage() {
     },
   ];
 
-  const todoCount = approvalItems.length + reports.length;
+  const todoCount = approvalItems.length + reports.length + moderationItems.length;
 
   return (
     <main
@@ -468,7 +510,7 @@ export default async function AdminPage() {
         <SectionTitle
           aside={
             <MonoAside tone={todoCount > 0 ? "warn" : undefined}>
-              승인 {approvalItems.length} · 신고 {reports.length}
+              승인 {approvalItems.length} · 신고 {reports.length} · 모더레이션 {moderationItems.length}
               {todoCount > 0 ? " — 결정 필요" : ""}
             </MonoAside>
           }
@@ -476,12 +518,25 @@ export default async function AdminPage() {
           손이 필요한 것
         </SectionTitle>
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 items-start">
-          <div className="xl:col-span-7">
+          <div className="xl:col-span-7 flex flex-col gap-5">
             <Panel
               title={`시연 승인 대기 · ${approvalItems.length}`}
               aside={<MonoAside>승인하면 바로 촬영 대기열로</MonoAside>}
             >
               <AdminRequestList items={approvalItems} />
+            </Panel>
+            <Panel
+              title={`모더레이션 검토 · ${moderationItems.length}`}
+              aside={<MonoAside>승인=게시 · 거절=격리 파일 삭제</MonoAside>}
+            >
+              {moderationMissing ? (
+                <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+                  demo_moderation 테이블이 아직 없어요 —{" "}
+                  <code className="vf-mono">supabase/migration_demo_moderation.sql</code> 적용 필요.
+                </p>
+              ) : (
+                <ModerationInbox items={moderationItems} />
+              )}
             </Panel>
           </div>
           <div className="xl:col-span-5">

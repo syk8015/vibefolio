@@ -35,3 +35,12 @@ export function isCreditExhaustion(status: number, bodyText: string): boolean {
 // on the '[credit]' prefix. Not a DemoFailureCode: the row is held, not failed.
 export const CREDIT_HOLD_MARKER =
   "[credit] 크레딧 소진으로 촬영이 잠시 중단됐어요. 충전 후 다시 촬영돼요.";
+
+// Stored in demo_build_error while a take is quarantined for content review
+// (moderation pipeline, 2026-07-19). MUST NOT start with '[credit]' — the credit
+// release sweep (local-runner/README.md) keys on that prefix and would wrongly
+// requeue a moderation hold. The dashboard badge branches on '[moderation]' to
+// show review copy instead of the quota-hold copy. Not a DemoFailureCode: the
+// row is held, not failed (reject converts it to failed + the 'policy' code).
+export const MODERATION_HOLD_MARKER =
+  "[moderation] 게시 전 확인이 필요해 잠시 보류 중이에요. 검토가 끝나면 자동으로 게시돼요.";

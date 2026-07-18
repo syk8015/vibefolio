@@ -12,6 +12,7 @@
 import { buildAndServe, type BuiltApp } from "./build";
 import { decidePolicy, type SafetyPolicy, type SourceType } from "./safety";
 import { recordDemo, type PipelinePhase } from "./pipeline";
+import type { QuarantineUpload } from "./upload";
 
 export type JobPhase = "building" | PipelinePhase;
 
@@ -23,6 +24,8 @@ export type JobInput = {
   // Creator-written core-feature description (projects.demo_user_hint) — steers
   // what explore demonstrates. Optional; untrusted user data end to end.
   userHint?: string;
+  // Project title — moderation-classifier context only. Untrusted user data.
+  title?: string;
   // Explicit operator override (CLI only). The worker never sets this — the
   // policy gate must stay automatic on queue jobs.
   policyOverride?: SafetyPolicy;
@@ -30,8 +33,24 @@ export type JobInput = {
 };
 
 export type JobOutcome =
-  | { status: "done"; policy: SafetyPolicy; demoPath: string; publicUrl?: string }
-  | { status: "login-gated"; policy: SafetyPolicy };
+  | {
+      status: "done";
+      policy: SafetyPolicy;
+      demoPath: string;
+      publicUrl?: string;
+      moderationFailedOpen?: boolean;
+    }
+  | { status: "login-gated"; policy: SafetyPolicy }
+  | {
+      // Content scan flagged the take — artifacts quarantined, caller parks the
+      // row as held + files the admin review item.
+      status: "moderation-held";
+      policy: SafetyPolicy;
+      categories: string[];
+      reason: string;
+      model: string;
+      quarantine?: QuarantineUpload;
+    };
 
 export async function runJob(job: JobInput): Promise<JobOutcome> {
   let built: BuiltApp | undefined;
@@ -75,15 +94,27 @@ export async function runJob(job: JobInput): Promise<JobOutcome> {
       policy,
       upload: job.upload,
       userHint: job.userHint,
+      projectTitle: job.title,
       onPhase: job.onPhase,
     });
 
     if (result.kind === "login-gated") return { status: "login-gated", policy };
+    if (result.kind === "moderation-held") {
+      return {
+        status: "moderation-held",
+        policy,
+        categories: result.categories,
+        reason: result.reason,
+        model: result.model,
+        quarantine: result.quarantine,
+      };
+    }
     return {
       status: "done",
       policy,
       demoPath: result.demoPath,
       publicUrl: result.uploaded?.publicUrl,
+      moderationFailedOpen: result.moderationFailedOpen,
     };
   } finally {
     // Always tear the sandbox down — it bills by lifetime and serves user code.

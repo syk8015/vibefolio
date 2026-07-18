@@ -200,6 +200,29 @@ export async function GET(req: NextRequest) {
     // If the worker is stale, the worker-stale alert already explains the backlog.
   }
 
+  // ── 3.5 Moderation-held takes lingering unreviewed ──────────────────────────
+  // The worker emails the admin the moment a take is quarantined; this check is
+  // the reminder when an open item sits past the grace window (missed email,
+  // 잊음). Best-effort: a missing table (migration pending) just logs.
+  const MODERATION_GRACE_MIN = 30;
+  let moderationOpen = 0;
+  {
+    const { count, error: modErr } = await admin
+      .from("demo_moderation")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "open")
+      .lt("created_at", new Date(now - MODERATION_GRACE_MIN * 60_000).toISOString());
+    if (modErr) {
+      logger.warn("watchdog: demo_moderation query failed (apply migration_demo_moderation.sql?)", {
+        error: modErr,
+      });
+    } else if ((count ?? 0) > 0) {
+      moderationOpen = count ?? 0;
+      logger.error("watchdog: moderation-held takes awaiting review", { open: moderationOpen });
+      alerts.push(`moderation-open:${moderationOpen}`);
+    }
+  }
+
   // ── 4. Sweep expired rate-limit windows (T6) — keeps rate_limits at ~distinct
   // active keys. Best-effort: a missing table (migration pending) just logs. ───
   const { error: rlErr } = await admin
@@ -218,6 +241,7 @@ export async function GET(req: NextRequest) {
           staleMinutes: staleMs !== null ? Math.round(staleMs / 60_000) : null,
           pendingStuck: pendingStuck ?? 0,
           paused,
+          moderationOpen,
         })
       : false;
 
@@ -254,9 +278,12 @@ const ALERT_SUPPRESS_MS = 6 * 3_600_000;
 // Drop dedup entries that haven't fired in a week so alerts_state can't grow.
 const ALERT_STATE_TTL_MS = 7 * 24 * 3_600_000;
 
-// `reaped:3` and `reaped:1` are the same condition for dedup purposes.
+// `reaped:3` and `reaped:1` are the same condition for dedup purposes
+// (likewise `moderation-open:N`).
 function alertKey(alert: string): string {
-  return alert.startsWith("reaped:") ? "reaped" : alert;
+  if (alert.startsWith("reaped:")) return "reaped";
+  if (alert.startsWith("moderation-open:")) return "moderation-open";
+  return alert;
 }
 
 async function emailWatchdogAlert(
@@ -268,6 +295,7 @@ async function emailWatchdogAlert(
     staleMinutes: number | null;
     pendingStuck: number;
     paused: boolean;
+    moderationOpen: number;
   },
 ): Promise<boolean> {
   if (!isEmailConfigured()) return false;
@@ -325,6 +353,8 @@ async function emailWatchdogAlert(
     lines.push(`대기 중인 시연 ${detail.pendingStuck}건이 있는데 워커가 한 번도 체크인하지 않았어요.`);
   if (keys.includes("pending-not-draining"))
     lines.push(`워커는 살아있는데 대기열 ${detail.pendingStuck}건이 빠지지 않고 있어요.`);
+  if (keys.includes("moderation-open"))
+    lines.push(`모더레이션 검토 대기 ${detail.moderationOpen}건이 30분 넘게 방치돼 있어요 — 관제탑에서 승인/거절해 주세요.`);
   if (keys.includes("stuck-query-failed") || keys.includes("reap-update-failed"))
     lines.push("워치독 DB 쿼리/업데이트가 실패했어요 — Sentry를 확인해 주세요.");
   if (detail.paused) lines.push("demo_paused=true — 드레인이 멈춰 있는 상태예요.");

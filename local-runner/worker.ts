@@ -22,7 +22,7 @@
 import * as Sentry from "@sentry/node";
 import { createClient } from "@supabase/supabase-js";
 import "./config"; // side-effect: load .env.local
-import { runJob, type JobPhase } from "./job";
+import { runJob, type JobPhase, type JobOutcome } from "./job";
 import type { SourceType } from "./safety";
 import { DEMO_QUOTA } from "../lib/demoQuota";
 import { AnalyticsEvent } from "../lib/analytics-events";
@@ -31,7 +31,7 @@ import { sendEmail, isEmailConfigured, alertRecipients } from "../lib/email";
 import { demoReadyEmail, demoFailedEmail, adminAlertEmail, posterFromDemoUrl, SITE_URL } from "../lib/email-templates";
 import { fetchUsername } from "./upload";
 import {
-  CreditExhaustedError, TransientApiError, CREDIT_HOLD_MARKER,
+  CreditExhaustedError, TransientApiError, CREDIT_HOLD_MARKER, MODERATION_HOLD_MARKER,
   BuildFailedError, NotAWebappError, BlankCaptureError,
 } from "./errors";
 
@@ -247,6 +247,81 @@ async function notifyAdmin(title: string, lines: string[]) {
   }
 }
 
+// Content scan flagged the take (input-matrix gap #4): artifacts are already
+// quarantined in storage (unlinked — no public surface reads them). Park the row
+// as held with the moderation marker, file the review item, page the admin.
+// The session attempt is NOT refunded: the content is the user's, and a refund
+// would let a borderline take re-record in a loop.
+async function holdForModeration(
+  row: PendingRow,
+  outcome: Extract<JobOutcome, { status: "moderation-held" }>,
+) {
+  console.log(
+    `[worker] job ${row.id} moderation-flagged [${outcome.categories.join(", ")}] — holding for review`,
+  );
+
+  // Review item first (the admin console reads this): refresh an existing open
+  // row if one survives from a previous flagged take, else insert. Two-step is
+  // race-free here — this worker is the only writer and runs one job at a time.
+  if (outcome.quarantine) {
+    const fields = {
+      video_url: outcome.quarantine.videoUrl,
+      poster_url: outcome.quarantine.posterUrl,
+      video_key: outcome.quarantine.videoKey,
+      poster_key: outcome.quarantine.posterKey,
+      storage: outcome.quarantine.storage,
+      categories: outcome.categories,
+      reason: outcome.reason,
+      model: outcome.model,
+    };
+    const { data: existing, error: updErr } = await supabase
+      .from("demo_moderation")
+      .update({ ...fields, created_at: new Date().toISOString() })
+      .eq("project_id", row.id)
+      .eq("status", "open")
+      .select("id");
+    if (updErr) {
+      console.error(`[worker] moderation-row update failed for ${row.id}: ${updErr.message}`);
+    } else if (!existing || existing.length === 0) {
+      const { error: insErr } = await supabase
+        .from("demo_moderation")
+        .insert({ project_id: row.id, ...fields });
+      if (insErr) {
+        // Loud but non-fatal: the held row + admin email still carry the signal;
+        // approve is impossible without the queue row, so Sentry gets an error.
+        console.error(`[worker] moderation-row insert failed for ${row.id}: ${insErr.message}`);
+        Sentry.captureMessage("moderation queue insert failed (apply migration_demo_moderation.sql?)", {
+          level: "error",
+          extra: { projectId: row.id, message: insErr.message },
+        });
+      }
+    }
+  }
+
+  const { error: holdErr } = await supabase
+    .from("projects")
+    .update({ demo_build_status: "held", demo_build_error: MODERATION_HOLD_MARKER })
+    .eq("id", row.id);
+  if (holdErr) console.error(`[worker] moderation-hold write failed for ${row.id}: ${holdErr.message}`);
+
+  await trackAnalytics(AnalyticsEvent.DemoHeld, row.user_id, {
+    projectId: row.id,
+    reason: "moderation",
+    categories: outcome.categories,
+  });
+  Sentry.captureMessage("moderation hold — take quarantined for review", {
+    level: "warning",
+    tags: { alert: "moderation_hold" },
+    extra: { projectId: row.id, categories: outcome.categories },
+  });
+  await notifyAdmin("모더레이션 홀드 — 검토가 필요해요", [
+    `"${row.title ?? "(제목 없음)"}" 시연이 게시 전 검토로 격리됐어요.`,
+    `분류: ${outcome.categories.join(", ") || "(없음)"} · 모델: ${outcome.model}`,
+    `사유: ${outcome.reason}`,
+    "관제탑 모더레이션 인박스에서 영상 확인 후 승인(게시) 또는 거절(삭제)해 주세요.",
+  ]);
+}
+
 // Startup recovery: repair rows a dead local worker left in-flight.
 async function recoverStuckJobs() {
   const { data, error } = await supabase
@@ -375,11 +450,16 @@ async function processOne(row: PendingRow) {
         sourceValue: row.demo_source_value,
         upload: true, // uploadAndMarkDone sets status=done on success
         userHint: row.demo_user_hint ?? undefined,
+        title: row.title ?? undefined,
         onPhase: (phase) => setStatus(row.id, phase),
       }),
       // Built sources get the E2B-sized ceiling; live_url keeps the tight one.
       row.demo_source_type === "live_url" ? JOB_HARD_TIMEOUT_MS : BUILD_JOB_HARD_TIMEOUT_MS,
     );
+    if (outcome.status === "moderation-held") {
+      await holdForModeration(row, outcome);
+      return;
+    }
     if (outcome.status === "login-gated") {
       await markFailed(
         row.id,
@@ -398,6 +478,15 @@ async function processOne(row: PendingRow) {
       projectId: row.id,
       sourceType: row.demo_source_type,
     });
+    if (outcome.moderationFailedOpen) {
+      // The take shipped UNSCANNED (scan outage) — not a job failure, but a
+      // human should spot-check it. Warning-level so it never pages like credit.
+      Sentry.captureMessage("moderation scan failed open — take published unscanned", {
+        level: "warning",
+        tags: { alert: "moderation_failed_open" },
+        extra: { projectId: row.id },
+      });
+    }
     await notifyDemoReady(row, outcome.publicUrl);
     console.log(`[worker] job ${row.id} done → ${outcome.publicUrl ?? "(no upload)"}`);
   } catch (err) {

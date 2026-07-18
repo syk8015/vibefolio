@@ -778,6 +778,9 @@ function DemoBuildBadge({
   }
 
   if (status === "held") {
+    // '[moderation]' 마커 = 게시 전 콘텐츠 검토 격리(모더레이션 파이프라인).
+    // 마커 없는 held는 기존 쿼터/크레딧 보류 — 카피가 서로 다르다.
+    const isModeration = !!error?.startsWith("[moderation]");
     return (
       <span
         className="px-2 py-0.5 rounded-full text-xs shrink-0"
@@ -789,9 +792,13 @@ function DemoBuildBadge({
           fontWeight: 600,
           cursor: "help",
         }}
-        title="하루 자동 시연 한도를 넘어 승인 대기 중이에요. 보통 24시간 안에 처리되고, 그동안은 이미지로 표시돼요."
+        title={
+          isModeration
+            ? "게시 전에 확인이 필요하다고 표시돼 잠시 보류 중이에요. 검토가 끝나면 자동으로 게시되고, 보통 하루 안에 처리돼요."
+            : "하루 자동 시연 한도를 넘어 승인 대기 중이에요. 보통 24시간 안에 처리되고, 그동안은 이미지로 표시돼요."
+        }
       >
-        승인 대기 · 이미지 표시
+        {isModeration ? "게시 전 확인 중" : "승인 대기 · 이미지 표시"}
       </span>
     );
   }

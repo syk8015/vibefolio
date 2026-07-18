@@ -34,6 +34,25 @@ update projects set demo_build_status = 'pending', demo_build_error = null
 무과금 경로 테스트: `NF_FAKE_CREDIT_402=1`을 워커 env에 넣고 pending 잡 하나를
 흘리면 실제 API 호출 없이 위 전 경로가 발화한다(운영 env에는 절대 설정 금지).
 
+## 모더레이션 (게시 전 콘텐츠 스캔, 2026-07-19)
+
+실프로젝트 업로드 직전 body.mp4에서 프레임 4장(480p)을 뽑아 비전 분류에 통과시킨다
+(`moderate.ts`, 기본 `claude-opus-4-8` — `DEMO_MODERATION_MODEL`로 교체 가능, 편당
+~$0.015). dry-run(`manual-*`)과 `--upload` 없는 실행은 스캔하지 않는다(비용 0).
+
+- **ok** → 기존과 동일하게 게시. 스캔이 API 장애로 못 돌면 **fail-open**(그대로
+  게시 + Sentry warning `moderation_failed_open`) — 스캔 장애가 코어 루프를 막지
+  않는다. 뒷배는 신고 경로(T6).
+- **flag** → 영상·포스터를 버전드 키로 업로드하되 `demo_video_url`은 **비워둔 채**
+  (공개 표면은 그 컬럼만 읽는다) `demo_moderation` 행 + `held`(마커
+  `[moderation]…`) + 관리자 메일. `/admin` 모더레이션 인박스에서 승인(게시) /
+  거절(격리 파일 삭제 + failed `[policy]`). 30분 넘게 방치되면 워치독이 재경보.
+- `[moderation]` 홀드는 크레딧 해제 스윕(`like '[credit]%'`)에 **안 걸린다** —
+  마커가 다르므로 위 SQL을 그대로 써도 안전.
+
+무과금 경로 테스트: `NF_FAKE_MODERATION=flag|ok` (운영 env 설정 금지). 배관 검증:
+`npx -y tsx local-runner/probe-moderation.ts` (`--live` = 실 분류기 1회, ~$0.01).
+
 - 큐가 비면 10초 간격으로 폴링하며 대기한다. `Ctrl-C` 1번 = 현재 작업 마치고 종료,
   2번 = 즉시 중단(다음 시작 시 startup recovery가 해당 행을 failed로 정리).
 

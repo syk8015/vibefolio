@@ -135,6 +135,20 @@ export const PAD_COLOR = "0x0E0E12"; // near-black cinematic margin
 // computer-use-capable Sonnet is the floor here (mirrors the E2B path's MODEL).
 export const EXPLORE_MODEL = process.env.DEMO_CU_MODEL || "claude-sonnet-4-5";
 
+// ── Moderation (post-capture content scan) ────────────────────────────────────
+
+// Vision classifier for the recorded frames. Plain messages call (no computer
+// use), so the EXPLORE_MODEL floor doesn't apply. Default = 최신 Opus. 편당
+// ~2.5k input tokens(480p 프레임 4장) ≈ $0.015 수준; 더 아끼려면
+// DEMO_MODERATION_MODEL=claude-haiku-4-5 (구조화 출력 지원, ~$0.003).
+export const MODERATION_MODEL = process.env.DEMO_MODERATION_MODEL || "claude-opus-4-8";
+
+// Frames sampled from body.mp4 (pre-endcap film) for the scan. Evenly spread so
+// a violation that only appears mid-take is still seen; 480p keeps token cost low
+// while nudity/gore/hate-symbol/phishing-page detection stays easy.
+export const MODERATION_FRAMES = 4;
+export const MODERATION_FRAME_HEIGHT = 480;
+
 // Hard cap on agent turns during the read-only explore pass (cost guard). Explore
 // is NOT recorded, so steps don't affect clip length — only API cost.
 export const EXPLORE_MAX_STEPS = 14;

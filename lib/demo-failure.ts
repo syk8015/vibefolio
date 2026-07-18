@@ -16,6 +16,7 @@ export const DEMO_FAILURE_CODES = [
   "build-failed", // github/zip build broke (clone/install/dev server)
   "not-a-webapp", // nothing serveable — no web page, or backend-only repo
   "blank", // page loaded but rendered nothing (empty/placeholder)
+  "policy", // admin rejected a moderation-held take (content policy)
   "error", // anything else (raw pipeline message follows)
 ] as const;
 
@@ -69,6 +70,10 @@ export const DEMO_FAILURE_COPY: Record<DemoFailureCode, { title: string; body: s
   blank: {
     title: "화면에 아무것도 나오지 않았어요",
     body: "페이지는 열렸는데 아직 아무것도 그려지지 않았어요. 만들다 만 빈 화면이거나 로딩이 끝나지 않은 것 같아요. 화면에 뭔가 보이는 상태로 다시 올려주세요.",
+  },
+  policy: {
+    title: "콘텐츠 정책에 맞지 않아 게시하지 못했어요",
+    body: "검토 결과 이 시연은 Nookframe에 공개하기 어려운 내용이 담겨 있었어요. 내용을 수정한 뒤 다시 시도해 주시고, 잘못된 판단이라고 생각되면 회신으로 알려주세요.",
   },
   error: {
     title: "촬영 중 문제가 생겼어요",
