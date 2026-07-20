@@ -83,6 +83,9 @@ const SYSTEM_PROMPT = [
   "  sequence starting at its FIRST item; otherwise work top-to-bottom down the page. Every action becomes",
   "  part of the final demo, in order, so do NOT backtrack, jump to the middle, undo, or wander. If a",
   "  popup/modal is in the way, close it (its X or Escape) and continue.",
+  "- A listed tour order is a PROMISE to the viewer: do not end the walkthrough before reaching its LAST",
+  "  item. A section with nothing left to click still gets its beat — scroll to it and show it (hover a",
+  "  stat, reveal a tooltip) before finishing.",
   "",
   "If this is only a MARKETING / LANDING page gated behind sign-up (no usable in-page features — just hero",
   "text, sections and a sign-up CTA), do NOT force clicks and do NOT click sign-up/login. Present it as a",
@@ -191,6 +194,22 @@ const GATED_SRC = `() => {
 // Deliberately narrow: input[type=button|submit|checkbox|...] and <select> are NOT
 // text entry — an inert click on those should still be prunable (their real state
 // changes are caught by the local SSIM patch instead).
+// Blur a focused text-entry element (returns whether it did). Used right before
+// the prune before-shot — see the call site for the full rationale. Same
+// text-entry definition as FOCUSED_INPUT_SRC below.
+const BLUR_TEXT_ENTRY_SRC = `() => {
+  var el = document.activeElement;
+  if (!el || !el.blur) return false;
+  var t = (el.tagName || "").toLowerCase();
+  var ty = t === "input" ? ((el.getAttribute("type") || "text").toLowerCase()) : "";
+  var te = t === "textarea" ||
+    (t === "input" && ["text","search","email","url","tel","password","number"].indexOf(ty) >= 0) ||
+    (el.getAttribute && el.getAttribute("contenteditable") === "true");
+  if (!te) return false;
+  el.blur();
+  return true;
+}`;
+
 const FOCUSED_INPUT_SRC = `() => {
   var el = document.activeElement;
   if (!el) return false;
@@ -236,7 +255,11 @@ const DRAGGABLE_SRC = `() => {
   var any = function (sel) { var els = document.querySelectorAll(sel); for (var i = 0; i < els.length; i++) if (vis(els[i])) return true; return false; };
   var out = [];
   if (any('input[type="range"], [role="slider"]')) out.push("a slider/range you drag to set a value");
-  if (any('[draggable="true"], [data-testid*="handle" i], [class*="sortable" i], [class*="kanban" i], [class*="draggable" i]')) out.push("a reorderable list or board you drag items within");
+  var board = any('[draggable="true"], [data-testid*="handle" i], [class*="sortable" i], [class*="kanban" i], [class*="draggable" i]');
+  var grip = any('[data-testid*="handle" i], [class*="drag-handle" i], [class*="grip" i]');
+  if (board) out.push(grip
+    ? "a reorderable list/board whose items move ONLY by their grip handle (the ⠿ dots at the item's edge) - press the HANDLE itself, never the item's text"
+    : "a reorderable list or board you drag items within");
   if (any("canvas")) out.push("a drawing canvas - draw ONE simple recognizable shape on it with the draw_path tool");
   return out;
 }`;
@@ -810,7 +833,18 @@ export async function explore(page: Page, opts: ExploreOptions = {}): Promise<Ex
       // Fresh before-frame per click/drag: the previous tool_result frame is stale
       // by a whole model turn — passive motion during API latency (a toast fading,
       // a carousel) would mask a genuine no-op.
-      const before = isClick || act === "left_click_drag" ? await shotBuf(page) : undefined;
+      // Pre-blur any focused text field first: the field's focus ring vanishing is
+      // a SIDE-EFFECT of the click/drag landing elsewhere, not the action's own
+      // change, yet it reads as a global pixel diff and false-keeps phantoms
+      // (2026-07-20 take: a body-grab drag survived pruning only because the
+      // search input's ring vanished; the two identical phantoms after it — input
+      // already blurred — pruned clean). The action was about to blur it anyway;
+      // popups that close on outside-CLICK (not blur) are unaffected.
+      let before: Buffer | undefined;
+      if (isClick || act === "left_click_drag") {
+        if (await evalCall<boolean>(page, BLUR_TEXT_ENTRY_SRC).catch(() => false)) await sleep(120);
+        before = await shotBuf(page);
+      }
       let wasInteraction = false;
       try {
         wasInteraction = await perform(tu.input || {});
