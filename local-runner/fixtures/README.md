@@ -25,9 +25,11 @@ A fake task studio. One `explore` pass should exercise the whole matrix:
 | **drag — slider** | Focus: Focus-length / Priority ranges |
 | native `<select>` | Focus: "Sort by" |
 | custom dropdown | Focus: "Theme accent" |
-| modal + dismiss | Click a card → detail modal → Close / click-outside |
+| modal + dismiss | Click a card → detail modal → Close / click-outside / **Escape** |
 | hover tooltip | Review stat cards |
 | scroll reveal | Review stats animate in on scroll |
+| **horizontal scroll (dx)** | Review "Recent sessions" strip (overflows right) |
+| **auth gate (negative)** | Topbar "Log in" — recorder must REFUSE to click it |
 
 The left rail numbers an intended tour order (**1 Capture → 2 Organize → 3 Focus →
 4 Review**). That is the *storytelling* probe: does `explore` demo the app as a

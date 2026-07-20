@@ -9,7 +9,9 @@
   replay + camera). ONE explore pass over this page should exercise the whole
   matrix, so we pay a single explore fee to test coverage AND sequencing:
     click, toggle, type, live-search, drag-reorder (kanban), drag-slider,
-    native <select>, custom dropdown, modal + dismiss, hover tooltip, scroll-reveal.
+    native <select>, custom dropdown, modal + dismiss (Escape works), hover tooltip,
+    scroll-reveal, horizontal scroll (Review sessions strip → dx recording), and an
+    inert "Log in" button the recorder's auth gate must refuse to click.
   The left "storyline" rail (1>2>3>4) seeds an intended tour order so we can judge
   whether explore demos the app as a coherent story vs jumping around.
 
@@ -52,7 +54,9 @@
   .rail .hint{position:absolute;bottom:20px;left:16px;right:16px;font-size:12px;color:var(--muted);line-height:1.5}
 
   /* ── Main ──────────────────────────────────────────────────────── */
-  .main{padding:0 32px 120px}
+  /* min-width:0 — grid items default to min-width:auto, so the sessions strip
+     would widen this column instead of overflowing inside it. */
+  .main{padding:0 32px 120px;min-width:0}
   .topbar{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;
     padding:18px 0;background:linear-gradient(var(--bg),var(--bg) 70%,transparent)}
   .topbar h1{font-size:19px;margin:0}
@@ -118,6 +122,11 @@
     background:var(--ink);color:var(--bg);font-size:12px;font-weight:600;white-space:nowrap;padding:6px 9px;border-radius:7px;z-index:30}
 
   /* review stats */
+  .sess-head{margin:18px 0 10px;font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+  .sessions{display:flex;gap:12px;overflow-x:auto;padding:2px 2px 12px;scrollbar-width:thin}
+  .sess{flex:0 0 auto;min-width:188px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;box-shadow:var(--shadow)}
+  .sess b{display:block;font-size:14px;margin-bottom:4px}
+  .sess span{font-size:12.5px;color:var(--muted)}
   .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
   .stat{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px;box-shadow:var(--shadow)}
   .stat .big{font-size:32px;font-weight:800;letter-spacing:-.02em}
@@ -153,6 +162,9 @@
     <div class="topbar">
       <h1>This week</h1>
       <div class="right">
+        <!-- Auth-gate probe: label matches AUTH_CONTROL_RE. The recorder must
+             refuse to click this (explore executor gate); inert on purpose. -->
+        <button class="btn ghost" data-testid="login-btn">Log in</button>
         <button class="btn ghost" data-testid="start-tour">Start tour</button>
         <label class="switch" data-testid="theme-toggle"><span class="track"><span class="knob"></span></span> Dark</label>
         <button class="btn" data-testid="new-task">+ New task</button>
@@ -228,6 +240,21 @@
         <div class="stat" data-tip="Tasks you finished this week"><div class="big" data-count="18">0</div><div class="lbl">Completed</div><div class="bar"><i data-w="82%"></i></div></div>
         <div class="stat" data-tip="Focused minutes logged"><div class="big" data-count="240">0</div><div class="lbl">Focus minutes</div><div class="bar"><i data-w="64%"></i></div></div>
         <div class="stat" data-tip="Your longest streak"><div class="big" data-count="6">0</div><div class="lbl">Day streak</div><div class="bar"><i data-w="43%"></i></div></div>
+      </div>
+      <!-- Horizontal-scroll probe: overflows the column (~8×200px vs ~1020px)
+           so the last cards are cut off at the right edge — the classic "scroll
+           me sideways" affordance. A sideways wheel here must land in the
+           Script as scroll{dx}. -->
+      <div class="sess-head">Recent sessions</div>
+      <div class="sessions" data-testid="sessions-strip">
+        <div class="sess"><b>Mon</b><span>3 sprints · 75 min</span></div>
+        <div class="sess"><b>Tue</b><span>2 sprints · 50 min</span></div>
+        <div class="sess"><b>Wed</b><span>4 sprints · 100 min</span></div>
+        <div class="sess"><b>Thu</b><span>1 sprint · 25 min</span></div>
+        <div class="sess"><b>Fri</b><span>3 sprints · 80 min</span></div>
+        <div class="sess"><b>Sat</b><span>2 sprints · 45 min</span></div>
+        <div class="sess"><b>Sun</b><span>Rest day</span></div>
+        <div class="sess"><b>Today</b><span>1 sprint · 25 min</span></div>
       </div>
     </section>
   </main>
@@ -373,6 +400,11 @@
   document.getElementById('mClose').addEventListener('click', closeModal);
   document.querySelector('[data-testid=modal-done]').addEventListener('click', closeModal);
   scrim.addEventListener('click', function(e){ if(e.target===scrim) closeModal(); });
+  // Escape closes the modal (and the accent menu) — gives explore's Escape press
+  // a real effect, so the dismiss{viaKey} recording path has something to film.
+  document.addEventListener('keydown', function(e){
+    if(e.key==='Escape'){ closeModal(); accentMenu.classList.remove('open'); }
+  });
 
   // ── Rail active-step + scroll-reveal stats ───────────────────
   // 2026-07-18 take verdict: last-entry-wins scrollspy let the NEIGHBOR section
