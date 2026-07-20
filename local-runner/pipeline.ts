@@ -139,6 +139,22 @@ export async function recordDemo(opts: RecordDemoOptions): Promise<RecordDemoRes
   const caffeinate = spawn("caffeinate", ["-dis"], { stdio: "ignore" });
   caffeinate.on("error", () => console.error("[pipeline] caffeinate unavailable — display sleep unguarded"));
 
+  // -d only PREVENTS display sleep — it does not WAKE a display that already
+  // slept (2026-07-20: 25 idle minutes between takes → screen device gone,
+  // 0-duration raw). Assert user activity to wake it, then preflight the screen
+  // device BEFORE explore spends its API fee; retry once for wake latency.
+  await new Promise<void>((res) => {
+    const wake = spawn("caffeinate", ["-u", "-t", "1"], { stdio: "ignore" });
+    wake.on("close", () => res());
+    wake.on("error", () => res());
+  });
+  try {
+    await resolveScreenDevice();
+  } catch {
+    await sleep(1500);
+    await resolveScreenDevice(); // still no screen device → throw before explore
+  }
+
   const browser = await launchChromium();
   let recCtx: import("playwright-core").BrowserContext | undefined;
   try {

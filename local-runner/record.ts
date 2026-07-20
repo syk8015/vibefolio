@@ -90,6 +90,18 @@ export async function resolveScreenDevice(): Promise<number> {
   ]);
   const m = stderr.match(/\[(\d+)\] Capture screen 0/);
   if (!m) {
+    // The device list printed fine but has NO screen entry: avfoundation hides
+    // the screen device while the display is asleep or Screen Recording
+    // permission is missing/suspended. A numeric fallback would film a CAMERA
+    // (or nothing) — fail with the real reason instead. (2026-07-20 take: blind
+    // fallback to index 2 after the display slept between takes → explore fee
+    // burned, 0-duration raw.) Fallback stays only for truly unparsable output.
+    if (/AVFoundation video devices:/.test(stderr)) {
+      throw new Error(
+        "no 'Capture screen' device listed — display is asleep or Screen Recording permission is missing; " +
+          "wake the display / re-grant permission, then retry",
+      );
+    }
     console.error("[record] device list unparsable — falling back to configured index", SCREEN_DEVICE_INDEX);
     return SCREEN_DEVICE_INDEX;
   }
