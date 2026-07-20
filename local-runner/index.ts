@@ -66,6 +66,9 @@ const outcome = await runJob({
   upload: doUpload,
   userHint,
   policyOverride,
+  // CLI = the operator pointing the recorder at their own machine on purpose
+  // (fixtures, dev servers). Queue jobs never get this.
+  allowPrivateHost: true,
 });
 if (outcome.status === "login-gated") process.exit(0);
 if (outcome.status === "moderation-held") {

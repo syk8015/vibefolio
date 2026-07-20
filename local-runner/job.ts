@@ -29,6 +29,10 @@ export type JobInput = {
   // Explicit operator override (CLI only). The worker never sets this — the
   // policy gate must stay automatic on queue jobs.
   policyOverride?: SafetyPolicy;
+  // CLI only: the operator is deliberately recording something on this machine
+  // (localhost fixtures, a dev server). The worker never sets this, so queue
+  // rows keep the private/local-host SSRF backstop.
+  allowPrivateHost?: boolean;
   onPhase?: (phase: JobPhase) => void | Promise<void>;
 };
 
@@ -68,7 +72,7 @@ export async function runJob(job: JobInput): Promise<JobOutcome> {
       if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
         throw new Error(`live_url must be http(s), got '${parsed.protocol}'`);
       }
-      if (!job.sourceValue.includes("/api/preview/")) {
+      if (!job.allowPrivateHost && !job.sourceValue.includes("/api/preview/")) {
         const h = parsed.hostname.toLowerCase().replace(/^\[/, "").replace(/\]$/, "");
         const v4 = h.match(/^(\d{1,3})\.(\d{1,3})\.\d{1,3}\.\d{1,3}$/);
         const priv = h === "localhost" || h.endsWith(".local") || h === "::1" ||
