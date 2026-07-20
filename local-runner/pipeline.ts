@@ -154,6 +154,18 @@ export async function recordDemo(opts: RecordDemoOptions): Promise<RecordDemoRes
     await sleep(1500);
     await resolveScreenDevice(); // still no screen device → throw before explore
   }
+  // A slept display usually LOCKED the session too — the wake above then lands
+  // on the LOCK SCREEN, where the screen device exists and avfoundation films
+  // the wallpaper through every downstream guard (2026-07-20 take: 19s of lock
+  // screen; the blank-guard passes because a photo wallpaper has full luminance
+  // spread). Unlocking needs the user's password — refuse early instead.
+  const lock = await run("ioreg", ["-n", "Root", "-d1"]);
+  if (/"IOConsoleLocked" = Yes/.test(lock.stdout)) {
+    throw new Error(
+      "macOS session is LOCKED — the recorder would film the lock screen. Unlock the Mac and retry " +
+        "(worker ops: start the worker while unlocked; its caffeinate then keeps the display awake)",
+    );
+  }
 
   const browser = await launchChromium();
   let recCtx: import("playwright-core").BrowserContext | undefined;
