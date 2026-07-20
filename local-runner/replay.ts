@@ -80,8 +80,20 @@ async function approach(page: Page, cam: CameraTrack, to: Pt): Promise<void> {
   if (dist < SAME_PLACE_PX) return; // already here
   const glideMs = glideMsFor(dist);
   cam.onApproach(cur, to, glideMs, /* moving */ false);
-  await page.mouse.move(to.x, to.y); // real cursor too (drives hover states)
-  await cursorMoveTo(page, to.x, to.y, glideMs); // synthetic glide (awaits arrival)
+  // The REAL (synthetic) mouse steps the same cubic window as the ring, exactly
+  // like dragTo. Jumping it ahead lit the target's :hover styling the moment the
+  // glide STARTED — rail items glowed sky-blue before the cursor visually arrived,
+  // and hover-revealed UI (tooltips) popped early (2026-07-20 user verdict).
+  const ringArrival = cursorMoveTo(page, to.x, to.y, glideMs);
+  const t0 = Date.now();
+  for (;;) {
+    const p = Math.min(1, (Date.now() - t0) / glideMs);
+    const e = easeInOut(p);
+    await page.mouse.move(cur.x + (to.x - cur.x) * e, cur.y + (to.y - cur.y) * e);
+    if (p >= 1) break;
+    await sleep(DRAG_STEP_MS);
+  }
+  await ringArrival;
 }
 
 // Brief settle so the (centered) target is seen, then click. With the hold-zoom

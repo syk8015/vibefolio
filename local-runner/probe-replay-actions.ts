@@ -10,6 +10,9 @@
 //   3. scroll dx  — horizontal wheel pans a wide container
 //   4. dismiss viaKey — Escape closes a modal the script recorded closing
 //   5. drag selection clear — a text-grab drag leaves NO selection behind
+//   6. approach hover timing — the mouse STEPS the glide (several far-away
+//      mousemoves land before the target's first mouseover); a teleporting
+//      mouse lit :hover at glide start (2026-07-20 verdict)
 import { launchChromium } from "./browser";
 import { injectCursorOverlay, ensureCursor } from "./cursor";
 import { CameraTrack } from "./camera";
@@ -38,6 +41,16 @@ const PAGE_HTML = `<!doctype html><html><head><meta charset="utf-8"><style>
     window.addEventListener("keydown", (e) => {
       if (e.key === "Escape") document.getElementById("modal").style.display = "none";
     });
+    // Approach-timing instrumentation: every mousemove + the first mouseover on
+    // the hover target. A stepped glide leaves a trail of far-away moves BEFORE
+    // the target hovers; a teleport leaves none.
+    window.__mm = [];
+    window.addEventListener("mousemove", (e) => window.__mm.push({ t: performance.now(), x: e.clientX, y: e.clientY }));
+    document.getElementById("hoverme").addEventListener(
+      "mouseover",
+      () => { window.__hoverAt = window.__hoverAt || performance.now(); },
+      { once: true }
+    );
   </script>
 </body></html>`;
 
@@ -91,8 +104,12 @@ try {
   assert("dismiss(viaKey) closed the modal with Escape", modalGone === true);
   const sel = await page.evaluate("String(window.getSelection())");
   assert(`drag left no text selection behind ("${String(sel).slice(0, 20)}")`, sel === "");
+  const mm = (await page.evaluate(
+    "(() => { const at = window.__hoverAt || 0; const far = window.__mm.filter(m => m.t < at && Math.hypot(m.x - 140, m.y - 140) > 30).length; return { far, hovered: at > 0 }; })()",
+  )) as { far: number; hovered: boolean };
+  assert(`approach stepped the mouse (${mm.far} far moves before target hover, want >= 3)`, mm.hovered && mm.far >= 3);
 
-  console.log("\nPASS — replay handles hover/key/dx-scroll/dismiss(viaKey)/selection-clear");
+  console.log("\nPASS — replay handles hover/key/dx-scroll/dismiss(viaKey)/selection-clear/stepped-approach");
 } finally {
   await browser.close();
 }

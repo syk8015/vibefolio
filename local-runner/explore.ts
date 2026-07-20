@@ -79,6 +79,8 @@ const SYSTEM_PROMPT = [
   "  impressive features FIRST.",
   "- Every click must visibly change the screen. If a click did nothing visible, do NOT repeat or linger",
   "  on it — move on to a control that clearly does something.",
+  "- To CLOSE an open menu/dropdown/popover, press Escape or click its own trigger button again — NEVER",
+  "  click empty page space to dismiss it: on film, a click on blank space reads as a mistake.",
   "- Move FORWARD only — a clean LINEAR walkthrough. If a suggested tour order is given below, FOLLOW it in",
   "  sequence starting at its FIRST item; otherwise work top-to-bottom down the page. Every action becomes",
   "  part of the final demo, in order, so do NOT backtrack, jump to the middle, undo, or wander. If a",
