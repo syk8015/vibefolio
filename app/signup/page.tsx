@@ -56,6 +56,16 @@ export default function SignupPage() {
     }
   }
 
+  function backToForm() {
+    // Return to the form so a mistyped email can be fixed — or the same one resubmitted
+    // to resend. The Turnstile widget re-mounts here and issues a fresh single-use token,
+    // so we clear the consumed one (keeps the submit button gated until the new one lands).
+    setStep("form");
+    setError("");
+    resetTurnstile();
+    setCaptchaToken(null);
+  }
+
   async function handleGoogle() {
     const supabase = createClient();
     await supabase.auth.signInWithOAuth({
@@ -88,6 +98,13 @@ export default function SignupPage() {
           >
             로그인 페이지로 →
           </Link>
+          <p className="text-xs mt-6 leading-relaxed" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
+            메일이 오지 않았거나 이메일을 잘못 입력했나요?{" "}
+            <button type="button" onClick={backToForm}
+              style={{ color: "var(--blue)", fontWeight: 700, background: "none", border: "none", cursor: "pointer", padding: 0, textDecoration: "underline", fontFamily: "inherit", fontSize: "inherit" }}>
+              다시 입력하기
+            </button>
+          </p>
         </div>
       </main>
     );

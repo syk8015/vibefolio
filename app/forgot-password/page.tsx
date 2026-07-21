@@ -37,6 +37,15 @@ export default function ForgotPasswordPage() {
     }
   }
 
+  function backToForm() {
+    // Fix a mistyped email — or resubmit the same one to resend. The Turnstile widget
+    // re-mounts on the form and issues a fresh single-use token; clear the consumed one.
+    setStep("form");
+    setError("");
+    resetTurnstile();
+    setCaptchaToken(null);
+  }
+
   if (step === "sent") {
     return (
       <main className="min-h-screen flex flex-col items-center justify-center px-6" style={{ background: "var(--bg)" }}>
@@ -61,6 +70,13 @@ export default function ForgotPasswordPage() {
           >
             로그인 페이지로 →
           </Link>
+          <p className="text-xs mt-6 leading-relaxed" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
+            메일이 오지 않았거나 이메일을 잘못 입력했나요?{" "}
+            <button type="button" onClick={backToForm}
+              style={{ color: "var(--blue)", fontWeight: 700, background: "none", border: "none", cursor: "pointer", padding: 0, textDecoration: "underline", fontFamily: "inherit", fontSize: "inherit" }}>
+              다시 입력하기
+            </button>
+          </p>
         </div>
       </main>
     );
