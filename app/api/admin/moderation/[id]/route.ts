@@ -6,6 +6,7 @@ import { isAdminEmail } from "@/lib/demoQuota";
 import { isR2Configured, deleteR2Objects } from "@/lib/r2";
 import { formatDemoFailure, DEMO_FAILURE_COPY } from "@/lib/demo-failure";
 import { sendEmail, isEmailConfigured } from "@/lib/email";
+import { logger } from "@/lib/logger";
 import { demoReadyEmail, demoFailedEmail, SITE_URL } from "@/lib/email-templates";
 import { trackServerEvent } from "@/lib/analytics";
 import { AnalyticsEvent } from "@/lib/analytics-events";
@@ -180,7 +181,7 @@ export async function POST(
         await admin.storage.from(DEMO_BUCKET).remove(keys);
       }
     } catch (err) {
-      console.error(`[moderation] quarantine delete failed (non-fatal): ${err instanceof Error ? err.message : err}`);
+      logger.error("[moderation] quarantine delete failed (non-fatal)", { error: err });
     }
 
     // held → failed[policy]. Conditional: if a newer take already moved the row

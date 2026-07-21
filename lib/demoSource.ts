@@ -18,10 +18,6 @@ const MAX_URL_LEN = 2048;
 // \s(공백/탭/개행) + C0 제어문자 + DEL. 하이픈 등 정상 URL 문자는 그대로 허용.
 const CONTROL_OR_SPACE = new RegExp("[\\s\\x00-\\x1f\\x7f]");
 
-export function isGithubRepoUrl(url: string): boolean {
-  return GITHUB_REPO_RE.test(url.trim());
-}
-
 // 콘텐츠 호스트: 사용자의 "작품"이 아니라 남의 플랫폼 페이지. demo_url(자동시연)에
 // 잘못 넣으면 그 사이트를 그대로 녹화하게 된다 — video_url 칸으로 안내한다.
 // hostname 정확 매치 또는 서브도메인(.suffix)만 — "mynotion.com" 같은 오탐 방지.

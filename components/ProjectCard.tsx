@@ -15,7 +15,7 @@ const CONTENT_TYPE_MAP: Record<string, { label: string; emoji: string }> = {
   "game":       { label: "게임",          emoji: "🎮" },
   "extension":  { label: "크롬 익스텐션", emoji: "🧩" },
   "ai-service": { label: "AI 서비스",     emoji: "🤖" },
-  "media":      { label: "미디어 컨텐츠", emoji: "🎨" },
+  "media":      { label: "미디어 콘텐츠", emoji: "🎨" },
   "other":      { label: "기타",          emoji: "📦" },
 };
 

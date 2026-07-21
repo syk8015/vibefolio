@@ -63,7 +63,7 @@ export async function POST(
         return apiError({
           status: 400,
           code: "CONTENT_HOST",
-          message: `${issue.host}는 자동 시연으로 촬영하는 '내 작품' 주소가 아니에요. 영상 링크라면 '영상 URL' 칸에 넣어주세요.`,
+          message: `${issue.host}는 자동 시연으로 촬영하는 '내 작품' 주소가 아니에요. 영상 링크라면 '구동 영상' 칸에 넣어주세요.`,
         });
       }
       if (issue?.kind === "private-host") {

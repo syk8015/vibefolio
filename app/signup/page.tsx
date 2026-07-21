@@ -163,6 +163,7 @@ export default function SignupPage() {
                   type={show ? "text" : "password"} name="password" placeholder="8자 이상"
                   value={form.password} onChange={handleChange} required minLength={8} autoComplete="new-password" />
                 <button type="button" onClick={() => setShow((v) => !v)}
+                  aria-label={show ? "비밀번호 숨기기" : "비밀번호 표시"}
                   className="absolute right-3 top-1/2 -translate-y-1/2"
                   style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", padding: "4px" }}>
                   {show ? <EyeOff /> : <Eye />}

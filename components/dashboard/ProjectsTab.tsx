@@ -38,7 +38,7 @@ const CONTENT_TYPES = [
   { id: "game",      label: "게임",          emoji: "🎮" },
   { id: "extension", label: "크롬 익스텐션", emoji: "🧩" },
   { id: "ai-service",label: "AI 서비스",     emoji: "🤖" },
-  { id: "media",     label: "미디어 컨텐츠", emoji: "🎨" },
+  { id: "media",     label: "미디어 콘텐츠", emoji: "🎨" },
   { id: "other",     label: "기타",          emoji: "📦" },
 ];
 
@@ -486,7 +486,7 @@ export default function ProjectsTab({ user }: { user: User }) {
       }
     } catch (err) {
       // 트리거 자체 실패 시 failed로 표시 (잡이 안 돌았으니 catchError로 잡힐 일도 없음)
-      const message = err instanceof Error ? err.message : "재녹화 요청 실패";
+      const message = err instanceof Error ? err.message : "재촬영 요청 실패";
       setProjects(prev => prev.map(p => p.id === id
         ? { ...p, demo_build_status: "failed", demo_build_error: message }
         : p));
@@ -1525,7 +1525,7 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
           {step === 5 && (
             <div className="flex-1 flex flex-col items-center justify-center gap-5 min-h-0">
               <label className="vf-label">
-                사용한 개발 도구{" "}
+                사용한 AI 도구{" "}
                 <span style={{ color: "var(--text-muted)", fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>(복수 선택)</span>
               </label>
               <div className="flex flex-wrap gap-2 justify-center" style={{ maxWidth: 880 }}>

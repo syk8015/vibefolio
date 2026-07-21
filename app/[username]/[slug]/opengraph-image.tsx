@@ -1,5 +1,6 @@
 import { ImageResponse } from "next/og";
 import { getProfileByUsername, getProjectById, posterFromDemo } from "@/lib/portfolio";
+import { safeFetch } from "@/lib/ssrf";
 
 // og:image for the watch page — the poster frame with a play button + label, so a
 // link preview reads unmistakably as "a video to press play on".
@@ -16,17 +17,23 @@ const CREAM = "#f4ede0";
 const INK = "#1a1612";
 const FILL = { top: 0, left: 0, right: 0, bottom: 0 } as const;
 
-// Fetch the poster ourselves and inline it as a data URI (more robust than
-// letting next/og fetch a remote host mid-render). Null → cream fallback.
+const MAX_POSTER_BYTES = 8 * 1024 * 1024; // posters are small; refuse to buffer more
+
+// Fetch the poster ourselves and inline it as a data URI (more robust than letting
+// next/og fetch a remote host mid-render). The poster/thumbnail URL can be user-set,
+// so go through safeFetch (per-hop SSRF guard) + a timeout + a byte cap. Null → cream.
 async function posterDataUri(url: string | undefined): Promise<string | null> {
-  if (!url) return null;
+  if (!url || url.length > 2048) return null;
   try {
-    const r = await fetch(url);
+    const r = await safeFetch(url, { signal: AbortSignal.timeout(8000) });
     if (!r.ok) return null;
+    if (Number(r.headers.get("content-length") || 0) > MAX_POSTER_BYTES) return null;
+    const buf = Buffer.from(await r.arrayBuffer());
+    if (buf.byteLength > MAX_POSTER_BYTES) return null;
     const ct = r.headers.get("content-type") || "image/jpeg";
-    const b64 = Buffer.from(await r.arrayBuffer()).toString("base64");
-    return `data:${ct};base64,${b64}`;
+    return `data:${ct};base64,${buf.toString("base64")}`;
   } catch {
+    // blocked host (SSRF), timeout, or network error → cream fallback
     return null;
   }
 }

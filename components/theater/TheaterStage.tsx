@@ -21,7 +21,7 @@ const CONTENT_TYPE_LABELS: Record<string, string> = {
   "game": "게임",
   "extension": "크롬 익스텐션",
   "ai-service": "AI 서비스",
-  "media": "미디어 컨텐츠",
+  "media": "미디어 콘텐츠",
   "other": "기타",
 };
 

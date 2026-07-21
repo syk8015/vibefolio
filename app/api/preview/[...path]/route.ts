@@ -76,7 +76,9 @@ export async function GET(
   // upstream network failure becomes a clean 502 instead of an unhandled 500.
   let upstream: Response;
   try {
-    upstream = await fetch(storageUrl);
+    // Cap the wait: every embed asset (JS/CSS/font/image) flows through here, and a
+    // slow storage origin would otherwise pin this function until the platform timeout.
+    upstream = await fetch(storageUrl, { signal: AbortSignal.timeout(8000) });
   } catch (err) {
     logger.error("preview: upstream fetch failed", { error: err, filePath });
     return new NextResponse("Upstream error", { status: 502 });

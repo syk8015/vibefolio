@@ -138,6 +138,7 @@ export default function DashboardClient({ user }: { user: User }) {
                 </div>
               </div>
               <button onClick={() => setShowWelcome(false)}
+                aria-label="환영 배너 닫기"
                 className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center transition-colors hover:opacity-60"
                 style={{ background: "var(--surface-soft)", border: "none", cursor: "pointer", color: "var(--text-muted)" }}>
                 <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
