@@ -36,8 +36,12 @@ export default function OnboardingPage() {
       if (!user) return;
       const meta = user.user_metadata;
       const name = meta?.full_name || meta?.name || "";
+      // Prefer the username picked at email signup (stashed as pending_username so it
+      // wouldn't satisfy the middleware onboarding gate); the Google path has none, so
+      // fall back to the email prefix as before.
+      const pending = String(meta?.pending_username ?? "").replace(/[^a-zA-Z0-9_-]/g, "");
       const emailPrefix = (user.email?.split("@")[0] ?? "").replace(/[^a-zA-Z0-9_-]/g, "");
-      const suggestedUsername = emailPrefix.length >= 2 ? emailPrefix : "";
+      const suggestedUsername = pending.length >= 2 ? pending : (emailPrefix.length >= 2 ? emailPrefix : "");
       setAvatarUrl(meta?.avatar_url ?? null);
       setForm((prev) => ({
         ...prev,

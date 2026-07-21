@@ -33,7 +33,13 @@ export default function SignupPage() {
       options: {
         data: {
           name: form.name,
-          username: form.username,
+          // NOT `username`: middleware treats user_metadata.username as the
+          // "onboarding done" gate. Committing it here would skip /onboarding, so the
+          // profiles row (and the SignupCompleted funnel event) would never be created
+          // — the account's public card would 404 and its first project INSERT would
+          // hit a raw FK error. Stash it under a non-gating key so onboarding can
+          // pre-fill and confirm it (uniqueness-checked there), exactly like Google.
+          pending_username: form.username,
         },
         captchaToken: captchaToken ?? undefined,
       },

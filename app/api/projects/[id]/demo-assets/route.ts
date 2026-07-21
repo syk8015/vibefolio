@@ -70,10 +70,16 @@ export async function DELETE(
         else paths.push(full);
       }
     }
+    // video_url and thumbnail are user-writable columns: a user could point them at
+    // another account's storage object and have this service-role remove wipe it.
+    // Ownership of the project is verified above, so a legitimate own-asset path is
+    // always under the owner's `${user_id}/` prefix — reject anything cross-tenant.
+    // (The folder BFS above is already safe: it is rooted at that same prefix.)
+    const ownerPrefix = `${project.user_id}/`;
     const videoPath = storagePathFromPublicUrl(project.video_url);
-    if (videoPath) paths.push(videoPath);
+    if (videoPath && videoPath.startsWith(ownerPrefix)) paths.push(videoPath);
     const thumbPath = storagePathFromPublicUrl(project.thumbnail);
-    if (thumbPath) paths.push(thumbPath);
+    if (thumbPath && thumbPath.startsWith(ownerPrefix)) paths.push(thumbPath);
 
     let sbRemoved = 0;
     for (let i = 0; i < paths.length; i += 100) {
