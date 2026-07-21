@@ -3,8 +3,25 @@
 -- Supabase Dashboard > SQL Editor 에서 실행하세요
 -- =============================================================
 
--- ─── 1. portfolio_views 테이블 RLS ──────────────────────────
--- 이 테이블은 RLS가 없어 누구나 읽기/쓰기 가능한 상태입니다.
+-- ─── 1. portfolio_views 테이블 (+ RLS) ──────────────────────────
+-- 이 테이블은 원래 prod에만 수동 생성돼 마이그레이션 밖에 있었다(M17, 2026-07-21
+-- 프리런치 감사에서 발견 — 재빌드 시 공개 명함 조회수가 깨짐). 실제 prod 스키마를
+-- PostgREST OpenAPI로 정확히 뽑아 그대로 재현하고, RLS와 같은 파일에 둔다(재빌드 시
+-- 이 테이블이 아래 RLS보다 먼저 존재해야 하므로 co-locate). `if not exists`라 이미
+-- 테이블이 있는 prod에는 무영향(no-op). profile_id는 on delete cascade(프로브로 확증
+-- — 회원 탈퇴 시 조회 기록도 함께 삭제됨).
+create table if not exists portfolio_views (
+  id         uuid default gen_random_uuid() primary key,
+  profile_id uuid references profiles(id) on delete cascade not null,
+  viewed_at  timestamptz default now() not null,
+  referrer   text,
+  country    text,
+  user_agent text
+);
+
+-- 조회 분석은 (프로필, 시간) 축으로 조회 — analytics_events_user_time과 동일 컨벤션.
+create index if not exists portfolio_views_profile_time
+  on portfolio_views (profile_id, viewed_at);
 
 alter table portfolio_views enable row level security;
 
