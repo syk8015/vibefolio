@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
@@ -58,6 +59,11 @@ export default function ProfileTab({ user }: { user: User }) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -177,12 +183,32 @@ export default function ProfileTab({ user }: { user: User }) {
     setSaved(true);
   }
 
+  async function handleDelete() {
+    setDeleting(true);
+    setDeleteError("");
+    try {
+      const res = await fetch("/api/account", { method: "DELETE" });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.message || "탈퇴 처리에 실패했어요.");
+      }
+      // Account + data are gone — drop the local session and leave.
+      await createClient().auth.signOut();
+      router.push("/");
+      router.refresh();
+    } catch (err) {
+      setDeleting(false);
+      setDeleteError(err instanceof Error ? err.message : "탈퇴 처리에 실패했어요.");
+    }
+  }
+
   const avatarInitial = (form.name || form.username).charAt(0).toUpperCase();
   const displayName = form.name || form.username || "이름";
   const bioCount = form.bio.length;
 
   return (
-    <form onSubmit={handleSave} className="flex flex-col gap-8 max-w-lg mx-auto w-full">
+    <div className="flex flex-col gap-8 max-w-lg mx-auto w-full">
+      <form onSubmit={handleSave} className="flex flex-col gap-8">
 
       {/* Identity preview — serif display */}
       <div className="text-center pb-2">
@@ -341,6 +367,81 @@ export default function ProfileTab({ user }: { user: User }) {
           </span>
         )}
       </div>
-    </form>
+      </form>
+
+      {/* Danger zone — account deletion (privacy: 탈퇴 즉시 파기) */}
+      <div className="rounded-2xl p-5" style={{ border: "1px solid rgba(179,71,71,0.35)", background: "rgba(179,71,71,0.045)" }}>
+        <h3 className="text-sm font-black mb-1.5" style={{ color: "#b34747", fontFamily: "var(--font-nunito)" }}>위험 구역</h3>
+        <p className="text-sm mb-4" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", lineHeight: 1.65 }}>
+          회원 탈퇴 시 프로필과 모든 프로젝트·업로드한 파일이{" "}
+          <strong style={{ color: "var(--text-primary)" }}>즉시·영구 삭제</strong>되며, 되돌릴 수 없어요.
+        </p>
+        <button
+          type="button"
+          onClick={() => { setShowDeleteModal(true); setDeleteConfirm(""); setDeleteError(""); }}
+          className="text-sm font-bold px-4 py-2.5 rounded-xl transition-opacity hover:opacity-80"
+          style={{ color: "#b34747", background: "rgba(179,71,71,0.08)", border: "1px solid rgba(179,71,71,0.3)", cursor: "pointer", fontFamily: "var(--font-nunito)" }}
+        >
+          회원 탈퇴
+        </button>
+      </div>
+
+      {/* Confirmation modal */}
+      {showDeleteModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: "rgba(0,0,0,0.55)" }}
+          onClick={() => { if (!deleting) setShowDeleteModal(false); }}
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl p-6"
+            style={{ background: "var(--surface)", border: "1px solid var(--border-bright)" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-black mb-2" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}>
+              정말 탈퇴하시겠어요?
+            </h3>
+            <p className="text-sm mb-4" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", lineHeight: 1.65 }}>
+              <strong style={{ color: "var(--text-primary)" }}>@{form.username}</strong>의 프로필과 모든 프로젝트·업로드 파일이 즉시·영구 삭제돼요. 이 작업은 되돌릴 수 없어요.
+            </p>
+            <label className="vf-label">
+              확인을 위해 <span style={{ color: "var(--text-primary)" }}>{form.username}</span> 를 입력해주세요
+            </label>
+            <input
+              className="vf-input"
+              value={deleteConfirm}
+              onChange={(e) => { setDeleteConfirm(e.target.value); setDeleteError(""); }}
+              placeholder={form.username}
+              autoComplete="off"
+              disabled={deleting}
+              autoFocus
+            />
+            {deleteError && (
+              <p className="text-sm mt-2" style={{ color: "#b34747", fontFamily: "var(--font-nunito)" }}>{deleteError}</p>
+            )}
+            <div className="flex gap-2 mt-5">
+              <button
+                type="button"
+                onClick={() => setShowDeleteModal(false)}
+                disabled={deleting}
+                className="flex-1 py-2.5 rounded-xl text-sm font-bold transition-opacity hover:opacity-80"
+                style={{ background: "var(--surface-soft)", color: "var(--text-primary)", border: "none", cursor: deleting ? "not-allowed" : "pointer", fontFamily: "var(--font-nunito)" }}
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={deleting || deleteConfirm.trim() !== form.username}
+                className="flex-1 py-2.5 rounded-xl text-sm font-bold transition-opacity"
+                style={{ background: "#b34747", color: "#fff", border: "none", cursor: (deleting || deleteConfirm.trim() !== form.username) ? "not-allowed" : "pointer", opacity: (deleting || deleteConfirm.trim() !== form.username) ? 0.5 : 1, fontFamily: "var(--font-nunito)" }}
+              >
+                {deleting ? "탈퇴 중…" : "영구 삭제"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
