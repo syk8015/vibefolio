@@ -1,0 +1,77 @@
+#!/usr/bin/env node
+import { publishCommand } from "../src/publish.js";
+import { saveToken, getOrigin } from "../src/config.js";
+
+const HELP = `nookframe — 바이브코딩 작품을 한 줄로 Nookframe에 올리기
+
+명령:
+  publish            현재 폴더의 작품을 초안으로 올린다 (그 작품을 만든 AI가 메타데이터 작성)
+    --url <url>        배포된 공개 URL (없으면 dist/out/build/public 자동 탐색)
+    --dir <path>       올릴 정적 빌드 디렉터리 (지정 시 zip 업로드)
+    --title <t>        제목
+    --hint <text>      시연 영상에서 보여줄 핵심 (demoHighlights)
+    --json '<payload>' AI가 만든 전체 payload JSON (다른 플래그와 병합, JSON 우선)
+    --origin <url>     API origin (기본 ${getOrigin()})
+  login <token>      토큰을 ~/.nookframe/config.json 에 저장
+  mcp                MCP stdio 서버 실행 (클로드 데스크탑·커서 등에서 사용)
+
+토큰 발급: nookframe.com/dashboard → 연결 탭. 발급 후 NOOKFRAME_TOKEN 환경변수 또는 login.`;
+
+function parseArgs(argv) {
+  const out = { _: [] };
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (a.startsWith("--")) {
+      const key = a.slice(2);
+      const next = argv[i + 1];
+      if (next !== undefined && !next.startsWith("--")) {
+        out[key] = next;
+        i++;
+      } else {
+        out[key] = true;
+      }
+    } else {
+      out._.push(a);
+    }
+  }
+  return out;
+}
+
+const [cmd, ...rest] = process.argv.slice(2);
+const args = parseArgs(rest);
+
+try {
+  switch (cmd) {
+    case "publish":
+      await publishCommand(args);
+      break;
+    case "login": {
+      const token = args._[0] || (typeof args.token === "string" ? args.token : null);
+      if (!token) {
+        console.error("사용법: npx nookframe login <token>  (토큰은 nookframe.com/dashboard → 연결 탭)");
+        process.exit(1);
+      }
+      saveToken(token);
+      console.log("✓ 토큰을 저장했어요 (~/.nookframe/config.json).");
+      break;
+    }
+    case "mcp": {
+      const { runMcp } = await import("../src/mcp.js");
+      await runMcp();
+      break;
+    }
+    case "help":
+    case undefined:
+    case "--help":
+    case "-h":
+      console.log(HELP);
+      break;
+    default:
+      console.error(`알 수 없는 명령: ${cmd}\n`);
+      console.log(HELP);
+      process.exit(1);
+  }
+} catch (err) {
+  console.error(`✗ ${err instanceof Error ? err.message : String(err)}`);
+  process.exit(1);
+}

@@ -1,0 +1,30 @@
+{
+  "name": "nookframe",
+  "version": "0.1.0",
+  "description": "Publish your vibe-coded project to Nookframe with one command — your building AI writes the description, intent, and demo highlights for you.",
+  "type": "module",
+  "bin": {
+    "nookframe": "./bin/nookframe.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "nookframe",
+    "vibe-coding",
+    "portfolio",
+    "mcp"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "jszip": "^3.10.1"
+  },
+  "optionalDependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  }
+}

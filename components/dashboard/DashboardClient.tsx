@@ -25,12 +25,14 @@ const TabFallback = () => (
 const ProjectsTab = dynamic(() => import("./ProjectsTab"), { loading: TabFallback });
 const AnalyticsTab = dynamic(() => import("./AnalyticsTab"), { loading: TabFallback });
 const CustomTab = dynamic(() => import("./CustomTab"), { loading: TabFallback });
+const SettingsTab = dynamic(() => import("./SettingsTab"), { loading: TabFallback });
 
-type Tab = "profile" | "projects" | "analytics" | "custom";
+type Tab = "profile" | "projects" | "analytics" | "custom" | "settings";
 
 export default function DashboardClient({ user }: { user: User }) {
   const [tab, setTab] = useState<Tab>("profile");
   const [showWelcome, setShowWelcome] = useState(false);
+  const [reviewId, setReviewId] = useState<string | null>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -38,6 +40,13 @@ export default function DashboardClient({ user }: { user: User }) {
     if (searchParams.get("welcome") === "1") {
       setShowWelcome(true);
       // Clean the URL without reload
+      window.history.replaceState({}, "", "/dashboard");
+    }
+    // ?review=<id> — AI 인제스트 초안 검토 딥링크: 프로젝트 탭으로 전환 + 그 초안 열기.
+    const review = searchParams.get("review");
+    if (review) {
+      setReviewId(review);
+      setTab("projects");
       window.history.replaceState({}, "", "/dashboard");
     }
   }, [searchParams]);
@@ -167,7 +176,7 @@ export default function DashboardClient({ user }: { user: User }) {
           className="flex flex-wrap justify-center mb-10"
           style={{ borderBottom: "1px solid var(--border)", gap: "0.25rem" }}
         >
-          {(["profile", "projects", "analytics", "custom"] as Tab[]).map((t) => {
+          {(["profile", "projects", "analytics", "custom", "settings"] as Tab[]).map((t) => {
             const active = tab === t;
             return (
               <button
@@ -185,7 +194,7 @@ export default function DashboardClient({ user }: { user: User }) {
                   cursor: "pointer",
                 }}
               >
-                {t === "profile" ? "프로필" : t === "projects" ? "프로젝트" : t === "analytics" ? "분석" : "커스텀"}
+                {t === "profile" ? "프로필" : t === "projects" ? "프로젝트" : t === "analytics" ? "분석" : t === "custom" ? "커스텀" : "연결"}
               </button>
             );
           })}
@@ -195,11 +204,13 @@ export default function DashboardClient({ user }: { user: User }) {
         {tab === "profile" ? (
           <ProfileTab user={user} />
         ) : tab === "projects" ? (
-          <ProjectsTab user={user} />
+          <ProjectsTab user={user} reviewProjectId={reviewId} />
         ) : tab === "analytics" ? (
           <AnalyticsTab user={user} />
-        ) : (
+        ) : tab === "custom" ? (
           <CustomTab user={user} />
+        ) : (
+          <SettingsTab user={user} />
         )}
       </div>
     </div>

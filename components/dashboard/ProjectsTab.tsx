@@ -12,93 +12,13 @@ import { detectDemoSource } from "@/lib/demoSource";
 import { parseDemoFailure, DEMO_FAILURE_COPY } from "@/lib/demo-failure";
 import { AnalyticsEvent, trackClientEvent } from "@/lib/analytics-client";
 import { screenshotUrl } from "@/lib/thumbnail";
+import {
+  MAX_UPLOAD_BYTES,
+  getMimeType,
+  safeRelativePath,
+} from "@/lib/upload-safety";
 
-const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
-
-const MIME_TYPES: Record<string, string> = {
-  html: "text/html", htm: "text/html", css: "text/css",
-  js: "application/javascript", ts: "application/javascript",
-  jsx: "application/javascript", tsx: "application/javascript",
-  json: "application/json", svg: "image/svg+xml",
-  png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg",
-  gif: "image/gif", webp: "image/webp",
-  woff: "font/woff", woff2: "font/woff2", ttf: "font/ttf",
-  ico: "image/x-icon",
-};
-
-function getMimeType(filename: string): string {
-  const ext = filename.split(".").pop()?.toLowerCase() ?? "";
-  return MIME_TYPES[ext] ?? "application/octet-stream";
-}
-
-const CONTENT_TYPES = [
-  { id: "web-app",   label: "웹 앱",        emoji: "🌐" },
-  { id: "saas",      label: "SaaS",         emoji: "☁️" },
-  { id: "mobile",    label: "모바일 앱",     emoji: "📱" },
-  { id: "game",      label: "게임",          emoji: "🎮" },
-  { id: "extension", label: "크롬 익스텐션", emoji: "🧩" },
-  { id: "ai-service",label: "AI 서비스",     emoji: "🤖" },
-  { id: "media",     label: "미디어 콘텐츠", emoji: "🎨" },
-  { id: "other",     label: "기타",          emoji: "📦" },
-];
-
-export const AI_TOOLS = [
-  { id: "ChatGPT"          },
-  { id: "Claude Code"      },
-  { id: "Cursor"           },
-  { id: "GitHub Copilot"   },
-  { id: "Gemini"           },
-  { id: "v0"               },
-  { id: "Bolt.new"         },
-  { id: "Windsurf"         },
-  { id: "Lovable"          },
-  { id: "Replit AI"        },
-  { id: "Devin"            },
-  { id: "Aider"            },
-  { id: "Continue.dev"     },
-  { id: "Codeium"          },
-  { id: "Amazon Q"         },
-  { id: "Perplexity"       },
-  { id: "Midjourney"       },
-  { id: "DALL-E"           },
-  { id: "Stable Diffusion" },
-  { id: "Ideogram"         },
-  { id: "Flux"             },
-  { id: "Runway"           },
-  { id: "Kling"            },
-  { id: "Pika"             },
-  { id: "Suno"             },
-  { id: "ElevenLabs"       },
-];
-
-const AI_TOOL_DOMAINS: Record<string, string> = {
-  "ChatGPT":           "chatgpt.com",
-  "Claude Code":       "claude.ai",
-  "Cursor":            "cursor.com",
-  "GitHub Copilot":    "github.com",
-  "Gemini":            "gemini.google.com",
-  "v0":                "v0.dev",
-  "Bolt.new":          "bolt.new",
-  "Windsurf":          "windsurf.com",
-  "Lovable":           "lovable.dev",
-  "Replit AI":         "replit.com",
-  "Devin":             "cognition.ai",
-  "Aider":             "aider.chat",
-  "Continue.dev":      "continue.dev",
-  "Codeium":           "codeium.com",
-  "Amazon Q":          "aws.amazon.com",
-  "Perplexity":        "perplexity.ai",
-  "Midjourney":        "midjourney.com",
-  "DALL-E":            "openai.com",
-  "Stable Diffusion":  "stability.ai",
-  "Ideogram":          "ideogram.ai",
-  "Flux":              "blackforestlabs.ai",
-  "Runway":            "runwayml.com",
-  "Kling":             "klingai.com",
-  "Pika":              "pika.art",
-  "Suno":              "suno.com",
-  "ElevenLabs":        "elevenlabs.io",
-};
+import { CONTENT_TYPES, AI_TOOLS, AI_TOOL_DOMAINS } from "@/lib/projectTaxonomy";
 
 // Pure, primitive props + a fixed domain map. Memoized so it doesn't re-render
 // (and re-issue the favicon request) on unrelated dashboard state changes.
@@ -140,6 +60,7 @@ interface DBProject {
   comment: string;
   sort_order: number;
   is_featured: boolean;
+  is_draft: boolean;
   video_url: string;
   demo_source_type: "github" | "live_url" | "zip" | null;
   demo_source_value: string | null;
@@ -157,6 +78,7 @@ type ProjectForm = Omit<
   | "id"
   | "sort_order"
   | "is_featured"
+  | "is_draft"
   | "demo_source_type"
   | "demo_source_value"
   | "demo_build_status"
@@ -193,21 +115,8 @@ function isValidHttpUrl(s: string) {
   }
 }
 
-// zip-slip 방어: 업로드 엔트리 경로는 `${userId}/${projectId}/${relativePath}`로
-// storage 키가 된다. `..` 세그먼트·절대경로·역슬래시·NUL이 있으면 다른 사용자
-// prefix로 새거나(traversal) 키를 오염시킬 수 있으므로 그런 엔트리는 버린다.
-// (storage RLS도 `..` 키를 막지만 클라이언트에서도 fail-fast.)
-function safeRelativePath(raw: string): string | null {
-  const p = raw.replace(/^\/+/, ""); // 선행 슬래시 제거
-  if (!p || p.startsWith("__MACOSX/")) return null;
-  const segs = p.split("/");
-  if (segs.some((s) => s === ".." || s.includes("\\") || s.includes("\0"))) {
-    return null;
-  }
-  return p;
-}
-
 // zip → 압축해제, 일반 파일 → 그대로. 결과는 {relativePath, blob} 배열.
+// (zip-slip 가드 safeRelativePath는 서버 인제스트와 공유하려고 @/lib/upload-safety로 이전.)
 // zip 안에 단일 최상위 폴더가 있으면 strip해서 index.html이 root에 오게 한다.
 async function expandUploadEntries(
   rawFiles: File[],
@@ -275,10 +184,11 @@ async function deleteSwappedAssets(
   }
 }
 
-export default function ProjectsTab({ user }: { user: User }) {
+export default function ProjectsTab({ user, reviewProjectId }: { user: User; reviewProjectId?: string | null }) {
   // Same derivation as DashboardClient — the canonical profile handle for links.
   const username = user.user_metadata?.username || user.email?.split("@")[0] || "me";
   const [projects, setProjects] = useState<DBProject[]>([]);
+  const [drafts, setDrafts] = useState<DBProject[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editProject, setEditProject] = useState<DBProject | null>(null);
@@ -294,6 +204,13 @@ export default function ProjectsTab({ user }: { user: User }) {
   }, [notice]);
 
   useEffect(() => { loadProjects(); }, []);
+
+  // ?review=<id> 로 들어오면 그 초안 카드로 스크롤+하이라이트.
+  useEffect(() => {
+    if (!reviewProjectId) return;
+    const el = document.getElementById(`draft-${reviewProjectId}`);
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [reviewProjectId, drafts]);
 
   // Live-update the build-status badge as the trigger.dev job progresses.
   // Requires realtime publication on the projects table; silent no-op otherwise.
@@ -311,9 +228,10 @@ export default function ProjectsTab({ user }: { user: User }) {
         },
         (payload) => {
           const updated = payload.new as DBProject;
-          setProjects((prev) =>
-            prev.map((p) => (p.id === updated.id ? { ...p, ...updated } : p)),
-          );
+          const merge = (prev: DBProject[]) =>
+            prev.map((p) => (p.id === updated.id ? { ...p, ...updated } : p));
+          setProjects(merge);
+          setDrafts(merge);
         },
       )
       .subscribe();
@@ -328,7 +246,10 @@ export default function ProjectsTab({ user }: { user: User }) {
       .from("projects").select("*").eq("user_id", user.id)
       .order("sort_order", { ascending: true })
       .order("created_at", { ascending: false });
-    setProjects((data as DBProject[]) ?? []);
+    const all = (data as DBProject[]) ?? [];
+    // 초안은 별도 리스트 — 공개 프로젝트의 순서/드래그 인덱스와 섞이지 않게.
+    setProjects(all.filter((p) => !p.is_draft));
+    setDrafts(all.filter((p) => p.is_draft));
     setLoading(false);
   }
 
@@ -377,9 +298,10 @@ export default function ProjectsTab({ user }: { user: User }) {
     // The delete takes a few seconds (BFS storage listing + chunked removes + R2),
     // and awaiting it before updating state left the row frozen in place the whole
     // time — that was the perceived lag.
-    const removed = projects.find(p => p.id === id);
+    const removed = projects.find(p => p.id === id) ?? drafts.find(p => p.id === id);
     const removedIndex = projects.findIndex(p => p.id === id);
     setProjects(prev => prev.filter(p => p.id !== id));
+    setDrafts(prev => prev.filter(p => p.id !== id));
 
     // A single server call purges ALL of the project's storage (uploaded files +
     // demo/poster + video/thumbnail on Supabase, demo assets on R2) AND deletes the
@@ -392,13 +314,17 @@ export default function ProjectsTab({ user }: { user: User }) {
     }).catch(() => null);
 
     if ((!res || !res.ok) && removed) {
-      // Delete failed — restore the row at its original position and let the user retry.
-      setProjects(prev => {
-        if (prev.some(p => p.id === id)) return prev;
-        const next = [...prev];
-        next.splice(Math.min(removedIndex, next.length), 0, removed);
-        return next;
-      });
+      // Delete failed — restore the row and let the user retry.
+      if (removed.is_draft) {
+        setDrafts(prev => (prev.some(p => p.id === id) ? prev : [removed, ...prev]));
+      } else {
+        setProjects(prev => {
+          if (prev.some(p => p.id === id)) return prev;
+          const next = [...prev];
+          next.splice(Math.min(removedIndex, next.length), 0, removed);
+          return next;
+        });
+      }
       setNotice("프로젝트 삭제에 실패했어요. 잠시 후 다시 시도해 주세요.");
     }
   }
@@ -547,6 +473,41 @@ export default function ProjectsTab({ user }: { user: User }) {
     await supabase.from("projects").update({ is_featured: next }).eq("id", id);
   }
 
+  async function handlePublishDraft(project: DBProject) {
+    // 초안 → 공개: is_draft=false로 내리고 published 리스트로 옮긴 뒤, 기존 추가
+    // 플로우와 동일하게 자동 시연을 트리거한다(쿼터·모더레이션·held 전부 상속).
+    const supabase = createClient();
+    const source = detectDemoSource(project.demo_url);
+    const published: DBProject = source
+      ? { ...project, is_draft: false, demo_build_status: "pending", demo_source_type: source.type, demo_source_value: source.value }
+      : { ...project, is_draft: false };
+    setDrafts(prev => prev.filter(p => p.id !== project.id));
+    setProjects(prev => [...prev, published]);
+
+    const { error } = await supabase.from("projects").update({ is_draft: false }).eq("id", project.id);
+    if (error) {
+      // 롤백 — 다시 초안으로.
+      setProjects(prev => prev.filter(p => p.id !== project.id));
+      setDrafts(prev => (prev.some(p => p.id === project.id) ? prev : [project, ...prev]));
+      setNotice("공개에 실패했어요. 잠시 후 다시 시도해 주세요.");
+      return;
+    }
+    trackClientEvent(AnalyticsEvent.ProjectCreated, { projectId: project.id, demoSource: source?.type ?? null });
+    if (source) {
+      fetch(`/api/projects/${project.id}/trigger-demo`, { method: "POST" })
+        .then(async (res) => {
+          if (res.ok) return;
+          const body = await res.json().catch(() => ({}));
+          setProjects(prev => prev.map(p => p.id === project.id ? { ...published, demo_build_status: null } : p));
+          setNotice(body.message || "공개됐지만 자동 시연 생성을 시작하지 못했어요 — 카드에서 다시 시도할 수 있어요.");
+        })
+        .catch(() => {
+          setProjects(prev => prev.map(p => p.id === project.id ? { ...published, demo_build_status: null } : p));
+          setNotice("공개됐지만 자동 시연 요청이 전송되지 않았어요 — 카드에서 다시 시도할 수 있어요.");
+        });
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -582,44 +543,66 @@ export default function ProjectsTab({ user }: { user: User }) {
         </button>
       </div>
 
-      <div className="vf-card overflow-hidden">
-        {projects.length === 0 ? (
-          <div className="text-center py-20 px-6">
-            <p
-              className="vf-serif-display mb-2"
-              style={{ fontSize: "1.15rem", fontWeight: 500 }}
-            >
-              아직 프로젝트가 없어요
-            </p>
-            <p className="text-xs" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
-              위 버튼으로 첫 프로젝트를 추가해보세요
-            </p>
+      {drafts.length > 0 && (
+        <div className="mb-6">
+          <p className="text-sm vf-mono mb-3" style={{ color: "var(--text-secondary)", letterSpacing: "0.02em" }}>
+            검토 대기 · AI가 보낸 초안 {drafts.length}
+          </p>
+          <div className="flex flex-col gap-3">
+            {drafts.map((d) => (
+              <DraftReviewCard
+                key={d.id}
+                draft={d}
+                highlight={d.id === reviewProjectId}
+                onEdit={() => setEditProject(d)}
+                onDelete={() => handleDelete(d.id)}
+                onPublish={() => handlePublishDraft(d)}
+              />
+            ))}
           </div>
-        ) : (
-          projects.map((project, i) => (
-            <ProjectRow
-              key={project.id}
-              project={project}
-              username={username}
-              onDelete={() => handleDelete(project.id)}
-              onEdit={() => setEditProject(project)}
-              onToggleFeatured={() => handleToggleFeatured(project.id)}
-              onRerecord={() => handleRerecord(project.id)}
-              onMoveUp={() => handleMoveUp(i)}
-              onMoveDown={() => handleMoveDown(i)}
-              canMoveUp={i > 0}
-              canMoveDown={i < projects.length - 1}
-              isDragging={dragIndex === i}
-              isDragOver={dragOverIndex === i && dragIndex !== i}
-              isLast={i === projects.length - 1}
-              onDragStart={() => handleDragStart(i)}
-              onDragOver={e => handleDragOver(e, i)}
-              onDrop={() => handleDrop(i)}
-              onDragEnd={handleDragEnd}
-            />
-          ))
-        )}
-      </div>
+        </div>
+      )}
+
+      {(projects.length > 0 || drafts.length === 0) && (
+        <div className="vf-card overflow-hidden">
+          {projects.length === 0 ? (
+            <div className="text-center py-20 px-6">
+              <p
+                className="vf-serif-display mb-2"
+                style={{ fontSize: "1.15rem", fontWeight: 500 }}
+              >
+                아직 프로젝트가 없어요
+              </p>
+              <p className="text-xs" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
+                위 버튼으로 첫 프로젝트를 추가해보세요
+              </p>
+            </div>
+          ) : (
+            projects.map((project, i) => (
+              <ProjectRow
+                key={project.id}
+                project={project}
+                username={username}
+                onDelete={() => handleDelete(project.id)}
+                onEdit={() => setEditProject(project)}
+                onToggleFeatured={() => handleToggleFeatured(project.id)}
+                onRerecord={() => handleRerecord(project.id)}
+                onMoveUp={() => handleMoveUp(i)}
+                onMoveDown={() => handleMoveDown(i)}
+                canMoveUp={i > 0}
+                canMoveDown={i < projects.length - 1}
+                isDragging={dragIndex === i}
+                isDragOver={dragOverIndex === i && dragIndex !== i}
+                isLast={i === projects.length - 1}
+                onDragStart={() => handleDragStart(i)}
+                onDragOver={e => handleDragOver(e, i)}
+                onDrop={() => handleDrop(i)}
+                onDragEnd={handleDragEnd}
+              />
+            ))
+          )}
+        </div>
+      )}
 
 
       {editProject && (
@@ -885,6 +868,88 @@ function RerecordButton({
         />
       </svg>
     </button>
+  );
+}
+
+// AI가 인제스트로 보낸 "초안" 검토 카드. 공개 전에 유저가 AI가 쓴 카피를 눈으로
+// 보고, 수정/삭제하거나 "확인하고 공개"로 발행(=자동 시연 트리거)한다.
+function DraftReviewCard({ draft, highlight, onEdit, onDelete, onPublish }: {
+  draft: DBProject;
+  highlight: boolean;
+  onEdit: () => void;
+  onDelete: () => void;
+  onPublish: () => void;
+}) {
+  const [publishing, setPublishing] = useState(false);
+  const isUpload = draft.demo_url?.startsWith("/api/preview/");
+  const ct = CONTENT_TYPES.find((c) => c.id === draft.content_type);
+  return (
+    <div
+      id={`draft-${draft.id}`}
+      className="vf-card p-5"
+      style={{
+        borderLeft: "3px solid var(--text-primary)",
+        boxShadow: highlight ? "0 0 0 2px var(--text-primary)" : undefined,
+        transition: "box-shadow 0.4s",
+      }}
+    >
+      <div className="flex items-center gap-2 mb-1.5">
+        <span className="vf-chip" style={{ fontSize: "0.65rem", background: "var(--surface-soft)", color: "var(--text-secondary)" }}>
+          AI 초안
+        </span>
+        {ct && (
+          <span className="text-xs" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
+            {ct.emoji} {ct.label}
+          </span>
+        )}
+      </div>
+      <p className="vf-serif-display" style={{ fontSize: "1.1rem", fontWeight: 500, margin: 0, marginBottom: "0.4rem" }}>
+        {draft.title || "제목 없음"}
+      </p>
+
+      {draft.description && (
+        <p className="text-sm mb-3" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", lineHeight: 1.6 }}>
+          {draft.description}
+        </p>
+      )}
+
+      {draft.demo_user_hint && (
+        <div className="mb-3 p-3 rounded-lg" style={{ background: "var(--surface-soft)" }}>
+          <p className="text-xs mb-1" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontWeight: 600 }}>
+            🎬 시연 영상에서 보여줄 것
+          </p>
+          <p className="text-sm" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", lineHeight: 1.6 }}>
+            {draft.demo_user_hint}
+          </p>
+        </div>
+      )}
+
+      <div className="flex items-center gap-1.5 mb-4 flex-wrap">
+        <span className="text-xs" style={{ color: "var(--text-muted)", fontFamily: "var(--font-mono), monospace" }}>
+          {isUpload ? "업로드된 사이트" : draft.demo_url || "링크 없음"}
+        </span>
+        {draft.tags?.map((t) => (
+          <span key={t} className="vf-chip" style={{ fontSize: "0.65rem" }}>{t}</span>
+        ))}
+      </div>
+
+      <div className="flex items-center gap-2 justify-end">
+        <button onClick={onDelete} className="vf-button-ghost" style={{ fontSize: "0.8rem", padding: "0.45rem 0.8rem" }}>
+          삭제
+        </button>
+        <button onClick={onEdit} className="vf-button-ghost" style={{ fontSize: "0.8rem", padding: "0.45rem 0.8rem" }}>
+          수정
+        </button>
+        <button
+          onClick={() => { setPublishing(true); onPublish(); }}
+          disabled={publishing}
+          className="vf-button-primary"
+          style={{ fontSize: "0.8rem", padding: "0.45rem 0.9rem", opacity: publishing ? 0.6 : 1 }}
+        >
+          {publishing ? "공개 중…" : "확인하고 공개"}
+        </button>
+      </div>
+    </div>
   );
 }
 
