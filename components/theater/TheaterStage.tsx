@@ -36,7 +36,6 @@ function safeHref(url: string | undefined): string | undefined {
 // ────────────────────────────────────────────────────────────────
 // LivePreview — the actual demo surface inside the stage.
 // Priority: video > iframe(file upload) > static thumbnail.
-// Mirrors FeaturedHero's decision tree so behavior stays consistent.
 // ────────────────────────────────────────────────────────────────
 function LivePreview({ project, variant }: { project: Project; variant: "mobile" | "desktop" }) {
   const videoKind = project.videoUrl ? detectVideoKind(project.videoUrl) : "unknown";

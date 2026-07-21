@@ -125,6 +125,17 @@ export default function ProfileTab({ user }: { user: User }) {
 
     const filteredLinks = form.socialLinks.filter((l) => l.trim());
 
+    // Username is unique in profiles. The upsert below would reject a collision (caught
+    // as 23505 there), but checking first gives a clear message and avoids writing the
+    // new name into auth metadata when the profiles row can't take it. Exclude our own row.
+    const { data: takenBy } = await supabase
+      .from("profiles").select("id").eq("username", form.username).neq("id", user.id).maybeSingle();
+    if (takenBy) {
+      setLoading(false);
+      setError("이미 사용 중인 username이에요. 다른 걸 입력해주세요.");
+      return;
+    }
+
     const { error: authErr } = await supabase.auth.updateUser({
       data: {
         name: form.name,
