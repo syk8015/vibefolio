@@ -428,9 +428,21 @@ export default function ProjectsTab({ user }: { user: User }) {
         demoSource: source?.type ?? null,
       });
       if (source) {
-        fetch(`/api/projects/${inserted.id}/trigger-demo`, {
-          method: "POST",
-        }).catch(() => { /* fire and forget */ });
+        // Fire-and-forget on the happy path (realtime moves pending→done). But a
+        // trigger that fails emits no realtime row, so the optimistic "pending" badge
+        // would spin forever. On any non-OK or network error, revert to the saved row
+        // and tell them the project saved but the demo didn't start (retry from card).
+        fetch(`/api/projects/${inserted.id}/trigger-demo`, { method: "POST" })
+          .then(async (res) => {
+            if (res.ok) return;
+            const body = await res.json().catch(() => ({}));
+            setProjects(prev => prev.map(p => p.id === inserted.id ? inserted : p));
+            setNotice(body.message || "자동 시연 생성을 시작하지 못했어요. 프로젝트는 저장됐어요 — 카드에서 다시 시도할 수 있어요.");
+          })
+          .catch(() => {
+            setProjects(prev => prev.map(p => p.id === inserted.id ? inserted : p));
+            setNotice("자동 시연 요청이 전송되지 않았어요. 프로젝트는 저장됐어요 — 카드에서 다시 시도할 수 있어요.");
+          });
       }
     }
     setShowAddModal(false);

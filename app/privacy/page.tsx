@@ -68,6 +68,9 @@ export default function PrivacyPage() {
               <li><strong>Supabase Inc.</strong> — 데이터베이스 및 인증 서비스 (미국)</li>
               <li><strong>Vercel Inc.</strong> — 웹 서비스 호스팅 (미국)</li>
               <li><strong>Google LLC</strong> — OAuth 소셜 로그인 (미국)</li>
+              <li><strong>Cloudflare, Inc.</strong> — 데모 영상 저장(R2) 및 봇 차단(Turnstile) (미국)</li>
+              <li><strong>Resend, Inc.</strong> — 인증·안내 이메일 발송 (미국)</li>
+              <li><strong>Functional Software, Inc. (Sentry)</strong> — 오류 모니터링 (미국)</li>
             </ul>
           </Section>
 

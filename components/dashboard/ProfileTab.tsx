@@ -141,7 +141,7 @@ export default function ProfileTab({ user }: { user: User }) {
       return;
     }
 
-    await supabase.from("profiles").upsert({
+    const { error: profileErr } = await supabase.from("profiles").upsert({
       id: user.id,
       username: form.username,
       name: form.name,
@@ -150,6 +150,17 @@ export default function ProfileTab({ user }: { user: User }) {
       social_links: filteredLinks,
       updated_at: new Date().toISOString(),
     });
+    if (profileErr) {
+      // Don't claim "saved" when the row write failed (e.g. a taken username) — the
+      // profile the public card reads from would be stale/absent.
+      setLoading(false);
+      setError(
+        profileErr.code === "23505"
+          ? "이미 사용 중인 username이에요. 다른 걸 입력해주세요."
+          : "저장 중 오류가 발생했어요. 다시 시도해주세요.",
+      );
+      return;
+    }
 
     setLoading(false);
     setSaved(true);

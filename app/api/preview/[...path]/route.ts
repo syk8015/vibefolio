@@ -2,6 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { PREVIEW_ORIGIN } from "@/lib/previewOrigin";
 import { logger } from "@/lib/logger";
 
+// Preview isolation is a security control, not a nicety: without a distinct sandbox
+// origin, uploaded project JS runs same-origin and can steal a logged-in session.
+// If this is ever deployed to production without NEXT_PUBLIC_PREVIEW_ORIGIN, the
+// origin-bounce below silently no-ops (fail-open). Warn loudly once at cold start so
+// the misconfiguration is visible in logs/Sentry instead of passing unnoticed.
+if (!PREVIEW_ORIGIN && process.env.VERCEL_ENV === "production") {
+  logger.error(
+    "preview isolation DISABLED: NEXT_PUBLIC_PREVIEW_ORIGIN is unset in production — uploaded content serves same-origin (session-theft risk)",
+  );
+}
+
 const MIME_MAP: Record<string, string> = {
   html: "text/html; charset=utf-8",
   htm: "text/html; charset=utf-8",

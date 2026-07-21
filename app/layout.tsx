@@ -58,9 +58,11 @@ export default function RootLayout({
           href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;500;600;700&display=swap"
           rel="stylesheet"
         />
-        {/* Runs before paint to prevent flash of wrong theme */}
+        {/* Runs before paint to prevent flash of wrong theme. Mirrors ThemeToggle's
+            getInitialTheme(): stored choice wins, else follow the OS. Hard-coding 'light'
+            here made OS-dark users flash light→dark once ThemeToggle mounted. */}
         <script dangerouslySetInnerHTML={{ __html: `
-(function(){try{var s=localStorage.getItem('vf-theme');document.documentElement.setAttribute('data-theme',(s==='dark'||s==='light')?s:'light');}catch(e){}})();
+(function(){try{var s=localStorage.getItem('vf-theme');var t=(s==='dark'||s==='light')?s:(window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark');document.documentElement.setAttribute('data-theme',t);}catch(e){}})();
         `.trim() }} />
       </head>
       <body className="min-h-screen">

@@ -96,13 +96,25 @@ export default function OnboardingPage() {
       return;
     }
 
-    await supabase.from("profiles").upsert({
+    const { error: profileErr } = await supabase.from("profiles").upsert({
       id: user.id,
       username: form.username,
       name: form.name,
       bio: form.bio,
       updated_at: new Date().toISOString(),
     });
+    if (profileErr) {
+      // Never fall through to the dashboard with no profile row — that's the exact
+      // broken state (404 card, raw FK error on the first project) the onboarding gate
+      // exists to prevent. Surface it and keep them here to retry.
+      setError(
+        profileErr.code === "23505"
+          ? "이미 사용 중인 username이에요. 다른 걸 입력해주세요."
+          : "프로필 저장 중 오류가 발생했어요. 다시 시도해주세요.",
+      );
+      setLoading(false);
+      return;
+    }
 
     // 퍼널 첫 단 — 온보딩(username 확정)이 "가입 완료"의 정의. 첫 방문 시 담아둔
     // referrer/UTM을 실어 보내 "어디서 가입됐나"를 관제탑에서 셀 수 있게 한다.
