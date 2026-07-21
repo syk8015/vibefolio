@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { sanitizeCustomCss } from "@/lib/sanitizeCss";
+import { scopeCustomCss } from "@/lib/scopeCss";
 
 interface Props {
   customCss: string;
@@ -12,10 +13,14 @@ export default function PortfolioModeToggle({ customCss }: Props) {
 
   return (
     <>
-      {/* Inject custom CSS only when special mode is active. Sanitized so a
-          malicious owner can't break out of the <style> tag and run script
-          on a visitor's session. */}
-      {special && <style dangerouslySetInnerHTML={{ __html: sanitizeCustomCss(customCss) }} />}
+      {/* Inject custom CSS only when special mode is active. sanitizeCustomCss blocks
+          </style breakout (script injection); scopeCustomCss confines every selector to
+          #vf-custom-scope so the CSS can restyle the portfolio content but never target
+          the report button, this toggle, or the page chrome (all outside the scope).
+          Overlays are separately trapped by isolation:isolate on the scope element. */}
+      {special && (
+        <style dangerouslySetInnerHTML={{ __html: scopeCustomCss(sanitizeCustomCss(customCss), "#vf-custom-scope") }} />
+      )}
 
       <button
         onClick={() => setSpecial((v) => !v)}

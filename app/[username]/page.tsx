@@ -296,7 +296,11 @@ export default async function UserPortfolioPage({
       {/* Body: Theater layout — stage drives identity, reel drives navigation.
           min-h-screen guarantees the body fills the viewport so the footer
           sits below the fold on profiles with few projects. */}
-      <div className={`${isShowcase ? "" : "pt-[57px] md:pt-[68px]"} min-h-screen`}>
+      {/* id + isolation = the custom-CSS containment boundary (see PortfolioModeToggle):
+          owner CSS is scoped to #vf-custom-scope and its z-index is trapped in this
+          stacking context, below the report button and mode toggle. */}
+      <div id="vf-custom-scope" style={{ isolation: "isolate" }}
+        className={`${isShowcase ? "" : "pt-[57px] md:pt-[68px]"} min-h-screen`}>
         <TheaterShell
           profile={{
             username: p.username,
