@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Modal from "@/components/Modal";
 
 // 신고 (T6) — footer-link trigger + small soft-fill modal, POSTs /api/report.
 // Lives in the public theater/watch footers (server components), so all the
@@ -118,19 +119,7 @@ export default function ReportButton({
       </button>
 
       {open && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ background: "rgba(0,0,0,0.35)" }}
-          onClick={close}
-          role="dialog"
-          aria-modal="true"
-          aria-label="콘텐츠 신고"
-        >
-          <div
-            className="w-full max-w-sm rounded-2xl p-6"
-            style={{ background: "var(--bg)", boxShadow: "var(--shadow-card-big)" }}
-            onClick={(e) => e.stopPropagation()}
-          >
+        <Modal onClose={close} ariaLabel="콘텐츠 신고" maxWidth="24rem">
             {phase === "done" ? (
               <>
                 <p
@@ -224,8 +213,7 @@ export default function ReportButton({
                 </div>
               </>
             )}
-          </div>
-        </div>
+        </Modal>
       )}
     </>
   );

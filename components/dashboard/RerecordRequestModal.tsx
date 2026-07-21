@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Modal from "@/components/Modal";
 
 // A project gets one auto demo. Re-recording a landed video isn't self-serve —
 // the owner describes what to change and an admin approves it. This modal just
@@ -45,16 +46,8 @@ export function RerecordRequestModal({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: "rgba(0,0,0,0.4)" }}
-      onClick={onClose}
-    >
-      <div
-        className="vf-card w-full max-w-md flex flex-col gap-4"
-        onClick={(e) => e.stopPropagation()}
-        style={{ fontFamily: "var(--font-nunito)" }}
-      >
+    <Modal onClose={onClose} ariaLabel="재촬영 요청">
+      <div className="flex flex-col gap-4">
         <div>
           <h2 className="text-lg font-semibold" style={{ color: "var(--text-primary)" }}>
             재촬영 요청
@@ -101,6 +94,6 @@ export function RerecordRequestModal({
           </button>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }

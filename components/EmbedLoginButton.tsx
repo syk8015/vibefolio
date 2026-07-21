@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Modal from "@/components/Modal";
 
 export default function EmbedLoginButton() {
   const [open, setOpen] = useState(false);
@@ -22,35 +23,8 @@ export default function EmbedLoginButton() {
       </button>
 
       {open && (
-        <div
-          onClick={() => setOpen(false)}
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 60,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            background: "rgba(0,0,0,0.55)",
-            backdropFilter: "blur(8px)",
-            WebkitBackdropFilter: "blur(8px)",
-            padding: 24,
-          }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              background: "var(--surface)",
-              border: "1px solid var(--border-bright)",
-              borderRadius: 18,
-              padding: "26px 24px 20px",
-              maxWidth: 300,
-              width: "100%",
-              textAlign: "center",
-              fontFamily: "var(--font-nunito)",
-              boxShadow: "0 30px 80px rgba(0,0,0,0.5)",
-            }}
-          >
+        <Modal onClose={() => setOpen(false)} ariaLabel="로그인 안내" maxWidth={300} padding="26px 24px 20px">
+          <div style={{ textAlign: "center" }}>
             <div
               style={{
                 width: 44,
@@ -109,7 +83,7 @@ export default function EmbedLoginButton() {
               확인
             </button>
           </div>
-        </div>
+        </Modal>
       )}
     </>
   );
