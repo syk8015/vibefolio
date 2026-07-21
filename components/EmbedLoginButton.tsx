@@ -97,7 +97,7 @@ export default function EmbedLoginButton() {
                 padding: "10px 16px",
                 borderRadius: 999,
                 background: "var(--blue)",
-                color: "#fff",
+                color: "var(--bg)",
                 fontWeight: 700,
                 fontSize: "0.8rem",
                 fontFamily: "var(--font-nunito)",

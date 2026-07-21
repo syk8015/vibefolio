@@ -185,7 +185,7 @@ export default async function WatchPage({ params }: Params) {
                 alignItems: "center",
                 justifyContent: "center",
                 fontWeight: 800,
-                color: "#fff",
+                color: "var(--bg)",
                 background: "linear-gradient(135deg, var(--blue), var(--blue-bright))",
               }}
             >

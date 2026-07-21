@@ -309,11 +309,11 @@ function StepDot({ state, label }: { state: "done" | "active" | "upcoming"; labe
         }}>
         {isDone ? (
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-            <path d="M2.5 6l2.5 2.5 5-5" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M2.5 6l2.5 2.5 5-5" style={{ stroke: "var(--bg)" }} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         ) : (
           <div className="w-2 h-2 rounded-full"
-            style={{ background: isActive ? "#fff" : "var(--text-muted)" }} />
+            style={{ background: isActive ? "var(--bg)" : "var(--text-muted)" }} />
         )}
       </div>
       <span className="text-xs font-bold" style={{

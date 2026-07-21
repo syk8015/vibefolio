@@ -10,6 +10,7 @@ import Link from "next/link";
 export default function ErrorState({
   title,
   description,
+  eyebrow = "문제가 발생했어요",
   onRetry,
   homeLabel = "홈으로",
   homeHref = "/",
@@ -17,6 +18,7 @@ export default function ErrorState({
 }: {
   title: string;
   description: string;
+  eyebrow?: string;
   onRetry?: () => void;
   homeLabel?: string;
   homeHref?: string;
@@ -48,7 +50,7 @@ export default function ErrorState({
             marginBottom: "0.9rem",
           }}
         >
-          문제가 발생했어요
+          {eyebrow}
         </div>
 
         <h1
