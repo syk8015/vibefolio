@@ -176,6 +176,8 @@ function UpNextRow({
     <button
       type="button"
       onClick={onClick}
+      onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = "var(--surface-soft)"; }}
+      onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = "transparent"; }}
       style={{
         background: active ? "var(--surface-soft)" : "transparent",
         border: "none",
@@ -429,6 +431,8 @@ export default function TheaterShell({ profile, profileUrl, projects, initialAct
                   type="button"
                   onClick={goPrev}
                   aria-label="이전 작품"
+                  onMouseEnter={(e) => { e.currentTarget.style.background = "var(--surface-soft)"; e.currentTarget.style.borderColor = "var(--text-primary)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "var(--border-bright)"; }}
                   style={{
                     width: 32,
                     height: 32,
@@ -438,6 +442,7 @@ export default function TheaterShell({ profile, profileUrl, projects, initialAct
                     cursor: "pointer",
                     color: "var(--text-primary)",
                     fontFamily: "var(--font-mono)",
+                    transition: "background-color 0.18s ease, border-color 0.18s ease",
                   }}
                 >
                   ←
@@ -446,6 +451,8 @@ export default function TheaterShell({ profile, profileUrl, projects, initialAct
                   type="button"
                   onClick={goNext}
                   aria-label="다음 작품"
+                  onMouseEnter={(e) => { e.currentTarget.style.opacity = "0.85"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.opacity = "1"; }}
                   style={{
                     width: 32,
                     height: 32,
@@ -455,6 +462,7 @@ export default function TheaterShell({ profile, profileUrl, projects, initialAct
                     color: "var(--bg)",
                     cursor: "pointer",
                     fontFamily: "var(--font-mono)",
+                    transition: "opacity 0.18s ease",
                   }}
                 >
                   →

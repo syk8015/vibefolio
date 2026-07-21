@@ -8,6 +8,7 @@ import { createPublicClient } from "@/lib/supabase/public";
 import CopyLinkButton from "@/components/CopyLinkButton";
 import PortfolioModeToggle from "@/components/PortfolioModeToggle";
 import type { Project } from "@/lib/data";
+import { placeholderThumbnail } from "@/lib/placeholder";
 import ViewTracker from "@/components/ViewTracker";
 import ThemeToggle from "@/components/ThemeToggle";
 import ViewportModeToggle from "@/components/ViewportModeToggle";
@@ -150,7 +151,7 @@ export default async function UserPortfolioPage({
     title: p.title,
     description: p.description ?? "",
     type: p.type,
-    thumbnail: p.thumbnail || `https://picsum.photos/seed/${p.id}/800/600`,
+    thumbnail: p.thumbnail || placeholderThumbnail(p.id),
     year: p.year ?? new Date().getFullYear().toString(),
     tags: p.tags ?? [],
     demoUrl: p.demo_url ?? undefined,

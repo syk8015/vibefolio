@@ -107,16 +107,28 @@ export async function POST(
       });
     }
 
-    // Count the approved spend toward the global wallet ceiling.
+    // Atomically claim the request (pending→approved). Two concurrent approvals
+    // (an admin double-click) both pass the advisory check above, so this conditional
+    // update is the real gate: only the first flips the row; the loser stops here — so
+    // the wallet spend + task trigger below run exactly once. Placed after the source
+    // validation so a rejected-source approval leaves the request pending for retry.
+    const { data: claimed } = await admin
+      .from("demo_requests")
+      .update({ status: "approved", admin_note: note, decided_at: decidedAt })
+      .eq("id", requestId)
+      .eq("status", "pending")
+      .select("id")
+      .maybeSingle();
+    if (!claimed) {
+      return apiError({ status: 409, message: "이미 처리된 요청이에요.", code: "ALREADY_DECIDED" });
+    }
+
+    // Count the approved spend toward the global wallet ceiling (once, post-claim).
     await admin.from("demo_events").insert({
       user_id: request.user_id,
       project_id: project.id,
       kind: "approved",
     });
-    await admin
-      .from("demo_requests")
-      .update({ status: "approved", admin_note: note, decided_at: decidedAt })
-      .eq("id", requestId);
 
     // Local runner drains the pending row via the worker. In cloud mode, fire the
     // task (mirrors the trigger-demo route).
