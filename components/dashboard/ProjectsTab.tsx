@@ -165,33 +165,28 @@ async function expandUploadEntries(
   return out;
 }
 
-// project-files public URL에서 스토리지 객체 경로를 뽑는다.
-// 외부 URL·picsum·thum.io·빈 값이면 우리 객체가 아니므로 null.
-const PUBLIC_OBJECT_PREFIX = "/storage/v1/object/public/project-files/";
-function storagePathFromPublicUrl(url: string | null | undefined): string | null {
-  if (!url) return null;
-  const i = url.indexOf(PUBLIC_OBJECT_PREFIX);
-  if (i === -1) return null;
-  const path = url.slice(i + PUBLIC_OBJECT_PREFIX.length);
-  return path ? decodeURIComponent(path) : null;
-}
-
 // 수정 저장 후, 교체·제거된 이전 업로드 영상/썸네일 객체를 청소한다.
 // DB 업데이트가 커밋된 뒤 old↔new를 비교하므로(업로드 시점 X) 저장 안 하고
-// 닫는 footgun이 없다. thum.io·picsum 등 우리 객체가 아닌 값은 null이라 무시.
+// 닫는 footgun이 없다. thum.io·picsum 등 우리 객체가 아닌 값은 서버가 무시한다.
+//
+// 실제 삭제는 서버에서 — 여기서 storage.remove()를 직접 부르면 스토리지 RLS가
+// 조용히 막아 파일이 그대로 쌓인다(삭제 라우트가 서버로 간 것과 같은 이유, 감사 #18).
 async function deleteSwappedAssets(
-  supabase: ReturnType<typeof createClient>,
+  projectId: string,
   prev: Pick<DBProject, "video_url" | "thumbnail">,
   next: Pick<DBProject, "video_url" | "thumbnail">,
 ) {
-  const stale: string[] = [];
-  const oldVideo = storagePathFromPublicUrl(prev.video_url);
-  if (oldVideo && oldVideo !== storagePathFromPublicUrl(next.video_url)) stale.push(oldVideo);
-  const oldThumb = storagePathFromPublicUrl(prev.thumbnail);
-  if (oldThumb && oldThumb !== storagePathFromPublicUrl(next.thumbnail)) stale.push(oldThumb);
-  if (stale.length) {
-    try { await supabase.storage.from("project-files").remove(stale); } catch { /* ignore */ }
-  }
+  const prevVideoUrl = prev.video_url !== next.video_url ? prev.video_url : null;
+  const prevThumbnail = prev.thumbnail !== next.thumbnail ? prev.thumbnail : null;
+  if (!prevVideoUrl && !prevThumbnail) return;
+  try {
+    await fetch(`/api/projects/${projectId}/demo-assets`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prevVideoUrl, prevThumbnail }),
+      keepalive: true,
+    });
+  } catch { /* 청소 실패가 저장 흐름을 막지는 않는다 — 서버 로그에 남는다 */ }
 }
 
 export default function ProjectsTab({ user, reviewProjectId }: { user: User; reviewProjectId?: string | null }) {
@@ -485,7 +480,7 @@ export default function ProjectsTab({ user, reviewProjectId }: { user: User; rev
     if (error) throw new Error(error.message);
     if (data) {
       setProjects(prev => prev.map(p => p.id === id ? (data as DBProject) : p));
-      if (before) await deleteSwappedAssets(supabase, before, data as DBProject);
+      if (before) await deleteSwappedAssets(id, before, data as DBProject);
     }
     setEditProject(null);
   }
