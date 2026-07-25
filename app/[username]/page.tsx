@@ -4,7 +4,7 @@ import Image from "next/image";
 import { unstable_cache } from "next/cache";
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
-import { createPublicClient } from "@/lib/supabase/public";
+import { createPublicClient, throwIfReadFailed } from "@/lib/supabase/public";
 import CopyLinkButton from "@/components/CopyLinkButton";
 import PortfolioModeToggle from "@/components/PortfolioModeToggle";
 import type { Project } from "@/lib/data";
@@ -30,8 +30,8 @@ const getProfile = unstable_cache(
       .select("*")
       .eq("username", username)
       .single();
-    if (error || !data) return null;
-    return data as Profile;
+    throwIfReadFailed(error, "theater:profile");
+    return (data as Profile) ?? null;
   },
   ["portfolio-profile"],
   { revalidate: 60, tags: ["portfolio"] }
@@ -40,12 +40,13 @@ const getProfile = unstable_cache(
 const getProjects = unstable_cache(
   async (userId: string) => {
     const supabase = createPublicClient();
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("projects")
       .select("*")
       .eq("user_id", userId)
       .order("sort_order", { ascending: true })
       .order("created_at", { ascending: false });
+    throwIfReadFailed(error, "theater:projects");
     return (data as DBProject[]) ?? [];
   },
   ["portfolio-projects"],

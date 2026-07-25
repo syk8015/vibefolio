@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { unstable_cache } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { createPublicClient } from "@/lib/supabase/public";
+import { createPublicClient, throwIfReadFailed } from "@/lib/supabase/public";
 import HomeProfileMenu from "@/components/HomeProfileMenu";
 import PortfolioPipSection from "@/components/PortfolioPipSection";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -25,9 +25,9 @@ const getLandingData = unstable_cache(
   async () => {
     const supabase = createPublicClient();
     const [
-      { count: userCount },
-      { data: featuredProfiles },
-      { data: projectOwners },
+      { count: userCount, error: countError },
+      { data: featuredProfiles, error: profilesError },
+      { data: projectOwners, error: ownersError },
     ] = await Promise.all([
       supabase.from("profiles").select("*", { count: "exact", head: true }),
       supabase.from("profiles")
@@ -38,6 +38,10 @@ const getLandingData = unstable_cache(
       // showcase, without leaning on an embedded-relationship name.
       supabase.from("projects").select("user_id"),
     ]);
+    // 읽기 실패를 0/[]로 캐시하면 60초 동안 "0명이 사용 중"이 랜딩에 걸린다.
+    throwIfReadFailed(countError, "landing:userCount");
+    throwIfReadFailed(profilesError, "landing:featuredProfiles");
+    throwIfReadFailed(ownersError, "landing:projectOwners");
     return {
       userCount: userCount ?? 0,
       featuredProfiles: (featuredProfiles as (FeaturedProfile & { id: string })[] | null) ?? [],

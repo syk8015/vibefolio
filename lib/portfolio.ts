@@ -1,5 +1,5 @@
 import { unstable_cache } from "next/cache";
-import { createPublicClient } from "@/lib/supabase/public";
+import { createPublicClient, throwIfReadFailed } from "@/lib/supabase/public";
 
 // Shared public reads for the per-project watch page (/{username}/{id}). Kept
 // separate from the theater page's own private copies in app/[username]/page.tsx
@@ -45,11 +45,12 @@ export function posterFromDemo(
 export const getProfileByUsername = unstable_cache(
   async (username: string): Promise<WatchProfile | null> => {
     const supabase = createPublicClient();
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("profiles")
       .select("id, username, name, avatar_url, bio")
       .eq("username", username)
       .single();
+    throwIfReadFailed(error, "watch:profile");
     return (data as WatchProfile) ?? null;
   },
   ["watch-profile"],
@@ -59,7 +60,7 @@ export const getProfileByUsername = unstable_cache(
 export const getProjectById = unstable_cache(
   async (userId: string, projectId: string): Promise<WatchProject | null> => {
     const supabase = createPublicClient();
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("projects")
       .select(
         "id, title, description, content_type, demo_video_url, demo_generated_at, thumbnail, demo_build_status",
@@ -67,6 +68,7 @@ export const getProjectById = unstable_cache(
       .eq("user_id", userId)
       .eq("id", projectId)
       .single();
+    throwIfReadFailed(error, "watch:project");
     return (data as WatchProject) ?? null;
   },
   ["watch-project"],
