@@ -47,6 +47,16 @@ type DemoBuildStatus =
   | "failed"
   | "held";
 
+// 촬영이 아직 진행 중인 상태들. 이 행이 하나라도 있는 동안만 폴백 폴링이 돌고,
+// 전부 done/failed/held로 떨어지면 스스로 멈춘다.
+const DEMO_IN_FLIGHT: ReadonlySet<DemoBuildStatus> = new Set([
+  "pending",
+  "building",
+  "recording",
+  "editing",
+]);
+const DEMO_POLL_MS = 10_000;
+
 interface DBProject {
   id: string;
   title: string;
@@ -239,6 +249,52 @@ export default function ProjectsTab({ user, reviewProjectId }: { user: User; rev
       supabase.removeChannel(channel);
     };
   }, [user.id]);
+
+  // Realtime이 유일한 경로면 publication 누락·소켓 끊김·탭 절전에 배지가 영영 안 바뀐다
+  // (영상은 다 나왔는데 화면은 계속 "촬영 중"). 촬영 중인 행이 있는 동안만 상태 컬럼을
+  // 얕게 폴링해 위와 같은 머지로 흘려보내는 폴백. 중복 갱신은 무해(같은 값 덮어쓰기).
+  const inFlightKey = [...projects, ...drafts]
+    .filter((p) => p.demo_build_status && DEMO_IN_FLIGHT.has(p.demo_build_status))
+    .map((p) => p.id)
+    .sort()
+    .join(",");
+
+  useEffect(() => {
+    if (!inFlightKey) return;
+    const ids = inFlightKey.split(",");
+    const supabase = createClient();
+    let cancelled = false;
+
+    async function sync() {
+      const { data } = await supabase
+        .from("projects")
+        .select("id, demo_build_status, demo_build_error, demo_video_url, demo_generated_at")
+        .in("id", ids);
+      if (cancelled || !data) return;
+      const fresh = new Map<string, Partial<DBProject>>(
+        (data as Partial<DBProject>[]).map((r) => [r.id as string, r]),
+      );
+      const merge = (prev: DBProject[]) =>
+        prev.map((p) => {
+          const next = fresh.get(p.id);
+          return next ? { ...p, ...next } : p;
+        });
+      setProjects(merge);
+      setDrafts(merge);
+    }
+
+    const timer = setInterval(sync, DEMO_POLL_MS);
+    // 탭을 다시 열면 즉시 한 번 — 절전으로 인터벌이 통째로 밀린 구간을 메운다.
+    const onVisible = () => {
+      if (document.visibilityState === "visible") sync();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [inFlightKey]);
 
   async function loadProjects() {
     const supabase = createClient();
