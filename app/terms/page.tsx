@@ -18,7 +18,7 @@ export default function TermsPage() {
           이용약관
         </h1>
         <p className="text-sm mb-12" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
-          시행일: 2025년 6월 1일
+          시행일: 2026년 7월 26일
         </p>
 
         <div className="flex flex-col gap-10" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", fontSize: "0.9rem", lineHeight: 1.9 }}>
@@ -45,7 +45,8 @@ export default function TermsPage() {
 
           <Section title="제4조 (회원가입 및 계정)">
             <ul className="list-disc pl-5 flex flex-col gap-1">
-              <li>이용자는 Google 계정을 통해 소셜 로그인 방식으로 가입할 수 있습니다.</li>
+              <li>이용자는 Google 계정을 통한 소셜 로그인, 또는 이메일 주소와 비밀번호를 등록하는 방식으로 가입할 수 있습니다.</li>
+              <li>서비스는 만 14세 이상만 가입할 수 있습니다. 만 14세 미만 아동은 서비스를 이용할 수 없습니다.</li>
               <li>이용자는 자신의 계정 정보를 안전하게 관리할 책임이 있으며, 계정 도용으로 인한 피해에 대해 운영자는 책임을 지지 않습니다.</li>
               <li>이용자는 타인의 정보를 이용하거나 허위 정보를 등록해서는 안 됩니다.</li>
             </ul>

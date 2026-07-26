@@ -18,7 +18,7 @@ export default function PrivacyPage() {
           개인정보처리방침
         </h1>
         <p className="text-sm mb-12" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
-          시행일: 2025년 6월 1일
+          시행일: 2026년 7월 26일
         </p>
 
         <div className="flex flex-col gap-10" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", fontSize: "0.9rem", lineHeight: 1.9 }}>
@@ -31,10 +31,13 @@ export default function PrivacyPage() {
           <Section title="제1조 (수집하는 개인정보 항목)">
             서비스는 회원가입 및 서비스 제공을 위해 다음과 같은 정보를 수집합니다.
             <ul className="list-disc pl-5 flex flex-col gap-1 mt-2">
-              <li><strong>필수 항목:</strong> 이메일 주소, 사용자명(username), Google 계정 고유 식별자</li>
+              <li><strong>필수 항목:</strong> 이메일 주소, 사용자명(username), 그리고 가입 방식에 따라 Google 계정 고유 식별자(소셜 로그인) 또는 비밀번호(이메일 가입 — 단방향 암호화하여 저장)</li>
               <li><strong>선택 항목:</strong> 이름, 프로필 사진, 소개글(bio), GitHub/Twitter/기타 소셜 링크</li>
               <li><strong>자동 수집:</strong> 서비스 이용 기록, 접속 IP 주소, 쿠키 및 세션 정보</li>
             </ul>
+            <p className="mt-3">
+              서비스는 만 14세 이상만 가입할 수 있으며, 만 14세 미만 아동의 개인정보는 수집하지 않습니다.
+            </p>
           </Section>
 
           <Section title="제2조 (개인정보의 수집 및 이용 목적)">
@@ -50,6 +53,7 @@ export default function PrivacyPage() {
           <Section title="제3조 (개인정보의 보유 및 이용 기간)">
             <ul className="list-disc pl-5 flex flex-col gap-1">
               <li>수집된 개인정보는 회원 탈퇴 시까지 보유하며, 탈퇴 즉시 파기합니다.</li>
+              <li>단, 서비스 이용 통계(조회수·기능 사용 기록 등)는 개인을 알아볼 수 없도록 계정 식별자를 제거한 형태로 전환하여 보관합니다. 이 기록만으로는 특정 개인을 식별할 수 없습니다.</li>
               <li>단, 관련 법령에 따라 일정 기간 보존이 필요한 경우 해당 기간 동안 보관 후 파기합니다.</li>
             </ul>
           </Section>
@@ -70,6 +74,7 @@ export default function PrivacyPage() {
               <li><strong>Google LLC</strong> — OAuth 소셜 로그인 (미국)</li>
               <li><strong>Cloudflare, Inc.</strong> — 데모 영상 저장(R2) 및 봇 차단(Turnstile) (미국)</li>
               <li><strong>Resend, Inc.</strong> — 인증·안내 이메일 발송 (미국)</li>
+              <li><strong>Anthropic PBC</strong> — 자동 시연 촬영 시 화면 분석 및 콘텐츠 검토 (미국)</li>
               <li><strong>Functional Software, Inc. (Sentry)</strong> — 오류 모니터링 (미국)</li>
             </ul>
           </Section>
