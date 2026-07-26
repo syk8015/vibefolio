@@ -35,6 +35,11 @@
   /* Meishi card elevation — light: subtle drop shadow */
   --shadow-card-big: 0 1px 0 rgba(0,0,0,0.04), 0 18px 40px rgba(0,0,0,0.16), 0 3px 8px rgba(0,0,0,0.08);
   --shadow-card-small: 0 1px 0 rgba(0,0,0,0.04), 0 12px 28px rgba(0,0,0,0.14), 0 2px 6px rgba(0,0,0,0.08);
+  /* Mobile-preview device drop shadow. Three short blurs instead of one 100px
+     one: a single wide blur at high alpha spreads a grey smear across the paper
+     (measured: a 34/255 ramp ~470px wide) that reads as a smudge rather than
+     lift. Stacked contact + mid + ambient layers keep the phone crisp. */
+  --shadow-device: 0 2px 4px rgba(0,0,0,0.10), 0 8px 16px rgba(0,0,0,0.10), 0 22px 38px rgba(0,0,0,0.13);
 }
 
 /* Dark theme — deep ink */
@@ -65,6 +70,9 @@
   /* Meishi card elevation — dark: top highlight + deep shadow for perceived lift */
   --shadow-card-big: inset 0 1px 0 rgba(255,255,255,0.07), 0 20px 56px rgba(0,0,0,0.6), 0 4px 14px rgba(0,0,0,0.45);
   --shadow-card-small: inset 0 1px 0 rgba(255,255,255,0.06), 0 14px 38px rgba(0,0,0,0.5), 0 3px 9px rgba(0,0,0,0.38);
+  /* Dark paper: a black drop shadow barely registers, so lean on contact
+     shadow only and let the shell's hairline ring carry the separation. */
+  --shadow-device: 0 2px 6px rgba(0,0,0,0.55), 0 10px 22px rgba(0,0,0,0.45);
 }
 
 * { box-sizing: border-box; }

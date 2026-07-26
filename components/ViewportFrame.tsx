@@ -101,21 +101,12 @@ export default function ViewportFrame({ username, enabled, children }: Props) {
         overflow: "hidden",
       }}
     >
-      <div
-        style={{
-          position: "absolute",
-          top: "30%",
-          left: "50%",
-          transform: "translate(-50%, -50%)",
-          width: 600,
-          height: 600,
-          borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(77,158,255,0.10) 0%, transparent 70%)",
-          filter: "blur(60px)",
-          pointerEvents: "none",
-        }}
-      />
-
+      {/* No backdrop glow here on purpose. A 600px blurred
+          rgba(77,158,255,0.10) disc used to sit behind the device — a leftover
+          from before the palette went ink-on-paper (which is also why
+          --blue-glow is transparent). Measured contribution on this screen:
+          0.2/255 average, 1.9/255 peak, in both themes — invisible. The haze
+          people notice behind the phone is the device's own shadow below. */}
       <div
         style={{
           position: "relative",
@@ -135,7 +126,7 @@ export default function ViewportFrame({ username, enabled, children }: Props) {
             borderRadius: DEVICE_RADIUS,
             padding: BEZEL,
             boxShadow:
-              "0 40px 100px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.06), inset 0 0 0 1.5px rgba(255,255,255,0.04)",
+              "var(--shadow-device), 0 0 0 1px rgba(255,255,255,0.06), inset 0 0 0 1.5px rgba(255,255,255,0.04)",
           }}
         >
           {/* Screen */}
@@ -244,7 +235,7 @@ export default function ViewportFrame({ username, enabled, children }: Props) {
                     width: 32,
                     height: 32,
                     borderRadius: "50%",
-                    border: "2.5px solid rgba(77,158,255,0.25)",
+                    border: "2.5px solid var(--border)",
                     borderTopColor: "var(--blue)",
                   }}
                 />
