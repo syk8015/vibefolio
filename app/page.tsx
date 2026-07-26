@@ -147,8 +147,12 @@ export default async function LandingPage() {
 
         <TypingTagline userCount={userCount ?? 0} />
 
-        {/* Scroll hint — fades out as soon as the user scrolls */}
-        {profiles.length > 0 && <ScrollHint />}
+        {/* Scroll hint — fades out as soon as the user scrolls.
+            Not gated on `profiles`: the FAQ section below always renders, so
+            there is always something under the fold to hint at. (It used to
+            share the showcase's gate, which meant an empty showcase left a
+            100vh hero with no affordance while ~800px of FAQ sat below it.) */}
+        <ScrollHint />
       </section>
 
       {/* FAQ — ↳ replies, typed on first scroll-into-view */}
