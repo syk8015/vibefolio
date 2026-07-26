@@ -1,7 +1,3 @@
-"use client";
-
-import { useEffect, useRef, useState } from "react";
-
 const FAQ = [
   { q: "깃허브 링크면 충분하지 않나요?", a: "깃허브는 코드를, 여기는 작품을" },
   { q: "무엇을 올려야 하나요?", a: "주말의 스케치부터 배포한 url까지" },
@@ -9,96 +5,16 @@ const FAQ = [
   { q: "누가 쓰는 건가요?", a: "@everyone" },
 ];
 
-const CHAR_MS = 8;
-const Q_TO_A_PAUSE = 90;
-const PAIR_PAUSE = 200;
-
-type Item = { q: string; a: string; qDelay: number; aDelay: number };
-
-function buildTimeline(): Item[] {
-  let t = 0;
-  return FAQ.map((item) => {
-    const qDelay = t;
-    t += item.q.length * CHAR_MS + Q_TO_A_PAUSE;
-    const aDelay = t;
-    t += item.a.length * CHAR_MS + PAIR_PAUSE;
-    return { ...item, qDelay, aDelay };
-  });
-}
-
-const TIMELINE = buildTimeline();
-
-// The inline-grid "ghost text underneath, typed text on top" trick reserves the
-// final layout so lines never reflow while typing. max-width:100% lets the ghost
-// (and the visible copy over it) wrap within its container on narrow screens
-// instead of overflowing — the trick is otherwise untouched.
-function Typed({
-  text, startDelay, enabled, instant,
-}: {
-  text: string;
-  startDelay: number;
-  enabled: boolean;
-  instant: boolean;
-}) {
-  const [n, setN] = useState(0);
-
-  useEffect(() => {
-    if (!enabled) return;
-    if (instant) { setN(text.length); return; }
-
-    let intervalId: ReturnType<typeof setInterval> | undefined;
-    const startId = setTimeout(() => {
-      let c = 0;
-      intervalId = setInterval(() => {
-        c += 1;
-        setN(c);
-        if (c >= text.length && intervalId) {
-          clearInterval(intervalId);
-          intervalId = undefined;
-        }
-      }, CHAR_MS);
-    }, startDelay);
-
-    return () => {
-      clearTimeout(startId);
-      if (intervalId) clearInterval(intervalId);
-    };
-  }, [text, startDelay, enabled, instant]);
-
-  return (
-    <span style={{ display: "inline-grid", verticalAlign: "top", maxWidth: "100%" }}>
-      <span style={{ gridArea: "1 / 1", visibility: "hidden" }} aria-hidden>{text}</span>
-      <span style={{ gridArea: "1 / 1" }}>{text.slice(0, n)}</span>
-    </span>
-  );
-}
-
 // Direction C — "선언 (Dialogue)": emphasis is inverted. The question is a quiet
 // mono-tagged prompt; the answer becomes the hero — large serif on a soft-fill
 // band. Reads like a manifesto of short replies.
+//
+// Renders statically — no scroll-triggered typing. The copy is the point, so it
+// is readable the instant it enters the viewport (and to anything that doesn't
+// run JS). With no state left this is a server component: zero client JS.
 export default function FaqRepliesSection() {
-  const sectionRef = useRef<HTMLElement>(null);
-  const [inView, setInView] = useState(false);
-  const [reduced, setReduced] = useState(false);
-
-  useEffect(() => {
-    setReduced(window.matchMedia("(prefers-reduced-motion: reduce)").matches);
-  }, []);
-
-  useEffect(() => {
-    const el = sectionRef.current;
-    if (!el) return;
-    const obs = new IntersectionObserver(
-      ([e]) => { if (e.isIntersecting) { setInView(true); obs.disconnect(); } },
-      { threshold: 0.1 }
-    );
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, []);
-
   return (
     <section
-      ref={sectionRef}
       style={{
         padding: "6rem clamp(1rem, 3vw, 2rem) 10rem",
         display: "flex",
@@ -106,17 +22,17 @@ export default function FaqRepliesSection() {
       }}
     >
       <div style={listStyle}>
-        {TIMELINE.map((item, i) => (
+        {FAQ.map((item, i) => (
           <div key={i}>
             <p className="vf-faq-q" style={qStyle}>
               <span style={tagStyle}>Q{String(i + 1).padStart(2, "0")}</span>
-              <Typed text={item.q} startDelay={item.qDelay} enabled={inView} instant={reduced} />
+              {/* minWidth:0 lets the question wrap inside the flex row instead
+                  of forcing the row wider than its column. */}
+              <span style={{ minWidth: 0 }}>{item.q}</span>
             </p>
             <div style={bandStyle}>
               <span style={arrowStyle} aria-hidden>→</span>
-              <p className="vf-faq-a" style={aStyle}>
-                <Typed text={item.a} startDelay={item.aDelay} enabled={inView} instant={reduced} />
-              </p>
+              <p className="vf-faq-a" style={aStyle}>{item.a}</p>
             </div>
           </div>
         ))}
