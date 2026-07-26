@@ -56,6 +56,10 @@ const DEMO_IN_FLIGHT: ReadonlySet<DemoBuildStatus> = new Set([
   "editing",
 ]);
 const DEMO_POLL_MS = 10_000;
+// 촬영이 이 시간을 넘기면 배지를 "예상보다 오래 걸려요"로 바꾼다. 실패 판정이
+// 아니라 안심 문구 — 유저를 화면 앞에 붙잡아두지 않는 게 목적이다. 운영 경보는
+// 별개 임계값(health 크론 STUCK_PENDING_MIN=15분)이라 서로 간섭하지 않는다.
+const DEMO_SLOW_MS = 5 * 60_000;
 
 interface DBProject {
   id: string;
@@ -78,6 +82,8 @@ interface DBProject {
   demo_build_error: string | null;
   demo_video_url: string | null;
   demo_generated_at: string | null;
+  // DB 트리거가 모든 상태 전이마다 찍는다 (migration_stuck_watchdog.sql).
+  demo_status_changed_at: string | null;
   // 사용자 유도형 데모 변형①: 제작자가 쓴 "핵심 기능" 설명. 녹화 워커가 explore
   // 브리핑에 주입한다. 가드 트리거의 파이프라인 컬럼이 아니라 유저가 직접 수정 가능.
   demo_user_hint: string | null;
@@ -95,6 +101,7 @@ type ProjectForm = Omit<
   | "demo_build_error"
   | "demo_video_url"
   | "demo_generated_at"
+  | "demo_status_changed_at"
 >;
 
 const EMPTY_FORM: ProjectForm = {
@@ -201,6 +208,11 @@ export default function ProjectsTab({ user, reviewProjectId }: { user: User; rev
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [rerecordModal, setRerecordModal] = useState<{ id: string; title: string } | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // 자동 시연이 일시정지면 큐는 그대로 쌓이므로, 스피너 대신 '점검 중'으로 알린다.
+  const [demoPaused, setDemoPaused] = useState(false);
+  // 경과 시간 판정용 시각. 렌더 중 Date.now()는 불순(재렌더 시점에 따라 결과가
+  // 흔들림)이라 마운트 때 한 번 고정하고 이후 폴링 주기에 실어 갱신한다.
+  const [nowMs, setNowMs] = useState(() => Date.now());
 
   useEffect(() => {
     if (!notice) return;
@@ -260,10 +272,27 @@ export default function ProjectsTab({ user, reviewProjectId }: { user: User; rev
     const supabase = createClient();
     let cancelled = false;
 
+    // 일시정지는 프로젝트별이 아니라 전역 — system_status는 서비스롤 전용이라
+    // 클라이언트가 직접 못 읽고, 라우트를 거친다. 실패하면 조용히 스피너 경로 유지.
+    async function syncPaused() {
+      try {
+        const res = await fetch("/api/demo/status");
+        if (!res.ok || cancelled) return;
+        const json = await res.json();
+        if (!cancelled) setDemoPaused(!!json?.paused);
+      } catch {
+        /* 네트워크 실패 → 기존 표시 유지 */
+      }
+    }
+
     async function sync() {
+      syncPaused();
+      setNowMs(Date.now());
       const { data } = await supabase
         .from("projects")
-        .select("id, demo_build_status, demo_build_error, demo_video_url, demo_generated_at")
+        // demo_status_changed_at을 같이 안 가져오면 pending→building 전이 후에도
+        // 옛 타임스탬프가 남아 "오래 걸려요"가 너무 일찍 뜬다.
+        .select("id, demo_build_status, demo_build_error, demo_video_url, demo_generated_at, demo_status_changed_at")
         .in("id", ids);
       if (cancelled || !data) return;
       const fresh = new Map<string, Partial<DBProject>>(
@@ -278,6 +307,9 @@ export default function ProjectsTab({ user, reviewProjectId }: { user: User; rev
       setDrafts(merge);
     }
 
+    // 프로젝트 행은 방금 loadProjects가 실어왔으니 재조회가 불필요하지만, 일시정지
+    // 여부는 아직 모른다 — 첫 10초를 스피너로 흘려보내지 않도록 지금 한 번.
+    syncPaused();
     const timer = setInterval(sync, DEMO_POLL_MS);
     // 탭을 다시 열면 즉시 한 번 — 절전으로 인터벌이 통째로 밀린 구간을 메운다.
     const onVisible = () => {
@@ -634,6 +666,8 @@ export default function ProjectsTab({ user, reviewProjectId }: { user: User; rev
                 key={project.id}
                 project={project}
                 username={username}
+                demoPaused={demoPaused}
+                nowMs={nowMs}
                 onDelete={() => handleDelete(project.id)}
                 onEdit={() => setEditProject(project)}
                 onToggleFeatured={() => handleToggleFeatured(project.id)}
@@ -711,10 +745,16 @@ const DEMO_PHASE_LABEL: Record<Exclude<DemoBuildStatus, "done" | "failed" | "hel
 function DemoBuildBadge({
   status,
   error,
+  statusChangedAt,
+  paused,
+  nowMs,
   onRetry,
 }: {
   status: DemoBuildStatus | null;
   error: string | null;
+  statusChangedAt: string | null;
+  paused: boolean;
+  nowMs: number;
   onRetry?: () => void;
 }) {
   // 팝오버는 fixed + 버튼 rect 앵커 — 리스트 카드(vf-card overflow-hidden)가
@@ -849,7 +889,39 @@ function DemoBuildBadge({
     );
   }
 
-  // pending | building | recording | editing — 단계 서사 + 기대 시간
+  // pending | building | recording | editing — 단계 서사 + 기대 시간.
+  //
+  // 다만 스피너가 정직한 건 실제로 진행 중일 때뿐이다. 워커가 멈췄거나 일시정지면
+  // 큐는 계속 접수되는데(요청 경로는 demo_paused를 보지 않는다) 이 배지만 영원히
+  // 돌고, RerecordButton은 in-flight라 숨는다 → 유저가 할 수 있는 게 없는 데드엔드.
+  // 그래서 두 경우엔 스피너를 걷어내고 지금 무슨 일인지 말해준다.
+  // nowMs는 폴링이 실어주는 값(0 = 아직 모름). 렌더는 순수하게 유지된다.
+  const isSlow =
+    !!statusChangedAt && nowMs > 0 && nowMs - new Date(statusChangedAt).getTime() > DEMO_SLOW_MS;
+
+  if (paused || isSlow) {
+    return (
+      <span
+        className="px-2 py-0.5 rounded-full text-xs shrink-0"
+        style={{
+          background: "var(--surface-soft)",
+          color: "var(--text-secondary)",
+          fontFamily: "var(--font-nunito)",
+          fontSize: "0.6rem",
+          fontWeight: 600,
+          cursor: "help",
+        }}
+        title={
+          paused
+            ? "자동 시연을 잠시 멈춰둔 상태예요. 재개되면 순서대로 처리해 드릴게요."
+            : "창을 닫으셔도 돼요 — 촬영이 끝나면 메일로 알려드릴게요."
+        }
+      >
+        {paused ? "자동 시연 점검 중" : "예상보다 오래 걸려요"}
+      </span>
+    );
+  }
+
   return (
     <span
       className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs shrink-0"
@@ -1004,9 +1076,11 @@ function DraftReviewCard({ draft, highlight, onEdit, onDelete, onPublish }: {
   );
 }
 
-function ProjectRow({ project, username, onDelete, onEdit, onToggleFeatured, onRerecord, onMoveUp, onMoveDown, canMoveUp, canMoveDown, isDragging, isDragOver, isLast, onDragStart, onDragOver, onDrop, onDragEnd }: {
+function ProjectRow({ project, username, demoPaused, nowMs, onDelete, onEdit, onToggleFeatured, onRerecord, onMoveUp, onMoveDown, canMoveUp, canMoveDown, isDragging, isDragOver, isLast, onDragStart, onDragOver, onDrop, onDragEnd }: {
   project: DBProject;
   username: string;
+  demoPaused: boolean;
+  nowMs: number;
   onDelete: () => void;
   onEdit: () => void;
   onToggleFeatured: () => void;
@@ -1080,6 +1154,9 @@ function ProjectRow({ project, username, onDelete, onEdit, onToggleFeatured, onR
             <DemoBuildBadge
               status={project.demo_build_status}
               error={project.demo_build_error}
+              statusChangedAt={project.demo_status_changed_at}
+              paused={demoPaused}
+              nowMs={nowMs}
               onRetry={project.demo_source_value ? onRerecord : undefined}
             />
           </div>
