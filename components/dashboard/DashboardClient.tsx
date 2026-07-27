@@ -16,10 +16,7 @@ import ThemeToggle from "@/components/ThemeToggle";
 // initial dashboard paint, so this is pure bundle weight removed from first load.
 const TabFallback = () => (
   <div className="flex justify-center py-20">
-    <div
-      className="animate-spin"
-      style={{ width: 22, height: 22, borderRadius: "50%", border: "2px solid var(--border)", borderTopColor: "var(--text-secondary)" }}
-    />
+    <div className="vf-spinner" />
   </div>
 );
 const ProjectsTab = dynamic(() => import("./ProjectsTab"), { loading: TabFallback });
@@ -42,23 +39,18 @@ export interface DashboardProfile {
 }
 
 export default function DashboardClient({ user, profile }: { user: User; profile: DashboardProfile }) {
-  const [tab, setTab] = useState<Tab>("profile");
-  const [showWelcome, setShowWelcome] = useState(false);
-  const [reviewId, setReviewId] = useState<string | null>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
+  // ?welcome=1(온보딩 직후 배너) · ?review=<id>(AI 인제스트 초안 검토 딥링크)는
+  // 마운트 시 1회 소비하는 진입 파라미터 — lazy init으로 읽고, 이펙트는 URL
+  // 정리만 한다. (마운트 중 같은 페이지로 재네비게이션하는 진입 경로는 없음.)
+  const [tab, setTab] = useState<Tab>(() => (searchParams.get("review") ? "projects" : "profile"));
+  const [showWelcome, setShowWelcome] = useState(() => searchParams.get("welcome") === "1");
+  const [reviewId] = useState<string | null>(() => searchParams.get("review"));
 
   useEffect(() => {
-    if (searchParams.get("welcome") === "1") {
-      setShowWelcome(true);
+    if (searchParams.get("welcome") === "1" || searchParams.get("review")) {
       // Clean the URL without reload
-      window.history.replaceState({}, "", "/dashboard");
-    }
-    // ?review=<id> — AI 인제스트 초안 검토 딥링크: 프로젝트 탭으로 전환 + 그 초안 열기.
-    const review = searchParams.get("review");
-    if (review) {
-      setReviewId(review);
-      setTab("projects");
       window.history.replaceState({}, "", "/dashboard");
     }
   }, [searchParams]);
@@ -150,8 +142,8 @@ export default function DashboardClient({ user, profile }: { user: User; profile
                     이제 프로젝트를 추가해서 명함을 채워볼게요.{" "}
                     <button
                       onClick={() => setTab("projects")}
-                      className="underline transition-opacity hover:opacity-70"
-                      style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontWeight: 600, padding: 0 }}>
+                      className="vf-button-text underline"
+                      style={{ color: "var(--text-primary)", fontWeight: 600 }}>
                       첫 프로젝트 추가하기 →
                     </button>
                   </p>
@@ -187,28 +179,16 @@ export default function DashboardClient({ user, profile }: { user: User; profile
           className="flex flex-wrap justify-center mb-10"
           style={{ borderBottom: "1px solid var(--border)", gap: "0.25rem" }}
         >
-          {(["profile", "projects", "analytics"] as Tab[]).map((t) => {
-            const active = tab === t;
-            return (
-              <button
-                key={t}
-                onClick={() => setTab(t)}
-                className="px-4 sm:px-5 py-3 text-sm whitespace-nowrap transition-colors"
-                style={{
-                  background: "transparent",
-                  color: active ? "var(--text-primary)" : "var(--text-secondary)",
-                  fontFamily: "var(--font-nunito)",
-                  fontWeight: active ? 600 : 500,
-                  border: "none",
-                  borderBottom: active ? "2px solid var(--text-primary)" : "2px solid transparent",
-                  marginBottom: "-1px",
-                  cursor: "pointer",
-                }}
-              >
-                {t === "profile" ? "프로필" : t === "projects" ? "프로젝트" : "분석"}
-              </button>
-            );
-          })}
+          {(["profile", "projects", "analytics"] as Tab[]).map((t) => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              data-active={tab === t}
+              className="vf-tab"
+            >
+              {t === "profile" ? "프로필" : t === "projects" ? "프로젝트" : "분석"}
+            </button>
+          ))}
         </div>
 
         {/* Tab content */}

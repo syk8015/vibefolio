@@ -315,8 +315,8 @@ export default function ProfileTab({ user, profile }: { user: User; profile: Das
                   <button
                     type="button"
                     onClick={() => removeLink(i)}
-                    className="w-9 h-9 rounded-full flex items-center justify-center text-base transition-colors flex-shrink-0"
-                    style={{ color: "var(--text-muted)", background: "var(--surface-soft)", border: "none", cursor: "pointer" }}
+                    className="vf-icon-button w-9 h-9 text-base flex-shrink-0"
+                    style={{ color: "var(--text-muted)" }}
                     aria-label="링크 삭제"
                   >
                     ×
@@ -337,8 +337,7 @@ export default function ProfileTab({ user, profile }: { user: User; profile: Das
           <button
             type="button"
             onClick={addLink}
-            className="flex items-center gap-1.5 text-sm w-fit transition-opacity hover:opacity-70"
-            style={{ color: "var(--text-secondary)", background: "none", border: "none", cursor: "pointer", fontFamily: "var(--font-nunito)", padding: 0 }}
+            className="vf-button-text w-fit"
           >
             <span style={{ fontSize: "1.1rem", lineHeight: 1 }}>+</span> 링크 추가
           </button>

@@ -305,8 +305,7 @@ export default function AnalyticsTab({ user }: { user: User }) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="w-6 h-6 rounded-full border-2 animate-spin"
-          style={{ borderColor: "var(--text-primary)", borderTopColor: "transparent" }} />
+        <div className="vf-spinner" />
       </div>
     );
   }
@@ -370,13 +369,10 @@ export default function AnalyticsTab({ user }: { user: User }) {
                         {count}
                       </span>
                     </div>
-                    <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "var(--surface-soft)" }}>
+                    <div className="vf-meter">
                       <div
-                        className="h-full rounded-full"
-                        style={{
-                          width: `${Math.round((count / Math.max(views.length, 1)) * 100)}%`,
-                          background: "var(--text-primary)",
-                        }}
+                        className="vf-meter-fill"
+                        style={{ width: `${Math.round((count / Math.max(views.length, 1)) * 100)}%` }}
                       />
                     </div>
                   </div>
@@ -402,13 +398,10 @@ export default function AnalyticsTab({ user }: { user: User }) {
                         {count}
                       </span>
                     </div>
-                    <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "var(--surface-soft)" }}>
+                    <div className="vf-meter">
                       <div
-                        className="h-full rounded-full"
-                        style={{
-                          width: `${Math.round((count / Math.max(views.length, 1)) * 100)}%`,
-                          background: "var(--text-primary)",
-                        }}
+                        className="vf-meter-fill"
+                        style={{ width: `${Math.round((count / Math.max(views.length, 1)) * 100)}%` }}
                       />
                     </div>
                   </div>

@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { copyText } from "@/lib/clipboard";
 import { pastePrompt, envExport, NPX_LOGIN } from "@/lib/connectSnippets";
 
 interface TokenRow {
@@ -17,11 +19,11 @@ function CopyButton({ text, label = "복사" }: { text: string; label?: string }
   return (
     <button
       type="button"
-      onClick={() => {
-        navigator.clipboard.writeText(text).then(() => {
+      onClick={async () => {
+        if (await copyText(text)) {
           setCopied(true);
           setTimeout(() => setCopied(false), 1600);
-        });
+        }
       }}
       className="vf-button-ghost"
       style={{ fontSize: "0.75rem", padding: "0.35rem 0.7rem", whiteSpace: "nowrap" }}
@@ -53,6 +55,9 @@ export default function ConnectPanel({ username }: { username: string }) {
     setTokens((data as TokenRow[]) ?? []);
     setLoading(false);
   }
+  // 마운트 시 1회 토큰 목록 로드 — 훅 규칙은 await 뒤 setState까지 동기로 보수
+  // 판정하지만 실제 캐스케이드 렌더는 없다(ProjectsTab loadProjects와 동일).
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { load(); }, []);
 
   async function createToken() {
@@ -165,7 +170,7 @@ export default function ConnectPanel({ username }: { username: string }) {
           {pastePrompt(origin)}
         </pre>
         <p className="text-xs mt-2" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", lineHeight: 1.6 }}>
-          셸이 없는 AI(챗봇)라면 — AI가 뱉은 JSON을 <a href="/publish" style={{ color: "var(--text-primary)", textDecoration: "underline" }}>{origin.replace(/^https?:\/\//, "")}/publish</a> 에 붙여넣으면 돼요.
+          셸이 없는 AI(챗봇)라면 — AI가 뱉은 JSON을 <Link href="/publish" style={{ color: "var(--text-primary)", textDecoration: "underline" }}>{origin.replace(/^https?:\/\//, "")}/publish</Link> 에 붙여넣으면 돼요.
           CLI 로그인은 <code style={{ fontFamily: "var(--font-mono), monospace" }}>{NPX_LOGIN}</code>.
         </p>
       </div>

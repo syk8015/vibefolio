@@ -2,25 +2,13 @@
 
 import { useState } from "react";
 import { AnalyticsEvent, trackClientEvent } from "@/lib/analytics-client";
+import { copyText } from "@/lib/clipboard";
 
 // Per-project share affordance, shown in the dashboard row once a demo exists.
 // A single button opens a small popover with three actions: copy the watch link,
 // copy an X post (English — the mp4 is the viral carrier and X wants native
 // uploads), and download the mp4. UI labels stay Korean; only the copied text is
 // English.
-
-async function copyText(text: string): Promise<void> {
-  try {
-    await navigator.clipboard.writeText(text);
-  } catch {
-    const el = document.createElement("textarea");
-    el.value = text;
-    document.body.appendChild(el);
-    el.select();
-    document.execCommand("copy");
-    document.body.removeChild(el);
-  }
-}
 
 function safeFileName(title: string): string {
   const cleaned = title.replace(/[^\w가-힣 .-]/g, "").trim().slice(0, 60);

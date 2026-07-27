@@ -471,6 +471,8 @@ body::before {
   background: var(--surface-soft);
   color: var(--text-primary);
   border: none;
+  font-family: var(--font-nunito), sans-serif;
+  cursor: pointer;
   transition: background-color 0.22s ease, color 0.22s ease;
 }
 .vf-soft-fill:hover:not(:disabled) {
@@ -487,6 +489,8 @@ body::before {
   background: var(--surface-soft);
   color: var(--text-primary);
   border: none;
+  font-family: var(--font-nunito), sans-serif;
+  cursor: pointer;
   transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
 }
 .vf-selectable:hover:not([data-active="true"]):not(:disabled) {
@@ -502,6 +506,97 @@ body::before {
 /* Drop-target feedback — dropzones flag data-drag="1" while a file hovers.
    !important so it wins over the zones' inline surface backgrounds. */
 [data-drag="1"] { background: var(--surface-active) !important; }
+
+/* =============================================================
+   Shared primitives — 재디자인 중 다시 손으로 만들지 않도록 채운
+   시스템 공백 (아이콘 버튼·세그먼트 트랙·스피너·미터·탭·텍스트 버튼)
+   ============================================================= */
+
+/* Round icon button — the p-2 rounded-full soft-surface button repeated
+   across dashboard rows. State colors stay at the call site. */
+.vf-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem;
+  border-radius: 999px;
+  border: none;
+  background: var(--surface-soft);
+  cursor: pointer;
+  transition: background-color 0.18s ease;
+}
+.vf-icon-button:hover:not(:disabled) { background: var(--surface-soft-hover); }
+.vf-icon-button:disabled { opacity: 0.3; cursor: not-allowed; }
+
+/* Segmented control track — sunken rail holding vf-soft-fill/vf-selectable pills */
+.vf-seg-track {
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border-radius: 0.75rem;
+  background: var(--surface-sunken);
+}
+
+/* Loading spinner — one look for every "fetching" state */
+@keyframes vfSpin { to { transform: rotate(360deg); } }
+.vf-spinner {
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  border-top-color: var(--text-secondary);
+  animation: vfSpin 0.8s linear infinite;
+}
+
+/* Proportion meter — thin track + ink fill (analytics bars 등) */
+.vf-meter {
+  height: 0.375rem;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--surface-soft);
+}
+.vf-meter-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--text-primary);
+}
+
+/* Dashboard tab — underline pattern. 2단계 재디자인은 이 클래스를 고친다. */
+.vf-tab {
+  padding: 0.75rem 1rem;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  color: var(--text-secondary);
+  font-family: var(--font-nunito), sans-serif;
+  font-size: 0.875rem;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 0.18s ease;
+}
+.vf-tab[data-active="true"] {
+  color: var(--text-primary);
+  font-weight: 600;
+  border-bottom-color: var(--text-primary);
+}
+
+/* Bare text button — link-flavored action without a surface */
+.vf-button-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-family: var(--font-nunito), sans-serif;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: opacity 0.18s ease;
+}
+.vf-button-text:hover { opacity: 0.7; }
 
 /* Per-step entrance for the project wizard — fade + gentle rise */
 @keyframes vfStepIn {
@@ -539,10 +634,14 @@ body::before {
   .vf-button-danger,
   .vf-input,
   .vf-selectable,
+  .vf-icon-button,
+  .vf-tab,
+  .vf-button-text,
   .card-hover-glow {
     transition: none !important;
   }
   .vf-step-enter { animation: none !important; }
+  .vf-spinner { animation-duration: 2s; }
 }
 
 /* =============================================================

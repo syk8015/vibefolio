@@ -612,8 +612,7 @@ export default function ProjectsTab({ user, username, reviewProjectId }: { user:
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="w-6 h-6 rounded-full border-2 animate-spin"
-          style={{ borderColor: "var(--text-primary)", borderTopColor: "transparent" }} />
+        <div className="vf-spinner" />
       </div>
     );
   }
@@ -1026,12 +1025,7 @@ function RerecordButton({
     <button
       onClick={onRerecord}
       title={title}
-      className="p-2 rounded-full transition-colors"
-      style={{
-        background: "var(--surface-soft)",
-        border: "none",
-        cursor: "pointer",
-      }}
+      className="vf-icon-button"
     >
       <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
         <path
@@ -1243,15 +1237,13 @@ function ProjectRow({ project, username, demoPaused, nowMs, onDelete, onEdit, on
         <div className="flex items-center gap-1.5 md:gap-2">
           {/* Move up/down — mobile only (drag handle on desktop) */}
           <button onClick={onMoveUp} disabled={!canMoveUp} title="위로"
-            className="md:hidden p-2 rounded-full transition-colors hover:bg-[var(--surface-soft-hover)] disabled:opacity-30"
-            style={{ background: "var(--surface-soft)", border: "none", cursor: canMoveUp ? "pointer" : "not-allowed" }}>
+            className="md:hidden vf-icon-button">
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
               <path d="M3 8l4-4 4 4" stroke="var(--text-secondary)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </button>
           <button onClick={onMoveDown} disabled={!canMoveDown} title="아래로"
-            className="md:hidden p-2 rounded-full transition-colors hover:bg-[var(--surface-soft-hover)] disabled:opacity-30"
-            style={{ background: "var(--surface-soft)", border: "none", cursor: canMoveDown ? "pointer" : "not-allowed" }}>
+            className="md:hidden vf-icon-button">
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
               <path d="M3 6l4 4 4-4" stroke="var(--text-secondary)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
@@ -1276,29 +1268,23 @@ function ProjectRow({ project, username, demoPaused, nowMs, onDelete, onEdit, on
           <button
             onClick={onToggleFeatured}
             title={project.is_featured ? "대표 작품 해제" : "대표 작품으로 설정"}
-            className="p-2 rounded-full transition-colors"
-            style={{
-              background: project.is_featured ? "var(--text-primary)" : "var(--surface-soft)",
-              border: "none",
-              cursor: "pointer",
-            }}
+            className="vf-icon-button"
+            style={{ background: project.is_featured ? "var(--text-primary)" : undefined }}
           >
             <svg width="14" height="14" viewBox="0 0 14 14" fill={project.is_featured ? "var(--bg)" : "none"} stroke={project.is_featured ? "var(--bg)" : "var(--text-muted)"}>
               <path d="M7 1l1.8 4 4.2.4-3.2 2.9 1 4.2L7 10.4 3.2 12.5l1-4.2L1 5.4l4.2-.4L7 1z" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </button>
           <button onClick={onEdit} title="수정"
-            className="p-2 rounded-full transition-colors"
-            style={{ background: "var(--surface-soft)", border: "none", cursor: "pointer" }}>
+            className="vf-icon-button">
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
               <path d="M9.5 2.5l2 2L4 12H2v-2L9.5 2.5zM8.5 3.5l2 2" stroke="var(--text-primary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </button>
           <button onClick={onDelete} title="삭제"
-            className="p-2 rounded-full transition-colors"
-            style={{ background: "var(--surface-soft)", border: "none", cursor: "pointer" }}>
+            className="vf-icon-button">
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path d="M2 3.5h10M5.5 3.5V2.5h3v1M5 5.5v5M9 5.5v5M3.5 3.5l.5 8h6l.5-8" stroke="#b34747" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M2 3.5h10M5.5 3.5V2.5h3v1M5 5.5v5M9 5.5v5M3.5 3.5l.5 8h6l.5-8" stroke="var(--danger)" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </button>
         </div>
@@ -1825,15 +1811,13 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
                   </div>
                 ) : (
                   <>
-                    <div className="flex gap-1 p-1 rounded-lg"
-                      style={{ background: "var(--surface-sunken)" }}>
+                    <div className="vf-seg-track">
                       {(["file", "url"] as const).map(m => {
                         const active = videoMode === m;
                         return (
                           <button key={m} type="button" onClick={() => setVideoMode(m)}
                             data-active={active}
-                            className="vf-selectable px-4 py-1.5 rounded-md text-xs"
-                            style={{ fontFamily: "var(--font-nunito)", cursor: "pointer" }}>
+                            className="vf-selectable px-4 py-1.5 rounded-md text-xs">
                             {m === "file" ? "파일 업로드" : "URL"}
                           </button>
                         );
@@ -2068,18 +2052,13 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
 
         <form onSubmit={handleSubmit} className="px-6 py-5 flex flex-col gap-5">
 
-          <div className="flex gap-1 p-1 rounded-xl"
-            style={{ background: "var(--surface-sunken)" }}>
+          <div className="vf-seg-track">
             {(["url", "files"] as const).map(mode => {
               const active = uploadMode === mode;
               return (
                 <button key={mode} type="button" onClick={() => setUploadMode(mode)}
                   data-active={active}
-                  className="vf-soft-fill flex-1 py-2 rounded-lg text-sm"
-                  style={{
-                    fontFamily: "var(--font-nunito)",
-                    cursor: "pointer",
-                  }}>
+                  className="vf-soft-fill flex-1 py-2 rounded-lg text-sm">
                   {mode === "url" ? "🔗 URL 링크" : "📁 파일 업로드"}
                 </button>
               );
@@ -2235,18 +2214,13 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
             ) : (
               <>
                 {/* Mode toggle */}
-                <div className="flex gap-1 mb-2 p-1 rounded-lg w-fit"
-                  style={{ background: "var(--surface-sunken)" }}>
+                <div className="vf-seg-track mb-2 w-fit">
                   {(["file", "url"] as const).map(m => {
                     const active = videoMode === m;
                     return (
                       <button key={m} type="button" onClick={() => setVideoMode(m)}
                         data-active={active}
-                        className="vf-soft-fill px-3 py-1 rounded-md text-xs"
-                        style={{
-                          fontFamily: "var(--font-nunito)",
-                          cursor: "pointer",
-                        }}>
+                        className="vf-soft-fill px-3 py-1 rounded-md text-xs">
                         {m === "file" ? "파일 업로드" : "URL"}
                       </button>
                     );
