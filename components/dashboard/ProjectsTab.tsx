@@ -4,10 +4,8 @@ import { useState, useEffect, useRef, memo } from "react";
 import Image from "next/image";
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
-import ProjectCard from "@/components/ProjectCard";
 import ShareKit from "@/components/dashboard/ShareKit";
 import { RerecordRequestModal } from "@/components/dashboard/RerecordRequestModal";
-import type { Project } from "@/lib/data";
 import { detectDemoSource } from "@/lib/demoSource";
 import { parseDemoFailure, DEMO_FAILURE_COPY } from "@/lib/demo-failure";
 import { AnalyticsEvent, trackClientEvent } from "@/lib/analytics-client";
@@ -621,7 +619,7 @@ export default function ProjectsTab({ user, username, reviewProjectId }: { user:
     return (
       <ProjectFormModal title="새 프로젝트 추가" initialForm={EMPTY_FORM}
         onClose={() => setShowAddModal(false)} onSubmit={handleAdd}
-        submitLabel="추가하기" userId={user.id} wizard inline />
+        submitLabel="추가하기" userId={user.id} wizard />
     );
   }
 
@@ -1274,7 +1272,10 @@ function ProjectRow({ project, username, demoPaused, nowMs, onDelete, onEdit, on
   );
 }
 
-function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, userId, wizard = false, inline = false }: {
+// 두 모드뿐이다: wizard(추가 — 탭 영역을 통째로 차지하는 단계식) / 기본(수정 —
+// 오버레이 모달의 평면 폼). 예전의 wizard·inline 이중 플래그는 조합 2가지만
+// 쓰이면서 도달 불가 분기(display:none 래퍼 8곳 등)만 낳아 걷어냈다.
+function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, userId, wizard = false }: {
   title: string;
   initialForm: ProjectForm;
   onClose: () => void;
@@ -1282,7 +1283,6 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
   submitLabel: string;
   userId: string;
   wizard?: boolean;
-  inline?: boolean;
 }) {
   // 업로드로 만든 프로젝트의 demo_url은 내부 preview 경로다 — "url"로 시작하면
   // 수정 모달의 데모 URL 칸에 /api/preview/… 가 그대로 찍힌다(게다가 type=url
@@ -1299,10 +1299,6 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
   const TOTAL_STEPS = thumbnailMode === "manual" ? 8 : 7;
   const [selectedTools, setSelectedTools] = useState<string[]>(initialForm.tags);
   const [showAllTools, setShowAllTools] = useState(false);
-  // Edit modal never toggles the live-preview panel (that was wizard-only, now-removed
-  // dead code), so it stays collapsed — keep the read-only flag the width ternaries use.
-  const [showPreview] = useState(false);
-  const [previewLayout, setPreviewLayout] = useState<"grid" | "list">("grid");
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [thumbnailUploading, setThumbnailUploading] = useState(false);
@@ -1319,25 +1315,12 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
   const videoInputRef = useRef<HTMLInputElement>(null);
   const inlineFormRef = useRef<HTMLFormElement>(null);
 
-  // Inline mode: smoothly scroll the step canvas to viewport center on mount
+  // Wizard mode: smoothly scroll the step canvas to viewport center on mount
   useEffect(() => {
-    if (inline && inlineFormRef.current) {
+    if (wizard && inlineFormRef.current) {
       inlineFormRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
     }
-  }, [inline]);
-
-  const previewProject: Project = {
-    id: 0,
-    title: form.title || "프로젝트 이름",
-    description: form.description || "프로젝트 설명이 여기에 표시됩니다.",
-    type: form.type,
-    contentType: form.content_type,
-    thumbnail: form.thumbnail || `https://picsum.photos/seed/preview/800/600`,
-    year: form.year || new Date().getFullYear().toString(),
-    tags: selectedTools,
-    demoUrl: form.demo_url || undefined,
-    comment: form.comment || undefined,
-  };
+  }, [wizard]);
 
   // Always show tools that are already selected even if collapsed
   const hiddenSelectedCount = selectedTools.filter(id =>
@@ -1534,8 +1517,8 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
     setSaving(false);
   }
 
-  // ── Inline mode: in-place takeover of the ProjectsTab content area ──
-  if (inline) {
+  // ── Wizard mode (추가): in-place takeover of the ProjectsTab content area ──
+  if (wizard) {
     // Whether the current optional step (4·5·6) has something chosen.
     const hasStepSelection =
       step === 4 ? form.content_type !== null :
@@ -1574,21 +1557,19 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
     return (
       <div className="relative flex flex-col" style={{ minHeight: "calc(100vh - 220px)" }}>
         {/* Top progress bar — segmented hairline */}
-        {wizard && (
-          <div className="absolute top-0 left-0 right-0 z-20 flex gap-[3px]">
-            {Array.from({ length: TOTAL_STEPS }).map((_, i) => {
-              const idx = i + 1;
-              const active = idx <= step;
-              return (
-                <div key={i} className="flex-1 rounded-full transition-colors"
-                  style={{
-                    height: 3,
-                    background: active ? "var(--text-primary)" : "var(--surface-soft)",
-                  }} />
-              );
-            })}
-          </div>
-        )}
+        <div className="absolute top-0 left-0 right-0 z-20 flex gap-[3px]">
+          {Array.from({ length: TOTAL_STEPS }).map((_, i) => {
+            const idx = i + 1;
+            const active = idx <= step;
+            return (
+              <div key={i} className="flex-1 rounded-full transition-colors"
+                style={{
+                  height: 3,
+                  background: active ? "var(--text-primary)" : "var(--surface-soft)",
+                }} />
+            );
+          })}
+        </div>
 
         {/* Top-left: cancel back button */}
         <div className="flex items-center justify-between pt-6 pb-4">
@@ -1600,11 +1581,9 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
             </svg>
             취소
           </button>
-          {wizard && (
-            <span className="vf-mono text-xs" style={{ color: "var(--text-muted)", letterSpacing: "0.12em" }}>
-              {String(step).padStart(2, "0")} / {String(TOTAL_STEPS).padStart(2, "0")}
-            </span>
-          )}
+          <span className="vf-mono text-xs" style={{ color: "var(--text-muted)", letterSpacing: "0.12em" }}>
+            {String(step).padStart(2, "0")} / {String(TOTAL_STEPS).padStart(2, "0")}
+          </span>
         </div>
 
         <form ref={inlineFormRef} onSubmit={handleSubmit} onKeyDown={handleFormKeyDown}
@@ -2006,22 +1985,18 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
     );
   }
 
+  // ── Edit mode (수정): overlay modal with the flat field layout ──
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-6"
       style={{ background: "var(--overlay-strong)", backdropFilter: "blur(16px)" }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
-      {/* Outer wrapper — immersive size (~70vw) */}
       <div
         className="relative flex overflow-hidden"
         style={{
-          width: wizard
-            ? (showPreview ? "min(calc(70vw + 100px), 1500px)" : "min(70vw, 1300px)")
-            : (showPreview ? "min(calc(42rem + 361px), calc(100vw - 2rem))" : "min(42rem, calc(100vw - 2rem))"),
-          height: wizard ? "min(80vh, 880px)" : undefined,
-          maxHeight: wizard ? undefined : "92vh",
-          transition: "width 0.32s cubic-bezier(0.4,0,0.2,1)",
+          width: "min(42rem, calc(100vw - 2rem))",
+          maxHeight: "92vh",
           background: "var(--surface)",
           borderRadius: 20,
           boxShadow: "0 20px 60px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.04)",
@@ -2041,51 +2016,43 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
         </div>
 
 
-        {/* ── Left: form panel ── */}
+        {/* Form panel — scrolls under the sticky title so the save row is always
+            reachable on short viewports */}
         <div
-          className="flex flex-col overflow-hidden"
+          className="flex flex-col overflow-y-auto"
           style={{ flex: 1, minWidth: 0 }}
         >
 
-        {/* Non-wizard header (edit mode keeps the original title) */}
-        {!wizard && (
-          <div className="sticky top-0 z-10 flex items-center gap-3 px-6 py-4"
-            style={{ background: "var(--surface)", borderBottom: "1px solid var(--border)" }}>
-            <h2 className="flex-1 vf-serif-display" style={{ fontSize: "1.2rem", fontWeight: 500, margin: 0 }}>
-              {title}
-            </h2>
+        {/* Header (edit mode keeps the original title) */}
+        <div className="sticky top-0 z-10 flex items-center gap-3 px-6 py-4"
+          style={{ background: "var(--surface)", borderBottom: "1px solid var(--border)" }}>
+          <h2 className="flex-1 vf-serif-display" style={{ fontSize: "1.2rem", fontWeight: 500, margin: 0 }}>
+            {title}
+          </h2>
+        </div>
+
+        <form onSubmit={handleSubmit} className="px-6 py-5 flex flex-col gap-5">
+
+          <div className="flex gap-1 p-1 rounded-xl"
+            style={{ background: "var(--surface-sunken)" }}>
+            {(["url", "files"] as const).map(mode => {
+              const active = uploadMode === mode;
+              return (
+                <button key={mode} type="button" onClick={() => setUploadMode(mode)}
+                  data-active={active}
+                  className="vf-soft-fill flex-1 py-2 rounded-lg text-sm"
+                  style={{
+                    fontFamily: "var(--font-nunito)",
+                    cursor: "pointer",
+                  }}>
+                  {mode === "url" ? "🔗 URL 링크" : "📁 파일 업로드"}
+                </button>
+              );
+            })}
           </div>
-        )}
-
-        <form onSubmit={handleSubmit}
-          className={wizard
-            ? "flex-1 flex flex-col min-h-0 px-10 pt-12 pb-20"
-            : "px-6 py-5 flex flex-col gap-5"}>
-
-
-          {/* ── Non-wizard (edit) mode — flat layout ── */}
-          {!wizard && (
-            <div className="flex gap-1 p-1 rounded-xl"
-              style={{ background: "var(--surface-sunken)" }}>
-              {(["url", "files"] as const).map(mode => {
-                const active = uploadMode === mode;
-                return (
-                  <button key={mode} type="button" onClick={() => setUploadMode(mode)}
-                    data-active={active}
-                    className="vf-soft-fill flex-1 py-2 rounded-lg text-sm"
-                    style={{
-                      fontFamily: "var(--font-nunito)",
-                      cursor: "pointer",
-                    }}>
-                    {mode === "url" ? "🔗 URL 링크" : "📁 파일 업로드"}
-                  </button>
-                );
-              })}
-            </div>
-          )}
 
           {/* File upload */}
-          <div style={{ display: wizard ? "none" : undefined }}>
+          <div>
           {uploadMode === "files" && (
             <div className="flex flex-col gap-3">
               {/* 기존 업로드 연결 상태 — 내부 경로 대신 사실만 말해준다 */}
@@ -2186,7 +2153,7 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
 
           {/* 핵심 기능 소개 — 위저드에만 있던 칸. 초안 카드가 이 값을 보여주며
               "수정" 버튼을 주는데 정작 모달에 칸이 없어 한 번 쓰면 못 고쳤다. */}
-          <div style={{ display: wizard ? "none" : undefined }}>
+          <div>
             <Field label="핵심 기능 소개 (자동 시연용 · 선택)">
               <textarea className="vf-input" name="demo_user_hint" rows={2}
                 placeholder="예: 캔버스에 마우스로 자유롭게 그림을 그릴 수 있어요. 상단에서 브러시 색과 굵기를 바꿔보세요."
@@ -2200,7 +2167,7 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
           </div>
 
           {/* 구동 영상 (선택) — 대표 작품 hero에서 자동 재생 */}
-          <div style={{ display: wizard ? "none" : undefined }}>
+          <div>
             <label className="vf-label">구동 영상 (선택)</label>
             <p className="text-xs mb-2" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
               대표 작품으로 설정하면 명함 상단에서 자동 재생돼요.
@@ -2276,7 +2243,7 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
             )}
           </div>
 
-          <div style={{ display: wizard ? "none" : undefined }} className="flex flex-col gap-5">
+          <div className="flex flex-col gap-5">
           {/* 프로젝트 이름 + 연도 */}
           <div className="grid grid-cols-3 gap-3">
             <div className="col-span-2">
@@ -2300,7 +2267,7 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
           </div>{/* end step 3 wrapper */}
 
           {/* 콘텐츠 유형 — 풀 너비 */}
-          <div style={{ display: wizard ? "none" : undefined }}>
+          <div>
             <label className="vf-label">콘텐츠 유형</label>
             <div className="flex flex-wrap gap-1.5">
               {CONTENT_TYPES.map(ct => {
@@ -2322,7 +2289,7 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
           </div>
 
           {/* 썸네일 업로드 */}
-          <div style={{ display: wizard ? "none" : undefined }}>
+          <div>
             <label className="vf-label">
               썸네일
               <span className="ml-1.5" style={{ color: "var(--text-muted)", textTransform: "none", letterSpacing: 0, fontWeight: 400 }}>
@@ -2382,7 +2349,7 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
           </div>
 
           {/* 썸네일 유형 */}
-          <div style={{ display: wizard ? "none" : undefined }}>
+          <div>
             <label className="vf-label">썸네일 유형</label>
             <div className="flex gap-2">
               {(["image", "video"] as const).map(t => {
@@ -2404,7 +2371,7 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
           </div>
 
           {/* AI 도구 */}
-          <div style={{ display: wizard ? "none" : undefined }}>
+          <div>
             <label className="vf-label">
               사용한 AI 도구{" "}
               <span style={{ color: "var(--text-muted)", fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>(복수 선택)</span>
@@ -2442,7 +2409,7 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
           </div>
 
           {/* 한 마디 */}
-          <div style={{ display: wizard ? "none" : undefined }}>
+          <div>
             <Field label="한 마디 (말풍선에 표시)">
               <input className="vf-input" name="comment" placeholder="제가 제일 아끼는 작업물이에요! ⭐"
                 value={form.comment} onChange={handleChange} />
@@ -2458,84 +2425,20 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
           )}
 
           {/* Actions */}
-          {!wizard && (
-            <div className="flex gap-3 pt-1 pb-1">
-              <button type="button" onClick={onClose}
-                className="vf-soft-fill flex-1 rounded-full"
-                style={{ padding: "0.65rem 1rem", fontFamily: "var(--font-nunito)", fontSize: "0.85rem", fontWeight: 500, cursor: "pointer" }}>
-                취소
-              </button>
-              <button type="submit" disabled={saving || uploading}
-                className="vf-soft-fill flex-1 rounded-full"
-                style={{ padding: "0.65rem 1rem", fontFamily: "var(--font-nunito)", fontSize: "0.85rem", fontWeight: 600, cursor: (saving || uploading) ? "not-allowed" : "pointer" }}>
-                {saving ? "저장 중…" : submitLabel}
-              </button>
-            </div>
-          )}
+          <div className="flex gap-3 pt-1 pb-1">
+            <button type="button" onClick={onClose}
+              className="vf-soft-fill flex-1 rounded-full"
+              style={{ padding: "0.65rem 1rem", fontFamily: "var(--font-nunito)", fontSize: "0.85rem", fontWeight: 500, cursor: "pointer" }}>
+              취소
+            </button>
+            <button type="submit" disabled={saving || uploading}
+              className="vf-soft-fill flex-1 rounded-full"
+              style={{ padding: "0.65rem 1rem", fontFamily: "var(--font-nunito)", fontSize: "0.85rem", fontWeight: 600, cursor: (saving || uploading) ? "not-allowed" : "pointer" }}>
+              {saving ? "저장 중…" : submitLabel}
+            </button>
+          </div>
 
         </form>
-        </div>{/* end left panel */}
-
-        {/* ── Right: live preview panel — width animates, inner content is fixed 360px ── */}
-        <div
-          style={{
-            width: showPreview ? "360px" : "0px",
-            flexShrink: 0,
-            overflow: "hidden",
-            transition: "width 0.32s cubic-bezier(0.4,0,0.2,1)",
-          }}
-        >
-          {/* Inner wrapper: fixed 360px so content never squishes during animation */}
-          <div
-            className="flex flex-col h-full overflow-y-auto"
-            style={{
-              width: "360px",
-              borderLeft: "1px solid var(--border)",
-              background: "var(--bg)",
-            }}
-          >
-            {/* Preview header */}
-            <div
-              className="sticky top-0 z-10 flex items-center justify-between px-5 py-4"
-              style={{ background: "var(--bg)", borderBottom: "1px solid var(--border)" }}
-            >
-              <div className="flex items-center gap-2">
-                <div className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--text-primary)" }} />
-                <span className="text-xs vf-mono" style={{ color: "var(--text-secondary)", letterSpacing: "0.1em", textTransform: "uppercase" }}>
-                  실시간 미리보기
-                </span>
-              </div>
-              {/* Grid / List toggle */}
-              <div className="flex gap-1 p-0.5 rounded-lg" style={{ background: "var(--surface-sunken)" }}>
-                {(["grid", "list"] as const).map(l => {
-                  const active = previewLayout === l;
-                  return (
-                    <button
-                      key={l}
-                      type="button"
-                      onClick={() => setPreviewLayout(l)}
-                      data-active={active}
-                      className="vf-soft-fill px-2 py-1 rounded-md text-xs"
-                      style={{
-                        fontFamily: "var(--font-nunito)",
-                        cursor: "pointer",
-                      }}
-                    >
-                      {l === "grid" ? "그리드" : "리스트"}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Card preview */}
-            <div className="p-5">
-              <ProjectCard project={previewProject} layout={previewLayout} />
-              <p className="text-xs text-center mt-4" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
-                명함 페이지에서 실제로 보이는 모습이에요
-              </p>
-            </div>
-          </div>
         </div>
       </div>
     </div>

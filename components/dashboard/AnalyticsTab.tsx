@@ -49,7 +49,7 @@ function timeAgo(date: string): string {
 function StatCard({ label, value, dominant }: { label: string; value: number; dominant?: boolean }) {
   return (
     <div
-      className={dominant ? "vf-card-accent col-span-2 sm:col-span-2" : "vf-card"}
+      className={dominant ? "vf-card-accent col-span-2" : "vf-card"}
       style={{
         padding: dominant ? "1.5rem 1.5rem" : "1.1rem 1.2rem",
       }}
@@ -102,7 +102,7 @@ function BarChart({ days, counts }: { days: Date[]; counts: number[] }) {
         })}
       </div>
 
-      {/* X-axis labels — show every 2nd day */}
+      {/* X-axis labels — 첫날·7일째·마지막날·오늘만 표시 */}
       <div style={{ display: "flex", alignItems: "center", gap: 3, marginTop: 6 }}>
         {days.map((day, i) => {
           const isToday = day.getTime() === today.getTime();
@@ -353,9 +353,9 @@ export default function AnalyticsTab({ user }: { user: User }) {
       {!noData && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
-          {/* 유입 경로 */}
-          {topReferrers.length > 0 && (
-            <div className="vf-card p-5">
+          {/* 유입 경로 — noData가 아니면 행이 있고, 분류기는 행마다 라벨을
+              반드시 뱉으므로(최소 "직접/알 수 없음") 빈 배열 분기가 없다 */}
+          <div className="vf-card p-5">
               <p className="vf-label" style={{ marginBottom: "1rem" }}>
                 유입 경로
               </p>
@@ -382,8 +382,7 @@ export default function AnalyticsTab({ user }: { user: User }) {
                   </div>
                 ))}
               </div>
-            </div>
-          )}
+          </div>
 
           {/* 국가 분포 */}
           {topCountries.length > 0 && (
