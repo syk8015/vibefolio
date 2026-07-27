@@ -17,7 +17,9 @@ function migrateOldLinks(profile: DashboardProfile): string[] {
   return links;
 }
 
-export default function ProfileTab({ user, profile }: { user: User; profile: DashboardProfile }) {
+// 명함 탭(옛 ProfileTab) — 명함에 인쇄되는 것들을 편집한다. 상단 아이덴티티
+// 미리보기는 헤더의 미니 명함(실물 문법)이 대체해서 여기선 폼만 남았다.
+export default function CardTab({ user, profile }: { user: User; profile: DashboardProfile }) {
   // 폼의 초기값도 공개 명함이 읽는 profiles 행 — auth metadata는 표시 값의
   // 출처로 쓰지 않는다(둘이 갈라지면 대시보드와 명함의 이름이 달라진다).
   const existingLinks = profile.social_links?.length
@@ -196,8 +198,7 @@ export default function ProfileTab({ user, profile }: { user: User; profile: Das
     }
   }
 
-  const avatarInitial = (form.name || form.username).charAt(0).toUpperCase();
-  const displayName = form.name || form.username || "이름";
+  const avatarInitial = (form.name || form.username || "?").charAt(0).toUpperCase();
   const bioCount = form.bio.length;
   const displayAvatar = avatarPreview ?? form.avatarUrl;
 
@@ -205,37 +206,31 @@ export default function ProfileTab({ user, profile }: { user: User; profile: Das
     <div className="flex flex-col gap-8 max-w-lg mx-auto w-full">
       <form onSubmit={handleSave} className="flex flex-col gap-8">
 
-      {/* Identity preview — serif display */}
-      <div className="text-center pb-2">
-        <div
-          className="relative mx-auto mb-5 w-28 h-28 rounded-full flex items-center justify-center overflow-hidden"
-          style={{
-            background: "var(--surface-soft)",
-            color: "var(--text-primary)",
-            fontFamily: "var(--font-serif), 'Noto Serif KR', serif",
-            fontSize: "2.25rem",
-            fontWeight: 500,
-          }}
-        >
-          {displayAvatar
-            ? <Image src={displayAvatar} alt="avatar" fill sizes="112px" unoptimized className="object-cover" />
-            : avatarInitial}
-        </div>
-        <p
-          className="vf-serif-display"
-          style={{ fontSize: "clamp(1.4rem, 3vw, 1.85rem)", fontWeight: 500, margin: 0, marginBottom: "0.35rem" }}
-        >
-          {displayName}
-        </p>
-        <p className="vf-mono" style={{ color: "var(--text-secondary)", fontSize: "0.85rem", letterSpacing: "0.02em" }}>
-          @{form.username || "username"}
-        </p>
-      </div>
-
-      {/* Avatar upload */}
+      {/* Avatar upload — 큰 아이덴티티 미리보기는 헤더의 미니 명함이 맡는다.
+          (예전 112px 원형 미리보기는 데스크탑 명함에 없는 아바타를 크게 보여줘
+          실물과 어긋났다 — 감사 A10.) */}
       <div>
-        <label className="vf-label">프로필 이미지</label>
+        <label className="vf-label">
+          프로필 이미지
+          <span className="ml-1.5" style={{ color: "var(--text-muted)", textTransform: "none", letterSpacing: 0, fontWeight: 400 }}>
+            (모바일 명함·공유 카드에 쓰여요)
+          </span>
+        </label>
         <div className="flex items-center gap-3 flex-wrap">
+          <div
+            className="relative w-12 h-12 rounded-full flex items-center justify-center overflow-hidden shrink-0"
+            style={{
+              background: "var(--surface-soft)",
+              color: "var(--text-primary)",
+              fontFamily: "var(--font-serif), 'Noto Serif KR', serif",
+              fontSize: "1.1rem",
+              fontWeight: 500,
+            }}
+          >
+            {displayAvatar
+              ? <Image src={displayAvatar} alt="avatar" fill sizes="48px" unoptimized className="object-cover" />
+              : avatarInitial}
+          </div>
           <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImagePick} />
           <button
             type="button"
@@ -370,21 +365,25 @@ export default function ProfileTab({ user, profile }: { user: User; profile: Das
       </div>
       </form>
 
-      {/* Danger zone — account deletion (privacy: 탈퇴 즉시 파기) */}
-      <div className="rounded-2xl p-5" style={{ border: "1px solid rgba(179,71,71,0.35)", background: "rgba(179,71,71,0.045)" }}>
-        <h3 className="text-sm font-black mb-1.5" style={{ color: "#b34747", fontFamily: "var(--font-nunito)" }}>위험 구역</h3>
-        <p className="text-sm mb-4" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", lineHeight: 1.65 }}>
-          회원 탈퇴 시 프로필과 모든 프로젝트·업로드한 파일이{" "}
-          <strong style={{ color: "var(--text-primary)" }}>즉시·영구 삭제</strong>되며, 되돌릴 수 없어요.
-        </p>
-        <button
-          type="button"
-          onClick={() => { setShowDeleteModal(true); setDeleteConfirm(""); setDeleteError(""); }}
-          className="text-sm font-bold px-4 py-2.5 rounded-xl transition-opacity hover:opacity-80"
-          style={{ color: "#b34747", background: "rgba(179,71,71,0.08)", border: "1px solid rgba(179,71,71,0.3)", cursor: "pointer", fontFamily: "var(--font-nunito)" }}
-        >
-          회원 탈퇴
-        </button>
+      {/* 계정 — 명함 내용과 분리된 계정 자체의 작업(탈퇴). soft-fill 언어:
+          경고는 테두리가 아니라 옅은 채움으로. (privacy: 탈퇴 즉시 파기) */}
+      <div className="pt-2">
+        <p className="vf-label">계정</p>
+        <div className="rounded-2xl p-5" style={{ background: "rgba(179,71,71,0.06)" }}>
+          <h3 className="text-sm font-black mb-1.5" style={{ color: "var(--danger)", fontFamily: "var(--font-nunito)" }}>회원 탈퇴</h3>
+          <p className="text-sm mb-4" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", lineHeight: 1.65 }}>
+            프로필과 모든 작품·업로드한 파일이{" "}
+            <strong style={{ color: "var(--text-primary)" }}>즉시·영구 삭제</strong>되며, 되돌릴 수 없어요.
+          </p>
+          <button
+            type="button"
+            onClick={() => { setShowDeleteModal(true); setDeleteConfirm(""); setDeleteError(""); }}
+            className="text-sm font-bold px-4 py-2.5 rounded-xl transition-opacity hover:opacity-80"
+            style={{ color: "var(--danger)", background: "rgba(179,71,71,0.12)", border: "none", cursor: "pointer", fontFamily: "var(--font-nunito)" }}
+          >
+            회원 탈퇴
+          </button>
+        </div>
       </div>
 
       {/* Confirmation modal */}

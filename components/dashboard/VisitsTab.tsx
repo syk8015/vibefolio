@@ -46,24 +46,22 @@ function timeAgo(date: string): string {
   return new Date(date).toLocaleDateString("ko-KR");
 }
 
-function StatCard({ label, value, dominant }: { label: string; value: number; dominant?: boolean }) {
+// 타일 4개는 동급 — 예전엔 "오늘"만 거대했는데, 프리런치에선 오늘=0이 대부분이라
+// 빈 숫자가 화면을 지배했고 나머지 창과 크기 위계도 근거가 없었다(시안 확정).
+function StatCard({ label, value }: { label: string; value: number }) {
   return (
-    <div
-      className={dominant ? "vf-card-accent col-span-2" : "vf-card"}
-      style={{
-        padding: dominant ? "1.5rem 1.5rem" : "1.1rem 1.2rem",
-      }}
-    >
-      <p className="vf-label" style={{ marginBottom: dominant ? "0.5rem" : "0.35rem" }}>
+    <div className="vf-card" style={{ padding: "1.1rem 1.2rem" }}>
+      <p className="vf-label" style={{ marginBottom: "0.35rem" }}>
         {label}
       </p>
       <p
         className="vf-serif-display"
         style={{
-          fontSize: dominant ? "clamp(2.5rem, 6vw, 3.5rem)" : "clamp(1.5rem, 3vw, 2rem)",
+          fontSize: "clamp(1.5rem, 3vw, 1.9rem)",
           fontWeight: 500,
           lineHeight: 1.1,
           margin: 0,
+          fontVariantNumeric: "tabular-nums",
         }}
       >
         {value.toLocaleString()}
@@ -82,7 +80,8 @@ function BarChart({ days, counts }: { days: Date[]; counts: number[] }) {
       <div style={{ display: "flex", alignItems: "flex-end", gap: 3, height: 72 }}>
         {days.map((day, i) => {
           const isToday = day.getTime() === today.getTime();
-          const pct = Math.max(2, (counts[i] / max) * 100);
+          // 0 = 바닥 눈금(2%), 1 이상 = 최소 12%부터 — 0과 1이 눈으로 갈린다.
+          const pct = counts[i] === 0 ? 2 : Math.max(12, (counts[i] / max) * 100);
           return (
             <div
               key={i}
@@ -201,7 +200,8 @@ function ViewGroup({
   );
 }
 
-export default function AnalyticsTab({ user }: { user: User }) {
+// 방문 탭(옛 AnalyticsTab) — 명함에 누가 왔는지.
+export default function VisitsTab({ user }: { user: User }) {
   const [views, setViews] = useState<ViewRow[]>([]);
   // 타일 숫자는 행 표본이 아니라 DB count — 행 조회는 500행에서 멈추므로 그걸
   // 세면 "전체 조회"가 501부터 얼어붙는다. 네 창 모두 로컬 0시 기준 캘린더
@@ -318,9 +318,9 @@ export default function AnalyticsTab({ user }: { user: User }) {
   return (
     <div className="max-w-2xl mx-auto w-full flex flex-col gap-5">
 
-      {/* Stat cards — dominant 오늘 + secondary trio */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatCard label="오늘" value={totals.today} dominant />
+      {/* Stat cards — 동급 2×2 */}
+      <div className="grid grid-cols-2 gap-3">
+        <StatCard label="오늘" value={totals.today} />
         <StatCard label="최근 7일" value={totals.last7} />
         <StatCard label="최근 30일" value={totals.last30} />
         <StatCard label="전체 조회" value={totals.total} />

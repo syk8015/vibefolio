@@ -24,9 +24,23 @@ export default async function DashboardPage() {
     .maybeSingle();
   if (!profileRow) redirect("/onboarding");
 
+  // 미니 명함의 No.는 실물 명함(MeishiBig)과 같은 정의 — 공개 작품 수.
+  // 탭 카운트는 관리 대상 전체(공개+초안).
+  const [{ count: publishedCount }, { count: totalCount }] = await Promise.all([
+    supabase.from("projects").select("id", { count: "exact", head: true })
+      .eq("user_id", user.id).eq("is_draft", false),
+    supabase.from("projects").select("id", { count: "exact", head: true })
+      .eq("user_id", user.id),
+  ]);
+
   return (
     <Suspense>
-      <DashboardClient user={user} profile={profileRow as DashboardProfile} />
+      <DashboardClient
+        user={user}
+        profile={profileRow as DashboardProfile}
+        publishedCount={publishedCount ?? 0}
+        totalCount={totalCount ?? 0}
+      />
     </Suspense>
   );
 }
