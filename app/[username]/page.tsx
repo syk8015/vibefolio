@@ -193,7 +193,10 @@ export default async function UserPortfolioPage({
 
   return (
     <main className="relative min-h-screen" style={{ background: "var(--bg)" }}>
-      {!isShowcase && <ViewTracker username={p.username} />}
+      {/* embed=1은 오너 대시보드의 모바일 프리뷰 iframe — 미리볼 때마다 자기
+          조회수가 오르면 안 되므로 showcase(랜딩 PiP)와 함께 집계에서 뺀다.
+          ownerId는 로그인한 오너 본인의 일반 방문을 클라이언트에서 거른다. */}
+      {!isShowcase && !isEmbed && <ViewTracker username={p.username} ownerId={p.id} />}
 
       {/* Nav */}
       {!isShowcase && (
