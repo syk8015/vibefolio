@@ -3,12 +3,14 @@
 import { useState, useEffect, useMemo } from "react";
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
+import { classifyTrafficSource } from "@/lib/traffic-source";
 
 interface ViewRow {
   id: string;
   viewed_at: string;
   referrer: string | null;
   country: string | null;
+  user_agent: string | null;
 }
 
 const COUNTRY_EMOJI: Record<string, string> = {
@@ -25,23 +27,11 @@ const COUNTRY_NAME: Record<string, string> = {
   VN: "베트남", PH: "필리핀", ID: "인도네시아", MY: "말레이시아", NL: "네덜란드",
 };
 
-function parseReferrer(ref: string | null): string {
-  if (!ref) return "직접 방문";
-  try {
-    const host = new URL(ref).hostname.replace("www.", "");
-    if (host.includes("t.co") || host.includes("twitter")) return "Twitter / X";
-    if (host.includes("instagram")) return "Instagram";
-    if (host.includes("linkedin")) return "LinkedIn";
-    if (host.includes("github")) return "GitHub";
-    if (host.includes("google")) return "Google 검색";
-    if (host.includes("facebook")) return "Facebook";
-    if (host.includes("kakao")) return "카카오";
-    if (host.includes("naver")) return "네이버";
-    if (host.includes("tiktok")) return "TikTok";
-    return host;
-  } catch {
-    return "직접 방문";
-  }
+// 유입 라벨은 /admin 관제탑과 같은 분류기 하나만 쓴다. referrer 호스트만 보면
+// 카톡·인스타 인앱 브라우저(Referer 미전송)가 전부 "직접 방문"으로 붕괴하는데,
+// user_agent는 처음부터 저장돼 있었다 — 그걸 조회해서 채널을 되살린다.
+function sourceLabel(v: Pick<ViewRow, "referrer" | "user_agent">): string {
+  return classifyTrafficSource({ referrer: v.referrer, userAgent: v.user_agent });
 }
 
 function timeAgo(date: string): string {
@@ -191,7 +181,7 @@ function ViewGroup({
                 </span>
                 <div>
                   <p className="text-xs" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontWeight: 500 }}>
-                    {parseReferrer(v.referrer)}
+                    {sourceLabel(v)}
                   </p>
                   {v.country && (
                     <p className="text-xs" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
@@ -213,33 +203,49 @@ function ViewGroup({
 
 export default function AnalyticsTab({ user }: { user: User }) {
   const [views, setViews] = useState<ViewRow[]>([]);
+  // 타일 숫자는 행 표본이 아니라 DB count — 행 조회는 500행에서 멈추므로 그걸
+  // 세면 "전체 조회"가 501부터 얼어붙는다. 네 창 모두 로컬 0시 기준 캘린더
+  // 경계("최근 7일" = 오늘 포함 7일)로 통일해 타일끼리 시간 정의가 안 갈린다.
+  const [totals, setTotals] = useState({ total: 0, today: 0, last7: 0, last30: 0 });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
       const supabase = createClient();
-      const { data } = await supabase
-        .from("portfolio_views")
-        .select("id, viewed_at, referrer, country")
-        .eq("profile_id", user.id)
-        .order("viewed_at", { ascending: false })
-        .limit(500);
-      setViews((data as ViewRow[]) ?? []);
+      const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+      const from7 = new Date(todayStart); from7.setDate(from7.getDate() - 6);
+      const from30 = new Date(todayStart); from30.setDate(from30.getDate() - 29);
+      const countSince = (since?: Date) => {
+        let q = supabase
+          .from("portfolio_views")
+          .select("id", { count: "exact", head: true })
+          .eq("profile_id", user.id);
+        if (since) q = q.gte("viewed_at", since.toISOString());
+        return q;
+      };
+      const [rows, all, today, last7, last30] = await Promise.all([
+        supabase
+          .from("portfolio_views")
+          .select("id, viewed_at, referrer, country, user_agent")
+          .eq("profile_id", user.id)
+          .order("viewed_at", { ascending: false })
+          .limit(500),
+        countSince(),
+        countSince(todayStart),
+        countSince(from7),
+        countSince(from30),
+      ]);
+      setViews((rows.data as ViewRow[]) ?? []);
+      setTotals({
+        total: all.count ?? 0,
+        today: today.count ?? 0,
+        last7: last7.count ?? 0,
+        last30: last30.count ?? 0,
+      });
       setLoading(false);
     }
     load();
   }, [user.id]);
-
-  const stats = useMemo(() => {
-    const now = Date.now();
-    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
-    return {
-      total: views.length,
-      today: views.filter(v => new Date(v.viewed_at) >= todayStart).length,
-      last7: views.filter(v => now - new Date(v.viewed_at).getTime() < 7 * 86400000).length,
-      last30: views.filter(v => now - new Date(v.viewed_at).getTime() < 30 * 86400000).length,
-    };
-  }, [views]);
 
   // 14일 바 차트 데이터
   const { chartDays, chartCounts } = useMemo(() => {
@@ -264,7 +270,7 @@ export default function AnalyticsTab({ user }: { user: User }) {
   const topReferrers = useMemo(() => {
     const counts: Record<string, number> = {};
     views.forEach(v => {
-      const r = parseReferrer(v.referrer);
+      const r = sourceLabel(v);
       counts[r] = (counts[r] ?? 0) + 1;
     });
     return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 5);
@@ -279,22 +285,21 @@ export default function AnalyticsTab({ user }: { user: User }) {
     return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 5);
   }, [views]);
 
-  // 방문 기록 그룹화
+  // 방문 기록 그룹화 — 경계가 빈틈없이 이어지는 완전한 분할. 이전엔 30일 초과
+  // 행이 합계에는 있는데 어느 그룹에도 안 나와 "찾아갈 수 없는 숫자"가 됐다.
   const groupedViews = useMemo(() => {
     const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
-    const ago7 = new Date(Date.now() - 7 * 86400000);
-    const ago30 = new Date(Date.now() - 30 * 86400000);
-    return {
-      today: views.filter(v => new Date(v.viewed_at) >= todayStart),
-      week: views.filter(v => {
-        const d = new Date(v.viewed_at);
-        return d >= ago7 && d < todayStart;
-      }),
-      month: views.filter(v => {
-        const d = new Date(v.viewed_at);
-        return d >= ago30 && d < ago7;
-      }),
-    };
+    const weekStart = new Date(todayStart); weekStart.setDate(weekStart.getDate() - 7);
+    const monthStart = new Date(todayStart); monthStart.setDate(monthStart.getDate() - 30);
+    const g = { today: [] as ViewRow[], week: [] as ViewRow[], month: [] as ViewRow[], older: [] as ViewRow[] };
+    for (const v of views) {
+      const d = new Date(v.viewed_at);
+      if (d >= todayStart) g.today.push(v);
+      else if (d >= weekStart) g.week.push(v);
+      else if (d >= monthStart) g.month.push(v);
+      else g.older.push(v);
+    }
+    return g;
   }, [views]);
 
   if (loading) {
@@ -306,17 +311,20 @@ export default function AnalyticsTab({ user }: { user: User }) {
     );
   }
 
-  const noData = views.length === 0;
+  const noData = totals.total === 0;
+  // 행 표본(최대 500)이 전체를 못 덮으면, 표본으로 그리는 섹션(차트·유입·기록)에
+  // 그 사실을 밝힌다 — 타일은 count 기반이라 영향 없음.
+  const capped = totals.total > views.length;
 
   return (
     <div className="max-w-2xl mx-auto w-full flex flex-col gap-5">
 
       {/* Stat cards — dominant 오늘 + secondary trio */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatCard label="오늘" value={stats.today} dominant />
-        <StatCard label="최근 7일" value={stats.last7} />
-        <StatCard label="최근 30일" value={stats.last30} />
-        <StatCard label="전체 조회" value={stats.total} />
+        <StatCard label="오늘" value={totals.today} dominant />
+        <StatCard label="최근 7일" value={totals.last7} />
+        <StatCard label="최근 30일" value={totals.last30} />
+        <StatCard label="전체 조회" value={totals.total} />
       </div>
 
       {/* 14-day bar chart */}
@@ -328,7 +336,7 @@ export default function AnalyticsTab({ user }: { user: User }) {
           {!noData && (
             <span className="text-xs vf-mono"
               style={{ color: "var(--text-secondary)", letterSpacing: "0.04em" }}>
-              최고 {Math.max(...chartCounts).toLocaleString()}회
+              {capped ? "최근 500회 기준 · " : ""}일 최고 {Math.max(...chartCounts).toLocaleString()}회
             </span>
           )}
         </div>
@@ -366,7 +374,7 @@ export default function AnalyticsTab({ user }: { user: User }) {
                       <div
                         className="h-full rounded-full"
                         style={{
-                          width: `${Math.round((count / stats.total) * 100)}%`,
+                          width: `${Math.round((count / Math.max(views.length, 1)) * 100)}%`,
                           background: "var(--text-primary)",
                         }}
                       />
@@ -399,7 +407,7 @@ export default function AnalyticsTab({ user }: { user: User }) {
                       <div
                         className="h-full rounded-full"
                         style={{
-                          width: `${Math.round((count / stats.total) * 100)}%`,
+                          width: `${Math.round((count / Math.max(views.length, 1)) * 100)}%`,
                           background: "var(--text-primary)",
                         }}
                       />
@@ -415,12 +423,17 @@ export default function AnalyticsTab({ user }: { user: User }) {
       {/* 방문 기록 — 기간별 접기/펼치기 */}
       <div className="vf-card overflow-hidden">
         <div
-          className="px-5 py-3"
+          className="px-5 py-3 flex items-center justify-between"
           style={{ borderBottom: "1px solid var(--border)" }}
         >
           <p className="vf-label" style={{ marginBottom: 0 }}>
             방문 기록
           </p>
+          {capped && (
+            <span className="text-xs vf-mono" style={{ color: "var(--text-muted)" }}>
+              최근 500회 기준
+            </span>
+          )}
         </div>
 
         {noData ? (
@@ -432,8 +445,11 @@ export default function AnalyticsTab({ user }: { user: User }) {
         ) : (
           <>
             <ViewGroup label="오늘" rows={groupedViews.today} defaultOpen={groupedViews.today.length > 0} />
-            <ViewGroup label="7일 이내" rows={groupedViews.week} />
-            <ViewGroup label="한달 이내" rows={groupedViews.month} />
+            <ViewGroup label="어제 ~ 7일 전" rows={groupedViews.week} />
+            <ViewGroup label="8 ~ 30일 전" rows={groupedViews.month} />
+            {groupedViews.older.length > 0 && (
+              <ViewGroup label="30일 이전" rows={groupedViews.older} />
+            )}
           </>
         )}
       </div>
