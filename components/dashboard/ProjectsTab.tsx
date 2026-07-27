@@ -8,6 +8,7 @@ import ShareKit from "@/components/dashboard/ShareKit";
 import ConnectPanel from "@/components/dashboard/ConnectPanel";
 import { RerecordRequestModal } from "@/components/dashboard/RerecordRequestModal";
 import { detectDemoSource } from "@/lib/demoSource";
+import { placeholderThumbnail } from "@/lib/placeholder";
 import { parseDemoFailure, DEMO_FAILURE_COPY } from "@/lib/demo-failure";
 import { AnalyticsEvent, trackClientEvent } from "@/lib/analytics-client";
 import { screenshotUrl } from "@/lib/thumbnail";
@@ -646,42 +647,35 @@ export default function ProjectsTab({ user, username, reviewProjectId }: { user:
         </button>
       </div>
 
-      {drafts.length > 0 && (
-        <div className="mb-6">
-          <p className="text-sm vf-mono mb-3" style={{ color: "var(--text-secondary)", letterSpacing: "0.02em" }}>
-            검토 대기 · AI가 보낸 초안 {drafts.length}
-          </p>
-          <div className="flex flex-col gap-3">
-            {drafts.map((d) => (
-              <DraftReviewCard
+      {/* 초안과 공개를 한 리스트, 같은 행 언어로(시안 A) — 초안은 좌측 잉크
+          바와 1차 버튼("확인하고 공개")만 다르다. 카운터가 이미 둘을 나눠 센다. */}
+      <div className="vf-card overflow-hidden">
+        {drafts.length === 0 && projects.length === 0 ? (
+          <div className="text-center py-20 px-6">
+            <p
+              className="vf-serif-display mb-2"
+              style={{ fontSize: "1.15rem", fontWeight: 500 }}
+            >
+              아직 프로젝트가 없어요
+            </p>
+            <p className="text-xs" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
+              위 버튼으로 첫 프로젝트를 추가해보세요
+            </p>
+          </div>
+        ) : (
+          <>
+            {drafts.map((d, i) => (
+              <DraftRow
                 key={d.id}
                 draft={d}
                 highlight={d.id === reviewProjectId}
+                isLast={projects.length === 0 && i === drafts.length - 1}
                 onEdit={() => setEditProject(d)}
                 onDelete={() => handleDelete(d.id)}
                 onPublish={() => handlePublishDraft(d)}
               />
             ))}
-          </div>
-        </div>
-      )}
-
-      {(projects.length > 0 || drafts.length === 0) && (
-        <div className="vf-card overflow-hidden">
-          {projects.length === 0 ? (
-            <div className="text-center py-20 px-6">
-              <p
-                className="vf-serif-display mb-2"
-                style={{ fontSize: "1.15rem", fontWeight: 500 }}
-              >
-                아직 프로젝트가 없어요
-              </p>
-              <p className="text-xs" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
-                위 버튼으로 첫 프로젝트를 추가해보세요
-              </p>
-            </div>
-          ) : (
-            projects.map((project, i) => (
+            {projects.map((project, i) => (
               <ProjectRow
                 key={project.id}
                 project={project}
@@ -704,10 +698,10 @@ export default function ProjectsTab({ user, username, reviewProjectId }: { user:
                 onDrop={() => handleDrop(i)}
                 onDragEnd={handleDragEnd}
               />
-            ))
-          )}
-        </div>
-      )}
+            ))}
+          </>
+        )}
+      </div>
 
       {/* 연결(AI 인제스트) — 독립 탭에서 흡수(리디자인 결정 2). 작품을 "넣는
           또 하나의 방법"이라 작품 탭 소속, 평소엔 접혀 있다. */}
@@ -998,125 +992,149 @@ function DemoBuildBadge({
   );
 }
 
-function RerecordButton({
-  sourceValue,
-  status,
-  hasVideo,
-  onRerecord,
-}: {
-  sourceValue: string | null;
-  status: DemoBuildStatus | null;
-  hasVideo: boolean;
-  onRerecord: () => void;
-}) {
-  // 녹화할 소스가 없으면 버튼 자체를 숨김 (예: 파일 업로드 미완료 + URL도 없음)
-  if (!sourceValue) return null;
-  const inFlight = status === "pending" || status === "building" || status === "recording" || status === "editing";
-  // 진행 중이거나 승인 대기(held)면 유저가 지금 할 수 있는 액션이 없음 → 버튼 숨김.
-  if (inFlight || status === "held") return null;
-  // 영상이 이미 있으면(done) 재촬영은 관리자 승인 요청, 실패면 재시도.
-  const title =
-    hasVideo || status === "done"
-      ? "재촬영 요청 (관리자 승인 필요)"
-      : status === "failed"
-        ? "다시 시도"
-        : "시연 영상 만들기";
+// 행 액션 접기(시안 A 확정): 1차 액션(공유)만 상시 노출, 나머지는 ⋯ 메뉴로.
+// 팝오버는 fixed + 트리거 rect 앵커 — 리스트 카드(vf-card overflow-hidden)의
+// 클리핑을 피하는 기검증 패턴(DemoBuildBadge와 동일).
+type RowMenuItem = { label: string; onClick: () => void; danger?: boolean; disabled?: boolean };
+
+function RowMenu({ items }: { items: RowMenuItem[] }) {
+  const [anchor, setAnchor] = useState<{ top: number; left: number } | null>(null);
+  const MENU_W = 152;
   return (
-    <button
-      onClick={onRerecord}
-      title={title}
-      className="vf-icon-button"
-    >
-      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-        <path
-          d="M12 7a5 5 0 1 1-1.46-3.54M12 2v3h-3"
-          stroke="var(--text-primary)"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
-    </button>
+    <div className="shrink-0" style={{ position: "relative", display: "inline-flex" }}>
+      <button
+        title="더 보기"
+        aria-haspopup="menu"
+        aria-expanded={!!anchor}
+        onClick={e => {
+          const r = e.currentTarget.getBoundingClientRect();
+          setAnchor(a => (a ? null : {
+            top: r.bottom + 6,
+            left: Math.max(8, Math.min(r.right - MENU_W, window.innerWidth - MENU_W - 8)),
+          }));
+        }}
+        className="vf-icon-button"
+        style={{ background: anchor ? "var(--surface-active)" : undefined }}
+      >
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="var(--text-primary)">
+          <circle cx="2.6" cy="7" r="1.25"/><circle cx="7" cy="7" r="1.25"/><circle cx="11.4" cy="7" r="1.25"/>
+        </svg>
+      </button>
+      {anchor && (
+        <>
+          <div style={{ position: "fixed", inset: 0, zIndex: 40 }} onClick={() => setAnchor(null)} />
+          <div
+            role="menu"
+            className="rounded-2xl"
+            style={{
+              position: "fixed",
+              top: anchor.top,
+              left: anchor.left,
+              zIndex: 50,
+              width: MENU_W,
+              padding: 5,
+              background: "var(--surface)",
+              boxShadow: "0 12px 32px rgba(0, 0, 0, 0.16)",
+            }}
+          >
+            {items.map(it => (
+              <button
+                key={it.label}
+                role="menuitem"
+                disabled={it.disabled}
+                onClick={() => { setAnchor(null); it.onClick(); }}
+                className="w-full text-left rounded-xl transition-colors hover:bg-[var(--surface-soft)] disabled:opacity-35"
+                style={{
+                  display: "block",
+                  padding: "8px 11px",
+                  border: "none",
+                  background: "transparent",
+                  fontSize: "0.78rem",
+                  fontFamily: "var(--font-nunito)",
+                  fontWeight: 500,
+                  color: it.danger ? "var(--danger)" : "var(--text-primary)",
+                  cursor: it.disabled ? "not-allowed" : "pointer",
+                }}
+              >
+                {it.label}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 
-// AI가 인제스트로 보낸 "초안" 검토 카드. 공개 전에 유저가 AI가 쓴 카피를 눈으로
-// 보고, 수정/삭제하거나 "확인하고 공개"로 발행(=자동 시연 트리거)한다.
-function DraftReviewCard({ draft, highlight, onEdit, onDelete, onPublish }: {
+// AI가 인제스트로 보낸 "초안" 행. 공개 리스트와 같은 행 언어(시안 A 확정) —
+// 좌측 잉크 바 + "확인하고 공개" 1차 버튼만 다르다. AI가 쓴 카피를 확인 후
+// 공개하면 기존 추가 플로우처럼 자동 시연이 트리거된다.
+function DraftRow({ draft, highlight, isLast, onEdit, onDelete, onPublish }: {
   draft: DBProject;
   highlight: boolean;
+  isLast: boolean;
   onEdit: () => void;
   onDelete: () => void;
   onPublish: () => void;
 }) {
   const [publishing, setPublishing] = useState(false);
-  const isUpload = draft.demo_url?.startsWith("/api/preview/");
+  const thumbnail = draft.thumbnail || placeholderThumbnail(draft.id);
   const ct = CONTENT_TYPES.find((c) => c.id === draft.content_type);
+
   return (
     <div
       id={`draft-${draft.id}`}
-      className="vf-card p-5"
+      className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4 p-3 md:p-4"
       style={{
+        background: "var(--surface)",
+        borderBottom: isLast ? "none" : "1px solid var(--border)",
         borderLeft: "3px solid var(--text-primary)",
-        boxShadow: highlight ? "0 0 0 2px var(--text-primary)" : undefined,
+        boxShadow: highlight ? "inset 0 0 0 2px var(--text-primary)" : undefined,
         transition: "box-shadow 0.4s",
       }}
     >
-      <div className="flex items-center gap-2 mb-1.5">
-        <span className="vf-chip" style={{ fontSize: "0.65rem", background: "var(--surface-soft)", color: "var(--text-secondary)" }}>
-          AI 초안
-        </span>
-        {ct && (
-          <span className="text-xs" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
-            {ct.emoji} {ct.label}
-          </span>
-        )}
-      </div>
-      <p className="vf-serif-display" style={{ fontSize: "1.1rem", fontWeight: 500, margin: 0, marginBottom: "0.4rem" }}>
-        {draft.title || "제목 없음"}
-      </p>
-
-      {draft.description && (
-        <p className="text-sm mb-3" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", lineHeight: 1.6 }}>
-          {draft.description}
-        </p>
-      )}
-
-      {draft.demo_user_hint && (
-        <div className="mb-3 p-3 rounded-lg" style={{ background: "var(--surface-soft)" }}>
-          <p className="text-xs mb-1" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontWeight: 600 }}>
-            🎬 시연 영상에서 보여줄 것
-          </p>
-          <p className="text-sm" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", lineHeight: 1.6 }}>
-            {draft.demo_user_hint}
-          </p>
+      <div className="flex items-start md:items-center gap-3 md:gap-4 flex-1 min-w-0">
+        <div className="relative w-20 h-14 rounded-xl overflow-hidden shrink-0" style={{ background: "var(--surface-soft)" }}>
+          <Image src={thumbnail} unoptimized alt={draft.title || "초안"} fill className="object-cover" sizes="80px" />
         </div>
-      )}
-
-      <div className="flex items-center gap-1.5 mb-4 flex-wrap">
-        <span className="text-xs" style={{ color: "var(--text-muted)", fontFamily: "var(--font-mono), monospace" }}>
-          {isUpload ? "업로드된 사이트" : draft.demo_url || "링크 없음"}
-        </span>
-        {draft.tags?.map((t) => (
-          <span key={t} className="vf-chip" style={{ fontSize: "0.65rem" }}>{t}</span>
-        ))}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
+            <h3 className="vf-serif-display truncate" style={{ fontSize: "1rem", fontWeight: 500, lineHeight: 1.35, margin: 0 }}>
+              {draft.title || "제목 없음"}
+            </h3>
+            <span className="px-2 py-0.5 rounded-full shrink-0"
+              style={{ background: "var(--surface-soft)", color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", fontSize: "0.6rem", fontWeight: 600 }}>
+              AI 초안
+            </span>
+            {ct && (
+              <span className="text-xs shrink-0" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.62rem" }}>
+                {ct.emoji} {ct.label}
+              </span>
+            )}
+          </div>
+          {draft.description && (
+            <p className="text-xs truncate" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", margin: 0 }}>
+              {draft.description}
+            </p>
+          )}
+        </div>
       </div>
 
-      <div className="flex items-center gap-2 justify-end">
-        <button onClick={onDelete} className="vf-button-ghost" style={{ fontSize: "0.8rem", padding: "0.45rem 0.8rem" }}>
-          삭제
-        </button>
-        <button onClick={onEdit} className="vf-button-ghost" style={{ fontSize: "0.8rem", padding: "0.45rem 0.8rem" }}>
-          수정
-        </button>
+      <div className="flex items-center gap-1.5 md:gap-2 justify-end shrink-0">
         <button
           onClick={() => { setPublishing(true); onPublish(); }}
           disabled={publishing}
           className="vf-button-primary"
-          style={{ fontSize: "0.8rem", padding: "0.45rem 0.9rem", opacity: publishing ? 0.6 : 1 }}
+          style={{ fontSize: "0.75rem", padding: "0.4rem 0.85rem", opacity: publishing ? 0.6 : 1 }}
         >
           {publishing ? "공개 중…" : "확인하고 공개"}
         </button>
+        <RowMenu
+          items={[
+            { label: "수정", onClick: onEdit },
+            { label: "삭제", onClick: onDelete, danger: true },
+          ]}
+        />
       </div>
     </div>
   );
@@ -1143,8 +1161,21 @@ function ProjectRow({ project, username, demoPaused, nowMs, onDelete, onEdit, on
   onDrop: () => void;
   onDragEnd: () => void;
 }) {
-  const thumbnail = project.thumbnail || `https://picsum.photos/seed/${project.id}/800/600`;
+  const thumbnail = project.thumbnail || placeholderThumbnail(project.id);
   const contentType = CONTENT_TYPES.find(c => c.id === project.content_type);
+
+  // 재촬영 계열은 상태에 따라 라벨이 달라지고, 진행 중·승인 대기면 지금 할 수
+  // 있는 게 없어 메뉴에서 아예 뺀다(옛 RerecordButton의 노출 규칙 그대로).
+  const status = project.demo_build_status;
+  const demoInFlight = !!status && DEMO_IN_FLIGHT.has(status);
+  const rerecordLabel =
+    !project.demo_source_value || demoInFlight || status === "held"
+      ? null
+      : project.demo_video_url || status === "done"
+        ? "재촬영 요청"
+        : status === "failed"
+          ? "촬영 다시 시도"
+          : "시연 영상 만들기";
 
   return (
     <div
@@ -1185,6 +1216,12 @@ function ProjectRow({ project, username, demoPaused, nowMs, onDelete, onEdit, on
               {project.title}
             </h3>
             <span className="text-xs shrink-0 vf-mono" style={{ color: "var(--text-muted)" }}>{project.year}</span>
+            {project.is_featured && (
+              <span className="px-2 py-0.5 rounded-full shrink-0"
+                style={{ background: "var(--text-primary)", color: "var(--bg)", fontFamily: "var(--font-nunito)", fontSize: "0.6rem", fontWeight: 700 }}>
+                ★ 대표
+              </span>
+            )}
             {contentType && (
               <span className="px-2 py-0.5 rounded-full text-xs shrink-0"
                 style={{ background: "var(--surface-soft)", color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", fontSize: "0.6rem", fontWeight: 500 }}>
@@ -1235,27 +1272,8 @@ function ProjectRow({ project, username, demoPaused, nowMs, onDelete, onEdit, on
         </span>
 
         <div className="flex items-center gap-1.5 md:gap-2">
-          {/* Move up/down — mobile only (drag handle on desktop) */}
-          <button onClick={onMoveUp} disabled={!canMoveUp} title="위로"
-            className="md:hidden vf-icon-button">
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path d="M3 8l4-4 4 4" stroke="var(--text-secondary)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </button>
-          <button onClick={onMoveDown} disabled={!canMoveDown} title="아래로"
-            className="md:hidden vf-icon-button">
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path d="M3 6l4 4 4-4" stroke="var(--text-secondary)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </button>
-
-          <RerecordButton
-            sourceValue={project.demo_source_value}
-            status={project.demo_build_status}
-            hasVideo={!!project.demo_video_url}
-            onRerecord={onRerecord}
-          />
-
+          {/* 1차 액션은 공유뿐 — 나머지는 전부 ⋯ 메뉴로(시안 A).
+              위/아래 이동이 메뉴에 있어 모바일(드래그 불가)도 정렬이 된다. */}
           {project.demo_video_url && (
             <ShareKit
               username={username}
@@ -1264,29 +1282,16 @@ function ProjectRow({ project, username, demoPaused, nowMs, onDelete, onEdit, on
               projectTitle={project.title}
             />
           )}
-
-          <button
-            onClick={onToggleFeatured}
-            title={project.is_featured ? "대표 작품 해제" : "대표 작품으로 설정"}
-            className="vf-icon-button"
-            style={{ background: project.is_featured ? "var(--text-primary)" : undefined }}
-          >
-            <svg width="14" height="14" viewBox="0 0 14 14" fill={project.is_featured ? "var(--bg)" : "none"} stroke={project.is_featured ? "var(--bg)" : "var(--text-muted)"}>
-              <path d="M7 1l1.8 4 4.2.4-3.2 2.9 1 4.2L7 10.4 3.2 12.5l1-4.2L1 5.4l4.2-.4L7 1z" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </button>
-          <button onClick={onEdit} title="수정"
-            className="vf-icon-button">
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path d="M9.5 2.5l2 2L4 12H2v-2L9.5 2.5zM8.5 3.5l2 2" stroke="var(--text-primary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </button>
-          <button onClick={onDelete} title="삭제"
-            className="vf-icon-button">
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path d="M2 3.5h10M5.5 3.5V2.5h3v1M5 5.5v5M9 5.5v5M3.5 3.5l.5 8h6l.5-8" stroke="var(--danger)" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </button>
+          <RowMenu
+            items={[
+              { label: "수정", onClick: onEdit },
+              { label: project.is_featured ? "대표 해제" : "대표로 설정", onClick: onToggleFeatured },
+              ...(rerecordLabel ? [{ label: rerecordLabel, onClick: onRerecord }] : []),
+              { label: "위로 이동", onClick: onMoveUp, disabled: !canMoveUp },
+              { label: "아래로 이동", onClick: onMoveDown, disabled: !canMoveDown },
+              { label: "삭제", onClick: onDelete, danger: true },
+            ]}
+          />
         </div>
       </div>
     </div>
@@ -2058,7 +2063,7 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
               return (
                 <button key={mode} type="button" onClick={() => setUploadMode(mode)}
                   data-active={active}
-                  className="vf-soft-fill flex-1 py-2 rounded-lg text-sm">
+                  className="vf-selectable flex-1 py-2 rounded-lg text-sm">
                   {mode === "url" ? "🔗 URL 링크" : "📁 파일 업로드"}
                 </button>
               );
@@ -2220,7 +2225,7 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
                     return (
                       <button key={m} type="button" onClick={() => setVideoMode(m)}
                         data-active={active}
-                        className="vf-soft-fill px-3 py-1 rounded-md text-xs">
+                        className="vf-selectable px-3 py-1 rounded-md text-xs">
                         {m === "file" ? "파일 업로드" : "URL"}
                       </button>
                     );
@@ -2285,11 +2290,7 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
                   <button key={ct.id} type="button"
                     onClick={() => setForm(prev => ({ ...prev, content_type: active ? null : ct.id }))}
                     data-active={active}
-                    className="vf-soft-fill px-2.5 py-1 rounded-full text-xs"
-                    style={{
-                      fontFamily: "var(--font-nunito)",
-                      cursor: "pointer",
-                    }}>
+                    className="vf-selectable px-2.5 py-1 rounded-full text-xs">
                     {active && <span style={{ fontSize: "0.7em" }}>✓</span>} {ct.emoji} {ct.label}
                   </button>
                 );
@@ -2367,11 +2368,7 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
                   <button key={t} type="button"
                     onClick={() => setForm(prev => ({ ...prev, type: t }))}
                     data-active={active}
-                    className="vf-soft-fill flex-1 py-2 rounded-xl text-sm"
-                    style={{
-                      fontFamily: "var(--font-nunito)",
-                      cursor: "pointer",
-                    }}>
+                    className="vf-selectable flex-1 py-2 rounded-xl text-sm">
                     {active && <span style={{ marginRight: 4 }}>✓</span>}{t === "image" ? "🖼️ 이미지" : "🎬 영상"}
                   </button>
                 );
@@ -2391,11 +2388,7 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
                 return (
                   <button key={tool.id} type="button" onClick={() => toggleTool(tool.id)}
                     data-active={active}
-                    className="vf-soft-fill flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs"
-                    style={{
-                      fontFamily: "var(--font-nunito)",
-                      cursor: "pointer",
-                    }}>
+                    className="vf-selectable flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs">
                     {active && <span style={{ fontSize: "0.7em" }}>✓</span>}
                     <AiToolLogo id={tool.id} size={13} />
                     <span>{tool.id}</span>
