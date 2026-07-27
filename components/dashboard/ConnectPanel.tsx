@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import { pastePrompt, envExport, NPX_LOGIN } from "@/lib/connectSnippets";
 
@@ -32,8 +31,10 @@ function CopyButton({ text, label = "복사" }: { text: string; label?: string }
   );
 }
 
-export default function SettingsTab({ user }: { user: User }) {
-  const username = user.user_metadata?.username || user.email?.split("@")[0] || "me";
+// 옛 "연결" 독립 탭(내부 id는 settings — 라벨과 불일치). 작품을 "넣는 방법"이라
+// 작품 탭의 접히는 영역으로 흡수됐고, 이름도 실제 역할에 맞춰 ConnectPanel로.
+// username은 profiles 단일 출처(ProjectsTab 경유) — metadata 파생 금지.
+export default function ConnectPanel({ username }: { username: string }) {
   const [tokens, setTokens] = useState<TokenRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -89,18 +90,13 @@ export default function SettingsTab({ user }: { user: User }) {
   }
 
   return (
-    <div className="max-w-2xl mx-auto">
-      {/* 소개 */}
-      <div className="mb-8">
-        <h2 className="vf-serif-display mb-2" style={{ fontSize: "1.35rem", fontWeight: 500 }}>
-          AI로 한 줄에 올리기
-        </h2>
-        <p className="text-sm" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", lineHeight: 1.7 }}>
-          클로드코드·커서, 혹은 아무 AI 대화창에 아래 프롬프트를 붙여넣으면 — 그 작업을 만든 AI가
-          직접 무슨 작품인지 설명하고, 시연 영상에서 볼 포인트까지 써서 <b style={{ color: "var(--text-primary)" }}>{username}</b> 계정에 초안으로 올려줘요.
-          초안은 여기 대시보드에서 확인 후 공개돼요.
-        </p>
-      </div>
+    <div>
+      {/* 소개 — 제목은 접기 헤더가 갖고 있으므로 설명만 */}
+      <p className="text-sm mb-5" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", lineHeight: 1.7 }}>
+        클로드코드·커서, 혹은 아무 AI 대화창에 아래 프롬프트를 붙여넣으면 — 그 작업을 만든 AI가
+        직접 무슨 작품인지 설명하고, 시연 영상에서 볼 포인트까지 써서 <b style={{ color: "var(--text-primary)" }}>{username}</b> 계정에 초안으로 올려줘요.
+        초안은 이 탭에서 확인 후 공개돼요.
+      </p>
 
       {/* 1) 토큰 발급 */}
       <div className="vf-card p-5 mb-5">
@@ -150,7 +146,7 @@ export default function SettingsTab({ user }: { user: User }) {
           </div>
         )}
         {error && (
-          <p className="text-xs mt-2" style={{ color: "var(--danger, #c0392b)", fontFamily: "var(--font-nunito)" }}>{error}</p>
+          <p className="text-xs mt-2" style={{ color: "var(--danger)", fontFamily: "var(--font-nunito)" }}>{error}</p>
         )}
       </div>
 

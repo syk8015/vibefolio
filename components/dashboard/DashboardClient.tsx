@@ -24,10 +24,8 @@ const TabFallback = () => (
 );
 const ProjectsTab = dynamic(() => import("./ProjectsTab"), { loading: TabFallback });
 const AnalyticsTab = dynamic(() => import("./AnalyticsTab"), { loading: TabFallback });
-const CustomTab = dynamic(() => import("./CustomTab"), { loading: TabFallback });
-const SettingsTab = dynamic(() => import("./SettingsTab"), { loading: TabFallback });
 
-type Tab = "profile" | "projects" | "analytics" | "custom" | "settings";
+type Tab = "profile" | "projects" | "analytics";
 
 // The dashboard's copy of the profiles row — the same row the public card reads.
 // Display values (name, avatar, username) come from here, never auth metadata:
@@ -189,7 +187,7 @@ export default function DashboardClient({ user, profile }: { user: User; profile
           className="flex flex-wrap justify-center mb-10"
           style={{ borderBottom: "1px solid var(--border)", gap: "0.25rem" }}
         >
-          {(["profile", "projects", "analytics", "custom", "settings"] as Tab[]).map((t) => {
+          {(["profile", "projects", "analytics"] as Tab[]).map((t) => {
             const active = tab === t;
             return (
               <button
@@ -207,7 +205,7 @@ export default function DashboardClient({ user, profile }: { user: User; profile
                   cursor: "pointer",
                 }}
               >
-                {t === "profile" ? "프로필" : t === "projects" ? "프로젝트" : t === "analytics" ? "분석" : t === "custom" ? "커스텀" : "연결"}
+                {t === "profile" ? "프로필" : t === "projects" ? "프로젝트" : "분석"}
               </button>
             );
           })}
@@ -218,12 +216,8 @@ export default function DashboardClient({ user, profile }: { user: User; profile
           <ProfileTab user={user} profile={profile} />
         ) : tab === "projects" ? (
           <ProjectsTab user={user} username={username} reviewProjectId={reviewId} />
-        ) : tab === "analytics" ? (
-          <AnalyticsTab user={user} />
-        ) : tab === "custom" ? (
-          <CustomTab user={user} />
         ) : (
-          <SettingsTab user={user} />
+          <AnalyticsTab user={user} />
         )}
       </div>
     </div>

@@ -6,7 +6,6 @@ import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { createPublicClient, throwIfReadFailed } from "@/lib/supabase/public";
 import CopyLinkButton from "@/components/CopyLinkButton";
-import PortfolioModeToggle from "@/components/PortfolioModeToggle";
 import type { Project } from "@/lib/data";
 import { placeholderThumbnail } from "@/lib/placeholder";
 import ViewTracker from "@/components/ViewTracker";
@@ -93,8 +92,6 @@ interface Profile {
   github: string | null;
   avatar_url: string | null;
   social_links: string[] | null;
-  custom_mode: boolean | null;
-  custom_css: string | null;
 }
 
 
@@ -300,11 +297,7 @@ export default async function UserPortfolioPage({
       {/* Body: Theater layout — stage drives identity, reel drives navigation.
           min-h-screen guarantees the body fills the viewport so the footer
           sits below the fold on profiles with few projects. */}
-      {/* id + isolation = the custom-CSS containment boundary (see PortfolioModeToggle):
-          owner CSS is scoped to #vf-custom-scope and its z-index is trapped in this
-          stacking context, below the report button and mode toggle. */}
-      <div id="vf-custom-scope" style={{ isolation: "isolate" }}
-        className={`${isShowcase ? "" : "pt-[57px] md:pt-[68px]"} min-h-screen`}>
+      <div className={`${isShowcase ? "" : "pt-[57px] md:pt-[68px]"} min-h-screen`}>
         <TheaterShell
           profile={{
             username: p.username,
@@ -334,10 +327,6 @@ export default async function UserPortfolioPage({
       </footer>
       )}
 
-      {/* Mode toggle — visible to all visitors when custom CSS exists */}
-      {!isShowcase && p.custom_mode && p.custom_css && (
-        <PortfolioModeToggle customCss={p.custom_css} />
-      )}
       </ViewportFrame>
     </main>
   );

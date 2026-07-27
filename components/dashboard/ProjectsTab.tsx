@@ -5,6 +5,7 @@ import Image from "next/image";
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import ShareKit from "@/components/dashboard/ShareKit";
+import ConnectPanel from "@/components/dashboard/ConnectPanel";
 import { RerecordRequestModal } from "@/components/dashboard/RerecordRequestModal";
 import { detectDemoSource } from "@/lib/demoSource";
 import { parseDemoFailure, DEMO_FAILURE_COPY } from "@/lib/demo-failure";
@@ -206,6 +207,9 @@ export default function ProjectsTab({ user, username, reviewProjectId }: { user:
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [rerecordModal, setRerecordModal] = useState<{ id: string; title: string } | null>(null);
+  // 연결(AI 인제스트) 접기 영역 — 닫혀 있는 동안은 패널을 마운트하지 않아
+  // 토큰 목록 조회가 탭 진입마다 나가지 않는다.
+  const [connectOpen, setConnectOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   // 자동 시연이 일시정지면 큐는 그대로 쌓이므로, 스피너 대신 '점검 중'으로 알린다.
   const [demoPaused, setDemoPaused] = useState(false);
@@ -706,6 +710,37 @@ export default function ProjectsTab({ user, username, reviewProjectId }: { user:
         </div>
       )}
 
+      {/* 연결(AI 인제스트) — 독립 탭에서 흡수(리디자인 결정 2). 작품을 "넣는
+          또 하나의 방법"이라 작품 탭 소속, 평소엔 접혀 있다. */}
+      <div className="mt-6">
+        <button
+          type="button"
+          onClick={() => setConnectOpen(v => !v)}
+          aria-expanded={connectOpen}
+          className="vf-card w-full flex items-center justify-between gap-3 px-5 py-4 transition-opacity hover:opacity-85"
+          style={{ border: "none", cursor: "pointer", textAlign: "left" }}
+        >
+          <div className="min-w-0">
+            <p className="text-sm" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontWeight: 600, margin: 0 }}>
+              AI로 한 줄에 올리기
+            </p>
+            <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", margin: 0 }}>
+              클로드코드·커서·챗봇을 연결하면, 그 작업을 만든 AI가 여기에 초안으로 올려줘요
+            </p>
+          </div>
+          <svg
+            width="12" height="12" viewBox="0 0 12 12" fill="none"
+            style={{ transform: connectOpen ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.2s", color: "var(--text-muted)", flexShrink: 0 }}
+          >
+            <path d="M4 2l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </button>
+        {connectOpen && (
+          <div className="mt-4">
+            <ConnectPanel username={username} />
+          </div>
+        )}
+      </div>
 
       {editProject && (
         <ProjectFormModal title="프로젝트 수정"
