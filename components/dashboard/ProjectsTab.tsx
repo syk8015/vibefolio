@@ -215,12 +215,29 @@ export default function ProjectsTab({ user, username, reviewProjectId }: { user:
   // 흔들림)이라 마운트 때 한 번 고정하고 이후 폴링 주기에 실어 갱신한다.
   const [nowMs, setNowMs] = useState(() => Date.now());
 
+  async function loadProjects() {
+    const supabase = createClient();
+    const { data } = await supabase
+      .from("projects").select("*").eq("user_id", user.id)
+      .order("sort_order", { ascending: true })
+      .order("created_at", { ascending: false });
+    const all = (data as DBProject[]) ?? [];
+    // 초안은 별도 리스트 — 공개 프로젝트의 순서/드래그 인덱스와 섞이지 않게.
+    setProjects(all.filter((p) => !p.is_draft));
+    setDrafts(all.filter((p) => p.is_draft));
+    setLoading(false);
+  }
+
   useEffect(() => {
     if (!notice) return;
     const t = setTimeout(() => setNotice(null), 4500);
     return () => clearTimeout(t);
   }, [notice]);
 
+  // 마운트 시 1회 데이터 로드. 훅 규칙은 호출된 함수의 await 뒤 setState까지
+  // "동기 setState"로 보수 판정하지만, 실제로는 비동기 응답 후 갱신이라
+  // 캐스케이드 렌더가 없다. 의존성도 의도적으로 마운트 1회.
+  // eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps
   useEffect(() => { loadProjects(); }, []);
 
   // ?review=<id> 로 들어오면 그 초안 카드로 스크롤+하이라이트.
@@ -324,26 +341,19 @@ export default function ProjectsTab({ user, username, reviewProjectId }: { user:
     };
   }, [inFlightKey]);
 
-  async function loadProjects() {
-    const supabase = createClient();
-    const { data } = await supabase
-      .from("projects").select("*").eq("user_id", user.id)
-      .order("sort_order", { ascending: true })
-      .order("created_at", { ascending: false });
-    const all = (data as DBProject[]) ?? [];
-    // 초안은 별도 리스트 — 공개 프로젝트의 순서/드래그 인덱스와 섞이지 않게.
-    setProjects(all.filter((p) => !p.is_draft));
-    setDrafts(all.filter((p) => p.is_draft));
-    setLoading(false);
-  }
-
   async function saveOrder(ordered: DBProject[]) {
     const supabase = createClient();
-    await Promise.all(
+    const results = await Promise.all(
       ordered.map((p, i) =>
         supabase.from("projects").update({ sort_order: i }).eq("id", p.id)
       )
     );
+    // 일부만 실패하면 화면과 DB가 조용히 어긋난 채 남는다 — 서버 순서를 다시
+    // 실어와 화면을 진실에 맞추고, 실패했다는 사실을 알린다.
+    if (results.some((r) => r.error)) {
+      setNotice("순서 저장에 실패했어요. 잠시 후 다시 시도해 주세요.");
+      loadProjects();
+    }
   }
 
   function handleDragStart(index: number) {
@@ -505,15 +515,20 @@ export default function ProjectsTab({ user, username, reviewProjectId }: { user:
 
   async function handleEdit(id: string, form: ProjectForm) {
     const supabase = createClient();
-    const before = projects.find(p => p.id === id);
+    // 초안 수정도 이 경로로 온다 — projects에서만 찾으면 초안의 이전 값이 안
+    // 잡혀 교체된 파일 청소가 건너뛰어지고, 갱신도 공개 리스트에만 반영됐다.
+    const before = projects.find(p => p.id === id) ?? drafts.find(p => p.id === id);
     const { data, error } = await supabase
       .from("projects")
       .update({ ...form, demo_user_hint: form.demo_user_hint?.trim() || null })
       .eq("id", id).select().single();
     if (error) throw new Error(error.message);
     if (data) {
-      setProjects(prev => prev.map(p => p.id === id ? (data as DBProject) : p));
-      if (before) await deleteSwappedAssets(id, before, data as DBProject);
+      const updated = data as DBProject;
+      const apply = (prev: DBProject[]) => prev.map(p => (p.id === id ? updated : p));
+      if (updated.is_draft) setDrafts(apply);
+      else setProjects(apply);
+      if (before) await deleteSwappedAssets(id, before, updated);
     }
     setEditProject(null);
   }
@@ -613,8 +628,11 @@ export default function ProjectsTab({ user, username, reviewProjectId }: { user:
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
+        {/* 초안도 세어서 보여준다 — "0 projects" 바로 밑에 초안 카드가 깔리면
+            카운터가 거짓말이 된다. */}
         <p className="text-sm vf-mono" style={{ color: "var(--text-secondary)", letterSpacing: "0.02em" }}>
           {projects.length} project{projects.length === 1 ? "" : "s"}
+          {drafts.length > 0 && ` · 검토 대기 ${drafts.length}`}
         </p>
         <button
           onClick={() => setShowAddModal(true)}
@@ -1266,7 +1284,12 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
   wizard?: boolean;
   inline?: boolean;
 }) {
-  const [uploadMode, setUploadMode] = useState<"url" | "files">("url");
+  // 업로드로 만든 프로젝트의 demo_url은 내부 preview 경로다 — "url"로 시작하면
+  // 수정 모달의 데모 URL 칸에 /api/preview/… 가 그대로 찍힌다(게다가 type=url
+  // 검증에 걸려 저장도 안 된다). 파일 모드에서 시작해 연결 상태로 보여준다.
+  const [uploadMode, setUploadMode] = useState<"url" | "files">(
+    isUploadedProject(initialForm.demo_url) ? "files" : "url",
+  );
   const [form, setForm] = useState({ ...initialForm });
   const [step, setStep] = useState(1);
   // null until the user actively picks on step 7 — prevents the final save
@@ -1636,6 +1659,13 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
                     onChange={e => e.target.files && handleFilesUpload(e.target.files)} />
                   <div className="vf-soft-fill flex-1 flex flex-col items-center justify-center gap-5 rounded-2xl p-8"
                     onClick={() => fileInputRef.current?.click()}
+                    onDragOver={e => { e.preventDefault(); e.currentTarget.setAttribute("data-drag", "1"); }}
+                    onDragLeave={e => e.currentTarget.removeAttribute("data-drag")}
+                    onDrop={e => {
+                      e.preventDefault();
+                      e.currentTarget.removeAttribute("data-drag");
+                      if (e.dataTransfer.files.length) handleFilesUpload(e.dataTransfer.files);
+                    }}
                     style={{ cursor: "pointer" }}>
                     <div style={{ fontSize: "4rem", lineHeight: 1 }}>📂</div>
                     <div className="flex gap-2">
@@ -1859,9 +1889,11 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
                 onChange={handleThumbnailUpload} />
               <div
                 onClick={() => thumbnailInputRef.current?.click()}
-                onDragOver={e => { e.preventDefault(); }}
+                onDragOver={e => { e.preventDefault(); e.currentTarget.setAttribute("data-drag", "1"); }}
+                onDragLeave={e => e.currentTarget.removeAttribute("data-drag")}
                 onDrop={e => {
                   e.preventDefault();
+                  e.currentTarget.removeAttribute("data-drag");
                   const file = e.dataTransfer.files[0];
                   if (file && file.type.startsWith("image/")) {
                     const dt = new DataTransfer();
@@ -2056,6 +2088,18 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
           <div style={{ display: wizard ? "none" : undefined }}>
           {uploadMode === "files" && (
             <div className="flex flex-col gap-3">
+              {/* 기존 업로드 연결 상태 — 내부 경로 대신 사실만 말해준다 */}
+              {isUploadedProject(form.demo_url) && !uploadDone && (
+                <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl"
+                  style={{ background: "var(--surface-soft)" }}>
+                  <svg width="13" height="13" viewBox="0 0 14 14" fill="none" style={{ flexShrink: 0 }}>
+                    <path d="M2.5 7l3 3 6-6.5" stroke="var(--text-primary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                  <p className="text-xs" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
+                    업로드된 사이트가 연결돼 있어요 — 새로 올리면 교체돼요.
+                  </p>
+                </div>
+              )}
               {/* Guide notice */}
               <div className="flex gap-2.5 px-3.5 py-3 rounded-xl"
                 style={{ background: "var(--surface-soft)" }}>
@@ -2075,10 +2119,17 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
                 {...{ webkitdirectory: "", multiple: true } as React.InputHTMLAttributes<HTMLInputElement>}
                 onChange={e => e.target.files && handleFilesUpload(e.target.files)} />
               <div className="flex flex-col items-center gap-3 p-6 rounded-xl"
+                onDragOver={e => { e.preventDefault(); e.currentTarget.setAttribute("data-drag", "1"); }}
+                onDragLeave={e => e.currentTarget.removeAttribute("data-drag")}
+                onDrop={e => {
+                  e.preventDefault();
+                  e.currentTarget.removeAttribute("data-drag");
+                  if (e.dataTransfer.files.length) handleFilesUpload(e.dataTransfer.files);
+                }}
                 style={{ background: "var(--surface-soft)" }}>
                 <div className="text-3xl">📂</div>
                 <p className="text-xs text-center" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
-                  HTML, CSS, JS, 이미지 파일 지원 · 최대 25MB
+                  HTML, CSS, JS, 이미지 파일 지원 · 최대 25MB · 드래그해서 올려도 돼요
                 </p>
                 <div className="flex gap-2">
                   <button type="button" onClick={() => fileInputRef.current?.click()}
@@ -2121,15 +2172,32 @@ function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, 
             </div>
           )}
 
-          {/* URL input */}
+          {/* URL input — 내부 preview 경로는 여기 노출하지 않는다(파일 탭이 연결
+              상태를 보여줌). 입력하면 그 외부 URL로 교체된다. */}
           {uploadMode === "url" && (
             <Field label="데모 URL">
               <input className="vf-input" name="demo_url" type="url"
                 placeholder="https://myproject.vercel.app"
-                value={form.demo_url} onChange={handleChange} />
+                value={isUploadedProject(form.demo_url) ? "" : form.demo_url}
+                onChange={handleChange} />
             </Field>
           )}
           </div>{/* end step 2 wrapper */}
+
+          {/* 핵심 기능 소개 — 위저드에만 있던 칸. 초안 카드가 이 값을 보여주며
+              "수정" 버튼을 주는데 정작 모달에 칸이 없어 한 번 쓰면 못 고쳤다. */}
+          <div style={{ display: wizard ? "none" : undefined }}>
+            <Field label="핵심 기능 소개 (자동 시연용 · 선택)">
+              <textarea className="vf-input" name="demo_user_hint" rows={2}
+                placeholder="예: 캔버스에 마우스로 자유롭게 그림을 그릴 수 있어요. 상단에서 브러시 색과 굵기를 바꿔보세요."
+                value={form.demo_user_hint ?? ""} onChange={handleChange}
+                maxLength={500}
+                style={{ resize: "vertical", lineHeight: 1.6 }} />
+            </Field>
+            <p className="text-xs mt-1.5" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
+              자동 시연 영상이 이 설명을 보고 핵심 기능부터 보여드려요.
+            </p>
+          </div>
 
           {/* 구동 영상 (선택) — 대표 작품 hero에서 자동 재생 */}
           <div style={{ display: wizard ? "none" : undefined }}>

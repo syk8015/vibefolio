@@ -499,6 +499,10 @@ body::before {
 }
 .vf-selectable:disabled { cursor: not-allowed; opacity: 0.45; }
 
+/* Drop-target feedback — dropzones flag data-drag="1" while a file hovers.
+   !important so it wins over the zones' inline surface backgrounds. */
+[data-drag="1"] { background: var(--surface-active) !important; }
+
 /* Per-step entrance for the project wizard — fade + gentle rise */
 @keyframes vfStepIn {
   from { opacity: 0; transform: translateY(10px); }
