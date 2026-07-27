@@ -1,65 +1,53 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
+// 링크 판정은 명함이 실제로 렌더하는 것과 같은 매처 하나만 쓴다 — 여기서 따로
+// 넓게 인식해주면 "확인됐다"고 보여놓고 명함에선 조용히 버려진다.
+import { getSocialMeta } from "@/components/SocialBadge";
+import type { DashboardProfile } from "./DashboardClient";
 
-function detectPlatform(url: string): { platform: string; handle: string } | null {
-  if (!url.trim()) return null;
-  try {
-    const normalized = url.startsWith("http") ? url : `https://${url}`;
-    const u = new URL(normalized);
-    const host = u.hostname.replace("www.", "");
-    const path = u.pathname.replace(/^\/+/, "").replace(/\/+$/, "");
-
-    if (host === "instagram.com") return { platform: "Instagram", handle: `@${path}` };
-    if (host === "twitter.com" || host === "x.com") return { platform: "X (Twitter)", handle: `@${path.replace("@", "")}` };
-    if (host === "github.com") return { platform: "GitHub", handle: `@${path}` };
-    if (host.includes("linkedin.com")) {
-      const parts = path.split("/");
-      const idx = parts.indexOf("in");
-      return { platform: "LinkedIn", handle: `@${idx >= 0 ? parts[idx + 1] : path}` };
-    }
-    if (host === "youtube.com" || host === "youtu.be") {
-      return { platform: "YouTube", handle: path.startsWith("@") ? path : `@${path}` };
-    }
-    if (host === "tiktok.com") return { platform: "TikTok", handle: path.startsWith("@") ? path : `@${path}` };
-    if (host === "facebook.com") return { platform: "Facebook", handle: `@${path}` };
-    if (host === "threads.net") return { platform: "Threads", handle: `@${path.replace("@", "")}` };
-    return { platform: host, handle: `/${path}` };
-  } catch {
-    return null;
-  }
-}
-
-function migrateOldLinks(meta: Record<string, unknown>): string[] {
+function migrateOldLinks(profile: DashboardProfile): string[] {
   const links: string[] = [];
-  if (meta.twitter) links.push(`https://twitter.com/${String(meta.twitter).replace("@", "")}`);
-  if (meta.github) links.push(`https://github.com/${meta.github}`);
+  if (profile.twitter) links.push(`https://twitter.com/${profile.twitter.replace("@", "")}`);
+  if (profile.github) links.push(`https://github.com/${profile.github}`);
   return links;
 }
 
-export default function ProfileTab({ user }: { user: User }) {
-  const meta = user.user_metadata || {};
-  const existingLinks = Array.isArray(meta.social_links) && meta.social_links.length > 0
-    ? (meta.social_links as string[])
-    : migrateOldLinks(meta);
+export default function ProfileTab({ user, profile }: { user: User; profile: DashboardProfile }) {
+  // 폼의 초기값도 공개 명함이 읽는 profiles 행 — auth metadata는 표시 값의
+  // 출처로 쓰지 않는다(둘이 갈라지면 대시보드와 명함의 이름이 달라진다).
+  const existingLinks = profile.social_links?.length
+    ? profile.social_links
+    : migrateOldLinks(profile);
 
   const [form, setForm] = useState({
-    name: (meta.name as string) || "",
-    username: (meta.username as string) || user.email?.split("@")[0] || "",
-    bio: (meta.bio as string) || "",
-    avatarUrl: (meta.avatar_url as string) || "",
+    name: profile.name || "",
+    username: profile.username || user.email?.split("@")[0] || "",
+    bio: profile.bio || "",
+    avatarUrl: profile.avatar_url || "",
     socialLinks: existingLinks.length > 0 ? existingLinks : [""],
   });
+  // 탈퇴 확인 등 "저장된 username"이 필요한 곳에 쓴다 — 폼의 미저장 입력과 분리.
+  const [savedUsername, setSavedUsername] = useState(profile.username || "");
+  // 아바타는 선택 시 로컬 미리보기만 만들고, 실제 업로드는 저장 시점에 한다 —
+  // 선택 즉시 올리면 저장 없이 떠났을 때 스토리지에 고아 파일이 남는다.
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
+
+  useEffect(() => {
+    return () => {
+      if (avatarPreview) URL.revokeObjectURL(avatarPreview);
+    };
+  }, [avatarPreview]);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState("");
   const [deleting, setDeleting] = useState(false);
@@ -82,6 +70,7 @@ export default function ProfileTab({ user }: { user: User }) {
 
   function addLink() {
     setForm((prev) => ({ ...prev, socialLinks: [...prev.socialLinks, ""] }));
+    setSaved(false);
   }
 
   function removeLink(index: number) {
@@ -92,7 +81,7 @@ export default function ProfileTab({ user }: { user: User }) {
     setSaved(false);
   }
 
-  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleImagePick(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -101,25 +90,9 @@ export default function ProfileTab({ user }: { user: User }) {
       return;
     }
 
-    setUploading(true);
     setError("");
-    const supabase = createClient();
-    const ext = file.name.split(".").pop();
-    const path = `${user.id}/avatar.${ext}`;
-
-    const { error: uploadError } = await supabase.storage
-      .from("avatars")
-      .upload(path, file, { upsert: true });
-
-    if (uploadError) {
-      setError("이미지 업로드 실패. Supabase Storage 설정을 확인해주세요.");
-      setUploading(false);
-      return;
-    }
-
-    const { data: { publicUrl } } = supabase.storage.from("avatars").getPublicUrl(path);
-    setForm((prev) => ({ ...prev, avatarUrl: publicUrl }));
-    setUploading(false);
+    setAvatarFile(file);
+    setAvatarPreview(URL.createObjectURL(file));
     setSaved(false);
   }
 
@@ -142,28 +115,30 @@ export default function ProfileTab({ user }: { user: User }) {
       return;
     }
 
-    const { error: authErr } = await supabase.auth.updateUser({
-      data: {
-        name: form.name,
-        username: form.username,
-        bio: form.bio,
-        avatar_url: form.avatarUrl,
-        social_links: filteredLinks,
-      },
-    });
-
-    if (authErr) {
-      setLoading(false);
-      setError("저장 중 오류가 발생했어요. 다시 시도해주세요.");
-      return;
+    // 미뤄둔 아바타 업로드 — 저장이 확정되는 지금만 스토리지에 쓴다.
+    let avatarUrl = form.avatarUrl;
+    if (avatarFile) {
+      const ext = avatarFile.name.split(".").pop();
+      const path = `${user.id}/avatar.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from("avatars")
+        .upload(path, avatarFile, { upsert: true });
+      if (uploadError) {
+        setLoading(false);
+        setError("이미지 업로드에 실패했어요. 잠시 후 다시 시도해주세요.");
+        return;
+      }
+      avatarUrl = supabase.storage.from("avatars").getPublicUrl(path).data.publicUrl;
     }
 
+    // 공개 명함이 읽는 profiles를 먼저 커밋한다. metadata부터 쓰면 반쪽 실패 시
+    // 대시보드(새 이름)와 명함(옛 이름)이 갈라진 채 남는다.
     const { error: profileErr } = await supabase.from("profiles").upsert({
       id: user.id,
       username: form.username,
       name: form.name,
       bio: form.bio,
-      avatar_url: form.avatarUrl,
+      avatar_url: avatarUrl,
       social_links: filteredLinks,
       updated_at: new Date().toISOString(),
     });
@@ -179,8 +154,27 @@ export default function ProfileTab({ user }: { user: User }) {
       return;
     }
 
+    // metadata는 파생 사본(온보딩 게이트·로그인 직후 폴백용) — 진실은 위에서
+    // 이미 저장됐으므로, 여기 실패가 저장 실패로 표시되면 안 된다.
+    await supabase.auth
+      .updateUser({
+        data: {
+          name: form.name,
+          username: form.username,
+          bio: form.bio,
+          avatar_url: avatarUrl,
+          social_links: filteredLinks,
+        },
+      })
+      .catch(() => {});
+
+    setForm((prev) => ({ ...prev, avatarUrl }));
+    setAvatarFile(null);
+    setSavedUsername(form.username);
     setLoading(false);
     setSaved(true);
+    // 헤더는 서버가 내려준 profiles 값을 그리므로, 같은 값을 보도록 재렌더.
+    router.refresh();
   }
 
   async function handleDelete() {
@@ -205,6 +199,7 @@ export default function ProfileTab({ user }: { user: User }) {
   const avatarInitial = (form.name || form.username).charAt(0).toUpperCase();
   const displayName = form.name || form.username || "이름";
   const bioCount = form.bio.length;
+  const displayAvatar = avatarPreview ?? form.avatarUrl;
 
   return (
     <div className="flex flex-col gap-8 max-w-lg mx-auto w-full">
@@ -222,8 +217,8 @@ export default function ProfileTab({ user }: { user: User }) {
             fontWeight: 500,
           }}
         >
-          {form.avatarUrl
-            ? <Image src={form.avatarUrl} alt="avatar" fill sizes="112px" unoptimized className="object-cover" />
+          {displayAvatar
+            ? <Image src={displayAvatar} alt="avatar" fill sizes="112px" unoptimized className="object-cover" />
             : avatarInitial}
         </div>
         <p
@@ -241,19 +236,22 @@ export default function ProfileTab({ user }: { user: User }) {
       <div>
         <label className="vf-label">프로필 이미지</label>
         <div className="flex items-center gap-3 flex-wrap">
-          <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+          <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImagePick} />
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            disabled={uploading}
             className="vf-button-ghost"
-            style={{ cursor: uploading ? "not-allowed" : "pointer" }}
           >
-            {uploading ? "업로드 중…" : form.avatarUrl ? "이미지 변경" : "이미지 업로드"}
+            {displayAvatar ? "이미지 변경" : "이미지 업로드"}
           </button>
           <p className="text-xs vf-mono" style={{ color: "var(--text-muted)" }}>
             JPG · PNG · GIF · 최대 5MB
           </p>
+          {avatarFile && (
+            <p className="text-xs" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
+              저장하기를 누르면 반영돼요
+            </p>
+          )}
         </div>
       </div>
 
@@ -303,7 +301,7 @@ export default function ProfileTab({ user }: { user: User }) {
         <label className="vf-label">소셜 링크</label>
         <div className="flex flex-col gap-3">
           {form.socialLinks.map((link, i) => {
-            const detected = detectPlatform(link);
+            const detected = link.trim() ? getSocialMeta(link) : null;
             return (
               <div key={i} className="flex flex-col gap-1">
                 <div className="flex items-center gap-2">
@@ -324,11 +322,15 @@ export default function ProfileTab({ user }: { user: User }) {
                     ×
                   </button>
                 </div>
-                {detected && link.trim() && (
+                {link.trim() && (detected ? (
                   <p className="text-xs pl-1 vf-mono" style={{ color: "var(--text-secondary)", letterSpacing: "0.02em" }}>
-                    · {detected.platform} {detected.handle}
+                    · {detected.name} {detected.handle}
                   </p>
-                )}
+                ) : (
+                  <p className="text-xs pl-1" style={{ color: "var(--danger)", fontFamily: "var(--font-nunito)", lineHeight: 1.6 }}>
+                    아직 인식되지 않는 주소예요 — 명함에는 Instagram · X · GitHub · LinkedIn · YouTube · TikTok · Facebook · Threads 링크만 표시돼요.
+                  </p>
+                ))}
               </div>
             );
           })}
@@ -402,16 +404,18 @@ export default function ProfileTab({ user }: { user: User }) {
               정말 탈퇴하시겠어요?
             </h3>
             <p className="text-sm mb-4" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", lineHeight: 1.65 }}>
-              <strong style={{ color: "var(--text-primary)" }}>@{form.username}</strong>의 프로필과 모든 프로젝트·업로드 파일이 즉시·영구 삭제돼요. 이 작업은 되돌릴 수 없어요.
+              <strong style={{ color: "var(--text-primary)" }}>@{savedUsername}</strong>의 프로필과 모든 프로젝트·업로드 파일이 즉시·영구 삭제돼요. 이 작업은 되돌릴 수 없어요.
             </p>
+            {/* 확인 문자열은 "저장된" username — 폼에 고쳐 쓰고 저장 안 한 값과
+                비교하면 존재하지 않는 이름을 타이핑하라고 요구하게 된다. */}
             <label className="vf-label">
-              확인을 위해 <span style={{ color: "var(--text-primary)" }}>{form.username}</span> 를 입력해주세요
+              확인을 위해 <span style={{ color: "var(--text-primary)" }}>{savedUsername}</span> 를 입력해주세요
             </label>
             <input
               className="vf-input"
               value={deleteConfirm}
               onChange={(e) => { setDeleteConfirm(e.target.value); setDeleteError(""); }}
-              placeholder={form.username}
+              placeholder={savedUsername}
               autoComplete="off"
               disabled={deleting}
               autoFocus
@@ -432,9 +436,9 @@ export default function ProfileTab({ user }: { user: User }) {
               <button
                 type="button"
                 onClick={handleDelete}
-                disabled={deleting || deleteConfirm.trim() !== form.username}
+                disabled={deleting || deleteConfirm.trim() !== savedUsername}
                 className="flex-1 py-2.5 rounded-xl text-sm font-bold transition-opacity"
-                style={{ background: "#b34747", color: "#fff", border: "none", cursor: (deleting || deleteConfirm.trim() !== form.username) ? "not-allowed" : "pointer", opacity: (deleting || deleteConfirm.trim() !== form.username) ? 0.5 : 1, fontFamily: "var(--font-nunito)" }}
+                style={{ background: "#b34747", color: "#fff", border: "none", cursor: (deleting || deleteConfirm.trim() !== savedUsername) ? "not-allowed" : "pointer", opacity: (deleting || deleteConfirm.trim() !== savedUsername) ? 0.5 : 1, fontFamily: "var(--font-nunito)" }}
               >
                 {deleting ? "탈퇴 중…" : "영구 삭제"}
               </button>

@@ -26,6 +26,8 @@
   --text-primary: #1a1612;
   --text-secondary: #6a5e4e;
   --text-muted: #a89b87;
+  /* Destructive accent — one token so danger reds can't drift apart */
+  --danger: #b34747;
   --nav-bg: rgba(253, 250, 243, 0.88);
   --overlay-strong: rgba(253, 250, 243, 0.88);
   --overlay-mid: rgba(253, 250, 243, 0.6);

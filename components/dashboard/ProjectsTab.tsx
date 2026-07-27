@@ -196,9 +196,10 @@ async function deleteSwappedAssets(
   } catch { /* 청소 실패가 저장 흐름을 막지는 않는다 — 서버 로그에 남는다 */ }
 }
 
-export default function ProjectsTab({ user, reviewProjectId }: { user: User; reviewProjectId?: string | null }) {
-  // Same derivation as DashboardClient — the canonical profile handle for links.
-  const username = user.user_metadata?.username || user.email?.split("@")[0] || "me";
+// username comes from DashboardClient's profiles row (the handle public links
+// actually resolve) — deriving it here from auth metadata could hand ShareKit
+// a stale handle when the two sources drift.
+export default function ProjectsTab({ user, username, reviewProjectId }: { user: User; username: string; reviewProjectId?: string | null }) {
   const [projects, setProjects] = useState<DBProject[]>([]);
   const [drafts, setDrafts] = useState<DBProject[]>([]);
   const [loading, setLoading] = useState(true);

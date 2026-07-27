@@ -29,7 +29,21 @@ const SettingsTab = dynamic(() => import("./SettingsTab"), { loading: TabFallbac
 
 type Tab = "profile" | "projects" | "analytics" | "custom" | "settings";
 
-export default function DashboardClient({ user }: { user: User }) {
+// The dashboard's copy of the profiles row — the same row the public card reads.
+// Display values (name, avatar, username) come from here, never auth metadata:
+// the two can drift apart and the card is the one visitors actually see.
+export interface DashboardProfile {
+  id: string;
+  username: string;
+  name: string | null;
+  bio: string | null;
+  avatar_url: string | null;
+  social_links: string[] | null;
+  twitter: string | null;
+  github: string | null;
+}
+
+export default function DashboardClient({ user, profile }: { user: User; profile: DashboardProfile }) {
   const [tab, setTab] = useState<Tab>("profile");
   const [showWelcome, setShowWelcome] = useState(false);
   const [reviewId, setReviewId] = useState<string | null>(null);
@@ -51,10 +65,10 @@ export default function DashboardClient({ user }: { user: User }) {
     }
   }, [searchParams]);
 
-  const username = user.user_metadata?.username || user.email?.split("@")[0] || "me";
-  const name = user.user_metadata?.name || username;
+  const username = profile.username || user.email?.split("@")[0] || "me";
+  const name = profile.name || username;
   const avatarLetter = name.charAt(0).toUpperCase();
-  const avatarUrl = user.user_metadata?.avatar_url as string | undefined;
+  const avatarUrl = profile.avatar_url ?? undefined;
 
   async function handleLogout() {
     const supabase = createClient();
@@ -112,10 +126,9 @@ export default function DashboardClient({ user }: { user: User }) {
               ? <Image src={avatarUrl} alt={name} fill sizes="32px" unoptimized className="object-cover" />
               : avatarLetter}
           </div>
-          {/* Logout — hidden on mobile */}
           <button
             onClick={handleLogout}
-            className="hidden md:block text-xs px-3 py-1.5 rounded-full transition-opacity hover:opacity-70"
+            className="text-xs px-3 py-1.5 rounded-full transition-opacity hover:opacity-70"
             style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", background: "none", border: "none", cursor: "pointer" }}
           >
             로그아웃
@@ -202,9 +215,9 @@ export default function DashboardClient({ user }: { user: User }) {
 
         {/* Tab content */}
         {tab === "profile" ? (
-          <ProfileTab user={user} />
+          <ProfileTab user={user} profile={profile} />
         ) : tab === "projects" ? (
-          <ProjectsTab user={user} reviewProjectId={reviewId} />
+          <ProjectsTab user={user} username={username} reviewProjectId={reviewId} />
         ) : tab === "analytics" ? (
           <AnalyticsTab user={user} />
         ) : tab === "custom" ? (
