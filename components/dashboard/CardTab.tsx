@@ -203,7 +203,8 @@ export default function CardTab({ user, profile }: { user: User; profile: Dashbo
   const displayAvatar = avatarPreview ?? form.avatarUrl;
 
   return (
-    <div className="flex flex-col gap-8 max-w-lg mx-auto w-full">
+    // 좌측 정렬 — 헤더(미니 명함)·탭·작품 리스트가 전부 좌측 기준인 흐름에 맞춘다.
+    <div className="flex flex-col gap-8 max-w-lg w-full">
       <form onSubmit={handleSave} className="flex flex-col gap-8">
 
       {/* Avatar upload — 큰 아이덴티티 미리보기는 헤더의 미니 명함이 맡는다.

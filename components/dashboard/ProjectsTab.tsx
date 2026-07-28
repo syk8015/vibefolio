@@ -1284,6 +1284,11 @@ function ProjectRow({ project, username, demoPaused, nowMs, onDelete, onEdit, on
           )}
           <RowMenu
             items={[
+              // "작품 보기"가 공유 팝오버 안에만 숨어 있던 것(계획 항목) —
+              // 업로드형의 /api/preview 상대 경로도 그대로 열린다.
+              ...(project.demo_url
+                ? [{ label: "작품 열기 ↗", onClick: () => window.open(project.demo_url, "_blank", "noopener") }]
+                : []),
               { label: "수정", onClick: onEdit },
               { label: project.is_featured ? "대표 해제" : "대표로 설정", onClick: onToggleFeatured },
               ...(rerecordLabel ? [{ label: rerecordLabel, onClick: onRerecord }] : []),
