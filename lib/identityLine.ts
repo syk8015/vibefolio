@@ -1,8 +1,8 @@
 import type { Project } from "@/lib/data";
 
 // content_type id → 한국어 라벨.
-// components/ProjectCard.tsx의 CONTENT_TYPE_MAP, components/dashboard/ProjectsTab.tsx의
-// CONTENT_TYPES와 반드시 동일하게 유지할 것. (새 필드를 만들지 않고 기존 값에서 파생)
+// lib/projectTaxonomy.ts의 CONTENT_TYPES와 반드시 동일하게 유지할 것.
+// (새 필드를 만들지 않고 기존 값에서 파생)
 const CONTENT_TYPE_LABELS: Record<string, string> = {
   "web-app": "웹 앱",
   "saas": "SaaS",

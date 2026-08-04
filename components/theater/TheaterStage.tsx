@@ -12,8 +12,8 @@ function isFileUpload(url: string | undefined): boolean {
   return !!url && url.startsWith("/api/preview/");
 }
 
-// Site-kind id → display label. Mirrors CONTENT_TYPE_MAP in ProjectCard /
-// CONTENT_TYPES in the dashboard form (the optional "무슨 사이트인지" field).
+// Site-kind id → display label. Mirrors CONTENT_TYPES in lib/projectTaxonomy.ts
+// (the optional "무슨 사이트인지" field).
 const CONTENT_TYPE_LABELS: Record<string, string> = {
   "web-app": "웹 앱",
   "saas": "SaaS",
