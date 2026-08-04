@@ -59,12 +59,33 @@ update projects set demo_build_status = 'pending', demo_build_error = null
 ## 주의
 
 - **녹화 중 이 머신의 화면을 쓰지 말 것.** Chrome 창이 맨 앞에 떠야 하고(avfoundation
-  화면 캡처), 알림/다른 창이 덮으면 영상에 박힌다. 방해금지 모드 권장.
+  화면 캡처), 알림/다른 창이 덮으면 영상에 박힌다. 방해금지는 파이프라인이 강제한다
+  (아래 § Focus setup — 단축어 없으면 촬영 거부).
 - `DEMO_RUNNER=local`이 아닌 배포에서 워커를 돌리면 클라우드 태스크와 **이중 소비**
   (이중 과금) — 반드시 배포 환경변수 상태와 짝 맞춰 운용.
 - 클라우드 경로로 되돌리기: Vercel에서 `DEMO_RUNNER` 삭제(또는 값 변경) 후 재배포.
   `src/trigger/*`는 그대로 배포되어 있으므로 즉시 복귀된다.
 - 비용: explore(computer-use) ~$0.13/편이 Anthropic API로 과금. 크레딧 잔고 확인.
+
+## Focus setup (방해금지 강제 — 1회 설정)
+
+촬영 중 도착한 개인 알림 배너(메시지·메일 미리보기)가 공개 영상에 박히는 걸 막기 위해
+파이프라인이 매 테이크 방해금지(DND)를 켜고 끝나면 복원한다(`focus.ts`). macOS엔
+Focus를 직접 제어하는 CLI가 없어서 **단축어(Shortcuts) 2개가 이 머신에 있어야 하고,
+없으면 explore 비용을 쓰기 전에 촬영을 거부한다.**
+
+단축어 앱에서 아래 2개를 정확한 이름으로 1회 생성 (동작: "집중 모드 설정" / Set Focus):
+
+| 이름 | 동작 설정 |
+|---|---|
+| `nookframe-dnd-on` | 방해금지를 **켜기** — "끌 때까지" (until Turned Off) |
+| `nookframe-dnd-off` | 방해금지를 **끄기** |
+
+검증: `shortcuts run nookframe-dnd-on` 실행 후 메뉴바에 달 아이콘이 뜨면 성공,
+`shortcuts run nookframe-dnd-off`로 꺼지는 것까지 확인.
+
+한계(알고 있을 것): DND 상태 파일은 TCC 보호라 읽을 수 없어 사전 상태 복원이 아니라
+무조건 off로 복원한다. 사용자가 일부러 켜둔 DND도 테이크가 끝나면 꺼진다.
 
 ## 필요 환경 (.env.local, 레포 루트)
 

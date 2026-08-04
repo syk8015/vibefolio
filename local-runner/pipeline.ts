@@ -25,6 +25,7 @@ import { replay } from "./replay";
 import { postprocess } from "./postprocess";
 import { explore, isLoginGated } from "./explore";
 import { installSafety, type BlockedWrite, type SafetyPolicy } from "./safety";
+import { assertFocusShortcuts, enableFocus } from "./focus";
 import { extractModerationFrames, moderateDemo } from "./moderate";
 import {
   uploadAndMarkDone,
@@ -166,6 +167,11 @@ export async function recordDemo(opts: RecordDemoOptions): Promise<RecordDemoRes
         "(worker ops: start the worker while unlocked; its caffeinate then keeps the display awake)",
     );
   }
+  // Notification banners land inside the crop rect and ship into the public
+  // film (host-security audit item 3) — force Do Not Disturb for the whole run,
+  // restored in the finally below. Fails loud here, before the explore fee.
+  await assertFocusShortcuts();
+  const restoreFocus = await enableFocus();
 
   const browser = await launchChromium();
   let recCtx: import("playwright-core").BrowserContext | undefined;
@@ -382,6 +388,7 @@ export async function recordDemo(opts: RecordDemoOptions): Promise<RecordDemoRes
       moderationFailedOpen,
     };
   } finally {
+    await restoreFocus();
     caffeinate.kill();
     if (recCtx) await recCtx.close();
     await browser.close().catch(() => {});
