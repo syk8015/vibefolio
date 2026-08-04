@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { logger } from "@/lib/logger";
 import { rateLimit, clientIpKey } from "@/lib/rate-limit";
 
@@ -51,7 +52,10 @@ export async function POST(req: NextRequest) {
 
     if (!profile) return NextResponse.json({ ok: false });
 
-    await supabase.from("portfolio_views").insert({
+    // portfolio_views is default-deny for anon/authenticated (the open insert
+    // policy was dropped — migration_prelaunch_hardening.sql); this trusted,
+    // rate-limited route is the only writer, via the service role.
+    await createAdminClient().from("portfolio_views").insert({
       profile_id: profile.id,
       referrer: clampStr((body as { referrer?: unknown }).referrer, MAX_REFERRER_LEN),
       country: clampStr(req.headers.get("x-vercel-ip-country"), 8),

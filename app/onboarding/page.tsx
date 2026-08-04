@@ -6,8 +6,9 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { AnalyticsEvent, trackClientEvent, firstTouch } from "@/lib/analytics-client";
 import Logo from "@/components/Logo";
+import { isReservedUsername } from "@/lib/reservedUsernames";
 
-type UsernameStatus = "idle" | "checking" | "available" | "taken" | "invalid";
+type UsernameStatus = "idle" | "checking" | "available" | "taken" | "invalid" | "reserved";
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -23,6 +24,9 @@ export default function OnboardingPage() {
     if (!value) { setUsernameStatus("idle"); return; }
     if (!/^[a-zA-Z0-9_-]+$/.test(value) || value.length < 2) {
       setUsernameStatus("invalid"); return;
+    }
+    if (isReservedUsername(value)) {
+      setUsernameStatus("reserved"); return;
     }
     setUsernameStatus("checking");
     const supabase = createClient();
@@ -72,6 +76,7 @@ export default function OnboardingPage() {
     e.preventDefault();
     if (usernameStatus === "taken") { setError("이미 사용 중인 username이에요. 다른 걸 입력해주세요."); return; }
     if (usernameStatus === "invalid") { setError("username은 영문, 숫자, _, -만 사용 가능하고 2자 이상이어야 해요."); return; }
+    if (usernameStatus === "reserved") { setError("사용할 수 없는 username이에요. 다른 걸 입력해주세요."); return; }
 
     setLoading(true);
     setError("");
@@ -82,6 +87,11 @@ export default function OnboardingPage() {
 
     // Final check if debounce hasn't resolved yet
     if (usernameStatus !== "available") {
+      if (isReservedUsername(form.username)) {
+        setError("사용할 수 없는 username이에요. 다른 걸 입력해주세요.");
+        setLoading(false);
+        return;
+      }
       const { data: existing } = await supabase.from("profiles").select("id").eq("username", form.username).maybeSingle();
       if (existing) {
         setError("이미 사용 중인 username이에요. 다른 걸 입력해주세요.");
@@ -150,7 +160,7 @@ export default function OnboardingPage() {
     router.refresh();
   }
 
-  const canSubmit = !loading && usernameStatus !== "taken" && usernameStatus !== "invalid" && usernameStatus !== "checking";
+  const canSubmit = !loading && usernameStatus !== "taken" && usernameStatus !== "invalid" && usernameStatus !== "reserved" && usernameStatus !== "checking";
 
   if (initLoading) {
     return (
@@ -223,13 +233,14 @@ export default function OnboardingPage() {
             {form.username && (
               <p className="mt-1.5 text-xs font-semibold" style={{
                 color: usernameStatus === "available" ? "#22c55e"
-                  : (usernameStatus === "taken" || usernameStatus === "invalid") ? "#ef4444"
+                  : (usernameStatus === "taken" || usernameStatus === "invalid" || usernameStatus === "reserved") ? "#ef4444"
                   : "var(--text-muted)",
                 fontFamily: "var(--font-nunito)"
               }}>
                 {usernameStatus === "available" && "✓ 사용 가능한 username이에요"}
                 {usernameStatus === "taken" && "✗ 이미 사용 중이에요"}
                 {usernameStatus === "invalid" && "✗ 영문, 숫자, _, -만 사용 가능해요 (2자 이상)"}
+                {usernameStatus === "reserved" && "✗ 사용할 수 없는 이름이에요"}
                 {(usernameStatus === "idle" || usernameStatus === "checking") && (
                   <>nookframe.com/<span style={{ color: "var(--blue)" }}>{form.username}</span></>
                 )}
@@ -285,7 +296,7 @@ function UsernameStatusIcon({ status }: { status: UsernameStatus }) {
       </svg>
     );
   }
-  if (status === "taken" || status === "invalid") {
+  if (status === "taken" || status === "invalid" || status === "reserved") {
     return (
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
         <circle cx="8" cy="8" r="7" fill="rgba(239,68,68,0.15)" stroke="#ef4444" strokeWidth="1.5" />

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
+import { isReservedUsername } from "@/lib/reservedUsernames";
 // 링크 판정은 명함이 실제로 렌더하는 것과 같은 매처 하나만 쓴다 — 여기서 따로
 // 넓게 인식해주면 "확인됐다"고 보여놓고 명함에선 조용히 버려진다.
 import { getSocialMeta } from "@/components/SocialBadge";
@@ -105,6 +106,12 @@ export default function CardTab({ user, profile }: { user: User; profile: Dashbo
     const supabase = createClient();
 
     const filteredLinks = form.socialLinks.filter((l) => l.trim());
+
+    if (isReservedUsername(form.username)) {
+      setLoading(false);
+      setError("사용할 수 없는 username이에요. 다른 걸 입력해주세요.");
+      return;
+    }
 
     // Username is unique in profiles. The upsert below would reject a collision (caught
     // as 23505 there), but checking first gives a clear message and avoids writing the
