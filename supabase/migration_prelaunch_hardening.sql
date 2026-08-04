@@ -4,16 +4,35 @@
 -- service role (app/api/track/route.ts) — otherwise view tracking 403s until deploy.
 -- Rebuild order: this file runs after migration_rls_v2.sql (it replaces policies
 -- created there).
+--
+-- 2026-08-04 revision — WHY THE DO BLOCKS: the first version dropped policies by
+-- the names used in this repo's migrations. That silently no-opped in prod: both
+-- storage.objects and portfolio_views carry policies created by hand in the
+-- Supabase dashboard under different names (portfolio_views itself lived outside
+-- migrations until M17). Permissive policies OR together, so a leftover open
+-- policy kept granting access even after the new restrictive one was added.
+-- Dropping by catalog lookup instead of by name is what actually closes the door.
+-- Safe to re-run.
 
 -- ─── 1. Storage: stop anonymous enumeration of user files ─────────────
 -- Both buckets stay public=true, so fetching an object by its exact public URL
--- (previews, OG images, embeds, avatars) is UNAFFECTED — the SELECT policy only
--- governs the storage list API and authenticated API reads. Replacing the open
--- read policy with owner-only read kills "list the bucket, download everything"
--- scripts while keeping every render path working. App code never lists these
--- buckets outside the service role (verified 2026-08-04).
+-- (/object/public/... — previews, OG images, embeds, avatars) is UNAFFECTED:
+-- that path bypasses RLS for public buckets. These policies govern the storage
+-- list API and authenticated reads, which is what "download the whole bucket"
+-- scripts need. App code never lists these buckets outside the service role
+-- (verified 2026-08-04: only app/api/account and demo-assets, both admin client).
 
-drop policy if exists "공개 읽기 - project-files" on storage.objects;
+do $$
+declare p record;
+begin
+  for p in
+    select policyname from pg_policies
+    where schemaname = 'storage' and tablename = 'objects' and cmd in ('SELECT', 'ALL')
+  loop
+    execute format('drop policy %I on storage.objects', p.policyname);
+  end loop;
+end $$;
+
 create policy "owner read - project-files"
   on storage.objects for select
   using (
@@ -21,13 +40,40 @@ create policy "owner read - project-files"
     and auth.uid()::text = (storage.foldername(name))[1]
   );
 
-drop policy if exists "공개 읽기 - avatars" on storage.objects;
 create policy "owner read - avatars"
   on storage.objects for select
   using (
     bucket_id = 'avatars'
     and auth.uid()::text = (storage.foldername(name))[1]
   );
+
+-- The loop above also removes any FOR ALL policy (a dashboard-made policy can be
+-- FOR ALL, and that would be the leak while looking like a write rule). Restate
+-- owner writes here so upload/replace/delete survive no matter what was dropped;
+-- these duplicate the per-command policies from migration_rls_v2 harmlessly
+-- (permissive policies OR together).
+do $$
+declare
+  b text;
+  c text;
+begin
+  foreach b in array array['project-files', 'avatars'] loop
+    foreach c in array array['insert', 'update', 'delete'] loop
+      execute format('drop policy if exists %I on storage.objects', 'owner ' || c || ' - ' || b);
+      if c = 'insert' then
+        execute format(
+          'create policy %I on storage.objects for insert to authenticated
+             with check (bucket_id = %L and auth.uid()::text = (storage.foldername(name))[1])',
+          'owner insert - ' || b, b);
+      else
+        execute format(
+          'create policy %I on storage.objects for %s to authenticated
+             using (bucket_id = %L and auth.uid()::text = (storage.foldername(name))[1])',
+          'owner ' || c || ' - ' || b, c, b);
+      end if;
+    end loop;
+  end loop;
+end $$;
 
 -- ─── 2. M18: username hardening ───────────────────────────────────────
 -- Usernames are root-level paths (/{username}). profiles.username is unique,
@@ -52,19 +98,28 @@ alter table profiles add constraint profiles_username_not_reserved
   ]));
 
 -- ─── 3. M19: portfolio_views default-deny insert ──────────────────────
--- The open anonymous insert policy let anyone spray rows directly at PostgREST,
--- bypassing the rate-limited /api/track route. The route now writes via the
--- service role (bypasses RLS), so dropping the policy leaves default-deny for
--- anon/authenticated. The owner-only SELECT policy stays as is.
+-- An open anonymous insert policy let anyone spray rows straight at PostgREST,
+-- bypassing the rate-limited /api/track route. That route now writes with the
+-- service role (bypasses RLS), so removing every INSERT policy leaves
+-- default-deny for anon/authenticated. The owner-only SELECT policy stays.
 
-drop policy if exists "누구나 방문 기록 추가" on portfolio_views;
+do $$
+declare p record;
+begin
+  for p in
+    select policyname from pg_policies
+    where schemaname = 'public' and tablename = 'portfolio_views' and cmd in ('INSERT', 'ALL')
+  loop
+    execute format('drop policy %I on portfolio_views', p.policyname);
+  end loop;
+end $$;
 
--- ─── Verify (all four should hold) ────────────────────────────────────
--- 1. select count(*) from pg_policies where tablename = 'objects'
---      and policyname like 'owner read%';                        -- = 2
--- 2. select indexname from pg_indexes where tablename = 'profiles'
---      and indexname = 'profiles_username_lower_key';            -- 1 row
--- 3. insert into profiles (id, username) values (gen_random_uuid(), 'admin');
---                                    -- fails: profiles_username_not_reserved
--- 4. select count(*) from pg_policies where tablename = 'portfolio_views';
---                                    -- = 1 (owner select only)
+alter table portfolio_views enable row level security;
+
+-- ─── Verify: this SELECT must return exactly the two owner-read policies
+-- for storage, and no INSERT policy for portfolio_views. ──────────────
+select tablename, policyname, cmd, roles::text
+from pg_policies
+where (schemaname = 'storage' and tablename = 'objects')
+   or (schemaname = 'public'  and tablename = 'portfolio_views')
+order by tablename, cmd, policyname;
