@@ -18,6 +18,16 @@ const PRICES: Record<string, { in: number; out: number }> = {
   "claude-haiku-4-5": { in: 1, out: 5 },
 };
 
+// Sonnet 5는 2026-08-31까지 인트로가($2/$10), 이후 정가($3/$15) — 날짜로 자동 전환.
+const SONNET5_INTRO_UNTIL = Date.parse("2026-09-01T00:00:00Z");
+function priceFor(model: string): { in: number; out: number } | null {
+  if (model.startsWith("claude-sonnet-5")) {
+    return Date.now() < SONNET5_INTRO_UNTIL ? { in: 2, out: 10 } : { in: 3, out: 15 };
+  }
+  const key = Object.keys(PRICES).find((k) => model.startsWith(k));
+  return key ? PRICES[key] : null;
+}
+
 export function emptyUsage(): Required<ApiUsage> {
   return { input_tokens: 0, output_tokens: 0, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 };
 }
@@ -32,9 +42,8 @@ export function addUsage(sum: Required<ApiUsage>, u: ApiUsage | undefined): void
 
 // DEMO_CU_MODEL 등 env 오버라이드가 날짜 suffix 붙은 ID일 수 있어 prefix 매칭.
 export function costUsd(model: string, u: ApiUsage): number | null {
-  const key = Object.keys(PRICES).find((k) => model.startsWith(k));
-  if (!key) return null;
-  const p = PRICES[key];
+  const p = priceFor(model);
+  if (!p) return null;
   return (
     ((u.input_tokens ?? 0) * p.in +
       (u.cache_creation_input_tokens ?? 0) * p.in * 1.25 +

@@ -131,9 +131,12 @@ export const PAD_COLOR = "0x0E0E12"; // near-black cinematic margin
 
 // ── Explore (M1) ────────────────────────────────────────────────────────────────
 
-// Computer-use model. 4.6/4.8 don't expose the computer tool yet; the latest
-// computer-use-capable Sonnet is the floor here (mirrors the E2B path's MODEL).
-export const EXPLORE_MODEL = process.env.DEMO_CU_MODEL || "claude-sonnet-4-5";
+// Computer-use model (2026-08-04 Sonnet 5 마이그레이션). 4.6+/5 전 라인이 신형
+// computer_20251124를 지원하게 되어("4.6/4.8 미지원"은 낡은 정보) 동일가($3/$15,
+// ~08-31까지 인트로 $2/$10)에 클릭 정밀도·연출 판단이 좋은 Sonnet 5로 상향.
+// 툴 버전·베타 헤더·thinking은 explore.ts가 모델명에서 자동 선택 — 절감 A/B는
+// DEMO_CU_MODEL=claude-haiku-4-5 한 줄이면 됨(구형 툴세대로 자동 강등).
+export const EXPLORE_MODEL = process.env.DEMO_CU_MODEL || "claude-sonnet-5";
 
 // ── Moderation (post-capture content scan) ────────────────────────────────────
 

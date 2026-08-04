@@ -356,14 +356,27 @@ async function dragNoVisibleChange(
   return await patchUnchanged(before, after, d.toX, d.toY);
 }
 
+// 컴퓨터유즈 툴 세대는 모델이 결정한다(교차 사용 불가): Sonnet 4.5·Haiku 4.5 =
+// 구형 computer_20250124(+2025-01-24 베타, thinking 미사용), Sonnet 4.6/5·Opus 4.5+ =
+// 신형 computer_20251124(+2025-11-24 베타). 신형 모델(Sonnet 5)은 thinking이 기본
+// ON이라 명시 설정 필수 — 공식 벤치 가이드: computer-use는 thinking OFF보다 낮은
+// effort로 켜는 쪽이 헛클릭 재시도가 줄어 출력 토큰이 오히려 적다(4.6 권장=medium).
+// max_tokens도 thinking+응답을 함께 담도록 상향. DEMO_CU_MODEL만 바꾸면
+// (예: claude-haiku-4-5 A/B) 나머지가 자동으로 따라온다.
+const LEGACY_CU_MODELS = ["claude-sonnet-4-5", "claude-haiku-4-5"];
+const IS_LEGACY_CU = LEGACY_CU_MODELS.some((m) => EXPLORE_MODEL.startsWith(m));
+const CU_TOOL_TYPE = IS_LEGACY_CU ? "computer_20250124" : "computer_20251124";
+const CU_BETA = IS_LEGACY_CU ? "computer-use-2025-01-24" : "computer-use-2025-11-24";
+
 async function callClaude(messages: Msg[], apiKey: string): Promise<{ content: Block[]; usage?: ApiUsage }> {
   const body = JSON.stringify({
     model: EXPLORE_MODEL,
-    max_tokens: 1024,
+    max_tokens: IS_LEGACY_CU ? 1024 : 4096,
+    ...(IS_LEGACY_CU ? {} : { thinking: { type: "adaptive" }, output_config: { effort: "medium" } }),
     system: SYSTEM_PROMPT,
     tools: [
       {
-        type: "computer_20250124",
+        type: CU_TOOL_TYPE,
         name: "computer",
         display_width_px: VIEW_W,
         display_height_px: VIEW_H,
@@ -425,7 +438,7 @@ async function callClaude(messages: Msg[], apiKey: string): Promise<{ content: B
           "content-type": "application/json",
           "x-api-key": apiKey,
           "anthropic-version": "2023-06-01",
-          "anthropic-beta": "computer-use-2025-01-24",
+          "anthropic-beta": CU_BETA,
         },
         body,
         signal: ac.signal,
