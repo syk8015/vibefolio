@@ -19,6 +19,7 @@
 import { readFile } from "node:fs/promises";
 import { mkdirSync } from "node:fs";
 import { run, ffprobeValue } from "./util";
+import { type ApiUsage, costLine } from "./cost";
 import {
   MODERATION_MODEL,
   MODERATION_FRAMES,
@@ -231,7 +232,10 @@ export async function moderateDemo(input: {
     const json = (await res.json()) as {
       stop_reason?: string;
       content?: { type: string; text?: string }[];
+      usage?: ApiUsage;
     };
+    // 비용 실측 — verdict 파싱 결과와 무관하게 과금은 이미 발생했으므로 여기서 기록.
+    console.log(`[cost] moderate: ${costLine(MODERATION_MODEL, json.usage ?? {}, 1)}`);
     // The classifier refusing to look at the frames is itself a signal — hold
     // for human review rather than publishing what the model wouldn't examine.
     if (json.stop_reason === "refusal") {

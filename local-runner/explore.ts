@@ -32,6 +32,7 @@ import {
 } from "./config";
 import type { Script, ScriptAction } from "./script";
 import { sleep, run } from "./util";
+import { type ApiUsage, addUsage, emptyUsage, costLine } from "./cost";
 
 // ── System prompt (read-only presenter) ─────────────────────────────────────────
 
@@ -355,7 +356,7 @@ async function dragNoVisibleChange(
   return await patchUnchanged(before, after, d.toX, d.toY);
 }
 
-async function callClaude(messages: Msg[], apiKey: string): Promise<{ content: Block[] }> {
+async function callClaude(messages: Msg[], apiKey: string): Promise<{ content: Block[]; usage?: ApiUsage }> {
   const body = JSON.stringify({
     model: EXPLORE_MODEL,
     max_tokens: 1024,
@@ -441,7 +442,7 @@ async function callClaude(messages: Msg[], apiKey: string): Promise<{ content: B
       throw new TransientApiError(`anthropic fetch failed after retries: ${netErr instanceof Error ? netErr.message : netErr}`);
     }
     clearTimeout(deadline);
-    if (res.ok) return (await res.json()) as { content: Block[] };
+    if (res.ok) return (await res.json()) as { content: Block[]; usage?: ApiUsage };
     const text = await res.text().catch(() => "");
     const retriable = res.status === 429 || res.status === 529 || res.status >= 500;
     if (retriable && attempt < 4) {
@@ -783,9 +784,14 @@ export async function explore(page: Page, opts: ExploreOptions = {}): Promise<Ex
   let interactions = 0;
   let reprompts = 0;
   let pruned = 0;
+  // 비용 실측: 성공 응답의 usage만 집계된다(재시도 실패분은 usage가 없어 자연 제외).
+  const usage = emptyUsage();
+  let apiCalls = 0;
   while (steps < EXPLORE_MAX_STEPS && Date.now() - started < EXPLORE_MAX_MS) {
     applyCache(messages);
     const resp = await callClaude(messages, apiKey);
+    addUsage(usage, resp.usage);
+    apiCalls++;
     messages.push({ role: "assistant", content: resp.content || [] });
     const toolUses = (resp.content || []).filter((b) => b && b.type === "tool_use") as Array<
       Block & { id: string; name?: string; input?: CUInput }
@@ -947,10 +953,12 @@ export async function explore(page: Page, opts: ExploreOptions = {}): Promise<Ex
     steps++;
   }
 
+  const cost = costLine(EXPLORE_MODEL, usage, apiCalls);
+  console.log(`[cost] explore: ${cost}`);
   return {
     actions,
     loginGated: false,
-    notes: `explore: ${steps} steps, ${interactions} interactions, ${pruned} pruned, ${reprompts} reprompts`,
+    notes: `explore: ${steps} steps, ${interactions} interactions, ${pruned} pruned, ${reprompts} reprompts | cost: ${cost}`,
     steps,
     interactions,
   };
