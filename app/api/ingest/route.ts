@@ -214,10 +214,25 @@ export async function POST(req: NextRequest) {
         if (!indexPath) {
           throw new UploadError("index.html이 없어요. 자동 시연은 브라우저에 뜨는 화면을 촬영해요 — 정적 사이트 번들에 index.html을 포함해 주세요.");
         }
+        // supabase-js는 최종 키를 인코딩 없이 URL에 끼워 넣고, fetch의 WHATWG 파서가
+        // %2e%2e·raw CR/LF 등을 `..`로 정규화한다. 문자열 startsWith만으로는
+        // prefix 이탈을 못 막으므로(서비스롤=스토리지 RLS 우회), 실제로 전송될 URL을
+        // 파싱한 뒤 정규화된 pathname이 소유자 prefix 안인지 assert한다.
+        const storageKeyBase = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/project-files/`;
+        const requiredPathPrefix = new URL(`${storageKeyBase}${prefix}`).pathname;
         for (const e of entries) {
           const storagePath = `${prefix}${e.relativePath}`;
-          // 서비스롤은 스토리지 RLS를 우회하므로 최종 키가 소유자 prefix 안인지 직접 assert.
-          if (!storagePath.startsWith(prefix) || storagePath.includes("/../")) {
+          let normalizedPath: string;
+          try {
+            normalizedPath = new URL(`${storageKeyBase}${storagePath}`).pathname;
+          } catch {
+            throw new UploadError("잘못된 파일 경로가 감지됐어요.");
+          }
+          if (
+            !storagePath.startsWith(prefix) ||
+            storagePath.includes("/../") ||
+            !normalizedPath.startsWith(requiredPathPrefix)
+          ) {
             throw new UploadError("잘못된 파일 경로가 감지됐어요.");
           }
           const { error: upErr } = await admin.storage
@@ -234,9 +249,10 @@ export async function POST(req: NextRequest) {
       } catch (e) {
         // 고아 행 정리 — null demo_url 초안이 남지 않게 방금 만든 행을 지운다.
         // (스토리지에 일부 올라간 객체는 추측 불가한 uuid 폴더 아래 남을 수 있으나
-        //  DB 행이 없어 발견 불가 — storage-audit 스윕이 회수.)
+        //  DB 행이 없어 발견 불가 — storage-audit 스윕이 회수.
+        //  remove()는 오브젝트 키 목록이 필요하다: 폴더 경로를 넘기면 no-op이므로
+        //  하지 않는다. 실제 회수는 storage-audit이 담당.)
         await admin.from("projects").delete().eq("id", projectId);
-        await admin.storage.from("project-files").remove([`${userId}/${projectId}`]).catch(() => {});
         if (e instanceof UploadError) {
           return apiError({ status: 400, message: e.message, code: "UPLOAD_FAILED" });
         }

@@ -32,7 +32,11 @@ export function safeRelativePath(raw: string): string | null {
   const p = raw.replace(/^\/+/, ""); // 선행 슬래시 제거
   if (!p || p.startsWith("__MACOSX/")) return null;
   const segs = p.split("/");
-  if (segs.some((s) => s === ".." || s.includes("\\") || s.includes("\0"))) {
+  // `..`(traversal), 백슬래시, 그리고 모든 제어문자(\0·\t·\n·\r 포함)를 버린다.
+  // raw CR/LF/TAB는 정상 파일명에 없고, fetch의 URL 정규화 단계에서 스트립되어
+  // `.\n.` → `..` 처럼 prefix를 벗어나는 데 악용될 수 있다.
+  // (%2e%2e 같은 인코딩 traversal은 업로드 지점의 URL-정규화 assert가 막는다.)
+  if (segs.some((s) => s === ".." || s.includes("\\") || /[\x00-\x1f]/.test(s))) {
     return null;
   }
   return p;
