@@ -108,6 +108,7 @@ npx -y tsx local-runner/index.ts <url|github-url> [--project <id>] [--policy rea
 ## 무API 프로브
 
 ```bash
-npx -y tsx local-runner/probe-drag.ts    # drag 액션 (슬라이더 값·링·카메라)
-npx -y tsx local-runner/probe-sketch.ts  # path 액션 (프리핸드 스트로크·잉크 픽셀)
+npx -y tsx local-runner/probe-drag.ts     # drag 액션 (슬라이더 값·링·카메라)
+npx -y tsx local-runner/probe-sketch.ts   # path 액션 (프리핸드 스트로크·잉크 픽셀)
+npx -y tsx local-runner/probe-netguard.ts # 사설IP/LAN 차단 (fetch·iframe·goto·DNS·WS 벡터별 단언)
 ```

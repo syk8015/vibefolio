@@ -19,6 +19,7 @@
 // (GraphQL persisted queries, Next Server Actions, tRPC batches), so this is a
 // back-stop, not a guarantee — behaviour is the guarantee.
 import type { Page, Route } from "playwright-core";
+import { installNetGuard } from "./netguard";
 
 export type SafetyPolicy = "read-only" | "full";
 export type SourceType = "live_url" | "github" | "zip";
@@ -120,21 +121,31 @@ function mockBody(): string {
 
 export type BlockedWrite = { method: string; url: string; kind: "rest" | "graphql" };
 
-// Install the read-only network back-stop on a page (explore + recording both get
-// it). `full` policy is a no-op (sandbox-local DB → writes are harmless and we
-// WANT the real commit-flow demo). onBlocked is invoked for every mocked write so
-// the caller can assert "0 mutating requests reached the server".
+// Install the network back-stops on a page (explore + recording both get them).
+// Two independent layers:
+//   - write-mock: read-only policy only. `full` skips it (sandbox-local DB →
+//     writes are harmless and we WANT the real commit-flow demo). onBlocked is
+//     invoked for every mocked write so the caller can assert "0 mutating
+//     requests reached the server".
+//   - netguard (netguard.ts): EVERY policy — even a sandbox-built app's page
+//     could iframe/fetch the operator's LAN and film it into the public video.
+//     Skipped only for allowPrivateHost runs (CLI pointing at own fixtures).
 export async function installSafety(
   page: Page,
   policy: SafetyPolicy,
   onBlocked?: (w: BlockedWrite) => void,
+  opts: { allowPrivateHost?: boolean } = {},
 ): Promise<void> {
-  if (policy === "full") return;
-  await page.route("**/*", async (route: Route) => {
-    const req = route.request();
-    const verdict = classify(req.method(), req.url(), req.postData());
-    if (verdict === "read") return route.continue(); // incl. document/asset/preflight + GraphQL query
-    onBlocked?.({ method: req.method(), url: req.url(), kind: verdict === "write-graphql" ? "graphql" : "rest" });
-    return route.fulfill({ status: 200, contentType: "application/json", body: mockBody() });
-  });
+  if (policy !== "full") {
+    await page.route("**/*", async (route: Route) => {
+      const req = route.request();
+      const verdict = classify(req.method(), req.url(), req.postData());
+      if (verdict === "read") return route.continue(); // incl. document/asset/preflight + GraphQL query
+      onBlocked?.({ method: req.method(), url: req.url(), kind: verdict === "write-graphql" ? "graphql" : "rest" });
+      return route.fulfill({ status: 200, contentType: "application/json", body: mockBody() });
+    });
+  }
+  // Registered last → runs first; allowed requests fallback() into the
+  // write-mock route above (or default continue under `full`).
+  if (!opts.allowPrivateHost) await installNetGuard(page);
 }

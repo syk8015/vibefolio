@@ -127,7 +127,9 @@ const V6_EMBEDDED_V4 = [
   "::/96", // 폐기된 IPv4-compatible
 ];
 
-function isBlockedIp(address: string, family: number): boolean {
+// export: local-runner/netguard.ts가 녹화 브라우저의 요청 차단에 같은 대역
+// 정의를 쓴다 — 서버 fetch 가드와 브라우저 가드가 어긋나지 않게 단일 소스 유지.
+export function isBlockedIp(address: string, family: number): boolean {
   if (family === 4) {
     const b = ipv4ToBytes(address);
     if (!b) return true; // 파싱 불가 → 안전하게 차단

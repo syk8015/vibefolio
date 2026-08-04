@@ -99,6 +99,7 @@ export async function runJob(job: JobInput): Promise<JobOutcome> {
       upload: job.upload,
       userHint: job.userHint,
       projectTitle: job.title,
+      allowPrivateHost: job.allowPrivateHost,
       onPhase: job.onPhase,
     });
 

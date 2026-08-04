@@ -25,6 +25,7 @@ import { replay } from "./replay";
 import { postprocess } from "./postprocess";
 import { explore, isLoginGated } from "./explore";
 import { installSafety, type BlockedWrite, type SafetyPolicy } from "./safety";
+import { assertFinalUrlPublic } from "./netguard";
 import { assertFocusShortcuts, enableFocus } from "./focus";
 import { extractModerationFrames, moderateDemo } from "./moderate";
 import {
@@ -60,6 +61,9 @@ export type RecordDemoOptions = {
   // Project title, shown to the moderation classifier as extra (untrusted)
   // context — a phishing page often names its target brand in the title.
   projectTitle?: string;
+  // CLI-only (see job.ts): operator recording their own fixtures/dev servers.
+  // Disables netguard (private-address blocking) — queue jobs never set this.
+  allowPrivateHost?: boolean;
   onPhase?: (phase: PipelinePhase) => void | Promise<void>;
 };
 
@@ -186,9 +190,13 @@ export async function recordDemo(opts: RecordDemoOptions): Promise<RecordDemoRes
       locale: "en-US", // no Translate offer (matches the page language)
     });
     const explorePage = await exploreCtx.newPage();
-    await installSafety(explorePage, policy, onBlocked);
+    await installSafety(explorePage, policy, onBlocked, { allowPrivateHost: opts.allowPrivateHost });
     await installCaptureCleanliness(exploreCtx, explorePage);
     await gotoSettled(explorePage, url);
+    // Server redirect hops bypass page.route — refuse if the document (or any
+    // iframe) LANDED on a private/LAN address even though the initial host was
+    // public (netguard.ts header).
+    if (!opts.allowPrivateHost) await assertFinalUrlPublic(explorePage);
 
     if (await isLoginGated(explorePage)) {
       console.log("[explore] login-gated (password field dominates) → skipping per policy §4.7");
@@ -223,9 +231,11 @@ export async function recordDemo(opts: RecordDemoOptions): Promise<RecordDemoRes
     // ── 2) Reset (same footing) + 3) Record + intro ──────────────────────────────
     const { context: recordingCtx, page } = await launchRecordingContext(storage0);
     recCtx = recordingCtx;
-    await installSafety(page, policy, onBlocked);
+    await installSafety(page, policy, onBlocked, { allowPrivateHost: opts.allowPrivateHost });
     await injectCursorOverlay(page);
     await gotoSettled(page, url);
+    if (!opts.allowPrivateHost) await assertFinalUrlPublic(page); // pre-recording, same reason as explore
+
     const sized = await ensureExactViewport(page);
     await page.bringToFront();
     await ensureCursor(page);
