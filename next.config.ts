@@ -4,10 +4,12 @@ import type { NextConfig } from "next";
 // serves untrusted uploaded content and deliberately sets its own headers
 // (X-Frame-Options/CSP/Referrer-Policy) — we must not override those here.
 //
-// Intentionally conservative: no Content-Security-Policy script-src (would break
-// Next's inline bootstrap scripts) and no global X-Frame-Options/frame-ancestors
-// (the landing PiP embeds sandbox-origin previews; framing is handled per-route).
-// These four are safe everywhere and don't alter any visible behavior.
+// No CSP script-src (would break Next's inline bootstrap scripts). We DO set
+// frame-ancestors 'self' / X-Frame-Options SAMEORIGIN globally: the only in-app
+// framing is same-origin (landing PiP frames /{username}?showcase=1, ViewportFrame
+// frames /{username}?embed=1; the cross-origin live embed points at /api/preview,
+// which is excluded here and sets its own frame headers). This closes clickjacking
+// of /dashboard, /login, /onboarding without breaking any current embed.
 const SECURITY_HEADERS = [
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
@@ -19,6 +21,8 @@ const SECURITY_HEADERS = [
     key: "Strict-Transport-Security",
     value: "max-age=63072000; includeSubDomains",
   },
+  { key: "X-Frame-Options", value: "SAMEORIGIN" },
+  { key: "Content-Security-Policy", value: "frame-ancestors 'self'" },
 ];
 
 const nextConfig: NextConfig = {

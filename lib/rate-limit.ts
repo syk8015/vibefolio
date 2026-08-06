@@ -12,12 +12,17 @@ import { logger } from "@/lib/logger";
 // "no rate limit", not "everything blocked" — same silent-degrade posture as the
 // worker heartbeat.
 
-// First hop of x-forwarded-for is the client on Vercel (the platform appends its
-// own hops after). Hashed with the service key as pepper so raw IPs never sit in
-// a table; the key is stable per deploy which is all a rate bucket needs.
+// Client IP for the rate bucket. MUST come from a header the client cannot forge:
+// x-vercel-forwarded-for is set by Vercel's edge, not settable by the request.
+// The FIRST hop of a raw x-forwarded-for is attacker-controlled (the client can
+// prepend anything; the platform appends its real value after), so it's usable
+// only as a last resort and only its LAST hop. Hashed with the service key as
+// pepper so raw IPs never sit in a table; stable per deploy, all a bucket needs.
 export function clientIpKey(req: NextRequest): string {
-  const fwd = req.headers.get("x-forwarded-for");
-  const ip = fwd ? fwd.split(",")[0].trim() : (req.headers.get("x-real-ip") ?? "unknown");
+  const ip =
+    req.headers.get("x-vercel-forwarded-for") ??
+    req.headers.get("x-real-ip") ??
+    (req.headers.get("x-forwarded-for")?.split(",").pop()?.trim() || "unknown");
   const pepper = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
   return createHash("sha256").update(`${pepper}:${ip}`).digest("hex").slice(0, 32);
 }

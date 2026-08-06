@@ -324,7 +324,7 @@ export default function PortfolioPipSection({ profiles }: Props) {
                 <iframe
                   key={profile.username}
                   ref={iframeRef}
-                  src={`/${profile.username}?showcase=1`}
+                  src={`/${encodeURIComponent(profile.username)}?showcase=1`}
                   width={baseIframeW}
                   height={baseIframeH}
                   style={{ border: "none", display: "block", opacity: loaded ? 1 : 0, transition: "opacity 0.4s ease" }}
@@ -351,7 +351,7 @@ export default function PortfolioPipSection({ profiles }: Props) {
         )}
         <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontFamily: "var(--font-nunito)", margin: 0 }}>
           <a
-            href={`/${profile.username}`}
+            href={`/${encodeURIComponent(profile.username)}`}
             target="_blank"
             rel="noopener noreferrer"
             style={{ color: "var(--blue)", textDecoration: "none", fontWeight: 600 }}
