@@ -25,7 +25,7 @@ import { replay } from "./replay";
 import { postprocess } from "./postprocess";
 import { explore, isLoginGated } from "./explore";
 import { installSafety, type BlockedWrite, type SafetyPolicy } from "./safety";
-import { assertFinalUrlPublic } from "./netguard";
+import { assertFinalUrlPublic, watchLanBreach } from "./netguard";
 import { assertFocusShortcuts, enableFocus } from "./focus";
 import { extractModerationFrames, moderateDemo } from "./moderate";
 import {
@@ -235,6 +235,10 @@ export async function recordDemo(opts: RecordDemoOptions): Promise<RecordDemoRes
     await injectCursorOverlay(page);
     await gotoSettled(page, url);
     if (!opts.allowPrivateHost) await assertFinalUrlPublic(page); // pre-recording, same reason as explore
+    // Continuous guard for the whole take: catches a mid-recording redirect into
+    // the LAN that the point-in-time check above can't (netguard.ts). Checked
+    // before post-process/upload below.
+    const lanBreached = opts.allowPrivateHost ? () => null : watchLanBreach(page);
 
     const sized = await ensureExactViewport(page);
     await page.bringToFront();
@@ -273,12 +277,28 @@ export async function recordDemo(opts: RecordDemoOptions): Promise<RecordDemoRes
       await sleep(TAIL_MS);
     } finally {
       clearInterval(frontGuard);
+      // ALWAYS stop the screen recorder, even if replay threw. rec.stop() used to
+      // sit after this block, so a mid-take error left the avfoundation ffmpeg child
+      // filming the whole desktop indefinitely (host-security leak + disk growth).
+      await rec.stop().catch((e) => console.error("[record] rec.stop failed in finally:", e));
     }
-    await rec.stop();
     console.log("[record] stopped; camera events:", cam.events.length);
     // Fail loud on a black/blank capture (TCC revoked, wrong surface) instead of
     // shipping darkness through every "successful" later stage (audit B-F2/F3).
     await assertRawHasContent(raw);
+
+    // Refuse to upload a take that navigated into the LAN mid-recording (H3): the
+    // latched breach catches transient redirects, the re-assert catches the final
+    // resting frames. Either → discard, don't publish a film of an internal host.
+    if (!opts.allowPrivateHost) {
+      await assertFinalUrlPublic(page);
+      const breach = lanBreached();
+      if (breach) {
+        throw new Error(
+          `netguard: page navigated to a private/LAN address mid-take (${breach}) — refusing to record`,
+        );
+      }
+    }
 
     // ── 5) Post-process ───────────────────────────────────────────────────────────
     await opts.onPhase?.("editing");

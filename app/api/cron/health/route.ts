@@ -19,11 +19,19 @@ import { demoFailedEmail, adminAlertEmail, SITE_URL } from "@/lib/email-template
 export const dynamic = "force-dynamic";
 
 const IN_FLIGHT = ["building", "recording", "editing"] as const;
-const STUCK_INFLIGHT_MIN = 15;
-// Above the worker's 10-min hard job timeout: the heartbeat pauses during a long
-// job (the poll loop is blocked in processOne), so a lower bar would false-alarm.
-const HEARTBEAT_STALE_MIN = 12;
-const STUCK_PENDING_MIN = 15;
+// All three bars MUST sit above the worker's LARGEST hard job timeout
+// (BUILD_JOB_HARD_TIMEOUT_MS = 25 min in worker.ts). The poll loop blocks inside
+// processOne for the whole job, so a github/zip build legitimately runs ~25 min
+// with no heartbeat and its row stays in-flight that long. The old 15/12 bars
+// reaped LIVE build jobs (false failure email + wrong metrics) and fired a
+// worker-stale alert every long build — which then muted real alerts for 6h.
+// 30 > 25 means we only act after the worker's own timeout would already have
+// fired, so anything we catch is genuinely dead.
+const STUCK_INFLIGHT_MIN = 30;
+const HEARTBEAT_STALE_MIN = 30;
+// Pending waits for the current build to finish before the single-threaded worker
+// can claim it — up to the same ~25 min — so it needs the same headroom.
+const STUCK_PENDING_MIN = 30;
 
 const REAP_MESSAGE = formatDemoFailure(
   "stuck",

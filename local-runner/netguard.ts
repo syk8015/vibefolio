@@ -23,10 +23,13 @@ import { lookup } from "node:dns/promises";
 import { isBlockedIp } from "../lib/ssrf";
 import type { Page } from "playwright-core";
 
-// hostname → block reason (null = public). Long-lived worker process: verdicts
-// are stable for a take's duration and pinning the first answer works FOR us
-// against rebinding flip-flops.
-const verdictCache = new Map<string, string | null>();
+// hostname → { block reason (null = public), expiry }. TTL-bounded: pinning a
+// verdict forever only helps in the private→public direction; a DNS-rebinding
+// record that resolves public ONCE would otherwise be trusted for the whole
+// (days-long) worker process. A short TTL forces re-resolution.
+const VERDICT_TTL_MS = 120_000;
+type Verdict = { reason: string | null; expires: number };
+const verdictCache = new Map<string, Verdict>();
 
 function stripBrackets(host: string): string {
   return host.replace(/^\[/, "").replace(/\]$/, "").toLowerCase();
@@ -51,20 +54,30 @@ export async function hostBlockReason(hostRaw: string): Promise<string | null> {
   if (byName) return byName;
   if (isIP(host)) return null; // literal, already cleared above
   const cached = verdictCache.get(host);
-  if (cached !== undefined) return cached;
+  if (cached && cached.expires > Date.now()) return cached.reason;
   let reason: string | null = null;
+  let resolved = false;
   try {
-    for (const a of await lookup(host, { all: true })) {
+    const addrs = await lookup(host, { all: true });
+    resolved = true;
+    for (const a of addrs) {
       if (isBlockedIp(a.address, a.family)) {
         reason = `resolves to ${a.address}`;
         break;
       }
     }
   } catch {
-    // NXDOMAIN/timeout → let it through; the browser's own connect fails the
-    // same way, and failing closed here would kill takes on flaky DNS.
+    // Fail CLOSED. The old code let a DNS error through, but an attacker only needs
+    // OUR resolver to fail while Chrome's own lookup succeeds (a host that answers
+    // Chrome's query pattern with a LAN IP and times out ours) — then the router /
+    // NAS admin page films into a public video. A genuinely unresolvable host
+    // produces a dead take anyway, so failing closed costs nothing real.
+    reason = "dns resolution failed";
   }
-  verdictCache.set(host, reason);
+  // Only cache a verdict we actually resolved, with a TTL. A fail-closed block from a
+  // transient DNS error is NOT cached, so a real host recovers on the next request
+  // instead of being stuck blocked for the process lifetime.
+  if (resolved) verdictCache.set(host, { reason, expires: Date.now() + VERDICT_TTL_MS });
   return reason;
 }
 
@@ -99,13 +112,42 @@ export async function installNetGuard(page: Page): Promise<void> {
     } catch {
       return; // unparsable → never connect upstream
     }
-    const reason = nameBlockReason(host) ?? verdictCache.get(stripBrackets(host)) ?? null;
+    const cachedWs = verdictCache.get(stripBrackets(host));
+    const cachedReason = cachedWs && cachedWs.expires > Date.now() ? cachedWs.reason : null;
+    const reason = nameBlockReason(host) ?? cachedReason;
     if (reason) {
       console.error(`[netguard] BLOCKED websocket ${ws.url().slice(0, 100)} — ${reason}`);
       return; // no connectToServer → page-side socket stays dead
     }
     ws.connectToServer();
   });
+}
+
+// Continuous redirect-hop guard for the DURATION of a take. assertFinalUrlPublic
+// is point-in-time (nav settle); but page JS can, mid-recording, navigate to a
+// public URL that 302s into the LAN — page.route never sees the redirect hop, so
+// the router page films into the take. Latch any frame that navigates to a
+// private/LAN host; the caller checks breached() before uploading and refuses.
+export function watchLanBreach(page: Page): () => string | null {
+  let breach: string | null = null;
+  page.on("framenavigated", (frame) => {
+    let host: string;
+    try {
+      host = new URL(frame.url()).hostname;
+    } catch {
+      return; // about:blank etc.
+    }
+    if (!host) return;
+    void hostBlockReason(host)
+      .then((reason) => {
+        if (reason && !breach) {
+          breach = `${frame.url().slice(0, 100)} — ${reason}`;
+          console.error(`[netguard] LAN breach during take: ${breach}`);
+        }
+      })
+      .catch(() => {});
+  });
+  return () => breach;
 }
 
 // Redirect-hop closure for the MAIN document: routes don't see server redirect
