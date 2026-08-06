@@ -229,3 +229,38 @@ export async function safeFetch(
     return res;
   }
 }
+
+// Read a response body but never buffer more than maxBytes. `res.text()` /
+// `res.arrayBuffer()` materialise the WHOLE body first, so a Content-Length check
+// is skippable (chunked responses omit it) and a huge / slow-drip body can OOM the
+// function before any cap applies. Stream instead: stop and cancel the download the
+// instant the cap is reached. Returns the bytes read (≤ maxBytes).
+export async function readResponseCapped(res: Response, maxBytes: number): Promise<Uint8Array> {
+  if (!res.body) {
+    const buf = new Uint8Array(await res.arrayBuffer());
+    return buf.length > maxBytes ? buf.subarray(0, maxBytes) : buf;
+  }
+  const reader = res.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    while (total < maxBytes) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      total += value.length;
+    }
+  } finally {
+    // Abort the rest of the transfer (we have enough or hit the cap).
+    await reader.cancel().catch(() => {});
+  }
+  const out = new Uint8Array(Math.min(total, maxBytes));
+  let offset = 0;
+  for (const c of chunks) {
+    if (offset >= out.length) break;
+    const slice = c.subarray(0, out.length - offset);
+    out.set(slice, offset);
+    offset += slice.length;
+  }
+  return out;
+}

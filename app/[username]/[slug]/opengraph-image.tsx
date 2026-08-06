@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 import { getProfileByUsername, getProjectById, posterFromDemo } from "@/lib/portfolio";
-import { safeFetch } from "@/lib/ssrf";
+import { safeFetch, readResponseCapped } from "@/lib/ssrf";
 
 // og:image for the watch page — the poster frame with a play button + label, so a
 // link preview reads unmistakably as "a video to press play on".
@@ -27,11 +27,14 @@ async function posterDataUri(url: string | undefined): Promise<string | null> {
   try {
     const r = await safeFetch(url, { signal: AbortSignal.timeout(8000) });
     if (!r.ok) return null;
-    if (Number(r.headers.get("content-length") || 0) > MAX_POSTER_BYTES) return null;
-    const buf = Buffer.from(await r.arrayBuffer());
-    if (buf.byteLength > MAX_POSTER_BYTES) return null;
+    // Stream-capped read: a chunked response omits Content-Length, so the header
+    // check alone let a huge body through arrayBuffer(). readResponseCapped aborts
+    // the download at the cap. A body AT the cap is likely truncated → treat as
+    // oversize and refuse rather than inline a broken image.
+    const bytes = await readResponseCapped(r, MAX_POSTER_BYTES);
+    if (bytes.byteLength >= MAX_POSTER_BYTES) return null;
     const ct = r.headers.get("content-type") || "image/jpeg";
-    return `data:${ct};base64,${buf.toString("base64")}`;
+    return `data:${ct};base64,${Buffer.from(bytes).toString("base64")}`;
   } catch {
     // blocked host (SSRF), timeout, or network error → cream fallback
     return null;

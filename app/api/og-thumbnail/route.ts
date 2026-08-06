@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { screenshotUrl } from "@/lib/thumbnail";
 import { createClient } from "@/lib/supabase/server";
-import { safeFetch, SsrfError } from "@/lib/ssrf";
+import { safeFetch, SsrfError, readResponseCapped } from "@/lib/ssrf";
+import { rateLimit } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
 
 // 본문 파싱은 200KB까지만 og:image 정규식에 태운다(과대 응답 DoS 방지).
@@ -16,6 +17,12 @@ export async function POST(req: NextRequest) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ imageUrl: null }, { status: 401 });
+
+    // Per-user cap: this is a server-side fetch primitive (Vercel egress + an
+    // internal-host probe oracle). Keyed on the authenticated user, not IP.
+    if (!(await rateLimit({ name: "og-thumbnail", key: user.id, windowSeconds: 3600, max: 60 }))) {
+      return NextResponse.json({ imageUrl: null }, { status: 429 });
+    }
 
     let url = "";
     try {
@@ -37,17 +44,22 @@ export async function POST(req: NextRequest) {
         signal: AbortSignal.timeout(8000),
       });
     } catch (err) {
-      // 사설/예약 대역 등 차단 목적지 → 썸네일 자체를 만들지 않는다(외부 캡처
-      // 서비스에도 넘기지 않음).
-      if (err instanceof SsrfError) return NextResponse.json({ imageUrl: null });
-      // 공개 호스트인데 타임아웃/연결 실패 → thum.io 스크린샷 폴백.
-      return NextResponse.json({ imageUrl: screenshotUrl(url) });
+      // Fetch failed. Return the SAME response whether the host was blocked (SSRF —
+      // resolves to a private/reserved IP) or just unreachable, so this endpoint
+      // can't be used as an internal-host probe oracle (the two used to differ:
+      // null vs a thum.io screenshot URL). Blocked destinations are never handed to
+      // the external capture service either way.
+      if (!(err instanceof SsrfError)) {
+        logger.warn("og-thumbnail: fetch failed", { error: err });
+      }
+      return NextResponse.json({ imageUrl: null });
     }
 
     if (!res.ok) return NextResponse.json({ imageUrl: screenshotUrl(url) });
 
     try {
-      const html = (await res.text()).slice(0, MAX_HTML_BYTES);
+      const bytes = await readResponseCapped(res, MAX_HTML_BYTES);
+      const html = new TextDecoder("utf-8", { fatal: false }).decode(bytes);
 
       const patterns = [
         /property=["']og:image["'][^>]+content=["']([^"']+)["']/i,
