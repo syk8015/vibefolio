@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, memo } from "react";
+import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
@@ -12,189 +12,26 @@ import { placeholderThumbnail } from "@/lib/placeholder";
 import { parseDemoFailure, DEMO_FAILURE_COPY } from "@/lib/demo-failure";
 import { AnalyticsEvent, trackClientEvent } from "@/lib/analytics-client";
 import { screenshotUrl } from "@/lib/thumbnail";
+import { MAX_UPLOAD_BYTES, getMimeType } from "@/lib/upload-safety";
+
+import { CONTENT_TYPES, AI_TOOLS } from "@/lib/projectTaxonomy";
 import {
-  MAX_UPLOAD_BYTES,
-  getMimeType,
-  safeRelativePath,
-} from "@/lib/upload-safety";
-
-import { CONTENT_TYPES, AI_TOOLS, AI_TOOL_DOMAINS } from "@/lib/projectTaxonomy";
-
-// Pure, primitive props + a fixed domain map. Memoized so it doesn't re-render
-// (and re-issue the favicon request) on unrelated dashboard state changes.
-const AiToolLogo = memo(function AiToolLogo({ id, size = 13 }: { id: string; size?: number }) {
-  const domain = AI_TOOL_DOMAINS[id];
-  if (!domain) return null;
-  return (
-    <img
-      src={`https://www.google.com/s2/favicons?domain=${domain}&sz=32`}
-      alt={id}
-      width={size}
-      height={size}
-      style={{ borderRadius: 3, display: "block", flexShrink: 0 }}
-    />
-  );
-});
-
-const AI_TOOLS_INITIAL = 5;
-
-type DemoBuildStatus =
-  | "pending"
-  | "building"
-  | "recording"
-  | "editing"
-  | "done"
-  | "failed"
-  | "held";
-
-// 촬영이 아직 진행 중인 상태들. 이 행이 하나라도 있는 동안만 폴백 폴링이 돌고,
-// 전부 done/failed/held로 떨어지면 스스로 멈춘다.
-const DEMO_IN_FLIGHT: ReadonlySet<DemoBuildStatus> = new Set([
-  "pending",
-  "building",
-  "recording",
-  "editing",
-]);
-const DEMO_POLL_MS = 10_000;
-// 촬영이 이 시간을 넘기면 배지를 "예상보다 오래 걸려요"로 바꾼다. 실패 판정이
-// 아니라 안심 문구 — 유저를 화면 앞에 붙잡아두지 않는 게 목적이다. 운영 경보는
-// 별개 임계값(health 크론 STUCK_PENDING_MIN=15분)이라 서로 간섭하지 않는다.
-const DEMO_SLOW_MS = 5 * 60_000;
-
-interface DBProject {
-  id: string;
-  title: string;
-  description: string;
-  type: "image" | "video";
-  content_type: string | null;
-  thumbnail: string;
-  year: string;
-  tags: string[];
-  demo_url: string;
-  comment: string;
-  sort_order: number;
-  is_featured: boolean;
-  is_draft: boolean;
-  video_url: string;
-  demo_source_type: "github" | "live_url" | "zip" | null;
-  demo_source_value: string | null;
-  demo_build_status: DemoBuildStatus | null;
-  demo_build_error: string | null;
-  demo_video_url: string | null;
-  demo_generated_at: string | null;
-  // DB 트리거가 모든 상태 전이마다 찍는다 (migration_stuck_watchdog.sql).
-  demo_status_changed_at: string | null;
-  // 사용자 유도형 데모 변형①: 제작자가 쓴 "핵심 기능" 설명. 녹화 워커가 explore
-  // 브리핑에 주입한다. 가드 트리거의 파이프라인 컬럼이 아니라 유저가 직접 수정 가능.
-  demo_user_hint: string | null;
-}
-
-type ProjectForm = Omit<
-  DBProject,
-  | "id"
-  | "sort_order"
-  | "is_featured"
-  | "is_draft"
-  | "demo_source_type"
-  | "demo_source_value"
-  | "demo_build_status"
-  | "demo_build_error"
-  | "demo_video_url"
-  | "demo_generated_at"
-  | "demo_status_changed_at"
->;
-
-const EMPTY_FORM: ProjectForm = {
-  title: "",
-  description: "",
-  type: "image",
-  content_type: null,
-  thumbnail: "",
-  year: new Date().getFullYear().toString(),
-  tags: [],
-  demo_url: "",
-  comment: "",
-  video_url: "",
-  demo_user_hint: null,
-};
-
-function isUploadedProject(demoUrl: string) {
-  return demoUrl?.startsWith("/api/preview/");
-}
-
-function isValidHttpUrl(s: string) {
-  if (!s) return false;
-  try {
-    const u = new URL(s);
-    return (u.protocol === "http:" || u.protocol === "https:") && !!u.hostname && u.hostname.includes(".");
-  } catch {
-    return false;
-  }
-}
-
-// zip → 압축해제, 일반 파일 → 그대로. 결과는 {relativePath, blob} 배열.
-// (zip-slip 가드 safeRelativePath는 서버 인제스트와 공유하려고 @/lib/upload-safety로 이전.)
-// zip 안에 단일 최상위 폴더가 있으면 strip해서 index.html이 root에 오게 한다.
-async function expandUploadEntries(
-  rawFiles: File[],
-): Promise<{ relativePath: string; data: Blob }[]> {
-  const out: { relativePath: string; data: Blob }[] = [];
-  for (const file of rawFiles) {
-    if (/\.zip$/i.test(file.name)) {
-      const { default: JSZip } = await import("jszip");
-      const zip = await JSZip.loadAsync(file);
-      const fileEntries = Object.values(zip.files).filter((e) => !e.dir);
-      const topSegments = new Set(fileEntries.map((e) => e.name.split("/")[0]));
-      const stripTop =
-        topSegments.size === 1 && fileEntries.every((e) => e.name.includes("/"));
-      for (const entry of fileEntries) {
-        const parts = entry.name.split("/");
-        if (stripTop) parts.shift();
-        const relativePath = safeRelativePath(parts.join("/"));
-        if (!relativePath) continue;
-        const data = await entry.async("blob");
-        out.push({ relativePath, data });
-      }
-    } else {
-      let rawPath: string;
-      if (file.webkitRelativePath) {
-        const parts = file.webkitRelativePath.split("/");
-        parts.shift();
-        rawPath = parts.join("/");
-      } else {
-        rawPath = file.name;
-      }
-      const relativePath = safeRelativePath(rawPath);
-      if (!relativePath) continue;
-      out.push({ relativePath, data: file });
-    }
-  }
-  return out;
-}
-
-// 수정 저장 후, 교체·제거된 이전 업로드 영상/썸네일 객체를 청소한다.
-// DB 업데이트가 커밋된 뒤 old↔new를 비교하므로(업로드 시점 X) 저장 안 하고
-// 닫는 footgun이 없다. thum.io·picsum 등 우리 객체가 아닌 값은 서버가 무시한다.
-//
-// 실제 삭제는 서버에서 — 여기서 storage.remove()를 직접 부르면 스토리지 RLS가
-// 조용히 막아 파일이 그대로 쌓인다(삭제 라우트가 서버로 간 것과 같은 이유, 감사 #18).
-async function deleteSwappedAssets(
-  projectId: string,
-  prev: Pick<DBProject, "video_url" | "thumbnail">,
-  next: Pick<DBProject, "video_url" | "thumbnail">,
-) {
-  const prevVideoUrl = prev.video_url !== next.video_url ? prev.video_url : null;
-  const prevThumbnail = prev.thumbnail !== next.thumbnail ? prev.thumbnail : null;
-  if (!prevVideoUrl && !prevThumbnail) return;
-  try {
-    await fetch(`/api/projects/${projectId}/demo-assets`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prevVideoUrl, prevThumbnail }),
-      keepalive: true,
-    });
-  } catch { /* 청소 실패가 저장 흐름을 막지는 않는다 — 서버 로그에 남는다 */ }
-}
+  AiToolLogo,
+  isUploadedProject,
+  isValidHttpUrl,
+  expandUploadEntries,
+  deleteSwappedAssets,
+} from "./projects/helpers";
+import {
+  type DemoBuildStatus,
+  type DBProject,
+  type ProjectForm,
+  EMPTY_FORM,
+  DEMO_IN_FLIGHT,
+  DEMO_POLL_MS,
+  DEMO_SLOW_MS,
+  AI_TOOLS_INITIAL,
+} from "./projects/types";
 
 // username comes from DashboardClient's profiles row (the handle public links
 // actually resolve) — deriving it here from auth metadata could hand ShareKit
