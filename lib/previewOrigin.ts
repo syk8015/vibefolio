@@ -15,6 +15,14 @@ export const PREVIEW_ORIGIN = (
   process.env.NEXT_PUBLIC_PREVIEW_ORIGIN ?? ""
 ).replace(/\/+$/, "");
 
+// Canonical app origin. The sandbox host serves ONLY /api/preview/* (enforced in
+// middleware); any other path that lands there is bounced back here. Also the sole
+// allowed frame-ancestor for uploaded HTML (the app embeds it cross-origin).
+// Override via env if the canonical domain ever changes.
+export const APP_ORIGIN = (
+  process.env.NEXT_PUBLIC_APP_ORIGIN ?? "https://nookframe.com"
+).replace(/\/+$/, "");
+
 /** True for our own uploaded-project preview paths (vs. external demo URLs). */
 export function isPreviewPath(url: string | null | undefined): url is string {
   return !!url && url.startsWith("/api/preview/");

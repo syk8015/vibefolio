@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PREVIEW_ORIGIN } from "@/lib/previewOrigin";
+import { PREVIEW_ORIGIN, APP_ORIGIN } from "@/lib/previewOrigin";
 import { logger } from "@/lib/logger";
 
 // Preview isolation is a security control, not a nicety: without a distinct sandbox
@@ -96,11 +96,15 @@ export async function GET(
     "Referrer-Policy": "no-referrer",
   };
   if (isHtml) {
-    // Allow scripts (needed for built Vite/React apps) but restrict framing to same origin.
-    // Full sandboxing requires serving from a separate domain.
-    headers["X-Frame-Options"] = "SAMEORIGIN";
+    // This HTML is served from the sandbox origin and embedded cross-origin by the
+    // app (TheaterStage live embed), so framing must be allowed from the app origin
+    // — NOT 'self' (= the sandbox host, which would refuse the app's iframe and
+    // silently break the live embed). X-Frame-Options can't express a cross-origin
+    // allow (ALLOW-FROM is dead), so we rely on frame-ancestors alone and must not
+    // send XFO. default-src stays permissive: uploaded apps load their own assets,
+    // and cross-origin isolation already prevents them from touching the app origin.
     headers["Content-Security-Policy"] =
-      "default-src * 'unsafe-inline' 'unsafe-eval' data: blob:; frame-ancestors 'self'";
+      `default-src * 'unsafe-inline' 'unsafe-eval' data: blob:; frame-ancestors ${APP_ORIGIN} https://www.nookframe.com`;
   }
 
   return new NextResponse(upstream.body, { headers });
