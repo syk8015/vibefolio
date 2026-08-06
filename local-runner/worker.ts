@@ -448,6 +448,7 @@ async function processOne(row: PendingRow) {
         projectId: row.id,
         sourceType: row.demo_source_type,
         sourceValue: row.demo_source_value,
+        ownerId: row.user_id, // binds zip prefix / preview path to the owner (F2/F5)
         upload: true, // uploadAndMarkDone sets status=done on success
         userHint: row.demo_user_hint ?? undefined,
         title: row.title ?? undefined,

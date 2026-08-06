@@ -162,6 +162,12 @@ http.createServer((req,res)=>{
 export async function buildAndServe(
   sourceType: "github" | "zip",
   sourceValue: string,
+  // Project owner uid. For zip, the storage prefix is read with the SERVICE ROLE
+  // (RLS bypassed), so this is the last-line assert that the prefix belongs to the
+  // owner — a foreign/empty prefix that slipped past the route + SQL guards would
+  // otherwise exfiltrate another user's upload (F2 defense-in-depth). Omitted only
+  // by trusted operator/CLI paths (like allowPrivateHost/policyOverride).
+  ownerId?: string,
 ): Promise<BuiltApp> {
   const sandbox = await Sandbox.create("nookframe-builder", {
     timeoutMs: SANDBOX_TIMEOUT_MS,
@@ -185,6 +191,18 @@ export async function buildAndServe(
       }
     } else {
       // zip: supabase storage prefix 아래 모든 파일을 받아 샌드박스에 펼친다.
+      // 서비스롤 읽기(RLS 우회) 직전 최종 방어: prefix 첫 세그먼트가 소유자여야
+      // 하고, 빈 값/traversal 형태를 거부한다(빈 값이면 버킷 전체가 열린다).
+      const firstSeg = sourceValue.split("/")[0];
+      if (
+        !sourceValue ||
+        sourceValue.includes("..") ||
+        (ownerId !== undefined && firstSeg !== ownerId)
+      ) {
+        throw new BuildFailedError(
+          `zip source prefix not authorized for owner (prefix='${sourceValue.slice(0, 80)}')`,
+        );
+      }
       const supabase = serviceClient();
       const filePaths = await listStorageFilesRecursive(supabase, DEMO_BUCKET, sourceValue);
       console.log(`[build] storage list: ${filePaths.length} files under ${sourceValue}`);

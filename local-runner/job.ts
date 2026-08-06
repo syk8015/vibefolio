@@ -16,10 +16,30 @@ import type { QuarantineUpload } from "./upload";
 
 export type JobPhase = "building" | PipelinePhase;
 
+// Hosts that serve our own /api/preview uploads (app origin + sandbox origin).
+// Used to scope the cross-tenant preview check so an external app that happens to
+// expose a /api/preview/ route on its own domain is never mistakenly owner-checked.
+const OUR_PREVIEW_HOSTS = new Set(
+  [process.env.NEXT_PUBLIC_APP_ORIGIN ?? "https://nookframe.com", process.env.NEXT_PUBLIC_PREVIEW_ORIGIN]
+    .filter((o): o is string => !!o)
+    .map((o) => {
+      try {
+        return new URL(o).host;
+      } catch {
+        return "";
+      }
+    })
+    .filter(Boolean),
+);
+
 export type JobInput = {
   projectId: string; // manual-* = dry-run (no DB writes, _test/ upload path)
   sourceType: SourceType;
   sourceValue: string;
+  // Project owner uid. Binds a zip prefix / our-origin /api/preview path to its
+  // owner so a tampered row can't point the recorder at another user's upload.
+  // Worker sets it from the row; trusted operator/CLI paths may omit it.
+  ownerId?: string;
   upload: boolean;
   // Creator-written core-feature description (projects.demo_user_hint) — steers
   // what explore demonstrates. Optional; untrusted user data end to end.
@@ -82,11 +102,21 @@ export async function runJob(job: JobInput): Promise<JobOutcome> {
               (a === 169 && b === 254) || (a === 100 && b >= 64 && b <= 127); })());
         if (priv) throw new Error(`refusing to record a private/local host: ${h}`);
       }
+      // Cross-tenant preview guard (F5 defense-in-depth). Our own uploads resolve to
+      // {origin}/api/preview/{ownerUid}/{pid}/... . A tampered row (or a direct-RPC
+      // caller) could aim at another user's path. Only assert for OUR origins — an
+      // external app that merely has a /api/preview/ route must not be false-flagged.
+      if (job.ownerId && parsed.pathname.startsWith("/api/preview/") && OUR_PREVIEW_HOSTS.has(parsed.host)) {
+        const seg = parsed.pathname.split("/")[3]; // /api/preview/{uid}/...
+        if (seg !== job.ownerId) {
+          throw new Error("preview source does not belong to the project owner");
+        }
+      }
       url = job.sourceValue;
       policy = job.policyOverride ?? "read-only";
     } else {
       await job.onPhase?.("building");
-      built = await buildAndServe(job.sourceType, job.sourceValue);
+      built = await buildAndServe(job.sourceType, job.sourceValue, job.ownerId);
       policy = job.policyOverride ?? decidePolicy(job.sourceType, built.repoFiles);
       url = built.url;
     }

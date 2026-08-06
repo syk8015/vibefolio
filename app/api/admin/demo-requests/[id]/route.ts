@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { tasks } from "@trigger.dev/sdk";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
-import { detectDemoSource } from "@/lib/demoSource";
-import { resolveBuildPayload } from "@/lib/demoPayload";
+import { detectDemoSource, liveUrlIssue } from "@/lib/demoSource";
+import { resolveBuildPayload, DemoSourceError } from "@/lib/demoPayload";
+import { assertSafePublicUrl, SsrfError } from "@/lib/ssrf";
 import { apiError } from "@/lib/apiError";
 import { isAdminEmail } from "@/lib/demoQuota";
 import type { buildAndRecord } from "@/src/trigger/build-and-record";
@@ -70,7 +71,7 @@ export async function POST(
     // approve → resolve source and enqueue.
     const { data: project, error: projErr } = await admin
       .from("projects")
-      .select("id, demo_url")
+      .select("id, user_id, demo_url")
       .eq("id", request.project_id)
       .single();
     if (projErr || !project) {
@@ -86,7 +87,41 @@ export async function POST(
       });
     }
 
-    const payload = await resolveBuildPayload(admin, project.id, source, req.nextUrl.origin);
+    // This route resolves the payload with the SERVICE-ROLE client, which bypasses
+    // storage RLS — so it must apply the same source guards the self-serve route
+    // does, or an admin approval becomes a cross-tenant read/SSRF primitive. For an
+    // external live_url: reject content hosts + DNS-resolve for private/reserved IPs.
+    if (source.type === "live_url" && !source.value.startsWith("/api/preview/")) {
+      const issue = liveUrlIssue(source.value);
+      if (issue) {
+        return apiError({
+          status: 400,
+          code: issue.kind === "content-host" ? "CONTENT_HOST" : "PRIVATE_HOST",
+          message: "촬영할 수 없는 소스 주소예요. 소스 URL을 확인해 주세요.",
+        });
+      }
+      try {
+        await assertSafePublicUrl(source.value);
+      } catch (e) {
+        if (e instanceof SsrfError) {
+          return apiError({ status: 400, code: "PRIVATE_HOST", message: "공개로 접속되는 주소가 아니에요." });
+        }
+        throw e;
+      }
+    }
+
+    // ownerId = the project's owner. Binds a /api/preview source to that owner so an
+    // attacker-set demo_url can't make the service-role client read another user's
+    // upload (F3). Throws DemoSourceError on a foreign preview path.
+    let payload;
+    try {
+      payload = await resolveBuildPayload(admin, project.id, project.user_id, source, req.nextUrl.origin);
+    } catch (e) {
+      if (e instanceof DemoSourceError) {
+        return apiError({ status: 400, message: "소스 주소를 확인해 주세요.", code: "UNSUPPORTED_SOURCE" });
+      }
+      throw e;
+    }
 
     const { error: updErr } = await admin
       .from("projects")

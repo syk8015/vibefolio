@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { tasks } from "@trigger.dev/sdk";
 import { createClient } from "@/lib/supabase/server";
 import { detectDemoSource, liveUrlIssue } from "@/lib/demoSource";
-import { resolveBuildPayload } from "@/lib/demoPayload";
+import { resolveBuildPayload, DemoSourceError } from "@/lib/demoPayload";
 import { assertSafePublicUrl, SsrfError } from "@/lib/ssrf";
 import { apiError } from "@/lib/apiError";
 import { trackServerEvent } from "@/lib/analytics";
@@ -91,12 +91,23 @@ export async function POST(
 
     // Uploaded projects need a build (zip) vs static-serve (live_url) decision;
     // resolveBuildPayload centralises it so the admin approval route stays in sync.
-    const payload: BuildPayload = await resolveBuildPayload(
-      supabase,
-      id,
-      source,
-      req.nextUrl.origin,
-    );
+    // ownerId (= this user, ownership already checked above) binds a /api/preview
+    // source to its owner so it can't point the recorder at another user's upload.
+    let payload: BuildPayload;
+    try {
+      payload = await resolveBuildPayload(
+        supabase,
+        id,
+        user.id,
+        source,
+        req.nextUrl.origin,
+      );
+    } catch (e) {
+      if (e instanceof DemoSourceError) {
+        return apiError({ status: 400, message: "자동 시연을 만들 수 없는 소스예요.", code: "UNSUPPORTED_SOURCE" });
+      }
+      throw e;
+    }
 
     // Atomic admission (cost guard). request_demo() checks every cap and writes
     // the pending/held row in ONE locked transaction, so concurrent fires can't
