@@ -358,7 +358,7 @@ export default function PortfolioPipSection({ profiles }: Props) {
           >
             @{profile.username}
           </a>
-          &nbsp;의 바이브포트폴리오 · 새 탭에서 전체 보기 →
+          &nbsp;의 명함 · 새 탭에서 전체 보기 →
         </p>
       </div>
     </div>

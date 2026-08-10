@@ -62,7 +62,7 @@ export async function generateMetadata({
   if (!profile) return {};
 
   const name = profile.name || username;
-  const description = profile.bio || `${name}의 Nookframe — 바이브코더 포트폴리오`;
+  const description = profile.bio || `${name}의 Nookframe — 바이브코더 디지털 명함`;
   const url = `https://nookframe.com/${username}`;
 
   return {

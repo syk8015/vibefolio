@@ -28,7 +28,7 @@ export default function ProfileError({
 
   return (
     <ErrorState
-      title="포트폴리오를 불러오지 못했어요"
+      title="명함을 불러오지 못했어요"
       description="이 페이지를 표시하는 중 문제가 생겼어요. 다시 시도하거나 홈으로 돌아가 주세요."
       onRetry={retry ? () => retry() : undefined}
       digest={error.digest}
