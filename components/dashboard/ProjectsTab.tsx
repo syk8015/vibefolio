@@ -9,15 +9,10 @@ import { detectDemoSource } from "@/lib/demoSource";
 import { AnalyticsEvent, trackClientEvent } from "@/lib/analytics-client";
 
 import { deleteSwappedAssets } from "./projects/helpers";
-import {
-  type DBProject,
-  type ProjectForm,
-  EMPTY_FORM,
-  DEMO_IN_FLIGHT,
-  DEMO_POLL_MS,
-} from "./projects/types";
+import { type DBProject, type ProjectForm, EMPTY_FORM } from "./projects/types";
 import { DraftRow, ProjectRow } from "./projects/rows";
 import { ProjectFormModal } from "./projects/ProjectFormModal";
+import { useDemoStatusSync } from "./projects/useDemoStatusSync";
 
 // username comes from DashboardClient's profiles row (the handle public links
 // actually resolve) — deriving it here from auth metadata could hand ShareKit
@@ -35,11 +30,8 @@ export default function ProjectsTab({ user, username, reviewProjectId }: { user:
   // 토큰 목록 조회가 탭 진입마다 나가지 않는다.
   const [connectOpen, setConnectOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
-  // 자동 시연이 일시정지면 큐는 그대로 쌓이므로, 스피너 대신 '점검 중'으로 알린다.
-  const [demoPaused, setDemoPaused] = useState(false);
-  // 경과 시간 판정용 시각. 렌더 중 Date.now()는 불순(재렌더 시점에 따라 결과가
-  // 흔들림)이라 마운트 때 한 번 고정하고 이후 폴링 주기에 실어 갱신한다.
-  const [nowMs, setNowMs] = useState(() => Date.now());
+  // 촬영 상태 배지의 realtime 구독 + 폴백 폴링 (projects/useDemoStatusSync.ts).
+  const { demoPaused, nowMs } = useDemoStatusSync(user.id, projects, drafts, setProjects, setDrafts);
 
   async function loadProjects() {
     const supabase = createClient();
@@ -72,100 +64,6 @@ export default function ProjectsTab({ user, username, reviewProjectId }: { user:
     const el = document.getElementById(`draft-${reviewProjectId}`);
     el?.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [reviewProjectId, drafts]);
-
-  // Live-update the build-status badge as the trigger.dev job progresses.
-  // Requires realtime publication on the projects table; silent no-op otherwise.
-  useEffect(() => {
-    const supabase = createClient();
-    const channel = supabase
-      .channel(`projects:${user.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "projects",
-          filter: `user_id=eq.${user.id}`,
-        },
-        (payload) => {
-          const updated = payload.new as DBProject;
-          const merge = (prev: DBProject[]) =>
-            prev.map((p) => (p.id === updated.id ? { ...p, ...updated } : p));
-          setProjects(merge);
-          setDrafts(merge);
-        },
-      )
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user.id]);
-
-  // Realtime이 유일한 경로면 publication 누락·소켓 끊김·탭 절전에 배지가 영영 안 바뀐다
-  // (영상은 다 나왔는데 화면은 계속 "촬영 중"). 촬영 중인 행이 있는 동안만 상태 컬럼을
-  // 얕게 폴링해 위와 같은 머지로 흘려보내는 폴백. 중복 갱신은 무해(같은 값 덮어쓰기).
-  const inFlightKey = [...projects, ...drafts]
-    .filter((p) => p.demo_build_status && DEMO_IN_FLIGHT.has(p.demo_build_status))
-    .map((p) => p.id)
-    .sort()
-    .join(",");
-
-  useEffect(() => {
-    if (!inFlightKey) return;
-    const ids = inFlightKey.split(",");
-    const supabase = createClient();
-    let cancelled = false;
-
-    // 일시정지는 프로젝트별이 아니라 전역 — system_status는 서비스롤 전용이라
-    // 클라이언트가 직접 못 읽고, 라우트를 거친다. 실패하면 조용히 스피너 경로 유지.
-    async function syncPaused() {
-      try {
-        const res = await fetch("/api/demo/status");
-        if (!res.ok || cancelled) return;
-        const json = await res.json();
-        if (!cancelled) setDemoPaused(!!json?.paused);
-      } catch {
-        /* 네트워크 실패 → 기존 표시 유지 */
-      }
-    }
-
-    async function sync() {
-      syncPaused();
-      setNowMs(Date.now());
-      const { data } = await supabase
-        .from("projects")
-        // demo_status_changed_at을 같이 안 가져오면 pending→building 전이 후에도
-        // 옛 타임스탬프가 남아 "오래 걸려요"가 너무 일찍 뜬다.
-        .select("id, demo_build_status, demo_build_error, demo_video_url, demo_generated_at, demo_status_changed_at")
-        .in("id", ids);
-      if (cancelled || !data) return;
-      const fresh = new Map<string, Partial<DBProject>>(
-        (data as Partial<DBProject>[]).map((r) => [r.id as string, r]),
-      );
-      const merge = (prev: DBProject[]) =>
-        prev.map((p) => {
-          const next = fresh.get(p.id);
-          return next ? { ...p, ...next } : p;
-        });
-      setProjects(merge);
-      setDrafts(merge);
-    }
-
-    // 프로젝트 행은 방금 loadProjects가 실어왔으니 재조회가 불필요하지만, 일시정지
-    // 여부는 아직 모른다 — 첫 10초를 스피너로 흘려보내지 않도록 지금 한 번.
-    syncPaused();
-    const timer = setInterval(sync, DEMO_POLL_MS);
-    // 탭을 다시 열면 즉시 한 번 — 절전으로 인터벌이 통째로 밀린 구간을 메운다.
-    const onVisible = () => {
-      if (document.visibilityState === "visible") sync();
-    };
-    document.addEventListener("visibilitychange", onVisible);
-    return () => {
-      cancelled = true;
-      clearInterval(timer);
-      document.removeEventListener("visibilitychange", onVisible);
-    };
-  }, [inFlightKey]);
 
   async function saveOrder(ordered: DBProject[]) {
     const supabase = createClient();
