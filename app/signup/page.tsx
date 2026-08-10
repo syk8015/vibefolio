@@ -127,7 +127,7 @@ export default function SignupPage() {
               시작하기
             </h1>
             <p className="text-sm font-semibold" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
-              무료로 나만의 명함을 만들어보세요.
+              무료로 나만의 프레임을 만들어보세요.
             </p>
           </div>
 

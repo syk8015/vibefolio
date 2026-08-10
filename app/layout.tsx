@@ -23,11 +23,11 @@ const mono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: "Nookframe — Vibe Coding Portfolio",
-  description: "바이브코더를 위한 디지털 명함. 프로젝트를 전시하고, 링크 하나로 나를 소개하세요.",
+  description: "바이브코더를 위한 라이브 포트폴리오. 프로젝트를 전시하고, 링크 하나로 나를 소개하세요.",
   metadataBase: new URL("https://nookframe.com"),
   openGraph: {
     title: "Nookframe — Vibe Coding Portfolio",
-    description: "바이브코더를 위한 디지털 명함. 프로젝트를 전시하고, 링크 하나로 나를 소개하세요.",
+    description: "바이브코더를 위한 라이브 포트폴리오. 프로젝트를 전시하고, 링크 하나로 나를 소개하세요.",
     url: "https://nookframe.com",
     siteName: "Nookframe",
     type: "website",
@@ -36,7 +36,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "Nookframe — Vibe Coding Portfolio",
-    description: "바이브코더를 위한 디지털 명함. 프로젝트를 전시하고, 링크 하나로 나를 소개하세요.",
+    description: "바이브코더를 위한 라이브 포트폴리오. 프로젝트를 전시하고, 링크 하나로 나를 소개하세요.",
   },
 };
 

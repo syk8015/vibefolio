@@ -205,7 +205,7 @@ export default function OnboardingPage() {
             </div>
           )}
           <h1 className="text-3xl font-black mb-2" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", letterSpacing: "-0.02em" }}>
-            명함을 만들어볼게요
+            프레임을 만들어볼게요
           </h1>
           <p className="text-sm font-semibold" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
             기본 정보를 입력해주세요. 나중에 언제든 바꿀 수 있어요.

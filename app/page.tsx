@@ -102,12 +102,12 @@ export default async function LandingPage() {
             <Link href={`/${username}`}
               className="px-7 py-3 rounded-full text-sm transition-opacity hover:opacity-80"
               style={{ background: "var(--blue)", color: "var(--bg)", fontFamily: "var(--font-nunito)", fontWeight: 600, textDecoration: "none" }}>
-              내 명함 보기
+              내 프레임 보기
             </Link>
             <Link href="/dashboard"
               className="px-7 py-3 rounded-full text-sm transition-opacity hover:opacity-70"
               style={{ border: "1px solid var(--border-bright)", color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontWeight: 600, textDecoration: "none" }}>
-              명함 수정
+              프레임 수정
             </Link>
           </div>
         </div>

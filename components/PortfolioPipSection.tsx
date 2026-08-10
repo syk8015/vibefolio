@@ -28,11 +28,11 @@ const EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
 // Section title rotates on every page load — a wry portrait of the kind of
 // person whose card this is, instead of the flat "vibe coder" label.
 const TITLE_VARIANTS = [
-  "차 트렁크에 노트북 묶은 사람의 명함",
-  "컨티뉴만 누르는 사람의 명함",
-  "뭐든지 토큰으로 보이는 사람의 명함",
-  "회사에서 몰래 작업하는 사람의 명함",
-  "노트북 화면 못 닫는 사람의 명함",
+  "차 트렁크에 노트북 묶은 사람의 프레임",
+  "컨티뉴만 누르는 사람의 프레임",
+  "뭐든지 토큰으로 보이는 사람의 프레임",
+  "회사에서 몰래 작업하는 사람의 프레임",
+  "노트북 화면 못 닫는 사람의 프레임",
 ];
 
 interface Profile {
@@ -330,7 +330,7 @@ export default function PortfolioPipSection({ profiles }: Props) {
                   style={{ border: "none", display: "block", opacity: loaded ? 1 : 0, transition: "opacity 0.4s ease" }}
                   onLoad={handleLoad}
                   sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-forms"
-                  title={`${profile.name || profile.username}의 명함`}
+                  title={`${profile.name || profile.username}의 프레임`}
                 />
               )}
             </div>
@@ -358,7 +358,7 @@ export default function PortfolioPipSection({ profiles }: Props) {
           >
             @{profile.username}
           </a>
-          &nbsp;의 명함 · 새 탭에서 전체 보기 →
+          &nbsp;의 프레임 · 새 탭에서 전체 보기 →
         </p>
       </div>
     </div>

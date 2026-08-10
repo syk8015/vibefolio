@@ -131,10 +131,10 @@ export default function DashboardClient({ user, profile, publishedCount, totalCo
                 <div className="mt-1.5 w-2 h-2 rounded-full shrink-0" style={{ background: "var(--text-primary)" }} />
                 <div>
                   <p className="text-sm mb-1" style={{ color: "var(--text-primary)", fontFamily: "var(--font-serif), 'Noto Serif KR', serif", fontWeight: 500, fontSize: "1rem" }}>
-                    명함이 준비됐어요
+                    프레임이 준비됐어요
                   </p>
                   <p className="text-sm" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
-                    이제 작품을 추가해서 명함을 채워볼게요.{" "}
+                    이제 작품을 추가해서 프레임을 채워볼게요.{" "}
                     <button
                       onClick={() => switchTab("projects")}
                       className="vf-button-text underline"
@@ -185,7 +185,7 @@ export default function DashboardClient({ user, profile, publishedCount, totalCo
           <div className="flex flex-col items-start gap-2">
             <button
               onClick={copyAddress}
-              title="명함 주소 복사"
+              title="프레임 주소 복사"
               className="vf-mono flex items-center gap-1.5 rounded-full transition-colors"
               style={{
                 background: "var(--surface-soft)",
@@ -211,7 +211,7 @@ export default function DashboardClient({ user, profile, publishedCount, totalCo
               className="vf-button-ghost"
               style={{ padding: "0.45rem 0.9rem", fontSize: "0.78rem" }}
             >
-              내 명함 보기
+              내 프레임 보기
               <svg width="11" height="11" viewBox="0 0 13 13" fill="none">
                 <path d="M1.5 11.5L11.5 1.5M11.5 1.5H5.5M11.5 1.5V7.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>

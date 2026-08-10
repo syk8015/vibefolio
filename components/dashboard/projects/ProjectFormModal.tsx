@@ -906,7 +906,7 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
           <div>
             <label className="vf-label">구동 영상 (선택)</label>
             <p className="text-xs mb-2" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
-              대표 작품으로 설정하면 명함 상단에서 자동 재생돼요.
+              대표 작품으로 설정하면 프레임 상단에서 자동 재생돼요.
             </p>
 
             {form.video_url ? (

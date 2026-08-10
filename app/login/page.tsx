@@ -78,7 +78,7 @@ export default function LoginPage() {
               {isReturning ? "다시 돌아왔군요" : "환영합니다"}
             </h1>
             <p className="text-sm font-semibold" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
-              {isReturning ? "명함이 기다리고 있어요." : "새로운 명함을 만들 차례입니다."}
+              {isReturning ? "프레임이 기다리고 있어요." : "새로운 프레임을 만들 차례입니다."}
             </p>
           </div>
 

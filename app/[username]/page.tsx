@@ -62,7 +62,7 @@ export async function generateMetadata({
   if (!profile) return {};
 
   const name = profile.name || username;
-  const description = profile.bio || `${name}의 Nookframe — 바이브코더 디지털 명함`;
+  const description = profile.bio || `${name}의 Nookframe — 바이브코더의 라이브 포트폴리오`;
   const url = `https://nookframe.com/${username}`;
 
   return {
@@ -237,7 +237,7 @@ export default async function UserPortfolioPage({
               <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
                 <path d="M7.5 1.5l3 3L4 11H1V8L7.5 1.5z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
-              명함 수정
+              프레임 수정
             </Link>
           ) : currentUser ? (
             <Link
@@ -270,7 +270,7 @@ export default async function UserPortfolioPage({
                   {(currentUser.user_metadata?.name as string || currentUser.email || "?").charAt(0).toUpperCase()}
                 </div>
               )}
-              내 명함
+              내 프레임
             </Link>
           ) : isEmbed ? (
             <EmbedLoginButton />

@@ -701,7 +701,7 @@ export default async function AdminPage() {
                 />
                 <div style={{ borderTop: "1px solid var(--border)" }} />
                 <StatSpark
-                  label="명함 조회"
+                  label="프레임 조회"
                   value={views.length}
                   points={viewSpark}
                   sub={`일별 추이 · ${WINDOW_DAYS}일`}
@@ -712,7 +712,7 @@ export default async function AdminPage() {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 items-start">
           <Panel
-            title="명함 조회 유입 채널"
+            title="프레임 조회 유입 채널"
             aside={<MonoAside>조회 {views.length}</MonoAside>}
           >
             <RankList rows={topCounts(viewChannelCounts, 8)} empty="아직 조회가 없어요." />

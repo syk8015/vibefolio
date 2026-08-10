@@ -24,7 +24,7 @@ export default function TermsPage() {
         <div className="flex flex-col gap-10" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", fontSize: "0.9rem", lineHeight: 1.9 }}>
 
           <Section title="제1조 (목적)">
-            이 약관은 Nookframe(이하 &quot;서비스&quot;)가 제공하는 포트폴리오 명함 서비스의 이용 조건 및 절차, 이용자와 서비스 운영자의 권리·의무 및 책임 사항을 규정함을 목적으로 합니다.
+            이 약관은 Nookframe(이하 &quot;서비스&quot;)가 제공하는 포트폴리오 서비스의 이용 조건 및 절차, 이용자와 서비스 운영자의 권리·의무 및 책임 사항을 규정함을 목적으로 합니다.
           </Section>
 
           <Section title="제2조 (용어의 정의)">
