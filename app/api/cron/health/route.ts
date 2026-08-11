@@ -208,6 +208,27 @@ export async function GET(req: NextRequest) {
     // If the worker is stale, the worker-stale alert already explains the backlog.
   }
 
+  // ── 3.2 Batch ops: requests waiting while intentionally paused ──────────────
+  // Steady state since 2026-08-11 is demo_paused=true with NO always-on worker;
+  // the owner drains with `npm run demo:batch` when free. Pending rows here are
+  // not an outage — they're the signal to schedule a batch, so mail info-tone,
+  // deduped like any alert (once per window, not every tick). No age cutoff:
+  // the next tick after a request lands should already notify.
+  let pendingWaiting = 0;
+  if (paused) {
+    const { count, error: waitErr } = await admin
+      .from("projects")
+      .select("id", { count: "exact", head: true })
+      .eq("demo_build_status", "pending");
+    if (waitErr) {
+      logger.warn("watchdog: pending-waiting query failed", { error: waitErr });
+    } else if ((count ?? 0) > 0) {
+      pendingWaiting = count ?? 0;
+      logger.info("watchdog: demo requests waiting while paused (batch ops)", { pendingWaiting });
+      alerts.push(`queue-waiting:${pendingWaiting}`);
+    }
+  }
+
   // ── 3.5 Moderation-held takes lingering unreviewed ──────────────────────────
   // The worker emails the admin the moment a take is quarantined; this check is
   // the reminder when an open item sits past the grace window (missed email,
@@ -248,6 +269,7 @@ export async function GET(req: NextRequest) {
           lastSeenAt: lastSeenAt as string | null,
           staleMinutes: staleMs !== null ? Math.round(staleMs / 60_000) : null,
           pendingStuck: pendingStuck ?? 0,
+          pendingWaiting,
           paused,
           moderationOpen,
         })
@@ -291,6 +313,7 @@ const ALERT_STATE_TTL_MS = 7 * 24 * 3_600_000;
 function alertKey(alert: string): string {
   if (alert.startsWith("reaped:")) return "reaped";
   if (alert.startsWith("moderation-open:")) return "moderation-open";
+  if (alert.startsWith("queue-waiting:")) return "queue-waiting";
   return alert;
 }
 
@@ -302,6 +325,7 @@ async function emailWatchdogAlert(
     lastSeenAt: string | null;
     staleMinutes: number | null;
     pendingStuck: number;
+    pendingWaiting: number;
     paused: boolean;
     moderationOpen: number;
   },
@@ -363,15 +387,22 @@ async function emailWatchdogAlert(
     lines.push(`워커는 살아있는데 대기열 ${detail.pendingStuck}건이 빠지지 않고 있어요.`);
   if (keys.includes("moderation-open"))
     lines.push(`모더레이션 검토 대기 ${detail.moderationOpen}건이 30분 넘게 방치돼 있어요 — 관제탑에서 승인/거절해 주세요.`);
+  if (keys.includes("queue-waiting"))
+    lines.push(
+      `촬영 요청 ${detail.pendingWaiting}건이 대기 중이에요 — 여유될 때 맥에서 npm run demo:batch 한 번이면 소화하고 다시 잠들어요.`,
+    );
   if (keys.includes("stuck-query-failed") || keys.includes("reap-update-failed"))
     lines.push("워치독 DB 쿼리/업데이트가 실패했어요 — Sentry를 확인해 주세요.");
   if (detail.paused) lines.push("demo_paused=true — 드레인이 멈춰 있는 상태예요.");
   lines.push(`경보 키: ${alerts.join(", ")}`);
 
+  // A pure queue-waiting mail is a to-do nudge, not an incident — don't title
+  // it like one.
+  const onlyQueue = keys.every((k) => k === "queue-waiting");
   return sendEmail({
     to: alertRecipients(),
     ...adminAlertEmail({
-      title: "워치독 경보",
+      title: onlyQueue ? "촬영 요청 대기" : "워치독 경보",
       lines,
       ctaLabel: "관리자 콘솔 열기",
       ctaUrl: `${SITE_URL}/admin`,

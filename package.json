@@ -10,6 +10,7 @@
     "trigger:dev": "trigger dev",
     "trigger:deploy": "trigger deploy",
     "demo:worker": "npx -y tsx local-runner/worker.ts",
+    "demo:batch": "npx -y tsx local-runner/worker.ts --batch",
     "demo:fixtures": "python3 -m http.server 5050 --directory local-runner/fixtures"
   },
   "dependencies": {

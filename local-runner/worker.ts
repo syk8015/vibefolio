@@ -57,6 +57,12 @@ process.on("unhandledRejection", (reason) => {
 });
 
 const POLL_MS = 10_000;
+// --batch: one-shot drain for lid-friendly ops — unpause, eat the queue, repause,
+// exit. Repausing on EVERY exit path (empty queue, Ctrl-C, credit kill switch) is
+// what lets the owner keep the always-on worker uninstalled without cron noise:
+// steady state is demo_paused=true, and the health cron mails "queue-waiting"
+// instead of treating the silence as an outage.
+const BATCH_MODE = process.argv.includes("--batch");
 // Per-session retry cap: a job whose failure-write itself failed (or a row
 // re-queued while we crash-loop) must not burn an explore fee every poll.
 const MAX_ATTEMPTS_PER_SESSION = 2;
@@ -111,6 +117,12 @@ let hintColumnMissing = false; // set on first 42703 → poll drops the column
 
 process.on("SIGINT", () => {
   if (!busy) {
+    if (BATCH_MODE) {
+      // Repause before dying — an aborted batch must not leave the queue
+      // unpaused with no worker (the cron would page "pending-no-worker").
+      void setDemoPaused(true).finally(() => process.exit(0));
+      return;
+    }
     console.log("\n[worker] idle — bye");
     process.exit(0);
   }
@@ -166,6 +178,16 @@ async function heartbeat(status: "idle" | "busy"): Promise<boolean> {
   }
   heartbeatWarned = false;
   return !!data?.demo_paused;
+}
+
+async function setDemoPaused(paused: boolean) {
+  const now = new Date().toISOString();
+  const { error } = await supabase
+    .from("system_status")
+    .update({ demo_paused: paused, updated_at: now })
+    .eq("id", "singleton");
+  if (error) console.error(`[worker] demo_paused=${paused} write failed: ${error.message}`);
+  else console.log(`[worker] demo_paused=${paused}`);
 }
 
 // ── Notification emails (T4) ─────────────────────────────────────────────────
@@ -584,9 +606,17 @@ console.log("[worker] nookframe local demo worker (M5)");
 console.log(`[worker] polling every ${POLL_MS / 1000}s — Ctrl-C to stop`);
 await recoverStuckJobs();
 
+if (BATCH_MODE) {
+  console.log("[worker] batch mode — unpausing, draining until empty, then repausing");
+  await setDemoPaused(false);
+}
+
 while (!stopping) {
   const paused = await heartbeat(busy ? "busy" : "idle");
   if (paused) {
+    // Kill switch flipped back on mid-batch (credit exhaustion) — leave it on
+    // and stop instead of fighting it.
+    if (BATCH_MODE) break;
     // Kill switch on (e.g. credits exhausted): stay alive + keep heartbeating,
     // but don't claim/record — no explore spend while paused.
     await new Promise((r) => setTimeout(r, POLL_MS));
@@ -600,6 +630,8 @@ while (!stopping) {
     busy = false;
     continue; // drain the queue before idling again
   }
+  if (BATCH_MODE) break; // queue empty — batch done
   await new Promise((r) => setTimeout(r, POLL_MS));
 }
+if (BATCH_MODE) await setDemoPaused(true);
 console.log("[worker] stopped");

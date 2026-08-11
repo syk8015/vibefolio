@@ -17,6 +17,19 @@ E2B가 빌드/서빙(공개 URL만 넘어옴), 이 맥북이 탐색·녹화·후
   npm run demo:worker
   ```
 
+## 배치 운영 (2026-08-11부터 기본)
+
+상시 워커는 설치하지 않는다(오너 맥의 메모리·화면 점유 회피). 평상시
+`demo_paused=true`가 정상 상태이고, 요청이 들어오면 health 크론이 "촬영 요청
+대기" 메일(6h 디덥)로 알려준다. 여유될 때 한 줄:
+
+```bash
+npm run demo:batch   # unpause → 큐 소화(빈 큐면 즉시) → repause → 종료
+```
+
+Ctrl-C·크레딧 킬스위치 등 모든 종료 경로에서 repause가 보장된다. 상시화로
+되돌리려면 `bash local-runner/launchd/install.sh` + `demo_paused=false`.
+
 ## 크레딧 소진 시 (P0.5)
 
 explore 호출이 크레딧 소진(402/billing)으로 실패하면 워커가 자동으로:

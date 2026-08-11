@@ -12,7 +12,7 @@ export function useDemoStatusSync(
   setProjects: Dispatch<SetStateAction<DBProject[]>>,
   setDrafts: Dispatch<SetStateAction<DBProject[]>>,
 ) {
-  // 자동 시연이 일시정지면 큐는 그대로 쌓이므로, 스피너 대신 '점검 중'으로 알린다.
+  // 자동 시연이 일시정지면 큐는 그대로 쌓이므로, 스피너 대신 '촬영 대기 중'으로 알린다.
   const [demoPaused, setDemoPaused] = useState(false);
   // 경과 시간 판정용 시각. 렌더 중 Date.now()는 불순(재렌더 시점에 따라 결과가
   // 흔들림)이라 마운트 때 한 번 고정하고 이후 폴링 주기에 실어 갱신한다.
