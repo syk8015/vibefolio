@@ -5,10 +5,14 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import TurnstileWidget, { turnstileEnabled, resetTurnstile } from "@/components/TurnstileWidget";
 import Logo from "@/components/Logo";
+import LanguageToggle from "@/components/LanguageToggle";
+import { useT } from "@/lib/i18n/client";
+import type { Dictionary } from "@/lib/i18n/dictionaries";
 
 type Step = "form" | "check-email";
 
 export default function SignupPage() {
+  const { t } = useT();
   const [show, setShow] = useState(false);
   const [step, setStep] = useState<Step>("form");
   const [loading, setLoading] = useState(false);
@@ -50,7 +54,7 @@ export default function SignupPage() {
       // Turnstile tokens are single-use — the failed attempt consumed this one.
       resetTurnstile();
       setCaptchaToken(null);
-      setError(errorMessage(error.message));
+      setError(errorMessage(error.message, t));
     } else {
       setStep("check-email");
     }
@@ -85,24 +89,24 @@ export default function SignupPage() {
             📬
           </div>
           <h1 className="text-2xl font-black mb-3" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}>
-            이메일을 확인해주세요
+            {t.signup.checkEmailTitle}
           </h1>
           <p className="text-sm leading-relaxed mb-6" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
-            <strong style={{ color: "var(--text-primary)" }}>{form.email}</strong> 로<br />
-            인증 링크를 보냈어요. 메일함을 확인해주세요.
+            <strong style={{ color: "var(--text-primary)" }}>{form.email}</strong><br />
+            {t.signup.checkEmailBody}
           </p>
           <Link
             href="/login"
             className="text-sm font-bold"
             style={{ color: "var(--blue)", textDecoration: "none", fontFamily: "var(--font-nunito)" }}
           >
-            로그인 페이지로 →
+            {t.auth.toLogin}
           </Link>
           <p className="text-xs mt-6 leading-relaxed" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
-            메일이 오지 않았거나 이메일을 잘못 입력했나요?{" "}
+            {t.auth.resendPrompt}{" "}
             <button type="button" onClick={backToForm}
               style={{ color: "var(--blue)", fontWeight: 700, background: "none", border: "none", cursor: "pointer", padding: 0, textDecoration: "underline", fontFamily: "inherit", fontSize: "inherit" }}>
-              다시 입력하기
+              {t.auth.reenter}
             </button>
           </p>
         </div>
@@ -114,20 +118,23 @@ export default function SignupPage() {
     <main className="min-h-screen flex flex-col" style={{ background: "var(--bg)" }}>
       <nav className="flex items-center justify-between px-4 md:px-8 py-4 md:py-5">
         <Logo />
-        <p className="text-sm font-semibold" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
-          이미 계정이 있나요?
-          <Link href="/login" style={{ color: "var(--blue)", textDecoration: "none", fontWeight: 700, marginLeft: "8px" }}>로그인</Link>
-        </p>
+        <div className="flex items-center gap-4">
+          <p className="text-sm font-semibold" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
+            {t.signup.haveAccount}
+            <Link href="/login" style={{ color: "var(--blue)", textDecoration: "none", fontWeight: 700, marginLeft: "8px" }}>{t.signup.loginLink}</Link>
+          </p>
+          <LanguageToggle />
+        </div>
       </nav>
 
       <div className="flex-1 flex items-center justify-center px-6 py-12">
         <div className="w-full max-w-sm">
           <div className="mb-8">
             <h1 className="text-3xl font-black mb-2" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", letterSpacing: "-0.02em" }}>
-              시작하기
+              {t.signup.title}
             </h1>
             <p className="text-sm font-semibold" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
-              무료로 나만의 프레임을 만들어보세요.
+              {t.signup.subtitle}
             </p>
           </div>
 
@@ -138,29 +145,29 @@ export default function SignupPage() {
             style={{ border: "1px solid var(--border-bright)", background: "var(--surface)", color: "var(--text-primary)", fontFamily: "var(--font-nunito)", cursor: "pointer" }}
           >
             <GoogleIcon />
-            Google로 계속하기
+            {t.auth.googleContinue}
           </button>
 
           <div className="flex items-center gap-3 mb-6">
             <div className="flex-1 h-px" style={{ background: "var(--border)" }} />
-            <span className="text-xs font-semibold" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>또는</span>
+            <span className="text-xs font-semibold" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>{t.auth.or}</span>
             <div className="flex-1 h-px" style={{ background: "var(--border)" }} />
           </div>
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-            <Field label="이름">
-              <input className="vf-input" type="text" name="name" placeholder="홍길동"
+            <Field label={t.signup.nameLabel}>
+              <input className="vf-input" type="text" name="name" placeholder={t.signup.namePlaceholder}
                 value={form.name} onChange={handleChange} required autoComplete="name" />
             </Field>
 
-            <Field label="사용자 이름">
+            <Field label={t.signup.usernameLabel}>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold pointer-events-none"
                   style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>@</span>
                 <input className="vf-input" style={{ paddingLeft: "1.75rem" }}
                   type="text" name="username" placeholder="alexvibe"
                   value={form.username} onChange={handleChange} required
-                  pattern="[a-zA-Z0-9_-]+" title="영문, 숫자, _-만 사용 가능해요" />
+                  pattern="[a-zA-Z0-9_-]+" title={t.auth.usernamePattern} />
               </div>
               {form.username && (
                 <p className="mt-1 text-xs font-semibold" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
@@ -169,18 +176,18 @@ export default function SignupPage() {
               )}
             </Field>
 
-            <Field label="이메일">
+            <Field label={t.auth.emailLabel}>
               <input className="vf-input" type="email" name="email" placeholder="hello@example.com"
                 value={form.email} onChange={handleChange} required autoComplete="email" />
             </Field>
 
-            <Field label="비밀번호">
+            <Field label={t.auth.passwordLabel}>
               <div className="relative">
                 <input className="vf-input" style={{ paddingRight: "3rem" }}
-                  type={show ? "text" : "password"} name="password" placeholder="8자 이상"
+                  type={show ? "text" : "password"} name="password" placeholder={t.signup.passwordPlaceholder}
                   value={form.password} onChange={handleChange} required minLength={8} autoComplete="new-password" />
                 <button type="button" onClick={() => setShow((v) => !v)}
-                  aria-label={show ? "비밀번호 숨기기" : "비밀번호 표시"}
+                  aria-label={show ? t.auth.hidePassword : t.auth.showPassword}
                   className="absolute right-3 top-1/2 -translate-y-1/2"
                   style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", padding: "4px" }}>
                   {show ? <EyeOff /> : <Eye />}
@@ -200,15 +207,15 @@ export default function SignupPage() {
             <button type="submit" disabled={loading || (turnstileEnabled && !captchaToken)}
               className="w-full py-3.5 rounded-xl font-black text-sm mt-2 transition-opacity hover:opacity-85 disabled:opacity-50"
               style={{ background: "var(--blue)", color: "var(--bg)", fontFamily: "var(--font-nunito)", cursor: loading ? "not-allowed" : "pointer", border: "none", boxShadow: "0 0 20px var(--blue-glow)" }}>
-              {loading ? "가입 중..." : "무료로 시작하기"}
+              {loading ? t.signup.submitting : t.signup.submit}
             </button>
           </form>
 
           <p className="text-center text-xs mt-6 leading-relaxed" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
-            가입하면{" "}
-            <Link href="/terms" style={{ color: "var(--text-secondary)", textDecoration: "underline" }}>이용약관</Link>
-            {" "}및{" "}
-            <Link href="/privacy" style={{ color: "var(--text-secondary)", textDecoration: "underline" }}>개인정보처리방침</Link>에 동의하게 됩니다.
+            {t.signup.agreePrefix}
+            <Link href="/terms" style={{ color: "var(--text-secondary)", textDecoration: "underline" }}>{t.signup.termsLink}</Link>
+            {t.signup.agreeAnd}
+            <Link href="/privacy" style={{ color: "var(--text-secondary)", textDecoration: "underline" }}>{t.signup.privacyLink}</Link>{t.signup.agreeSuffix}
           </p>
         </div>
       </div>
@@ -228,12 +235,12 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-function errorMessage(msg: string) {
-  if (msg.includes("already registered")) return "이미 사용 중인 이메일이에요.";
-  if (msg.includes("Password")) return "비밀번호는 8자 이상이어야 해요.";
-  if (msg.includes("valid email")) return "올바른 이메일 형식을 입력해주세요.";
-  if (msg.toLowerCase().includes("captcha")) return "보안 확인에 실패했어요. 다시 확인 후 시도해주세요.";
-  return "오류가 발생했어요. 잠시 후 다시 시도해주세요.";
+function errorMessage(msg: string, t: Dictionary) {
+  if (msg.includes("already registered")) return t.signup.errors.emailTaken;
+  if (msg.includes("Password")) return t.auth.errors.passwordTooShort;
+  if (msg.includes("valid email")) return t.auth.errors.invalidEmail;
+  if (msg.toLowerCase().includes("captcha")) return t.auth.errors.captcha;
+  return t.auth.errors.generic;
 }
 
 function GoogleIcon() {

@@ -5,10 +5,14 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import TurnstileWidget, { turnstileEnabled, resetTurnstile } from "@/components/TurnstileWidget";
 import Logo from "@/components/Logo";
+import LanguageToggle from "@/components/LanguageToggle";
+import { useT } from "@/lib/i18n/client";
+import type { Dictionary } from "@/lib/i18n/dictionaries";
 
 type Step = "form" | "sent";
 
 export default function ForgotPasswordPage() {
+  const { t } = useT();
   const [step, setStep] = useState<Step>("form");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -31,7 +35,7 @@ export default function ForgotPasswordPage() {
       // Turnstile tokens are single-use — the failed attempt consumed this one.
       resetTurnstile();
       setCaptchaToken(null);
-      setError(errorMessage(error.message));
+      setError(errorMessage(error.message, t));
     } else {
       setStep("sent");
     }
@@ -57,24 +61,24 @@ export default function ForgotPasswordPage() {
             📬
           </div>
           <h1 className="text-2xl font-black mb-3" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}>
-            메일을 확인해주세요
+            {t.forgotPassword.sentTitle}
           </h1>
           <p className="text-sm leading-relaxed mb-6" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
-            <strong style={{ color: "var(--text-primary)" }}>{email}</strong> 로<br />
-            비밀번호 재설정 링크를 보냈어요.
+            <strong style={{ color: "var(--text-primary)" }}>{email}</strong><br />
+            {t.forgotPassword.sentBody}
           </p>
           <Link
             href="/login"
             className="text-sm font-bold"
             style={{ color: "var(--blue)", textDecoration: "none", fontFamily: "var(--font-nunito)" }}
           >
-            로그인 페이지로 →
+            {t.auth.toLogin}
           </Link>
           <p className="text-xs mt-6 leading-relaxed" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
-            메일이 오지 않았거나 이메일을 잘못 입력했나요?{" "}
+            {t.auth.resendPrompt}{" "}
             <button type="button" onClick={backToForm}
               style={{ color: "var(--blue)", fontWeight: 700, background: "none", border: "none", cursor: "pointer", padding: 0, textDecoration: "underline", fontFamily: "inherit", fontSize: "inherit" }}>
-              다시 입력하기
+              {t.auth.reenter}
             </button>
           </p>
         </div>
@@ -86,20 +90,23 @@ export default function ForgotPasswordPage() {
     <main className="min-h-screen flex flex-col" style={{ background: "var(--bg)" }}>
       <nav className="flex items-center justify-between px-4 md:px-8 py-4 md:py-5">
         <Logo />
-        <p className="text-sm font-semibold" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
-          비밀번호가 기억났나요?
-          <Link href="/login" style={{ color: "var(--blue)", textDecoration: "none", fontWeight: 700, marginLeft: "8px" }}>로그인</Link>
-        </p>
+        <div className="flex items-center gap-4">
+          <p className="text-sm font-semibold" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
+            {t.forgotPassword.rememberPrompt}
+            <Link href="/login" style={{ color: "var(--blue)", textDecoration: "none", fontWeight: 700, marginLeft: "8px" }}>{t.forgotPassword.loginLink}</Link>
+          </p>
+          <LanguageToggle />
+        </div>
       </nav>
 
       <div className="flex-1 flex items-center justify-center px-6 py-12">
         <div className="w-full max-w-sm">
           <div className="mb-8">
             <h1 className="text-3xl font-black mb-2" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", letterSpacing: "-0.02em" }}>
-              비밀번호 찾기
+              {t.forgotPassword.title}
             </h1>
             <p className="text-sm font-semibold" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
-              가입한 이메일로 재설정 링크를 보내드릴게요.
+              {t.forgotPassword.subtitle}
             </p>
           </div>
 
@@ -107,7 +114,7 @@ export default function ForgotPasswordPage() {
             <div>
               <label className="block text-xs font-bold mb-1.5"
                 style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", letterSpacing: "0.05em" }}>
-                이메일
+                {t.auth.emailLabel}
               </label>
               <input className="vf-input" type="email" name="email" placeholder="hello@example.com"
                 value={email} onChange={(e) => { setEmail(e.target.value); setError(""); }}
@@ -126,7 +133,7 @@ export default function ForgotPasswordPage() {
             <button type="submit" disabled={loading || (turnstileEnabled && !captchaToken)}
               className="w-full py-3.5 rounded-xl font-black text-sm mt-2 transition-opacity hover:opacity-85 disabled:opacity-50"
               style={{ background: "var(--blue)", color: "var(--bg)", fontFamily: "var(--font-nunito)", cursor: loading ? "not-allowed" : "pointer", border: "none", boxShadow: "0 0 20px var(--blue-glow)" }}>
-              {loading ? "보내는 중..." : "재설정 링크 보내기"}
+              {loading ? t.forgotPassword.submitting : t.forgotPassword.submit}
             </button>
           </form>
         </div>
@@ -135,9 +142,9 @@ export default function ForgotPasswordPage() {
   );
 }
 
-function errorMessage(msg: string) {
-  if (msg.includes("rate limit") || msg.includes("Too many")) return "잠시 후 다시 시도해주세요.";
-  if (msg.includes("valid email")) return "올바른 이메일 형식을 입력해주세요.";
-  if (msg.toLowerCase().includes("captcha")) return "보안 확인에 실패했어요. 다시 확인 후 시도해주세요.";
-  return "오류가 발생했어요. 잠시 후 다시 시도해주세요.";
+function errorMessage(msg: string, t: Dictionary) {
+  if (msg.includes("rate limit") || msg.includes("Too many")) return t.auth.errors.tooMany;
+  if (msg.includes("valid email")) return t.auth.errors.invalidEmail;
+  if (msg.toLowerCase().includes("captcha")) return t.auth.errors.captcha;
+  return t.auth.errors.generic;
 }

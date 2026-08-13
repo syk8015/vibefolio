@@ -93,12 +93,12 @@ export default function LoginPage() {
             className="w-full flex items-center justify-center gap-3 py-3 rounded-xl font-bold text-sm mb-6 transition-opacity hover:opacity-80"
             style={{ border: "1px solid var(--border-bright)", background: "var(--surface)", color: "var(--text-primary)", fontFamily: "var(--font-nunito)", cursor: "pointer" }}>
             <GoogleIcon />
-            {t.login.googleContinue}
+            {t.auth.googleContinue}
           </button>
 
           <div className="flex items-center gap-3 mb-6">
             <div className="flex-1 h-px" style={{ background: "var(--border)" }} />
-            <span className="text-xs font-semibold" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>{t.login.or}</span>
+            <span className="text-xs font-semibold" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>{t.auth.or}</span>
             <div className="flex-1 h-px" style={{ background: "var(--border)" }} />
           </div>
 
@@ -106,7 +106,7 @@ export default function LoginPage() {
             <div>
               <label className="block text-xs font-bold mb-1.5"
                 style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", letterSpacing: "0.05em" }}>
-                {t.login.emailLabel}
+                {t.auth.emailLabel}
               </label>
               <input className="vf-input" type="email" name="email" placeholder="hello@example.com"
                 value={form.email} onChange={handleChange} required autoComplete="email" autoFocus />
@@ -116,7 +116,7 @@ export default function LoginPage() {
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-xs font-bold"
                   style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", letterSpacing: "0.05em" }}>
-                  {t.login.passwordLabel}
+                  {t.auth.passwordLabel}
                 </label>
                 <Link href="/forgot-password" className="text-xs font-semibold"
                   style={{ color: "var(--blue)", textDecoration: "none", fontFamily: "var(--font-nunito)" }}>
@@ -128,7 +128,7 @@ export default function LoginPage() {
                   type={show ? "text" : "password"} name="password" placeholder="••••••••"
                   value={form.password} onChange={handleChange} required autoComplete="current-password" />
                 <button type="button" onClick={() => setShow((v) => !v)}
-                  aria-label={show ? t.login.hidePassword : t.login.showPassword}
+                  aria-label={show ? t.auth.hidePassword : t.auth.showPassword}
                   className="absolute right-3 top-1/2 -translate-y-1/2"
                   style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", padding: "4px" }}>
                   {show ? <EyeOff /> : <Eye />}
@@ -160,9 +160,9 @@ export default function LoginPage() {
 function errorMessage(msg: string, t: Dictionary) {
   if (msg.includes("Invalid login")) return t.login.errors.invalid;
   if (msg.includes("Email not confirmed")) return t.login.errors.unconfirmed;
-  if (msg.includes("Too many requests")) return t.login.errors.tooMany;
-  if (msg.toLowerCase().includes("captcha")) return t.login.errors.captcha;
-  return t.login.errors.generic;
+  if (msg.includes("Too many requests")) return t.auth.errors.tooMany;
+  if (msg.toLowerCase().includes("captcha")) return t.auth.errors.captcha;
+  return t.auth.errors.generic;
 }
 
 function GoogleIcon() {

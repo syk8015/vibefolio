@@ -5,11 +5,15 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Logo from "@/components/Logo";
+import LanguageToggle from "@/components/LanguageToggle";
+import { useT } from "@/lib/i18n/client";
+import type { Dictionary } from "@/lib/i18n/dictionaries";
 
 type Step = "loading" | "form" | "done" | "invalid";
 
 export default function ResetPasswordPage() {
   const router = useRouter();
+  const { t } = useT();
   const [step, setStep] = useState<Step>("loading");
   const [show, setShow] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -31,11 +35,11 @@ export default function ResetPasswordPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (form.password !== form.confirm) {
-      setError("비밀번호가 일치하지 않아요.");
+      setError(t.resetPassword.errors.mismatch);
       return;
     }
     if (form.password.length < 8) {
-      setError("비밀번호는 8자 이상이어야 해요.");
+      setError(t.auth.errors.passwordTooShort);
       return;
     }
 
@@ -47,7 +51,7 @@ export default function ResetPasswordPage() {
 
     setLoading(false);
     if (error) {
-      setError(errorMessage(error.message));
+      setError(errorMessage(error.message, t));
     } else {
       setStep("done");
       setTimeout(() => {
@@ -61,7 +65,7 @@ export default function ResetPasswordPage() {
     return (
       <main className="min-h-screen flex items-center justify-center" style={{ background: "var(--bg)" }}>
         <p className="text-sm font-semibold" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
-          확인 중...
+          {t.resetPassword.checking}
         </p>
       </main>
     );
@@ -78,18 +82,18 @@ export default function ResetPasswordPage() {
             ⚠️
           </div>
           <h1 className="text-2xl font-black mb-3" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}>
-            링크가 만료되었어요
+            {t.resetPassword.invalidTitle}
           </h1>
           <p className="text-sm leading-relaxed mb-6" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
-            재설정 링크가 유효하지 않거나 만료되었어요.<br />
-            다시 요청해주세요.
+            {t.resetPassword.invalidBody1}<br />
+            {t.resetPassword.invalidBody2}
           </p>
           <Link
             href="/forgot-password"
             className="text-sm font-bold"
             style={{ color: "var(--blue)", textDecoration: "none", fontFamily: "var(--font-nunito)" }}
           >
-            재설정 링크 다시 받기 →
+            {t.resetPassword.requestAgain}
           </Link>
         </div>
       </main>
@@ -107,10 +111,10 @@ export default function ResetPasswordPage() {
             ✓
           </div>
           <h1 className="text-2xl font-black mb-3" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}>
-            비밀번호가 변경됐어요
+            {t.resetPassword.doneTitle}
           </h1>
           <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
-            잠시 후 홈으로 이동합니다.
+            {t.resetPassword.doneBody}
           </p>
         </div>
       </main>
@@ -121,16 +125,17 @@ export default function ResetPasswordPage() {
     <main className="min-h-screen flex flex-col" style={{ background: "var(--bg)" }}>
       <nav className="flex items-center justify-between px-4 md:px-8 py-4 md:py-5">
         <Logo />
+        <LanguageToggle />
       </nav>
 
       <div className="flex-1 flex items-center justify-center px-6 py-12">
         <div className="w-full max-w-sm">
           <div className="mb-8">
             <h1 className="text-3xl font-black mb-2" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", letterSpacing: "-0.02em" }}>
-              새 비밀번호 설정
+              {t.resetPassword.title}
             </h1>
             <p className="text-sm font-semibold" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
-              앞으로 사용할 비밀번호를 입력해주세요.
+              {t.resetPassword.subtitle}
             </p>
           </div>
 
@@ -138,11 +143,11 @@ export default function ResetPasswordPage() {
             <div>
               <label className="block text-xs font-bold mb-1.5"
                 style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", letterSpacing: "0.05em" }}>
-                새 비밀번호
+                {t.resetPassword.newPasswordLabel}
               </label>
               <div className="relative">
                 <input className="vf-input" style={{ paddingRight: "3rem" }}
-                  type={show ? "text" : "password"} name="password" placeholder="8자 이상"
+                  type={show ? "text" : "password"} name="password" placeholder={t.signup.passwordPlaceholder}
                   value={form.password} onChange={handleChange} required minLength={8} autoComplete="new-password" autoFocus />
                 <button type="button" onClick={() => setShow((v) => !v)}
                   className="absolute right-3 top-1/2 -translate-y-1/2"
@@ -155,10 +160,10 @@ export default function ResetPasswordPage() {
             <div>
               <label className="block text-xs font-bold mb-1.5"
                 style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", letterSpacing: "0.05em" }}>
-                비밀번호 확인
+                {t.resetPassword.confirmLabel}
               </label>
               <input className="vf-input"
-                type={show ? "text" : "password"} name="confirm" placeholder="다시 입력해주세요"
+                type={show ? "text" : "password"} name="confirm" placeholder={t.resetPassword.confirmPlaceholder}
                 value={form.confirm} onChange={handleChange} required minLength={8} autoComplete="new-password" />
             </div>
 
@@ -172,7 +177,7 @@ export default function ResetPasswordPage() {
             <button type="submit" disabled={loading}
               className="w-full py-3.5 rounded-xl font-black text-sm mt-2 transition-opacity hover:opacity-85 disabled:opacity-50"
               style={{ background: "var(--blue)", color: "var(--bg)", fontFamily: "var(--font-nunito)", cursor: loading ? "not-allowed" : "pointer", border: "none", boxShadow: "0 0 20px var(--blue-glow)" }}>
-              {loading ? "변경 중..." : "비밀번호 변경"}
+              {loading ? t.resetPassword.submitting : t.resetPassword.submit}
             </button>
           </form>
         </div>
@@ -181,11 +186,11 @@ export default function ResetPasswordPage() {
   );
 }
 
-function errorMessage(msg: string) {
-  if (msg.includes("should be different") || msg.includes("same_password")) return "기존 비밀번호와 달라야 해요.";
-  if (msg.includes("Password") || msg.includes("password")) return "비밀번호는 8자 이상이어야 해요.";
-  if (msg.includes("session") || msg.includes("expired")) return "세션이 만료됐어요. 링크를 다시 요청해주세요.";
-  return "오류가 발생했어요. 잠시 후 다시 시도해주세요.";
+function errorMessage(msg: string, t: Dictionary) {
+  if (msg.includes("should be different") || msg.includes("same_password")) return t.resetPassword.errors.samePassword;
+  if (msg.includes("Password") || msg.includes("password")) return t.auth.errors.passwordTooShort;
+  if (msg.includes("session") || msg.includes("expired")) return t.resetPassword.errors.sessionExpired;
+  return t.auth.errors.generic;
 }
 
 function Eye() {

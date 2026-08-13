@@ -7,11 +7,13 @@ import { createClient } from "@/lib/supabase/client";
 import { AnalyticsEvent, trackClientEvent, firstTouch } from "@/lib/analytics-client";
 import Logo from "@/components/Logo";
 import { isReservedUsername } from "@/lib/reservedUsernames";
+import { useT } from "@/lib/i18n/client";
 
 type UsernameStatus = "idle" | "checking" | "available" | "taken" | "invalid" | "reserved";
 
 export default function OnboardingPage() {
   const router = useRouter();
+  const { t } = useT();
   const [form, setForm] = useState({ name: "", username: "", bio: "" });
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -74,9 +76,9 @@ export default function OnboardingPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (usernameStatus === "taken") { setError("이미 사용 중인 username이에요. 다른 걸 입력해주세요."); return; }
-    if (usernameStatus === "invalid") { setError("username은 영문, 숫자, _, -만 사용 가능하고 2자 이상이어야 해요."); return; }
-    if (usernameStatus === "reserved") { setError("사용할 수 없는 username이에요. 다른 걸 입력해주세요."); return; }
+    if (usernameStatus === "taken") { setError(t.onboarding.errors.usernameTaken); return; }
+    if (usernameStatus === "invalid") { setError(t.onboarding.errors.usernameInvalid); return; }
+    if (usernameStatus === "reserved") { setError(t.onboarding.errors.usernameReserved); return; }
 
     setLoading(true);
     setError("");
@@ -88,13 +90,13 @@ export default function OnboardingPage() {
     // Final check if debounce hasn't resolved yet
     if (usernameStatus !== "available") {
       if (isReservedUsername(form.username)) {
-        setError("사용할 수 없는 username이에요. 다른 걸 입력해주세요.");
+        setError(t.onboarding.errors.usernameReserved);
         setLoading(false);
         return;
       }
       const { data: existing } = await supabase.from("profiles").select("id").eq("username", form.username).maybeSingle();
       if (existing) {
-        setError("이미 사용 중인 username이에요. 다른 걸 입력해주세요.");
+        setError(t.onboarding.errors.usernameTaken);
         setLoading(false);
         return;
       }
@@ -105,7 +107,7 @@ export default function OnboardingPage() {
     });
 
     if (authErr) {
-      setError("저장 중 오류가 발생했어요. 다시 시도해주세요.");
+      setError(t.onboarding.errors.saveAuth);
       setLoading(false);
       return;
     }
@@ -123,8 +125,8 @@ export default function OnboardingPage() {
       // exists to prevent. Surface it and keep them here to retry.
       setError(
         profileErr.code === "23505"
-          ? "이미 사용 중인 username이에요. 다른 걸 입력해주세요."
-          : "프로필 저장 중 오류가 발생했어요. 다시 시도해주세요.",
+          ? t.onboarding.errors.usernameTaken
+          : t.onboarding.errors.saveProfile,
       );
       setLoading(false);
       return;
@@ -184,11 +186,11 @@ export default function OnboardingPage() {
         {/* Step indicator */}
         <div className="flex items-center justify-center mb-8">
           <div className="flex items-center gap-2">
-            <StepDot state="done" label="가입" />
+            <StepDot state="done" label={t.onboarding.stepSignup} />
             <StepLine />
-            <StepDot state="active" label="프로필" />
+            <StepDot state="active" label={t.onboarding.stepProfile} />
             <StepLine />
-            <StepDot state="upcoming" label="시작" />
+            <StepDot state="upcoming" label={t.onboarding.stepStart} />
           </div>
         </div>
 
@@ -205,27 +207,27 @@ export default function OnboardingPage() {
             </div>
           )}
           <h1 className="text-3xl font-black mb-2" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", letterSpacing: "-0.02em" }}>
-            프레임을 만들어볼게요
+            {t.onboarding.title}
           </h1>
           <p className="text-sm font-semibold" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
-            기본 정보를 입력해주세요. 나중에 언제든 바꿀 수 있어요.
+            {t.onboarding.subtitle}
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <Field label="이름">
+          <Field label={t.onboarding.nameLabel}>
             <input className="vf-input" type="text" name="name"
-              placeholder="홍길동" value={form.name} onChange={handleChange} required autoFocus />
+              placeholder={t.signup.namePlaceholder} value={form.name} onChange={handleChange} required autoFocus />
           </Field>
 
-          <Field label="사용자 이름 (URL)">
+          <Field label={t.onboarding.usernameLabel}>
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold pointer-events-none"
                 style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>@</span>
               <input className="vf-input" style={{ paddingLeft: "1.75rem", paddingRight: "2.5rem" }}
                 type="text" name="username" placeholder="alexvibe"
                 value={form.username} onChange={handleChange} required
-                pattern="[a-zA-Z0-9_-]+" title="영문, 숫자, _-만 사용 가능해요" />
+                pattern="[a-zA-Z0-9_-]+" title={t.auth.usernamePattern} />
               <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
                 <UsernameStatusIcon status={usernameStatus} />
               </div>
@@ -237,10 +239,10 @@ export default function OnboardingPage() {
                   : "var(--text-muted)",
                 fontFamily: "var(--font-nunito)"
               }}>
-                {usernameStatus === "available" && "✓ 사용 가능한 username이에요"}
-                {usernameStatus === "taken" && "✗ 이미 사용 중이에요"}
-                {usernameStatus === "invalid" && "✗ 영문, 숫자, _, -만 사용 가능해요 (2자 이상)"}
-                {usernameStatus === "reserved" && "✗ 사용할 수 없는 이름이에요"}
+                {usernameStatus === "available" && t.onboarding.usernameAvailable}
+                {usernameStatus === "taken" && t.onboarding.usernameTaken}
+                {usernameStatus === "invalid" && t.onboarding.usernameInvalid}
+                {usernameStatus === "reserved" && t.onboarding.usernameReserved}
                 {(usernameStatus === "idle" || usernameStatus === "checking") && (
                   <>nookframe.com/<span style={{ color: "var(--blue)" }}>{form.username}</span></>
                 )}
@@ -248,9 +250,9 @@ export default function OnboardingPage() {
             )}
           </Field>
 
-          <Field label="한 줄 소개 (선택)">
+          <Field label={t.onboarding.bioLabel}>
             <textarea className="vf-input" name="bio"
-              placeholder="바이브코딩으로 아이디어를 현실로 만들고 있어요."
+              placeholder={t.onboarding.bioPlaceholder}
               value={form.bio} onChange={handleChange} rows={2} style={{ resize: "none" }} />
           </Field>
 
@@ -264,7 +266,7 @@ export default function OnboardingPage() {
           <button type="submit" disabled={!canSubmit}
             className="w-full py-3.5 rounded-xl font-black text-sm mt-2 transition-opacity hover:opacity-85 disabled:opacity-50"
             style={{ background: "var(--blue)", color: "var(--bg)", fontFamily: "var(--font-nunito)", cursor: canSubmit ? "pointer" : "not-allowed", border: "none", boxShadow: "0 0 20px var(--blue-glow)" }}>
-            {loading ? "저장 중..." : "시작하기 →"}
+            {loading ? t.onboarding.submitting : t.onboarding.submit}
           </button>
         </form>
 
@@ -273,7 +275,7 @@ export default function OnboardingPage() {
           <button type="button" onClick={handleSignOut}
             className="text-xs font-semibold transition-opacity hover:opacity-70"
             style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", background: "none", border: "none", cursor: "pointer" }}>
-            다른 계정으로 로그인
+            {t.onboarding.otherAccount}
           </button>
         </div>
       </div>
