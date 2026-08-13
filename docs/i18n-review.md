@@ -404,3 +404,20 @@
 | cancel | 취소 | Cancel | |
 | sending | 보내는 중… | Sending… | |
 | send | 요청 보내기 | Send request | |
+
+## publish (/publish — AI JSON 붙여넣기 페이지)
+
+| 키 | 한국어 | English | 비고 |
+|---|---|---|---|
+| backToDashboard | ← 대시보드 | ← Dashboard | |
+| title | AI가 준 걸 붙여넣기 | Paste what your AI gave you | |
+| intro | 셸이 없는 AI(챗봇)를 쓰고 있나요? AI에게 publish 페이로드를 만들어 달라고 한 뒤, 그 JSON을 여기 붙여넣으면 초안으로 올라가요. | Using an AI without a shell (a chatbot)? Ask it to build a publish payload, then paste that JSON here and it goes up as a draft. | |
+| promptHintBefore + Link + After | 붙여넣을 프롬프트는 [대시보드 → 연결] 탭에 있어요. | The prompt to paste is in the [Dashboard → Connect] tab. | ⚠️ 링크가 끼어 3조각 분할 |
+| submitting | 올리는 중… | Uploading… | |
+| submit | 초안으로 올리기 | Upload as draft | |
+| reviewNote | 공개 전에 대시보드에서 확인할 수 있어요 | You can review it on the dashboard before it goes public | |
+| errors.empty | AI가 준 JSON을 붙여넣어 주세요. | Paste the JSON your AI gave you. | |
+| errors.urlOnly | URL만으로는 부족해요 — 제목·설명이 담긴 JSON을 붙여넣어 주세요. | A URL alone isn't enough — paste the JSON with a title and description. | |
+| errors.invalidJson | JSON을 읽을 수 없어요. AI가 준 { ... } 형식 그대로 붙여넣어 주세요. | Couldn't read that JSON. Paste the { ... } exactly as your AI gave it. | |
+| errors.submitFailed | 올리지 못했어요. 잠시 후 다시 시도해 주세요. | Couldn't upload. Please try again shortly. | |
+| errors.network | 네트워크 오류로 올리지 못했어요. | A network error kept it from uploading. | |

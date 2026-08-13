@@ -401,4 +401,23 @@ export const en: Dictionary = {
     sending: "Sending…",
     send: "Send request",
   },
+  publish: {
+    backToDashboard: "← Dashboard",
+    title: "Paste what your AI gave you",
+    intro:
+      "Using an AI without a shell (a chatbot)? Ask it to build a publish payload, then paste that JSON here and it goes up as a draft.",
+    promptHintBefore: "The prompt to paste is in the ",
+    promptHintLink: "Dashboard → Connect",
+    promptHintAfter: " tab.",
+    submitting: "Uploading…",
+    submit: "Upload as draft",
+    reviewNote: "You can review it on the dashboard before it goes public",
+    errors: {
+      empty: "Paste the JSON your AI gave you.",
+      urlOnly: "A URL alone isn't enough — paste the JSON with a title and description.",
+      invalidJson: "Couldn't read that JSON. Paste the { ... } exactly as your AI gave it.",
+      submitFailed: "Couldn't upload. Please try again shortly.",
+      network: "A network error kept it from uploading.",
+    },
+  },
 };

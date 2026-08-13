@@ -3,18 +3,21 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useT } from "@/lib/i18n/client";
+import LanguageToggle from "@/components/LanguageToggle";
 
 export default function PublishForm() {
   const [raw, setRaw] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+  const { t } = useT();
 
   async function submit() {
     setError(null);
     const trimmed = raw.trim();
     if (!trimmed) {
-      setError("AI가 준 JSON을 붙여넣어 주세요.");
+      setError(t.publish.errors.empty);
       return;
     }
     let payload: unknown;
@@ -23,8 +26,8 @@ export default function PublishForm() {
     } catch {
       setError(
         /^https?:\/\//i.test(trimmed)
-          ? "URL만으로는 부족해요 — 제목·설명이 담긴 JSON을 붙여넣어 주세요."
-          : "JSON을 읽을 수 없어요. AI가 준 { ... } 형식 그대로 붙여넣어 주세요.",
+          ? t.publish.errors.urlOnly
+          : t.publish.errors.invalidJson,
       );
       return;
     }
@@ -37,13 +40,13 @@ export default function PublishForm() {
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(body.error || "올리지 못했어요. 잠시 후 다시 시도해 주세요.");
+        setError(body.error || t.publish.errors.submitFailed);
         setSubmitting(false);
         return;
       }
       router.push(`/dashboard?review=${body.projectId}`);
     } catch {
-      setError("네트워크 오류로 올리지 못했어요.");
+      setError(t.publish.errors.network);
       setSubmitting(false);
     }
   }
@@ -51,17 +54,20 @@ export default function PublishForm() {
   return (
     <div className="min-h-screen" style={{ background: "var(--bg)" }}>
       <div className="max-w-2xl mx-auto px-6 py-16">
-        <Link href="/dashboard" className="text-sm" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", textDecoration: "none" }}>
-          ← 대시보드
-        </Link>
+        <div className="flex items-center justify-between">
+          <Link href="/dashboard" className="text-sm" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", textDecoration: "none" }}>
+            {t.publish.backToDashboard}
+          </Link>
+          <LanguageToggle />
+        </div>
 
         <h1 className="vf-serif-display mt-6 mb-2" style={{ fontSize: "clamp(1.6rem, 4vw, 2rem)", fontWeight: 500 }}>
-          AI가 준 걸 붙여넣기
+          {t.publish.title}
         </h1>
         <p className="text-sm mb-8" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", lineHeight: 1.7 }}>
-          셸이 없는 AI(챗봇)를 쓰고 있나요? AI에게 publish 페이로드를 만들어 달라고 한 뒤,
-          그 JSON을 여기 붙여넣으면 초안으로 올라가요. 붙여넣을 프롬프트는{" "}
-          <Link href="/dashboard" style={{ color: "var(--text-primary)", textDecoration: "underline" }}>대시보드 → 연결</Link> 탭에 있어요.
+          {t.publish.intro} {t.publish.promptHintBefore}
+          <Link href="/dashboard" style={{ color: "var(--text-primary)", textDecoration: "underline" }}>{t.publish.promptHintLink}</Link>
+          {t.publish.promptHintAfter}
         </p>
 
         <textarea
@@ -78,10 +84,10 @@ export default function PublishForm() {
 
         <div className="flex items-center gap-3 mt-5">
           <button onClick={submit} disabled={submitting} className="vf-button-primary" style={{ opacity: submitting ? 0.6 : 1 }}>
-            {submitting ? "올리는 중…" : "초안으로 올리기"}
+            {submitting ? t.publish.submitting : t.publish.submit}
           </button>
           <span className="text-xs" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
-            공개 전에 대시보드에서 확인할 수 있어요
+            {t.publish.reviewNote}
           </span>
         </div>
       </div>

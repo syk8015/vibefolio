@@ -408,6 +408,26 @@ export const ko = {
     sending: "보내는 중…",
     send: "요청 보내기",
   },
+  // /publish — 셸 없는 AI(챗봇)가 준 JSON을 붙여넣는 페이지
+  publish: {
+    backToDashboard: "← 대시보드",
+    title: "AI가 준 걸 붙여넣기",
+    intro:
+      "셸이 없는 AI(챗봇)를 쓰고 있나요? AI에게 publish 페이로드를 만들어 달라고 한 뒤, 그 JSON을 여기 붙여넣으면 초안으로 올라가요.",
+    promptHintBefore: "붙여넣을 프롬프트는 ",
+    promptHintLink: "대시보드 → 연결",
+    promptHintAfter: " 탭에 있어요.",
+    submitting: "올리는 중…",
+    submit: "초안으로 올리기",
+    reviewNote: "공개 전에 대시보드에서 확인할 수 있어요",
+    errors: {
+      empty: "AI가 준 JSON을 붙여넣어 주세요.",
+      urlOnly: "URL만으로는 부족해요 — 제목·설명이 담긴 JSON을 붙여넣어 주세요.",
+      invalidJson: "JSON을 읽을 수 없어요. AI가 준 { ... } 형식 그대로 붙여넣어 주세요.",
+      submitFailed: "올리지 못했어요. 잠시 후 다시 시도해 주세요.",
+      network: "네트워크 오류로 올리지 못했어요.",
+    },
+  },
 };
 
 export type Dictionary = typeof ko;
