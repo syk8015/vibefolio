@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Hahmlet, JetBrains_Mono } from "next/font/google";
 import FirstTouch from "@/components/FirstTouch";
+import { LocaleProvider } from "@/lib/i18n/client";
 import "./globals.css";
 
 const inter = Inter({
@@ -63,11 +64,17 @@ export default function RootLayout({
             here made OS-dark users flash light→dark once ThemeToggle mounted. */}
         <script dangerouslySetInnerHTML={{ __html: `
 (function(){try{var s=localStorage.getItem('vf-theme');var t=(s==='dark'||s==='light')?s:(window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark');document.documentElement.setAttribute('data-theme',t);}catch(e){}})();
+(function(){try{var m=document.cookie.match(/(?:^|;\\s*)NEXT_LOCALE=(ko|en)/);var l=m?m[1]:(String(navigator.language||'').toLowerCase().indexOf('en')===0?'en':null);if(l)document.documentElement.lang=l;}catch(e){}})();
         `.trim() }} />
       </head>
       <body className="min-h-screen">
-        <FirstTouch />
-        {children}
+        {/* 쿠키를 서버에서 읽지 않는다 — 루트 레이아웃에서 cookies()를 읽으면
+            정적/60s 캐시 페이지 전부가 동적 렌더링으로 강등되기 때문.
+            프로바이더가 마운트 후 클라이언트에서 감지한다. */}
+        <LocaleProvider>
+          <FirstTouch />
+          {children}
+        </LocaleProvider>
       </body>
     </html>
   );

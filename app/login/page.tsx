@@ -6,11 +6,15 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import TurnstileWidget, { turnstileEnabled, resetTurnstile } from "@/components/TurnstileWidget";
 import Logo from "@/components/Logo";
+import LanguageToggle from "@/components/LanguageToggle";
+import { useT } from "@/lib/i18n/client";
+import type { Dictionary } from "@/lib/i18n/dictionaries";
 
 const RETURNING_USER_KEY = "vf-returning-user";
 
 export default function LoginPage() {
   const router = useRouter();
+  const { t } = useT();
   const [show, setShow] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -44,7 +48,7 @@ export default function LoginPage() {
       // Turnstile tokens are single-use — the failed attempt consumed this one.
       resetTurnstile();
       setCaptchaToken(null);
-      setError(errorMessage(error.message));
+      setError(errorMessage(error.message, t));
     } else {
       localStorage.setItem(RETURNING_USER_KEY, "1");
       router.push("/");
@@ -65,20 +69,23 @@ export default function LoginPage() {
     <main className="min-h-screen flex flex-col" style={{ background: "var(--bg)" }}>
       <nav className="flex items-center justify-between px-4 md:px-8 py-4 md:py-5">
         <Logo />
-        <p className="text-sm font-semibold" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
-          계정이 없나요?
-          <Link href="/signup" style={{ color: "var(--blue)", textDecoration: "none", fontWeight: 700, marginLeft: "8px" }}>회원가입</Link>
-        </p>
+        <div className="flex items-center gap-4">
+          <p className="text-sm font-semibold" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
+            {t.login.noAccount}
+            <Link href="/signup" style={{ color: "var(--blue)", textDecoration: "none", fontWeight: 700, marginLeft: "8px" }}>{t.login.signupLink}</Link>
+          </p>
+          <LanguageToggle />
+        </div>
       </nav>
 
       <div className="flex-1 flex items-center justify-center px-6 py-12">
         <div className="w-full max-w-sm">
           <div className="mb-8" style={{ opacity: isReturning === null ? 0 : 1, transition: "opacity 0.2s ease" }}>
             <h1 className="text-3xl font-black mb-2" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", letterSpacing: "-0.02em" }}>
-              {isReturning ? "다시 돌아왔군요" : "환영합니다"}
+              {isReturning ? t.login.welcomeBack : t.login.welcome}
             </h1>
             <p className="text-sm font-semibold" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
-              {isReturning ? "프레임이 기다리고 있어요." : "새로운 프레임을 만들 차례입니다."}
+              {isReturning ? t.login.welcomeBackSub : t.login.welcomeSub}
             </p>
           </div>
 
@@ -86,12 +93,12 @@ export default function LoginPage() {
             className="w-full flex items-center justify-center gap-3 py-3 rounded-xl font-bold text-sm mb-6 transition-opacity hover:opacity-80"
             style={{ border: "1px solid var(--border-bright)", background: "var(--surface)", color: "var(--text-primary)", fontFamily: "var(--font-nunito)", cursor: "pointer" }}>
             <GoogleIcon />
-            Google로 계속하기
+            {t.login.googleContinue}
           </button>
 
           <div className="flex items-center gap-3 mb-6">
             <div className="flex-1 h-px" style={{ background: "var(--border)" }} />
-            <span className="text-xs font-semibold" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>또는</span>
+            <span className="text-xs font-semibold" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>{t.login.or}</span>
             <div className="flex-1 h-px" style={{ background: "var(--border)" }} />
           </div>
 
@@ -99,7 +106,7 @@ export default function LoginPage() {
             <div>
               <label className="block text-xs font-bold mb-1.5"
                 style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", letterSpacing: "0.05em" }}>
-                이메일
+                {t.login.emailLabel}
               </label>
               <input className="vf-input" type="email" name="email" placeholder="hello@example.com"
                 value={form.email} onChange={handleChange} required autoComplete="email" autoFocus />
@@ -109,11 +116,11 @@ export default function LoginPage() {
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-xs font-bold"
                   style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", letterSpacing: "0.05em" }}>
-                  비밀번호
+                  {t.login.passwordLabel}
                 </label>
                 <Link href="/forgot-password" className="text-xs font-semibold"
                   style={{ color: "var(--blue)", textDecoration: "none", fontFamily: "var(--font-nunito)" }}>
-                  비밀번호 찾기
+                  {t.login.forgotPassword}
                 </Link>
               </div>
               <div className="relative">
@@ -121,7 +128,7 @@ export default function LoginPage() {
                   type={show ? "text" : "password"} name="password" placeholder="••••••••"
                   value={form.password} onChange={handleChange} required autoComplete="current-password" />
                 <button type="button" onClick={() => setShow((v) => !v)}
-                  aria-label={show ? "비밀번호 숨기기" : "비밀번호 표시"}
+                  aria-label={show ? t.login.hidePassword : t.login.showPassword}
                   className="absolute right-3 top-1/2 -translate-y-1/2"
                   style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", padding: "4px" }}>
                   {show ? <EyeOff /> : <Eye />}
@@ -141,7 +148,7 @@ export default function LoginPage() {
             <button type="submit" disabled={loading || (turnstileEnabled && !captchaToken)}
               className="w-full py-3.5 rounded-xl font-black text-sm mt-2 transition-opacity hover:opacity-85 disabled:opacity-50"
               style={{ background: "var(--blue)", color: "var(--bg)", fontFamily: "var(--font-nunito)", cursor: loading ? "not-allowed" : "pointer", border: "none", boxShadow: "0 0 20px var(--blue-glow)" }}>
-              {loading ? "로그인 중..." : "로그인"}
+              {loading ? t.login.submitting : t.login.submit}
             </button>
           </form>
         </div>
@@ -150,12 +157,12 @@ export default function LoginPage() {
   );
 }
 
-function errorMessage(msg: string) {
-  if (msg.includes("Invalid login")) return "이메일 또는 비밀번호가 올바르지 않아요.";
-  if (msg.includes("Email not confirmed")) return "이메일 인증을 먼저 완료해주세요.";
-  if (msg.includes("Too many requests")) return "잠시 후 다시 시도해주세요.";
-  if (msg.toLowerCase().includes("captcha")) return "보안 확인에 실패했어요. 다시 확인 후 시도해주세요.";
-  return "오류가 발생했어요. 잠시 후 다시 시도해주세요.";
+function errorMessage(msg: string, t: Dictionary) {
+  if (msg.includes("Invalid login")) return t.login.errors.invalid;
+  if (msg.includes("Email not confirmed")) return t.login.errors.unconfirmed;
+  if (msg.includes("Too many requests")) return t.login.errors.tooMany;
+  if (msg.toLowerCase().includes("captcha")) return t.login.errors.captcha;
+  return t.login.errors.generic;
 }
 
 function GoogleIcon() {
