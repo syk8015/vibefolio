@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { taglines } from "@/lib/taglines";
+import { taglines, taglinesEn } from "@/lib/taglines";
+import type { Locale } from "@/lib/i18n/config";
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -14,12 +15,15 @@ function shuffle<T>(arr: T[]): T[] {
 
 const TAGLINE_FONT_SIZE = "clamp(1.1rem, 3.4vw, 2.5rem)";
 
-export default function TypingTagline({ userCount }: { userCount: number }) {
+// locale은 서버(랜딩 페이지, auth 쿠키로 이미 동적)에서 내려받는다 —
+// 루트 LocaleProvider는 마운트 후에야 언어를 알아서 useT를 쓰면 첫 문장이
+// 한국어로 시작했다가 갈아타는 깜빡임이 생긴다.
+export default function TypingTagline({ userCount, locale }: { userCount: number; locale: Locale }) {
   const [text, setText] = useState("");
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   useEffect(() => {
-    const queue = shuffle(taglines);
+    const queue = shuffle(locale === "en" ? taglinesEn : taglines);
     let idx = 0;
     let cancelled = false;
 
@@ -74,7 +78,7 @@ export default function TypingTagline({ userCount }: { userCount: number }) {
       timers.current.forEach(clearTimeout);
       timers.current = [];
     };
-  }, [userCount]);
+  }, [userCount, locale]);
 
   return (
     <h1

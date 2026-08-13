@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useEffect, useState, useCallback } from "react";
+import type { Locale } from "@/lib/i18n/config";
 
 // One real card, fully interactive. The iframe loads the profile in `showcase`
 // mode — every exit point (nav, footer, home links) is stripped server-side, so
@@ -27,12 +28,20 @@ const EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
 
 // Section title rotates on every page load — a wry portrait of the kind of
 // person whose card this is, instead of the flat "vibe coder" label.
-const TITLE_VARIANTS = [
+const TITLE_VARIANTS_KO = [
   "차 트렁크에 노트북 묶은 사람의 프레임",
   "컨티뉴만 누르는 사람의 프레임",
   "뭐든지 토큰으로 보이는 사람의 프레임",
   "회사에서 몰래 작업하는 사람의 프레임",
   "노트북 화면 못 닫는 사람의 프레임",
+];
+
+const TITLE_VARIANTS_EN = [
+  "The frame of someone coding from a car trunk",
+  "The frame of someone who only presses Continue",
+  "The frame of someone who sees everything in tokens",
+  "The frame of someone secretly building at their day job",
+  "The frame of someone who can't close their laptop",
 ];
 
 interface Profile {
@@ -42,14 +51,17 @@ interface Profile {
 
 interface Props {
   profiles: Profile[];
+  locale: Locale;
 }
 
-export default function PortfolioPipSection({ profiles }: Props) {
+export default function PortfolioPipSection({ profiles, locale }: Props) {
   // Pick one card at random, once — random in the render body would re-roll on
   // every render and is impure during hydration.
   const [profile] = useState(() => profiles[Math.floor(Math.random() * profiles.length)]);
-  // Pick a title once per page load (lazy so it doesn't re-roll each render).
-  const [title] = useState(() => TITLE_VARIANTS[Math.floor(Math.random() * TITLE_VARIANTS.length)]);
+  // Pick a title INDEX once per page load (lazy so it doesn't re-roll each
+  // render); the string resolves per render so a language toggle swaps it too.
+  const [titleIdx] = useState(() => Math.floor(Math.random() * TITLE_VARIANTS_KO.length));
+  const title = (locale === "en" ? TITLE_VARIANTS_EN : TITLE_VARIANTS_KO)[titleIdx];
 
   const [loaded, setLoaded] = useState(false);
   const [shouldLoadIframe, setShouldLoadIframe] = useState(false);
@@ -330,7 +342,9 @@ export default function PortfolioPipSection({ profiles }: Props) {
                   style={{ border: "none", display: "block", opacity: loaded ? 1 : 0, transition: "opacity 0.4s ease" }}
                   onLoad={handleLoad}
                   sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-forms"
-                  title={`${profile.name || profile.username}의 프레임`}
+                  title={locale === "en"
+                    ? `${profile.name || profile.username}'s frame`
+                    : `${profile.name || profile.username}의 프레임`}
                 />
               )}
             </div>
@@ -342,11 +356,11 @@ export default function PortfolioPipSection({ profiles }: Props) {
       <div style={{ textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
         {inCloseup ? (
           <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", margin: 0 }}>
-            ▶ 자동 시연 재생 중…
+            {locale === "en" ? "▶ Auto demo playing…" : "▶ 자동 시연 재생 중…"}
           </p>
         ) : (
           <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", margin: 0 }}>
-            👆 직접 작품을 눌러 둘러보세요
+            {locale === "en" ? "👆 Click a work and explore it yourself" : "👆 직접 작품을 눌러 둘러보세요"}
           </p>
         )}
         <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontFamily: "var(--font-nunito)", margin: 0 }}>
@@ -358,7 +372,9 @@ export default function PortfolioPipSection({ profiles }: Props) {
           >
             @{profile.username}
           </a>
-          &nbsp;의 프레임 · 새 탭에서 전체 보기 →
+          {locale === "en"
+            ? <>{"'s frame · full view in a new tab →"}</>
+            : <>&nbsp;의 프레임 · 새 탭에서 전체 보기 →</>}
         </p>
       </div>
     </div>

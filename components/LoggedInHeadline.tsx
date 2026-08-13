@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { loggedInTaglines, type LoggedInTagline } from "@/lib/loggedInTaglines";
+import { loggedInTaglines, loggedInTaglinesEn, type LoggedInTagline } from "@/lib/loggedInTaglines";
+import type { Locale } from "@/lib/i18n/config";
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -15,14 +16,16 @@ function shuffle<T>(arr: T[]): T[] {
 const HEADLINE_FONT_SIZE = "clamp(1.1rem, 3.4vw, 2.5rem)";
 const REPLY_FONT_SIZE = "clamp(0.95rem, 2.8vw, 2rem)";
 
-export default function LoggedInHeadline() {
+// locale은 서버(랜딩 페이지)에서 내려받는다 — TypingTagline과 같은 이유.
+export default function LoggedInHeadline({ locale }: { locale: Locale }) {
   const [text, setText] = useState("");
   const [reply, setReply] = useState("");
   const [phase, setPhase] = useState<"text" | "reply">("text");
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   useEffect(() => {
-    const queue = shuffle(loggedInTaglines);
+    const pool = locale === "en" ? loggedInTaglinesEn : loggedInTaglines;
+    const queue = shuffle(pool);
     let idx = 0;
     let cancelled = false;
 
@@ -108,7 +111,7 @@ export default function LoggedInHeadline() {
     const start = () => { if (!cancelled) runPhrase(); };
     if (typeof document !== "undefined" && document.fonts) {
       const sample = Array.from(
-        new Set(loggedInTaglines.flatMap((t) => [...t.text, ...(t.reply ?? "")]))
+        new Set(pool.flatMap((t) => [...t.text, ...(t.reply ?? "")]))
       ).join("");
       const HEADLINE_SPEC = "500 2.5rem 'Noto Serif KR', serif";
       const REPLY_SPEC = "italic 400 2rem 'Noto Serif KR', serif";
@@ -126,7 +129,7 @@ export default function LoggedInHeadline() {
       timers.current.forEach(clearTimeout);
       timers.current = [];
     };
-  }, []);
+  }, [locale]);
 
   return (
     <div

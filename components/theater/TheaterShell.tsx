@@ -289,7 +289,7 @@ export default function TheaterShell({ profile, profileUrl, projects, initialAct
   const [activeIndex, setActiveIndex] = useState(
     Math.min(Math.max(initialActiveIndex, 0), Math.max(projects.length - 1, 0))
   );
-  const { t } = useT();
+  const { t, locale } = useT();
 
   if (projects.length === 0) {
     // Empty state — kept inline rather than spinning up a separate
@@ -338,8 +338,8 @@ export default function TheaterShell({ profile, profileUrl, projects, initialAct
   // 모바일 히어로 정체성 한 줄 — 기존 프로젝트 데이터에서 파생(새 DB 필드 없음).
   // 데스크탑 경로는 이 값을 사용하지 않으므로 영향 없음.
   const identity = useMemo(
-    () => buildIdentityLine(projects, { name: profile.name, bio: profile.bio }),
-    [projects, profile.name, profile.bio]
+    () => buildIdentityLine(projects, { name: profile.name, bio: profile.bio }, locale),
+    [projects, profile.name, profile.bio, locale]
   );
   const goPrev = () => setActiveIndex((i) => (i - 1 + total) % total);
   const goNext = () => setActiveIndex((i) => (i + 1) % total);

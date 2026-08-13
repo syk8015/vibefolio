@@ -12,6 +12,15 @@ export const ko = {
     contact: "문의",
     ok: "확인",
   },
+  // 랜딩(/) — 회전 카피 풀은 lib/taglines.ts·lib/loggedInTaglines.ts에 ko/en 별도
+  landing: {
+    login: "로그인",
+    getStarted: "시작하기",
+    greetingBefore: "안녕하세요, ",
+    greetingAfter: "님!",
+    viewMyFrame: "내 프레임 보기",
+    editFrame: "프레임 수정",
+  },
   // 인증 화면들(로그인·회원가입·비밀번호 찾기/재설정)이 공유하는 문구
   auth: {
     googleContinue: "Google로 계속하기",

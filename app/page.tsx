@@ -5,11 +5,13 @@ import { createPublicClient, throwIfReadFailed } from "@/lib/supabase/public";
 import HomeProfileMenu from "@/components/HomeProfileMenu";
 import PortfolioPipSection from "@/components/PortfolioPipSection";
 import ThemeToggle from "@/components/ThemeToggle";
+import LanguageToggle from "@/components/LanguageToggle";
 import LoggedInHeadline from "@/components/LoggedInHeadline";
 import FaqRepliesSection from "@/components/FaqRepliesSection";
 import TypingTagline from "@/components/TypingTagline";
 import ScrollHint from "@/components/ScrollHint";
 import Logo from "@/components/Logo";
+import { getT } from "@/lib/i18n/server";
 
 interface FeaturedProfile {
   username: string;
@@ -56,12 +58,16 @@ export default async function LandingPage() {
   const supabase = await createClient();
 
   // Auth is per-request (cookies); the public reads are cached. Run both at once.
+  // getT()도 쿠키를 읽지만 이 페이지는 auth 때문에 이미 매 요청 렌더 —
+  // lib/i18n/server.ts의 "정적 페이지 금지" 경고와 충돌하지 않는다.
   const [
     { data: { user } },
     { userCount, featuredProfiles, projectOwners },
+    { locale, t },
   ] = await Promise.all([
     supabase.auth.getUser(),
     getLandingData(),
+    getT(),
   ]);
 
   const meta = user?.user_metadata || {};
@@ -88,6 +94,7 @@ export default async function LandingPage() {
         <nav className="flex items-center justify-between px-4 md:px-8 py-4 md:py-5">
           <Logo />
           <div className="flex items-center gap-3">
+            <LanguageToggle />
             <ThemeToggle />
             <HomeProfileMenu username={username} name={name} avatarUrl={avatarUrl} />
           </div>
@@ -95,27 +102,27 @@ export default async function LandingPage() {
 
         <div className="flex-1 flex flex-col items-center justify-center px-6 text-center gap-12">
           <p className="text-sm" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
-            안녕하세요, <span style={{ color: "var(--text-primary)", fontWeight: 600 }}>{name}</span>님!
+            {t.landing.greetingBefore}<span style={{ color: "var(--text-primary)", fontWeight: 600 }}>{name}</span>{t.landing.greetingAfter}
           </p>
-          <LoggedInHeadline />
+          <LoggedInHeadline locale={locale} />
           <div className="flex flex-wrap justify-center items-center gap-3">
             <Link href={`/${username}`}
               className="px-7 py-3 rounded-full text-sm transition-opacity hover:opacity-80"
               style={{ background: "var(--blue)", color: "var(--bg)", fontFamily: "var(--font-nunito)", fontWeight: 600, textDecoration: "none" }}>
-              내 프레임 보기
+              {t.landing.viewMyFrame}
             </Link>
             <Link href="/dashboard"
               className="px-7 py-3 rounded-full text-sm transition-opacity hover:opacity-70"
               style={{ border: "1px solid var(--border-bright)", color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontWeight: 600, textDecoration: "none" }}>
-              프레임 수정
+              {t.landing.editFrame}
             </Link>
           </div>
         </div>
 
         <footer className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 py-6">
-          <Link href="/terms" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem", textDecoration: "none" }}>이용약관</Link>
-          <Link href="/privacy" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem", textDecoration: "none" }}>개인정보처리방침</Link>
-          <a href="mailto:vivestarter@gmail.com" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem", textDecoration: "none" }}>문의</a>
+          <Link href="/terms" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem", textDecoration: "none" }}>{t.common.terms}</Link>
+          <Link href="/privacy" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem", textDecoration: "none" }}>{t.common.privacy}</Link>
+          <a href="mailto:vivestarter@gmail.com" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem", textDecoration: "none" }}>{t.common.contact}</a>
           <span style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem" }}>© {new Date().getFullYear()} Nookframe</span>
         </footer>
       </main>
@@ -133,19 +140,20 @@ export default async function LandingPage() {
         <nav className="absolute top-0 left-0 right-0 flex items-center justify-between px-4 md:px-8 py-4 md:py-5 z-10">
           <Logo />
           <div className="flex items-center gap-5">
+            <LanguageToggle />
             <ThemeToggle />
             <Link href="/login"
               style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", fontSize: "0.875rem", fontWeight: 500, textDecoration: "none" }}>
-              로그인
+              {t.landing.login}
             </Link>
             <Link href="/signup"
               style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontSize: "0.875rem", fontWeight: 600, textDecoration: "none" }}>
-              시작하기
+              {t.landing.getStarted}
             </Link>
           </div>
         </nav>
 
-        <TypingTagline userCount={userCount ?? 0} />
+        <TypingTagline userCount={userCount ?? 0} locale={locale} />
 
         {/* Scroll hint — fades out as soon as the user scrolls.
             Not gated on `profiles`: the FAQ section below always renders, so
@@ -156,17 +164,17 @@ export default async function LandingPage() {
       </section>
 
       {/* FAQ — ↳ replies, typed on first scroll-into-view */}
-      <FaqRepliesSection />
+      <FaqRepliesSection locale={locale} />
 
       {/* PiP portfolio preview — scroll-synced, cycles through profiles */}
       {profiles.length > 0 && (
-        <PortfolioPipSection profiles={profiles} />
+        <PortfolioPipSection profiles={profiles} locale={locale} />
       )}
 
       <footer className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 py-6 relative z-10" style={{ borderTop: "1px solid var(--border)" }}>
-        <Link href="/terms" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem", textDecoration: "none" }}>이용약관</Link>
-        <Link href="/privacy" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem", textDecoration: "none" }}>개인정보처리방침</Link>
-        <a href="mailto:vivestarter@gmail.com" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem", textDecoration: "none" }}>문의</a>
+        <Link href="/terms" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem", textDecoration: "none" }}>{t.common.terms}</Link>
+        <Link href="/privacy" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem", textDecoration: "none" }}>{t.common.privacy}</Link>
+        <a href="mailto:vivestarter@gmail.com" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem", textDecoration: "none" }}>{t.common.contact}</a>
         <span style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem" }}>© {new Date().getFullYear()} Nookframe</span>
       </footer>
     </main>

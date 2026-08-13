@@ -10,6 +10,14 @@ export const en: Dictionary = {
     contact: "Contact",
     ok: "OK",
   },
+  landing: {
+    login: "Log in",
+    getStarted: "Get started",
+    greetingBefore: "Welcome back, ",
+    greetingAfter: "!",
+    viewMyFrame: "View my frame",
+    editFrame: "Edit frame",
+  },
   auth: {
     googleContinue: "Continue with Google",
     or: "or",

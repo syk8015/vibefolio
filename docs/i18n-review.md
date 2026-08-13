@@ -596,3 +596,20 @@
 | reset.cta | 비밀번호 재설정 | Reset password | 버튼 |
 | reset.footer | Nookframe 비밀번호 재설정 메일이에요. 궁금한 점은 이 메일에 회신해 주세요. | This is the Nookframe password reset email. Questions? Just reply to this email. | |
 | (공통) linkFallback | 버튼이 열리지 않으면 이 링크를 브라우저에 붙여넣어 주세요. | If the button doesn't open, paste this link into your browser. | 두 템플릿 공통 |
+
+## landing (랜딩 / — 4단계, 2026-08-14)
+
+| 키 | 한국어 | English | 비고 |
+|---|---|---|---|
+| landing.login | 로그인 | Log in | 나브 |
+| landing.getStarted | 시작하기 | Get started | 나브 |
+| landing.greetingBefore/After | 안녕하세요, {이름}님! | Welcome back, {이름}! | ⚠️ 구조 변경 |
+| landing.viewMyFrame | 내 프레임 보기 | View my frame | |
+| landing.editFrame | 프레임 수정 | Edit frame | |
+
+### 사전 밖 이중 카피 (랜딩 감성 카피 — 재창작, 사용자 1차 번역 2026-08-14 반영)
+- `lib/taglines.ts` → `taglinesEn` (69개): 비로그인 히어로 회전 풀. 종결부호 없음, {N} 유지, "sum = all" 원문 유지
+- `lib/loggedInTaglines.ts` → `loggedInTaglinesEn` (60개): 로그인 헤드라인 풀. 럭키비키→Task failed successfully, 영역전개→Domain Expansion, 썸녀/여친→situationship/commit to, 기도 메타→Thoughts & Prayers™
+- `components/FaqRepliesSection.tsx` → `FAQ_EN` (4쌍)
+- `components/PortfolioPipSection.tsx` → `TITLE_VARIANTS_EN` (5개) + 시연 힌트 2종 + 어트리뷰션
+- `lib/identityLine.ts` → `I mostly build {복수형 라벨}` (+`and` 결합), 라벨 복수형 별도 맵(CONTENT_TYPE_LABELS_EN)

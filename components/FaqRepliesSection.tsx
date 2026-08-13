@@ -1,8 +1,17 @@
-const FAQ = [
+import type { Locale } from "@/lib/i18n/config";
+
+const FAQ_KO = [
   { q: "깃허브 링크면 충분하지 않나요?", a: "깃허브는 코드를, 여기는 작품을" },
   { q: "무엇을 올려야 하나요?", a: "주말의 스케치부터 배포한 url까지" },
   { q: "완성된 것을 올려야 하나요?", a: "당신의 미완성도, 누군가에게 완성" },
   { q: "누가 쓰는 건가요?", a: "@everyone" },
+];
+
+const FAQ_EN = [
+  { q: "Isn't a GitHub link enough?", a: "GitHub shows the code, this shows the work" },
+  { q: "What should I upload?", a: "Anything from a weekend sketch to a deployed URL" },
+  { q: "Does it have to be finished?", a: "Your WIP is someone else's masterpiece" },
+  { q: "Who is this for?", a: "@everyone" },
 ];
 
 // Direction C — "선언 (Dialogue)": emphasis is inverted. The question is a quiet
@@ -12,7 +21,8 @@ const FAQ = [
 // Renders statically — no scroll-triggered typing. The copy is the point, so it
 // is readable the instant it enters the viewport (and to anything that doesn't
 // run JS). With no state left this is a server component: zero client JS.
-export default function FaqRepliesSection() {
+export default function FaqRepliesSection({ locale }: { locale: Locale }) {
+  const FAQ = locale === "en" ? FAQ_EN : FAQ_KO;
   return (
     <section
       style={{

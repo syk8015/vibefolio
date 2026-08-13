@@ -1,4 +1,5 @@
 import type { Project } from "@/lib/data";
+import type { Locale } from "@/lib/i18n/config";
 
 // content_type id → 한국어 라벨.
 // lib/projectTaxonomy.ts의 CONTENT_TYPES와 반드시 동일하게 유지할 것.
@@ -12,6 +13,18 @@ const CONTENT_TYPE_LABELS: Record<string, string> = {
   "ai-service": "AI 서비스",
   "media": "미디어 콘텐츠",
   "other": "기타",
+};
+
+// 영어 라벨은 "I mostly build ___" 문장에 끼워지므로 복수형으로 둔다.
+const CONTENT_TYPE_LABELS_EN: Record<string, string> = {
+  "web-app": "web apps",
+  "saas": "SaaS",
+  "mobile": "mobile apps",
+  "game": "games",
+  "extension": "Chrome extensions",
+  "ai-service": "AI services",
+  "media": "media content",
+  "other": "a bit of everything",
 };
 
 export interface IdentityProfile {
@@ -67,7 +80,11 @@ function topByFrequency<T>(items: T[]): { value: T; count: number }[] {
  *  2) tags(AI 도구) 빈도 상위 최대 2개.
  *  폴백: content_type이 전무 → bio 첫 줄(~40자 말줄임) → 그것도 없으면 headline 생략.
  */
-export function buildIdentityLine(projects: Project[], profile: IdentityProfile): IdentityLine {
+export function buildIdentityLine(
+  projects: Project[],
+  profile: IdentityProfile,
+  locale: Locale = "ko"
+): IdentityLine {
   // ── ① 종류 구절 ──────────────────────────────────────────────
   const typeIds = projects
     .map((p) => p.contentType)
@@ -79,15 +96,20 @@ export function buildIdentityLine(projects: Project[], profile: IdentityProfile)
   if (rankedTypes.length > 0) {
     const first = rankedTypes[0];
     const second = rankedTypes[1];
-    const firstLabel = CONTENT_TYPE_LABELS[first.value];
+    const labels = locale === "en" ? CONTENT_TYPE_LABELS_EN : CONTENT_TYPE_LABELS;
+    const firstLabel = labels[first.value];
 
     if (second && first.count < second.count * 2) {
       // 1·2위 근접 → 두 종류 모두 언급
-      const secondLabel = CONTENT_TYPE_LABELS[second.value];
-      headline = `주로 ${firstLabel}${andParticle(firstLabel)} ${secondLabel}${objectParticle(secondLabel)} 만듭니다`;
+      const secondLabel = labels[second.value];
+      headline = locale === "en"
+        ? `I mostly build ${firstLabel} and ${secondLabel}`
+        : `주로 ${firstLabel}${andParticle(firstLabel)} ${secondLabel}${objectParticle(secondLabel)} 만듭니다`;
     } else {
       // 단독 1위(또는 2배 이상 우세)
-      headline = `주로 ${firstLabel}${objectParticle(firstLabel)} 만듭니다`;
+      headline = locale === "en"
+        ? `I mostly build ${firstLabel}`
+        : `주로 ${firstLabel}${objectParticle(firstLabel)} 만듭니다`;
     }
   } else if (profile.bio) {
     // 폴백: bio 첫(비어있지 않은) 줄, ~40자 말줄임

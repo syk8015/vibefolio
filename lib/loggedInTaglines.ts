@@ -78,3 +78,80 @@ export const loggedInTaglines: LoggedInTagline[] = [
   { text: "일단 배포부터 하고, 사과는 슬랙으로" },
   { text: "키보드 하나로 회사 하나를 굴리는 사람" },
 ];
+
+/**
+ * 영어 풀 — 재창작(2026-08-14 사용자 1차 번역 검수 반영).
+ * 한국 특화 밈은 현지 밈으로 치환: 럭키비키→Task failed successfully,
+ * 영역전개→Domain Expansion(주술회전 밈, 영미권도 통용), 기도 메타→Thoughts & Prayers™.
+ */
+export const loggedInTaglinesEn: LoggedInTagline[] = [
+  // A. 밈 (질문→답글)
+  { text: "Do I really need to care about code quality if I never read it?", reply: "Relax, I write flawless spaghetti" },
+  { text: "\"That's not how you do that\" — thanks anyway" },
+  { text: "This code doesn't look important, safe to delete?", reply: "Production DB has left the chat" },
+  { text: "Domain Expansion — sixty nested if statements" },
+  { text: "Blame the cache. Never elaborate" },
+  { text: "Let Opus 4.6 handle today. Opus 4.7 can handle tomorrow" },
+  { text: "Sonnet is a situationship. Opus is the one you commit to" },
+  { text: "Do we really need tests?", reply: "I ship with Thoughts & Prayers™" },
+  { text: "Today's task: yelling at Sonnet 3.5 / Tomorrow's task: apologizing to GPT-4o" },
+  { text: "Domain Expansion — declaring every type as any" },
+  { text: "Domain Expansion — one try/catch to swallow them all" },
+  { text: "Task failed successfully: the server is down but I'm on PTO" },
+  { text: "\"I wrote this\" (Cursor did). \"Please review\" (Claude will)" },
+  { text: "It's not broken — the model just hasn't been trained on that yet" },
+
+  // B. 응원 / 자랑 톤
+  { text: "In the end, you're the one who shipped it" },
+  { text: "Zero lines of code written, one product launched" },
+  { text: "The AI wrote it. You signed off on it" },
+  { text: "PM, designer, developer — you did all three jobs" },
+  { text: "It all started with \"can you build me a quick app…\"" },
+  { text: "Shipping faster than the README gets written" },
+  { text: "That sleepless-night build — time to show it off" },
+  { text: "The 3 AM commits are the most honest ones" },
+  { text: "Shipped is shipped, no matter who typed it" },
+  { text: "Can't explain git, pushed to prod anyway" },
+  { text: "All for that one line: \"I built this\"" },
+  { text: "The Vercel deploy-success screen: top 3 moments of a lifetime" },
+  { text: "Time to say goodbye to localhost:3000" },
+  { text: "Not the same builder you were yesterday" },
+
+  // C. AI 페어프로그래밍 / 협업 밈
+  { text: "Another day of asking Claude \"why isn't this working??\"" },
+  { text: "Has genuinely apologized to ChatGPT" },
+  { text: "Living life one Tab press at a time" },
+  { text: "Hired a second AI to review the first AI's code" },
+  { text: "Fluent in copy-pasting stack traces" },
+  { text: "Knows the true meaning of \"it was working a minute ago\"" },
+  { text: "Opens ChatGPT before Stack Overflow" },
+  { text: "Stuck in the \"want me to rewrite that?\" \"yes\" infinite loop" },
+  { text: "Saves Opus for when things are really on fire" },
+  { text: "Thanks the AI politely, then makes it rewrite everything" },
+  { text: "Apologies go to humans, debugging goes to AI" },
+  { text: "No red squiggles? We're good" },
+
+  // D. 자조 / Domain Expansion + 질문 시리즈
+  { text: "Domain Expansion — a hundred console.log(\"here\")" },
+  { text: "Domain Expansion — every variable named a, b, or c" },
+  { text: "Domain Expansion — zero comments, one 800-line function" },
+  { text: "Domain Expansion — a TODO from 2021" },
+  { text: "Domain Expansion — breaking the build with one dependency bump" },
+  { text: "Domain Expansion — \"works on my machine\"" },
+  { text: "There's a bug in prod but it works on my machine — can I let it slide?", reply: "Obviously the users' environment is wrong" },
+  { text: "Do I really need comments?", reply: "Future me won't understand them anyway" },
+  { text: "Do variable names need to make sense?", reply: "bbongbbong is a perfectly valid variable" },
+  { text: "Do I really need to define types?", reply: "any is technically a type" },
+
+  // E. 일상 / 상황극
+  { text: "Task failed successfully: build broke, but the PR deadline already passed" },
+  { text: "Task failed successfully: pushed straight to main, nobody noticed" },
+  { text: "Task failed successfully: dropped the DB, but yesterday's backup actually works" },
+  { text: "The magic of fixing one line and breaking something unrelated" },
+  { text: "\"It's just a one-line fix\" — three hours later" },
+  { text: "A Friday wrapped up with git push --force" },
+  { text: "A typo found right before deploy = today's biggest crisis" },
+  { text: "In the meeting: \"almost done\" / In the code: \"barely started\"" },
+  { text: "Deploy first, apologize on Slack later" },
+  { text: "Running a whole company from one keyboard" },
+];
