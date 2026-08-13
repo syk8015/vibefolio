@@ -153,7 +153,7 @@
 | copyAddress | 프레임 주소 복사 | Copy frame address | 툴팁 |
 | copied | 복사됨 ✓ | Copied ✓ | |
 | viewFrame | 내 프레임 보기 | View my frame | |
-| tabProjects | 작품 | Work | ⚠️ 탭 라벨. Projects 아닌 Work 선택(작품=창작물 뉘앙스) |
+| tabProjects | 작품 | Works | 탭 라벨. 검수 반영: 가산명사 Works로 수정(theater의 "{N} works"와 일관) |
 | tabCard | 명함 | Card | |
 | tabVisits | 방문 | Visits | |
 | errorTitle | 대시보드를 불러오지 못했어요 | Couldn't load the dashboard | |
@@ -168,7 +168,7 @@
 | emptyTitle | 아직 프로젝트가 없어요 | No projects yet | |
 | emptyBody | 위 버튼으로 첫 프로젝트를 추가해보세요 | Use the button above to add your first one | |
 | connectTitle | AI로 한 줄에 올리기 | Publish in one line with AI | |
-| connectSubtitle | 클로드코드·커서·챗봇을 연결하면, 그 작업을 만든 AI가 여기에 초안으로 올려줘요 | Connect Claude Code, Cursor, or a chatbot — the AI that built the work posts it here as a draft | |
+| connectSubtitle | 클로드코드·커서·챗봇을 연결하면, 그 작업을 만든 AI가 여기에 초안으로 올려줘요 | Connect Claude Code, Cursor, or a chatbot — the AI that built the work will post it here as a draft | 검수 반영: 미래 동작이라 will post로 수정 |
 | addTitle | 새 프로젝트 추가 | Add a new project | |
 | editTitle | 프로젝트 수정 | Edit project | |
 | submitAdd | 추가하기 | Add | |
@@ -241,7 +241,7 @@
 | cancel | 취소 | Cancel | |
 | pickFiles | 파일 선택 | Choose files | |
 | pickFolder | 폴더 선택 | Choose folder | |
-| wizardGuide1~4 | React/Vue/Vite는 [npm run build] 후 생성된 [dist/] 폴더를 올려주세요. 순수 HTML/CSS/JS는 그대로, [.zip]도 가능. 최대 25MB | For React/Vue/Vite, run [npm run build] and upload the generated [dist/] folder. Plain HTML/CSS/JS works as-is; [.zip] is fine too. Max 25MB | ⚠️ 코드 조각 3개가 끼어 4조각으로 분할된 문장 |
+| wizardGuide1~4 | React/Vue/Vite는 [npm run build] 후 생성된 [dist/] 폴더를 올려주세요. 순수 HTML/CSS/JS는 그대로, [.zip]도 가능. 최대 25MB | For React/Vue/Vite, run [npm run build] and upload the generated [dist/] folder. Plain HTML/CSS/JS files work as-is; [.zip] is fine too. Max 25MB | ⚠️ 코드 조각 3개가 끼어 4조각으로 분할된 문장. 검수 반영: files work로 수일치 수정 |
 | uploading | 업로드 중… | Uploading… | |
 | uploadDone | 업로드 완료 | Upload complete | |
 | titlePlaceholder | 프로젝트 이름 | Project name | |
@@ -441,7 +441,7 @@
 | emptyTitle | 아직 공개된 프로젝트가 없어요 | No public projects yet | |
 | emptyBody | 곧 새로운 작업물이 올라올 예정이에요. | New work is coming soon. | |
 | screenings | 상영 목록 · {N} works | Screenings · {N} works | 함수 |
-| aboutLabel | 명함 · About | Card · About | ⚠️ 한국어는 한/영 병기라 영어판은 병기 구조 유지 여부 검토 |
+| aboutLabel | 명함 · About | About | 검수 반영: Card 단독은 결제카드 오해 소지 → About만 사용 |
 | upNextLabel | 상영 목록 · Up Next | Up Next | ⚠️ 영어판은 병기 접기 |
 | prevWork | 이전 작품 | Previous work | aria |
 | nextWork | 다음 작품 | Next work | aria |
