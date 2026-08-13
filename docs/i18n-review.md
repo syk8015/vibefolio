@@ -578,3 +578,21 @@
 
 ### 사전 밖 이중 카피 (components/ReportButton.tsx)
 신고 모달은 사전이 아니라 컴포넌트 안 COPY 상수에 ko/en이 이미 들어 있음(watch 페이지 공유). 토글을 따라가되 watch에서는 en 고정. 검수 시 이 파일도 볼 것.
+
+## authEmail (Supabase 인증메일 2종 — 사전 밖, docs/auth-emails/*.html)
+
+사전이 아니라 Supabase 대시보드 수동 템플릿. 언어는 user_metadata.locale로 템플릿 안에서 분기(`{{ if eq (printf "%v" .Data.locale) "en" }}`), locale 없으면 ko 폴백. 수정 시 repo 파일 고치고 대시보드 재붙여넣기.
+
+| 키 | 한국어 | English | 비고 |
+|---|---|---|---|
+| confirm.subject | 메일 주소만 확인하면 가입이 끝나요 | Confirm your email to finish signing up | 제목 필드 |
+| confirm.heading | 메일 주소만 확인하면 끝나요 | One click and you're in | ⚠️ 의역 |
+| confirm.body | 아래 버튼을 누르면 가입이 완료돼요. 본인이 요청한 게 아니라면 이 메일은 무시해도 돼요. | Press the button below and your signup is complete. If this wasn't you, feel free to ignore this email. | |
+| confirm.cta | 이메일 인증하기 | Verify email | 버튼 |
+| confirm.footer | Nookframe 가입 인증 메일이에요. 궁금한 점은 이 메일에 회신해 주세요. | This is the Nookframe signup confirmation email. Questions? Just reply to this email. | |
+| reset.subject | 비밀번호를 다시 설정할게요 | Let's reset your password | 제목 필드 |
+| reset.heading | 비밀번호를 다시 설정할게요 | Let's set a new password | ⚠️ 제목과 차별화 |
+| reset.body | 아래 버튼에서 새 비밀번호를 정할 수 있어요. 요청한 적이 없다면 이 메일은 무시해 주세요 — 계정은 그대로 안전해요. | The button below takes you to a page where you can choose a new password. If you didn't request this, just ignore this email — your account is safe. | ⚠️ 구조 변경 |
+| reset.cta | 비밀번호 재설정 | Reset password | 버튼 |
+| reset.footer | Nookframe 비밀번호 재설정 메일이에요. 궁금한 점은 이 메일에 회신해 주세요. | This is the Nookframe password reset email. Questions? Just reply to this email. | |
+| (공통) linkFallback | 버튼이 열리지 않으면 이 링크를 브라우저에 붙여넣어 주세요. | If the button doesn't open, paste this link into your browser. | 두 템플릿 공통 |
