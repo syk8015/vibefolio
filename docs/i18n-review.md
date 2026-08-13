@@ -472,5 +472,109 @@
 | notFoundTitle | 페이지를 찾을 수 없어요 | We can't find that page | |
 | notFoundBody | 주소가 바뀌었거나 사라진 페이지일 수 있어요. 홈으로 돌아가 시작해 주세요. | The address may have changed or the page may be gone. Head home to start over. | |
 
+## api (서버 API 에러 응답 — 3단계)
+
+라우트가 쿠키 언어(getT)로 고른다. admin 전용 라우트는 한국어 유지라 사전 밖. PAT(Bearer) 인제스트는 AI/기계 호출자라 en 고정.
+
+| 키 | 한국어 | English | 비고 |
+|---|---|---|---|
+| loginRequired | 로그인이 필요해요. | Please log in. | |
+| retryLater | 잠시 후 다시 시도해 주세요. | Please try again in a moment. | |
+| projectNotFound | 프로젝트를 찾을 수 없어요. | Project not found. | |
+| projectForbidden | 이 프로젝트에 대한 권한이 없어요. | You don't have permission for this project. | |
+| demoStatusFailed | 시연 상태를 불러오지 못했어요. | Couldn't load the demo status. | |
+| rerecordReasonRequired | 무엇을 어떻게 바꾸고 싶은지 적어주세요. | Tell us what you'd like changed and how. | |
+| rerecordInFlight | 지금 시연 영상을 만드는 중이에요. 끝난 뒤에 요청해 주세요. | A demo video is being made right now. Please ask again once it's done. | |
+| rerecordSaveFailed | 요청을 저장하지 못했어요. 잠시 후 다시 시도해 주세요. | Couldn't save the request. Please try again in a moment. | |
+| unsupportedSource | 자동 시연을 만들 수 없는 소스예요. | This source can't be turned into an auto demo. | |
+| contentHost | {host}는 자동 시연으로 촬영하는 '내 작품' 주소가 아니에요. 영상 링크라면 '구동 영상' 칸에 넣어주세요. | {host} isn't a "my work" address the auto demo can film. If it's a video link, put it in the "Video clip" field instead. | 함수(host). '구동 영상'=projectForm videoLabel(Video clip)과 용어 일치 |
+| contentHostShort | {host}는 자동 시연으로 촬영하는 '내 작품' 주소가 아니에요. | {host} isn't a "my work" address the auto demo can film. | 함수(host), 인제스트용 축약 |
+| privateHost | localhost나 내부 주소는 촬영할 수 없어요. 공개로 접속되는 배포 URL로 올려주세요. | We can't film localhost or private addresses. Please use a publicly reachable deployed URL. | |
+| privateHostShort | localhost·내부 주소는 안 돼요. 공개로 접속되는 배포 URL로 올려주세요. | localhost and private addresses won't work. Please use a publicly reachable deployed URL. | 인제스트용 축약 |
+| notPublicUrl | 공개 인터넷에서 접속되는 주소가 아니에요. 배포된 공개 URL로 올려주세요. | That address isn't reachable from the public internet. Please use a deployed public URL. | |
+| demoUpdateFailed | 데모 상태를 업데이트하지 못했어요. 잠시 후 다시 시도해 주세요. | Couldn't update the demo status. Please try again in a moment. | |
+| alreadyHasDemo | 이미 시연 영상이 있어요. 다시 만들려면 '재촬영 요청'으로 바꾸고 싶은 점을 알려주세요. | This project already has a demo video. To make a new one, use "Request re-record" and tell us what to change. | '재촬영 요청'=projects rerecordRequest(Request re-record)와 용어 일치 |
+| attemptLimit | 자동 생성 재시도 한도를 다 썼어요. '재촬영 요청'으로 관리자 승인을 받아주세요. | You've used up the auto-generation retries. Use "Request re-record" to get admin approval. | |
+| demoStartFailed | 자동 시연을 시작할 수 없어요. | Couldn't start the auto demo. | |
+| heldGlobal | 오늘 자동 시연 생성이 많아 잠시 대기열에 넣었어요. 관리자 확인 후 생성돼요. | Lots of demos are being made today, so yours is briefly queued. It'll be created after an admin check. | ⚠️ 의역 |
+| heldUser | 하루 자동 시연 한도를 넘어 관리자 승인 대기로 전환했어요. 승인 전까지는 이미지로 표시돼요. | You've passed the daily auto-demo limit, so this is waiting for admin approval. It shows as an image until then. | |
+| tokenInvalid | 토큰이 유효하지 않거나 폐기됐어요. | This token is invalid or has been revoked. | |
+| loginOrTokenRequired | 로그인이 필요해요. (토큰 또는 세션) | Authentication required (token or session). | ⚠️ 구조 변경 |
+| tooManyRequests | 요청이 너무 많아요. 잠시 후 다시 시도해 주세요. | Too many requests. Please try again later. | |
+| uploadTooLarge | 업로드가 너무 커요 (최대 25MB). | The upload is too large (max 25MB). | |
+| payloadPartRequired | payload(JSON) 파트가 필요해요. | A payload (JSON) part is required. | |
+| payloadJsonInvalid | payload JSON을 읽을 수 없어요. | Couldn't parse the payload JSON. | |
+| jsonBodyInvalid | JSON 본문을 읽을 수 없어요. | Couldn't parse the JSON body. | |
+| titleRequired | title이 필요해요. | title is required. | |
+| draftLimit | 검토 대기 중인 초안이 너무 많아요 (최대 {max}개). 대시보드에서 먼저 공개하거나 정리해 주세요. | Too many drafts are waiting for review (max {max}). Publish or clean some up on your dashboard first. | 함수(max) |
+| artifactRequired | deployUrl(또는 appUrl) 또는 파일 번들(bundle)이 필요해요. | Either deployUrl (or appUrl) or a file bundle is required. | appUrl 커밋(fe932cb) 문구 기준 |
+| badUrl | 임베드·시연할 수 있는 URL이 아니에요. | This URL can't be embedded or filmed for a demo. | |
+| projectCreateFailed | 프로젝트를 만들지 못했어요. | Couldn't create the project. | |
+| indexHtmlMissing | index.html이 없어요. 자동 시연은 브라우저에 뜨는 화면을 촬영해요 — 정적 사이트 번들에 index.html을 포함해 주세요. | No index.html found. Auto demos film what shows up in a browser — include index.html in your static site bundle. | |
+| badFilePath | 잘못된 파일 경로가 감지됐어요. | An invalid file path was detected. | |
+| fileUploadFailed | 파일 업로드 실패: {detail} | File upload failed: {detail} | 함수(detail) |
+| demoUrlSaveFailed | 데모 URL 저장에 실패했어요. | Couldn't save the demo URL. | |
+| uploadProcessingError | 업로드 처리 중 오류가 났어요. | Something went wrong while processing the upload. | |
+| zipBomb | 압축 해제 크기가 한도를 초과했어요 (zip bomb 의심). | The decompressed size exceeds the limit (possible zip bomb). | |
+| zipReadError | zip 해제 중 오류가 났어요. | Something went wrong while extracting the zip. | |
+| zipEmpty | 빈 zip이에요. | The zip is empty. | |
+| zipTooManyFiles | 파일이 너무 많아요 (최대 {max}개). | Too many files (max {max}). | 함수(max) |
+| zipNoValidFiles | 업로드할 유효한 파일이 없어요. | No valid files to upload. | |
+| badReport | 잘못된 신고 요청이에요. | Invalid report request. | |
+| reportRateLimited | 신고가 너무 잦아요. 잠시 후 다시 시도해 주세요. | Too many reports. Please try again later. | |
+| targetNotFound | 대상을 찾을 수 없어요. | Target not found. | |
+| reportSaveFailed | 신고를 저장하지 못했어요. 잠시 후 다시 시도해 주세요. | Couldn't save the report. Please try again in a moment. | |
+| accountDeleteFailed | 탈퇴 처리 중 문제가 생겼어요. 잠시 후 다시 시도해 주세요. | Something went wrong while deleting the account. Please try again in a moment. | |
+| tokenLimit | 토큰은 최대 {max}개까지 만들 수 있어요. 안 쓰는 토큰을 폐기해 주세요. | You can have up to {max} tokens. Revoke one you're not using first. | 함수(max) |
+| tokenCreateFailed | 토큰을 만들지 못했어요. 잠시 후 다시 시도해 주세요. | Couldn't create the token. Please try again in a moment. | |
+| tokenNotFound | 토큰을 찾을 수 없어요. | Token not found. | |
+| tokenForbidden | 이 토큰에 대한 권한이 없어요. | You don't have permission for this token. | |
+| tokenRevokeFailed | 토큰을 폐기하지 못했어요. 잠시 후 다시 시도해 주세요. | Couldn't revoke the token. Please try again in a moment. | |
+
+## demoFailure (시연 실패 코드별 카피 — 대시보드 팝오버 + 실패 메일 공유)
+
+| 키 | 한국어 | English | 비고 |
+|---|---|---|---|
+| login-gated.title | 로그인이 필요한 사이트예요 | This site requires a login | |
+| login-gated.body | 지금은 로그인 없이 볼 수 있는 화면만 촬영할 수 있어요. 공개로 접속되는 URL로 바꾼 뒤 다시 시도해 주세요. | Right now we can only film screens that open without logging in. Switch to a publicly accessible URL and try again. | |
+| timeout.title | 촬영이 너무 오래 걸렸어요 | The shoot took too long | |
+| timeout.body | 사이트 로딩이 느리거나 중간에 멈춘 것 같아요. 잠시 후 한 번 더 시도해 주세요. | The site seems to load slowly or got stuck along the way. Please try once more in a bit. | |
+| interrupted.title | 촬영이 중간에 끊겼어요 | The shoot was interrupted | |
+| interrupted.body | 녹화 장비가 재시작되면서 작업이 중단됐어요. 다시 시도하면 처음부터 새로 촬영해요. | The recording rig restarted mid-job. Trying again starts a fresh shoot from the beginning. | |
+| stuck.title | 생성이 오래 걸려 중단됐어요 | Stopped because it ran too long | |
+| stuck.body | 예상보다 오래 걸려 자동으로 멈췄어요. 한 번 더 시도해 주시고, 반복되면 사이트가 정상 접속되는지 확인해 주세요. | It took longer than expected, so we stopped it automatically. Try once more, and if it keeps happening, check that your site loads normally. | |
+| build-failed.title | 프로젝트를 빌드하지 못했어요 | We couldn't build the project | |
+| build-failed.body | 코드를 설치하거나 실행하는 중에 멈췄어요. 로컬에서 npm install · npm run dev가 잘 되는지 확인하거나, 빌드된 결과물(dist 폴더)이나 배포된 URL로 올려주세요. | Something stopped while installing or running the code. Check that npm install · npm run dev work locally, or upload the built output (dist folder) or a deployed URL instead. | |
+| not-a-webapp.title | 보여줄 웹 화면을 찾지 못했어요 | We couldn't find a web screen to show | |
+| not-a-webapp.body | 웹페이지(HTML)가 없는 것 같아요. 자동 시연은 브라우저에 뜨는 화면을 촬영해요. 웹앱이라면 index.html이 포함됐는지, 백엔드·CLI 프로젝트라면 시연 촬영 대상이 아닌지 확인해 주세요. | There doesn't seem to be a web page (HTML). Auto demos film what shows up in a browser. For a web app, check that index.html is included; backend or CLI projects may not be filmable. | ⚠️ 마지막 절 의역 |
+| blank.title | 화면에 아무것도 나오지 않았어요 | Nothing showed up on screen | |
+| blank.body | 페이지는 열렸는데 아직 아무것도 그려지지 않았어요. 만들다 만 빈 화면이거나 로딩이 끝나지 않은 것 같아요. 화면에 뭔가 보이는 상태로 다시 올려주세요. | The page opened but nothing was drawn yet. It may be a blank work-in-progress screen, or still loading. Please upload it in a state where something is visible. | |
+| policy.title | 콘텐츠 정책에 맞지 않아 게시하지 못했어요 | We couldn't publish this due to content policy | |
+| policy.body | 검토 결과 이 시연은 Nookframe에 공개하기 어려운 내용이 담겨 있었어요. 내용을 수정한 뒤 다시 시도해 주시고, 잘못된 판단이라고 생각되면 회신으로 알려주세요. | On review, this demo contained content we can't publish on Nookframe. Please revise it and try again — and if you think this was a mistake, let us know by replying. | |
+| error.title | 촬영 중 문제가 생겼어요 | Something went wrong during the shoot | |
+| error.body | 일시적인 문제일 수 있어요. 한 번 더 시도해 보고, 반복되면 URL이 브라우저에서 정상 접속되는지 확인해 주세요. | It may be a temporary issue. Try once more, and if it keeps failing, check that the URL opens normally in a browser. | |
+
+## email (유저 수신 알림 메일 — 완성·실패)
+
+수신자 언어는 profiles.locale(토글 시 저장, 기본 ko). 관리자 경보 메일은 한국어 유지라 사전 밖.
+
+| 키 | 한국어 | English | 비고 |
+|---|---|---|---|
+| footer | Nookframe 자동 알림이에요. 궁금한 점은 이 메일에 회신해 주세요. | This is an automated Nookframe notification. Questions? Just reply to this email. | ⚠️ 의역 |
+| untitledProject | 내 프로젝트 | My project | 제목 없는 프로젝트 폴백 |
+| readySubject | 시연 영상이 완성됐어요 — {title} | Your demo video is ready — {title} | 함수(title) |
+| readyPreheader | {title} 자동 시연 영상이 방금 완성됐어요. | The auto demo video for {title} just finished. | 함수(title), 받은편지함 미리보기 줄 |
+| readyHeading | 시연 영상이 완성됐어요 | Your demo video is ready | |
+| readyBody | {title}의 자동 시연 영상이 방금 완성됐어요. 사람 손 없이, 배포된 화면 그대로 촬영됐어요. | The auto demo video for {title} just finished — filmed straight from your deployed screen, no human hands involved. | ⚠️ 구조 변경(함수, 어순) |
+| readyPosterAlt | {title} 시연 영상 첫 장면 | Opening frame of the {title} demo video | 함수(title), 이미지 alt |
+| readyCta | 영상 보러 가기 | Watch the video | 버튼 |
+| readyShareIntro | 링크를 그대로 공유하면 Discord·Slack에서 영상이 바로 재생돼요. mp4 다운로드와 공유 문구는␣ | Share the link as-is and the video plays right inside Discord or Slack. The mp4 download and ready-made captions live in␣ | intro+링크+outro로 조립, 끝 공백 유지 |
+| readyShareLink | 대시보드의 공유 버튼 | the share button on your dashboard | 링크 텍스트 |
+| readyShareOutro | 에 있어요. | . | ⚠️ 어순상 en은 마침표만 |
+| failedSubject | 시연 영상을 만들지 못했어요 — {title} | We couldn't make your demo video — {title} | 함수(title) |
+| failedBody | {title}의 자동 시연 촬영이 완료되지 못했어요. | The auto demo shoot for {title} couldn't be completed. | 함수(title) |
+| failedCta | 대시보드에서 다시 시도 | Try again from the dashboard | 버튼 |
+| failedTechLine | 자세한 기술 정보는 대시보드의 실패 배지를 누르면 볼 수 있어요. | For technical details, click the failure badge on your dashboard. | |
+
 ### 사전 밖 이중 카피 (components/ReportButton.tsx)
 신고 모달은 사전이 아니라 컴포넌트 안 COPY 상수에 ko/en이 이미 들어 있음(watch 페이지 공유). 토글을 따라가되 watch에서는 en 고정. 검수 시 이 파일도 볼 것.

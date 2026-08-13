@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { apiError } from "@/lib/apiError";
+import { getT } from "@/lib/i18n/server";
 import { sendEmail, alertRecipients } from "@/lib/email";
 import { adminAlertEmail, SITE_URL } from "@/lib/email-templates";
 
@@ -17,13 +18,14 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const { t } = await getT();
   try {
     const { id } = await params;
 
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
-      return apiError({ status: 401, message: "로그인이 필요해요.", code: "UNAUTHORIZED" });
+      return apiError({ status: 401, message: t.api.loginRequired, code: "UNAUTHORIZED" });
     }
 
     let reason = "";
@@ -36,7 +38,7 @@ export async function POST(
     if (!reason) {
       return apiError({
         status: 400,
-        message: "무엇을 어떻게 바꾸고 싶은지 적어주세요.",
+        message: t.api.rerecordReasonRequired,
         code: "REASON_REQUIRED",
       });
     }
@@ -48,15 +50,15 @@ export async function POST(
       .eq("id", id)
       .single();
     if (selErr || !project) {
-      return apiError({ status: 404, message: "프로젝트를 찾을 수 없어요.", code: "NOT_FOUND" });
+      return apiError({ status: 404, message: t.api.projectNotFound, code: "NOT_FOUND" });
     }
     if (project.user_id !== user.id) {
-      return apiError({ status: 403, message: "이 프로젝트에 대한 권한이 없어요.", code: "FORBIDDEN" });
+      return apiError({ status: 403, message: t.api.projectForbidden, code: "FORBIDDEN" });
     }
     if (IN_FLIGHT.includes(project.demo_build_status ?? "")) {
       return apiError({
         status: 409,
-        message: "지금 시연 영상을 만드는 중이에요. 끝난 뒤에 요청해 주세요.",
+        message: t.api.rerecordInFlight,
         code: "IN_FLIGHT",
       });
     }
@@ -93,7 +95,7 @@ export async function POST(
       }
       return apiError({
         status: 500,
-        message: "요청을 저장하지 못했어요. 잠시 후 다시 시도해 주세요.",
+        message: t.api.rerecordSaveFailed,
         code: "DB_INSERT_FAILED",
         cause: insErr,
         context: { projectId: id },
@@ -120,7 +122,7 @@ export async function POST(
   } catch (err) {
     return apiError({
       status: 500,
-      message: "잠시 후 다시 시도해 주세요.",
+      message: t.api.retryLater,
       code: "INTERNAL",
       cause: err,
     });

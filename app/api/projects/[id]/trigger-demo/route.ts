@@ -5,6 +5,7 @@ import { detectDemoSource, liveUrlIssue } from "@/lib/demoSource";
 import { resolveBuildPayload, DemoSourceError } from "@/lib/demoPayload";
 import { assertSafePublicUrl, SsrfError } from "@/lib/ssrf";
 import { apiError } from "@/lib/apiError";
+import { getT } from "@/lib/i18n/server";
 import { trackServerEvent } from "@/lib/analytics";
 import { AnalyticsEvent } from "@/lib/analytics-events";
 import { sendEmail, alertRecipients } from "@/lib/email";
@@ -24,13 +25,14 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const { t } = await getT();
   try {
     const { id } = await params;
 
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
-      return apiError({ status: 401, message: "로그인이 필요해요.", code: "UNAUTHORIZED" });
+      return apiError({ status: 401, message: t.api.loginRequired, code: "UNAUTHORIZED" });
     }
 
     const { data: project, error: selErr } = await supabase
@@ -39,17 +41,17 @@ export async function POST(
       .eq("id", id)
       .single();
     if (selErr || !project) {
-      return apiError({ status: 404, message: "프로젝트를 찾을 수 없어요.", code: "NOT_FOUND" });
+      return apiError({ status: 404, message: t.api.projectNotFound, code: "NOT_FOUND" });
     }
     if (project.user_id !== user.id) {
-      return apiError({ status: 403, message: "이 프로젝트에 대한 권한이 없어요.", code: "FORBIDDEN" });
+      return apiError({ status: 403, message: t.api.projectForbidden, code: "FORBIDDEN" });
     }
 
     const source = detectDemoSource(project.demo_url);
     if (!source) {
       return apiError({
         status: 400,
-        message: "자동 시연을 만들 수 없는 소스예요.",
+        message: t.api.unsupportedSource,
         code: "UNSUPPORTED_SOURCE",
       });
     }
@@ -63,14 +65,14 @@ export async function POST(
         return apiError({
           status: 400,
           code: "CONTENT_HOST",
-          message: `${issue.host}는 자동 시연으로 촬영하는 '내 작품' 주소가 아니에요. 영상 링크라면 '구동 영상' 칸에 넣어주세요.`,
+          message: t.api.contentHost(issue.host),
         });
       }
       if (issue?.kind === "private-host") {
         return apiError({
           status: 400,
           code: "PRIVATE_HOST",
-          message: "localhost나 내부 주소는 촬영할 수 없어요. 공개로 접속되는 배포 URL로 올려주세요.",
+          message: t.api.privateHost,
         });
       }
       // Full SSRF defense: DNS-resolve the host and reject any private/reserved IP
@@ -82,7 +84,7 @@ export async function POST(
           return apiError({
             status: 400,
             code: "PRIVATE_HOST",
-            message: "공개 인터넷에서 접속되는 주소가 아니에요. 배포된 공개 URL로 올려주세요.",
+            message: t.api.notPublicUrl,
           });
         }
         throw e;
@@ -104,7 +106,7 @@ export async function POST(
       );
     } catch (e) {
       if (e instanceof DemoSourceError) {
-        return apiError({ status: 400, message: "자동 시연을 만들 수 없는 소스예요.", code: "UNSUPPORTED_SOURCE" });
+        return apiError({ status: 400, message: t.api.unsupportedSource, code: "UNSUPPORTED_SOURCE" });
       }
       throw e;
     }
@@ -124,7 +126,7 @@ export async function POST(
     if (rpcErr) {
       return apiError({
         status: 500,
-        message: "데모 상태를 업데이트하지 못했어요. 잠시 후 다시 시도해 주세요.",
+        message: t.api.demoUpdateFailed,
         code: "DB_UPDATE_FAILED",
         cause: rpcErr,
         context: { projectId: id },
@@ -135,25 +137,25 @@ export async function POST(
     if (!result.ok) {
       switch (result.code) {
         case "UNAUTHORIZED":
-          return apiError({ status: 401, message: "로그인이 필요해요.", code: "UNAUTHORIZED" });
+          return apiError({ status: 401, message: t.api.loginRequired, code: "UNAUTHORIZED" });
         case "NOT_FOUND":
-          return apiError({ status: 404, message: "프로젝트를 찾을 수 없어요.", code: "NOT_FOUND" });
+          return apiError({ status: 404, message: t.api.projectNotFound, code: "NOT_FOUND" });
         case "FORBIDDEN":
-          return apiError({ status: 403, message: "이 프로젝트에 대한 권한이 없어요.", code: "FORBIDDEN" });
+          return apiError({ status: 403, message: t.api.projectForbidden, code: "FORBIDDEN" });
         case "ALREADY_HAS_DEMO":
           return apiError({
             status: 409,
-            message: "이미 시연 영상이 있어요. 다시 만들려면 '재촬영 요청'으로 바꾸고 싶은 점을 알려주세요.",
+            message: t.api.alreadyHasDemo,
             code: "ALREADY_HAS_DEMO",
           });
         case "ATTEMPT_LIMIT":
           return apiError({
             status: 409,
-            message: "자동 생성 재시도 한도를 다 썼어요. '재촬영 요청'으로 관리자 승인을 받아주세요.",
+            message: t.api.attemptLimit,
             code: "ATTEMPT_LIMIT",
           });
         default:
-          return apiError({ status: 400, message: "자동 시연을 시작할 수 없어요.", code: result.code ?? "REJECTED" });
+          return apiError({ status: 400, message: t.api.demoStartFailed, code: result.code ?? "REJECTED" });
       }
     }
 
@@ -186,10 +188,7 @@ export async function POST(
       return NextResponse.json({
         ok: true,
         held: true,
-        message:
-          result.reason === "global"
-            ? "오늘 자동 시연 생성이 많아 잠시 대기열에 넣었어요. 관리자 확인 후 생성돼요."
-            : "하루 자동 시연 한도를 넘어 관리자 승인 대기로 전환했어요. 승인 전까지는 이미지로 표시돼요.",
+        message: result.reason === "global" ? t.api.heldGlobal : t.api.heldUser,
       });
     }
 
@@ -238,7 +237,7 @@ export async function POST(
     // returns the standard error shape instead of a raw 500 + stack trace.
     return apiError({
       status: 500,
-      message: "잠시 후 다시 시도해 주세요.",
+      message: t.api.retryLater,
       code: "INTERNAL",
       cause: err,
     });

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { apiError } from "@/lib/apiError";
+import { getT } from "@/lib/i18n/server";
 import { logger } from "@/lib/logger";
 import { isR2Configured, deleteR2Prefix } from "@/lib/r2";
 
@@ -55,13 +56,14 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const { t } = await getT();
   try {
     const { id } = await params;
 
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
-      return apiError({ status: 401, message: "로그인이 필요해요.", code: "UNAUTHORIZED" });
+      return apiError({ status: 401, message: t.api.loginRequired, code: "UNAUTHORIZED" });
     }
 
     const { data: project, error: selErr } = await supabase
@@ -70,10 +72,10 @@ export async function DELETE(
       .eq("id", id)
       .single();
     if (selErr || !project) {
-      return apiError({ status: 404, message: "프로젝트를 찾을 수 없어요.", code: "NOT_FOUND" });
+      return apiError({ status: 404, message: t.api.projectNotFound, code: "NOT_FOUND" });
     }
     if (project.user_id !== user.id) {
-      return apiError({ status: 403, message: "이 프로젝트에 대한 권한이 없어요.", code: "FORBIDDEN" });
+      return apiError({ status: 403, message: t.api.projectForbidden, code: "FORBIDDEN" });
     }
 
     const admin = createAdminClient(
@@ -142,7 +144,7 @@ export async function DELETE(
   } catch (err) {
     return apiError({
       status: 500,
-      message: "잠시 후 다시 시도해 주세요.",
+      message: t.api.retryLater,
       code: "INTERNAL",
       cause: err,
     });
@@ -162,13 +164,14 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const { t } = await getT();
   try {
     const { id } = await params;
 
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
-      return apiError({ status: 401, message: "로그인이 필요해요.", code: "UNAUTHORIZED" });
+      return apiError({ status: 401, message: t.api.loginRequired, code: "UNAUTHORIZED" });
     }
 
     const body = await req.json().catch(() => null);
@@ -182,10 +185,10 @@ export async function POST(
       .eq("id", id)
       .single();
     if (selErr || !project) {
-      return apiError({ status: 404, message: "프로젝트를 찾을 수 없어요.", code: "NOT_FOUND" });
+      return apiError({ status: 404, message: t.api.projectNotFound, code: "NOT_FOUND" });
     }
     if (project.user_id !== user.id) {
-      return apiError({ status: 403, message: "이 프로젝트에 대한 권한이 없어요.", code: "FORBIDDEN" });
+      return apiError({ status: 403, message: t.api.projectForbidden, code: "FORBIDDEN" });
     }
 
     const ownerPrefix = `${user.id}/`;
@@ -210,7 +213,7 @@ export async function POST(
   } catch (err) {
     return apiError({
       status: 500,
-      message: "잠시 후 다시 시도해 주세요.",
+      message: t.api.retryLater,
       code: "INTERNAL",
       cause: err,
     });

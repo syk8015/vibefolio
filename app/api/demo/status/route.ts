@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { apiError } from "@/lib/apiError";
+import { getT } from "@/lib/i18n/server";
 import { logger } from "@/lib/logger";
 
 // `system_status` is default-deny RLS (service role only), so the dashboard can't
@@ -15,11 +16,12 @@ import { logger } from "@/lib/logger";
 // reason to publish our operational posture to anonymous callers.
 
 export async function GET() {
+  const { t } = await getT();
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
-      return apiError({ status: 401, message: "로그인이 필요해요.", code: "UNAUTHORIZED" });
+      return apiError({ status: 401, message: t.api.loginRequired, code: "UNAUTHORIZED" });
     }
 
     const admin = createAdminClient();
@@ -41,7 +43,7 @@ export async function GET() {
   } catch (err) {
     return apiError({
       status: 500,
-      message: "시연 상태를 불러오지 못했어요.",
+      message: t.api.demoStatusFailed,
       code: "INTERNAL",
       cause: err,
     });

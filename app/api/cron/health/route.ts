@@ -3,7 +3,9 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { logger, hasErrorReporter } from "@/lib/logger";
 import { trackServerEvent } from "@/lib/analytics";
 import { AnalyticsEvent } from "@/lib/analytics-events";
-import { formatDemoFailure, DEMO_FAILURE_COPY } from "@/lib/demo-failure";
+import { formatDemoFailure, demoFailureCopy } from "@/lib/demo-failure";
+import { recipientLocale } from "@/lib/i18n/user-locale";
+import { getDictionary } from "@/lib/i18n/dictionaries";
 import { sendEmail, isEmailConfigured, alertRecipients } from "@/lib/email";
 import { demoFailedEmail, adminAlertEmail, SITE_URL } from "@/lib/email-templates";
 
@@ -129,11 +131,13 @@ export async function GET(req: NextRequest) {
             const { data: u } = await admin.auth.admin.getUserById(r.user_id);
             const to = u?.user?.email;
             if (!to) continue;
+            const locale = await recipientLocale(admin, r.user_id);
             await sendEmail({
               to,
               ...demoFailedEmail({
-                projectTitle: (r.title as string | null) || "내 프로젝트",
-                copy: DEMO_FAILURE_COPY.stuck,
+                projectTitle: (r.title as string | null) || getDictionary(locale).email.untitledProject,
+                copy: demoFailureCopy("stuck", locale),
+                locale,
               }),
             });
           } catch (err) {

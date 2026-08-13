@@ -26,7 +26,9 @@ import { runJob, type JobPhase, type JobOutcome } from "./job";
 import type { SourceType } from "./safety";
 import { DEMO_QUOTA } from "../lib/demoQuota";
 import { AnalyticsEvent } from "../lib/analytics-events";
-import { formatDemoFailure, DEMO_FAILURE_COPY, type DemoFailureCode } from "../lib/demo-failure";
+import { formatDemoFailure, demoFailureCopy, type DemoFailureCode } from "../lib/demo-failure";
+import { recipientLocale } from "../lib/i18n/user-locale";
+import { getDictionary } from "../lib/i18n/dictionaries";
 import { sendEmail, isEmailConfigured, alertRecipients } from "../lib/email";
 import { demoReadyEmail, demoFailedEmail, adminAlertEmail, posterFromDemoUrl, SITE_URL } from "../lib/email-templates";
 import { fetchUsername } from "./upload";
@@ -226,10 +228,12 @@ async function notifyDemoReady(row: { id: string; user_id: string; title: string
       const ok = await fetch(posterUrl, { method: "HEAD" }).then((r) => r.ok).catch(() => false);
       if (!ok) posterUrl = undefined;
     }
+    const locale = await recipientLocale(supabase, row.user_id);
     const mail = demoReadyEmail({
-      projectTitle: row.title || "내 프로젝트",
+      projectTitle: row.title || getDictionary(locale).email.untitledProject,
       watchUrl,
       posterUrl,
+      locale,
     });
     const sent = await sendEmail({ to, ...mail });
     if (sent) console.log(`[worker] demo-ready email → ${to}`);
@@ -238,7 +242,7 @@ async function notifyDemoReady(row: { id: string; user_id: string; title: string
   }
 }
 
-// 실패 통보 — 대시보드 배지와 같은 코드별 카피(DEMO_FAILURE_COPY). raw 에러 미포함.
+// 실패 통보 — 대시보드 배지와 같은 코드별 카피(demoFailureCopy, 수신자 locale). raw 에러 미포함.
 async function notifyDemoFailed(
   row: { id: string; user_id: string; title: string | null },
   code: DemoFailureCode,
@@ -247,9 +251,11 @@ async function notifyDemoFailed(
   try {
     const to = await ownerEmail(row.user_id);
     if (!to) return;
+    const locale = await recipientLocale(supabase, row.user_id);
     const mail = demoFailedEmail({
-      projectTitle: row.title || "내 프로젝트",
-      copy: DEMO_FAILURE_COPY[code],
+      projectTitle: row.title || getDictionary(locale).email.untitledProject,
+      copy: demoFailureCopy(code, locale),
+      locale,
     });
     const sent = await sendEmail({ to, ...mail });
     if (sent) console.log(`[worker] demo-failed(${code}) email → ${to}`);

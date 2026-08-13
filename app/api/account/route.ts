@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdminClient, type SupabaseClient } from "@supabase/supabase-js";
 import { apiError } from "@/lib/apiError";
+import { getT } from "@/lib/i18n/server";
 import { logger } from "@/lib/logger";
 import { isR2Configured, deleteR2Prefix } from "@/lib/r2";
 
@@ -49,11 +50,12 @@ async function removeAll(admin: SupabaseClient, bucket: string, paths: string[])
 }
 
 export async function DELETE() {
+  const { t } = await getT();
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
-      return apiError({ status: 401, message: "로그인이 필요해요.", code: "UNAUTHORIZED" });
+      return apiError({ status: 401, message: t.api.loginRequired, code: "UNAUTHORIZED" });
     }
     const uid = user.id;
 
@@ -92,7 +94,7 @@ export async function DELETE() {
   } catch (err) {
     return apiError({
       status: 500,
-      message: "탈퇴 처리 중 문제가 생겼어요. 잠시 후 다시 시도해 주세요.",
+      message: t.api.accountDeleteFailed,
       code: "INTERNAL",
       cause: err,
     });

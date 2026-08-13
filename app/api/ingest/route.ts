@@ -2,13 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { apiError } from "@/lib/apiError";
+import { getT } from "@/lib/i18n/server";
+import { getDictionary } from "@/lib/i18n/dictionaries";
 import { rateLimit } from "@/lib/rate-limit";
 import { verifyToken, bearerFromHeader } from "@/lib/apiToken";
 import { detectDemoSource, liveUrlIssue } from "@/lib/demoSource";
 import { assertSafePublicUrl, SsrfError } from "@/lib/ssrf";
 import { screenshotUrl } from "@/lib/thumbnail";
 import { normalizeTags, normalizeContentType } from "@/lib/projectTaxonomy";
-import { MAX_UPLOAD_BYTES, expandZipBundle, findIndexHtml, UploadError } from "@/lib/upload-safety";
+import { MAX_UPLOAD_BYTES, MAX_ZIP_ENTRIES, expandZipBundle, findIndexHtml, UploadError } from "@/lib/upload-safety";
 import { logger } from "@/lib/logger";
 
 // POST /api/ingest — Nookframe Connect. 외부 AI 에이전트(CLI/MCP/붙여넣기)가 로그인된
@@ -41,19 +43,21 @@ function strOrNull(v: unknown): string | null {
 export async function POST(req: NextRequest) {
   try {
     // 1. 인증 — Bearer PAT 우선, 없으면 쿠키 세션(=/publish 웹 경로). PAT는 헤더로만.
+    // 언어: PAT는 기계/AI 호출자라 en 고정, 세션(/publish)은 쿠키 locale.
     const bearer = bearerFromHeader(req.headers.get("authorization"));
+    const t = bearer ? getDictionary("en") : (await getT()).t;
     let userId: string;
     if (bearer) {
       const tok = await verifyToken(bearer);
       if (!tok) {
-        return apiError({ status: 401, message: "토큰이 유효하지 않거나 폐기됐어요.", code: "UNAUTHORIZED" });
+        return apiError({ status: 401, message: t.api.tokenInvalid, code: "UNAUTHORIZED" });
       }
       userId = tok.userId;
     } else {
       const supabase = await createClient();
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        return apiError({ status: 401, message: "로그인이 필요해요. (토큰 또는 세션)", code: "UNAUTHORIZED" });
+        return apiError({ status: 401, message: t.api.loginOrTokenRequired, code: "UNAUTHORIZED" });
       }
       userId = user.id;
     }
@@ -61,7 +65,7 @@ export async function POST(req: NextRequest) {
     // 2. 레이트리밋 — user_id 키(토큰 여러 개로 우회 못 하게).
     const allowed = await rateLimit({ name: "ingest", key: userId, windowSeconds: 3600, max: 20 });
     if (!allowed) {
-      return apiError({ status: 429, message: "요청이 너무 많아요. 잠시 후 다시 시도해 주세요.", code: "RATE_LIMITED" });
+      return apiError({ status: 429, message: t.api.tooManyRequests, code: "RATE_LIMITED" });
     }
 
     // 3. 본문 파싱 — JSON(URL 경로) 또는 multipart/form-data(파일 경로).
@@ -72,17 +76,17 @@ export async function POST(req: NextRequest) {
     if (contentType.includes("multipart/form-data")) {
       const declaredLen = Number(req.headers.get("content-length") ?? "0");
       if (declaredLen > MAX_BODY_BYTES) {
-        return apiError({ status: 413, message: "업로드가 너무 커요 (최대 25MB).", code: "TOO_LARGE" });
+        return apiError({ status: 413, message: t.api.uploadTooLarge, code: "TOO_LARGE" });
       }
       const form = await req.formData();
       const rawPayload = form.get("payload");
       if (typeof rawPayload !== "string") {
-        return apiError({ status: 400, message: "payload(JSON) 파트가 필요해요.", code: "BAD_REQUEST" });
+        return apiError({ status: 400, message: t.api.payloadPartRequired, code: "BAD_REQUEST" });
       }
       try {
         payload = JSON.parse(rawPayload) as IngestPayload;
       } catch {
-        return apiError({ status: 400, message: "payload JSON을 읽을 수 없어요.", code: "BAD_JSON" });
+        return apiError({ status: 400, message: t.api.payloadJsonInvalid, code: "BAD_JSON" });
       }
       const file = form.get("bundle");
       if (file && typeof file === "object" && "arrayBuffer" in file) {
@@ -93,7 +97,7 @@ export async function POST(req: NextRequest) {
       try {
         body = await req.json();
       } catch {
-        return apiError({ status: 400, message: "JSON 본문을 읽을 수 없어요.", code: "BAD_JSON" });
+        return apiError({ status: 400, message: t.api.jsonBodyInvalid, code: "BAD_JSON" });
       }
       // { payload: {...} } 도, 필드를 최상위에 둔 { ... } 도 허용.
       const b = body as { payload?: IngestPayload } & IngestPayload;
@@ -103,7 +107,7 @@ export async function POST(req: NextRequest) {
     // 4. payload 검증.
     const title = strOrNull(payload?.title);
     if (!title) {
-      return apiError({ status: 400, message: "title이 필요해요.", code: "TITLE_REQUIRED" });
+      return apiError({ status: 400, message: t.api.titleRequired, code: "TITLE_REQUIRED" });
     }
     const description = strOrNull(payload?.description) ?? "";
     const comment = strOrNull(payload?.builderNote) ?? "";
@@ -124,7 +128,7 @@ export async function POST(req: NextRequest) {
     if ((draftCount ?? 0) >= MAX_ACTIVE_DRAFTS) {
       return apiError({
         status: 409,
-        message: `검토 대기 중인 초안이 너무 많아요 (최대 ${MAX_ACTIVE_DRAFTS}개). 대시보드에서 먼저 공개하거나 정리해 주세요.`,
+        message: t.api.draftLimit(MAX_ACTIVE_DRAFTS),
         code: "DRAFT_LIMIT",
       });
     }
@@ -138,11 +142,11 @@ export async function POST(req: NextRequest) {
     if (!bundle) {
       const entryUrl = strOrNull(payload?.appUrl) ?? strOrNull(payload?.deployUrl);
       if (!entryUrl) {
-        return apiError({ status: 400, message: "deployUrl(또는 appUrl) 또는 파일 번들(bundle)이 필요해요.", code: "NO_ARTIFACT" });
+        return apiError({ status: 400, message: t.api.artifactRequired, code: "NO_ARTIFACT" });
       }
       const source = detectDemoSource(entryUrl);
       if (!source) {
-        return apiError({ status: 400, message: "임베드·시연할 수 있는 URL이 아니에요.", code: "BAD_URL" });
+        return apiError({ status: 400, message: t.api.badUrl, code: "BAD_URL" });
       }
       // 외부 live_url은 콘텐츠호스트·사설망 조기 차단(실 SSRF 게이트는 발행 시 trigger-demo).
       if (source.type === "live_url") {
@@ -150,13 +154,13 @@ export async function POST(req: NextRequest) {
         if (issue?.kind === "content-host") {
           return apiError({
             status: 400, code: "CONTENT_HOST",
-            message: `${issue.host}는 자동 시연으로 촬영하는 '내 작품' 주소가 아니에요.`,
+            message: t.api.contentHostShort(issue.host),
           });
         }
         if (issue?.kind === "private-host") {
           return apiError({
             status: 400, code: "PRIVATE_HOST",
-            message: "localhost·내부 주소는 안 돼요. 공개로 접속되는 배포 URL로 올려주세요.",
+            message: t.api.privateHostShort,
           });
         }
         try {
@@ -165,7 +169,7 @@ export async function POST(req: NextRequest) {
           if (e instanceof SsrfError) {
             return apiError({
               status: 400, code: "PRIVATE_HOST",
-              message: "공개 인터넷에서 접속되는 주소가 아니에요. 배포된 공개 URL로 올려주세요.",
+              message: t.api.notPublicUrl,
             });
           }
           throw e;
@@ -201,7 +205,7 @@ export async function POST(req: NextRequest) {
       .select("id")
       .single();
     if (insErr || !created) {
-      return apiError({ status: 500, message: "프로젝트를 만들지 못했어요.", code: "DB_INSERT_FAILED", cause: insErr });
+      return apiError({ status: 500, message: t.api.projectCreateFailed, code: "DB_INSERT_FAILED", cause: insErr });
     }
     const projectId = created.id as string;
 
@@ -210,13 +214,13 @@ export async function POST(req: NextRequest) {
       const prefix = `${userId}/${projectId}/`;
       try {
         if (bundle.size > MAX_UPLOAD_BYTES) {
-          throw new UploadError("업로드가 너무 커요 (최대 25MB).");
+          throw new UploadError(t.api.uploadTooLarge);
         }
         const buf = await bundle.arrayBuffer();
         const entries = await expandZipBundle(buf); // 엔트리 수·압축해제 크기 캡 내장
         const indexPath = findIndexHtml(entries);
         if (!indexPath) {
-          throw new UploadError("index.html이 없어요. 자동 시연은 브라우저에 뜨는 화면을 촬영해요 — 정적 사이트 번들에 index.html을 포함해 주세요.");
+          throw new UploadError(t.api.indexHtmlMissing);
         }
         // supabase-js는 최종 키를 인코딩 없이 URL에 끼워 넣고, fetch의 WHATWG 파서가
         // %2e%2e·raw CR/LF 등을 `..`로 정규화한다. 문자열 startsWith만으로는
@@ -230,26 +234,26 @@ export async function POST(req: NextRequest) {
           try {
             normalizedPath = new URL(`${storageKeyBase}${storagePath}`).pathname;
           } catch {
-            throw new UploadError("잘못된 파일 경로가 감지됐어요.");
+            throw new UploadError(t.api.badFilePath);
           }
           if (
             !storagePath.startsWith(prefix) ||
             storagePath.includes("/../") ||
             !normalizedPath.startsWith(requiredPathPrefix)
           ) {
-            throw new UploadError("잘못된 파일 경로가 감지됐어요.");
+            throw new UploadError(t.api.badFilePath);
           }
           const { error: upErr } = await admin.storage
             .from("project-files")
             .upload(storagePath, e.data, { upsert: true, contentType: e.contentType });
-          if (upErr) throw new UploadError(`파일 업로드 실패: ${upErr.message}`);
+          if (upErr) throw new UploadError(t.api.fileUploadFailed(upErr.message));
         }
         demoUrl = `/api/preview/${prefix}${indexPath}`;
         const { error: updErr } = await admin
           .from("projects")
           .update({ demo_url: demoUrl, thumbnail: screenshotUrl(`${req.nextUrl.origin}${demoUrl}`) })
           .eq("id", projectId);
-        if (updErr) throw new UploadError("데모 URL 저장에 실패했어요.");
+        if (updErr) throw new UploadError(t.api.demoUrlSaveFailed);
       } catch (e) {
         // 고아 행 정리 — null demo_url 초안이 남지 않게 방금 만든 행을 지운다.
         // (스토리지에 일부 올라간 객체는 추측 불가한 uuid 폴더 아래 남을 수 있으나
@@ -258,10 +262,18 @@ export async function POST(req: NextRequest) {
         //  하지 않는다. 실제 회수는 storage-audit이 담당.)
         await admin.from("projects").delete().eq("id", projectId);
         if (e instanceof UploadError) {
-          return apiError({ status: 400, message: e.message, code: "UPLOAD_FAILED" });
+          // expandZipBundle 안쪽에서 던진 것(한국어 기본 카피)은 code로 locale 카피를 되찾는다.
+          const zipMessage =
+            e.code === "zip-bomb" ? t.api.zipBomb
+            : e.code === "zip-read-error" ? t.api.zipReadError
+            : e.code === "zip-empty" ? t.api.zipEmpty
+            : e.code === "zip-too-many" ? t.api.zipTooManyFiles(MAX_ZIP_ENTRIES)
+            : e.code === "zip-no-valid" ? t.api.zipNoValidFiles
+            : e.message;
+          return apiError({ status: 400, message: zipMessage, code: "UPLOAD_FAILED" });
         }
         logger.error("ingest: file upload failed", { error: e, projectId });
-        return apiError({ status: 500, message: "업로드 처리 중 오류가 났어요.", code: "UPLOAD_ERROR", cause: e });
+        return apiError({ status: 500, message: t.api.uploadProcessingError, code: "UPLOAD_ERROR", cause: e });
       }
     }
 
@@ -269,6 +281,7 @@ export async function POST(req: NextRequest) {
     const reviewUrl = `${req.nextUrl.origin}/dashboard?review=${projectId}`;
     return NextResponse.json({ ok: true, projectId, reviewUrl, isDraft: true });
   } catch (err) {
-    return apiError({ status: 500, message: "잠시 후 다시 시도해 주세요.", code: "INTERNAL", cause: err });
+    const tc = bearerFromHeader(req.headers.get("authorization")) ? getDictionary("en") : (await getT()).t;
+    return apiError({ status: 500, message: tc.api.retryLater, code: "INTERNAL", cause: err });
   }
 }

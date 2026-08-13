@@ -4,7 +4,9 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { apiError } from "@/lib/apiError";
 import { isAdminEmail } from "@/lib/demoQuota";
 import { isR2Configured, deleteR2Objects } from "@/lib/r2";
-import { formatDemoFailure, DEMO_FAILURE_COPY } from "@/lib/demo-failure";
+import { formatDemoFailure, demoFailureCopy } from "@/lib/demo-failure";
+import { recipientLocale } from "@/lib/i18n/user-locale";
+import { getDictionary } from "@/lib/i18n/dictionaries";
 import { sendEmail, isEmailConfigured } from "@/lib/email";
 import { logger } from "@/lib/logger";
 import { demoReadyEmail, demoFailedEmail, SITE_URL } from "@/lib/email-templates";
@@ -153,12 +155,14 @@ export async function POST(
           const watchUrl = prof?.username
             ? `${SITE_URL}/${encodeURIComponent(prof.username)}/${project.id}`
             : `${SITE_URL}/dashboard`;
+          const locale = await recipientLocale(admin, project.user_id);
           await sendEmail({
             to: ownerEmail,
             ...demoReadyEmail({
-              projectTitle: project.title || "내 프로젝트",
+              projectTitle: project.title || getDictionary(locale).email.untitledProject,
               watchUrl,
               posterUrl: item.poster_url ?? undefined,
+              locale,
             }),
           });
         } catch {
@@ -202,11 +206,13 @@ export async function POST(
 
     if (isEmailConfigured() && ownerEmail && project) {
       try {
+        const locale = await recipientLocale(admin, project.user_id);
         await sendEmail({
           to: ownerEmail,
           ...demoFailedEmail({
-            projectTitle: project.title || "내 프로젝트",
-            copy: DEMO_FAILURE_COPY.policy,
+            projectTitle: project.title || getDictionary(locale).email.untitledProject,
+            copy: demoFailureCopy("policy", locale),
+            locale,
           }),
         });
       } catch {

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { apiError } from "@/lib/apiError";
+import { getT } from "@/lib/i18n/server";
 import { rateLimit, clientIpKey } from "@/lib/rate-limit";
 import { sendEmail, alertRecipients } from "@/lib/email";
 import { adminAlertEmail, SITE_URL } from "@/lib/email-templates";
@@ -26,6 +27,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const DETAIL_MAX = 500;
 
 export async function POST(req: NextRequest) {
+  const { t } = await getT();
   try {
     const body = await req.json().catch(() => null);
     const targetType = body?.targetType;
@@ -38,7 +40,7 @@ export async function POST(req: NextRequest) {
       !UUID_RE.test(targetId) ||
       !REASONS.includes(reason)
     ) {
-      return apiError({ status: 400, message: "잘못된 신고 요청이에요.", code: "BAD_REQUEST" });
+      return apiError({ status: 400, message: t.api.badReport, code: "BAD_REQUEST" });
     }
 
     let detail = typeof body?.detail === "string" ? body.detail.trim() : "";
@@ -54,7 +56,7 @@ export async function POST(req: NextRequest) {
     if (!allowed) {
       return apiError({
         status: 429,
-        message: "신고가 너무 잦아요. 잠시 후 다시 시도해 주세요.",
+        message: t.api.reportRateLimited,
         code: "RATE_LIMITED",
       });
     }
@@ -70,7 +72,7 @@ export async function POST(req: NextRequest) {
         .select("id, username, name")
         .eq("id", targetId)
         .maybeSingle();
-      if (!p) return apiError({ status: 404, message: "대상을 찾을 수 없어요.", code: "NOT_FOUND" });
+      if (!p) return apiError({ status: 404, message: t.api.targetNotFound, code: "NOT_FOUND" });
       targetUrl = `${SITE_URL}/${p.username}`;
       targetLabel = `프로필 @${p.username}`;
     } else {
@@ -79,7 +81,7 @@ export async function POST(req: NextRequest) {
         .select("id, title, user_id")
         .eq("id", targetId)
         .maybeSingle();
-      if (!pr) return apiError({ status: 404, message: "대상을 찾을 수 없어요.", code: "NOT_FOUND" });
+      if (!pr) return apiError({ status: 404, message: t.api.targetNotFound, code: "NOT_FOUND" });
       const { data: owner } = await admin
         .from("profiles")
         .select("username")
@@ -108,7 +110,7 @@ export async function POST(req: NextRequest) {
       if (insErr.code === "23505") return NextResponse.json({ ok: true, already: true });
       return apiError({
         status: 500,
-        message: "신고를 저장하지 못했어요. 잠시 후 다시 시도해 주세요.",
+        message: t.api.reportSaveFailed,
         code: "DB_INSERT_FAILED",
         cause: insErr,
         context: { targetType, targetId },
@@ -135,7 +137,7 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     return apiError({
       status: 500,
-      message: "잠시 후 다시 시도해 주세요.",
+      message: t.api.retryLater,
       code: "INTERNAL",
       cause: err,
     });

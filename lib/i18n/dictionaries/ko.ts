@@ -469,6 +469,134 @@ export const ko = {
     notFoundTitle: "페이지를 찾을 수 없어요",
     notFoundBody: "주소가 바뀌었거나 사라진 페이지일 수 있어요. 홈으로 돌아가 시작해 주세요.",
   },
+  // 서버 API 에러 응답(apiError message) — 클라이언트가 그대로 표시한다.
+  // admin 전용 라우트는 한국어 유지라 여기 없다. 라우트는 getT()로 쿠키 언어를 읽고,
+  // PAT(Bearer) 인제스트는 기계/AI 호출자라 en 고정.
+  api: {
+    loginRequired: "로그인이 필요해요.",
+    retryLater: "잠시 후 다시 시도해 주세요.",
+    projectNotFound: "프로젝트를 찾을 수 없어요.",
+    projectForbidden: "이 프로젝트에 대한 권한이 없어요.",
+    demoStatusFailed: "시연 상태를 불러오지 못했어요.",
+    // 재촬영 요청 (request-rerecord)
+    rerecordReasonRequired: "무엇을 어떻게 바꾸고 싶은지 적어주세요.",
+    rerecordInFlight: "지금 시연 영상을 만드는 중이에요. 끝난 뒤에 요청해 주세요.",
+    rerecordSaveFailed: "요청을 저장하지 못했어요. 잠시 후 다시 시도해 주세요.",
+    // 자동 시연 소스 검증 (trigger-demo · ingest 공유)
+    unsupportedSource: "자동 시연을 만들 수 없는 소스예요.",
+    contentHost: (host: string) =>
+      `${host}는 자동 시연으로 촬영하는 '내 작품' 주소가 아니에요. 영상 링크라면 '구동 영상' 칸에 넣어주세요.`,
+    contentHostShort: (host: string) =>
+      `${host}는 자동 시연으로 촬영하는 '내 작품' 주소가 아니에요.`,
+    privateHost: "localhost나 내부 주소는 촬영할 수 없어요. 공개로 접속되는 배포 URL로 올려주세요.",
+    privateHostShort: "localhost·내부 주소는 안 돼요. 공개로 접속되는 배포 URL로 올려주세요.",
+    notPublicUrl: "공개 인터넷에서 접속되는 주소가 아니에요. 배포된 공개 URL로 올려주세요.",
+    demoUpdateFailed: "데모 상태를 업데이트하지 못했어요. 잠시 후 다시 시도해 주세요.",
+    alreadyHasDemo: "이미 시연 영상이 있어요. 다시 만들려면 '재촬영 요청'으로 바꾸고 싶은 점을 알려주세요.",
+    attemptLimit: "자동 생성 재시도 한도를 다 썼어요. '재촬영 요청'으로 관리자 승인을 받아주세요.",
+    demoStartFailed: "자동 시연을 시작할 수 없어요.",
+    heldGlobal: "오늘 자동 시연 생성이 많아 잠시 대기열에 넣었어요. 관리자 확인 후 생성돼요.",
+    heldUser: "하루 자동 시연 한도를 넘어 관리자 승인 대기로 전환했어요. 승인 전까지는 이미지로 표시돼요.",
+    // 인제스트 (Nookframe Connect)
+    tokenInvalid: "토큰이 유효하지 않거나 폐기됐어요.",
+    loginOrTokenRequired: "로그인이 필요해요. (토큰 또는 세션)",
+    tooManyRequests: "요청이 너무 많아요. 잠시 후 다시 시도해 주세요.",
+    uploadTooLarge: "업로드가 너무 커요 (최대 25MB).",
+    payloadPartRequired: "payload(JSON) 파트가 필요해요.",
+    payloadJsonInvalid: "payload JSON을 읽을 수 없어요.",
+    jsonBodyInvalid: "JSON 본문을 읽을 수 없어요.",
+    titleRequired: "title이 필요해요.",
+    draftLimit: (max: number) =>
+      `검토 대기 중인 초안이 너무 많아요 (최대 ${max}개). 대시보드에서 먼저 공개하거나 정리해 주세요.`,
+    artifactRequired: "deployUrl(또는 appUrl) 또는 파일 번들(bundle)이 필요해요.",
+    badUrl: "임베드·시연할 수 있는 URL이 아니에요.",
+    projectCreateFailed: "프로젝트를 만들지 못했어요.",
+    indexHtmlMissing: "index.html이 없어요. 자동 시연은 브라우저에 뜨는 화면을 촬영해요 — 정적 사이트 번들에 index.html을 포함해 주세요.",
+    badFilePath: "잘못된 파일 경로가 감지됐어요.",
+    fileUploadFailed: (detail: string) => `파일 업로드 실패: ${detail}`,
+    demoUrlSaveFailed: "데모 URL 저장에 실패했어요.",
+    uploadProcessingError: "업로드 처리 중 오류가 났어요.",
+    zipBomb: "압축 해제 크기가 한도를 초과했어요 (zip bomb 의심).",
+    zipReadError: "zip 해제 중 오류가 났어요.",
+    zipEmpty: "빈 zip이에요.",
+    zipTooManyFiles: (max: number) => `파일이 너무 많아요 (최대 ${max}개).`,
+    zipNoValidFiles: "업로드할 유효한 파일이 없어요.",
+    // 신고 (report)
+    badReport: "잘못된 신고 요청이에요.",
+    reportRateLimited: "신고가 너무 잦아요. 잠시 후 다시 시도해 주세요.",
+    targetNotFound: "대상을 찾을 수 없어요.",
+    reportSaveFailed: "신고를 저장하지 못했어요. 잠시 후 다시 시도해 주세요.",
+    // 계정 (account)
+    accountDeleteFailed: "탈퇴 처리 중 문제가 생겼어요. 잠시 후 다시 시도해 주세요.",
+    // 토큰 (tokens)
+    tokenLimit: (max: number) => `토큰은 최대 ${max}개까지 만들 수 있어요. 안 쓰는 토큰을 폐기해 주세요.`,
+    tokenCreateFailed: "토큰을 만들지 못했어요. 잠시 후 다시 시도해 주세요.",
+    tokenNotFound: "토큰을 찾을 수 없어요.",
+    tokenForbidden: "이 토큰에 대한 권한이 없어요.",
+    tokenRevokeFailed: "토큰을 폐기하지 못했어요. 잠시 후 다시 시도해 주세요.",
+  },
+  // 시연 실패 코드별 카피 — 대시보드 실패 배지 팝오버와 실패 알림 이메일이 같은
+  // 표를 읽는다(lib/demo-failure.ts 프로토콜, 이전 DEMO_FAILURE_COPY에서 이관).
+  demoFailure: {
+    "login-gated": {
+      title: "로그인이 필요한 사이트예요",
+      body: "지금은 로그인 없이 볼 수 있는 화면만 촬영할 수 있어요. 공개로 접속되는 URL로 바꾼 뒤 다시 시도해 주세요.",
+    },
+    timeout: {
+      title: "촬영이 너무 오래 걸렸어요",
+      body: "사이트 로딩이 느리거나 중간에 멈춘 것 같아요. 잠시 후 한 번 더 시도해 주세요.",
+    },
+    interrupted: {
+      title: "촬영이 중간에 끊겼어요",
+      body: "녹화 장비가 재시작되면서 작업이 중단됐어요. 다시 시도하면 처음부터 새로 촬영해요.",
+    },
+    stuck: {
+      title: "생성이 오래 걸려 중단됐어요",
+      body: "예상보다 오래 걸려 자동으로 멈췄어요. 한 번 더 시도해 주시고, 반복되면 사이트가 정상 접속되는지 확인해 주세요.",
+    },
+    "build-failed": {
+      title: "프로젝트를 빌드하지 못했어요",
+      body: "코드를 설치하거나 실행하는 중에 멈췄어요. 로컬에서 npm install · npm run dev가 잘 되는지 확인하거나, 빌드된 결과물(dist 폴더)이나 배포된 URL로 올려주세요.",
+    },
+    "not-a-webapp": {
+      title: "보여줄 웹 화면을 찾지 못했어요",
+      body: "웹페이지(HTML)가 없는 것 같아요. 자동 시연은 브라우저에 뜨는 화면을 촬영해요. 웹앱이라면 index.html이 포함됐는지, 백엔드·CLI 프로젝트라면 시연 촬영 대상이 아닌지 확인해 주세요.",
+    },
+    blank: {
+      title: "화면에 아무것도 나오지 않았어요",
+      body: "페이지는 열렸는데 아직 아무것도 그려지지 않았어요. 만들다 만 빈 화면이거나 로딩이 끝나지 않은 것 같아요. 화면에 뭔가 보이는 상태로 다시 올려주세요.",
+    },
+    policy: {
+      title: "콘텐츠 정책에 맞지 않아 게시하지 못했어요",
+      body: "검토 결과 이 시연은 Nookframe에 공개하기 어려운 내용이 담겨 있었어요. 내용을 수정한 뒤 다시 시도해 주시고, 잘못된 판단이라고 생각되면 회신으로 알려주세요.",
+    },
+    error: {
+      title: "촬영 중 문제가 생겼어요",
+      body: "일시적인 문제일 수 있어요. 한 번 더 시도해 보고, 반복되면 URL이 브라우저에서 정상 접속되는지 확인해 주세요.",
+    },
+  },
+  // 유저 수신 알림 이메일(완성·실패) — lib/email-templates.ts가 읽는다.
+  // 관리자 경보 메일(adminAlertEmail)은 한국어 유지라 여기 없다.
+  email: {
+    footer: "Nookframe 자동 알림이에요. 궁금한 점은 이 메일에 회신해 주세요.",
+    untitledProject: "내 프로젝트",
+    readySubject: (title: string) => `시연 영상이 완성됐어요 — ${title}`,
+    readyPreheader: (title: string) => `${title} 자동 시연 영상이 방금 완성됐어요.`,
+    readyHeading: "시연 영상이 완성됐어요",
+    // titleHtml은 이미 escape된 <strong> 조각 — 어순이 언어마다 달라 함수로 받는다.
+    readyBody: (titleHtml: string) =>
+      `${titleHtml}의 자동 시연 영상이 방금 완성됐어요. 사람 손 없이, 배포된 화면 그대로 촬영됐어요.`,
+    readyPosterAlt: (title: string) => `${title} 시연 영상 첫 장면`,
+    readyCta: "영상 보러 가기",
+    // 공유 안내줄: intro + <a>readyShareLink</a> + outro 로 조립된다.
+    readyShareIntro: "링크를 그대로 공유하면 Discord·Slack에서 영상이 바로 재생돼요. mp4 다운로드와 공유 문구는 ",
+    readyShareLink: "대시보드의 공유 버튼",
+    readyShareOutro: "에 있어요.",
+    failedSubject: (title: string) => `시연 영상을 만들지 못했어요 — ${title}`,
+    failedBody: (titleHtml: string) => `${titleHtml}의 자동 시연 촬영이 완료되지 못했어요.`,
+    failedCta: "대시보드에서 다시 시도",
+    failedTechLine: "자세한 기술 정보는 대시보드의 실패 배지를 누르면 볼 수 있어요.",
+  },
 };
 
 export type Dictionary = typeof ko;

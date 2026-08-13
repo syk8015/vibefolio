@@ -16,7 +16,7 @@ import { join } from "node:path";
 import { run } from "./util";
 import { extractModerationFrames, moderateDemo } from "./moderate";
 import { CREDIT_HOLD_MARKER, MODERATION_HOLD_MARKER } from "./errors";
-import { formatDemoFailure, parseDemoFailure, DEMO_FAILURE_COPY } from "../lib/demo-failure";
+import { formatDemoFailure, parseDemoFailure, demoFailureCopy } from "../lib/demo-failure";
 
 let failures = 0;
 function check(name: string, ok: boolean, detail?: string) {
@@ -59,7 +59,7 @@ try {
   // ── policy failure-code roundtrip (reject path writes this) ─────────────────
   const stored = formatDemoFailure("policy", "관리자 검토에서 게시가 거절됐어요.");
   const parsed = parseDemoFailure(stored);
-  check("policy code roundtrip", parsed.code === "policy" && !!DEMO_FAILURE_COPY.policy.title);
+  check("policy code roundtrip", parsed.code === "policy" && !!demoFailureCopy("policy", "ko").title);
 
   // ── live classifier (opt-in) ────────────────────────────────────────────────
   if (live) {

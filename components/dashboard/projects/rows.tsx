@@ -1,7 +1,7 @@
 import { useState, type DragEvent } from "react";
 import Image from "next/image";
 import ShareKit from "@/components/dashboard/ShareKit";
-import { parseDemoFailure, DEMO_FAILURE_COPY } from "@/lib/demo-failure";
+import { parseDemoFailure } from "@/lib/demo-failure";
 import { placeholderThumbnail } from "@/lib/placeholder";
 import { CONTENT_TYPES } from "@/lib/projectTaxonomy";
 import { AiToolLogo, isUploadedProject } from "./helpers";
@@ -12,8 +12,8 @@ import { useT } from "@/lib/i18n/client";
 // ProjectsTab.tsx (no behavior change). DemoBuildBadge + RowMenu are internal to
 // this module (only the rows use them); DraftRow + ProjectRow are exported.
 
-// 실패 코드별 카피는 lib/demo-failure.ts의 DEMO_FAILURE_COPY — 실패 알림 이메일과
-// 공유하므로 여기서 따로 들지 않는다. raw 메시지는 팝오버의 "기술 정보" 토글 뒤로.
+// 실패 코드별 카피는 사전의 demoFailure 네임스페이스(t.demoFailure) — 실패 알림
+// 이메일과 같은 표를 읽는다. raw 메시지는 팝오버의 "기술 정보" 토글 뒤로.
 
 function DemoBuildBadge({
   status,
@@ -45,7 +45,7 @@ function DemoBuildBadge({
 
   if (status === "failed") {
     const { code, message } = parseDemoFailure(error);
-    const copy = DEMO_FAILURE_COPY[code ?? "error"];
+    const copy = t.demoFailure[code ?? "error"];
     return (
       <div className="shrink-0" style={{ position: "relative", display: "inline-flex" }}>
         <button

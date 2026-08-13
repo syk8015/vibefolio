@@ -8,6 +8,9 @@
 //
 // Client-safe: no server-only imports (used by ProjectsTab, the tsx worker and
 // API routes alike).
+import { getDictionary } from "./i18n/dictionaries";
+import type { Locale } from "./i18n/config";
+
 export const DEMO_FAILURE_CODES = [
   "login-gated", // site needs auth — recorder only shoots public screens
   "timeout", // job hit the worker's hard timeout
@@ -42,41 +45,12 @@ export function parseDemoFailure(stored: string | null): {
 // 대시보드 배지 팝오버와 실패 알림 이메일이 같은 표를 읽어 두 표면이 어긋나지 않는다.
 // raw 메시지는 대시보드 팝오버의 "기술 정보" 토글 뒤로만 (이메일에는 안 싣는다).
 // 코드 없는(구형/클라이언트 기록) 행은 error 카피로 폴백.
-export const DEMO_FAILURE_COPY: Record<DemoFailureCode, { title: string; body: string }> = {
-  "login-gated": {
-    title: "로그인이 필요한 사이트예요",
-    body: "지금은 로그인 없이 볼 수 있는 화면만 촬영할 수 있어요. 공개로 접속되는 URL로 바꾼 뒤 다시 시도해 주세요.",
-  },
-  timeout: {
-    title: "촬영이 너무 오래 걸렸어요",
-    body: "사이트 로딩이 느리거나 중간에 멈춘 것 같아요. 잠시 후 한 번 더 시도해 주세요.",
-  },
-  interrupted: {
-    title: "촬영이 중간에 끊겼어요",
-    body: "녹화 장비가 재시작되면서 작업이 중단됐어요. 다시 시도하면 처음부터 새로 촬영해요.",
-  },
-  stuck: {
-    title: "생성이 오래 걸려 중단됐어요",
-    body: "예상보다 오래 걸려 자동으로 멈췄어요. 한 번 더 시도해 주시고, 반복되면 사이트가 정상 접속되는지 확인해 주세요.",
-  },
-  "build-failed": {
-    title: "프로젝트를 빌드하지 못했어요",
-    body: "코드를 설치하거나 실행하는 중에 멈췄어요. 로컬에서 npm install · npm run dev가 잘 되는지 확인하거나, 빌드된 결과물(dist 폴더)이나 배포된 URL로 올려주세요.",
-  },
-  "not-a-webapp": {
-    title: "보여줄 웹 화면을 찾지 못했어요",
-    body: "웹페이지(HTML)가 없는 것 같아요. 자동 시연은 브라우저에 뜨는 화면을 촬영해요. 웹앱이라면 index.html이 포함됐는지, 백엔드·CLI 프로젝트라면 시연 촬영 대상이 아닌지 확인해 주세요.",
-  },
-  blank: {
-    title: "화면에 아무것도 나오지 않았어요",
-    body: "페이지는 열렸는데 아직 아무것도 그려지지 않았어요. 만들다 만 빈 화면이거나 로딩이 끝나지 않은 것 같아요. 화면에 뭔가 보이는 상태로 다시 올려주세요.",
-  },
-  policy: {
-    title: "콘텐츠 정책에 맞지 않아 게시하지 못했어요",
-    body: "검토 결과 이 시연은 Nookframe에 공개하기 어려운 내용이 담겨 있었어요. 내용을 수정한 뒤 다시 시도해 주시고, 잘못된 판단이라고 생각되면 회신으로 알려주세요.",
-  },
-  error: {
-    title: "촬영 중 문제가 생겼어요",
-    body: "일시적인 문제일 수 있어요. 한 번 더 시도해 보고, 반복되면 URL이 브라우저에서 정상 접속되는지 확인해 주세요.",
-  },
-};
+//
+// 표 본문은 i18n 사전의 demoFailure 네임스페이스로 이관됨(ko/en). 클라이언트는
+// useT()로 t.demoFailure[code]를 직접 읽고, 서버/워커는 이 헬퍼로 locale을 넘긴다.
+export function demoFailureCopy(
+  code: DemoFailureCode | null,
+  locale: Locale,
+): { title: string; body: string } {
+  return getDictionary(locale).demoFailure[code ?? "error"];
+}

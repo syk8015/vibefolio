@@ -10,6 +10,13 @@
 //
 // Copy voice: product 요-form with periods (dashboard tone), NOT the landing
 // tagline pools. User-supplied strings (titles, reasons) are escaped.
+//
+// i18n: user-facing mail (demoReady/demoFailed) takes a `locale` and reads the
+// dictionary `email` namespace — callers pass the recipient's profiles.locale
+// (fallback ko). adminAlertEmail stays Korean (admin은 한국어 유지).
+
+import { getDictionary } from "./i18n/dictionaries";
+import { DEFAULT_LOCALE, type Locale } from "./i18n/config";
 
 const SITE_URL = "https://nookframe.com";
 
@@ -56,9 +63,9 @@ function button(label: string, url: string): string {
 
 // Shared shell: soft paper backdrop, one cream card, wordmark, footer.
 // preheader = inbox preview line (hidden in the body).
-function shell(preheader: string, content: string): string {
+function shell(preheader: string, content: string, locale: Locale = DEFAULT_LOCALE): string {
   return `<!doctype html>
-<html lang="ko">
+<html lang="${locale}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -77,7 +84,7 @@ function shell(preheader: string, content: string): string {
       </td></tr>
       <tr><td style="padding:18px 8px 0;">
         <p style="margin:0;font-family:${FONT};font-size:12px;line-height:1.6;color:${MUTED};">
-          Nookframe 자동 알림이에요. 궁금한 점은 이 메일에 회신해 주세요.
+          ${escapeHtml(getDictionary(locale).email.footer)}
         </p>
       </td></tr>
     </table>
@@ -108,51 +115,57 @@ export function demoReadyEmail(input: {
   projectTitle: string;
   watchUrl: string;
   posterUrl?: string;
+  locale?: Locale;
 }): RenderedEmail {
+  const locale = input.locale ?? DEFAULT_LOCALE;
+  const t = getDictionary(locale).email;
   const title = escapeHtml(input.projectTitle);
   const poster = input.posterUrl
     ? `<a href="${escapeHtml(input.watchUrl)}" target="_blank" style="display:block;margin:0 0 20px;">
-        <img src="${escapeHtml(input.posterUrl)}" width="496" alt="${title} 시연 영상 첫 장면"
+        <img src="${escapeHtml(input.posterUrl)}" width="496" alt="${escapeHtml(t.readyPosterAlt(input.projectTitle))}"
           style="display:block;width:100%;max-width:496px;border-radius:14px;" />
       </a>`
     : "";
   return {
-    subject: `시연 영상이 완성됐어요 — ${clampSubject(input.projectTitle)}`,
+    subject: t.readySubject(clampSubject(input.projectTitle)),
     html: shell(
-      `${input.projectTitle} 자동 시연 영상이 방금 완성됐어요.`,
+      t.readyPreheader(input.projectTitle),
       [
-        heading("시연 영상이 완성됐어요"),
-        paragraph(`<strong>${title}</strong>의 자동 시연 영상이 방금 완성됐어요. 사람 손 없이, 배포된 화면 그대로 촬영됐어요.`),
+        heading(t.readyHeading),
+        paragraph(t.readyBody(`<strong>${title}</strong>`)),
         poster,
-        button("영상 보러 가기", input.watchUrl),
+        button(t.readyCta, input.watchUrl),
         mutedLine(
-          `링크를 그대로 공유하면 Discord·Slack에서 영상이 바로 재생돼요. mp4 다운로드와 공유 문구는 <a href="${SITE_URL}/dashboard" target="_blank" style="color:${MUTED};">대시보드의 공유 버튼</a>에 있어요.`,
+          `${escapeHtml(t.readyShareIntro)}<a href="${SITE_URL}/dashboard" target="_blank" style="color:${MUTED};">${escapeHtml(t.readyShareLink)}</a>${escapeHtml(t.readyShareOutro)}`,
         ),
       ].join("\n"),
+      locale,
     ),
   };
 }
 
 // ── 시연 실패 — 이탈 후 통보 (P0.6 ④) ────────────────────────────────────────
-// 코드별 카피는 대시보드 배지와 같은 표(DEMO_FAILURE_COPY)를 쓴다. raw 에러는
+// 코드별 카피는 대시보드 배지와 같은 표(demoFailureCopy)를 쓴다. raw 에러는
 // 메일에 싣지 않는다 — 기술 정보는 대시보드 팝오버 토글에서.
 export function demoFailedEmail(input: {
   projectTitle: string;
   copy: { title: string; body: string };
+  locale?: Locale;
 }): RenderedEmail {
+  const locale = input.locale ?? DEFAULT_LOCALE;
+  const t = getDictionary(locale).email;
   return {
-    subject: `시연 영상을 만들지 못했어요 — ${clampSubject(input.projectTitle)}`,
+    subject: t.failedSubject(clampSubject(input.projectTitle)),
     html: shell(
       input.copy.title,
       [
         heading(input.copy.title),
-        paragraph(
-          `<strong>${escapeHtml(input.projectTitle)}</strong>의 자동 시연 촬영이 완료되지 못했어요.`,
-        ),
+        paragraph(t.failedBody(`<strong>${escapeHtml(input.projectTitle)}</strong>`)),
         paragraph(escapeHtml(input.copy.body)),
-        button("대시보드에서 다시 시도", `${SITE_URL}/dashboard`),
-        mutedLine("자세한 기술 정보는 대시보드의 실패 배지를 누르면 볼 수 있어요."),
+        button(t.failedCta, `${SITE_URL}/dashboard`),
+        mutedLine(escapeHtml(t.failedTechLine)),
       ].join("\n"),
+      locale,
     ),
   };
 }

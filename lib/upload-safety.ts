@@ -42,8 +42,23 @@ export function safeRelativePath(raw: string): string | null {
   return p;
 }
 
-/** 인제스트에서 400으로 매핑되는, 유저 노출 가능한 업로드 검증 실패. */
-export class UploadError extends Error {}
+/** 인제스트에서 400으로 매핑되는, 유저 노출 가능한 업로드 검증 실패.
+ * message는 한국어 기본 카피, code는 인제스트 라우트가 locale별 메시지로
+ * 다시 그리기 위한 판별자(없으면 message 그대로 노출). */
+export type UploadErrorCode =
+  | "zip-bomb"
+  | "zip-read-error"
+  | "zip-empty"
+  | "zip-too-many"
+  | "zip-no-valid";
+
+export class UploadError extends Error {
+  code?: UploadErrorCode;
+  constructor(message: string, code?: UploadErrorCode) {
+    super(message);
+    this.code = code;
+  }
+}
 
 export interface ExpandedEntry {
   relativePath: string;
@@ -84,7 +99,7 @@ function readEntryCapped(
         if (size > budget.remaining) {
           done = true;
           stream.pause();
-          reject(new UploadError("압축 해제 크기가 한도를 초과했어요 (zip bomb 의심)."));
+          reject(new UploadError("압축 해제 크기가 한도를 초과했어요 (zip bomb 의심).", "zip-bomb"));
           return;
         }
         chunks.push(chunk);
@@ -92,7 +107,7 @@ function readEntryCapped(
       .on("error", (e: unknown) => {
         if (done) return;
         done = true;
-        reject(e instanceof Error ? e : new UploadError("zip 해제 중 오류가 났어요."));
+        reject(e instanceof Error ? e : new UploadError("zip 해제 중 오류가 났어요.", "zip-read-error"));
       })
       .on("end", () => {
         if (done) return;
@@ -128,9 +143,9 @@ export async function expandZipBundle(
     (e) => !e.dir,
   );
 
-  if (fileEntries.length === 0) throw new UploadError("빈 zip이에요.");
+  if (fileEntries.length === 0) throw new UploadError("빈 zip이에요.", "zip-empty");
   if (fileEntries.length > maxEntries) {
-    throw new UploadError(`파일이 너무 많아요 (최대 ${maxEntries}개).`);
+    throw new UploadError(`파일이 너무 많아요 (최대 ${maxEntries}개).`, "zip-too-many");
   }
 
   const topSegments = new Set(fileEntries.map((e) => e.name.split("/")[0]));
@@ -147,7 +162,7 @@ export async function expandZipBundle(
     const data = await readEntryCapped(entry, budget);
     out.push({ relativePath, data, contentType: getMimeType(relativePath) });
   }
-  if (out.length === 0) throw new UploadError("업로드할 유효한 파일이 없어요.");
+  if (out.length === 0) throw new UploadError("업로드할 유효한 파일이 없어요.", "zip-no-valid");
   return out;
 }
 

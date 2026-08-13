@@ -76,6 +76,14 @@ export function LocaleProvider({
       setLocale(next: Locale) {
         document.cookie = `${LOCALE_COOKIE}=${next}; path=/; max-age=31536000; samesite=lax`;
         setLocaleState(next);
+        // 로그인 상태면 profiles.locale에도 저장(이메일 언어 근거) —
+        // fire-and-forget, 실패해도 쿠키 기반 UI는 그대로 동작한다.
+        fetch("/api/account/locale", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ locale: next }),
+          keepalive: true,
+        }).catch(() => {});
         // 서버 렌더 문자열(getT 사용 화면)도 새 쿠키로 다시 그리기
         router.refresh();
       },
