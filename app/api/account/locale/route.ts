@@ -22,6 +22,11 @@ export async function POST(req: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
       await supabase.from("profiles").update({ locale }).eq("id", user.id);
+      // Supabase 인증메일(비밀번호 재설정 등)은 profiles를 못 읽고
+      // user_metadata({{ .Data.locale }})만 보므로 양쪽에 같이 저장한다.
+      if (user.user_metadata?.locale !== locale) {
+        await supabase.auth.updateUser({ data: { locale } });
+      }
     }
     return NextResponse.json({ ok: true });
   } catch {

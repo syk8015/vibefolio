@@ -12,7 +12,7 @@ import type { Dictionary } from "@/lib/i18n/dictionaries";
 type Step = "form" | "check-email";
 
 export default function SignupPage() {
-  const { t } = useT();
+  const { t, locale } = useT();
   const [show, setShow] = useState(false);
   const [step, setStep] = useState<Step>("form");
   const [loading, setLoading] = useState(false);
@@ -44,6 +44,9 @@ export default function SignupPage() {
           // hit a raw FK error. Stash it under a non-gating key so onboarding can
           // pre-fill and confirm it (uniqueness-checked there), exactly like Google.
           pending_username: form.username,
+          // Supabase 인증메일 템플릿({{ .Data.locale }})이 언어를 고르는 근거.
+          // 앱 메일은 profiles.locale을 쓰지만 auth 템플릿은 user_metadata만 읽는다.
+          locale,
         },
         captchaToken: captchaToken ?? undefined,
       },
