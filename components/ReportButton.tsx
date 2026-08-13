@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Modal from "@/components/Modal";
+import { useT } from "@/lib/i18n/client";
 
 // 신고 (T6) — footer-link trigger + small soft-fill modal, POSTs /api/report.
 // Lives in the public theater/watch footers (server components), so all the
@@ -52,18 +53,23 @@ const COPY = {
   },
 } as const;
 
+const ARIA_LABEL = { ko: "콘텐츠 신고", en: "Report content" } as const;
+
 const DETAIL_MAX = 500;
 
 export default function ReportButton({
   targetType,
   targetId,
-  locale = "ko",
+  locale,
 }: {
   targetType: "profile" | "project";
   targetId: string;
+  // 명시하면 고정(watch 페이지=en), 안 주면 언어 토글을 따라간다.
   locale?: "ko" | "en";
 }) {
-  const t = COPY[locale];
+  const { locale: uiLocale } = useT();
+  const effectiveLocale = locale ?? uiLocale;
+  const t = COPY[effectiveLocale];
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState<string | null>(null);
   const [detail, setDetail] = useState("");
@@ -119,7 +125,7 @@ export default function ReportButton({
       </button>
 
       {open && (
-        <Modal onClose={close} ariaLabel="콘텐츠 신고" maxWidth="24rem">
+        <Modal onClose={close} ariaLabel={ARIA_LABEL[effectiveLocale]} maxWidth="24rem">
             {phase === "done" ? (
               <>
                 <p

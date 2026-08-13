@@ -16,6 +16,8 @@ import EmbedLoginButton from "@/components/EmbedLoginButton";
 import TheaterShell from "@/components/theater/TheaterShell";
 import ReportButton from "@/components/ReportButton";
 import Logo from "@/components/Logo";
+import LanguageToggle from "@/components/LanguageToggle";
+import { getT } from "@/lib/i18n/server";
 
 // Public portfolio data is identical for every visitor, so we cache the two
 // Supabase reads instead of hitting the DB on every pageview. A 60s window
@@ -135,6 +137,9 @@ export default async function UserPortfolioPage({
   const authPromise = createClient()
     .then((c) => c.auth.getUser())
     .catch(() => null);
+  // 이 라우트는 위 auth 읽기(쿠키) 때문에 이미 매 요청 렌더 — getT를 써도
+  // 캐시를 새로 깨뜨리지 않는다. 60s 캐시는 unstable_cache DB 읽기에만 걸려 있다.
+  const { t } = await getT();
 
   const profile = await getProfile(username);
   if (!profile) notFound();
@@ -219,6 +224,7 @@ export default async function UserPortfolioPage({
             </div>
           )}
           <ThemeToggle />
+          <LanguageToggle />
           <CopyLinkButton username={p.username} />
 
           {/* Auth pill */}
@@ -237,7 +243,7 @@ export default async function UserPortfolioPage({
               <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
                 <path d="M7.5 1.5l3 3L4 11H1V8L7.5 1.5z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
-              프레임 수정
+              {t.theater.editFrame}
             </Link>
           ) : currentUser ? (
             <Link
@@ -270,7 +276,7 @@ export default async function UserPortfolioPage({
                   {(currentUser.user_metadata?.name as string || currentUser.email || "?").charAt(0).toUpperCase()}
                 </div>
               )}
-              내 프레임
+              {t.theater.myFrame}
             </Link>
           ) : isEmbed ? (
             <EmbedLoginButton />
@@ -285,7 +291,7 @@ export default async function UserPortfolioPage({
                 textDecoration: "none",
               }}
             >
-              로그인
+              {t.theater.login}
             </Link>
           )}
         </div>
@@ -319,9 +325,9 @@ export default async function UserPortfolioPage({
         className="relative z-10 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 py-8"
         style={{ borderTop: "1px solid var(--border)" }}
       >
-        <Link href="/terms" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem", textDecoration: "none" }}>이용약관</Link>
-        <Link href="/privacy" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem", textDecoration: "none" }}>개인정보처리방침</Link>
-        <a href="mailto:vivestarter@gmail.com" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem", textDecoration: "none" }}>문의</a>
+        <Link href="/terms" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem", textDecoration: "none" }}>{t.common.terms}</Link>
+        <Link href="/privacy" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem", textDecoration: "none" }}>{t.common.privacy}</Link>
+        <a href="mailto:vivestarter@gmail.com" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem", textDecoration: "none" }}>{t.common.contact}</a>
         {!isOwner && <ReportButton targetType="profile" targetId={p.id} />}
         <span style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem" }}>© {new Date().getFullYear()} Nookframe</span>
       </footer>

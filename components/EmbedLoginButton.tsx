@@ -2,9 +2,11 @@
 
 import { useState } from "react";
 import Modal from "@/components/Modal";
+import { useT } from "@/lib/i18n/client";
 
 export default function EmbedLoginButton() {
   const [open, setOpen] = useState(false);
+  const { t } = useT();
 
   return (
     <>
@@ -19,11 +21,11 @@ export default function EmbedLoginButton() {
           cursor: "pointer",
         }}
       >
-        로그인
+        {t.theater.login}
       </button>
 
       {open && (
-        <Modal onClose={() => setOpen(false)} ariaLabel="로그인 안내" maxWidth={300} padding="26px 24px 20px">
+        <Modal onClose={() => setOpen(false)} ariaLabel={t.theater.embedLoginAria} maxWidth={300} padding="26px 24px 20px">
           <div style={{ textAlign: "center" }}>
             <div
               style={{
@@ -51,7 +53,7 @@ export default function EmbedLoginButton() {
                 marginBottom: 6,
               }}
             >
-              로그인은 모바일에서 진행해주세요
+              {t.theater.embedLoginTitle}
             </p>
             <p
               style={{
@@ -62,7 +64,7 @@ export default function EmbedLoginButton() {
                 marginBottom: 18,
               }}
             >
-              모바일 미리보기에서는 로그인을 할 수 없어요. 실제 모바일 기기에서 로그인해 주세요.
+              {t.theater.embedLoginBody}
             </p>
             <button
               onClick={() => setOpen(false)}
@@ -80,7 +82,7 @@ export default function EmbedLoginButton() {
                 boxShadow: "0 0 16px var(--blue-glow)",
               }}
             >
-              확인
+              {t.common.ok}
             </button>
           </div>
         </Modal>

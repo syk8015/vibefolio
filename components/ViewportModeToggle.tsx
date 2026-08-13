@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useT } from "@/lib/i18n/client";
 
 type ViewportMode = "desktop" | "mobile";
 
@@ -10,6 +11,7 @@ const EVENT = "vf-viewport-mode-change";
 export default function ViewportModeToggle() {
   const [mode, setMode] = useState<ViewportMode>("desktop");
   const [mounted, setMounted] = useState(false);
+  const { t } = useT();
 
   useEffect(() => {
     try {
@@ -38,7 +40,7 @@ export default function ViewportModeToggle() {
   return (
     <button
       onClick={toggle}
-      aria-label={mode === "desktop" ? "모바일 화면으로 보기" : "PC 화면으로 보기"}
+      aria-label={mode === "desktop" ? t.theater.viewMobile : t.theater.viewDesktop}
       style={{
         width: 34,
         height: 34,

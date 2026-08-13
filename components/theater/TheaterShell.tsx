@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useT } from "@/lib/i18n/client";
 import Image from "next/image";
 import type { Project } from "@/lib/data";
 import { buildIdentityLine } from "@/lib/identityLine";
@@ -288,6 +289,7 @@ export default function TheaterShell({ profile, profileUrl, projects, initialAct
   const [activeIndex, setActiveIndex] = useState(
     Math.min(Math.max(initialActiveIndex, 0), Math.max(projects.length - 1, 0))
   );
+  const { t } = useT();
 
   if (projects.length === 0) {
     // Empty state — kept inline rather than spinning up a separate
@@ -318,13 +320,13 @@ export default function TheaterShell({ profile, profileUrl, projects, initialAct
             className="text-base font-black mb-2"
             style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}
           >
-            아직 공개된 프로젝트가 없어요
+            {t.theater.emptyTitle}
           </p>
           <p
             className="text-sm"
             style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontWeight: 400 }}
           >
-            곧 새로운 작업물이 올라올 예정이에요.
+            {t.theater.emptyBody}
           </p>
         </div>
       </section>
@@ -357,7 +359,7 @@ export default function TheaterShell({ profile, profileUrl, projects, initialAct
 
         {/* Reel */}
         <div className="px-5 pt-7">
-          <SectionHeader label={`상영 목록 · ${total} works`} />
+          <SectionHeader label={t.theater.screenings(total)} />
         </div>
         <div
           className="flex gap-2.5 px-4 pt-4 pb-2 overflow-x-auto"
@@ -380,7 +382,7 @@ export default function TheaterShell({ profile, profileUrl, projects, initialAct
         {/* About — 정체성 한 줄은 이미 히어로에 있으므로 압축: 슬림 명함 카드 한 장
             (짧은 bio 2줄 말줄임 + 소셜 + QR). */}
         <div className="px-5 pt-10 pb-8">
-          <SectionHeader label="명함 · About" />
+          <SectionHeader label={t.theater.aboutLabel} />
           <div className="mt-5">
             <MeishiInline
               profile={profile}
@@ -430,7 +432,7 @@ export default function TheaterShell({ profile, profileUrl, projects, initialAct
                 <button
                   type="button"
                   onClick={goPrev}
-                  aria-label="이전 작품"
+                  aria-label={t.theater.prevWork}
                   onMouseEnter={(e) => { e.currentTarget.style.background = "var(--surface-soft)"; e.currentTarget.style.borderColor = "var(--text-primary)"; }}
                   onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "var(--border-bright)"; }}
                   style={{
@@ -450,7 +452,7 @@ export default function TheaterShell({ profile, profileUrl, projects, initialAct
                 <button
                   type="button"
                   onClick={goNext}
-                  aria-label="다음 작품"
+                  aria-label={t.theater.nextWork}
                   onMouseEnter={(e) => { e.currentTarget.style.opacity = "0.85"; }}
                   onMouseLeave={(e) => { e.currentTarget.style.opacity = "1"; }}
                   style={{
@@ -497,7 +499,7 @@ export default function TheaterShell({ profile, profileUrl, projects, initialAct
               )}
 
               <div className="mt-2">
-                <SectionHeader label="상영 목록 · Up Next" />
+                <SectionHeader label={t.theater.upNextLabel} />
               </div>
               <div className="flex flex-col gap-0">
                 {projects.map((p, i) => (

@@ -421,3 +421,56 @@
 | errors.invalidJson | JSON을 읽을 수 없어요. AI가 준 { ... } 형식 그대로 붙여넣어 주세요. | Couldn't read that JSON. Paste the { ... } exactly as your AI gave it. | |
 | errors.submitFailed | 올리지 못했어요. 잠시 후 다시 시도해 주세요. | Couldn't upload. Please try again shortly. | |
 | errors.network | 네트워크 오류로 올리지 못했어요. | A network error kept it from uploading. | |
+
+## common 추가분 (공통)
+
+| 키 | 한국어 | English | 비고 |
+|---|---|---|---|
+| terms | 이용약관 | Terms | 푸터 링크 |
+| privacy | 개인정보처리방침 | Privacy | 푸터 링크 |
+| contact | 문의 | Contact | 푸터 링크 |
+| ok | 확인 | OK | |
+
+## theater (/@username 명함 페이지)
+
+| 키 | 한국어 | English | 비고 |
+|---|---|---|---|
+| editFrame | 프레임 수정 | Edit frame | 오너 pill |
+| myFrame | 내 프레임 | My frame | 로그인 방문자 pill |
+| login | 로그인 | Log in | |
+| emptyTitle | 아직 공개된 프로젝트가 없어요 | No public projects yet | |
+| emptyBody | 곧 새로운 작업물이 올라올 예정이에요. | New work is coming soon. | |
+| screenings | 상영 목록 · {N} works | Screenings · {N} works | 함수 |
+| aboutLabel | 명함 · About | Card · About | ⚠️ 한국어는 한/영 병기라 영어판은 병기 구조 유지 여부 검토 |
+| upNextLabel | 상영 목록 · Up Next | Up Next | ⚠️ 영어판은 병기 접기 |
+| prevWork | 이전 작품 | Previous work | aria |
+| nextWork | 다음 작품 | Next work | aria |
+| makerNote | 만든이 메모 | Maker's note | |
+| ctaFullscreen | 전체화면으로 체험 | Try it fullscreen | |
+| ctaFullscreenShort | 전체화면 체험 | Try fullscreen | 모바일 |
+| ctaVisit | 체험하러 가기 | Try it live | |
+| errorTitle | 프레임을 불러오지 못했어요 | Couldn't load this frame | |
+| errorBody | 이 페이지를 표시하는 중 문제가 생겼어요. 다시 시도하거나 홈으로 돌아가 주세요. | Something went wrong while showing this page. Try again or head home. | |
+| copyLink | 링크 복사 | Copy link | |
+| viewMobile | 모바일 화면으로 보기 | View mobile layout | aria |
+| viewDesktop | PC 화면으로 보기 | View desktop layout | aria |
+| embedLoginAria | 로그인 안내 | Login notice | aria |
+| embedLoginTitle | 로그인은 모바일에서 진행해주세요 | Please log in on your phone | |
+| embedLoginBody | 모바일 미리보기에서는 로그인을 할 수 없어요. 실제 모바일 기기에서 로그인해 주세요. | You can't log in from this mobile preview. Please log in on a real mobile device. | |
+
+## errorState (공용 에러 화면 + 404)
+
+| 키 | 한국어 | English | 비고 |
+|---|---|---|---|
+| eyebrow | 문제가 발생했어요 | Something went wrong | |
+| retry | 다시 시도 | Try again | |
+| home | 홈으로 | Home | |
+| errorCode | 오류 코드 | Error code | |
+| rootTitle | 페이지를 불러오지 못했어요 | Couldn't load the page | |
+| rootBody | 잠시 문제가 생겼어요. 다시 시도하거나 홈으로 돌아가 주세요. | Something went wrong for a moment. Try again or head home. | |
+| notFoundEyebrow | 404 · 페이지 없음 | 404 · Not found | |
+| notFoundTitle | 페이지를 찾을 수 없어요 | We can't find that page | |
+| notFoundBody | 주소가 바뀌었거나 사라진 페이지일 수 있어요. 홈으로 돌아가 시작해 주세요. | The address may have changed or the page may be gone. Head home to start over. | |
+
+### 사전 밖 이중 카피 (components/ReportButton.tsx)
+신고 모달은 사전이 아니라 컴포넌트 안 COPY 상수에 ko/en이 이미 들어 있음(watch 페이지 공유). 토글을 따라가되 watch에서는 en 고정. 검수 시 이 파일도 볼 것.

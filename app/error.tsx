@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { logger } from "@/lib/logger";
 import ErrorState from "@/components/ErrorState";
+import { useT } from "@/lib/i18n/client";
 
 // Root segment boundary. Catches render errors from the landing page and any
 // route segment that does not define its own error.tsx, so a single throw can
@@ -28,11 +29,12 @@ export default function AppError({
   }, [error]);
 
   const retry = unstable_retry ?? reset;
+  const { t } = useT();
 
   return (
     <ErrorState
-      title="페이지를 불러오지 못했어요"
-      description="잠시 문제가 생겼어요. 다시 시도하거나 홈으로 돌아가 주세요."
+      title={t.errorState.rootTitle}
+      description={t.errorState.rootBody}
       onRetry={retry ? () => retry() : undefined}
       digest={error.digest}
     />

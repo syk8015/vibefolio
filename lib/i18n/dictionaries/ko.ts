@@ -7,6 +7,10 @@
 export const ko = {
   common: {
     switchLanguage: "영어로 보기",
+    terms: "이용약관",
+    privacy: "개인정보처리방침",
+    contact: "문의",
+    ok: "확인",
   },
   // 인증 화면들(로그인·회원가입·비밀번호 찾기/재설정)이 공유하는 문구
   auth: {
@@ -427,6 +431,43 @@ export const ko = {
       submitFailed: "올리지 못했어요. 잠시 후 다시 시도해 주세요.",
       network: "네트워크 오류로 올리지 못했어요.",
     },
+  },
+  // /[username] 명함(Theater) 퍼블릭 페이지
+  theater: {
+    editFrame: "프레임 수정",
+    myFrame: "내 프레임",
+    login: "로그인",
+    emptyTitle: "아직 공개된 프로젝트가 없어요",
+    emptyBody: "곧 새로운 작업물이 올라올 예정이에요.",
+    screenings: (total: number) => `상영 목록 · ${total} works`,
+    aboutLabel: "명함 · About",
+    upNextLabel: "상영 목록 · Up Next",
+    prevWork: "이전 작품",
+    nextWork: "다음 작품",
+    makerNote: "만든이 메모",
+    ctaFullscreen: "전체화면으로 체험",
+    ctaFullscreenShort: "전체화면 체험",
+    ctaVisit: "체험하러 가기",
+    errorTitle: "프레임을 불러오지 못했어요",
+    errorBody: "이 페이지를 표시하는 중 문제가 생겼어요. 다시 시도하거나 홈으로 돌아가 주세요.",
+    copyLink: "링크 복사",
+    viewMobile: "모바일 화면으로 보기",
+    viewDesktop: "PC 화면으로 보기",
+    embedLoginAria: "로그인 안내",
+    embedLoginTitle: "로그인은 모바일에서 진행해주세요",
+    embedLoginBody: "모바일 미리보기에서는 로그인을 할 수 없어요. 실제 모바일 기기에서 로그인해 주세요.",
+  },
+  // 공용 에러 화면(components/ErrorState) + 루트 에러 바운더리(app/error.tsx)
+  errorState: {
+    eyebrow: "문제가 발생했어요",
+    retry: "다시 시도",
+    home: "홈으로",
+    errorCode: "오류 코드",
+    rootTitle: "페이지를 불러오지 못했어요",
+    rootBody: "잠시 문제가 생겼어요. 다시 시도하거나 홈으로 돌아가 주세요.",
+    notFoundEyebrow: "404 · 페이지 없음",
+    notFoundTitle: "페이지를 찾을 수 없어요",
+    notFoundBody: "주소가 바뀌었거나 사라진 페이지일 수 있어요. 홈으로 돌아가 시작해 주세요.",
   },
 };
 

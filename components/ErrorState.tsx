@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useT } from "@/lib/i18n/client";
 
 // Branded fallback shown by the route-level error boundaries (app/error.tsx,
 // app/dashboard/error.tsx, app/[username]/error.tsx). These render INSIDE the
@@ -10,9 +11,9 @@ import Link from "next/link";
 export default function ErrorState({
   title,
   description,
-  eyebrow = "문제가 발생했어요",
+  eyebrow,
   onRetry,
-  homeLabel = "홈으로",
+  homeLabel,
   homeHref = "/",
   digest,
 }: {
@@ -24,6 +25,7 @@ export default function ErrorState({
   homeHref?: string;
   digest?: string;
 }) {
+  const { t } = useT();
   return (
     <div
       style={{
@@ -50,7 +52,7 @@ export default function ErrorState({
             marginBottom: "0.9rem",
           }}
         >
-          {eyebrow}
+          {eyebrow ?? t.errorState.eyebrow}
         </div>
 
         <h1
@@ -74,11 +76,11 @@ export default function ErrorState({
         <div style={{ display: "flex", gap: "0.6rem", justifyContent: "center", flexWrap: "wrap" }}>
           {onRetry && (
             <button type="button" className="vf-button-primary" onClick={onRetry}>
-              다시 시도
+              {t.errorState.retry}
             </button>
           )}
           <Link href={homeHref} className="vf-button-ghost">
-            {homeLabel}
+            {homeLabel ?? t.errorState.home}
           </Link>
         </div>
 
@@ -87,7 +89,7 @@ export default function ErrorState({
             className="vf-mono"
             style={{ marginTop: "1.5rem", fontSize: "0.68rem", color: "var(--text-muted)" }}
           >
-            오류 코드: {digest}
+            {t.errorState.errorCode}: {digest}
           </div>
         )}
       </div>

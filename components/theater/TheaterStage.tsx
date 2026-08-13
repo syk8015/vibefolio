@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { useT } from "@/lib/i18n/client";
 import Image from "next/image";
 import type { Project } from "@/lib/data";
 import { detectVideoKind, getYouTubeEmbedUrl, getVimeoEmbedUrl } from "@/lib/video";
@@ -12,18 +13,8 @@ function isFileUpload(url: string | undefined): boolean {
   return !!url && url.startsWith("/api/preview/");
 }
 
-// Site-kind id → display label. Mirrors CONTENT_TYPES in lib/projectTaxonomy.ts
-// (the optional "무슨 사이트인지" field).
-const CONTENT_TYPE_LABELS: Record<string, string> = {
-  "web-app": "웹 앱",
-  "saas": "SaaS",
-  "mobile": "모바일 앱",
-  "game": "게임",
-  "extension": "크롬 익스텐션",
-  "ai-service": "AI 서비스",
-  "media": "미디어 콘텐츠",
-  "other": "기타",
-};
+// Site-kind labels live in the i18n dictionary (t.contentTypes), mirroring
+// CONTENT_TYPES ids in lib/projectTaxonomy.ts (the optional "무슨 사이트인지" field).
 
 function safeHref(url: string | undefined): string | undefined {
   if (!url) return undefined;
@@ -216,6 +207,7 @@ function NowPlayingBadge() {
 }
 
 function StageVoiceBubble({ text }: { text: string }) {
+  const { t } = useT();
   return (
     <div
       style={{
@@ -257,7 +249,7 @@ function StageVoiceBubble({ text }: { text: string }) {
             fontWeight: 800,
           }}
         >
-          만든이 메모
+          {t.theater.makerNote}
         </span>
         {text}
       </div>
@@ -275,6 +267,7 @@ interface StageProps {
 }
 
 export default function TheaterStage({ project, index, variant, profile, identity }: StageProps) {
+  const { t } = useT();
   // ── 모바일은 완전히 분리된 히어로로 분기. 데스크탑 코드 경로는 아래 그대로 보존(byte-identical) ──
   if (variant === "mobile") {
     return <MobileStage project={project} index={index} profile={profile} identity={identity} />;
@@ -296,7 +289,7 @@ export default function TheaterStage({ project, index, variant, profile, identit
   // one row at the bottom. No "Now playing", no "Live"; instead the optional
   // site-kind + AI-tool fields the user picked when adding the project.
   const isMobileVideo = !isDesktop && isVideo;
-  const contentLabel = project.contentType ? CONTENT_TYPE_LABELS[project.contentType] : undefined;
+  const contentLabel = project.contentType ? (t.contentTypes as Record<string, string>)[project.contentType] : undefined;
   const aiTools = project.tags.length ? project.tags.join(" · ") : undefined;
   const metaParts = [contentLabel, aiTools, project.year].filter(Boolean) as string[];
 
@@ -432,7 +425,7 @@ export default function TheaterStage({ project, index, variant, profile, identit
                   whiteSpace: "nowrap",
                 }}
               >
-                {isFile ? "전체화면으로 체험" : "체험하러 가기"}
+                {isFile ? t.theater.ctaFullscreen : t.theater.ctaVisit}
                 <span
                   style={{
                     display: "inline-block",
@@ -568,7 +561,7 @@ export default function TheaterStage({ project, index, variant, profile, identit
               textDecoration: "none",
             }}
           >
-            {isFile ? "전체화면으로 체험" : "체험하러 가기"}
+            {isFile ? t.theater.ctaFullscreen : t.theater.ctaVisit}
             <span
               style={{
                 display: "inline-block",
@@ -811,8 +804,9 @@ function MobileStage({
   const isFile = isFileUpload(project.demoUrl);
   const numberLabel = String(index + 1).padStart(2, "0");
   const displayName = profile?.name || profile?.username || "";
+  const { t } = useT();
 
-  const contentLabel = project.contentType ? CONTENT_TYPE_LABELS[project.contentType] : undefined;
+  const contentLabel = project.contentType ? (t.contentTypes as Record<string, string>)[project.contentType] : undefined;
   const aiTools = project.tags.length ? project.tags.join(" · ") : undefined;
   const metaParts = [contentLabel, aiTools, project.year].filter(Boolean) as string[];
 
@@ -952,7 +946,7 @@ function MobileStage({
                 whiteSpace: "nowrap",
               }}
             >
-              {isFile ? "전체화면 체험" : "체험하러 가기"}
+              {isFile ? t.theater.ctaFullscreenShort : t.theater.ctaVisit}
               <span
                 style={{
                   display: "inline-block",
