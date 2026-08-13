@@ -8,6 +8,7 @@ import { RerecordRequestModal } from "@/components/dashboard/RerecordRequestModa
 import { detectDemoSource } from "@/lib/demoSource";
 import { AnalyticsEvent, trackClientEvent } from "@/lib/analytics-client";
 
+import { useT } from "@/lib/i18n/client";
 import { deleteSwappedAssets } from "./projects/helpers";
 import { type DBProject, type ProjectForm, EMPTY_FORM } from "./projects/types";
 import { DraftRow, ProjectRow } from "./projects/rows";
@@ -18,6 +19,7 @@ import { useDemoStatusSync } from "./projects/useDemoStatusSync";
 // actually resolve) — deriving it here from auth metadata could hand ShareKit
 // a stale handle when the two sources drift.
 export default function ProjectsTab({ user, username, reviewProjectId }: { user: User; username: string; reviewProjectId?: string | null }) {
+  const { t } = useT();
   const [projects, setProjects] = useState<DBProject[]>([]);
   const [drafts, setDrafts] = useState<DBProject[]>([]);
   const [loading, setLoading] = useState(true);
@@ -75,7 +77,7 @@ export default function ProjectsTab({ user, username, reviewProjectId }: { user:
     // 일부만 실패하면 화면과 DB가 조용히 어긋난 채 남는다 — 서버 순서를 다시
     // 실어와 화면을 진실에 맞추고, 실패했다는 사실을 알린다.
     if (results.some((r) => r.error)) {
-      setNotice("순서 저장에 실패했어요. 잠시 후 다시 시도해 주세요.");
+      setNotice(t.projects.orderSaveFailed);
       loadProjects();
     }
   }
@@ -110,7 +112,7 @@ export default function ProjectsTab({ user, username, reviewProjectId }: { user:
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("이 프로젝트를 삭제할까요?")) return;
+    if (!confirm(t.projects.deleteConfirm)) return;
 
     // Optimistic: drop the row from the list immediately so the click feels instant.
     // The delete takes a few seconds (BFS storage listing + chunked removes + R2),
@@ -143,7 +145,7 @@ export default function ProjectsTab({ user, username, reviewProjectId }: { user:
           return next;
         });
       }
-      setNotice("프로젝트 삭제에 실패했어요. 잠시 후 다시 시도해 주세요.");
+      setNotice(t.projects.deleteFailed);
     }
   }
 
@@ -181,11 +183,11 @@ export default function ProjectsTab({ user, username, reviewProjectId }: { user:
             if (res.ok) return;
             const body = await res.json().catch(() => ({}));
             setProjects(prev => prev.map(p => p.id === inserted.id ? inserted : p));
-            setNotice(body.message || "자동 시연 생성을 시작하지 못했어요. 프로젝트는 저장됐어요 — 카드에서 다시 시도할 수 있어요.");
+            setNotice(body.message || t.projects.demoStartFailed);
           })
           .catch(() => {
             setProjects(prev => prev.map(p => p.id === inserted.id ? inserted : p));
-            setNotice("자동 시연 요청이 전송되지 않았어요. 프로젝트는 저장됐어요 — 카드에서 다시 시도할 수 있어요.");
+            setNotice(t.projects.demoRequestFailed);
           });
       }
     }
@@ -226,11 +228,11 @@ export default function ProjectsTab({ user, username, reviewProjectId }: { user:
         setProjects(prev => prev.map(p => p.id === id
           ? { ...p, demo_build_status: "held", demo_build_error: null }
           : p));
-        setNotice(body.message ?? "관리자 승인 대기로 전환했어요.");
+        setNotice(body.message ?? t.projects.heldNotice);
       }
     } catch (err) {
       // 트리거 자체 실패 시 failed로 표시 (잡이 안 돌았으니 catchError로 잡힐 일도 없음)
-      const message = err instanceof Error ? err.message : "재촬영 요청 실패";
+      const message = err instanceof Error ? err.message : t.projects.rerecordFailed;
       setProjects(prev => prev.map(p => p.id === id
         ? { ...p, demo_build_status: "failed", demo_build_error: message }
         : p));
@@ -312,7 +314,7 @@ export default function ProjectsTab({ user, username, reviewProjectId }: { user:
       // 롤백 — 다시 초안으로.
       setProjects(prev => prev.filter(p => p.id !== project.id));
       setDrafts(prev => (prev.some(p => p.id === project.id) ? prev : [project, ...prev]));
-      setNotice("공개에 실패했어요. 잠시 후 다시 시도해 주세요.");
+      setNotice(t.projects.publishFailed);
       return;
     }
     trackClientEvent(AnalyticsEvent.ProjectCreated, { projectId: project.id, demoSource: source?.type ?? null });
@@ -322,11 +324,11 @@ export default function ProjectsTab({ user, username, reviewProjectId }: { user:
           if (res.ok) return;
           const body = await res.json().catch(() => ({}));
           setProjects(prev => prev.map(p => p.id === project.id ? { ...published, demo_build_status: null } : p));
-          setNotice(body.message || "공개됐지만 자동 시연 생성을 시작하지 못했어요 — 카드에서 다시 시도할 수 있어요.");
+          setNotice(body.message || t.projects.publishedDemoStartFailed);
         })
         .catch(() => {
           setProjects(prev => prev.map(p => p.id === project.id ? { ...published, demo_build_status: null } : p));
-          setNotice("공개됐지만 자동 시연 요청이 전송되지 않았어요 — 카드에서 다시 시도할 수 있어요.");
+          setNotice(t.projects.publishedDemoRequestFailed);
         });
     }
   }
@@ -342,9 +344,9 @@ export default function ProjectsTab({ user, username, reviewProjectId }: { user:
   // ── Add-mode: inline takeover of the ProjectsTab content area ──
   if (showAddModal) {
     return (
-      <ProjectFormModal title="새 프로젝트 추가" initialForm={EMPTY_FORM}
+      <ProjectFormModal title={t.projects.addTitle} initialForm={EMPTY_FORM}
         onClose={() => setShowAddModal(false)} onSubmit={handleAdd}
-        submitLabel="추가하기" userId={user.id} wizard />
+        submitLabel={t.projects.submitAdd} userId={user.id} wizard />
     );
   }
 
@@ -355,7 +357,7 @@ export default function ProjectsTab({ user, username, reviewProjectId }: { user:
             카운터가 거짓말이 된다. */}
         <p className="text-sm vf-mono" style={{ color: "var(--text-secondary)", letterSpacing: "0.02em" }}>
           {projects.length} project{projects.length === 1 ? "" : "s"}
-          {drafts.length > 0 && ` · 검토 대기 ${drafts.length}`}
+          {drafts.length > 0 && ` · ${t.projects.pendingReview(drafts.length)}`}
         </p>
         <button
           onClick={() => setShowAddModal(true)}
@@ -364,7 +366,7 @@ export default function ProjectsTab({ user, username, reviewProjectId }: { user:
           <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
             <path d="M7 1v12M1 7h12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
           </svg>
-          프로젝트 추가
+          {t.projects.addProject}
         </button>
       </div>
 
@@ -377,10 +379,10 @@ export default function ProjectsTab({ user, username, reviewProjectId }: { user:
               className="vf-serif-display mb-2"
               style={{ fontSize: "1.15rem", fontWeight: 500 }}
             >
-              아직 프로젝트가 없어요
+              {t.projects.emptyTitle}
             </p>
             <p className="text-xs" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
-              위 버튼으로 첫 프로젝트를 추가해보세요
+              {t.projects.emptyBody}
             </p>
           </div>
         ) : (
@@ -436,10 +438,10 @@ export default function ProjectsTab({ user, username, reviewProjectId }: { user:
         >
           <div className="min-w-0">
             <p className="text-sm" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontWeight: 600, margin: 0 }}>
-              AI로 한 줄에 올리기
+              {t.projects.connectTitle}
             </p>
             <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", margin: 0 }}>
-              클로드코드·커서·챗봇을 연결하면, 그 작업을 만든 AI가 여기에 초안으로 올려줘요
+              {t.projects.connectSubtitle}
             </p>
           </div>
           <svg
@@ -457,7 +459,7 @@ export default function ProjectsTab({ user, username, reviewProjectId }: { user:
       </div>
 
       {editProject && (
-        <ProjectFormModal title="프로젝트 수정"
+        <ProjectFormModal title={t.projects.editTitle}
           initialForm={{
             title: editProject.title, description: editProject.description,
             type: editProject.type, content_type: editProject.content_type,
@@ -469,7 +471,7 @@ export default function ProjectsTab({ user, username, reviewProjectId }: { user:
           }}
           onClose={() => setEditProject(null)}
           onSubmit={form => handleEdit(editProject.id, form)}
-          submitLabel="저장하기" userId={user.id} />
+          submitLabel={t.projects.submitSave} userId={user.id} />
       )}
 
       {rerecordModal && (
@@ -479,7 +481,7 @@ export default function ProjectsTab({ user, username, reviewProjectId }: { user:
           onClose={() => setRerecordModal(null)}
           onSubmitted={() => {
             setRerecordModal(null);
-            setNotice("재촬영 요청을 보냈어요. 관리자 승인 후 다시 촬영돼요.");
+            setNotice(t.projects.rerecordSent);
           }}
         />
       )}

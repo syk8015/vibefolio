@@ -10,6 +10,8 @@ import { copyText } from "@/lib/clipboard";
 import { StampSeal } from "@/components/theater/Meishi";
 import ProjectsTab from "./ProjectsTab";
 import ThemeToggle from "@/components/ThemeToggle";
+import LanguageToggle from "@/components/LanguageToggle";
+import { useT } from "@/lib/i18n/client";
 
 // "projects" is the default tab, so it stays in the initial bundle. The other
 // two tabs are split into their own chunks and only fetched when opened.
@@ -22,9 +24,8 @@ const CardTab = dynamic(() => import("./CardTab"), { loading: TabFallback });
 const VisitsTab = dynamic(() => import("./VisitsTab"), { loading: TabFallback });
 
 // 탭 id = 유저가 보는 이름과 같은 뜻(작품·명함·방문) — 옛 settings("연결")처럼
-// 라벨과 어긋난 내부 이름을 다시 만들지 않는다.
+// 라벨과 어긋난 내부 이름을 다시 만들지 않는다. 라벨은 컴포넌트 안에서 사전으로.
 type Tab = "projects" | "card" | "visits";
-const TAB_LABEL: Record<Tab, string> = { projects: "작품", card: "명함", visits: "방문" };
 
 // The dashboard's copy of the profiles row — the same row the public card reads.
 // Display values (name, avatar, username) come from here, never auth metadata:
@@ -48,6 +49,12 @@ export default function DashboardClient({ user, profile, publishedCount, totalCo
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { t } = useT();
+  const TAB_LABEL: Record<Tab, string> = {
+    projects: t.dashboard.tabProjects,
+    card: t.dashboard.tabCard,
+    visits: t.dashboard.tabVisits,
+  };
   // ?tab=(탭 상태) · ?welcome=1(온보딩 배너) · ?review=<id>(초안 검토 딥링크)는
   // 마운트 시 1회 소비하는 진입 파라미터 — lazy init으로 읽고, 이펙트는 URL
   // 정리만 한다. (마운트 중 같은 페이지로 재네비게이션하는 진입 경로는 없음.)
@@ -110,13 +117,14 @@ export default function DashboardClient({ user, profile, publishedCount, totalCo
           </span>
         </Link>
         <div className="flex items-center gap-2 md:gap-3">
+          <LanguageToggle />
           <ThemeToggle />
           <button
             onClick={handleLogout}
             className="text-xs px-3 py-1.5 rounded-full transition-opacity hover:opacity-70"
             style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", background: "none", border: "none", cursor: "pointer" }}
           >
-            로그아웃
+            {t.dashboard.logout}
           </button>
         </div>
       </nav>
@@ -131,21 +139,21 @@ export default function DashboardClient({ user, profile, publishedCount, totalCo
                 <div className="mt-1.5 w-2 h-2 rounded-full shrink-0" style={{ background: "var(--text-primary)" }} />
                 <div>
                   <p className="text-sm mb-1" style={{ color: "var(--text-primary)", fontFamily: "var(--font-serif), 'Noto Serif KR', serif", fontWeight: 500, fontSize: "1rem" }}>
-                    프레임이 준비됐어요
+                    {t.dashboard.welcomeTitle}
                   </p>
                   <p className="text-sm" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
-                    이제 작품을 추가해서 프레임을 채워볼게요.{" "}
+                    {t.dashboard.welcomeBody}{" "}
                     <button
                       onClick={() => switchTab("projects")}
                       className="vf-button-text underline"
                       style={{ color: "var(--text-primary)", fontWeight: 600 }}>
-                      첫 작품 추가하기 →
+                      {t.dashboard.welcomeCta}
                     </button>
                   </p>
                 </div>
               </div>
               <button onClick={() => setShowWelcome(false)}
-                aria-label="환영 배너 닫기"
+                aria-label={t.dashboard.welcomeClose}
                 className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center transition-colors hover:opacity-60"
                 style={{ background: "var(--surface-soft)", border: "none", cursor: "pointer", color: "var(--text-muted)" }}>
                 <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
@@ -185,7 +193,7 @@ export default function DashboardClient({ user, profile, publishedCount, totalCo
           <div className="flex flex-col items-start gap-2">
             <button
               onClick={copyAddress}
-              title="프레임 주소 복사"
+              title={t.dashboard.copyAddress}
               className="vf-mono flex items-center gap-1.5 rounded-full transition-colors"
               style={{
                 background: "var(--surface-soft)",
@@ -198,7 +206,7 @@ export default function DashboardClient({ user, profile, publishedCount, totalCo
             >
               nookframe.com/<span style={{ color: "var(--text-primary)", fontWeight: 600 }}>{username}</span>
               {addrCopied ? (
-                <span style={{ color: "var(--text-primary)" }}>복사됨 ✓</span>
+                <span style={{ color: "var(--text-primary)" }}>{t.dashboard.copied}</span>
               ) : (
                 <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden>
                   <rect x="3.5" y="3.5" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.3"/>
@@ -211,7 +219,7 @@ export default function DashboardClient({ user, profile, publishedCount, totalCo
               className="vf-button-ghost"
               style={{ padding: "0.45rem 0.9rem", fontSize: "0.78rem" }}
             >
-              내 프레임 보기
+              {t.dashboard.viewFrame}
               <svg width="11" height="11" viewBox="0 0 13 13" fill="none">
                 <path d="M1.5 11.5L11.5 1.5M11.5 1.5H5.5M11.5 1.5V7.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>

@@ -10,6 +10,7 @@ import { isReservedUsername } from "@/lib/reservedUsernames";
 // 넓게 인식해주면 "확인됐다"고 보여놓고 명함에선 조용히 버려진다.
 import { getSocialMeta } from "@/components/SocialBadge";
 import type { DashboardProfile } from "./DashboardClient";
+import { useT } from "@/lib/i18n/client";
 
 function migrateOldLinks(profile: DashboardProfile): string[] {
   const links: string[] = [];
@@ -21,6 +22,7 @@ function migrateOldLinks(profile: DashboardProfile): string[] {
 // 명함 탭(옛 ProfileTab) — 명함에 인쇄되는 것들을 편집한다. 상단 아이덴티티
 // 미리보기는 헤더의 미니 명함(실물 문법)이 대체해서 여기선 폼만 남았다.
 export default function CardTab({ user, profile }: { user: User; profile: DashboardProfile }) {
+  const { t } = useT();
   // 폼의 초기값도 공개 명함이 읽는 profiles 행 — auth metadata는 표시 값의
   // 출처로 쓰지 않는다(둘이 갈라지면 대시보드와 명함의 이름이 달라진다).
   const existingLinks = profile.social_links?.length
@@ -89,7 +91,7 @@ export default function CardTab({ user, profile }: { user: User; profile: Dashbo
     if (!file) return;
 
     if (file.size > 5 * 1024 * 1024) {
-      setError("이미지는 5MB 이하만 업로드할 수 있어요.");
+      setError(t.card.imageTooLarge);
       return;
     }
 
@@ -109,7 +111,7 @@ export default function CardTab({ user, profile }: { user: User; profile: Dashbo
 
     if (isReservedUsername(form.username)) {
       setLoading(false);
-      setError("사용할 수 없는 username이에요. 다른 걸 입력해주세요.");
+      setError(t.onboarding.errors.usernameReserved);
       return;
     }
 
@@ -120,7 +122,7 @@ export default function CardTab({ user, profile }: { user: User; profile: Dashbo
       .from("profiles").select("id").eq("username", form.username).neq("id", user.id).maybeSingle();
     if (takenBy) {
       setLoading(false);
-      setError("이미 사용 중인 username이에요. 다른 걸 입력해주세요.");
+      setError(t.onboarding.errors.usernameTaken);
       return;
     }
 
@@ -134,7 +136,7 @@ export default function CardTab({ user, profile }: { user: User; profile: Dashbo
         .upload(path, avatarFile, { upsert: true });
       if (uploadError) {
         setLoading(false);
-        setError("이미지 업로드에 실패했어요. 잠시 후 다시 시도해주세요.");
+        setError(t.card.avatarUploadFailed);
         return;
       }
       avatarUrl = supabase.storage.from("avatars").getPublicUrl(path).data.publicUrl;
@@ -157,8 +159,8 @@ export default function CardTab({ user, profile }: { user: User; profile: Dashbo
       setLoading(false);
       setError(
         profileErr.code === "23505"
-          ? "이미 사용 중인 username이에요. 다른 걸 입력해주세요."
-          : "저장 중 오류가 발생했어요. 다시 시도해주세요.",
+          ? t.onboarding.errors.usernameTaken
+          : t.onboarding.errors.saveAuth,
       );
       return;
     }
@@ -193,7 +195,7 @@ export default function CardTab({ user, profile }: { user: User; profile: Dashbo
       const res = await fetch("/api/account", { method: "DELETE" });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error(body.message || "탈퇴 처리에 실패했어요.");
+        throw new Error(body.message || t.card.deleteFailed);
       }
       // Account + data are gone — drop the local session and leave.
       await createClient().auth.signOut();
@@ -201,7 +203,7 @@ export default function CardTab({ user, profile }: { user: User; profile: Dashbo
       router.refresh();
     } catch (err) {
       setDeleting(false);
-      setDeleteError(err instanceof Error ? err.message : "탈퇴 처리에 실패했어요.");
+      setDeleteError(err instanceof Error ? err.message : t.card.deleteFailed);
     }
   }
 
@@ -219,9 +221,9 @@ export default function CardTab({ user, profile }: { user: User; profile: Dashbo
           실물과 어긋났다 — 감사 A10.) */}
       <div>
         <label className="vf-label">
-          프로필 이미지
+          {t.card.avatarLabel}
           <span className="ml-1.5" style={{ color: "var(--text-muted)", textTransform: "none", letterSpacing: 0, fontWeight: 400 }}>
-            (모바일 명함·공유 카드에 쓰여요)
+            {t.card.avatarNote}
           </span>
         </label>
         <div className="flex items-center gap-3 flex-wrap">
@@ -245,14 +247,14 @@ export default function CardTab({ user, profile }: { user: User; profile: Dashbo
             onClick={() => fileInputRef.current?.click()}
             className="vf-button-ghost"
           >
-            {displayAvatar ? "이미지 변경" : "이미지 업로드"}
+            {displayAvatar ? t.card.changeImage : t.card.uploadImage}
           </button>
           <p className="text-xs vf-mono" style={{ color: "var(--text-muted)" }}>
-            JPG · PNG · GIF · 최대 5MB
+            {t.card.avatarFormats}
           </p>
           {avatarFile && (
             <p className="text-xs" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
-              저장하기를 누르면 반영돼요
+              {t.card.avatarPendingNote}
             </p>
           )}
         </div>
@@ -260,21 +262,21 @@ export default function CardTab({ user, profile }: { user: User; profile: Dashbo
 
       {/* Name */}
       <div>
-        <label className="vf-label">표시 이름</label>
+        <label className="vf-label">{t.card.nameLabel}</label>
         <input className="vf-input" name="name" type="text"
-          placeholder="홍길동" value={form.name} onChange={handleChange} />
+          placeholder={t.signup.namePlaceholder} value={form.name} onChange={handleChange} />
       </div>
 
       {/* Username */}
       <div>
-        <label className="vf-label">사용자 이름</label>
+        <label className="vf-label">{t.card.usernameLabel}</label>
         <div className="relative">
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm pointer-events-none"
             style={{ color: "var(--text-muted)", fontFamily: "var(--font-mono), monospace" }}>@</span>
           <input className="vf-input vf-mono" style={{ paddingLeft: "1.75rem" }}
             name="username" type="text" placeholder="alexvibe"
             value={form.username} onChange={handleChange}
-            pattern="[a-zA-Z0-9_-]+" title="영문, 숫자, _-만 사용 가능해요" />
+            pattern="[a-zA-Z0-9_-]+" title={t.auth.usernamePattern} />
         </div>
         <p className="text-xs mt-2 vf-mono" style={{ color: "var(--text-muted)", letterSpacing: "0.02em" }}>
           nookframe.com/<span style={{ color: "var(--text-secondary)" }}>{form.username || "username"}</span>
@@ -283,11 +285,11 @@ export default function CardTab({ user, profile }: { user: User; profile: Dashbo
 
       {/* Bio */}
       <div>
-        <label className="vf-label">한 줄 소개</label>
+        <label className="vf-label">{t.card.bioLabel}</label>
         <textarea
           className="vf-input"
           name="bio"
-          placeholder="바이브코딩으로 아이디어를 현실로 만들고 있어요."
+          placeholder={t.onboarding.bioPlaceholder}
           value={form.bio}
           onChange={handleChange}
           rows={3}
@@ -301,7 +303,7 @@ export default function CardTab({ user, profile }: { user: User; profile: Dashbo
 
       {/* Social Links */}
       <div>
-        <label className="vf-label">소셜 링크</label>
+        <label className="vf-label">{t.card.socialLabel}</label>
         <div className="flex flex-col gap-3">
           {form.socialLinks.map((link, i) => {
             const detected = link.trim() ? getSocialMeta(link) : null;
@@ -320,7 +322,7 @@ export default function CardTab({ user, profile }: { user: User; profile: Dashbo
                     onClick={() => removeLink(i)}
                     className="vf-icon-button w-9 h-9 text-base flex-shrink-0"
                     style={{ color: "var(--text-muted)" }}
-                    aria-label="링크 삭제"
+                    aria-label={t.card.removeLink}
                   >
                     ×
                   </button>
@@ -331,7 +333,7 @@ export default function CardTab({ user, profile }: { user: User; profile: Dashbo
                   </p>
                 ) : (
                   <p className="text-xs pl-1" style={{ color: "var(--danger)", fontFamily: "var(--font-nunito)", lineHeight: 1.6 }}>
-                    아직 인식되지 않는 주소예요 — 명함에는 Instagram · X · GitHub · LinkedIn · YouTube · TikTok · Facebook · Threads 링크만 표시돼요.
+                    {t.card.unrecognizedLink}
                   </p>
                 ))}
               </div>
@@ -342,7 +344,7 @@ export default function CardTab({ user, profile }: { user: User; profile: Dashbo
             onClick={addLink}
             className="vf-button-text w-fit"
           >
-            <span style={{ fontSize: "1.1rem", lineHeight: 1 }}>+</span> 링크 추가
+            <span style={{ fontSize: "1.1rem", lineHeight: 1 }}>+</span> {t.card.addLink}
           </button>
         </div>
       </div>
@@ -355,14 +357,14 @@ export default function CardTab({ user, profile }: { user: User; profile: Dashbo
           className="vf-button-primary"
           style={{ cursor: loading ? "not-allowed" : "pointer" }}
         >
-          {loading ? "저장 중…" : "저장하기"}
+          {loading ? t.card.saving : t.card.save}
         </button>
         {saved && (
           <span className="text-sm flex items-center gap-1.5" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
               <path d="M2.5 7l3 3 6-6.5" stroke="var(--text-primary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
-            저장됐어요
+            {t.card.savedMsg}
           </span>
         )}
         {error && (
@@ -376,12 +378,12 @@ export default function CardTab({ user, profile }: { user: User; profile: Dashbo
       {/* 계정 — 명함 내용과 분리된 계정 자체의 작업(탈퇴). soft-fill 언어:
           경고는 테두리가 아니라 옅은 채움으로. (privacy: 탈퇴 즉시 파기) */}
       <div className="pt-2">
-        <p className="vf-label">계정</p>
+        <p className="vf-label">{t.card.accountLabel}</p>
         <div className="rounded-2xl p-5" style={{ background: "rgba(179,71,71,0.06)" }}>
-          <h3 className="text-sm font-black mb-1.5" style={{ color: "var(--danger)", fontFamily: "var(--font-nunito)" }}>회원 탈퇴</h3>
+          <h3 className="text-sm font-black mb-1.5" style={{ color: "var(--danger)", fontFamily: "var(--font-nunito)" }}>{t.card.deleteTitle}</h3>
           <p className="text-sm mb-4" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", lineHeight: 1.65 }}>
-            프로필과 모든 작품·업로드한 파일이{" "}
-            <strong style={{ color: "var(--text-primary)" }}>즉시·영구 삭제</strong>되며, 되돌릴 수 없어요.
+            {t.card.deleteBody1}
+            <strong style={{ color: "var(--text-primary)" }}>{t.card.deleteBodyStrong}</strong>{t.card.deleteBody2}
           </p>
           <button
             type="button"
@@ -389,7 +391,7 @@ export default function CardTab({ user, profile }: { user: User; profile: Dashbo
             className="text-sm font-bold px-4 py-2.5 rounded-xl transition-opacity hover:opacity-80"
             style={{ color: "var(--danger)", background: "rgba(179,71,71,0.12)", border: "none", cursor: "pointer", fontFamily: "var(--font-nunito)" }}
           >
-            회원 탈퇴
+            {t.card.deleteBtn}
           </button>
         </div>
       </div>
@@ -407,15 +409,15 @@ export default function CardTab({ user, profile }: { user: User; profile: Dashbo
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-lg font-black mb-2" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}>
-              정말 탈퇴하시겠어요?
+              {t.card.deleteModalTitle}
             </h3>
             <p className="text-sm mb-4" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", lineHeight: 1.65 }}>
-              <strong style={{ color: "var(--text-primary)" }}>@{savedUsername}</strong>의 프로필과 모든 프로젝트·업로드 파일이 즉시·영구 삭제돼요. 이 작업은 되돌릴 수 없어요.
+              <strong style={{ color: "var(--text-primary)" }}>@{savedUsername}</strong>{t.card.deleteModalBody}
             </p>
             {/* 확인 문자열은 "저장된" username — 폼에 고쳐 쓰고 저장 안 한 값과
                 비교하면 존재하지 않는 이름을 타이핑하라고 요구하게 된다. */}
             <label className="vf-label">
-              확인을 위해 <span style={{ color: "var(--text-primary)" }}>{savedUsername}</span> 를 입력해주세요
+              {t.card.confirmPrefix}<span style={{ color: "var(--text-primary)" }}>{savedUsername}</span>{t.card.confirmSuffix}
             </label>
             <input
               className="vf-input"
@@ -437,7 +439,7 @@ export default function CardTab({ user, profile }: { user: User; profile: Dashbo
                 className="flex-1 py-2.5 rounded-xl text-sm font-bold transition-opacity hover:opacity-80"
                 style={{ background: "var(--surface-soft)", color: "var(--text-primary)", border: "none", cursor: deleting ? "not-allowed" : "pointer", fontFamily: "var(--font-nunito)" }}
               >
-                취소
+                {t.card.cancel}
               </button>
               <button
                 type="button"
@@ -446,7 +448,7 @@ export default function CardTab({ user, profile }: { user: User; profile: Dashbo
                 className="flex-1 py-2.5 rounded-xl text-sm font-bold transition-opacity"
                 style={{ background: "#b34747", color: "#fff", border: "none", cursor: (deleting || deleteConfirm.trim() !== savedUsername) ? "not-allowed" : "pointer", opacity: (deleting || deleteConfirm.trim() !== savedUsername) ? 0.5 : 1, fontFamily: "var(--font-nunito)" }}
               >
-                {deleting ? "탈퇴 중…" : "영구 삭제"}
+                {deleting ? t.card.deleting : t.card.deleteForever}
               </button>
             </div>
           </div>

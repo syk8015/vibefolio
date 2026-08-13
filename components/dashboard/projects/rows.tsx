@@ -6,6 +6,7 @@ import { placeholderThumbnail } from "@/lib/placeholder";
 import { CONTENT_TYPES } from "@/lib/projectTaxonomy";
 import { AiToolLogo, isUploadedProject } from "./helpers";
 import { type DBProject, type DemoBuildStatus, DEMO_IN_FLIGHT, DEMO_SLOW_MS } from "./types";
+import { useT } from "@/lib/i18n/client";
 
 // Row components for the dashboard Projects tab. Extracted verbatim from
 // ProjectsTab.tsx (no behavior change). DemoBuildBadge + RowMenu are internal to
@@ -13,13 +14,6 @@ import { type DBProject, type DemoBuildStatus, DEMO_IN_FLIGHT, DEMO_SLOW_MS } fr
 
 // 실패 코드별 카피는 lib/demo-failure.ts의 DEMO_FAILURE_COPY — 실패 알림 이메일과
 // 공유하므로 여기서 따로 들지 않는다. raw 메시지는 팝오버의 "기술 정보" 토글 뒤로.
-
-const DEMO_PHASE_LABEL: Record<Exclude<DemoBuildStatus, "done" | "failed" | "held">, string> = {
-  pending: "촬영 대기",
-  building: "앱 준비 중",
-  recording: "촬영 중",
-  editing: "편집 중",
-};
 
 function DemoBuildBadge({
   status,
@@ -36,10 +30,18 @@ function DemoBuildBadge({
   nowMs: number;
   onRetry?: () => void;
 }) {
+  const { t } = useT();
   // 팝오버는 fixed + 버튼 rect 앵커 — 리스트 카드(vf-card overflow-hidden)가
   // absolute 팝오버를 클리핑하는 것을 실측으로 확인(2026-07-13), fixed로 탈출.
   const [anchor, setAnchor] = useState<{ top: number; left: number } | null>(null);
   if (!status || status === "done") return null;
+
+  const DEMO_PHASE_LABEL: Record<Exclude<DemoBuildStatus, "done" | "failed" | "held">, string> = {
+    pending: t.projects.phasePending,
+    building: t.projects.phaseBuilding,
+    recording: t.projects.phaseRecording,
+    editing: t.projects.phaseEditing,
+  };
 
   if (status === "failed") {
     const { code, message } = parseDemoFailure(error);
@@ -65,7 +67,7 @@ function DemoBuildBadge({
             cursor: "pointer",
           }}
         >
-          시연 영상 실패
+          {t.projects.demoFailed}
         </button>
         {anchor && (
           <>
@@ -108,13 +110,13 @@ function DemoBuildBadge({
                     cursor: "pointer",
                   }}
                 >
-                  다시 시도
+                  {t.projects.retryBtn}
                 </button>
               )}
               {message && (
                 <details style={{ marginTop: "0.6rem" }}>
                   <summary style={{ fontSize: "0.6rem", color: "var(--text-muted)", cursor: "pointer", fontFamily: "var(--font-nunito)" }}>
-                    기술 정보
+                    {t.projects.techInfo}
                   </summary>
                   <pre
                     style={{
@@ -157,13 +159,9 @@ function DemoBuildBadge({
           fontWeight: 600,
           cursor: "help",
         }}
-        title={
-          isModeration
-            ? "게시 전에 확인이 필요하다고 표시돼 잠시 보류 중이에요. 검토가 끝나면 자동으로 게시되고, 보통 하루 안에 처리돼요."
-            : "하루 자동 시연 한도를 넘어 승인 대기 중이에요. 보통 24시간 안에 처리되고, 그동안은 이미지로 표시돼요."
-        }
+        title={isModeration ? t.projects.heldModerationTip : t.projects.heldQuotaTip}
       >
-        {isModeration ? "게시 전 확인 중" : "승인 대기 · 이미지 표시"}
+        {isModeration ? t.projects.heldModerationLabel : t.projects.heldQuotaLabel}
       </span>
     );
   }
@@ -190,13 +188,9 @@ function DemoBuildBadge({
           fontWeight: 600,
           cursor: "help",
         }}
-        title={
-          paused
-            ? "촬영 요청이 접수됐어요. 순서대로 촬영되고, 끝나면 메일로 알려드릴게요."
-            : "창을 닫으셔도 돼요 — 촬영이 끝나면 메일로 알려드릴게요."
-        }
+        title={paused ? t.projects.pausedTip : t.projects.slowTip}
       >
-        {paused ? "촬영 대기 중" : "예상보다 오래 걸려요"}
+        {paused ? t.projects.pausedLabel : t.projects.slowLabel}
       </span>
     );
   }
@@ -221,7 +215,7 @@ function DemoBuildBadge({
           borderTopColor: "transparent",
         }}
       />
-      {DEMO_PHASE_LABEL[status]} · 보통 1–3분
+      {DEMO_PHASE_LABEL[status]} · {t.projects.usualTime}
     </span>
   );
 }
@@ -232,12 +226,13 @@ function DemoBuildBadge({
 type RowMenuItem = { label: string; onClick: () => void; danger?: boolean; disabled?: boolean };
 
 function RowMenu({ items }: { items: RowMenuItem[] }) {
+  const { t } = useT();
   const [anchor, setAnchor] = useState<{ top: number; left: number } | null>(null);
   const MENU_W = 152;
   return (
     <div className="shrink-0" style={{ position: "relative", display: "inline-flex" }}>
       <button
-        title="더 보기"
+        title={t.projects.more}
         aria-haspopup="menu"
         aria-expanded={!!anchor}
         onClick={e => {
@@ -311,9 +306,11 @@ export function DraftRow({ draft, highlight, isLast, onEdit, onDelete, onPublish
   onDelete: () => void;
   onPublish: () => void;
 }) {
+  const { t } = useT();
   const [publishing, setPublishing] = useState(false);
   const thumbnail = draft.thumbnail || placeholderThumbnail(draft.id);
   const ct = CONTENT_TYPES.find((c) => c.id === draft.content_type);
+  const ctLabel = ct ? (t.contentTypes as Record<string, string>)[ct.id] ?? ct.label : null;
 
   return (
     <div
@@ -329,20 +326,20 @@ export function DraftRow({ draft, highlight, isLast, onEdit, onDelete, onPublish
     >
       <div className="flex items-start md:items-center gap-3 md:gap-4 flex-1 min-w-0">
         <div className="relative w-20 h-14 rounded-xl overflow-hidden shrink-0" style={{ background: "var(--surface-soft)" }}>
-          <Image src={thumbnail} unoptimized alt={draft.title || "초안"} fill className="object-cover" sizes="80px" />
+          <Image src={thumbnail} unoptimized alt={draft.title || t.projects.draftBadge} fill className="object-cover" sizes="80px" />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1 flex-wrap">
             <h3 className="vf-serif-display truncate" style={{ fontSize: "1rem", fontWeight: 500, lineHeight: 1.35, margin: 0 }}>
-              {draft.title || "제목 없음"}
+              {draft.title || t.projects.untitled}
             </h3>
             <span className="px-2 py-0.5 rounded-full shrink-0"
               style={{ background: "var(--surface-soft)", color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", fontSize: "0.6rem", fontWeight: 600 }}>
-              AI 초안
+              {t.projects.draftBadge}
             </span>
             {ct && (
               <span className="text-xs shrink-0" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.62rem" }}>
-                {ct.emoji} {ct.label}
+                {ct.emoji} {ctLabel}
               </span>
             )}
           </div>
@@ -361,12 +358,12 @@ export function DraftRow({ draft, highlight, isLast, onEdit, onDelete, onPublish
           className="vf-button-primary"
           style={{ fontSize: "0.75rem", padding: "0.4rem 0.85rem", opacity: publishing ? 0.6 : 1 }}
         >
-          {publishing ? "공개 중…" : "확인하고 공개"}
+          {publishing ? t.projects.publishing : t.projects.confirmPublish}
         </button>
         <RowMenu
           items={[
-            { label: "수정", onClick: onEdit },
-            { label: "삭제", onClick: onDelete, danger: true },
+            { label: t.projects.menuEdit, onClick: onEdit },
+            { label: t.projects.menuDelete, onClick: onDelete, danger: true },
           ]}
         />
       </div>
@@ -395,8 +392,12 @@ export function ProjectRow({ project, username, demoPaused, nowMs, onDelete, onE
   onDrop: () => void;
   onDragEnd: () => void;
 }) {
+  const { t } = useT();
   const thumbnail = project.thumbnail || placeholderThumbnail(project.id);
   const contentType = CONTENT_TYPES.find(c => c.id === project.content_type);
+  const contentTypeLabel = contentType
+    ? (t.contentTypes as Record<string, string>)[contentType.id] ?? contentType.label
+    : null;
 
   // 재촬영 계열은 상태에 따라 라벨이 달라지고, 진행 중·승인 대기면 지금 할 수
   // 있는 게 없어 메뉴에서 아예 뺀다(옛 RerecordButton의 노출 규칙 그대로).
@@ -406,10 +407,10 @@ export function ProjectRow({ project, username, demoPaused, nowMs, onDelete, onE
     !project.demo_source_value || demoInFlight || status === "held"
       ? null
       : project.demo_video_url || status === "done"
-        ? "재촬영 요청"
+        ? t.projects.rerecordRequest
         : status === "failed"
-          ? "촬영 다시 시도"
-          : "시연 영상 만들기";
+          ? t.projects.retryShoot
+          : t.projects.makeDemo;
 
   return (
     <div
@@ -453,13 +454,13 @@ export function ProjectRow({ project, username, demoPaused, nowMs, onDelete, onE
             {project.is_featured && (
               <span className="px-2 py-0.5 rounded-full shrink-0"
                 style={{ background: "var(--text-primary)", color: "var(--bg)", fontFamily: "var(--font-nunito)", fontSize: "0.6rem", fontWeight: 700 }}>
-                ★ 대표
+                {t.projects.featuredBadge}
               </span>
             )}
             {contentType && (
               <span className="px-2 py-0.5 rounded-full text-xs shrink-0"
                 style={{ background: "var(--surface-soft)", color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", fontSize: "0.6rem", fontWeight: 500 }}>
-                {contentType.emoji} {contentType.label}
+                {contentType.emoji} {contentTypeLabel}
               </span>
             )}
             {isUploadedProject(project.demo_url) && (
@@ -521,14 +522,14 @@ export function ProjectRow({ project, username, demoPaused, nowMs, onDelete, onE
               // "작품 보기"가 공유 팝오버 안에만 숨어 있던 것(계획 항목) —
               // 업로드형의 /api/preview 상대 경로도 그대로 열린다.
               ...(project.demo_url
-                ? [{ label: "작품 열기 ↗", onClick: () => window.open(project.demo_url, "_blank", "noopener") }]
+                ? [{ label: t.projects.menuOpen, onClick: () => window.open(project.demo_url, "_blank", "noopener") }]
                 : []),
-              { label: "수정", onClick: onEdit },
-              { label: project.is_featured ? "대표 해제" : "대표로 설정", onClick: onToggleFeatured },
+              { label: t.projects.menuEdit, onClick: onEdit },
+              { label: project.is_featured ? t.projects.featuredUnset : t.projects.featuredSet, onClick: onToggleFeatured },
               ...(rerecordLabel ? [{ label: rerecordLabel, onClick: onRerecord }] : []),
-              { label: "위로 이동", onClick: onMoveUp, disabled: !canMoveUp },
-              { label: "아래로 이동", onClick: onMoveDown, disabled: !canMoveDown },
-              { label: "삭제", onClick: onDelete, danger: true },
+              { label: t.projects.moveUp, onClick: onMoveUp, disabled: !canMoveUp },
+              { label: t.projects.moveDown, onClick: onMoveDown, disabled: !canMoveDown },
+              { label: t.projects.menuDelete, onClick: onDelete, danger: true },
             ]}
           />
         </div>

@@ -4,6 +4,9 @@ import { useState, useEffect, useMemo } from "react";
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import { classifyTrafficSource } from "@/lib/traffic-source";
+import { useT } from "@/lib/i18n/client";
+import type { Dictionary } from "@/lib/i18n/dictionaries";
+import type { Locale } from "@/lib/i18n/config";
 
 interface ViewRow {
   id: string;
@@ -20,30 +23,29 @@ const COUNTRY_EMOJI: Record<string, string> = {
   VN: "🇻🇳", PH: "🇵🇭", ID: "🇮🇩", MY: "🇲🇾", NL: "🇳🇱",
 };
 
-const COUNTRY_NAME: Record<string, string> = {
-  KR: "한국", US: "미국", JP: "일본", CN: "중국", GB: "영국",
-  DE: "독일", FR: "프랑스", CA: "캐나다", AU: "호주", SG: "싱가포르",
-  IN: "인도", BR: "브라질", TW: "대만", HK: "홍콩", TH: "태국",
-  VN: "베트남", PH: "필리핀", ID: "인도네시아", MY: "말레이시아", NL: "네덜란드",
-};
-
 // 유입 라벨은 /admin 관제탑과 같은 분류기 하나만 쓴다. referrer 호스트만 보면
 // 카톡·인스타 인앱 브라우저(Referer 미전송)가 전부 "직접 방문"으로 붕괴하는데,
 // user_agent는 처음부터 저장돼 있었다 — 그걸 조회해서 채널을 되살린다.
-function sourceLabel(v: Pick<ViewRow, "referrer" | "user_agent">): string {
-  return classifyTrafficSource({ referrer: v.referrer, userAgent: v.user_agent });
+// 분류기는 admin(한국어 고정)과 공유라 한국어 라벨을 뱉는다 — 표시할 때만 번역.
+function sourceLabel(v: Pick<ViewRow, "referrer" | "user_agent">, t: Dictionary): string {
+  const label = classifyTrafficSource({ referrer: v.referrer, userAgent: v.user_agent });
+  return (t.visits.sourceLabels as Record<string, string>)[label] ?? label;
 }
 
-function timeAgo(date: string): string {
+function countryName(code: string, t: Dictionary): string {
+  return (t.visits.countryNames as Record<string, string>)[code] ?? code;
+}
+
+function timeAgo(date: string, t: Dictionary, locale: Locale): string {
   const diff = Date.now() - new Date(date).getTime();
   const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "방금 전";
-  if (mins < 60) return `${mins}분 전`;
+  if (mins < 1) return t.visits.justNow;
+  if (mins < 60) return t.visits.minsAgo(mins);
   const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}시간 전`;
+  if (hours < 24) return t.visits.hoursAgo(hours);
   const days = Math.floor(hours / 24);
-  if (days < 30) return `${days}일 전`;
-  return new Date(date).toLocaleDateString("ko-KR");
+  if (days < 30) return t.visits.daysAgo(days);
+  return new Date(date).toLocaleDateString(locale === "ko" ? "ko-KR" : "en-US");
 }
 
 // 타일 4개는 동급 — 예전엔 "오늘"만 거대했는데, 프리런치에선 오늘=0이 대부분이라
@@ -71,6 +73,7 @@ function StatCard({ label, value }: { label: string; value: number }) {
 }
 
 function BarChart({ days, counts }: { days: Date[]; counts: number[] }) {
+  const { t } = useT();
   const max = Math.max(...counts, 1);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -85,7 +88,7 @@ function BarChart({ days, counts }: { days: Date[]; counts: number[] }) {
           return (
             <div
               key={i}
-              title={`${day.getMonth() + 1}/${day.getDate()} — ${counts[i]}회`}
+              title={t.visits.barTooltip(`${day.getMonth() + 1}/${day.getDate()}`, counts[i])}
               style={{
                 flex: 1,
                 height: `${pct}%`,
@@ -116,7 +119,7 @@ function BarChart({ days, counts }: { days: Date[]; counts: number[] }) {
                 opacity: showLabel ? 1 : 0,
                 letterSpacing: "0.02em",
               }}>
-                {isToday ? "오늘" : `${day.getMonth() + 1}/${day.getDate()}`}
+                {isToday ? t.visits.today : `${day.getMonth() + 1}/${day.getDate()}`}
               </span>
             </div>
           );
@@ -135,6 +138,7 @@ function ViewGroup({
   rows: ViewRow[];
   defaultOpen?: boolean;
 }) {
+  const { t, locale } = useT();
   const [open, setOpen] = useState(defaultOpen);
 
   return (
@@ -180,17 +184,17 @@ function ViewGroup({
                 </span>
                 <div>
                   <p className="text-xs" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontWeight: 500 }}>
-                    {sourceLabel(v)}
+                    {sourceLabel(v, t)}
                   </p>
                   {v.country && (
                     <p className="text-xs" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
-                      {COUNTRY_NAME[v.country] ?? v.country}
+                      {countryName(v.country, t)}
                     </p>
                   )}
                 </div>
               </div>
               <span className="text-xs vf-mono" style={{ color: "var(--text-muted)" }}>
-                {timeAgo(v.viewed_at)}
+                {timeAgo(v.viewed_at, t, locale)}
               </span>
             </div>
           ))}
@@ -202,6 +206,7 @@ function ViewGroup({
 
 // 방문 탭(옛 AnalyticsTab) — 명함에 누가 왔는지.
 export default function VisitsTab({ user }: { user: User }) {
+  const { t } = useT();
   const [views, setViews] = useState<ViewRow[]>([]);
   // 타일 숫자는 행 표본이 아니라 DB count — 행 조회는 500행에서 멈추므로 그걸
   // 세면 "전체 조회"가 501부터 얼어붙는다. 네 창 모두 로컬 0시 기준 캘린더
@@ -270,11 +275,11 @@ export default function VisitsTab({ user }: { user: User }) {
   const topReferrers = useMemo(() => {
     const counts: Record<string, number> = {};
     views.forEach(v => {
-      const r = sourceLabel(v);
+      const r = sourceLabel(v, t);
       counts[r] = (counts[r] ?? 0) + 1;
     });
     return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 5);
-  }, [views]);
+  }, [views, t]);
 
   // 국가
   const topCountries = useMemo(() => {
@@ -320,28 +325,28 @@ export default function VisitsTab({ user }: { user: User }) {
 
       {/* Stat cards — 동급 2×2 */}
       <div className="grid grid-cols-2 gap-3">
-        <StatCard label="오늘" value={totals.today} />
-        <StatCard label="최근 7일" value={totals.last7} />
-        <StatCard label="최근 30일" value={totals.last30} />
-        <StatCard label="전체 조회" value={totals.total} />
+        <StatCard label={t.visits.today} value={totals.today} />
+        <StatCard label={t.visits.last7} value={totals.last7} />
+        <StatCard label={t.visits.last30} value={totals.last30} />
+        <StatCard label={t.visits.total} value={totals.total} />
       </div>
 
       {/* 14-day bar chart */}
       <div className="vf-card p-5">
         <div className="flex items-center justify-between mb-4">
           <p className="vf-label" style={{ marginBottom: 0 }}>
-            최근 14일 방문 추이
+            {t.visits.chartTitle}
           </p>
           {!noData && (
             <span className="text-xs vf-mono"
               style={{ color: "var(--text-secondary)", letterSpacing: "0.04em" }}>
-              {capped ? "최근 500회 기준 · " : ""}일 최고 {Math.max(...chartCounts).toLocaleString()}회
+              {capped ? t.visits.cappedPrefix : ""}{t.visits.dailyMax(Math.max(...chartCounts).toLocaleString())}
             </span>
           )}
         </div>
         {noData ? (
           <p className="text-xs text-center py-6" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
-            아직 방문 데이터가 없어요
+            {t.visits.noData}
           </p>
         ) : (
           <BarChart days={chartDays} counts={chartCounts} />
@@ -356,7 +361,7 @@ export default function VisitsTab({ user }: { user: User }) {
               반드시 뱉으므로(최소 "직접/알 수 없음") 빈 배열 분기가 없다 */}
           <div className="vf-card p-5">
               <p className="vf-label" style={{ marginBottom: "1rem" }}>
-                유입 경로
+                {t.visits.referrers}
               </p>
               <div className="flex flex-col gap-3">
                 {topReferrers.map(([ref, count]) => (
@@ -384,7 +389,7 @@ export default function VisitsTab({ user }: { user: User }) {
           {topCountries.length > 0 && (
             <div className="vf-card p-5">
               <p className="vf-label" style={{ marginBottom: "1rem" }}>
-                방문 국가
+                {t.visits.countries}
               </p>
               <div className="flex flex-col gap-3">
                 {topCountries.map(([code, count]) => (
@@ -392,7 +397,7 @@ export default function VisitsTab({ user }: { user: User }) {
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-xs flex items-center gap-1.5" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontWeight: 500 }}>
                         <span>{COUNTRY_EMOJI[code] ?? "🌐"}</span>
-                        <span>{COUNTRY_NAME[code] ?? code}</span>
+                        <span>{countryName(code, t)}</span>
                       </span>
                       <span className="text-xs vf-mono ml-2 shrink-0" style={{ color: "var(--text-secondary)", letterSpacing: "0.04em" }}>
                         {count}
@@ -419,11 +424,11 @@ export default function VisitsTab({ user }: { user: User }) {
           style={{ borderBottom: "1px solid var(--border)" }}
         >
           <p className="vf-label" style={{ marginBottom: 0 }}>
-            방문 기록
+            {t.visits.history}
           </p>
           {capped && (
             <span className="text-xs vf-mono" style={{ color: "var(--text-muted)" }}>
-              최근 500회 기준
+              {t.visits.capped}
             </span>
           )}
         </div>
@@ -431,16 +436,16 @@ export default function VisitsTab({ user }: { user: User }) {
         {noData ? (
           <div className="px-5 py-10 text-center">
             <p className="text-sm" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
-              아직 방문 기록이 없어요
+              {t.visits.noHistory}
             </p>
           </div>
         ) : (
           <>
-            <ViewGroup label="오늘" rows={groupedViews.today} defaultOpen={groupedViews.today.length > 0} />
-            <ViewGroup label="어제 ~ 7일 전" rows={groupedViews.week} />
-            <ViewGroup label="8 ~ 30일 전" rows={groupedViews.month} />
+            <ViewGroup label={t.visits.today} rows={groupedViews.today} defaultOpen={groupedViews.today.length > 0} />
+            <ViewGroup label={t.visits.groupWeek} rows={groupedViews.week} />
+            <ViewGroup label={t.visits.groupMonth} rows={groupedViews.month} />
             {groupedViews.older.length > 0 && (
-              <ViewGroup label="30일 이전" rows={groupedViews.older} />
+              <ViewGroup label={t.visits.groupOlder} rows={groupedViews.older} />
             )}
           </>
         )}

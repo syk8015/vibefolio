@@ -10,6 +10,7 @@ import {
   expandUploadEntries,
 } from "./helpers";
 import { type ProjectForm, AI_TOOLS_INITIAL } from "./types";
+import { useT } from "@/lib/i18n/client";
 
 // Add/Edit form for the dashboard Projects tab. Extracted verbatim from
 // ProjectsTab.tsx (no behavior change). Field is internal (only the flat edit
@@ -27,6 +28,7 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
   userId: string;
   wizard?: boolean;
 }) {
+  const { t } = useT();
   // 업로드로 만든 프로젝트의 demo_url은 내부 preview 경로다 — "url"로 시작하면
   // 수정 모달의 데모 URL 칸에 /api/preview/… 가 그대로 찍힌다(게다가 type=url
   // 검증에 걸려 저장도 안 된다). 파일 모드에서 시작해 연결 상태로 보여준다.
@@ -88,15 +90,15 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
     <div className="flex flex-col gap-1.5 w-full" style={{ maxWidth: 680, margin: "18px auto 0" }}>
       <label className="text-sm" htmlFor="demo_user_hint"
         style={{ fontFamily: "var(--font-nunito)", fontWeight: 600 }}>
-        핵심 기능 소개 <span style={{ color: "var(--text-secondary)", fontWeight: 400 }}>(선택)</span>
+        {t.projectForm.hintLabel} <span style={{ color: "var(--text-secondary)", fontWeight: 400 }}>{t.projectForm.optionalSuffix}</span>
       </label>
       <textarea className="vf-input" id="demo_user_hint" name="demo_user_hint" rows={2}
-        placeholder="예: 캔버스에 마우스로 자유롭게 그림을 그릴 수 있어요. 상단에서 브러시 색과 굵기를 바꿔보세요."
+        placeholder={t.projectForm.hintPlaceholder}
         value={form.demo_user_hint ?? ""} onChange={handleChange}
         maxLength={500}
         style={{ resize: "none", fontSize: "0.9rem", lineHeight: 1.6 }} />
       <p className="text-xs" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
-        자동 시연 영상이 이 설명을 보고 핵심 기능부터 보여드려요.
+        {t.projectForm.hintHelp}
       </p>
     </div>
   );
@@ -105,7 +107,7 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
     setVideoError("");
     const MAX_VIDEO_BYTES = 20 * 1024 * 1024;
     if (file.size > MAX_VIDEO_BYTES) {
-      setVideoError(`영상은 20MB 이하만 업로드할 수 있어요. (현재 ${(file.size / 1024 / 1024).toFixed(1)}MB)`);
+      setVideoError(t.projectForm.videoTooLarge((file.size / 1024 / 1024).toFixed(1)));
       return;
     }
 
@@ -119,11 +121,11 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
     }).catch(() => -1);
 
     if (duration < 0) {
-      setVideoError("영상 파일을 읽을 수 없어요.");
+      setVideoError(t.projectForm.videoUnreadable);
       return;
     }
     if (duration > 30) {
-      setVideoError(`영상은 30초 이하만 업로드할 수 있어요. (현재 ${duration.toFixed(1)}초)`);
+      setVideoError(t.projectForm.videoTooLong(duration.toFixed(1)));
       return;
     }
 
@@ -136,7 +138,7 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
       .upload(storagePath, file, { upsert: true, contentType: file.type || "video/mp4" });
 
     if (upErr) {
-      setVideoError(`업로드 실패: ${upErr.message}`);
+      setVideoError(t.projectForm.uploadFailed(upErr.message));
       setVideoUploading(false);
       return;
     }
@@ -160,14 +162,14 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
     try {
       entries = await expandUploadEntries(rawFiles);
     } catch (err) {
-      setUploadError(err instanceof Error ? `zip 압축해제 실패: ${err.message}` : "zip 파일을 읽을 수 없어요.");
+      setUploadError(err instanceof Error ? t.projectForm.zipFailed(err.message) : t.projectForm.zipUnreadable);
       setUploading(false);
       return;
     }
 
     const totalSize = entries.reduce((acc, e) => acc + e.data.size, 0);
     if (totalSize > MAX_UPLOAD_BYTES) {
-      setUploadError(`총 파일 크기가 25MB를 초과해요. (현재 ${(totalSize / 1024 / 1024).toFixed(1)}MB)`);
+      setUploadError(t.projectForm.tooLarge((totalSize / 1024 / 1024).toFixed(1)));
       setUploading(false);
       return;
     }
@@ -198,7 +200,7 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
       // No HTML → demo_url stays empty and the trigger silently no-ops. Tell the
       // user instead of letting them wonder why nothing happened (input matrix #2).
       setUploading(false);
-      setUploadError("웹페이지(HTML) 파일이 없어요. 자동 시연은 브라우저에 뜨는 화면을 촬영해요 — index.html이 포함됐는지 확인해 주세요.");
+      setUploadError(t.projectForm.noHtml);
     }
   }
 
@@ -255,7 +257,7 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
       }
       await onSubmit(finalForm);
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : "저장 중 오류가 발생했어요.");
+      setSaveError(err instanceof Error ? err.message : t.projectForm.saveFailed);
     }
     setSaving(false);
   }
@@ -322,7 +324,7 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
               <path d="M9 2L3 7l6 5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
-            취소
+            {t.projectForm.cancel}
           </button>
           <span className="vf-mono text-xs" style={{ color: "var(--text-muted)", letterSpacing: "0.12em" }}>
             {String(step).padStart(2, "0")} / {String(TOTAL_STEPS).padStart(2, "0")}
@@ -338,8 +340,8 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
           {step === 1 && (
             <div className="flex-1 grid grid-cols-2 gap-3 min-h-0">
               {([
-                { id: "url", emoji: "🔗", title: "URL 링크", desc: "이미 어딘가에 배포된 사이트가 있어요" },
-                { id: "files", emoji: "📁", title: "파일 업로드", desc: "직접 만든 HTML·CSS·JS 파일을 올릴게요" },
+                { id: "url", emoji: "🔗", title: t.projectForm.urlOptionTitle, desc: t.projectForm.urlOptionDesc },
+                { id: "files", emoji: "📁", title: t.projectForm.filesOptionTitle, desc: t.projectForm.filesOptionDesc },
               ] as const).map(opt => (
                 <button key={opt.id} type="button"
                   onClick={() => { setUploadMode(opt.id); setStep(2); }}
@@ -394,21 +396,21 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
                       <button type="button" onClick={e => { e.stopPropagation(); fileInputRef.current?.click(); }}
                         className="vf-soft-fill rounded-full"
                         style={{ background: "var(--surface)", padding: "0.6rem 1.3rem", fontSize: "0.85rem", fontFamily: "var(--font-nunito)", fontWeight: 500, cursor: "pointer" }}>
-                        파일 선택
+                        {t.projectForm.pickFiles}
                       </button>
                       <button type="button" onClick={e => { e.stopPropagation(); folderInputRef.current?.click(); }}
                         className="vf-soft-fill rounded-full"
                         style={{ background: "var(--surface)", padding: "0.6rem 1.3rem", fontSize: "0.85rem", fontFamily: "var(--font-nunito)", fontWeight: 500, cursor: "pointer" }}>
-                        폴더 선택
+                        {t.projectForm.pickFolder}
                       </button>
                     </div>
                     <p className="text-xs text-center" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", maxWidth: 520, lineHeight: 1.65 }}>
-                      React/Vue/Vite는 <code className="vf-mono" style={{ background: "var(--surface)", padding: "1px 5px", borderRadius: 4, fontSize: "0.7rem" }}>npm run build</code> 후 생성된 <code className="vf-mono" style={{ background: "var(--surface)", padding: "1px 5px", borderRadius: 4, fontSize: "0.7rem" }}>dist/</code> 폴더를 올려주세요. 순수 HTML/CSS/JS는 그대로, <code className="vf-mono" style={{ background: "var(--surface)", padding: "1px 5px", borderRadius: 4, fontSize: "0.7rem" }}>.zip</code>도 가능. 최대 25MB
+                      {t.projectForm.wizardGuide1}<code className="vf-mono" style={{ background: "var(--surface)", padding: "1px 5px", borderRadius: 4, fontSize: "0.7rem" }}>npm run build</code>{t.projectForm.wizardGuide2}<code className="vf-mono" style={{ background: "var(--surface)", padding: "1px 5px", borderRadius: 4, fontSize: "0.7rem" }}>dist/</code>{t.projectForm.wizardGuide3}<code className="vf-mono" style={{ background: "var(--surface)", padding: "1px 5px", borderRadius: 4, fontSize: "0.7rem" }}>.zip</code>{t.projectForm.wizardGuide4}
                     </p>
                     {uploading && (
                       <div className="w-full max-w-md flex flex-col gap-2 mt-1">
                         <div className="flex justify-between text-xs vf-mono" style={{ color: "var(--text-secondary)" }}>
-                          <span>업로드 중…</span><span>{uploadProgress}%</span>
+                          <span>{t.projectForm.uploading}</span><span>{uploadProgress}%</span>
                         </div>
                         <div className="w-full h-1.5 rounded-full" style={{ background: "var(--surface)" }}>
                           <div className="h-1.5 rounded-full transition-all duration-300"
@@ -421,7 +423,7 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
                         <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                           <path d="M2.5 7l3 3 6-6.5" stroke="var(--text-primary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                         </svg>
-                        업로드 완료
+                        {t.projectForm.uploadDone}
                       </p>
                     )}
                     {uploadError && (
@@ -439,10 +441,10 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
           {/* Step 3 — 프로젝트 이름 + 설명 */}
           {step === 3 && (
             <div className="flex-1 flex flex-col gap-4 min-h-0">
-              <input className="vf-input" name="title" placeholder="프로젝트 이름"
+              <input className="vf-input" name="title" placeholder={t.projectForm.titlePlaceholder}
                 value={form.title} onChange={handleChange} required autoFocus
                 style={{ fontSize: "1.4rem", padding: "1.3rem 1.5rem" }} />
-              <textarea className="vf-input flex-1" name="description" placeholder="어떤 프로젝트인지 소개해주세요."
+              <textarea className="vf-input flex-1" name="description" placeholder={t.projectForm.descPlaceholder}
                 value={form.description} onChange={handleChange}
                 style={{ resize: "none", fontSize: "1rem", padding: "1.3rem 1.5rem", lineHeight: 1.7 }} />
             </div>
@@ -451,7 +453,7 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
           {/* Step 4 — 콘텐츠 유형 (단독) */}
           {step === 4 && (
             <div className="flex-1 flex flex-col items-center justify-center gap-5 min-h-0">
-              <label className="vf-label">콘텐츠 유형</label>
+              <label className="vf-label">{t.projectForm.contentTypeLabel}</label>
               <div className="flex flex-wrap gap-2 justify-center" style={{ maxWidth: 760 }}>
                 {CONTENT_TYPES.map(ct => {
                   const active = form.content_type === ct.id;
@@ -461,7 +463,7 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
                       data-active={active}
                       className="vf-selectable px-5 py-2.5 rounded-full text-sm"
                       style={{ fontFamily: "var(--font-nunito)", cursor: "pointer" }}>
-                      {active && <span style={{ fontSize: "0.75em", marginRight: 4 }}>✓</span>}{ct.emoji} {ct.label}
+                      {active && <span style={{ fontSize: "0.75em", marginRight: 4 }}>✓</span>}{ct.emoji} {(t.contentTypes as Record<string, string>)[ct.id] ?? ct.label}
                     </button>
                   );
                 })}
@@ -473,8 +475,8 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
           {step === 5 && (
             <div className="flex-1 flex flex-col items-center justify-center gap-5 min-h-0">
               <label className="vf-label">
-                사용한 AI 도구{" "}
-                <span style={{ color: "var(--text-muted)", fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>(복수 선택)</span>
+                {t.projectForm.aiToolsLabel}{" "}
+                <span style={{ color: "var(--text-muted)", fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>{t.projectForm.multiSelect}</span>
               </label>
               <div className="flex flex-wrap gap-2 justify-center" style={{ maxWidth: 880 }}>
                 {visibleTools.map(tool => {
@@ -495,8 +497,8 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
                   className="vf-soft-fill px-4 py-2 rounded-full text-sm"
                   style={{ fontFamily: "var(--font-nunito)", fontWeight: 500, cursor: "pointer" }}>
                   {showAllTools
-                    ? "접기 ↑"
-                    : `더보기 +${AI_TOOLS.length - AI_TOOLS_INITIAL - hiddenSelectedCount}`}
+                    ? t.projectForm.collapse
+                    : t.projectForm.showMore(AI_TOOLS.length - AI_TOOLS_INITIAL - hiddenSelectedCount)}
                 </button>
               </div>
             </div>
@@ -506,8 +508,8 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
           {step === 6 && (
             <div className="flex-1 flex flex-col items-center justify-center gap-4 min-h-0">
               <label className="vf-label">
-                구동 영상{" "}
-                <span style={{ color: "var(--text-muted)", fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>(선택)</span>
+                {t.projectForm.videoLabel}{" "}
+                <span style={{ color: "var(--text-muted)", fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>{t.projectForm.optionalSuffix}</span>
               </label>
               <div className="w-full flex flex-col items-center gap-3" style={{ maxWidth: 640 }}>
                 {form.video_url ? (
@@ -519,7 +521,7 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
                       </svg>
                     </div>
                     <p className="text-sm" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontWeight: 600 }}>
-                      영상 연결됨
+                      {t.projectForm.videoConnected}
                     </p>
                     <p className="text-xs truncate vf-mono w-full text-center" style={{ color: "var(--text-muted)", fontSize: "0.7rem" }}>
                       {form.video_url}
@@ -528,7 +530,7 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
                       onClick={() => { setForm(prev => ({ ...prev, video_url: "" })); setVideoError(""); }}
                       className="vf-soft-fill rounded-full"
                       style={{ background: "var(--surface)", padding: "0.45rem 1rem", fontSize: "0.75rem", color: "#b34747", fontFamily: "var(--font-nunito)", fontWeight: 500, cursor: "pointer" }}>
-                      제거
+                      {t.projectForm.remove}
                     </button>
                   </div>
                 ) : (
@@ -540,7 +542,7 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
                           <button key={m} type="button" onClick={() => setVideoMode(m)}
                             data-active={active}
                             className="vf-selectable px-4 py-1.5 rounded-md text-xs">
-                            {m === "file" ? "파일 업로드" : "URL"}
+                            {m === "file" ? t.projectForm.modeFile : t.projectForm.modeUrl}
                           </button>
                         );
                       })}
@@ -554,13 +556,13 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
                           className="vf-soft-fill w-full rounded-2xl flex flex-col items-center justify-center gap-2 py-10"
                           style={{ fontFamily: "var(--font-nunito)", fontWeight: 500, cursor: videoUploading ? "not-allowed" : "pointer" }}>
                           <span style={{ fontSize: "2.6rem" }}>🎬</span>
-                          <span className="text-sm">{videoUploading ? "업로드 중…" : "영상 파일 선택"}</span>
-                          <span className="text-xs" style={{ opacity: 0.6 }}>20MB · 30초 이하</span>
+                          <span className="text-sm">{videoUploading ? t.projectForm.uploading : t.projectForm.videoPick}</span>
+                          <span className="text-xs" style={{ opacity: 0.6 }}>{t.projectForm.videoLimits}</span>
                         </button>
                       </>
                     ) : (
                       <input className="vf-input w-full" type="url" name="video_url"
-                        placeholder="https://youtube.com/... 또는 https://vimeo.com/..."
+                        placeholder={t.projectForm.videoUrlPlaceholderWizard}
                         value={form.video_url} onChange={handleChange}
                         style={{ fontSize: "1.05rem", padding: "1rem 1.2rem", textAlign: "center" }} />
                     )}
@@ -579,8 +581,8 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
           {step === 7 && (
             <div className="flex-1 grid grid-cols-2 gap-3 min-h-0">
               {([
-                { id: "auto" as const, emoji: "✨", title: "자동", desc: "OG 이미지나 업로드한 파일에서 자동으로 만들어드려요" },
-                { id: "manual" as const, emoji: "🖼️", title: "수동 업로드", desc: "이미지 파일을 직접 올릴게요" },
+                { id: "auto" as const, emoji: "✨", title: t.projectForm.thumbAutoTitle, desc: t.projectForm.thumbAutoDesc },
+                { id: "manual" as const, emoji: "🖼️", title: t.projectForm.thumbManualTitle, desc: t.projectForm.thumbManualDesc },
               ]).map(opt => {
                 const active = thumbnailMode === opt.id;
                 return (
@@ -638,14 +640,14 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
                       onClick={e => { e.stopPropagation(); setForm(prev => ({ ...prev, thumbnail: "" })); }}
                       className="vf-soft-fill rounded-full"
                       style={{ background: "var(--surface)", padding: "0.4rem 0.9rem", fontSize: "0.75rem", color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", fontWeight: 500, cursor: "pointer" }}>
-                      제거하고 다시 올리기
+                      {t.projectForm.removeReupload}
                     </button>
                   </>
                 ) : (
                   <>
                     <span style={{ fontSize: "3.6rem", lineHeight: 1 }}>🖼️</span>
                     <span style={{ fontSize: "0.95rem", color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
-                      클릭하거나 이미지를 드래그해서 업로드
+                      {t.projectForm.dropOrClick}
                     </span>
                   </>
                 )}
@@ -669,7 +671,7 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
                 <button type="button" onClick={() => setStep(s => s - 1)}
                   className="vf-soft-fill rounded-full"
                   style={{ padding: "0.7rem 1.3rem", fontFamily: "var(--font-nunito)", fontSize: "0.9rem", fontWeight: 500, cursor: "pointer" }}>
-                  ← 이전
+                  {t.projectForm.prev}
                 </button>
               )}
               <div className="flex-1" />
@@ -687,7 +689,7 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
                     opacity: skipDisabled ? 0.4 : 1,
                     cursor: skipDisabled ? "not-allowed" : "pointer",
                   }}>
-                  건너뛰기
+                  {t.projectForm.skip}
                 </button>
               )}
               {step < TOTAL_STEPS ? (
@@ -703,7 +705,7 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
                     opacity: nextDisabled ? 0.4 : 1,
                     cursor: nextDisabled ? "not-allowed" : "pointer",
                   }}>
-                  다음 →
+                  {t.projectForm.next}
                 </button>
               ) : (
                 <button type="submit" disabled={submitDisabled}
@@ -716,7 +718,7 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
                     opacity: submitDisabled ? 0.4 : 1,
                     cursor: submitDisabled ? "not-allowed" : "pointer",
                   }}>
-                  {saving ? "저장 중…" : submitLabel}
+                  {saving ? t.projectForm.saving : submitLabel}
                 </button>
               )}
             </div>
@@ -749,7 +751,7 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
           <button onClick={onClose}
             className="vf-soft-fill flex items-center justify-center rounded-full"
             style={{ width: 32, height: 32, cursor: "pointer" }}
-            aria-label="닫기">
+            aria-label={t.projectForm.closeAria}>
             <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
               <path d="M4 4l12 12M16 4L4 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
             </svg>
@@ -781,7 +783,7 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
                 <button key={mode} type="button" onClick={() => setUploadMode(mode)}
                   data-active={active}
                   className="vf-selectable flex-1 py-2 rounded-lg text-sm">
-                  {mode === "url" ? "🔗 URL 링크" : "📁 파일 업로드"}
+                  {mode === "url" ? `🔗 ${t.projectForm.urlOptionTitle}` : `📁 ${t.projectForm.filesOptionTitle}`}
                 </button>
               );
             })}
@@ -799,7 +801,7 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
                     <path d="M2.5 7l3 3 6-6.5" stroke="var(--text-primary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
                   <p className="text-xs" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
-                    업로드된 사이트가 연결돼 있어요 — 새로 올리면 교체돼요.
+                    {t.projectForm.existingUpload}
                   </p>
                 </div>
               )}
@@ -808,10 +810,9 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
                 style={{ background: "var(--surface-soft)" }}>
                 <span style={{ fontSize: "0.85rem", flexShrink: 0, marginTop: "1px" }}>💡</span>
                 <div style={{ fontFamily: "var(--font-nunito)", fontSize: "0.72rem", color: "var(--text-secondary)", lineHeight: 1.7 }}>
-                  <span style={{ fontWeight: 600, color: "var(--text-primary)", fontFamily: "var(--font-serif), 'Noto Serif KR', serif" }}>React / Vue / Vite 프로젝트라면</span>{" "}
-                  소스 폴더 대신 <code className="vf-mono" style={{ background: "var(--surface)", padding: "1px 5px", borderRadius: 4, fontSize: "0.68rem", color: "var(--text-primary)" }}>npm run build</code> 후 생성된{" "}
-                  <code className="vf-mono" style={{ background: "var(--surface)", padding: "1px 5px", borderRadius: 4, fontSize: "0.68rem", color: "var(--text-primary)" }}>dist/</code> 폴더를 올려주세요.
-                  순수 HTML/CSS/JS 파일은 그대로 올려도 돼요.
+                  <span style={{ fontWeight: 600, color: "var(--text-primary)", fontFamily: "var(--font-serif), 'Noto Serif KR', serif" }}>{t.projectForm.editGuideTitle}</span>
+                  {t.projectForm.editGuide1}<code className="vf-mono" style={{ background: "var(--surface)", padding: "1px 5px", borderRadius: 4, fontSize: "0.68rem", color: "var(--text-primary)" }}>npm run build</code>{t.projectForm.editGuide2}
+                  <code className="vf-mono" style={{ background: "var(--surface)", padding: "1px 5px", borderRadius: 4, fontSize: "0.68rem", color: "var(--text-primary)" }}>dist/</code>{t.projectForm.editGuide3}
                 </div>
               </div>
 
@@ -832,18 +833,18 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
                 style={{ background: "var(--surface-soft)" }}>
                 <div className="text-3xl">📂</div>
                 <p className="text-xs text-center" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
-                  HTML, CSS, JS, 이미지 파일 지원 · 최대 25MB · 드래그해서 올려도 돼요
+                  {t.projectForm.dropHelpEdit}
                 </p>
                 <div className="flex gap-2">
                   <button type="button" onClick={() => fileInputRef.current?.click()}
                     className="vf-soft-fill rounded-full"
                     style={{ padding: "0.5rem 1rem", fontSize: "0.8rem", fontFamily: "var(--font-nunito)", fontWeight: 500, cursor: "pointer" }}>
-                    파일 선택
+                    {t.projectForm.pickFiles}
                   </button>
                   <button type="button" onClick={() => folderInputRef.current?.click()}
                     className="vf-soft-fill rounded-full"
                     style={{ padding: "0.5rem 1rem", fontSize: "0.8rem", fontFamily: "var(--font-nunito)", fontWeight: 500, cursor: "pointer" }}>
-                    폴더 선택
+                    {t.projectForm.pickFolder}
                   </button>
                 </div>
               </div>
@@ -851,7 +852,7 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
                 <div className="flex flex-col gap-2">
                   <div className="flex justify-between text-xs vf-mono"
                     style={{ color: "var(--text-secondary)" }}>
-                    <span>업로드 중…</span><span>{uploadProgress}%</span>
+                    <span>{t.projectForm.uploading}</span><span>{uploadProgress}%</span>
                   </div>
                   <div className="w-full h-1.5 rounded-full" style={{ background: "var(--border)" }}>
                     <div className="h-1.5 rounded-full transition-all duration-300"
@@ -864,7 +865,7 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
                   <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                     <path d="M2.5 7l3 3 6-6.5" stroke="var(--text-primary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
-                  업로드 완료. 아래 정보를 입력하고 저장하세요.
+                  {t.projectForm.uploadDoneEdit}
                 </p>
               )}
               {uploadError && (
@@ -878,7 +879,7 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
           {/* URL input — 내부 preview 경로는 여기 노출하지 않는다(파일 탭이 연결
               상태를 보여줌). 입력하면 그 외부 URL로 교체된다. */}
           {uploadMode === "url" && (
-            <Field label="데모 URL">
+            <Field label={t.projectForm.demoUrlLabel}>
               <input className="vf-input" name="demo_url" type="url"
                 placeholder="https://myproject.vercel.app"
                 value={isUploadedProject(form.demo_url) ? "" : form.demo_url}
@@ -890,23 +891,23 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
           {/* 핵심 기능 소개 — 위저드에만 있던 칸. 초안 카드가 이 값을 보여주며
               "수정" 버튼을 주는데 정작 모달에 칸이 없어 한 번 쓰면 못 고쳤다. */}
           <div>
-            <Field label="핵심 기능 소개 (자동 시연용 · 선택)">
+            <Field label={t.projectForm.hintLabelEdit}>
               <textarea className="vf-input" name="demo_user_hint" rows={2}
-                placeholder="예: 캔버스에 마우스로 자유롭게 그림을 그릴 수 있어요. 상단에서 브러시 색과 굵기를 바꿔보세요."
+                placeholder={t.projectForm.hintPlaceholder}
                 value={form.demo_user_hint ?? ""} onChange={handleChange}
                 maxLength={500}
                 style={{ resize: "vertical", lineHeight: 1.6 }} />
             </Field>
             <p className="text-xs mt-1.5" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
-              자동 시연 영상이 이 설명을 보고 핵심 기능부터 보여드려요.
+              {t.projectForm.hintHelp}
             </p>
           </div>
 
           {/* 구동 영상 (선택) — 대표 작품 hero에서 자동 재생 */}
           <div>
-            <label className="vf-label">구동 영상 (선택)</label>
+            <label className="vf-label">{t.projectForm.videoLabelOptional}</label>
             <p className="text-xs mb-2" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
-              대표 작품으로 설정하면 프레임 상단에서 자동 재생돼요.
+              {t.projectForm.videoAutoplayHelp}
             </p>
 
             {form.video_url ? (
@@ -920,7 +921,7 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs mb-0.5" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontWeight: 600 }}>
-                    영상 연결됨
+                    {t.projectForm.videoConnected}
                   </p>
                   <p className="text-xs truncate vf-mono" style={{ color: "var(--text-muted)", fontSize: "0.65rem" }}>
                     {form.video_url}
@@ -930,7 +931,7 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
                   onClick={() => { setForm(prev => ({ ...prev, video_url: "" })); setVideoError(""); }}
                   className="vf-button-danger"
                   style={{ padding: "0.4rem 0.7rem", fontSize: "0.72rem" }}>
-                  제거
+                  {t.projectForm.remove}
                 </button>
               </div>
             ) : (
@@ -943,7 +944,7 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
                       <button key={m} type="button" onClick={() => setVideoMode(m)}
                         data-active={active}
                         className="vf-selectable px-3 py-1 rounded-md text-xs">
-                        {m === "file" ? "파일 업로드" : "URL"}
+                        {m === "file" ? t.projectForm.modeFile : t.projectForm.modeUrl}
                       </button>
                     );
                   })}
@@ -957,12 +958,12 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
                       onClick={() => videoInputRef.current?.click()}
                       className="vf-soft-fill w-full py-2.5 rounded-xl text-sm"
                       style={{ fontFamily: "var(--font-nunito)", fontWeight: 500, cursor: videoUploading ? "not-allowed" : "pointer" }}>
-                      {videoUploading ? "업로드 중…" : "+ 영상 파일 선택 (20MB · 30초 이하)"}
+                      {videoUploading ? t.projectForm.uploading : t.projectForm.videoPickInline}
                     </button>
                   </>
                 ) : (
                   <input className="vf-input" type="url" name="video_url"
-                    placeholder="https://youtube.com/watch?v=... 또는 https://vimeo.com/..."
+                    placeholder={t.projectForm.videoUrlPlaceholder}
                     value={form.video_url} onChange={handleChange} />
                 )}
                 {videoError && (
@@ -978,20 +979,20 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
           {/* 프로젝트 이름 + 연도 */}
           <div className="grid grid-cols-3 gap-3">
             <div className="col-span-2">
-              <Field label="프로젝트 이름">
+              <Field label={t.projectForm.nameLabel}>
                 <input className="vf-input" name="title" placeholder="My Awesome Project"
                   value={form.title} onChange={handleChange} required />
               </Field>
             </div>
-            <Field label="제작 연도">
+            <Field label={t.projectForm.yearLabel}>
               <input className="vf-input" name="year" placeholder="2025"
                 value={form.year} onChange={handleChange} />
             </Field>
           </div>
 
           {/* 설명 */}
-          <Field label="설명">
-            <textarea className="vf-input" name="description" placeholder="어떤 프로젝트인지 소개해주세요."
+          <Field label={t.projectForm.descLabel}>
+            <textarea className="vf-input" name="description" placeholder={t.projectForm.descPlaceholder}
               value={form.description} onChange={handleChange} rows={2}
               style={{ resize: "vertical" }} />
           </Field>
@@ -999,7 +1000,7 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
 
           {/* 콘텐츠 유형 — 풀 너비 */}
           <div>
-            <label className="vf-label">콘텐츠 유형</label>
+            <label className="vf-label">{t.projectForm.contentTypeLabel}</label>
             <div className="flex flex-wrap gap-1.5">
               {CONTENT_TYPES.map(ct => {
                 const active = form.content_type === ct.id;
@@ -1008,7 +1009,7 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
                     onClick={() => setForm(prev => ({ ...prev, content_type: active ? null : ct.id }))}
                     data-active={active}
                     className="vf-selectable px-2.5 py-1 rounded-full text-xs">
-                    {active && <span style={{ fontSize: "0.7em" }}>✓</span>} {ct.emoji} {ct.label}
+                    {active && <span style={{ fontSize: "0.7em" }}>✓</span>} {ct.emoji} {(t.contentTypes as Record<string, string>)[ct.id] ?? ct.label}
                   </button>
                 );
               })}
@@ -1018,9 +1019,9 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
           {/* 썸네일 업로드 */}
           <div>
             <label className="vf-label">
-              썸네일
+              {t.projectForm.thumbLabel}
               <span className="ml-1.5" style={{ color: "var(--text-muted)", textTransform: "none", letterSpacing: 0, fontWeight: 400 }}>
-                (없으면 저장 시 자동 생성)
+                {t.projectForm.thumbAutoNote}
               </span>
             </label>
             <input ref={thumbnailInputRef} type="file" className="hidden" accept="image/*"
@@ -1057,19 +1058,19 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
                     <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
                       <path d="M2.5 7l3 3 6-6.5" stroke="var(--text-primary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
-                    업로드 완료
+                    {t.projectForm.uploadDone}
                   </span>
                   <button
                     type="button"
                     onClick={e => { e.stopPropagation(); setForm(prev => ({ ...prev, thumbnail: "" })); }}
                     style={{ fontSize: "0.7rem", color: "var(--text-muted)", background: "none", border: "none", cursor: "pointer", fontFamily: "var(--font-nunito)", padding: 0 }}
                   >
-                    제거
+                    {t.projectForm.remove}
                   </button>
                 </>
               ) : (
                 <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
-                  클릭하거나 이미지를 드래그해서 업로드
+                  {t.projectForm.dropOrClick}
                 </span>
               )}
             </div>
@@ -1077,16 +1078,16 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
 
           {/* 썸네일 유형 */}
           <div>
-            <label className="vf-label">썸네일 유형</label>
+            <label className="vf-label">{t.projectForm.thumbTypeLabel}</label>
             <div className="flex gap-2">
-              {(["image", "video"] as const).map(t => {
-                const active = form.type === t;
+              {(["image", "video"] as const).map(mode => {
+                const active = form.type === mode;
                 return (
-                  <button key={t} type="button"
-                    onClick={() => setForm(prev => ({ ...prev, type: t }))}
+                  <button key={mode} type="button"
+                    onClick={() => setForm(prev => ({ ...prev, type: mode }))}
                     data-active={active}
                     className="vf-selectable flex-1 py-2 rounded-xl text-sm">
-                    {active && <span style={{ marginRight: 4 }}>✓</span>}{t === "image" ? "🖼️ 이미지" : "🎬 영상"}
+                    {active && <span style={{ marginRight: 4 }}>✓</span>}{mode === "image" ? t.projectForm.typeImage : t.projectForm.typeVideo}
                   </button>
                 );
               })}
@@ -1096,8 +1097,8 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
           {/* AI 도구 */}
           <div>
             <label className="vf-label">
-              사용한 AI 도구{" "}
-              <span style={{ color: "var(--text-muted)", fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>(복수 선택)</span>
+              {t.projectForm.aiToolsLabel}{" "}
+              <span style={{ color: "var(--text-muted)", fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>{t.projectForm.multiSelect}</span>
             </label>
             <div className="flex flex-wrap gap-1.5">
               {visibleTools.map(tool => {
@@ -1121,16 +1122,16 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
                   cursor: "pointer",
                 }}>
                 {showAllTools
-                  ? "접기 ↑"
-                  : `더보기 +${AI_TOOLS.length - AI_TOOLS_INITIAL - hiddenSelectedCount}`}
+                  ? t.projectForm.collapse
+                  : t.projectForm.showMore(AI_TOOLS.length - AI_TOOLS_INITIAL - hiddenSelectedCount)}
               </button>
             </div>
           </div>
 
           {/* 한 마디 */}
           <div>
-            <Field label="한 마디 (말풍선에 표시)">
-              <input className="vf-input" name="comment" placeholder="제가 제일 아끼는 작업물이에요! ⭐"
+            <Field label={t.projectForm.commentLabel}>
+              <input className="vf-input" name="comment" placeholder={t.projectForm.commentPlaceholder}
                 value={form.comment} onChange={handleChange} />
             </Field>
           </div>
@@ -1148,12 +1149,12 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
             <button type="button" onClick={onClose}
               className="vf-soft-fill flex-1 rounded-full"
               style={{ padding: "0.65rem 1rem", fontFamily: "var(--font-nunito)", fontSize: "0.85rem", fontWeight: 500, cursor: "pointer" }}>
-              취소
+              {t.projectForm.cancel}
             </button>
             <button type="submit" disabled={saving || uploading}
               className="vf-soft-fill flex-1 rounded-full"
               style={{ padding: "0.65rem 1rem", fontFamily: "var(--font-nunito)", fontSize: "0.85rem", fontWeight: 600, cursor: (saving || uploading) ? "not-allowed" : "pointer" }}>
-              {saving ? "저장 중…" : submitLabel}
+              {saving ? t.projectForm.saving : submitLabel}
             </button>
           </div>
 

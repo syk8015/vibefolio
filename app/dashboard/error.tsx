@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { logger } from "@/lib/logger";
 import ErrorState from "@/components/ErrorState";
+import { useT } from "@/lib/i18n/client";
 
 // Isolates the dashboard. The dashboard is client-heavy (lazy-loaded tabs,
 // realtime, optimistic updates); keeping its boundary here means a failure in
@@ -16,6 +17,8 @@ export default function DashboardError({
   reset?: () => void;
   unstable_retry?: () => void;
 }) {
+  const { t } = useT();
+
   useEffect(() => {
     logger.error("Dashboard route error", {
       error,
@@ -28,8 +31,8 @@ export default function DashboardError({
 
   return (
     <ErrorState
-      title="대시보드를 불러오지 못했어요"
-      description="대시보드를 표시하는 중 문제가 생겼어요. 다시 시도하거나 홈으로 돌아가 주세요."
+      title={t.dashboard.errorTitle}
+      description={t.dashboard.errorBody}
       onRetry={retry ? () => retry() : undefined}
       digest={error.digest}
     />

@@ -127,3 +127,280 @@
 | errors.usernameReserved | 사용할 수 없는 username이에요. 다른 걸 입력해주세요. | This username can't be used. Please pick another. | |
 | errors.saveAuth | 저장 중 오류가 발생했어요. 다시 시도해주세요. | Something went wrong while saving. Please try again. | |
 | errors.saveProfile | 프로필 저장 중 오류가 발생했어요. 다시 시도해주세요. | Something went wrong while saving your profile. Please try again. | |
+
+## contentTypes (콘텐츠 유형 라벨)
+
+| 키 | 한국어 | English | 비고 |
+|---|---|---|---|
+| web-app | 웹 앱 | Web app | |
+| saas | SaaS | SaaS | |
+| mobile | 모바일 앱 | Mobile app | |
+| game | 게임 | Game | |
+| extension | 크롬 익스텐션 | Chrome extension | |
+| ai-service | AI 서비스 | AI service | |
+| media | 미디어 콘텐츠 | Media content | |
+| other | 기타 | Other | |
+
+## dashboard (대시보드 뼈대)
+
+| 키 | 한국어 | English | 비고 |
+|---|---|---|---|
+| logout | 로그아웃 | Log out | |
+| welcomeTitle | 프레임이 준비됐어요 | Your frame is ready | |
+| welcomeBody | 이제 작품을 추가해서 프레임을 채워볼게요. | Now let's add your work and fill the frame. | |
+| welcomeCta | 첫 작품 추가하기 → | Add your first project → | |
+| welcomeClose | 환영 배너 닫기 | Dismiss welcome banner | 스크린리더용 |
+| copyAddress | 프레임 주소 복사 | Copy frame address | 툴팁 |
+| copied | 복사됨 ✓ | Copied ✓ | |
+| viewFrame | 내 프레임 보기 | View my frame | |
+| tabProjects | 작품 | Work | ⚠️ 탭 라벨. Projects 아닌 Work 선택(작품=창작물 뉘앙스) |
+| tabCard | 명함 | Card | |
+| tabVisits | 방문 | Visits | |
+| errorTitle | 대시보드를 불러오지 못했어요 | Couldn't load the dashboard | |
+| errorBody | 대시보드를 표시하는 중 문제가 생겼어요. 다시 시도하거나 홈으로 돌아가 주세요. | Something went wrong while displaying the dashboard. Please retry or go back home. | |
+
+## projects (작품 탭 + 행/배지/메뉴)
+
+| 키 | 한국어 | English | 비고 |
+|---|---|---|---|
+| pendingReview | 검토 대기 {n} | {n} awaiting review | ⚠️ 숫자 위치가 언어별로 다름(함수) |
+| addProject | 프로젝트 추가 | Add project | |
+| emptyTitle | 아직 프로젝트가 없어요 | No projects yet | |
+| emptyBody | 위 버튼으로 첫 프로젝트를 추가해보세요 | Use the button above to add your first one | |
+| connectTitle | AI로 한 줄에 올리기 | Publish in one line with AI | |
+| connectSubtitle | 클로드코드·커서·챗봇을 연결하면, 그 작업을 만든 AI가 여기에 초안으로 올려줘요 | Connect Claude Code, Cursor, or a chatbot — the AI that built the work posts it here as a draft | |
+| addTitle | 새 프로젝트 추가 | Add a new project | |
+| editTitle | 프로젝트 수정 | Edit project | |
+| submitAdd | 추가하기 | Add | |
+| submitSave | 저장하기 | Save | |
+| deleteConfirm | 이 프로젝트를 삭제할까요? | Delete this project? | |
+| orderSaveFailed | 순서 저장에 실패했어요. 잠시 후 다시 시도해 주세요. | Couldn't save the new order. Please try again shortly. | |
+| deleteFailed | 프로젝트 삭제에 실패했어요. 잠시 후 다시 시도해 주세요. | Couldn't delete the project. Please try again shortly. | |
+| demoStartFailed | 자동 시연 생성을 시작하지 못했어요. 프로젝트는 저장됐어요 — 카드에서 다시 시도할 수 있어요. | Couldn't start the auto demo. Your project is saved — you can retry from its card. | |
+| demoRequestFailed | 자동 시연 요청이 전송되지 않았어요. 프로젝트는 저장됐어요 — 카드에서 다시 시도할 수 있어요. | The auto demo request didn't go through. Your project is saved — you can retry from its card. | |
+| heldNotice | 관리자 승인 대기로 전환했어요. | Moved to the admin approval queue. | |
+| rerecordFailed | 재촬영 요청 실패 | Re-record request failed | |
+| publishFailed | 공개에 실패했어요. 잠시 후 다시 시도해 주세요. | Couldn't publish. Please try again shortly. | |
+| publishedDemoStartFailed | 공개됐지만 자동 시연 생성을 시작하지 못했어요 — 카드에서 다시 시도할 수 있어요. | Published, but couldn't start the auto demo — you can retry from its card. | |
+| publishedDemoRequestFailed | 공개됐지만 자동 시연 요청이 전송되지 않았어요 — 카드에서 다시 시도할 수 있어요. | Published, but the auto demo request didn't go through — you can retry from its card. | |
+| rerecordSent | 재촬영 요청을 보냈어요. 관리자 승인 후 다시 촬영돼요. | Re-record request sent. It'll be re-shot after admin approval. | |
+| phasePending | 촬영 대기 | Queued to film | |
+| phaseBuilding | 앱 준비 중 | Preparing app | |
+| phaseRecording | 촬영 중 | Filming | |
+| phaseEditing | 편집 중 | Editing | |
+| usualTime | 보통 1–3분 | usually 1–3 min | "촬영 중 · 보통 1–3분" 꼴로 붙음 |
+| demoFailed | 시연 영상 실패 | Demo video failed | |
+| retryBtn | 다시 시도 | Try again | |
+| techInfo | 기술 정보 | Technical details | |
+| heldModerationTip | 게시 전에 확인이 필요하다고 표시돼 잠시 보류 중이에요. 검토가 끝나면 자동으로 게시되고, 보통 하루 안에 처리돼요. | Flagged for a quick check before going live. It publishes automatically once cleared — usually within a day. | 툴팁 |
+| heldQuotaTip | 하루 자동 시연 한도를 넘어 승인 대기 중이에요. 보통 24시간 안에 처리되고, 그동안은 이미지로 표시돼요. | Past the daily auto-demo limit, so it's waiting for approval. Usually done within 24 hours; an image shows meanwhile. | 툴팁 |
+| heldModerationLabel | 게시 전 확인 중 | In pre-publish review | |
+| heldQuotaLabel | 승인 대기 · 이미지 표시 | Awaiting approval · image shown | |
+| pausedTip | 촬영 요청이 접수됐어요. 순서대로 촬영되고, 끝나면 메일로 알려드릴게요. | Your filming request is in. We film in order and email you when it's done. | 툴팁 |
+| pausedLabel | 촬영 대기 중 | Waiting to film | |
+| slowTip | 창을 닫으셔도 돼요 — 촬영이 끝나면 메일로 알려드릴게요. | Feel free to close this window — we'll email you when filming is done. | 툴팁 |
+| slowLabel | 예상보다 오래 걸려요 | Taking longer than expected | |
+| more | 더 보기 | More | ⋯ 메뉴 툴팁 |
+| draftBadge | AI 초안 | AI draft | |
+| untitled | 제목 없음 | Untitled | |
+| publishing | 공개 중… | Publishing… | |
+| confirmPublish | 확인하고 공개 | Review & publish | |
+| menuOpen | 작품 열기 ↗ | Open work ↗ | |
+| menuEdit | 수정 | Edit | |
+| menuDelete | 삭제 | Delete | |
+| featuredSet | 대표로 설정 | Set as featured | |
+| featuredUnset | 대표 해제 | Remove featured | |
+| featuredBadge | ★ 대표 | ★ Featured | |
+| moveUp | 위로 이동 | Move up | |
+| moveDown | 아래로 이동 | Move down | |
+| rerecordRequest | 재촬영 요청 | Request re-record | |
+| retryShoot | 촬영 다시 시도 | Retry filming | |
+| makeDemo | 시연 영상 만들기 | Create demo video | |
+
+## projectForm (프로젝트 추가/수정 폼)
+
+| 키 | 한국어 | English | 비고 |
+|---|---|---|---|
+| hintLabel | 핵심 기능 소개 | Key features | |
+| optionalSuffix | (선택) | (optional) | |
+| hintPlaceholder | 예: 캔버스에 마우스로 자유롭게 그림을 그릴 수 있어요. 상단에서 브러시 색과 굵기를 바꿔보세요. | e.g. You can draw freely on the canvas with your mouse. Try changing the brush color and size at the top. | |
+| hintHelp | 자동 시연 영상이 이 설명을 보고 핵심 기능부터 보여드려요. | The auto demo video reads this and shows your key features first. | |
+| videoTooLarge | 영상은 20MB 이하만 업로드할 수 있어요. (현재 {mb}MB) | Videos must be 20MB or less. (Currently {mb}MB) | 함수 |
+| videoUnreadable | 영상 파일을 읽을 수 없어요. | Couldn't read the video file. | |
+| videoTooLong | 영상은 30초 이하만 업로드할 수 있어요. (현재 {s}초) | Videos must be 30 seconds or less. (Currently {s}s) | 함수 |
+| uploadFailed | 업로드 실패: {msg} | Upload failed: {msg} | 함수 |
+| zipFailed | zip 압축해제 실패: {msg} | Couldn't extract the zip: {msg} | 함수 |
+| zipUnreadable | zip 파일을 읽을 수 없어요. | Couldn't read the zip file. | |
+| tooLarge | 총 파일 크기가 25MB를 초과해요. (현재 {mb}MB) | Total file size exceeds 25MB. (Currently {mb}MB) | 함수 |
+| noHtml | 웹페이지(HTML) 파일이 없어요. 자동 시연은 브라우저에 뜨는 화면을 촬영해요 — index.html이 포함됐는지 확인해 주세요. | No web page (HTML) file found. The auto demo films what shows up in a browser — make sure index.html is included. | |
+| saveFailed | 저장 중 오류가 발생했어요. | Something went wrong while saving. | |
+| urlOptionTitle | URL 링크 | URL link | |
+| urlOptionDesc | 이미 어딘가에 배포된 사이트가 있어요 | My site is already deployed somewhere | |
+| filesOptionTitle | 파일 업로드 | File upload | |
+| filesOptionDesc | 직접 만든 HTML·CSS·JS 파일을 올릴게요 | I'll upload my HTML·CSS·JS files | |
+| cancel | 취소 | Cancel | |
+| pickFiles | 파일 선택 | Choose files | |
+| pickFolder | 폴더 선택 | Choose folder | |
+| wizardGuide1~4 | React/Vue/Vite는 [npm run build] 후 생성된 [dist/] 폴더를 올려주세요. 순수 HTML/CSS/JS는 그대로, [.zip]도 가능. 최대 25MB | For React/Vue/Vite, run [npm run build] and upload the generated [dist/] folder. Plain HTML/CSS/JS works as-is; [.zip] is fine too. Max 25MB | ⚠️ 코드 조각 3개가 끼어 4조각으로 분할된 문장 |
+| uploading | 업로드 중… | Uploading… | |
+| uploadDone | 업로드 완료 | Upload complete | |
+| titlePlaceholder | 프로젝트 이름 | Project name | |
+| descPlaceholder | 어떤 프로젝트인지 소개해주세요. | Tell us what this project is about. | |
+| contentTypeLabel | 콘텐츠 유형 | Content type | |
+| aiToolsLabel | 사용한 AI 도구 | AI tools used | |
+| multiSelect | (복수 선택) | (multi-select) | |
+| collapse | 접기 ↑ | Collapse ↑ | |
+| showMore | 더보기 +{n} | More +{n} | 함수 |
+| videoLabel | 구동 영상 | Video clip | ⚠️ '시연 영상'(auto demo)과 구분하려고 clip 사용 |
+| videoConnected | 영상 연결됨 | Video attached | |
+| remove | 제거 | Remove | |
+| modeFile | 파일 업로드 | Upload file | |
+| modeUrl | URL | URL | |
+| videoPick | 영상 파일 선택 | Choose a video file | |
+| videoLimits | 20MB · 30초 이하 | Max 20MB · 30s | |
+| videoUrlPlaceholderWizard | https://youtube.com/... 또는 https://vimeo.com/... | https://youtube.com/... or https://vimeo.com/... | |
+| videoUrlPlaceholder | https://youtube.com/watch?v=... 또는 https://vimeo.com/... | https://youtube.com/watch?v=... or https://vimeo.com/... | |
+| thumbAutoTitle | 자동 | Automatic | |
+| thumbAutoDesc | OG 이미지나 업로드한 파일에서 자동으로 만들어드려요 | We'll generate one from your OG image or uploaded files | |
+| thumbManualTitle | 수동 업로드 | Manual upload | |
+| thumbManualDesc | 이미지 파일을 직접 올릴게요 | I'll upload an image myself | |
+| dropOrClick | 클릭하거나 이미지를 드래그해서 업로드 | Click or drag an image to upload | |
+| removeReupload | 제거하고 다시 올리기 | Remove and re-upload | |
+| prev | ← 이전 | ← Back | |
+| skip | 건너뛰기 | Skip | |
+| next | 다음 → | Next → | |
+| saving | 저장 중… | Saving… | |
+| closeAria | 닫기 | Close | 스크린리더용 |
+| existingUpload | 업로드된 사이트가 연결돼 있어요 — 새로 올리면 교체돼요. | An uploaded site is attached — uploading again replaces it. | |
+| editGuideTitle + editGuide1~3 | React / Vue / Vite 프로젝트라면 소스 폴더 대신 [npm run build] 후 생성된 [dist/] 폴더를 올려주세요. 순수 HTML/CSS/JS 파일은 그대로 올려도 돼요. | For React / Vue / Vite projects, skip the source folder — run [npm run build] and upload the generated [dist/] folder. Plain HTML/CSS/JS files can go up as-is. | ⚠️ 코드 조각 분할 문장 |
+| dropHelpEdit | HTML, CSS, JS, 이미지 파일 지원 · 최대 25MB · 드래그해서 올려도 돼요 | HTML, CSS, JS, and image files · max 25MB · drag & drop works too | |
+| uploadDoneEdit | 업로드 완료. 아래 정보를 입력하고 저장하세요. | Upload complete. Fill in the details below and save. | |
+| demoUrlLabel | 데모 URL | Demo URL | |
+| hintLabelEdit | 핵심 기능 소개 (자동 시연용 · 선택) | Key features (for the auto demo · optional) | |
+| videoLabelOptional | 구동 영상 (선택) | Video clip (optional) | |
+| videoAutoplayHelp | 대표 작품으로 설정하면 프레임 상단에서 자동 재생돼요. | If this is your featured work, it autoplays at the top of your frame. | |
+| videoPickInline | + 영상 파일 선택 (20MB · 30초 이하) | + Choose a video file (max 20MB · 30s) | |
+| nameLabel | 프로젝트 이름 | Project name | |
+| yearLabel | 제작 연도 | Year | |
+| descLabel | 설명 | Description | |
+| thumbLabel | 썸네일 | Thumbnail | |
+| thumbAutoNote | (없으면 저장 시 자동 생성) | (auto-generated on save if empty) | |
+| thumbTypeLabel | 썸네일 유형 | Thumbnail type | |
+| typeImage | 🖼️ 이미지 | 🖼️ Image | |
+| typeVideo | 🎬 영상 | 🎬 Video | |
+| commentLabel | 한 마디 (말풍선에 표시) | One-liner (shown in a speech bubble) | |
+| commentPlaceholder | 제가 제일 아끼는 작업물이에요! ⭐ | This one's my favorite piece! ⭐ | |
+
+## card (명함 탭)
+
+| 키 | 한국어 | English | 비고 |
+|---|---|---|---|
+| imageTooLarge | 이미지는 5MB 이하만 업로드할 수 있어요. | Images must be 5MB or less. | |
+| avatarUploadFailed | 이미지 업로드에 실패했어요. 잠시 후 다시 시도해주세요. | Image upload failed. Please try again shortly. | |
+| deleteFailed | 탈퇴 처리에 실패했어요. | Couldn't delete your account. | |
+| avatarLabel | 프로필 이미지 | Profile image | |
+| avatarNote | (모바일 명함·공유 카드에 쓰여요) | (used on the mobile card & share cards) | |
+| changeImage | 이미지 변경 | Change image | |
+| uploadImage | 이미지 업로드 | Upload image | |
+| avatarFormats | JPG · PNG · GIF · 최대 5MB | JPG · PNG · GIF · max 5MB | |
+| avatarPendingNote | 저장하기를 누르면 반영돼요 | Applies when you hit Save | |
+| nameLabel | 표시 이름 | Display name | |
+| usernameLabel | 사용자 이름 | Username | |
+| bioLabel | 한 줄 소개 | One-line bio | |
+| socialLabel | 소셜 링크 | Social links | |
+| removeLink | 링크 삭제 | Remove link | 스크린리더용 |
+| unrecognizedLink | 아직 인식되지 않는 주소예요 — 명함에는 Instagram · X · GitHub · LinkedIn · YouTube · TikTok · Facebook · Threads 링크만 표시돼요. | This address isn't recognized yet — only Instagram · X · GitHub · LinkedIn · YouTube · TikTok · Facebook · Threads links show on the card. | |
+| addLink | 링크 추가 | Add link | |
+| save | 저장하기 | Save | |
+| saving | 저장 중… | Saving… | |
+| savedMsg | 저장됐어요 | Saved | |
+| accountLabel | 계정 | Account | |
+| deleteTitle / deleteBtn | 회원 탈퇴 | Delete account | |
+| deleteBody1 + Strong + 2 | 프로필과 모든 작품·업로드한 파일이 [즉시·영구 삭제]되며, 되돌릴 수 없어요. | Your profile and all work & uploaded files are [deleted immediately and permanently] — this cannot be undone. | ⚠️ 굵은 글씨가 끼어 3조각 분할 |
+| deleteModalTitle | 정말 탈퇴하시겠어요? | Really delete your account? | |
+| deleteModalBody | {@유저명}의 프로필과 모든 프로젝트·업로드 파일이 즉시·영구 삭제돼요. 이 작업은 되돌릴 수 없어요. | {@username}'s profile and every project & uploaded file will be deleted immediately and permanently. This cannot be undone. | ⚠️ 유저명 뒤에 붙는 조각 |
+| confirmPrefix + Suffix | 확인을 위해 {유저명} 를 입력해주세요 | To confirm, type {username} below | ⚠️ 어순 재배치 |
+| cancel | 취소 | Cancel | |
+| deleting | 탈퇴 중… | Deleting… | |
+| deleteForever | 영구 삭제 | Delete forever | |
+
+## visits (방문 탭)
+
+| 키 | 한국어 | English | 비고 |
+|---|---|---|---|
+| justNow | 방금 전 | just now | |
+| minsAgo | {n}분 전 | {n}m ago | 함수 |
+| hoursAgo | {n}시간 전 | {n}h ago | 함수 |
+| daysAgo | {n}일 전 | {n}d ago | 함수 |
+| today | 오늘 | Today | |
+| last7 | 최근 7일 | Last 7 days | |
+| last30 | 최근 30일 | Last 30 days | |
+| total | 전체 조회 | All-time views | |
+| chartTitle | 최근 14일 방문 추이 | Visits, last 14 days | |
+| cappedPrefix | 최근 500회 기준 · | Latest 500 visits · | |
+| dailyMax | 일 최고 {n}회 | daily peak {n} | 함수 |
+| noData | 아직 방문 데이터가 없어요 | No visit data yet | |
+| referrers | 유입 경로 | Traffic sources | |
+| countries | 방문 국가 | Visitor countries | |
+| history | 방문 기록 | Visit log | |
+| capped | 최근 500회 기준 | Latest 500 visits | |
+| noHistory | 아직 방문 기록이 없어요 | No visits yet | |
+| groupWeek | 어제 ~ 7일 전 | Yesterday – 7 days ago | |
+| groupMonth | 8 ~ 30일 전 | 8 – 30 days ago | |
+| groupOlder | 30일 이전 | Older than 30 days | |
+| barTooltip | {월/일} — {n}회 | {월/일} — {n} views | 함수 |
+| countryNames | 한국·미국·일본·중국·영국·독일·프랑스·캐나다·호주·싱가포르·인도·브라질·대만·홍콩·태국·베트남·필리핀·인도네시아·말레이시아·네덜란드 | South Korea · United States · Japan · China · United Kingdom · Germany · France · Canada · Australia · Singapore · India · Brazil · Taiwan · Hong Kong · Thailand · Vietnam · Philippines · Indonesia · Malaysia · Netherlands | 국가 코드 20종 순서 그대로 |
+| sourceLabels | 카카오톡 / 인스타그램 / 페이스북 / 라인 / 네이버 앱 / 다음 앱 / X 앱 / 카카오 / 네이버 / 유튜브 / (구글 로그인 리턴) / 구글 검색 / 공유 링크(앱 미상) / 직접/알 수 없음 | KakaoTalk / Instagram / Facebook / LINE / Naver app / Daum app / X app / Kakao / Naver / YouTube / (Google sign-in return) / Google Search / Share link (unknown app) / Direct / unknown | ⚠️ 유입 분류기(admin과 공유)는 한국어 고정 — 표시할 때만 이 표로 번역 |
+
+## connect (AI 연결 패널)
+
+| 키 | 한국어 | English | 비고 |
+|---|---|---|---|
+| copy | 복사 | Copy | |
+| copied | 복사됨 ✓ | Copied ✓ | |
+| intro1 + intro2 | 클로드코드·커서, 혹은 아무 AI 대화창에 아래 프롬프트를 붙여넣으면 — 그 작업을 만든 AI가 직접 무슨 작품인지 설명하고, 시연 영상에서 볼 포인트까지 써서 {유저명} 계정에 초안으로 올려줘요. 초안은 이 탭에서 확인 후 공개돼요. | Paste the prompt below into Claude Code, Cursor, or any AI chat — the AI that built the work describes it, notes what to watch for in the demo video, and posts it as a draft to the {username} account. Drafts publish only after you review them here. | ⚠️ 유저명이 끼어 2조각 분할 |
+| step1Title | 1. 연결 토큰 발급 | 1. Issue a connect token | |
+| step1Body | AI가 당신 계정으로 올릴 수 있게 하는 열쇠예요. 한 번만 노출되니 안전한 곳에 보관하세요. | This key lets the AI post to your account. It's shown only once — keep it somewhere safe. | |
+| revealNote | 아래 토큰을 지금 복사하세요 — 다시 볼 수 없어요. | Copy this token now — you won't see it again. | |
+| terminalOnce | 터미널(클로드코드·커서)에서 1회: | Run once in your terminal (Claude Code · Cursor): | |
+| savedClose | 저장했어요, 닫기 | Saved it — close | |
+| tokenNamePlaceholder | 토큰 이름 (예: MacBook 클로드코드) | Token name (e.g. MacBook Claude Code) | |
+| issuing | 발급 중… | Issuing… | |
+| issue | 토큰 발급 | Issue token | |
+| issueFailed | 토큰 발급에 실패했어요. | Couldn't issue the token. | |
+| networkFailed | 네트워크 오류로 발급하지 못했어요. | A network error prevented issuing. | |
+| revokeConfirm | 이 토큰을 폐기할까요? 이 토큰을 쓰는 AI 연결이 즉시 끊겨요. | Revoke this token? Any AI connection using it stops immediately. | |
+| revokeFailed | 폐기에 실패했어요. 잠시 후 다시 시도해 주세요. | Couldn't revoke. Please try again shortly. | |
+| step2Title | 2. AI에게 이걸 붙여넣기 | 2. Paste this to your AI | |
+| copyPrompt | 프롬프트 복사 | Copy prompt | |
+| noShell1~3 | 셸이 없는 AI(챗봇)라면 — AI가 뱉은 JSON을 {링크} 에 붙여넣으면 돼요. CLI 로그인은 {명령}. | If your AI has no shell (a chatbot) — paste the JSON it produces at {link}. CLI login: {command}. | ⚠️ 링크·코드가 끼어 3조각 분할 |
+| tokensTitle | 발급된 토큰 | Issued tokens | |
+| loading | 불러오는 중… | Loading… | |
+| noTokens | 아직 발급한 토큰이 없어요. | No tokens issued yet. | |
+| unnamed | 이름 없음 | Unnamed | |
+| lastUsed | 최근 사용 {날짜} | Last used {날짜} | 함수 |
+| neverUsed | 사용 전 | Not used yet | |
+| revoke | 폐기 | Revoke | |
+
+## share (공유 팝오버)
+
+| 키 | 한국어 | English | 비고 |
+|---|---|---|---|
+| share | 공유 | Share | 툴팁 |
+| copiedFlash | 복사됨! | Copied! | |
+| copyWatch | watch 링크 복사 | Copy watch link | |
+| copyX | X 공유문구 복사 | Copy X post | |
+| downloadMp4 | mp4 다운로드 | Download mp4 | |
+
+## rerecord (재촬영 요청 모달)
+
+| 키 | 한국어 | English | 비고 |
+|---|---|---|---|
+| title | 재촬영 요청 | Request a re-record | |
+| body | 시연 영상은 프로젝트당 한 편이에요. 무엇을 어떻게 바꾸고 싶은지 적어주시면 관리자가 확인한 뒤 다시 촬영해 드려요. | Each project gets one demo video. Tell us what you'd like changed and an admin will review and re-shoot it. | |
+| emptyReason | 바꾸고 싶은 점을 적어주세요. | Please describe what you'd like changed. | |
+| requestFailed | 요청에 실패했어요. | The request failed. | |
+| placeholder | 예: 첫 화면 로딩이 길게 잡혔어요. 로그인 후 대시보드 화면 위주로 보여주세요. | e.g. The first screen's loading ran long. Please focus on the dashboard after login. | |
+| cancel | 취소 | Cancel | |
+| sending | 보내는 중… | Sending… | |
+| send | 요청 보내기 | Send request | |

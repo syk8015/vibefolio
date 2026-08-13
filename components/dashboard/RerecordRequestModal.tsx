@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Modal from "@/components/Modal";
+import { useT } from "@/lib/i18n/client";
 
 // A project gets one auto demo. Re-recording a landed video isn't self-serve —
 // the owner describes what to change and an admin approves it. This modal just
@@ -17,6 +18,7 @@ export function RerecordRequestModal({
   onClose: () => void;
   onSubmitted: () => void;
 }) {
+  const { t } = useT();
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -24,7 +26,7 @@ export function RerecordRequestModal({
   async function submit() {
     const trimmed = reason.trim();
     if (!trimmed) {
-      setError("바꾸고 싶은 점을 적어주세요.");
+      setError(t.rerecord.emptyReason);
       return;
     }
     setBusy(true);
@@ -39,22 +41,21 @@ export function RerecordRequestModal({
       if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
       onSubmitted();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "요청에 실패했어요.");
+      setError(err instanceof Error ? err.message : t.rerecord.requestFailed);
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <Modal onClose={onClose} ariaLabel="재촬영 요청">
+    <Modal onClose={onClose} ariaLabel={t.rerecord.title}>
       <div className="flex flex-col gap-4">
         <div>
           <h2 className="text-lg font-semibold" style={{ color: "var(--text-primary)" }}>
-            재촬영 요청
+            {t.rerecord.title}
           </h2>
           <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
-            시연 영상은 프로젝트당 한 편이에요. 무엇을 어떻게 바꾸고 싶은지 적어주시면
-            관리자가 확인한 뒤 다시 촬영해 드려요.
+            {t.rerecord.body}
           </p>
         </div>
         <div className="text-xs vf-mono truncate" style={{ color: "var(--text-secondary)" }}>
@@ -66,7 +67,7 @@ export function RerecordRequestModal({
           rows={4}
           maxLength={1000}
           autoFocus
-          placeholder="예: 첫 화면 로딩이 길게 잡혔어요. 로그인 후 대시보드 화면 위주로 보여주세요."
+          placeholder={t.rerecord.placeholder}
           className="vf-input w-full resize-none"
           style={{ fontFamily: "var(--font-nunito)" }}
         />
@@ -82,7 +83,7 @@ export function RerecordRequestModal({
             className="px-4 py-1.5 rounded-full text-sm disabled:opacity-50"
             style={{ background: "var(--surface-soft)", color: "var(--text-secondary)", cursor: "pointer" }}
           >
-            취소
+            {t.rerecord.cancel}
           </button>
           <button
             onClick={submit}
@@ -90,7 +91,7 @@ export function RerecordRequestModal({
             className="vf-button-primary px-4 py-1.5 text-sm disabled:opacity-50"
             style={{ cursor: "pointer" }}
           >
-            {busy ? "보내는 중…" : "요청 보내기"}
+            {busy ? t.rerecord.sending : t.rerecord.send}
           </button>
         </div>
       </div>

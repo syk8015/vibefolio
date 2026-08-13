@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { AnalyticsEvent, trackClientEvent } from "@/lib/analytics-client";
 import { copyText } from "@/lib/clipboard";
+import { useT } from "@/lib/i18n/client";
 
 // Per-project share affordance, shown in the dashboard row once a demo exists.
 // A single button opens a small popover with three actions: copy the watch link,
@@ -26,6 +27,7 @@ export default function ShareKit({
   demoVideoUrl: string;
   projectTitle: string;
 }) {
+  const { t } = useT();
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState<"link" | "x" | null>(null);
 
@@ -92,7 +94,7 @@ export default function ShareKit({
           if (!open) trackClientEvent(AnalyticsEvent.ShareOpened, { projectId });
           setOpen(!open);
         }}
-        title="공유"
+        title={t.share.share}
         className="p-2 rounded-full transition-colors"
         style={{ background: open ? "var(--surface-soft-hover)" : "var(--surface-soft)", border: "none", cursor: "pointer" }}
       >
@@ -135,7 +137,7 @@ export default function ShareKit({
               onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
             >
               <IconLink />
-              {copied === "link" ? "복사됨!" : "watch 링크 복사"}
+              {copied === "link" ? t.share.copiedFlash : t.share.copyWatch}
             </button>
             <button
               style={itemStyle}
@@ -148,7 +150,7 @@ export default function ShareKit({
               onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
             >
               <IconX />
-              {copied === "x" ? "복사됨!" : "X 공유문구 복사"}
+              {copied === "x" ? t.share.copiedFlash : t.share.copyX}
             </button>
             <button
               style={itemStyle}
@@ -157,7 +159,7 @@ export default function ShareKit({
               onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
             >
               <IconDownload />
-              mp4 다운로드
+              {t.share.downloadMp4}
             </button>
           </div>
         </>

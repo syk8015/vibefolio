@@ -5,6 +5,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { copyText } from "@/lib/clipboard";
 import { pastePrompt, envExport, NPX_LOGIN } from "@/lib/connectSnippets";
+import { useT } from "@/lib/i18n/client";
 
 interface TokenRow {
   id: string;
@@ -14,7 +15,8 @@ interface TokenRow {
   last_used_at: string | null;
 }
 
-function CopyButton({ text, label = "복사" }: { text: string; label?: string }) {
+function CopyButton({ text, label }: { text: string; label?: string }) {
+  const { t } = useT();
   const [copied, setCopied] = useState(false);
   return (
     <button
@@ -28,7 +30,7 @@ function CopyButton({ text, label = "복사" }: { text: string; label?: string }
       className="vf-button-ghost"
       style={{ fontSize: "0.75rem", padding: "0.35rem 0.7rem", whiteSpace: "nowrap" }}
     >
-      {copied ? "복사됨 ✓" : label}
+      {copied ? t.connect.copied : label ?? t.connect.copy}
     </button>
   );
 }
@@ -37,6 +39,7 @@ function CopyButton({ text, label = "복사" }: { text: string; label?: string }
 // 작품 탭의 접히는 영역으로 흡수됐고, 이름도 실제 역할에 맞춰 ConnectPanel로.
 // username은 profiles 단일 출처(ProjectsTab 경유) — metadata 파생 금지.
 export default function ConnectPanel({ username }: { username: string }) {
+  const { t, locale } = useT();
   const [tokens, setTokens] = useState<TokenRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -71,25 +74,25 @@ export default function ConnectPanel({ username }: { username: string }) {
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(body.error || "토큰 발급에 실패했어요.");
+        setError(body.error || t.connect.issueFailed);
         return;
       }
       setRevealed(body.token as string);
       setNewName("");
       await load();
     } catch {
-      setError("네트워크 오류로 발급하지 못했어요.");
+      setError(t.connect.networkFailed);
     } finally {
       setCreating(false);
     }
   }
 
   async function revoke(id: string) {
-    if (!confirm("이 토큰을 폐기할까요? 이 토큰을 쓰는 AI 연결이 즉시 끊겨요.")) return;
+    if (!confirm(t.connect.revokeConfirm)) return;
     setTokens((prev) => prev.filter((t) => t.id !== id)); // optimistic
     const res = await fetch(`/api/tokens/${id}`, { method: "DELETE" }).catch(() => null);
     if (!res || !res.ok) {
-      setError("폐기에 실패했어요. 잠시 후 다시 시도해 주세요.");
+      setError(t.connect.revokeFailed);
       load();
     }
   }
@@ -98,24 +101,22 @@ export default function ConnectPanel({ username }: { username: string }) {
     <div>
       {/* 소개 — 제목은 접기 헤더가 갖고 있으므로 설명만 */}
       <p className="text-sm mb-5" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", lineHeight: 1.7 }}>
-        클로드코드·커서, 혹은 아무 AI 대화창에 아래 프롬프트를 붙여넣으면 — 그 작업을 만든 AI가
-        직접 무슨 작품인지 설명하고, 시연 영상에서 볼 포인트까지 써서 <b style={{ color: "var(--text-primary)" }}>{username}</b> 계정에 초안으로 올려줘요.
-        초안은 이 탭에서 확인 후 공개돼요.
+        {t.connect.intro1}<b style={{ color: "var(--text-primary)" }}>{username}</b>{t.connect.intro2}
       </p>
 
       {/* 1) 토큰 발급 */}
       <div className="vf-card p-5 mb-5">
         <p className="text-sm mb-1" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontWeight: 600 }}>
-          1. 연결 토큰 발급
+          {t.connect.step1Title}
         </p>
         <p className="text-xs mb-3" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", lineHeight: 1.6 }}>
-          AI가 당신 계정으로 올릴 수 있게 하는 열쇠예요. 한 번만 노출되니 안전한 곳에 보관하세요.
+          {t.connect.step1Body}
         </p>
 
         {revealed ? (
           <div className="p-3 rounded-lg mb-1" style={{ background: "var(--surface-soft)", border: "1px solid var(--border)" }}>
             <p className="text-xs mb-2" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
-              아래 토큰을 지금 복사하세요 — 다시 볼 수 없어요.
+              {t.connect.revealNote}
             </p>
             <div className="flex items-center gap-2 mb-2">
               <code className="flex-1 min-w-0 text-xs px-2 py-2 rounded" style={{ background: "var(--bg)", color: "var(--text-primary)", fontFamily: "var(--font-mono), monospace", overflowX: "auto", whiteSpace: "nowrap" }}>
@@ -124,7 +125,7 @@ export default function ConnectPanel({ username }: { username: string }) {
               <CopyButton text={revealed} />
             </div>
             <p className="text-xs mb-1" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
-              터미널(클로드코드·커서)에서 1회:
+              {t.connect.terminalOnce}
             </p>
             <div className="flex items-center gap-2 mb-2">
               <code className="flex-1 min-w-0 text-xs px-2 py-2 rounded" style={{ background: "var(--bg)", color: "var(--text-secondary)", fontFamily: "var(--font-mono), monospace", overflowX: "auto", whiteSpace: "nowrap" }}>
@@ -133,20 +134,20 @@ export default function ConnectPanel({ username }: { username: string }) {
               <CopyButton text={envExport(revealed)} />
             </div>
             <button onClick={() => setRevealed(null)} className="vf-button-ghost" style={{ fontSize: "0.75rem", padding: "0.35rem 0.7rem" }}>
-              저장했어요, 닫기
+              {t.connect.savedClose}
             </button>
           </div>
         ) : (
           <div className="flex items-center gap-2">
             <input
               className="vf-input flex-1"
-              placeholder="토큰 이름 (예: MacBook 클로드코드)"
+              placeholder={t.connect.tokenNamePlaceholder}
               value={newName}
               maxLength={80}
               onChange={(e) => setNewName(e.target.value)}
             />
             <button onClick={createToken} disabled={creating} className="vf-button-primary" style={{ whiteSpace: "nowrap", opacity: creating ? 0.6 : 1 }}>
-              {creating ? "발급 중…" : "토큰 발급"}
+              {creating ? t.connect.issuing : t.connect.issue}
             </button>
           </div>
         )}
@@ -159,9 +160,9 @@ export default function ConnectPanel({ username }: { username: string }) {
       <div className="vf-card p-5 mb-5">
         <div className="flex items-center justify-between mb-2">
           <p className="text-sm" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontWeight: 600 }}>
-            2. AI에게 이걸 붙여넣기
+            {t.connect.step2Title}
           </p>
-          <CopyButton text={pastePrompt(origin)} label="프롬프트 복사" />
+          <CopyButton text={pastePrompt(origin)} label={t.connect.copyPrompt} />
         </div>
         <pre
           className="text-xs p-3 rounded-lg"
@@ -170,34 +171,33 @@ export default function ConnectPanel({ username }: { username: string }) {
           {pastePrompt(origin)}
         </pre>
         <p className="text-xs mt-2" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", lineHeight: 1.6 }}>
-          셸이 없는 AI(챗봇)라면 — AI가 뱉은 JSON을 <Link href="/publish" style={{ color: "var(--text-primary)", textDecoration: "underline" }}>{origin.replace(/^https?:\/\//, "")}/publish</Link> 에 붙여넣으면 돼요.
-          CLI 로그인은 <code style={{ fontFamily: "var(--font-mono), monospace" }}>{NPX_LOGIN}</code>.
+          {t.connect.noShell1}<Link href="/publish" style={{ color: "var(--text-primary)", textDecoration: "underline" }}>{origin.replace(/^https?:\/\//, "")}/publish</Link>{t.connect.noShell2}<code style={{ fontFamily: "var(--font-mono), monospace" }}>{NPX_LOGIN}</code>{t.connect.noShell3}
         </p>
       </div>
 
       {/* 3) 발급된 토큰 목록 */}
       <div className="vf-card p-5">
         <p className="text-sm mb-3" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontWeight: 600 }}>
-          발급된 토큰
+          {t.connect.tokensTitle}
         </p>
         {loading ? (
-          <p className="text-xs" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>불러오는 중…</p>
+          <p className="text-xs" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>{t.connect.loading}</p>
         ) : tokens.length === 0 ? (
-          <p className="text-xs" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>아직 발급한 토큰이 없어요.</p>
+          <p className="text-xs" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>{t.connect.noTokens}</p>
         ) : (
           <div className="flex flex-col gap-2">
-            {tokens.map((t) => (
-              <div key={t.id} className="flex items-center justify-between gap-3 py-2" style={{ borderBottom: "1px solid var(--border)" }}>
+            {tokens.map((row) => (
+              <div key={row.id} className="flex items-center justify-between gap-3 py-2" style={{ borderBottom: "1px solid var(--border)" }}>
                 <div className="min-w-0">
                   <p className="text-sm" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontWeight: 500 }}>
-                    {t.name || "이름 없음"}
+                    {row.name || t.connect.unnamed}
                   </p>
                   <p className="text-xs" style={{ color: "var(--text-muted)", fontFamily: "var(--font-mono), monospace" }}>
-                    {t.token_prefix} · {t.last_used_at ? `최근 사용 ${new Date(t.last_used_at).toLocaleDateString("ko-KR")}` : "사용 전"}
+                    {row.token_prefix} · {row.last_used_at ? t.connect.lastUsed(new Date(row.last_used_at).toLocaleDateString(locale === "ko" ? "ko-KR" : "en-US")) : t.connect.neverUsed}
                   </p>
                 </div>
-                <button onClick={() => revoke(t.id)} className="vf-button-ghost" style={{ fontSize: "0.75rem", padding: "0.35rem 0.7rem", whiteSpace: "nowrap" }}>
-                  폐기
+                <button onClick={() => revoke(row.id)} className="vf-button-ghost" style={{ fontSize: "0.75rem", padding: "0.35rem 0.7rem", whiteSpace: "nowrap" }}>
+                  {t.connect.revoke}
                 </button>
               </div>
             ))}
