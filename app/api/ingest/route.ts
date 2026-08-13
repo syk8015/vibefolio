@@ -31,6 +31,7 @@ interface IngestPayload {
   tags?: unknown;
   contentType?: unknown;
   deployUrl?: unknown;
+  appUrl?: unknown;
 }
 
 function strOrNull(v: unknown): string | null {
@@ -129,14 +130,17 @@ export async function POST(req: NextRequest) {
     }
 
     // 6. URL 경로면 여기서 demo_url·thumbnail 확정(파일 경로는 행 생성 후).
+    // 랜딩(/)과 실제 앱(/app)이 나뉜 제품은 deployUrl(랜딩)만 받으면 시연 로봇이
+    // 랜딩만 찍는다 → appUrl(앱 화면 진입 URL)이 있으면 그걸 임베드·촬영 대상으로
+    // 우선 사용. 검증(소스 판별·콘텐츠호스트·SSRF)은 deployUrl과 동일 경로를 탄다.
     let demoUrl = "";
     let thumbnail = "";
     if (!bundle) {
-      const deployUrl = strOrNull(payload?.deployUrl);
-      if (!deployUrl) {
-        return apiError({ status: 400, message: "deployUrl 또는 파일 번들(bundle)이 필요해요.", code: "NO_ARTIFACT" });
+      const entryUrl = strOrNull(payload?.appUrl) ?? strOrNull(payload?.deployUrl);
+      if (!entryUrl) {
+        return apiError({ status: 400, message: "deployUrl(또는 appUrl) 또는 파일 번들(bundle)이 필요해요.", code: "NO_ARTIFACT" });
       }
-      const source = detectDemoSource(deployUrl);
+      const source = detectDemoSource(entryUrl);
       if (!source) {
         return apiError({ status: 400, message: "임베드·시연할 수 있는 URL이 아니에요.", code: "BAD_URL" });
       }

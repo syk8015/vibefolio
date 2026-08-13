@@ -34,7 +34,8 @@
 
 - 인증: `Authorization: Bearer nf_live_…` (우선) 또는 쿠키 세션(`/publish` 경로).
 - 본문:
-  - `application/json` — `{ title, description?, builderNote?, demoHighlights?, tags?, contentType?, deployUrl? }`
+  - `application/json` — `{ title, description?, builderNote?, demoHighlights?, tags?, contentType?, deployUrl?, appUrl? }`
+    (`appUrl` = 랜딩과 앱이 나뉜 제품의 실제 앱 화면 URL — 있으면 deployUrl보다 우선해 임베드·촬영 대상이 된다. 검증은 deployUrl과 동일)
   - `multipart/form-data` — `payload`(위 JSON 문자열) + `bundle`(정적 사이트 zip, ≤25MB, `index.html` 필수)
 - payload 매핑: `demoHighlights`→`demo_user_hint`(≤500, 레코더에 주입되는 유일 텍스트),
   `builderNote`→`comment`, `tags`는 AI_TOOLS 화이트리스트로 필터, `contentType`은 8개 고정 id.

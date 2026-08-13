@@ -22,6 +22,7 @@ export function pastePrompt(origin: string): string {
    • tags — 이 작업에 쓴 AI 툴들 (예: "Claude Code", "Cursor")
    • contentType — web-app | saas | mobile | game | extension | ai-service | media | other 중 하나
    • deployUrl — 배포된 공개 URL (vercel/netlify 등). 미배포면 생략하고 정적 빌드 산출물을 올려도 돼
+   • appUrl — 랜딩과 실제 앱 화면 주소가 다르면(예: / 는 소개, /app 이 진짜 앱), 시연·임베드가 열어야 할 앱 URL. 있으면 이 주소를 촬영해
 3) 셸을 쓸 수 있으면: ${NPX_PUBLISH} --json '<위 JSON>' 을 실행해 (토큰은 NOOKFRAME_TOKEN 환경변수에 넣어뒀어).
    셸이 없으면: 위 JSON만 출력해 — 내가 ${origin}/publish 에 붙여넣을게.`;
 }

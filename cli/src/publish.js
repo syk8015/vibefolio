@@ -15,12 +15,9 @@ export async function runPublish({ payload = {}, dir = null, token, origin }) {
   }
   const endpoint = `${origin.replace(/\/$/, "")}/api/ingest`;
 
+  const entryUrl = payload.appUrl || payload.deployUrl;
   if (!payload.title) {
-    payload.title = dir
-      ? basename(dir)
-      : payload.deployUrl
-        ? safeHost(payload.deployUrl)
-        : "제목 없음";
+    payload.title = dir ? basename(dir) : entryUrl ? safeHost(entryUrl) : "제목 없음";
   }
 
   let res;
@@ -35,7 +32,7 @@ export async function runPublish({ payload = {}, dir = null, token, origin }) {
       headers: { Authorization: `Bearer ${token}` },
       body: fd,
     });
-  } else if (payload.deployUrl) {
+  } else if (entryUrl) {
     res = await fetch(endpoint, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
@@ -76,10 +73,11 @@ export async function publishCommand(args) {
   if (args.title) payload.title = args.title;
   if (args.hint) payload.demoHighlights = args.hint;
   if (args.url) payload.deployUrl = args.url;
+  if (args["app-url"]) payload.appUrl = args["app-url"];
 
-  // 아티팩트: --dir 명시 > deployUrl 있음 > 자동으로 빌드 디렉터리 탐색.
+  // 아티팩트: --dir 명시 > URL 있음 > 자동으로 빌드 디렉터리 탐색.
   let dir = args.dir ? resolve(args.dir) : null;
-  if (!dir && !payload.deployUrl) {
+  if (!dir && !payload.deployUrl && !payload.appUrl) {
     for (const d of BUILD_DIRS) {
       const p = resolve(d);
       if (existsSync(join(p, "index.html"))) {
@@ -89,8 +87,9 @@ export async function publishCommand(args) {
     }
   }
 
+  const shownUrl = payload.appUrl || payload.deployUrl;
   if (dir) console.log(`📦 ${dir} 압축·업로드 중…`);
-  else if (payload.deployUrl) console.log(`🔗 ${payload.deployUrl} 등록 중…`);
+  else if (shownUrl) console.log(`🔗 ${shownUrl} 등록 중…`);
 
   const body = await runPublish({ payload, dir, token, origin });
   console.log("\n✓ Nookframe에 초안으로 올렸어요.");

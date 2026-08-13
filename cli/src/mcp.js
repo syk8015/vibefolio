@@ -26,7 +26,7 @@ export async function runMcp() {
   const TOOL = {
     name: "publish_to_nookframe",
     description:
-      "이 프로젝트를 Nookframe(바이브코딩 포트폴리오)에 초안으로 올린다. 당신이 이 프로젝트를 만든 AI로서 레포(README·라우트·git log)를 근거로 title/description/demoHighlights를 직접 작성해 전달하라. deployUrl(배포된 공개 URL) 또는 dir(로컬 정적 빌드 폴더 절대경로) 중 하나를 준다. demoHighlights는 '○○를 클릭' 같은 지시가 아니라 '○○ 기능이 핵심' 처럼 서술형으로.",
+      "이 프로젝트를 Nookframe(바이브코딩 포트폴리오)에 초안으로 올린다. 당신이 이 프로젝트를 만든 AI로서 레포(README·라우트·git log)를 근거로 title/description/demoHighlights를 직접 작성해 전달하라. deployUrl(배포된 공개 URL) 또는 dir(로컬 정적 빌드 폴더 절대경로) 중 하나를 준다. 랜딩과 실제 앱 화면 주소가 다르면 appUrl에 앱 URL을 함께 줘라(시연·임베드는 appUrl을 연다). demoHighlights는 '○○를 클릭' 같은 지시가 아니라 '○○ 기능이 핵심' 처럼 서술형으로.",
     inputSchema: {
       type: "object",
       properties: {
@@ -40,6 +40,7 @@ export async function runMcp() {
           enum: ["web-app", "saas", "mobile", "game", "extension", "ai-service", "media", "other"],
         },
         deployUrl: { type: "string", description: "배포된 공개 URL" },
+        appUrl: { type: "string", description: "실제 앱 화면 URL (랜딩과 다를 때 — 시연·임베드는 이 주소를 연다)" },
         dir: { type: "string", description: "정적 빌드 디렉터리 절대경로 (deployUrl이 없을 때)" },
       },
       required: ["title"],

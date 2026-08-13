@@ -20,6 +20,7 @@
 ```
 nookframe publish            현재 폴더 작품을 초안으로 올림
   --url <url>                배포된 공개 URL (없으면 dist/out/build/public 자동 탐색)
+  --app-url <url>            실제 앱 화면 URL (랜딩과 다를 때 — 시연은 이 주소를 촬영)
   --dir <path>              올릴 정적 빌드 디렉터리 (zip 업로드)
   --title <t>               제목
   --hint <text>             시연 영상에서 보여줄 핵심 (demoHighlights)
