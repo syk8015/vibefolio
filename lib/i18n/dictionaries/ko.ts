@@ -171,6 +171,7 @@ export const ko = {
   projects: {
     pendingReview: (n: number) => `검토 대기 ${n}`,
     addProject: "프로젝트 추가",
+    manualAdd: "수동으로 추가하기",
     emptyTitle: "아직 프로젝트가 없어요",
     emptyBody: "위 버튼으로 첫 프로젝트를 추가해보세요",
     connectTitle: "AI로 한 줄에 올리기",

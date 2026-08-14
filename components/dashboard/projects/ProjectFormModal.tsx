@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { screenshotUrl } from "@/lib/thumbnail";
 import { MAX_UPLOAD_BYTES, getMimeType } from "@/lib/upload-safety";
@@ -16,9 +16,10 @@ import { useT } from "@/lib/i18n/client";
 // ProjectsTab.tsx (no behavior change). Field is internal (only the flat edit
 // layout uses it); ProjectFormModal is the sole export.
 
-// 두 모드뿐이다: wizard(추가 — 탭 영역을 통째로 차지하는 단계식) / 기본(수정 —
-// 오버레이 모달의 평면 폼). 예전의 wizard·inline 이중 플래그는 조합 2가지만
-// 쓰이면서 도달 불가 분기(display:none 래퍼 8곳 등)만 낳아 걷어냈다.
+// 두 모드뿐이다: wizard(추가 — AddProjectModal 오버레이 안에서 도는 단계식) /
+// 기본(수정 — 오버레이 모달의 평면 폼). 예전의 wizard·inline 이중 플래그는 조합
+// 2가지만 쓰이면서 도달 불가 분기(display:none 래퍼 8곳 등)만 낳아 걷어냈다.
+// wizard의 onClose는 모달 닫기가 아니라 AI 화면 복귀(AddProjectModal이 소유).
 export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, userId, wizard = false }: {
   title: string;
   initialForm: ProjectForm;
@@ -58,14 +59,6 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
   const folderInputRef = useRef<HTMLInputElement>(null);
   const thumbnailInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
-  const inlineFormRef = useRef<HTMLFormElement>(null);
-
-  // Wizard mode: smoothly scroll the step canvas to viewport center on mount
-  useEffect(() => {
-    if (wizard && inlineFormRef.current) {
-      inlineFormRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
-    }
-  }, [wizard]);
 
   // Always show tools that are already selected even if collapsed
   const hiddenSelectedCount = selectedTools.filter(id =>
@@ -300,7 +293,9 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
     }
 
     return (
-      <div className="relative flex flex-col" style={{ minHeight: "calc(100vh - 220px)" }}>
+      // AddProjectModal의 고정 높이 패널을 그대로 채운다 — 뷰포트 기준 minHeight를
+      // 걸면 모달 안에서 이중 스크롤이 생긴다.
+      <div className="relative flex flex-col flex-1 min-h-0">
         {/* Top progress bar — segmented hairline */}
         <div className="absolute top-0 left-0 right-0 z-20 flex gap-[3px]">
           {Array.from({ length: TOTAL_STEPS }).map((_, i) => {
@@ -331,7 +326,7 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
           </span>
         </div>
 
-        <form ref={inlineFormRef} onSubmit={handleSubmit} onKeyDown={handleFormKeyDown}
+        <form onSubmit={handleSubmit} onKeyDown={handleFormKeyDown}
           className="flex-1 flex flex-col min-h-0 pb-6 pt-4 max-w-5xl mx-auto w-full">
 
           {/* Step canvas — re-keyed per step so each view fades + rises in */}

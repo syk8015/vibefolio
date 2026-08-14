@@ -10,9 +10,10 @@ import { AnalyticsEvent, trackClientEvent } from "@/lib/analytics-client";
 
 import { useT } from "@/lib/i18n/client";
 import { deleteSwappedAssets } from "./projects/helpers";
-import { type DBProject, type ProjectForm, EMPTY_FORM } from "./projects/types";
+import { type DBProject, type ProjectForm } from "./projects/types";
 import { DraftRow, ProjectRow } from "./projects/rows";
 import { ProjectFormModal } from "./projects/ProjectFormModal";
+import { AddProjectModal } from "./projects/AddProjectModal";
 import { useDemoStatusSync } from "./projects/useDemoStatusSync";
 
 // username comes from DashboardClient's profiles row (the handle public links
@@ -345,15 +346,6 @@ export default function ProjectsTab({ user, username, reviewProjectId }: { user:
     );
   }
 
-  // ── Add-mode: inline takeover of the ProjectsTab content area ──
-  if (showAddModal) {
-    return (
-      <ProjectFormModal title={t.projects.addTitle} initialForm={EMPTY_FORM}
-        onClose={() => setShowAddModal(false)} onSubmit={handleAdd}
-        submitLabel={t.projects.submitAdd} userId={user.id} wizard />
-    );
-  }
-
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -461,6 +453,16 @@ export default function ProjectsTab({ user, username, reviewProjectId }: { user:
           </div>
         )}
       </div>
+
+      {/* 추가 = 오버레이 모달, 기본 화면은 AI 연결(수동 위저드는 우상단 버튼으로). */}
+      {showAddModal && (
+        <AddProjectModal
+          username={username}
+          userId={user.id}
+          onClose={() => setShowAddModal(false)}
+          onSubmit={handleAdd}
+        />
+      )}
 
       {editProject && (
         <ProjectFormModal title={t.projects.editTitle}

@@ -166,6 +166,7 @@ export const en: Dictionary = {
   projects: {
     pendingReview: (n: number) => `${n} awaiting review`,
     addProject: "Add project",
+    manualAdd: "Add manually",
     emptyTitle: "No projects yet",
     emptyBody: "Use the button above to add your first one",
     connectTitle: "Publish in one line with AI",
