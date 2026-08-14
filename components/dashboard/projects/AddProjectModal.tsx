@@ -9,8 +9,7 @@ import { useT } from "@/lib/i18n/client";
 // [프로젝트 추가] 오버레이 모달. 기본 화면은 AI 연결(ConnectPanel) — AI 한 줄
 // 올리기가 표준 경로라는 위계를 UI로 말한다. 우상단 [수동으로 추가하기]를 눌러야
 // 기존 단계식 위저드가 나오고, 위저드의 취소는 모달 닫기가 아니라 AI 화면 복귀다.
-export function AddProjectModal({ username, userId, onClose, onSubmit }: {
-  username: string;
+export function AddProjectModal({ userId, onClose, onSubmit }: {
   userId: string;
   onClose: () => void;
   onSubmit: (form: ProjectForm) => void;
@@ -73,8 +72,8 @@ export function AddProjectModal({ username, userId, onClose, onSubmit }: {
                 </button>
               </div>
             </div>
-            <div className="overflow-y-auto px-6 py-5">
-              <ConnectPanel username={username} />
+            <div className="overflow-y-auto px-6 py-6">
+              <ConnectPanel />
             </div>
           </>
         ) : (

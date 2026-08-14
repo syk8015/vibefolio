@@ -356,24 +356,23 @@
 
 2026-08-14 요청5(토큰 발급 화면 단일화)로 전면 개편 — 발급 UI 삭제, [프롬프트 복사]가 토큰 자동 발급·내장.
 삭제된 키: copy, copied, step1Title, step1Body, revealNote, terminalOnce, savedClose, tokenNamePlaceholder, issuing, issue, step2Title, noShell3.
+2026-08-14 축약 개편(사용자 피드백 "글자가 너무 많다") — 소개 문단·카드 제목·발급 설명문 삭제, 한 줄 단계 안내 + 프롬프트/토큰 접기.
+추가 삭제된 키: intro1, intro2, promptTitle, promptBody, tokensTitle, loading, noTokens. 신설: steps, previewToggle, tokensToggle.
 
 | 키 | 한국어 | English | 비고 |
 |---|---|---|---|
-| intro1 + intro2 | 클로드코드·커서, 혹은 아무 AI 대화창에 아래 프롬프트를 붙여넣으면 — 그 작업을 만든 AI가 직접 무슨 작품인지 설명하고, 시연 영상에서 볼 포인트까지 써서 {유저명} 계정에 초안으로 올려줘요. 초안은 이 탭에서 확인 후 공개돼요. | Paste the prompt below into Claude Code, Cursor, or any AI chat — the AI that built the work describes it, notes what to watch for in the demo video, and posts it as a draft to the {username} account. Drafts publish only after you review them here. | ⚠️ 유저명이 끼어 2조각 분할 |
-| promptTitle | 당신의 AI에 붙여넣으세요 | Paste this to your AI | |
-| promptBody | 복사 버튼을 누르면 연결 토큰(AI가 당신 계정에 올릴 수 있게 하는 열쇠)이 새로 발급돼 프롬프트 안에 들어가요. 발급 과정은 따로 없어요 — 복사해서 붙여넣으면 끝. | Pressing copy issues a fresh connect token (the key that lets the AI post to your account) and embeds it in the prompt. There's no separate setup — copy, paste, done. | |
+| steps | 프롬프트 복사 → 내 AI 대화창에 붙여넣기 → 초안이 여기 도착 → 확인 후 공개 | Copy the prompt → paste it into your AI chat → a draft lands here → review & publish | 옛 intro/promptBody 대체 한 줄 |
 | copyPrompt | 프롬프트 복사 | Copy prompt | |
 | copying | 토큰 발급·복사 중… | Issuing token & copying… | |
-| copiedNote | 복사됐어요 ✓ 프롬프트 안에 새 토큰이 들어 있어요. 토큰은 다시 볼 수 없고, 다음에 새로 복사하면 이번 토큰은 자동으로 폐기돼요. | Copied ✓ The prompt now contains a fresh token. You won't see it again, and the next copy automatically revokes this one. | |
+| copiedNote | 복사 완료 ✓ AI 대화창에 붙여넣으면 끝이에요. 다시 복사하면 이전 토큰은 자동 폐기돼요. | Copied ✓ Paste it into your AI chat and you're done. Copying again auto-revokes the previous token. | 축약판 |
 | copyFailed | 클립보드 복사에 실패했어요. 한 번 더 눌러주세요. | Couldn't copy to the clipboard. Please press it once more. | |
 | issueFailed | 토큰 발급에 실패했어요. | Couldn't issue the token. | |
 | networkFailed | 네트워크 오류로 발급하지 못했어요. | A network error prevented issuing. | |
+| previewToggle | 프롬프트 미리보기 | Preview the prompt | 접기 토글 |
 | revokeConfirm | 이 토큰을 폐기할까요? 이 토큰을 쓰는 AI 연결이 즉시 끊겨요. | Revoke this token? Any AI connection using it stops immediately. | |
 | revokeFailed | 폐기에 실패했어요. 잠시 후 다시 시도해 주세요. | Couldn't revoke. Please try again shortly. | |
-| noShell1~2 | 셸이 없는 AI(챗봇)라면 — AI가 뱉은 JSON을 {링크} 에 붙여넣으면 돼요. | If your AI has no shell (a chatbot) — paste the JSON it produces at {link}. | ⚠️ 링크가 끼어 2조각 분할 |
-| tokensTitle | 발급된 토큰 | Issued tokens | |
-| loading | 불러오는 중… | Loading… | |
-| noTokens | 아직 발급한 토큰이 없어요. | No tokens issued yet. | |
+| noShell1~2 | 셸이 없는 AI(챗봇)라면 — AI가 뱉은 JSON을 {링크} 에 붙여넣으면 돼요. | If your AI has no shell (a chatbot) — paste the JSON it produces at {link}. | ⚠️ 링크가 끼어 2조각 분할, 프롬프트 접기 안에서만 노출 |
+| tokensToggle | 발급된 토큰 {n}개 | {n} issued token(s) | 함수 · 접기 토글, 0개면 미노출 |
 | unnamed | 이름 없음 | Unnamed | |
 | autoTokenName | 프롬프트 자동발급 | Auto-issued with prompt | name 센티널 `prompt-auto`의 표시 라벨 |
 | lastUsed | 최근 사용 {날짜} | Last used {날짜} | 함수 |

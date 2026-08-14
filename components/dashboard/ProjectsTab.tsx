@@ -438,7 +438,6 @@ export default function ProjectsTab({ user, username, reviewProjectId }: { user:
           옛 접이식 연결 카드(리디자인 결정 2)는 모달이 그 역할을 흡수하며 제거. */}
       {showAddModal && (
         <AddProjectModal
-          username={username}
           userId={user.id}
           onClose={() => setShowAddModal(false)}
           onSubmit={handleAdd}
