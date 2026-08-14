@@ -98,8 +98,11 @@ export async function PATCH(
       if (norm.issue === "bad-url") {
         return apiError({ status: 400, message: t.api.demoAccessBadUrl, code: "BAD_DEMO_ACCESS" });
       }
-      if (norm.access?.url && !norm.access.url.startsWith("/")) {
-        const gate = await publicUrlGate(norm.access.url, t);
+      // url(데모 진입)·altUrl(촬영 전 정찰 후보, 피드백 B-4) 둘 다 워커가 실제로
+      // 여는 주소 — 생성 경로와 같은 게이트를 태운다.
+      for (const u of [norm.access?.url, norm.access?.altUrl]) {
+        if (!u || u.startsWith("/")) continue;
+        const gate = await publicUrlGate(u, t);
         if (gate) return gate;
       }
       upd.demo_access = norm.access;

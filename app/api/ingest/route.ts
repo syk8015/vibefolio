@@ -191,6 +191,24 @@ export async function POST(req: NextRequest) {
         thumbnail = screenshotUrl(source.value);
       }
       demoUrl = source.value;
+
+      // 고르지 않은 쪽을 버리지 않고 demo_access.altUrl로 남긴다(피드백 B-4):
+      // "랜딩과 앱 중 뭘 찍을지"를 발행자가 미리 못 정해도, 촬영 직전 로컬 워커가
+      // 두 화면을 한 장씩 훑어 정보량 많은 쪽을 고를 수 있다. 지금까지는 loser가
+      // DB에 아예 도달하지 못해 그 판단 자체가 불가능했다. 로봇이 여는 주소이므로
+      // winner와 똑같은 게이트를 통과한 것만 남긴다. 게이트에서 걸리면 요청 전체를
+      // 400 내지 않고 alt만 포기한다 — 본 아티팩트(winner)는 멀쩡한데 부가 후보
+      // 하나 때문에 발행이 막히면 안 된다.
+      const appUrlRaw = strOrNull(payload?.appUrl);
+      const deployUrlRaw = strOrNull(payload?.deployUrl);
+      if (source.type === "live_url" && appUrlRaw && deployUrlRaw && !demoAccess?.altUrl) {
+        const altSource = detectDemoSource(deployUrlRaw);
+        if (altSource?.type === "live_url" && altSource.value !== source.value) {
+          if (!(await publicUrlGate(altSource.value, t))) {
+            demoAccess = { ...(demoAccess ?? {}), altUrl: altSource.value };
+          }
+        }
+      }
     }
 
     // 6. upsert 판별(요청4) — 같은 진입 URL의 "초안"이 이미 있으면 새 행을 만들지
@@ -344,6 +362,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       ok: true, projectId, reviewUrl, isDraft: true,
       ...(upserted ? { upserted: true } : {}),
+      // 랜딩·앱을 둘 다 준 경우 뭘 찍을지는 촬영 직전에 고른다(피드백 B-4) — 발행
+      // AI가 "내가 고른 게 최종"으로 오해하지 않게 후보를 돌려준다.
+      ...(demoAccess?.altUrl ? { entryUrl: demoUrl, scoutAltUrl: demoAccess.altUrl } : {}),
       ...(uploads ? { uploads, finalizeUrl: `${req.nextUrl.origin}/api/ingest/finalize` } : {}),
     });
   } catch (err) {

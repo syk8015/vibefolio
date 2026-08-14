@@ -45,7 +45,18 @@
     최후수단으로 08-14부터 프롬프트·MCP·CLI가 안내. 공개 저장소·`dev`/`start` 스크립트 필수, 원격 DB
     감지 시 읽기전용 데모로 격하, best-effort(`local-runner/build.ts`). 같은 날 발견한 버그
     — `next dev`는 `--host`가 아니라 `-H`만 지원해 Next.js 프로젝트가 이 경로에서 죽던 것 — 도 같이 수정)
-    (`demoAccess` = 로그인 필요 앱의 데모 모드 진입 정보 `{ url?, params?, note?, impossible? }` — url은 데모/게스트 진입 URL 또는 `/`경로(≤500자, 절대 URL은 deployUrl과 같은 콘텐츠호스트·사설망·SSRF 게이트), params는 진입 URL에 붙일 쿼리(≤12개, 키·값 ≤120자), note는 데모 모드 보는 법(≤500자, 레코더 브리핑에 데이터로 주입), impossible은 게스트 경로가 **원천 불가능**한 앱 선언(08-14 피드백 B-3: E2E 암호화·기기 페어링 필수 등 — true면 워커가 랜딩을 피사체로 브리핑하고 RUN REPORT에 `coverage: landing-only`를 찍는다. 이유는 note에, `reason` 키는 note로 수렴하는 관용 별칭. CLI `--access-impossible`). **계정 아이디/비번은 받지 않는다.** 인제스트는 `projects.demo_access` jsonb에 저장만 하고, 사용은 발행 시점 trigger-demo(절대 URL 재검증) → 로컬 워커(진입 URL 조립+브리핑)가 유일 경로 — demo_* 파이프라인 불변식과 무관한 유저 콘텐츠 컬럼이다. 마이그레이션: `supabase/migration_demo_access.sql`)
+    (`deployUrl`·`appUrl`을 **둘 다** 주면 고르지 않은 쪽을 버리지 않고 `demo_access.altUrl`에 남긴다
+    (08-14 피드백 B-4). 진입·임베드는 여전히 `appUrl` 우선이지만, **촬영 직전** 워커가 두 후보를 각각
+    열어 한 장씩 찍고 비전 1콜로 정보량 많은 쪽을 골라 그 화면을 촬영한다(`local-runner/scout.ts`,
+    판정 눈금 `app-ui > landing-only > login-wall > empty`). 이전에는 loser가 DB에 아예 도달하지 못해
+    발행자가 틀리면 — 앱 URL이 로그인 전엔 빈 화면인 걸 모르면 — 빈 화면 영상이 그대로 나왔고, 이를
+    알아채는 유일한 장치가 촬영 **후** 커버리지 판정(A-1)이었다. 후보가 하나면 호출 자체가 없어 비용
+    0, 둘이면 편당 ~$0.02(`DEMO_SCOUT_MODEL`로 haiku 강등 가능 — probe로 동등 판정 확인). 비전 콜이
+    실패하면 FAIL-OPEN(선언된 진입 URL 유지)이고, 로그인 벽 회피 정책 §4.7은 프롬프트가 아니라 코드가
+    강제한다(후보 **전부** 게이트면 login-gated로 스킵, 일부면 열린 쪽으로 덮어씀). `impossible: true`면
+    정찰을 아예 돌리지 않는다. 검증은 `url`과 동일 게이트 3중(인제스트 → trigger-demo → 워커 sink-side).
+    CLI dry-run `--alt-url`, 무과금 훅 `NF_FAKE_SCOUT=0|1`, 프로브 `local-runner/probe-scout.ts`)
+    (`demoAccess` = 로그인 필요 앱의 데모 모드 진입 정보 `{ url?, altUrl?, params?, note?, impossible? }` — url은 데모/게스트 진입 URL 또는 `/`경로(≤500자, 절대 URL은 deployUrl과 같은 콘텐츠호스트·사설망·SSRF 게이트), params는 진입 URL에 붙일 쿼리(≤12개, 키·값 ≤120자), note는 데모 모드 보는 법(≤500자, 레코더 브리핑에 데이터로 주입), impossible은 게스트 경로가 **원천 불가능**한 앱 선언(08-14 피드백 B-3: E2E 암호화·기기 페어링 필수 등 — true면 워커가 랜딩을 피사체로 브리핑하고 RUN REPORT에 `coverage: landing-only`를 찍는다. 이유는 note에, `reason` 키는 note로 수렴하는 관용 별칭. CLI `--access-impossible`). **계정 아이디/비번은 받지 않는다.** 인제스트는 `projects.demo_access` jsonb에 저장만 하고, 사용은 발행 시점 trigger-demo(절대 URL 재검증) → 로컬 워커(진입 URL 조립+브리핑)가 유일 경로 — demo_* 파이프라인 불변식과 무관한 유저 콘텐츠 컬럼이다. 마이그레이션: `supabase/migration_demo_access.sql`)
   - `multipart/form-data` — `payload`(위 JSON 문자열) + `bundle`(정적 사이트 zip, `index.html` 필수)
     + 선택 미디어 파트(요청1): `screenshot`(이미지 1장 → `thumbnail`, png/jpg/webp/gif ≤5MB) ·
     `video`(제작자 시연 영상 1개 → `video_url`=노출 1순위, mp4/webm ≤20MB). 형식은 서버가

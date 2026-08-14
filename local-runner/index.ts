@@ -23,7 +23,7 @@ const flag = (name: string, dflt?: string) => {
   return i >= 0 && argv[i + 1] && !argv[i + 1].startsWith("--") ? argv[i + 1] : dflt;
 };
 
-const positionalUrl = argv.find((a) => !a.startsWith("--") && a !== flag("project") && a !== flag("policy") && a !== flag("type") && a !== flag("value") && a !== flag("hint") && a !== flag("access-url") && a !== flag("access-params") && a !== flag("access-note"));
+const positionalUrl = argv.find((a) => !a.startsWith("--") && a !== flag("project") && a !== flag("policy") && a !== flag("type") && a !== flag("value") && a !== flag("hint") && a !== flag("access-url") && a !== flag("access-params") && a !== flag("access-note") && a !== flag("alt-url"));
 const typeFlag = flag("type");
 const valueFlag = flag("value");
 
@@ -45,7 +45,7 @@ if (typeFlag) {
   sourceValue = positionalUrl;
 } else {
   console.error(
-    "usage: tsx local-runner/index.ts <url> [--project <id>] [--policy read-only|full] [--upload] [--hint <core-feature>]\n" +
+    "usage: tsx local-runner/index.ts <url> [--project <id>] [--policy read-only|full] [--upload] [--hint <core-feature>] [--alt-url <2nd candidate>]\n" +
       "       tsx local-runner/index.ts --type github|zip|live_url --value <v> [--project <id>] [--upload] [--hint <core-feature>]",
   );
   process.exit(1);
@@ -63,10 +63,14 @@ const userHint = flag("hint");
 const accessUrl = flag("access-url");
 const accessParams = flag("access-params");
 const accessNote = flag("access-note");
+// 촬영 전 정찰 dry-run(피드백 B-4): --alt-url https://.../app 을 주면 두 후보를
+// 한 장씩 훑어 촬영할 쪽을 고른다. NF_FAKE_SCOUT=0|1 로 무과금 강제 선택 가능.
+const altUrl = flag("alt-url");
 const demoAccess =
-  accessUrl || accessParams || accessNote
+  accessUrl || accessParams || accessNote || altUrl
     ? {
         url: accessUrl,
+        altUrl,
         params: accessParams
           ? Object.fromEntries(new URLSearchParams(accessParams).entries())
           : undefined,

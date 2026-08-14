@@ -28,6 +28,7 @@ import { installSafety, type BlockedWrite, type SafetyPolicy } from "./safety";
 import { assertFinalUrlPublic, watchLanBreach } from "./netguard";
 import { assertFocusShortcuts, enableFocus } from "./focus";
 import { extractModerationFrames, moderateDemo, type DemoCoverage } from "./moderate";
+import { scoutEntry, surveyCandidates, type ScoutCandidate, type ScoutPick } from "./scout";
 import {
   uploadAndMarkDone,
   uploadQuarantined,
@@ -52,6 +53,11 @@ export type PipelinePhase = "recording" | "editing";
 
 export type RecordDemoOptions = {
   url: string;
+  // Second entry candidate (demo_access.altUrl, 피드백 B-4). When present, both
+  // are loaded and screenshotted BEFORE explore spends its fee, and one vision
+  // call picks which one gets filmed. Absent → the declared url is used as-is
+  // and no scout cost is incurred.
+  altUrl?: string;
   projectId: string;
   policy: SafetyPolicy;
   upload: boolean;
@@ -108,6 +114,9 @@ export type RecordDemoResult =
       // Beats that clicked raw coordinates because their selector missed at replay
       // time (피드백 A-4) — non-empty means a lower-confidence film.
       fallbacks?: ReplayFallback[];
+      // Which entry URL the pre-flight scout chose, when there was a choice
+      // (피드백 B-4). Absent when only one candidate existed.
+      scout?: ScoutPick;
     };
 
 // Robust load for an arbitrary SPA: domcontentloaded (networkidle can hang on
@@ -119,7 +128,9 @@ async function gotoSettled(page: import("playwright-core").Page, target: string)
 }
 
 export async function recordDemo(opts: RecordDemoOptions): Promise<RecordDemoResult> {
-  const { url, projectId, policy } = opts;
+  const { projectId, policy } = opts;
+  // Reassigned by the pre-flight scout below when a second candidate exists.
+  let url = opts.url;
 
   mkdirSync(OUT_DIR, { recursive: true });
   const raw = `${OUT_DIR}/raw.mp4`;
@@ -197,7 +208,6 @@ export async function recordDemo(opts: RecordDemoOptions): Promise<RecordDemoRes
     // ── 1) Explore (NOT recorded) ──────────────────────────────────────────────
     // Fixed 1280×720 DSF=1 context so screenshots are 1:1 with the computer-use
     // display and the model's coordinates are logical CSS px (= replay's space).
-    console.log(`[explore] ${url}  (policy: ${policy})`);
     const exploreCtx = await browser.newContext({
       viewport: { width: VIEW_W, height: VIEW_H },
       deviceScaleFactor: 1,
@@ -206,18 +216,68 @@ export async function recordDemo(opts: RecordDemoOptions): Promise<RecordDemoRes
     const explorePage = await exploreCtx.newPage();
     await installSafety(explorePage, policy, onBlocked, { allowPrivateHost: opts.allowPrivateHost });
     await installCaptureCleanliness(exploreCtx, explorePage);
-    await gotoSettled(explorePage, url);
-    // Server redirect hops bypass page.route — refuse if the document (or any
-    // iframe) LANDED on a private/LAN address even though the initial host was
-    // public (netguard.ts header).
-    if (!opts.allowPrivateHost) await assertFinalUrlPublic(explorePage);
 
-    if (await isLoginGated(explorePage)) {
-      console.log("[explore] login-gated (password field dominates) → skipping per policy §4.7");
-      await exploreCtx.close();
-      return { kind: "login-gated" };
+    // ── 0) Pre-flight entry scout (피드백 B-4) ────────────────────────────────
+    // Landing vs app URL: the publisher had to guess which one to film, and a
+    // wrong guess (an app URL that's empty until you log in) produced a film of
+    // a blank screen that only the POST-capture coverage read would notice —
+    // after the explore fee and a whole take were spent. Load each candidate,
+    // keep one screenshot, and let a single vision call decide. Only runs when
+    // job.ts actually handed us a second candidate.
+    const candidates = [opts.url, ...(opts.altUrl && opts.altUrl !== opts.url ? [opts.altUrl] : [])];
+    // Every candidate gets the SAME sink-side treatment the single target used
+    // to get: a redirect into the LAN disqualifies it here rather than only
+    // being caught mid-take (netguard.ts header).
+    const land = async (target: string) => {
+      await gotoSettled(explorePage, target);
+      if (!opts.allowPrivateHost) await assertFinalUrlPublic(explorePage);
+    };
+    let scouted: ScoutCandidate[] = [];
+    if (candidates.length === 1) {
+      // Nothing to compare — the old fast path exactly: no screenshot, no cost.
+      await land(url);
+      if (await isLoginGated(explorePage)) {
+        console.log("[explore] login-gated (password field dominates) → skipping per policy §4.7");
+        await exploreCtx.close();
+        return { kind: "login-gated" };
+      }
+    } else {
+      scouted = await surveyCandidates(explorePage, candidates, land);
     }
 
+    let scout: ScoutPick | undefined;
+    if (scouted.length > 1) {
+      // Every candidate walled off behind a login is the one case where filming
+      // still buys nothing — policy §4.7 stands, it just now needs ALL of them
+      // to be gated instead of only the one the publisher happened to declare.
+      if (scouted.every((c) => c.loginGated)) {
+        console.log(`[explore] all ${scouted.length} candidates login-gated → skipping per policy §4.7`);
+        await exploreCtx.close();
+        return { kind: "login-gated" };
+      }
+      const picked = await scoutEntry(scouted);
+      // §4.7 stays a deterministic rule, not a prompt suggestion: if the model
+      // picked a login wall while an open screen was on the table, take the open
+      // one. (The all-gated case already returned above.)
+      if (scouted[picked.index].loginGated) {
+        const open = scouted.findIndex((c) => !c.loginGated);
+        console.log(`[scout] picked #${picked.index} is login-gated → overriding to #${open} per policy §4.7`);
+        picked.index = open;
+        picked.url = scouted[open].url;
+      }
+      scout = picked;
+      console.log(
+        `[scout] ${scouted.map((c, i) => `${i}:${picked.reads[i]}`).join("  ")} → filming #${picked.index} ${picked.url}` +
+          (picked.failedOpen ? "  (scout unavailable — kept the declared URL)" : ""),
+      );
+      console.log(`[scout] ${picked.reason}`);
+      url = picked.url;
+      // Land back on the winner (the survey left the page on the LAST candidate)
+      // so explore briefs the model on the screen we are actually filming.
+      if (scouted[scouted.length - 1].url !== url) await land(url);
+    }
+
+    console.log(`[explore] ${url}  (policy: ${policy})`);
     const storage0 = await exploreCtx.storageState(); // shared footing for the take
     const script = await explore(explorePage, {
       userHint: opts.userHint,
@@ -421,6 +481,18 @@ export async function recordDemo(opts: RecordDemoOptions): Promise<RecordDemoRes
     // ── Report ────────────────────────────────────────────────────────────────────
     console.log("\n=== RUN REPORT ===");
     console.log(`target      : ${url}`);
+    // Entry pick (피드백 B-4): the publisher gave two candidates and this take
+    // chose one. Name the loser and what each screen looked like, so a publisher
+    // who disagrees knows exactly which URL to drop from the next push.
+    if (scout) {
+      console.log(
+        `entry pick  : #${scout.index} of ${candidates.length} — ${scout.reason}` +
+          (scout.failedOpen ? " [scout unavailable, declared URL kept]" : ""),
+      );
+      for (let i = 0; i < scouted.length; i++) {
+        console.log(`   ${i === scout.index ? "▶" : " "} [${scouted[i].loginGated ? "login" : scout.reads[i]}] ${scouted[i].url}`);
+      }
+    }
     console.log(`policy      : ${policy}`);
     // Coverage honesty (피드백 A-1/B-3): a declared-impossible app is knowingly a
     // landing film; otherwise the moderation frames' vision read says whether any
@@ -429,7 +501,12 @@ export async function recordDemo(opts: RecordDemoOptions): Promise<RecordDemoRes
     if (opts.accessImpossible) {
       console.log(`coverage    : landing-only (maker declared the app demo impossible — recommend a creator-made --video)`);
     } else if (coverage === "landing-only") {
-      console.log(`coverage    : landing-only (vision scan saw no app UI in sampled frames — recommend a creator-made --video, or an appUrl/demoAccess entry the robot can reach)`);
+      console.log(
+        `coverage    : landing-only (vision scan saw no app UI in sampled frames — ` +
+          (scout
+            ? `the scout compared ${candidates.length} entry URLs and this was the richer one, so recommend a creator-made --video)`
+            : `recommend a creator-made --video, or an appUrl/demoAccess entry the robot can reach)`),
+      );
     } else if (coverage === "app-ui") {
       console.log(`coverage    : app-ui (vision scan saw the app's interface in the film)`);
     }
@@ -473,6 +550,7 @@ export async function recordDemo(opts: RecordDemoOptions): Promise<RecordDemoRes
       moderationFailedOpen,
       coverage,
       fallbacks,
+      scout,
     };
   } finally {
     await restoreFocus();

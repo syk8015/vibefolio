@@ -120,29 +120,64 @@ function assertRecordableUrl(parsed: URL, job: JobInput) {
 // sources only its path+query+hash count — the deployed origin in the URL is
 // not the sandbox we just built. params are appended last so they apply to
 // whichever base won.
-function applyDemoAccess(baseUrl: string, job: JobInput): string {
+function resolveEntry(baseUrl: string, entry: string | undefined, job: JobInput): string {
   const access = job.demoAccess;
-  if (!access) return baseUrl;
   let target = baseUrl;
-  if (access.url) {
-    if (/^https?:\/\//i.test(access.url)) {
-      const parsed = new URL(access.url);
+  if (entry) {
+    if (/^https?:\/\//i.test(entry)) {
+      const parsed = new URL(entry);
       if (job.sourceType === "live_url") {
         assertRecordableUrl(parsed, job);
         target = parsed.toString();
       } else {
         target = new URL(parsed.pathname + parsed.search + parsed.hash, baseUrl).toString();
       }
-    } else if (access.url.startsWith("/")) {
-      target = new URL(access.url, baseUrl).toString();
+    } else if (entry.startsWith("/")) {
+      target = new URL(entry, baseUrl).toString();
     }
   }
-  if (access.params) {
+  if (access?.params) {
     const u = new URL(target);
     for (const [k, v] of Object.entries(access.params)) u.searchParams.set(k, v);
     target = u.toString();
   }
   return target;
+}
+
+function applyDemoAccess(baseUrl: string, job: JobInput): string {
+  if (!job.demoAccess) return baseUrl;
+  return resolveEntry(baseUrl, job.demoAccess.url, job);
+}
+
+// Second candidate for the pre-flight scout (피드백 B-4): same assembly and the
+// same sink-side gate as the primary — the recorder opens it for real. Dropped
+// when it collapses to the primary (nothing to compare) or when the maker
+// already declared the app demo impossible (the film is knowingly a landing
+// take, so paying for a look-around decides nothing).
+function altEntry(baseUrl: string, primary: string, job: JobInput): string | undefined {
+  const alt = job.demoAccess?.altUrl;
+  if (!alt || job.demoAccess?.impossible) return undefined;
+  const target = resolveEntry(baseUrl, alt, job);
+  return target === primary ? undefined : target;
+}
+
+// Probe seam (probe-scout.ts): the entry assembly on its own — no browser, no
+// E2B build, no recording — so the rules that decide WHERE the robot lands and
+// whether a scout candidate exists at all can be asserted for cents-free.
+export function runJobEntryForProbe(
+  baseUrl: string,
+  sourceType: SourceType,
+  demoAccess: DemoAccess,
+): { url: string; altUrl?: string } {
+  const job: JobInput = {
+    projectId: "manual-probe",
+    sourceType,
+    sourceValue: baseUrl,
+    upload: false,
+    demoAccess,
+  };
+  const url = applyDemoAccess(baseUrl, job);
+  return { url, altUrl: altEntry(baseUrl, url, job) };
 }
 
 export async function runJob(job: JobInput): Promise<JobOutcome> {
@@ -163,11 +198,15 @@ export async function runJob(job: JobInput): Promise<JobOutcome> {
       url = built.url;
     }
 
+    const base = url;
     url = applyDemoAccess(url, job);
+    const altUrl = altEntry(base, url, job);
 
     console.log(`[job] ${job.sourceType} → ${url}  (policy: ${policy})`);
+    if (altUrl) console.log(`[job] scout candidate → ${altUrl}`);
     const result = await recordDemo({
       url,
+      altUrl,
       projectId: job.projectId,
       policy,
       upload: job.upload,

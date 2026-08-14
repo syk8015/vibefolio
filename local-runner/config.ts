@@ -146,6 +146,14 @@ export const EXPLORE_MODEL = process.env.DEMO_CU_MODEL || "claude-sonnet-5";
 // DEMO_MODERATION_MODEL=claude-haiku-4-5 (구조화 출력 지원, ~$0.003).
 export const MODERATION_MODEL = process.env.DEMO_MODERATION_MODEL || "claude-opus-4-8";
 
+// ── Entry scout (pre-flight URL pick, 피드백 B-4) ─────────────────────────────
+
+// 랜딩·앱 후보를 한 장씩 찍어 어느 쪽을 촬영할지 고르는 비전 콜. 촬영 전 1콜,
+// 후보가 2개 이상일 때만 발동한다(둘 다 준 경우에만) — 1280×720 JPEG 2장 ≈ 2.5k
+// input tokens라 편당 몇 센트다. 판단 난이도가 moderate보다 낮으니 그쪽보다 싼
+// 모델로 내려도 무방: DEMO_SCOUT_MODEL=claude-haiku-4-5.
+export const SCOUT_MODEL = process.env.DEMO_SCOUT_MODEL || MODERATION_MODEL;
+
 // Frames sampled from body.mp4 (pre-endcap film) for the scan. Evenly spread so
 // a violation that only appears mid-take is still seen; 480p keeps token cost low
 // while nudity/gore/hate-symbol/phishing-page detection stays easy.
