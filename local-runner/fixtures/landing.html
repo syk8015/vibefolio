@@ -1,0 +1,327 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>NookGym — train with a plan</title>
+<!--
+  MARKETING LANDING fixture (2026-08-15) — the companion to nookgym.html.
+  Same product, the other door: nookgym.html is the app, this is the page a
+  visitor lands on. That pairing is what makes it a fixture rather than a page:
+
+    B-4 (entry scout)   run with `--alt-url http://localhost:5050/nookgym.html`.
+                        The scout must read THIS as landing-only and the app as
+                        app-ui, and film the app.
+    A-1 (coverage)      filmed alone, this is the landing-only pole: a green run
+                        whose film contains no app UI at all.
+    A-2 (breadth)       the feature TABS below switch the panel IN PLACE and —
+                        deliberately — nothing on screen moves for 900ms after
+                        the click (TAB_DELAY_MS). That is the exact shape the old
+                        single 600ms re-check mis-read as a no-op and pruned,
+                        which sent the model back to re-tour the one section that
+                        stuck. For the poll window to be what's under test the
+                        click itself must be visually silent, so the tabs carry
+                        no hover tint and no mouse focus ring (:focus-visible
+                        only) — every pixel of the switch happens in the delayed
+                        callback.
+    A-3 (key refusal)   the nav shows a ⌘K search hint. Real landings do this all
+                        the time, and it is the most likely thing to tempt the
+                        model into an unsupported modifier combo. Bait, not a
+                        guarantee — the refusal not firing is a pass too.
+
+  Everything else is ordinary landing furniture (hero, pricing toggle, FAQ
+  accordion, newsletter field) so the scroll-tour has real beats to pause on.
+  No product screenshots on purpose: an app screenshot inside a landing muddies
+  the coverage read, and this fixture's job is to be the clean landing pole.
+  Self-contained, no network, stable data-testid on every interactive element.
+-->
+<style>
+  :root{
+    --bg:#fbfbfd; --surface:#ffffff; --ink:#15181f; --muted:#6b7280;
+    --line:#e7e9f0; --accent:#4f46e5; --accent-soft:#eef0fe;
+    --shadow:0 1px 2px rgba(16,24,40,.06),0 8px 24px rgba(16,24,40,.06);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg); color:var(--ink); -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1000px;margin:0 auto;padding:0 28px}
+
+  /* ── Nav ───────────────────────────────────────────────────────── */
+  .nav{position:sticky;top:0;z-index:10;background:rgba(251,251,253,.88);
+    backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+  .nav .wrap{display:flex;align-items:center;gap:22px;height:62px}
+  .brand{display:flex;align-items:center;gap:9px;font-weight:800;font-size:17px}
+  .brand .dot{width:22px;height:22px;border-radius:7px;background:var(--accent)}
+  .navlinks{display:flex;gap:20px;margin-left:14px}
+  .navlinks a{color:var(--muted);text-decoration:none;font-size:14px;font-weight:600}
+  .navlinks a:hover{color:var(--ink)}
+  .navright{margin-left:auto;display:flex;align-items:center;gap:12px}
+  .kbd{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);
+    border:1px solid var(--line);background:var(--surface);border-radius:9px;padding:7px 11px}
+  .kbd b{font-weight:700;color:var(--ink);font-size:12px}
+  .ghost{border:1px solid var(--line);background:var(--surface);color:var(--ink);
+    border-radius:9px;padding:8px 14px;font-size:14px;font-weight:650;cursor:pointer}
+  .primary{border:0;background:var(--accent);color:#fff;border-radius:9px;
+    padding:9px 16px;font-size:14px;font-weight:700;cursor:pointer}
+
+  /* ── Hero ──────────────────────────────────────────────────────── */
+  .hero{padding:86px 0 74px;text-align:center}
+  .pill{display:inline-block;background:var(--accent-soft);color:var(--accent);
+    font-size:13px;font-weight:700;padding:6px 13px;border-radius:999px;margin-bottom:22px}
+  .hero h1{font-size:52px;line-height:1.08;letter-spacing:-1.4px;margin:0 0 18px}
+  .hero p{font-size:19px;color:var(--muted);max-width:560px;margin:0 auto 30px;line-height:1.6}
+  .herocta{display:flex;gap:12px;justify-content:center}
+  .big{padding:13px 24px;font-size:16px}
+
+  section{padding:74px 0;border-top:1px solid var(--line)}
+  h2{font-size:34px;letter-spacing:-.7px;margin:0 0 10px}
+  .lede{color:var(--muted);font-size:17px;margin:0 0 34px;max-width:520px;line-height:1.6}
+
+  /* ── Feature tabs (A-2 target) ─────────────────────────────────── */
+  .tabs{display:flex;gap:8px;margin-bottom:26px}
+  /* No hover tint, no mouse focus ring: the click must be visually silent so the
+     900ms delayed swap is the ONLY change the pruner can see. */
+  .tab{border:1px solid var(--line);background:var(--surface);color:var(--muted);
+    border-radius:999px;padding:10px 20px;font-size:15px;font-weight:650;cursor:pointer}
+  .tab:focus:not(:focus-visible){outline:none}
+  .tab[aria-selected="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+  .panel{background:var(--surface);border:1px solid var(--line);border-radius:16px;
+    padding:32px 34px;box-shadow:var(--shadow);min-height:216px}
+  .panel h3{margin:0 0 10px;font-size:23px}
+  .panel p{margin:0 0 22px;color:var(--muted);font-size:16px;line-height:1.65;max-width:600px}
+  .bullets{display:flex;gap:26px;flex-wrap:wrap}
+  .bullet{display:flex;align-items:flex-start;gap:10px;font-size:15px;max-width:250px;line-height:1.5}
+  .bullet .tick{width:20px;height:20px;border-radius:6px;background:var(--accent-soft);
+    color:var(--accent);display:grid;place-items:center;font-size:12px;font-weight:800;flex:0 0 auto}
+
+  /* ── Pricing ───────────────────────────────────────────────────── */
+  .billing{display:inline-flex;background:var(--accent-soft);border-radius:999px;padding:4px;margin-bottom:30px}
+  .billing button{border:0;background:transparent;color:var(--muted);border-radius:999px;
+    padding:8px 20px;font-size:14px;font-weight:700;cursor:pointer}
+  .billing button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
+  .plans{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  .plan{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:26px 24px}
+  .plan.hot{border-color:var(--accent);box-shadow:var(--shadow)}
+  .plan .name{font-size:14px;font-weight:750;color:var(--muted);text-transform:uppercase;letter-spacing:.6px}
+  .plan .price{font-size:40px;font-weight:800;letter-spacing:-1.2px;margin:12px 0 2px}
+  .plan .price span{font-size:15px;font-weight:600;color:var(--muted);letter-spacing:0}
+  .plan ul{list-style:none;padding:0;margin:18px 0 0;color:var(--muted);font-size:14.5px;line-height:2}
+
+  /* ── FAQ ───────────────────────────────────────────────────────── */
+  .faq{max-width:720px}
+  .q{border-bottom:1px solid var(--line)}
+  .q button{width:100%;display:flex;justify-content:space-between;align-items:center;gap:16px;
+    background:transparent;border:0;padding:20px 2px;font-size:17px;font-weight:650;
+    color:var(--ink);text-align:left;cursor:pointer}
+  .q .mark{color:var(--accent);font-size:20px;font-weight:700}
+  .a{display:none;padding:0 2px 22px;color:var(--muted);font-size:15.5px;line-height:1.7;max-width:620px}
+  .q.open .a{display:block}
+
+  /* ── Newsletter + footer ───────────────────────────────────────── */
+  .news{display:flex;gap:10px;max-width:440px;margin-top:22px}
+  .news input{flex:1;border:1px solid var(--line);background:var(--surface);border-radius:10px;
+    padding:12px 14px;font-size:15px;color:var(--ink);font-family:inherit}
+  .news input:focus{outline:2px solid var(--accent-soft);border-color:var(--accent)}
+  footer{padding:40px 0 60px;color:var(--muted);font-size:13.5px;border-top:1px solid var(--line)}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="wrap">
+    <div class="brand"><span class="dot"></span> NookGym</div>
+    <div class="navlinks">
+      <a href="#features" data-testid="nav-features">Features</a>
+      <a href="#pricing" data-testid="nav-pricing">Pricing</a>
+      <a href="#faq" data-testid="nav-faq">FAQ</a>
+    </div>
+    <div class="navright">
+      <div class="kbd" data-testid="cmdk-hint">Search docs <b>⌘K</b></div>
+      <button class="ghost" data-testid="login-btn">Log in</button>
+      <button class="primary" data-testid="cta-start">Start free</button>
+    </div>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="pill">New — shared coach notes</div>
+    <h1>Train with a plan,<br />not a spreadsheet.</h1>
+    <p>NookGym turns the workout you actually did into next week's plan. Capture it, organize it,
+       focus on one lift at a time, review what changed.</p>
+    <div class="herocta">
+      <button class="primary big" data-testid="hero-start">Start free</button>
+      <button class="ghost big" data-testid="hero-tour">Take the tour</button>
+    </div>
+  </div>
+</header>
+
+<section id="features">
+  <div class="wrap">
+    <h2>Built for how you actually train</h2>
+    <p class="lede">Three ways in. Pick the one that sounds like you.</p>
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" aria-selected="true"  data-tab="solo"    data-testid="tab-solo">Solo lifters</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="teams"   data-testid="tab-teams">Teams</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="coaches" data-testid="tab-coaches">Coaches</button>
+    </div>
+    <div class="panel" data-testid="feature-panel">
+      <h3 data-testid="panel-title">One board, four steps</h3>
+      <p data-testid="panel-body">Log a set the moment you rack the bar. NookGym files it into the right block
+         and tells you what the next session should look like.</p>
+      <div class="bullets" data-testid="panel-bullets"></div>
+    </div>
+  </div>
+</section>
+
+<section id="pricing">
+  <div class="wrap">
+    <h2>Pricing</h2>
+    <p class="lede">Free while you're figuring it out. Pay when it's a habit.</p>
+    <div class="billing">
+      <button data-billing="monthly" aria-pressed="true"  data-testid="billing-monthly">Monthly</button>
+      <button data-billing="yearly"  aria-pressed="false" data-testid="billing-yearly">Yearly · save 20%</button>
+    </div>
+    <div class="plans">
+      <div class="plan" data-testid="plan-solo">
+        <div class="name">Solo</div>
+        <div class="price" data-price-monthly="$0" data-price-yearly="$0">$0<span> /mo</span></div>
+        <ul><li>One training board</li><li>90 days of history</li><li>Weekly review email</li></ul>
+      </div>
+      <div class="plan hot" data-testid="plan-pro">
+        <div class="name">Pro</div>
+        <div class="price" data-price-monthly="$9" data-price-yearly="$7">$9<span> /mo</span></div>
+        <ul><li>Unlimited boards</li><li>Full history + trends</li><li>Coach notes</li></ul>
+      </div>
+      <div class="plan" data-testid="plan-gym">
+        <div class="name">Gym</div>
+        <div class="price" data-price-monthly="$29" data-price-yearly="$23">$29<span> /mo</span></div>
+        <ul><li>Up to 40 athletes</li><li>Shared programs</li><li>Priority support</li></ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="faq">
+  <div class="wrap faq">
+    <h2>Questions</h2>
+    <p class="lede">The four we get every week.</p>
+    <div class="q" data-testid="faq-1">
+      <button>Do I need to log every single set?<span class="mark">+</span></button>
+      <div class="a">No. Log the working sets and NookGym fills in the warm-ups from the pattern it has
+        seen from you before. You can edit any of it later.</div>
+    </div>
+    <div class="q" data-testid="faq-2">
+      <button>Does it work offline at the gym?<span class="mark">+</span></button>
+      <div class="a">Yes. The board keeps working with no signal and syncs the moment you're back on wifi.</div>
+    </div>
+    <div class="q" data-testid="faq-3">
+      <button>Can my coach see my week?<span class="mark">+</span></button>
+      <div class="a">On Pro, invite them by email. They see the board and can leave notes on any session —
+        they never need an account of their own.</div>
+    </div>
+    <div class="q" data-testid="faq-4">
+      <button>What happens to my data if I stop paying?<span class="mark">+</span></button>
+      <div class="a">Nothing is deleted. You drop to Solo, keep one board, and can export everything as CSV
+        whenever you want.</div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>Get the Monday email</h2>
+    <p class="lede">One short note each week: what you lifted, what moved, what to try next.</p>
+    <div class="news">
+      <input type="email" placeholder="you@example.com" data-testid="email-input" />
+      <button class="primary" data-testid="subscribe-btn">Subscribe</button>
+    </div>
+  </div>
+</section>
+
+<footer><div class="wrap">© NookGym — demo fixture. Nothing here talks to a server.</div></footer>
+
+<script>
+  // ── Feature tabs: the delayed in-place switch (A-2) ──────────────────────────
+  // 900ms of nothing, then the whole panel changes at once. Old behaviour: the
+  // single 600ms re-check landed inside the silence and pruned the click. New
+  // behaviour: 600ms × 4 polls sees the 900ms frame differ and keeps it.
+  var TAB_DELAY_MS = 900;
+  var PANELS = {
+    solo: {
+      title: "One board, four steps",
+      body: "Log a set the moment you rack the bar. NookGym files it into the right block and tells you " +
+            "what the next session should look like.",
+      bullets: ["Capture a lift in two taps", "Plates math done for you", "Your PRs surface themselves"],
+    },
+    teams: {
+      title: "Everyone on the same program",
+      body: "Publish one program to the whole squad and watch who actually ran it. No more screenshots " +
+            "of a spreadsheet in the group chat.",
+      bullets: ["Shared programs", "Attendance at a glance", "Swap a lift for one athlete"],
+    },
+    coaches: {
+      title: "Write once, coach ten",
+      body: "Leave a note on the exact set that needs it. Your athletes see it next time they open that " +
+            "lift — not in an inbox they never read.",
+      bullets: ["Notes land on the set", "Weekly check-in queue", "Bill from the same place"],
+    },
+  };
+  var tabTimer = null;
+  function paintPanel(key) {
+    var p = PANELS[key];
+    document.querySelector('[data-testid="panel-title"]').textContent = p.title;
+    document.querySelector('[data-testid="panel-body"]').textContent = p.body;
+    document.querySelector('[data-testid="panel-bullets"]').innerHTML = p.bullets
+      .map(function (b) { return '<div class="bullet"><span class="tick">✓</span><span>' + b + "</span></div>"; })
+      .join("");
+    document.querySelectorAll(".tab").forEach(function (t) {
+      t.setAttribute("aria-selected", String(t.dataset.tab === key));
+    });
+  }
+  document.querySelectorAll(".tab").forEach(function (t) {
+    t.addEventListener("click", function () {
+      if (t.getAttribute("aria-selected") === "true") return; // re-clicking the open tab IS a no-op
+      clearTimeout(tabTimer);
+      tabTimer = setTimeout(function () { paintPanel(t.dataset.tab); }, TAB_DELAY_MS);
+    });
+  });
+  paintPanel("solo");
+
+  // ── Pricing toggle: instant, for contrast with the delayed tabs ──────────────
+  document.querySelectorAll("[data-billing]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      var yearly = b.dataset.billing === "yearly";
+      document.querySelectorAll("[data-billing]").forEach(function (o) {
+        o.setAttribute("aria-pressed", String((o.dataset.billing === "yearly") === yearly));
+      });
+      document.querySelectorAll(".price").forEach(function (el) {
+        el.firstChild.nodeValue = yearly ? el.dataset.priceYearly : el.dataset.priceMonthly;
+      });
+    });
+  });
+
+  // ── FAQ accordion: one open at a time ────────────────────────────────────────
+  document.querySelectorAll(".q > button").forEach(function (b) {
+    b.addEventListener("click", function () {
+      var q = b.parentElement, wasOpen = q.classList.contains("open");
+      document.querySelectorAll(".q").forEach(function (o) {
+        o.classList.remove("open");
+        o.querySelector(".mark").textContent = "+";
+      });
+      if (!wasOpen) { q.classList.add("open"); q.querySelector(".mark").textContent = "–"; }
+    });
+  });
+
+  // Inert by design: nothing on this page performs a write or a navigation.
+  document.querySelectorAll('[data-testid="subscribe-btn"],[data-testid="login-btn"],[data-testid="cta-start"],[data-testid="hero-start"]')
+    .forEach(function (b) { b.addEventListener("click", function (e) { e.preventDefault(); }); });
+  document.querySelector('[data-testid="hero-tour"]').addEventListener("click", function () {
+    document.getElementById("features").scrollIntoView({ behavior: "smooth" });
+  });
+</script>
+</body>
+</html>

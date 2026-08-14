@@ -88,9 +88,9 @@ Flag ONLY clear policy violations:
 
 Do NOT flag normal app content: games (including cartoon/stylized combat), dev tools, dashboards with fake data, unfinished or ugly UIs, artistic content without explicit nudity, security-themed UI mockups that don't imitate a real brand. When frames are benign, verdict is "ok" with empty categories. When a listed category genuinely may apply, verdict is "flag" — a human reviews every flag, so borderline cases in a listed category should be flagged rather than silently passed.
 
-Separately from the verdict, report "coverage" — what kind of screen the frames show:
-- "app-ui": at least one frame shows an actual application interface in use (controls with state, data views, an editor, a dashboard, a form being filled, a game board — anything beyond marketing copy)
-- "landing-only": every frame shows only marketing/landing content (hero text, feature blurbs, pricing, testimonials, sign-up CTAs, footer)
+Separately from the verdict, report "coverage" — is the viewer watching the thing that was BUILT, or the page that advertises it?
+- "app-ui": at least one frame shows the product itself being operated — its own content on screen (a populated list or board, an editor, a dashboard, a canvas, a game in play, a form taking real input)
+- "landing-only": every frame shows a page ABOUT the product (hero copy, feature blurbs, pricing, testimonials, FAQ, sign-up CTA, footer). A landing page's own widgets are still landing-only: feature tabs, an FAQ accordion, a monthly/yearly pricing toggle, a carousel, an in-page nav that swaps sections. Interactivity alone is NOT app UI — marketing pages are interactive too.
 - "unclear": you cannot tell
 This is a neutral observation independent of the moderation verdict — a landing-only recording is perfectly publishable.
 

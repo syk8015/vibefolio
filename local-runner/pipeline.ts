@@ -298,7 +298,11 @@ export async function recordDemo(opts: RecordDemoOptions): Promise<RecordDemoRes
               ? ` (${a.x},${a.y})→(${a.toX},${a.toY})`
               : a.kind === "path"
                 ? ` ${a.points.length} pts${a.label ? ` "${a.label}"` : ""}`
-                : "";
+                // A key beat has no selector, so without this it printed as a bare
+                // "key" and the operator couldn't tell Enter from Delete.
+                : a.kind === "key"
+                  ? ` ${a.key}`
+                  : "";
       const sel = "selector" in a ? a.selector || "(coord)" : "";
       console.log(`   ${a.kind.padEnd(7)} ${sel}${tail}`);
     }

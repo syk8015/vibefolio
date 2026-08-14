@@ -17,7 +17,22 @@ const HEADLINE_FONT_SIZE = "clamp(1.1rem, 3.4vw, 2.5rem)";
 const REPLY_FONT_SIZE = "clamp(0.95rem, 2.8vw, 2rem)";
 
 // locale은 서버(랜딩 페이지)에서 내려받는다 — TypingTagline과 같은 이유.
-export default function LoggedInHeadline({ locale }: { locale: Locale }) {
+//
+// forceText/forceReply/promoNotFound(app/page.tsx의 ?promo= 배선, 홍보 클립
+// 촬영 전용 — lib/promo.ts): 지정되면 셔플 큐 대신 그 문구 1개만 반복 재생한다.
+// 일반 방문자는 이 세 props를 절대 안 받으므로(promo 쿼리가 있을 때만 채워짐)
+// 기존 동작과 완전히 동일하게 유지된다.
+export default function LoggedInHeadline({
+  locale,
+  forceText,
+  forceReply,
+  promoNotFound,
+}: {
+  locale: Locale;
+  forceText?: string;
+  forceReply?: string;
+  promoNotFound?: boolean;
+}) {
   const [text, setText] = useState("");
   const [reply, setReply] = useState("");
   const [phase, setPhase] = useState<"text" | "reply">("text");
@@ -25,7 +40,9 @@ export default function LoggedInHeadline({ locale }: { locale: Locale }) {
 
   useEffect(() => {
     const pool = locale === "en" ? loggedInTaglinesEn : loggedInTaglines;
-    const queue = shuffle(pool);
+    // forceText가 있으면 큐를 그 문구 1개로 고정 — runPhrase 이하 상태기계는
+    // 손대지 않고 그대로 재사용된다(길이 1 큐를 계속 랩어라운드 재생할 뿐).
+    const queue = forceText ? [{ text: forceText, reply: forceReply }] : shuffle(pool);
     let idx = 0;
     let cancelled = false;
 
@@ -108,10 +125,18 @@ export default function LoggedInHeadline({ locale }: { locale: Locale }) {
     // via Noto Serif KR's unicode-range subsets are already cached before
     // typing starts — otherwise a fresh syllable can flash in the system
     // serif for the first paint.
-    const start = () => { if (!cancelled) runPhrase(); };
+    // 프로모 촬영 전용 프리롤: 외부 화면 녹화기가 ffmpeg 캡처를 먼저 롤링할
+    // 여유를 준다. 일반 방문자(forceText 없음)는 지금과 동일하게 즉시 시작.
+    const start = () => {
+      if (cancelled) return;
+      if (forceText) schedule(runPhrase, 800);
+      else runPhrase();
+    };
     if (typeof document !== "undefined" && document.fonts) {
+      // forced 재생은 그 문구 글자만 프리워밍하면 충분(더 빨리 준비됨).
+      const glyphSource = forceText ? [{ text: forceText, reply: forceReply ?? "" }] : pool;
       const sample = Array.from(
-        new Set(pool.flatMap((t) => [...t.text, ...(t.reply ?? "")]))
+        new Set(glyphSource.flatMap((t) => [...t.text, ...(t.reply ?? "")]))
       ).join("");
       const HEADLINE_SPEC = "500 2.5rem 'Noto Serif KR', serif";
       const REPLY_SPEC = "italic 400 2rem 'Noto Serif KR', serif";
@@ -129,12 +154,27 @@ export default function LoggedInHeadline({ locale }: { locale: Locale }) {
       timers.current.forEach(clearTimeout);
       timers.current = [];
     };
-  }, [locale]);
+  }, [locale, forceText, forceReply]);
+
+  if (promoNotFound) {
+    // 홍보 클립 촬영 워커(local-runner/promo-record.ts)가 이 마커를 폴링해
+    // 즉시 실패 처리한다 — 조용히 셔플로 폴백하면 엉뚱한 문구가 찍힌 영상이
+    // 만들어질 수 있으므로 명시적 에러로 렌더링한다.
+    return (
+      <div
+        data-promo-tagline-status="not-found"
+        style={{ color: "red", fontFamily: "monospace", padding: "1em", textAlign: "center" }}
+      >
+        PROMO TAGLINE NOT FOUND — lib/loggedInTaglines.ts 확인
+      </div>
+    );
+  }
 
   return (
     <div
       aria-live="polite"
       className="vf-logged-in-headline"
+      data-promo-tagline-status={forceText ? "ok" : undefined}
       style={{
         display: "flex",
         flexDirection: "column",
