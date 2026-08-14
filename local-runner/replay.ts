@@ -29,6 +29,18 @@ const easeInOut = (p: number) => (p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p 
 
 type Pt = { x: number; y: number };
 
+// One beat that had to click a raw coordinate because its explore-time selector
+// no longer resolved (피드백 A-4). Collected per take and reported: a coordinate
+// is only right if the app laid out exactly as it did during explore, so a film
+// containing any of these is lower-confidence and worth eyeballing.
+export type ReplayFallback = { kind: string; selector: string; label?: string; x: number; y: number };
+
+export type ReplayResult = {
+  actionsDone: number;
+  actionsTotal: number;
+  fallbacks: ReplayFallback[];
+};
+
 // Selector-first, coordinate-fallback target resolution. The selector is primary
 // (recomputes the live position so relaid-out elements still work); when an
 // explore-derived selector doesn't resolve on the reset page, we fall back to the
@@ -45,6 +57,9 @@ type Pt = { x: number; y: number };
 async function resolveTarget(
   page: Page,
   act: { selector?: string; x?: number; y?: number },
+  // Where a coordinate fallback is recorded for the run report (피드백 A-4).
+  // Optional: probes and M0 scripts call resolveTarget without reporting.
+  fell?: { kind: string; label?: string; out: ReplayFallback[] },
 ): Promise<Pt> {
   if (act.selector) {
     try {
@@ -65,6 +80,13 @@ async function resolveTarget(
     } catch (e) {
       if (act.x === undefined || act.y === undefined) throw e;
       console.error(`selector "${act.selector}" failed; using coordinate fallback`);
+      fell?.out.push({
+        kind: fell.kind,
+        selector: act.selector!,
+        label: fell.label,
+        x: act.x,
+        y: act.y,
+      });
     }
   }
   if (act.x !== undefined && act.y !== undefined) return { x: act.x, y: act.y };
@@ -114,9 +136,10 @@ export async function replay(
   // amputated films MID-GESTURE (2026-07-12: 77-105s replays cut at 34s). Stopping
   // at an action boundary instead ships a shorter but COMPLETE-feeling story.
   budgetMs: number = Infinity,
-): Promise<void> {
+): Promise<ReplayResult> {
   const t0 = Date.now();
   let done = 0;
+  const fallbacks: ReplayFallback[] = [];
   for (const act of script.actions) {
     if (Date.now() - t0 > budgetMs) {
       console.log(
@@ -125,13 +148,20 @@ export async function replay(
       );
       break;
     }
-    await runAction(page, cam, act);
+    await runAction(page, cam, act, fallbacks);
     done++;
   }
   cam.finish(); // settle to 1× so the tail hold frames the whole window
+  return { actionsDone: done, actionsTotal: script.actions.length, fallbacks };
 }
 
-async function runAction(page: Page, cam: CameraTrack, act: ScriptAction): Promise<void> {
+async function runAction(
+  page: Page,
+  cam: CameraTrack,
+  act: ScriptAction,
+  fallbacks: ReplayFallback[],
+): Promise<void> {
+  const fell = { kind: act.kind, label: (act as { label?: string }).label, out: fallbacks };
   if (act.kind === "scroll") {
     await smoothScroll(page, act.dy, act.dx ?? 0);
     return;
@@ -142,7 +172,7 @@ async function runAction(page: Page, cam: CameraTrack, act: ScriptAction): Promi
     return;
   }
   if (act.kind === "hover") {
-    const to = await resolveTarget(page, act);
+    const to = await resolveTarget(page, act, fell);
     await approach(page, cam, to);
     await page.mouse.move(to.x, to.y);
     await sleep(HOLD_MS);
@@ -164,7 +194,7 @@ async function runAction(page: Page, cam: CameraTrack, act: ScriptAction): Promi
     // as clicks), then translate the end by however far the control moved since
     // explore — the drag's shape relative to the control is what matters, not the
     // absolute end point. Clamped so a relaid-out page can't push it off-window.
-    const start = await resolveTarget(page, act);
+    const start = await resolveTarget(page, act, fell);
     const end = {
       x: Math.max(0, Math.min(VIEW_W - 1, act.toX + (start.x - act.x))),
       y: Math.max(0, Math.min(VIEW_H - 1, act.toY + (start.y - act.y))),
@@ -184,7 +214,7 @@ async function runAction(page: Page, cam: CameraTrack, act: ScriptAction): Promi
     // how far the surface moved. Shape is what matters; clamp keeps a relaid-out
     // canvas from pushing the stroke off-window.
     const pts = act.points;
-    const start = await resolveTarget(page, { selector: act.selector, x: pts[0][0], y: pts[0][1] });
+    const start = await resolveTarget(page, { selector: act.selector, x: pts[0][0], y: pts[0][1] }, fell);
     const dx = start.x - pts[0][0];
     const dy = start.y - pts[0][1];
     const shifted: Pt[] = pts.map(([px, py]) => ({
@@ -199,7 +229,7 @@ async function runAction(page: Page, cam: CameraTrack, act: ScriptAction): Promi
   }
 
   // click | type
-  const to = await resolveTarget(page, act);
+  const to = await resolveTarget(page, act, fell);
   await approach(page, cam, to);
   await settleAndClick(page, cam, to);
 

@@ -74,6 +74,21 @@ update projects set demo_build_status = 'pending', demo_build_error = null
 - 큐가 비면 10초 간격으로 폴링하며 대기한다. `Ctrl-C` 1번 = 현재 작업 마치고 종료,
   2번 = 즉시 중단(다음 시작 시 startup recovery가 해당 행을 failed로 정리).
 
+## 리플레이 신뢰도 · 키보드 제약 (08-14 피드백 A-3/A-4)
+
+- RUN REPORT 끝에 **`confidence :`** 줄이 찍힌다. 리플레이는 셀렉터 우선이고,
+  탐색 때 잡아둔 셀렉터가 리셋된 페이지에서 안 잡히면 그 비트는 녹화 당시 좌표
+  (1280×720)를 그대로 누른다 — 레이아웃이 그때와 똑같아야만 맞는 클릭이라 필름
+  신뢰도가 떨어진다. 폴백이 하나라도 있으면 `LOW`와 함께 해당 비트를
+  `~ click "라벨" → (x,y)`로 나열하니, 콘택트시트에서 그 프레임만 확인하면 된다.
+  (텍스트 셀렉터로 재해석해 재시도하는 안은 기각 — `:has-text` 조상 매칭 함정.)
+- explore가 누를 수 있는 키는 `explore.ts`의 `SUPPORTED_KEYS` **한 곳**에서 온다:
+  Enter/Escape/Tab/Space/Backspace/Delete/방향키 4종/PageUp·PageDown/Home/End.
+  프롬프트가 이 배열을 그대로 인용하고, 목록 밖 키(`alt`, `XF86Back`, `ctrl+a`
+  같은 조합키)는 누르지 않고 노트로 반려한다 — 예전엔 `keyboard.press`가 던져서
+  14스텝 중 한 스텝을 그냥 날렸다. 조합키가 조용히 Enter로 눌리던 경로도 같이
+  막혔다(`shift+enter`가 채팅 전송을 눌러버리는 위험).
+
 ## 주의
 
 - **녹화 중 이 머신의 화면을 쓰지 말 것.** Chrome 창이 맨 앞에 떠야 하고(avfoundation
@@ -129,4 +144,5 @@ npx -y tsx local-runner/index.ts <url|github-url> [--project <id>] [--policy rea
 npx -y tsx local-runner/probe-drag.ts     # drag 액션 (슬라이더 값·링·카메라)
 npx -y tsx local-runner/probe-sketch.ts   # path 액션 (프리핸드 스트로크·잉크 픽셀)
 npx -y tsx local-runner/probe-netguard.ts # 사설IP/LAN 차단 (fetch·iframe·goto·DNS·WS 벡터별 단언)
+npx -y tsx local-runner/probe-replay-actions.ts # hover·key·가로스크롤·dismiss·좌표폴백 리포트
 ```

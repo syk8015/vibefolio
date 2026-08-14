@@ -13,6 +13,9 @@
 //   6. approach hover timing — the mouse STEPS the glide (several far-away
 //      mousemoves land before the target's first mouseover); a teleporting
 //      mouse lit :hover at glide start (2026-07-20 verdict)
+//   7. coordinate fallback reporting — a beat whose selector no longer resolves
+//      still clicks its recorded point AND is returned in replay()'s fallbacks,
+//      which is what the RUN REPORT's confidence line reads (피드백 A-4)
 import { launchChromium } from "./browser";
 import { injectCursorOverlay, ensureCursor } from "./cursor";
 import { CameraTrack } from "./camera";
@@ -31,13 +34,18 @@ const PAGE_HTML = `<!doctype html><html><head><meta charset="utf-8"><style>
   #wide>div{width:2000px;height:40px;background:linear-gradient(90deg,#ccc,#333)}
   #modal{position:fixed;left:400px;top:150px;width:400px;height:250px;background:#fdd;display:block}
   #seltext{position:fixed;left:100px;top:480px;width:500px}
+  /* coordinate-fallback target: clear of the modal's box (x >= 400) */
+  #fbtn{position:fixed;left:60px;top:300px;width:160px;height:40px;background:#dde}
 </style></head><body>
   <div id="hoverme">hover me</div><div id="tip">TIP</div>
   <input id="vol" type="range" min="0" max="100" value="50" step="1">
   <div id="wide"><div></div></div>
   <div id="modal">modal (Esc closes)</div>
   <p id="seltext">grab this text and drag across it like a phantom drag would</p>
+  <button id="fbtn">fallback target</button>
   <script>
+    window.__fbtn = 0;
+    document.getElementById("fbtn").addEventListener("click", () => { window.__fbtn++; });
     window.addEventListener("keydown", (e) => {
       if (e.key === "Escape") document.getElementById("modal").style.display = "none";
     });
@@ -83,6 +91,10 @@ try {
       { kind: "hover", selector: "#wide", x: 650, y: 615 },
       { kind: "scroll", dy: 0, dx: 600 },
       { kind: "dismiss", selector: "", viaKey: true },
+      // Selector that resolves to nothing (an element explore saw but that isn't
+      // on the reset page): the recorded point must still be clicked, and the
+      // beat must be REPORTED as a coordinate fallback.
+      { kind: "click", selector: "#gone-since-explore", x: 140, y: 320, label: "fallback target" },
       { kind: "drag", selector: "#seltext", x: 110, y: 488, toX: 560, toY: 488 },
     ],
   };
@@ -93,7 +105,7 @@ try {
     .then(() => true)
     .catch(() => false);
 
-  await replay(page, script, cam);
+  const played = await replay(page, script, cam);
 
   assert("hover revealed the tooltip during its beat", await tipSeen);
   const vol = Number(await page.locator("#vol").inputValue());
@@ -109,7 +121,22 @@ try {
   )) as { far: number; hovered: boolean };
   assert(`approach stepped the mouse (${mm.far} far moves before target hover, want >= 3)`, mm.hovered && mm.far >= 3);
 
-  console.log("\nPASS — replay handles hover/key/dx-scroll/dismiss(viaKey)/selection-clear/stepped-approach");
+  const fbtn = await page.evaluate("window.__fbtn");
+  assert(`coordinate fallback still clicked the recorded point (${fbtn} clicks, want 1)`, fbtn === 1);
+  const fb = played.fallbacks;
+  assert(
+    `replay reported exactly the fallback beat (${fb.length} reported: ${fb.map((f) => f.selector).join(", ")})`,
+    fb.length === 1 && fb[0].selector === "#gone-since-explore" && fb[0].kind === "click" &&
+      fb[0].label === "fallback target" && fb[0].x === 140 && fb[0].y === 320,
+  );
+  assert(
+    `replay counted every action (${played.actionsDone}/${played.actionsTotal})`,
+    played.actionsDone === script.actions.length && played.actionsTotal === script.actions.length,
+  );
+
+  console.log(
+    "\nPASS — replay handles hover/key/dx-scroll/dismiss(viaKey)/selection-clear/stepped-approach/fallback-report",
+  );
 } finally {
   await browser.close();
 }

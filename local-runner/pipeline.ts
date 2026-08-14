@@ -21,7 +21,7 @@ import {
 import { computeCropRect, startRecording, resolveScreenDevice, assertRawHasContent } from "./record";
 import { injectCursorOverlay, ensureCursor, cursorSetPos } from "./cursor";
 import { CameraTrack } from "./camera";
-import { replay } from "./replay";
+import { replay, type ReplayFallback } from "./replay";
 import { postprocess } from "./postprocess";
 import { explore, isLoginGated } from "./explore";
 import { installSafety, type BlockedWrite, type SafetyPolicy } from "./safety";
@@ -105,6 +105,9 @@ export type RecordDemoResult =
       // Vision read of what the film shows (피드백 A-1) — "unclear" when the scan
       // didn't run (dry-runs) or failed open. For future completion-email copy.
       coverage?: DemoCoverage;
+      // Beats that clicked raw coordinates because their selector missed at replay
+      // time (피드백 A-4) — non-empty means a lower-confidence film.
+      fallbacks?: ReplayFallback[];
     };
 
 // Robust load for an arbitrary SPA: domcontentloaded (networkidle can hang on
@@ -283,12 +286,16 @@ export async function recordDemo(opts: RecordDemoOptions): Promise<RecordDemoRes
     // window stealing focus mid-capture films itself into the crop and can
     // throttle the compositor. bringToFront is a no-op when already front.
     const frontGuard = setInterval(() => void page.bringToFront().catch(() => {}), 2000);
+    // Which beats had to click raw coordinates (피드백 A-4) — read by the RUN
+    // REPORT's confidence line far below, so it lives outside the take's try.
+    let fallbacks: ReplayFallback[] = [];
     try {
       await sleep(INTRO_MS); // hero beat
       // Budget the take so intro + actions + tail fit inside the clip cap — replay
       // stops at an action boundary rather than letting the cap cut mid-gesture.
       const replayBudget = MAX_VIDEO_SEC * 1000 - INTRO_MS - TAIL_MS - 900; // fade slack
-      await replay(page, script, cam, replayBudget); // one-take, no AI loop
+      const played = await replay(page, script, cam, replayBudget); // one-take, no AI loop
+      fallbacks = played.fallbacks;
       await sleep(TAIL_MS);
     } finally {
       clearInterval(frontGuard);
@@ -427,6 +434,20 @@ export async function recordDemo(opts: RecordDemoOptions): Promise<RecordDemoRes
       console.log(`coverage    : app-ui (vision scan saw the app's interface in the film)`);
     }
     console.log(`script      : ${script.actions.length} actions  (${script.notes})`);
+    // Replay confidence (피드백 A-4): a coordinate fallback means the explore-time
+    // selector no longer resolved on the reset page, so that beat clicked a raw
+    // 1280×720 point — right only if the app laid out exactly as it did during
+    // explore. Name those beats so a reviewer knows which frames to check.
+    if (fallbacks.length) {
+      console.log(
+        `confidence  : LOW — ${fallbacks.length} of ${script.actions.length} beats clicked raw coordinates ` +
+          `(their selector didn't resolve at replay time, so they may have landed on the wrong element — ` +
+          `check these frames in the contact sheet before publishing)`,
+      );
+      for (const f of fallbacks) console.log(`   ~ ${f.kind} "${f.label || f.selector}" → (${f.x},${f.y})`);
+    } else {
+      console.log(`confidence  : ok  (every beat resolved by its selector)`);
+    }
     console.log(`blockedWrites: ${blockedWrites.length}  (mutating requests intercepted → 0 reached the server)`);
     for (const w of blockedWrites) console.log(`   ✕ ${w.method} ${w.kind}  ${w.url.slice(0, 90)}`);
     console.log(`raw         : ${raw}  (${crop.w}×${crop.h}, ${durationSec.toFixed(2)}s)`);
@@ -451,6 +472,7 @@ export async function recordDemo(opts: RecordDemoOptions): Promise<RecordDemoRes
       uploaded,
       moderationFailedOpen,
       coverage,
+      fallbacks,
     };
   } finally {
     await restoreFocus();

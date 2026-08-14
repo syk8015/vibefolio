@@ -34,6 +34,38 @@ import type { Script, ScriptAction } from "./script";
 import { sleep, run } from "./util";
 import { type ApiUsage, addUsage, emptyUsage, costLine } from "./cost";
 
+// ── Keyboard vocabulary ─────────────────────────────────────────────────────────
+
+// Keys this environment can actually press, in Playwright's canonical spelling.
+// The list is CLOSED on purpose (피드백 A-3): anything outside it — an xdotool
+// spelling (XF86Back), a bare modifier ("alt"), a combo (ctrl+a) — throws inside
+// page.keyboard.press, and that failed tool call still burns one of the ~14
+// explore steps. perform() refuses those instead of pressing, and SYSTEM_PROMPT
+// quotes this same array, so the advertised list can never drift from the real one.
+export const SUPPORTED_KEYS = [
+  "Enter", "Escape", "Tab", "Space", "Backspace", "Delete",
+  "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight",
+  "PageUp", "PageDown", "Home", "End",
+] as const;
+
+// Spellings the computer-use model actually emits (xdotool-ish) → canonical name.
+// Canonical names map to themselves case-insensitively, so "arrowup" resolves too.
+const KEY_ALIASES: Record<string, string> = {
+  return: "Enter", esc: "Escape", spacebar: "Space", del: "Delete",
+  up: "ArrowUp", down: "ArrowDown", left: "ArrowLeft", right: "ArrowRight",
+  page_up: "PageUp", page_down: "PageDown", prior: "PageUp", next: "PageDown",
+};
+
+const KEY_CANON = new Map<string, string>([
+  ...SUPPORTED_KEYS.map((k) => [k.toLowerCase(), k] as [string, string]),
+  ...Object.entries(KEY_ALIASES),
+]);
+
+// Canonical Playwright key name, or null when this environment can't press it.
+export function mapKey(k: string): string | null {
+  return KEY_CANON.get(k.trim().toLowerCase()) ?? null;
+}
+
 // ── System prompt (read-only presenter) ─────────────────────────────────────────
 
 const SYSTEM_PROMPT = [
@@ -86,6 +118,10 @@ const SYSTEM_PROMPT = [
   "  on it — move on to a control that clearly does something.",
   "- To CLOSE an open menu/dropdown/popover, press Escape or click its own trigger button again — NEVER",
   "  click empty page space to dismiss it: on film, a click on blank space reads as a mistake.",
+  `- KEYBOARD — the ONLY keys that exist here are: ${SUPPORTED_KEYS.join(", ")}. Anything else is refused`,
+  "  and the beat is wasted: no modifier combos (ctrl+a, cmd+s), no function keys, no browser/media keys",
+  "  (XF86Back). To select a field's text, triple_click it; to go back or reload, use the app's own",
+  "  on-screen control.",
   "- Move FORWARD only — a clean LINEAR walkthrough. If a suggested tour order is given below, FOLLOW it in",
   "  sequence starting at its FIRST item; otherwise work top-to-bottom down the page. Every action becomes",
   "  part of the final demo, in order, so do NOT backtrack, jump to the middle, undo, or wander. If a",
@@ -538,16 +574,6 @@ const TYPE_DELAY_MS = 40;
 const clampX = (n: number) => Math.max(0, Math.min(VIEW_W - 1, Math.round(n)));
 const clampY = (n: number) => Math.max(0, Math.min(VIEW_H - 1, Math.round(n)));
 
-function mapKey(k: string): string {
-  const m: Record<string, string> = {
-    return: "Enter", enter: "Enter", esc: "Escape", escape: "Escape", tab: "Tab",
-    space: "Space", backspace: "Backspace", delete: "Delete",
-    up: "ArrowUp", down: "ArrowDown", left: "ArrowLeft", right: "ArrowRight",
-    page_down: "PageDown", page_up: "PageUp", home: "Home", end: "End",
-  };
-  return m[k.toLowerCase()] || k;
-}
-
 const CLICKS = new Set(["left_click", "right_click", "middle_click", "double_click", "triple_click"]);
 const INTERACTIONS = new Set([...CLICKS, "type", "key", "left_click_drag"]);
 
@@ -594,9 +620,10 @@ export async function explore(page: Page, opts: ExploreOptions = {}): Promise<Ex
   // older beat, nor an Enter mark submit on a stale type.
   let mergeableClick = false;
   let lastWasType = false;
-  // Set by perform() when the auth gate refuses a click — surfaced to the model
-  // as the turn's note (no action was pushed, so the prune path never runs).
-  let clickGateNote: string | undefined;
+  // Set by perform() when it REFUSES the requested action (auth-gate click, or a
+  // key this environment can't press) — surfaced to the model as the turn's note.
+  // No action was pushed in that case, so the prune path never produces one.
+  let refusalNote: string | undefined;
 
   // Run one computer-use action on the live page, recording the resulting Script
   // action (with a resolved selector + coordinate fallback). Returns whether it
@@ -615,7 +642,7 @@ export async function explore(page: Page, opts: ExploreOptions = {}): Promise<Ex
       // login/signup click NAVIGATES — the network back-stop can't undo leaving
       // the app. Refuse at the executor, tell the model, film stays on-site.
       if (AUTH_CONTROL_RE.test(label ?? "")) {
-        clickGateNote =
+        refusalNote =
           "That control is a login/sign-up entry — auth flows are off-limits (the demo must stay " +
           "inside the app). The click was not performed; show an in-app feature instead.";
         return false;
@@ -656,21 +683,36 @@ export async function explore(page: Page, opts: ExploreOptions = {}): Promise<Ex
         return true;
       }
       case "key": {
-        const k = String(input.text || "");
-        if (/(^|\+)(return|enter)$/i.test(k)) {
+        const k = String(input.text || "").trim();
+        // BARE enter/escape only. A combo used to be accepted here and pressed as
+        // a plain Enter — so "ctrl+enter" / "shift+enter" (a chat app's SEND) hit
+        // the one key the read-only policy forbids. Combos now fall through to the
+        // refusal below, matching the key list the prompt advertises (피드백 A-3).
+        if (/^(return|enter)$/i.test(k)) {
           const prev = actions[actions.length - 1];
           // lastWasType guard: Enter only marks submit on the type from the
           // IMMEDIATELY preceding tool_use, never a stale one exposed by a prune.
           if (lastWasType && prev && prev.kind === "type") prev.submit = true;
           else actions.push({ kind: "key", key: "Enter" }); // standalone Enter beat (audit A-C2)
           await page.keyboard.press("Enter");
-        } else if (/esc/i.test(k)) {
+        } else if (/^(esc|escape)$/i.test(k)) {
           await page.keyboard.press("Escape");
           // Scripted since 2026-07-18 (audit A-C1): an unrecorded Escape left the
           // replay with a modal the explore pass had closed, covering later beats.
           actions.push({ kind: "dismiss", selector: "", viaKey: true });
         } else {
           const mapped = mapKey(k);
+          // Unsupported key (피드백 A-3): refuse rather than press. An unknown name
+          // throws in Playwright, and a step spent on a raw error teaches the model
+          // nothing — the note names what IS pressable, so it stops guessing.
+          if (!mapped) {
+            refusalNote =
+              `"${k}" is not a key this environment can press. The only keys available are: ` +
+              `${SUPPORTED_KEYS.join(", ")} — no modifier combos (ctrl+a, cmd+s), no function keys, no ` +
+              `browser/media keys. Nothing was pressed. To select a field's text use triple_click; to go ` +
+              `back or reload, use the app's own on-screen control.`;
+            return false;
+          }
           await page.keyboard.press(mapped);
           actions.push({ kind: "key", key: mapped }); // arrows/Tab/etc. (audit A-C2)
         }
@@ -1014,9 +1056,9 @@ export async function explore(page: Page, opts: ExploreOptions = {}): Promise<Ex
           console.error("[explore] drag prune check failed — keeping the drag:", e instanceof Error ? e.message : e);
         }
       }
-      if (!note && clickGateNote) {
-        note = clickGateNote; // auth gate refusal — no action was pushed
-        clickGateNote = undefined;
+      if (!note && refusalNote) {
+        note = refusalNote; // executor refusal (auth gate / unsupported key)
+        refusalNote = undefined;
       }
       if (prunedThis) pruned++;
       if (wasInteraction && act && INTERACTIONS.has(act) && !prunedThis) interactions++;
