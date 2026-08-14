@@ -35,6 +35,11 @@ function parseArgs(argv) {
     const a = argv[i];
     if (a.startsWith("--")) {
       const key = a.slice(2);
+      // 같은 플래그를 두 번 주면 조용히 마지막 값만 남던 문제(피드백 B-1):
+      // 덮어쓰기 전에 경고한다. --screenshot 2장 같은 조용한 유실 방지.
+      if (key in out) {
+        console.error(`⚠️ --${key} 플래그가 여러 번 왔어요 — 마지막 값만 사용해요.`);
+      }
       const next = argv[i + 1];
       if (next !== undefined && !next.startsWith("--")) {
         out[key] = next;
@@ -51,6 +56,13 @@ function parseArgs(argv) {
 
 const [cmd, ...rest] = process.argv.slice(2);
 const args = parseArgs(rest);
+
+// 어느 서브커맨드에서든 --help/-h는 실행 대신 도움말(피드백 B-2 — 예전엔
+// `publish --help`가 도움말 없이 업로드를 시도했다).
+if (args.help || args.h || args._.includes("-h")) {
+  console.log(HELP);
+  process.exit(0);
+}
 
 try {
   switch (cmd) {
