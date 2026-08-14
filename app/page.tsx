@@ -7,7 +7,6 @@ import PortfolioPipSection from "@/components/PortfolioPipSection";
 import ThemeToggle from "@/components/ThemeToggle";
 import LanguageToggle from "@/components/LanguageToggle";
 import LoggedInHeadline from "@/components/LoggedInHeadline";
-import { loggedInTaglines, loggedInTaglinesEn } from "@/lib/loggedInTaglines";
 import FaqRepliesSection from "@/components/FaqRepliesSection";
 import TypingTagline from "@/components/TypingTagline";
 import ScrollHint from "@/components/ScrollHint";
@@ -55,13 +54,7 @@ const getLandingData = unstable_cache(
   { revalidate: 60, tags: ["portfolio"] }
 );
 
-export default async function LandingPage({
-  searchParams,
-}: {
-  // promo: 홍보 클립 촬영 전용(local-runner/promo-record.ts) — 로그인 후
-  // 화면에서 지정 문구만 강제 재생시킨다. 일반 방문자는 절대 안 붙는 쿼리.
-  searchParams: Promise<{ promo?: string }>;
-}) {
+export default async function LandingPage() {
   const supabase = await createClient();
 
   // Auth is per-request (cookies); the public reads are cached. Run both at once.
@@ -71,12 +64,10 @@ export default async function LandingPage({
     { data: { user } },
     { userCount, featuredProfiles, projectOwners },
     { locale, t },
-    { promo },
   ] = await Promise.all([
     supabase.auth.getUser(),
     getLandingData(),
     getT(),
-    searchParams,
   ]);
 
   const meta = user?.user_metadata || {};
@@ -96,12 +87,6 @@ export default async function LandingPage({
     .filter((p) => (projectCounts.get(p.id) ?? 0) >= SHOWCASE_MIN_PROJECTS)
     .map(({ username, name }) => ({ username, name }));
 
-  // 홍보 클립 촬영 전용 — 항상 실제 풀에 있는 문구만 강제 재생되도록 서버에서
-  // 매칭한다(클라이언트가 임의 텍스트를 주입할 수 없도록). 못 찾으면
-  // LoggedInHeadline이 조용히 폴백하는 대신 명시적 에러 마커를 렌더링한다.
-  const taglinePool = locale === "en" ? loggedInTaglinesEn : loggedInTaglines;
-  const forcedTagline = promo ? taglinePool.find((item) => item.text === promo) : undefined;
-
   /* ─── Logged-in home ─── */
   if (user) {
     return (
@@ -119,12 +104,7 @@ export default async function LandingPage({
           <p className="text-sm" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
             {t.landing.greetingBefore}<span style={{ color: "var(--text-primary)", fontWeight: 600 }}>{name}</span>{t.landing.greetingAfter}
           </p>
-          <LoggedInHeadline
-            locale={locale}
-            forceText={forcedTagline?.text}
-            forceReply={forcedTagline?.reply}
-            promoNotFound={!!promo && !forcedTagline}
-          />
+          <LoggedInHeadline locale={locale} />
           <div className="flex flex-wrap justify-center items-center gap-3">
             <Link href={`/${username}`}
               className="px-7 py-3 rounded-full text-sm transition-opacity hover:opacity-80"

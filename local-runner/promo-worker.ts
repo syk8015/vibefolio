@@ -5,14 +5,12 @@
 // 뺐다 — 유저 소유 데이터도 과금 유발도 없는 내부 전용 배치라 그 정도 가드가
 // 불필요하다고 판단(계획 문서 참고). 상시 워커 유스케이스가 없으므로 이
 // 스크립트는 "큐 소진하면 종료" 단일 동작만 한다(--batch 플래그 분기 자체가
-// worker.ts와 달리 없음).
-//
-// --login-only: 자동 폼 로그인이 Turnstile 등으로 막힐 때, 사람이 직접
-// 로그인하고 세션만 캡처한 뒤 종료한다.
+// worker.ts와 달리 없음). 로그인 불필요(2026-08-15 재설계로 세션 관리 계층이
+// 사라짐 — app/promo-record/page.tsx가 로그인 없는 전용 녹화 페이지).
 import { createClient } from "@supabase/supabase-js";
 import "./config"; // side-effect: .env.local 로드
 import { recordPromoClip } from "./promo-record";
-import { loginManually } from "./promo-session";
+import type { PromoFormat } from "./config";
 
 function db() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -29,6 +27,8 @@ type PendingClip = {
   id: string;
   tagline_text: string;
   tagline_reply: string | null;
+  tagline_locale: "ko" | "en";
+  format: PromoFormat;
 };
 
 // recording 상태로 남은 행 = 이전 실행이 중간에 죽은 흔적(worker.ts와 동일한
@@ -52,7 +52,7 @@ async function recoverStuckClips(supabase: Supabase) {
 async function claimNext(supabase: Supabase): Promise<PendingClip | null> {
   const { data, error } = await supabase
     .from("promo_clips")
-    .select("id, tagline_text, tagline_reply")
+    .select("id, tagline_text, tagline_reply, tagline_locale, format")
     .eq("status", "pending")
     .order("created_at", { ascending: true })
     .limit(5);
@@ -79,12 +79,14 @@ async function claimNext(supabase: Supabase): Promise<PendingClip | null> {
 }
 
 async function processOne(supabase: Supabase, row: PendingClip) {
-  console.log(`\n[promo-worker] clip ${row.id}  "${row.tagline_text.slice(0, 40)}..."`);
+  console.log(`\n[promo-worker] clip ${row.id} (${row.format})  "${row.tagline_text.slice(0, 40)}..."`);
   try {
     const result = await recordPromoClip({
       clipId: row.id,
       taglineText: row.tagline_text,
       taglineReply: row.tagline_reply,
+      locale: row.tagline_locale,
+      format: row.format,
     });
     const { error } = await supabase
       .from("promo_clips")
@@ -109,11 +111,6 @@ async function processOne(supabase: Supabase, row: PendingClip) {
 }
 
 async function main() {
-  if (process.argv.includes("--login-only")) {
-    await loginManually();
-    return;
-  }
-
   const supabase = db();
   console.log("[promo-worker] nookframe 홍보 클립 배치 촬영");
   await recoverStuckClips(supabase);

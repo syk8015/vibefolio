@@ -209,32 +209,27 @@ export const CAMERA_MAX_EVENTS = 40;
 export const CAMERA_VF_MAX_CHARS = 26_000;
 
 // ── Promo clip factory (2026-08) ───────────────────────────────────────────────
-// Short vertical clips of the logged-in home's typing headline (LoggedInHeadline
-// forceText mode — lib/promo.ts), for /admin/promo. Separate pipeline from the
-// demo recorder above: no explore/replay/camera/moderation, one fixed shot.
+// Short clips of app/promo-record/page.tsx's typing headline (LoggedInHeadline
+// forceText mode — lib/promo.ts) + a logo endcap (promo-endcap.ts), for
+// /admin/promo. Separate pipeline from the demo recorder above: no
+// explore/replay/camera/moderation, one fixed shot.
+//
+// The record page needs NO login (2026-08-15 redesign — the earlier plan
+// recorded the real logged-in home and needed a dedicated login session; a
+// login-free record page removed that whole layer). So the recorder can target
+// PROD directly instead of a locally-run dev server — no dev server needs to
+// stay up. Output size is fixed regardless of the capture machine's DPR
+// (promo-postprocess.ts always scales to it), so clips stay identical across
+// runs/machines.
+export const PROMO_APP_URL = process.env.PROMO_APP_URL || "https://nookframe.com";
 
-// 9:16 for short-form (Reels/Shorts/TikTok). On this M5 (native DPR2) a
-// 540×960 logical viewport captures at 1080×1920 — exactly vertical-HD, no
-// upscale needed in promo-postprocess.
-export const PROMO_VIEW_W = 540;
-export const PROMO_VIEW_H = 960;
-
-// Shipped output size — fixed regardless of the capture machine's actual DPR
-// (promo-postprocess.ts always scales to this), so clips stay identical across
-// runs/machines even though the raw capture's native pixel size can vary.
-export const PROMO_OUTPUT_W = 1080;
-export const PROMO_OUTPUT_H = 1920;
-
-// The recorder targets a locally-run dev server, not prod — /login's Turnstile
-// widget and the disposable Chrome profile (no surviving cookies) make an
-// unattended prod login unreliable, and the rendering is byte-identical to prod
-// (same component tree) so nothing is lost visually. Override for a non-default
-// dev port.
-export const PROMO_APP_URL = process.env.PROMO_APP_URL || "http://localhost:3000";
+export const PROMO_FORMATS = {
+  // Reels/Shorts/TikTok. 540×960 logical (9:16) → 1080×1920 shipped.
+  vertical: { viewW: 540, viewH: 960, outputW: 1080, outputH: 1920 },
+  // YouTube. 960×540 logical (16:9) → 1920×1080 shipped.
+  horizontal: { viewW: 960, viewH: 540, outputW: 1920, outputH: 1080 },
+} as const;
+export type PromoFormat = keyof typeof PROMO_FORMATS;
 
 // Scratch dir for promo captures, kept apart from OUT_DIR's demo-pipeline files.
 export const PROMO_OUT_DIR = `${OUT_DIR}/promo`;
-
-// Cached login session (playwright storageState JSON) so promo-worker doesn't
-// re-run the login form on every clip. Gitignored — holds a live session cookie.
-export const PROMO_SESSION_PATH = fileURLToPath(new URL("./.promo-session.json", import.meta.url));

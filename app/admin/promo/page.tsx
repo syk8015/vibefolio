@@ -24,7 +24,7 @@ export default async function PromoPage() {
   const [clipsRes, postsRes, eventsRes] = await Promise.all([
     admin
       .from("promo_clips")
-      .select("id, status, tagline_text, tagline_reply, video_url, poster_url, error, created_at")
+      .select("id, status, tagline_text, tagline_reply, format, video_url, poster_url, error, created_at")
       .order("created_at", { ascending: false }),
     admin
       .from("promo_posts")
@@ -85,6 +85,7 @@ export default async function PromoPage() {
     taglineText: c.tagline_text,
     taglineReply: c.tagline_reply,
     status: c.status as ClipData["status"],
+    format: c.format as ClipData["format"],
     videoUrl: c.video_url,
     posterUrl: c.poster_url,
     error: c.error,

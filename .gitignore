@@ -45,6 +45,3 @@ next-env.d.ts
 
 # Playwright MCP browser-verify artifacts
 .playwright-mcp/
-
-# 홍보 클립 촬영 세션 캐시 — 로그인 쿠키를 담고 있음
-local-runner/.promo-session.json

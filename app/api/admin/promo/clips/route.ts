@@ -19,15 +19,20 @@ export async function POST(req: NextRequest) {
 
     let locale = "";
     let text = "";
+    let format = "";
     try {
       const body = await req.json();
       locale = typeof body?.locale === "string" ? body.locale : "";
       text = typeof body?.text === "string" ? body.text : "";
+      format = typeof body?.format === "string" ? body.format : "";
     } catch {
       // falls through to validation below
     }
     if (locale !== "ko" && locale !== "en") {
       return apiError({ status: 400, message: "locale은 ko 또는 en이어야 해요.", code: "BAD_LOCALE" });
+    }
+    if (format !== "vertical" && format !== "horizontal") {
+      return apiError({ status: 400, message: "format은 vertical 또는 horizontal이어야 해요.", code: "BAD_FORMAT" });
     }
 
     // 클라이언트는 text만 보내고, reply는 서버가 실제 풀에서 재조회한다 — 항상
@@ -47,6 +52,7 @@ export async function POST(req: NextRequest) {
         tagline_locale: locale,
         tagline_text: tagline.text,
         tagline_reply: tagline.reply ?? null,
+        format,
         requested_by: user.email,
       })
       .select("id")

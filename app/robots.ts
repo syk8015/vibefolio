@@ -7,7 +7,7 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: "*",
       allow: "/",
-      disallow: ["/dashboard", "/onboarding", "/admin", "/api"],
+      disallow: ["/dashboard", "/onboarding", "/admin", "/api", "/promo-record"],
     },
     sitemap: "https://nookframe.com/sitemap.xml",
     host: "https://nookframe.com",

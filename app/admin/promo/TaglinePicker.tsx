@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { loggedInTaglines, loggedInTaglinesEn } from "@/lib/loggedInTaglines";
 
 type Pool = "ko" | "en";
+type Format = "vertical" | "horizontal";
 
 // lib/loggedInTaglines.ts 풀 전체를 스크롤 리스트로 보여주고, 클릭한 문구를
 // 촬영 큐(promo_clips)에 넣는다. 실제 촬영은 여기서 안 일어난다 — 관리자가
@@ -12,6 +13,7 @@ type Pool = "ko" | "en";
 export default function TaglinePicker() {
   const router = useRouter();
   const [pool, setPool] = useState<Pool>("ko");
+  const [format, setFormat] = useState<Format>("vertical");
   const [busyText, setBusyText] = useState<string | null>(null);
   const [justQueued, setJustQueued] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -25,7 +27,7 @@ export default function TaglinePicker() {
       const res = await fetch("/api/admin/promo/clips", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ locale: pool, text }),
+        body: JSON.stringify({ locale: pool, text, format }),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
@@ -41,7 +43,7 @@ export default function TaglinePicker() {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
         {(["ko", "en"] as const).map((p) => (
           <button
             key={p}
@@ -56,6 +58,23 @@ export default function TaglinePicker() {
             }}
           >
             {p === "ko" ? "한국어" : "영어"} · {p === "ko" ? loggedInTaglines.length : loggedInTaglinesEn.length}
+          </button>
+        ))}
+        <span style={{ width: 1, height: 18, background: "var(--border)" }} />
+        {(["vertical", "horizontal"] as const).map((f) => (
+          <button
+            key={f}
+            type="button"
+            onClick={() => setFormat(f)}
+            className="px-3 py-1 rounded-full text-xs font-semibold transition-colors"
+            style={{
+              background: format === f ? "var(--blue)" : "var(--surface-soft)",
+              color: format === f ? "var(--bg)" : "var(--text-secondary)",
+              border: "none",
+              cursor: "pointer",
+            }}
+          >
+            {f === "vertical" ? "세로 9:16 (릴스·쇼츠)" : "가로 16:9 (유튜브)"}
           </button>
         ))}
       </div>

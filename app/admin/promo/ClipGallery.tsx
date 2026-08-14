@@ -8,10 +8,16 @@ export type ClipData = {
   taglineText: string;
   taglineReply: string | null;
   status: "pending" | "recording" | "done" | "failed";
+  format: "vertical" | "horizontal";
   videoUrl: string | null;
   posterUrl: string | null;
   error: string | null;
   posts: PostRowData[];
+};
+
+const FORMAT_LABEL: Record<ClipData["format"], string> = {
+  vertical: "세로 9:16",
+  horizontal: "가로 16:9",
 };
 
 const STATUS_LABEL: Record<ClipData["status"], string> = {
@@ -43,20 +49,25 @@ export default function ClipGallery({ clips }: { clips: ClipData[] }) {
                 </p>
               )}
             </div>
-            <span
-              className="px-2 py-0.5 rounded-full text-xs font-semibold shrink-0"
-              style={{
-                background:
-                  clip.status === "done"
-                    ? "rgba(46,125,74,0.12)"
-                    : clip.status === "failed"
-                      ? "rgba(179,71,71,0.12)"
-                      : "var(--surface-soft)",
-                color: clip.status === "done" ? "#2e7d4a" : clip.status === "failed" ? "#8e3535" : "var(--text-muted)",
-              }}
-            >
-              {STATUS_LABEL[clip.status]}
-            </span>
+            <div className="flex flex-col items-end gap-1 shrink-0">
+              <span
+                className="px-2 py-0.5 rounded-full text-xs font-semibold"
+                style={{
+                  background:
+                    clip.status === "done"
+                      ? "rgba(46,125,74,0.12)"
+                      : clip.status === "failed"
+                        ? "rgba(179,71,71,0.12)"
+                        : "var(--surface-soft)",
+                  color: clip.status === "done" ? "#2e7d4a" : clip.status === "failed" ? "#8e3535" : "var(--text-muted)",
+                }}
+              >
+                {STATUS_LABEL[clip.status]}
+              </span>
+              <span className="vf-mono" style={{ fontSize: "0.62rem", color: "var(--text-muted)" }}>
+                {FORMAT_LABEL[clip.format]}
+              </span>
+            </div>
           </div>
 
           {clip.status === "done" && clip.videoUrl && (
@@ -64,7 +75,12 @@ export default function ClipGallery({ clips }: { clips: ClipData[] }) {
               controls
               poster={clip.posterUrl ?? undefined}
               src={clip.videoUrl}
-              style={{ width: "100%", maxWidth: 220, borderRadius: 12, background: "#000" }}
+              style={{
+                width: "100%",
+                maxWidth: clip.format === "vertical" ? 220 : 360,
+                borderRadius: 12,
+                background: "#000",
+              }}
             />
           )}
           {clip.status === "failed" && clip.error && (

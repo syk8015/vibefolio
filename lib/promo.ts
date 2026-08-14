@@ -9,26 +9,33 @@ import { SITE_URL } from "./email-templates";
 // ── 촬영 길이 산정 ───────────────────────────────────────────────────────
 // components/LoggedInHeadline.tsx의 타이핑 상태기계와 반드시 같은 값으로
 // 맞춰야 한다(그쪽 매직넘버를 그대로 옮겨온 것 — 그쪽이 바뀌면 여기도 같이
-// 바꿀 것): 글자당 90~150ms(평균 120), reply 앞 650ms 코멘트비트, 다 타이핑된
-// 후 지우기 시작 전 1600ms 대기. forceText 프리롤 800ms(LoggedInHeadline)도
-// 포함해야 촬영이 첫 글자를 놓치지 않는다.
-const AVG_CHAR_MS = 120;
+// 바꿀 것): 글자당 타이핑 90~150ms(평균 120)·지우기 50~85ms(평균 67.5), reply
+// 앞 650ms 코멘트비트, 다 타이핑된 후 지우기 전 1600ms 대기, reply→본문 지우기
+// 전환 120ms. forceText 프리롤 800ms(LoggedInHeadline)도 포함해야 촬영이 첫
+// 글자를 놓치지 않는다.
+const AVG_TYPE_CHAR_MS = 120;
+const AVG_ERASE_CHAR_MS = 67.5;
 const COMMENT_BEAT_MS = 650;
 const READ_PAUSE_MS = 1600;
+const ERASE_HANDOFF_MS = 120; // reply 지우기 완료 → 본문 지우기 시작
 const PROMO_PREROLL_MS = 800;
 const SAFETY_MARGIN_MS = 700;
 const MIN_RECORD_MS = 3000; // 아주 짧은 문구도 클립 형태를 갖추도록
 
-// 지우기 애니메이션이 시작되기 전(=타이핑이 끝나고 다 읽을 시간까지)까지만
-// 녹화한다. 랜덤 타이핑 속도(90~150ms) 때문에 정확히 맞진 않지만, 안전마진을
-// 넉넉히 둬서 "글자가 잘리는" 실패보다 "끝에 정지 프레임 한두 컷 남는" 쪽으로
-// 치우치게 했다 — 후자가 훨씬 무해하다.
+// **지우기가 완전히 끝난 빈 화면**까지 녹화한다(지우기 시작 전이 아니라) —
+// 후처리에서 로고 엔드캡(promo-endcap.ts)을 바로 이어붙이므로, 문구가 남은
+// 채로 뚝 끊기면 어색하고 빈 화면에서 로고 타이핑이 시작돼야 자연스럽다.
+// 랜덤 타이핑/삭제 속도 때문에 정확히 맞진 않지만, 다음 사이클 재시작까지
+// 420ms 여유가 있고 안전마진(700ms)이 그보다 크므로 다음 문구가 살짝
+// 보이는 사고는 나지 않는다.
 export function estimateTaglineRecordMs(tagline: { text: string; reply?: string | null }): number {
   const reply = tagline.reply ?? "";
+  const hasReply = reply.length > 0;
   const typingMs =
-    tagline.text.length * AVG_CHAR_MS +
-    (reply.length > 0 ? COMMENT_BEAT_MS + reply.length * AVG_CHAR_MS : 0);
-  const total = PROMO_PREROLL_MS + typingMs + READ_PAUSE_MS + SAFETY_MARGIN_MS;
+    tagline.text.length * AVG_TYPE_CHAR_MS + (hasReply ? COMMENT_BEAT_MS + reply.length * AVG_TYPE_CHAR_MS : 0);
+  const eraseMs =
+    (hasReply ? reply.length * AVG_ERASE_CHAR_MS + ERASE_HANDOFF_MS : 0) + tagline.text.length * AVG_ERASE_CHAR_MS;
+  const total = PROMO_PREROLL_MS + typingMs + READ_PAUSE_MS + eraseMs + SAFETY_MARGIN_MS;
   return Math.max(MIN_RECORD_MS, Math.round(total));
 }
 
