@@ -12,9 +12,13 @@ import { screenshotUrl } from "@/lib/thumbnail";
 import { normalizeTags, normalizeContentType } from "@/lib/projectTaxonomy";
 import { normalizeDemoAccess, type DemoAccess } from "@/lib/demoAccess";
 import {
-  MAX_UPLOAD_BYTES, MAX_ZIP_ENTRIES, expandZipBundle, findIndexHtml, UploadError,
-  MAX_MEDIA_IMAGE_BYTES, MAX_MEDIA_VIDEO_BYTES, sniffImage, sniffVideo,
+  MAX_UPLOAD_BYTES, MAX_MEDIA_IMAGE_BYTES, MAX_MEDIA_VIDEO_BYTES, UploadError,
 } from "@/lib/upload-safety";
+import {
+  validateMedia, uploadMedia, storeZipBundle,
+  UPLOAD_KINDS, UPLOAD_TEMP_KEYS, type SniffedMedia, type UploadKind,
+} from "@/lib/ingestStore";
+import { uploadErrorResponse } from "./uploadError";
 import { logger } from "@/lib/logger";
 
 // POST /api/ingest — Nookframe Connect. 외부 AI 에이전트(CLI/MCP/붙여넣기)가 로그인된
@@ -40,6 +44,7 @@ interface IngestPayload {
   deployUrl?: unknown;
   appUrl?: unknown;
   demoAccess?: unknown;
+  uploads?: unknown;
 }
 
 function strOrNull(v: unknown): string | null {
@@ -175,39 +180,32 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 미디어 검증 — 행을 만들기 전에 캡·매직바이트로 실패를 조기 확정한다.
-    // 저장 확장자·MIME은 스니핑 결과만 쓴다(자칭 Content-Type·파일명 불신 —
-    // 서비스롤 업로드는 스토리지 RLS를 우회하므로 여기가 형식 게이트다).
+    // 미디어 검증(인라인 파트) — 행을 만들기 전에 캡·매직바이트로 실패를 조기
+    // 확정한다. 판정·업로드 로직은 finalize 경로와 공유(lib/ingestStore.ts).
     let shotBuf: Uint8Array | null = null;
-    let shotType: { ext: string; mime: string } | null = null;
-    if (screenshot) {
-      if (screenshot.size > MAX_MEDIA_IMAGE_BYTES) {
-        return apiError({
-          status: 413, code: "MEDIA_TOO_LARGE",
-          message: t.api.mediaImageTooLarge(MAX_MEDIA_IMAGE_BYTES / 1024 / 1024),
-        });
-      }
-      shotBuf = new Uint8Array(await screenshot.arrayBuffer());
-      shotType = sniffImage(shotBuf);
-      if (!shotType) {
-        return apiError({ status: 400, message: t.api.mediaImageBadType, code: "BAD_MEDIA" });
-      }
-    }
     let videoBuf: Uint8Array | null = null;
-    let videoType: { ext: string; mime: string } | null = null;
-    if (video) {
-      if (video.size > MAX_MEDIA_VIDEO_BYTES) {
-        return apiError({
-          status: 413, code: "MEDIA_TOO_LARGE",
-          message: t.api.mediaVideoTooLarge(MAX_MEDIA_VIDEO_BYTES / 1024 / 1024),
-        });
-      }
-      videoBuf = new Uint8Array(await video.arrayBuffer());
-      videoType = sniffVideo(videoBuf);
-      if (!videoType) {
-        return apiError({ status: 400, message: t.api.mediaVideoBadType, code: "BAD_MEDIA" });
-      }
+    let sniffed: SniffedMedia = { shotType: null, videoType: null };
+    try {
+      if (screenshot) shotBuf = new Uint8Array(await screenshot.arrayBuffer());
+      if (video) videoBuf = new Uint8Array(await video.arrayBuffer());
+      sniffed = validateMedia(shotBuf, videoBuf);
+    } catch (e) {
+      if (e instanceof UploadError) return uploadErrorResponse(e, t);
+      throw e;
     }
+
+    // 서명 URL 2단계(대용량): Vercel 함수 본문 상한(~4.5MB 실측) 때문에 큰 zip/
+    // 영상은 인라인 multipart로 못 온다 → payload.uploads로 종류만 선언하면
+    // 스토리지 직행 업로드 URL을 발급하고, 검증·연결은 /api/ingest/finalize가
+    // 담당한다. 인라인 파트가 이미 온 종류는 선언을 무시한다(이중 처리 방지).
+    const declared: UploadKind[] = Array.isArray(payload?.uploads)
+      ? [...new Set(
+          (payload.uploads as unknown[]).filter(
+            (u): u is UploadKind =>
+              typeof u === "string" && (UPLOAD_KINDS as readonly string[]).includes(u),
+          ),
+        )].filter((k) => (k === "bundle" ? !bundle : k === "screenshot" ? !screenshot : !video))
+      : [];
 
     const admin = createAdminClient();
 
@@ -231,7 +229,7 @@ export async function POST(req: NextRequest) {
     // 우선 사용. 검증(소스 판별·콘텐츠호스트·SSRF)은 deployUrl과 동일 경로를 탄다.
     let demoUrl = "";
     let thumbnail = "";
-    if (!bundle) {
+    if (!bundle && !declared.includes("bundle")) {
       const entryUrl = strOrNull(payload?.appUrl) ?? strOrNull(payload?.deployUrl);
       if (!entryUrl) {
         return apiError({ status: 400, message: t.api.artifactRequired, code: "NO_ARTIFACT" });
@@ -302,97 +300,37 @@ export async function POST(req: NextRequest) {
     }
     const projectId = created.id as string;
 
-    // 8. 파일 경로: zip 확장(방어) → 업로드 → demo_url·thumbnail 세팅. 실패 시 고아 행 정리.
+    // 8. 인라인 zip: 확장(방어)→업로드→demo_url·thumbnail 세팅(lib/ingestStore
+    // 공유 코어). 실패 시 고아 행 정리 — null demo_url 초안이 남지 않게 방금 만든
+    // 행을 지운다. (스토리지에 일부 올라간 객체는 추측 불가한 uuid 폴더 아래 남을
+    // 수 있으나 DB 행이 없어 발견 불가 — storage-audit 스윕이 회수. remove()는
+    // 오브젝트 키 목록이 필요해 폴더 경로 전달은 no-op이므로 하지 않는다.)
     if (bundle) {
-      const prefix = `${userId}/${projectId}/`;
       try {
         if (bundle.size > MAX_UPLOAD_BYTES) {
-          throw new UploadError(t.api.uploadTooLarge);
+          throw new UploadError(t.api.uploadTooLarge, "too-large");
         }
-        const buf = await bundle.arrayBuffer();
-        const entries = await expandZipBundle(buf); // 엔트리 수·압축해제 크기 캡 내장
-        const indexPath = findIndexHtml(entries);
-        if (!indexPath) {
-          throw new UploadError(t.api.indexHtmlMissing);
-        }
-        // supabase-js는 최종 키를 인코딩 없이 URL에 끼워 넣고, fetch의 WHATWG 파서가
-        // %2e%2e·raw CR/LF 등을 `..`로 정규화한다. 문자열 startsWith만으로는
-        // prefix 이탈을 못 막으므로(서비스롤=스토리지 RLS 우회), 실제로 전송될 URL을
-        // 파싱한 뒤 정규화된 pathname이 소유자 prefix 안인지 assert한다.
-        const storageKeyBase = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/project-files/`;
-        const requiredPathPrefix = new URL(`${storageKeyBase}${prefix}`).pathname;
-        for (const e of entries) {
-          const storagePath = `${prefix}${e.relativePath}`;
-          let normalizedPath: string;
-          try {
-            normalizedPath = new URL(`${storageKeyBase}${storagePath}`).pathname;
-          } catch {
-            throw new UploadError(t.api.badFilePath);
-          }
-          if (
-            !storagePath.startsWith(prefix) ||
-            storagePath.includes("/../") ||
-            !normalizedPath.startsWith(requiredPathPrefix)
-          ) {
-            throw new UploadError(t.api.badFilePath);
-          }
-          const { error: upErr } = await admin.storage
-            .from("project-files")
-            .upload(storagePath, e.data, { upsert: true, contentType: e.contentType });
-          if (upErr) throw new UploadError(t.api.fileUploadFailed(upErr.message));
-        }
-        demoUrl = `/api/preview/${prefix}${indexPath}`;
+        const { indexPath } = await storeZipBundle(admin, userId, projectId, await bundle.arrayBuffer());
+        demoUrl = `/api/preview/${userId}/${projectId}/${indexPath}`;
         const { error: updErr } = await admin
           .from("projects")
           .update({ demo_url: demoUrl, thumbnail: screenshotUrl(`${req.nextUrl.origin}${demoUrl}`) })
           .eq("id", projectId);
         if (updErr) throw new UploadError(t.api.demoUrlSaveFailed);
       } catch (e) {
-        // 고아 행 정리 — null demo_url 초안이 남지 않게 방금 만든 행을 지운다.
-        // (스토리지에 일부 올라간 객체는 추측 불가한 uuid 폴더 아래 남을 수 있으나
-        //  DB 행이 없어 발견 불가 — storage-audit 스윕이 회수.
-        //  remove()는 오브젝트 키 목록이 필요하다: 폴더 경로를 넘기면 no-op이므로
-        //  하지 않는다. 실제 회수는 storage-audit이 담당.)
         await admin.from("projects").delete().eq("id", projectId);
-        if (e instanceof UploadError) {
-          // expandZipBundle 안쪽에서 던진 것(한국어 기본 카피)은 code로 locale 카피를 되찾는다.
-          const zipMessage =
-            e.code === "zip-bomb" ? t.api.zipBomb
-            : e.code === "zip-read-error" ? t.api.zipReadError
-            : e.code === "zip-empty" ? t.api.zipEmpty
-            : e.code === "zip-too-many" ? t.api.zipTooManyFiles(MAX_ZIP_ENTRIES)
-            : e.code === "zip-no-valid" ? t.api.zipNoValidFiles
-            : e.message;
-          return apiError({ status: 400, message: zipMessage, code: "UPLOAD_FAILED" });
-        }
+        if (e instanceof UploadError) return uploadErrorResponse(e, t);
         logger.error("ingest: file upload failed", { error: e, projectId });
         return apiError({ status: 500, message: t.api.uploadProcessingError, code: "UPLOAD_ERROR", cause: e });
       }
     }
 
-    // 8.5. 제작자 미디어 업로드 — 행 폴더 아래 `_media/`(프로젝트 삭제 시 zip과
-    // 같은 수명주기로 정리). 키는 서버가 고정 파일명+스니핑 확장자로 조립하므로
-    // traversal 여지가 없다. screenshot은 thumbnail을(thum.io 스크린샷보다 우선),
-    // video는 video_url(노출 1순위 표면)을 채운다.
+    // 8.5. 인라인 미디어 업로드 — 행 폴더 `_media/`(프로젝트 삭제 시 zip과 같은
+    // 수명주기). screenshot은 thumbnail을(thum.io 스크린샷보다 우선), video는
+    // video_url(노출 1순위 표면)을 채운다.
     if (shotBuf || videoBuf) {
       try {
-        const updates: Record<string, string> = {};
-        if (shotBuf && shotType) {
-          const key = `${userId}/${projectId}/_media/screenshot.${shotType.ext}`;
-          const { error: upErr } = await admin.storage
-            .from("project-files")
-            .upload(key, shotBuf, { upsert: true, contentType: shotType.mime });
-          if (upErr) throw new Error(`screenshot upload: ${upErr.message}`);
-          updates.thumbnail = admin.storage.from("project-files").getPublicUrl(key).data.publicUrl;
-        }
-        if (videoBuf && videoType) {
-          const key = `${userId}/${projectId}/_media/video.${videoType.ext}`;
-          const { error: upErr } = await admin.storage
-            .from("project-files")
-            .upload(key, videoBuf, { upsert: true, contentType: videoType.mime });
-          if (upErr) throw new Error(`video upload: ${upErr.message}`);
-          updates.video_url = admin.storage.from("project-files").getPublicUrl(key).data.publicUrl;
-        }
+        const updates = await uploadMedia(admin, userId, projectId, shotBuf, videoBuf, sniffed);
         const { error: updErr } = await admin.from("projects").update(updates).eq("id", projectId);
         if (updErr) throw new Error(`media row update: ${updErr.message}`);
       } catch (e) {
@@ -403,9 +341,32 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // 8.7. 서명 URL 발급(2단계 선언분) — 스토리지 직행 PUT용. 키는 서버 고정
+    // (_upload/ 임시 폴더), 만료는 짧게. 검증·연결은 finalize가 한다.
+    let uploads: Partial<Record<UploadKind, string>> | undefined;
+    if (declared.length) {
+      uploads = {};
+      for (const kind of declared) {
+        const { data, error } = await admin.storage
+          .from("project-files")
+          .createSignedUploadUrl(UPLOAD_TEMP_KEYS[kind](userId, projectId), { upsert: true });
+        if (error || !data) {
+          await admin.from("projects").delete().eq("id", projectId);
+          return apiError({
+            status: 500, message: t.api.mediaUploadFailed, code: "SIGN_FAILED",
+            cause: error, context: { projectId, kind },
+          });
+        }
+        uploads[kind] = data.signedUrl;
+      }
+    }
+
     // 9. 응답 — reviewUrl은 하드코딩 SITE_URL이 아니라 요청 origin 기준.
     const reviewUrl = `${req.nextUrl.origin}/dashboard?review=${projectId}`;
-    return NextResponse.json({ ok: true, projectId, reviewUrl, isDraft: true });
+    return NextResponse.json({
+      ok: true, projectId, reviewUrl, isDraft: true,
+      ...(uploads ? { uploads, finalizeUrl: `${req.nextUrl.origin}/api/ingest/finalize` } : {}),
+    });
   } catch (err) {
     const tc = bearerFromHeader(req.headers.get("authorization")) ? getDictionary("en") : (await getT()).t;
     return apiError({ status: 500, message: tc.api.retryLater, code: "INTERNAL", cause: err });

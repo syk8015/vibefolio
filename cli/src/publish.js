@@ -27,40 +27,56 @@ export async function runPublish({ payload = {}, dir = null, screenshotPath = nu
     throw new Error("올릴 대상이 없어요 — 배포 URL은 --url, 정적 빌드는 --dir 로 알려주세요.");
   }
 
-  let res;
-  if (dir || screenshotPath || videoPath) {
-    // 파일이 하나라도 있으면 multipart(미디어만 있고 dir이 없으면 payload의 URL이 대상).
-    const fd = new FormData();
-    fd.append("payload", JSON.stringify(payload));
-    if (dir) {
-      const buf = await zipDir(dir);
-      fd.append("bundle", new Blob([buf], { type: "application/zip" }), "bundle.zip");
-    }
-    if (screenshotPath) {
-      fd.append("screenshot", new Blob([await readFile(screenshotPath)]), basename(screenshotPath));
-    }
-    if (videoPath) {
-      fd.append("video", new Blob([await readFile(videoPath)]), basename(videoPath));
-    }
-    // FormData는 fetch가 boundary 포함 Content-Type을 자동 설정 — 직접 넣지 않는다.
-    res = await fetch(endpoint, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
-      body: fd,
-    });
-  } else {
-    res = await fetch(endpoint, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+  const authJson = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
+
+  // 파일 없음 → 예전과 같은 단발 JSON POST.
+  if (!dir && !screenshotPath && !videoPath) {
+    const res = await fetch(endpoint, { method: "POST", headers: authJson, body: JSON.stringify(payload) });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error || `업로드 실패 (HTTP ${res.status})`);
+    return body;
   }
 
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    throw new Error(body.error || `업로드 실패 (HTTP ${res.status})`);
+  // 파일 있음 → 서명 URL 2단계. Vercel 함수 본문 상한(~4.5MB) 때문에 zip/영상을
+  // 서버로 직접 보내지 않고, 선언(uploads) → 발급된 URL로 스토리지에 직접 PUT →
+  // finalize(검증·연결) 순서로 간다.
+  const uploads = [];
+  if (dir) uploads.push("bundle");
+  if (screenshotPath) uploads.push("screenshot");
+  if (videoPath) uploads.push("video");
+
+  const step1 = await fetch(endpoint, {
+    method: "POST",
+    headers: authJson,
+    body: JSON.stringify({ ...payload, uploads }),
+  });
+  const body1 = await step1.json().catch(() => ({}));
+  if (!step1.ok) throw new Error(body1.error || `업로드 준비 실패 (HTTP ${step1.status})`);
+
+  const files = {
+    bundle: dir ? await zipDir(dir) : null,
+    screenshot: screenshotPath ? await readFile(screenshotPath) : null,
+    video: videoPath ? await readFile(videoPath) : null,
+  };
+  for (const kind of uploads) {
+    const url = body1.uploads?.[kind];
+    if (!url) throw new Error(`서버가 ${kind} 업로드 URL을 주지 않았어요.`);
+    const put = await fetch(url, {
+      method: "PUT",
+      headers: { "Content-Type": "application/octet-stream" },
+      body: files[kind],
+    });
+    if (!put.ok) throw new Error(`${kind} 업로드 실패 (HTTP ${put.status})`);
   }
-  return body;
+
+  const fin = await fetch(body1.finalizeUrl || `${origin.replace(/\/$/, "")}/api/ingest/finalize`, {
+    method: "POST",
+    headers: authJson,
+    body: JSON.stringify({ projectId: body1.projectId }),
+  });
+  const body2 = await fin.json().catch(() => ({}));
+  if (!fin.ok) throw new Error(body2.error || `업로드 마무리 실패 (HTTP ${fin.status})`);
+  return body2;
 }
 
 function safeHost(url) {

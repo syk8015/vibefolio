@@ -50,7 +50,15 @@ export type UploadErrorCode =
   | "zip-read-error"
   | "zip-empty"
   | "zip-too-many"
-  | "zip-no-valid";
+  | "zip-no-valid"
+  | "too-large"
+  | "index-html-missing"
+  | "bad-file-path"
+  | "upload-failed"
+  | "media-image-large"
+  | "media-video-large"
+  | "media-image-bad"
+  | "media-video-bad";
 
 export class UploadError extends Error {
   code?: UploadErrorCode;

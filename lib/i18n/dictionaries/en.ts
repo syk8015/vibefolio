@@ -517,6 +517,8 @@ export const en: Dictionary = {
     mediaImageBadType: "screenshot must be a png/jpg/webp/gif image file.",
     mediaVideoBadType: "video must be an mp4/webm video file.",
     mediaUploadFailed: "Media upload failed. Please try again in a moment.",
+    finalizeNothing: "No uploaded files found. PUT your files to the issued URLs first, then call finalize.",
+    finalizeNotDraft: "A published project can't be modified through this path.",
     projectCreateFailed: "Couldn't create the project.",
     indexHtmlMissing: "No index.html found. Auto demos film what shows up in a browser — include index.html in your static site bundle.",
     badFilePath: "An invalid file path was detected.",
