@@ -354,30 +354,28 @@
 
 ## connect (AI 연결 패널)
 
+2026-08-14 요청5(토큰 발급 화면 단일화)로 전면 개편 — 발급 UI 삭제, [프롬프트 복사]가 토큰 자동 발급·내장.
+삭제된 키: copy, copied, step1Title, step1Body, revealNote, terminalOnce, savedClose, tokenNamePlaceholder, issuing, issue, step2Title, noShell3.
+
 | 키 | 한국어 | English | 비고 |
 |---|---|---|---|
-| copy | 복사 | Copy | |
-| copied | 복사됨 ✓ | Copied ✓ | |
 | intro1 + intro2 | 클로드코드·커서, 혹은 아무 AI 대화창에 아래 프롬프트를 붙여넣으면 — 그 작업을 만든 AI가 직접 무슨 작품인지 설명하고, 시연 영상에서 볼 포인트까지 써서 {유저명} 계정에 초안으로 올려줘요. 초안은 이 탭에서 확인 후 공개돼요. | Paste the prompt below into Claude Code, Cursor, or any AI chat — the AI that built the work describes it, notes what to watch for in the demo video, and posts it as a draft to the {username} account. Drafts publish only after you review them here. | ⚠️ 유저명이 끼어 2조각 분할 |
-| step1Title | 1. 연결 토큰 발급 | 1. Issue a connect token | |
-| step1Body | AI가 당신 계정으로 올릴 수 있게 하는 열쇠예요. 한 번만 노출되니 안전한 곳에 보관하세요. | This key lets the AI post to your account. It's shown only once — keep it somewhere safe. | |
-| revealNote | 아래 토큰을 지금 복사하세요 — 다시 볼 수 없어요. | Copy this token now — you won't see it again. | |
-| terminalOnce | 터미널(클로드코드·커서)에서 1회: | Run once in your terminal (Claude Code · Cursor): | |
-| savedClose | 저장했어요, 닫기 | Saved it — close | |
-| tokenNamePlaceholder | 토큰 이름 (예: MacBook 클로드코드) | Token name (e.g. MacBook Claude Code) | |
-| issuing | 발급 중… | Issuing… | |
-| issue | 토큰 발급 | Issue token | |
+| promptTitle | 당신의 AI에 붙여넣으세요 | Paste this to your AI | |
+| promptBody | 복사 버튼을 누르면 연결 토큰(AI가 당신 계정에 올릴 수 있게 하는 열쇠)이 새로 발급돼 프롬프트 안에 들어가요. 발급 과정은 따로 없어요 — 복사해서 붙여넣으면 끝. | Pressing copy issues a fresh connect token (the key that lets the AI post to your account) and embeds it in the prompt. There's no separate setup — copy, paste, done. | |
+| copyPrompt | 프롬프트 복사 | Copy prompt | |
+| copying | 토큰 발급·복사 중… | Issuing token & copying… | |
+| copiedNote | 복사됐어요 ✓ 프롬프트 안에 새 토큰이 들어 있어요. 토큰은 다시 볼 수 없고, 다음에 새로 복사하면 이번 토큰은 자동으로 폐기돼요. | Copied ✓ The prompt now contains a fresh token. You won't see it again, and the next copy automatically revokes this one. | |
+| copyFailed | 클립보드 복사에 실패했어요. 한 번 더 눌러주세요. | Couldn't copy to the clipboard. Please press it once more. | |
 | issueFailed | 토큰 발급에 실패했어요. | Couldn't issue the token. | |
 | networkFailed | 네트워크 오류로 발급하지 못했어요. | A network error prevented issuing. | |
 | revokeConfirm | 이 토큰을 폐기할까요? 이 토큰을 쓰는 AI 연결이 즉시 끊겨요. | Revoke this token? Any AI connection using it stops immediately. | |
 | revokeFailed | 폐기에 실패했어요. 잠시 후 다시 시도해 주세요. | Couldn't revoke. Please try again shortly. | |
-| step2Title | 2. AI에게 이걸 붙여넣기 | 2. Paste this to your AI | |
-| copyPrompt | 프롬프트 복사 | Copy prompt | |
-| noShell1~3 | 셸이 없는 AI(챗봇)라면 — AI가 뱉은 JSON을 {링크} 에 붙여넣으면 돼요. CLI 로그인은 {명령}. | If your AI has no shell (a chatbot) — paste the JSON it produces at {link}. CLI login: {command}. | ⚠️ 링크·코드가 끼어 3조각 분할 |
+| noShell1~2 | 셸이 없는 AI(챗봇)라면 — AI가 뱉은 JSON을 {링크} 에 붙여넣으면 돼요. | If your AI has no shell (a chatbot) — paste the JSON it produces at {link}. | ⚠️ 링크가 끼어 2조각 분할 |
 | tokensTitle | 발급된 토큰 | Issued tokens | |
 | loading | 불러오는 중… | Loading… | |
 | noTokens | 아직 발급한 토큰이 없어요. | No tokens issued yet. | |
 | unnamed | 이름 없음 | Unnamed | |
+| autoTokenName | 프롬프트 자동발급 | Auto-issued with prompt | name 센티널 `prompt-auto`의 표시 라벨 |
 | lastUsed | 최근 사용 {날짜} | Last used {날짜} | 함수 |
 | neverUsed | 사용 전 | Not used yet | |
 | revoke | 폐기 | Revoke | |

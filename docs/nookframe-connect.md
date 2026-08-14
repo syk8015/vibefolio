@@ -7,7 +7,9 @@
 ## 흐름
 
 ```
-[1회] 설정 → 연결 탭 → 토큰 발급 → NOOKFRAME_TOKEN 환경변수 (또는 npx nookframe login)
+[1회] 대시보드 연결 패널 → [프롬프트 복사] — 누르는 순간 새 토큰이 자동 발급돼 프롬프트에
+      내장된다(화면에 토큰 표시 없음, 프롬프트 1단계가 npx nookframe login <token>).
+      다시 복사하면 새 토큰 발급 + 이전 자동발급 토큰(name=prompt-auto)은 자동 폐기.
 [매번] 만든 AI에게 "이거 Nookframe에 올려줘"
         → AI가 레포 introspection → payload 작성 → npx nookframe publish (또는 /publish 붙여넣기)
         → POST /api/ingest → projects 행(is_draft=true) 생성 → reviewUrl 반환
@@ -26,6 +28,9 @@
 
 - 형식 `nf_live_<random>`. DB(`api_tokens`)엔 **sha256 해시만** 저장, raw는 발급 응답에서 1회.
 - 발급 `POST /api/tokens` (쿠키), 폐기 `DELETE /api/tokens/[id]` (쿠키·소프트 revoke), 목록은 RLS select.
+- 자동발급(요청5): `POST /api/tokens {auto:true}` — name을 `prompt-auto` 센티널로 고정하고,
+  같은 이름의 살아있는 토큰을 먼저 revoke(유저당 자동발급 토큰 상시 1개). 연결 패널의
+  [프롬프트 복사]가 이 경로만 쓴다(수동 발급 UI는 제거, API의 name 발급은 하위호환 유지).
 - 검증(`lib/apiToken.ts`): Bearer 헤더 전용 → 해시 조회(`.is('revoked_at',null)`) → user_id.
 - **폭발반경**: 유출돼도 자기 계정의 **초안 INSERT만** 가능. 발행·데모예산 소진·토큰조회는
   전부 쿠키(`auth.uid()`) 전용이라 닿지 못한다. 유저당 토큰 ≤10, 활성 초안 ≤20, 레이트리밋 20/h(user_id 키).

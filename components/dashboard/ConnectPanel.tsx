@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { copyText } from "@/lib/clipboard";
-import { pastePrompt, envExport, NPX_LOGIN } from "@/lib/connectSnippets";
+import { pastePrompt, AUTO_TOKEN_NAME } from "@/lib/connectSnippets";
 import { useT } from "@/lib/i18n/client";
 
 interface TokenRow {
@@ -15,36 +15,20 @@ interface TokenRow {
   last_used_at: string | null;
 }
 
-function CopyButton({ text, label }: { text: string; label?: string }) {
-  const { t } = useT();
-  const [copied, setCopied] = useState(false);
-  return (
-    <button
-      type="button"
-      onClick={async () => {
-        if (await copyText(text)) {
-          setCopied(true);
-          setTimeout(() => setCopied(false), 1600);
-        }
-      }}
-      className="vf-button-ghost"
-      style={{ fontSize: "0.75rem", padding: "0.35rem 0.7rem", whiteSpace: "nowrap" }}
-    >
-      {copied ? t.connect.copied : label ?? t.connect.copy}
-    </button>
-  );
-}
-
 // 옛 "연결" 독립 탭(내부 id는 settings — 라벨과 불일치). 작품을 "넣는 방법"이라
 // 작품 탭의 접히는 영역으로 흡수됐고, 이름도 실제 역할에 맞춰 ConnectPanel로.
 // username은 profiles 단일 출처(ProjectsTab 경유) — metadata 파생 금지.
+//
+// 요청5(2026-08-14): "토큰 발급 → 프롬프트 복사" 2단계를 버튼 하나로 단일화.
+// [프롬프트 복사]가 눌리는 순간 서버가 새 토큰을 발급(이전 자동발급분 폐기)하고,
+// 토큰이 든 프롬프트를 통째로 클립보드에 넣는다. raw 토큰은 화면에 절대 안 그린다 —
+// 미리보기 <pre>는 token 없이 호출돼 자리표시 문구가 들어간다.
 export default function ConnectPanel({ username }: { username: string }) {
   const { t, locale } = useT();
   const [tokens, setTokens] = useState<TokenRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [creating, setCreating] = useState(false);
-  const [newName, setNewName] = useState("");
-  const [revealed, setRevealed] = useState<string | null>(null);
+  const [copying, setCopying] = useState(false);
+  const [copiedOnce, setCopiedOnce] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const origin = typeof window !== "undefined" ? window.location.origin : "https://nookframe.com";
 
@@ -63,27 +47,34 @@ export default function ConnectPanel({ username }: { username: string }) {
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { load(); }, []);
 
-  async function createToken() {
-    setCreating(true);
+  // 발급+복사 원자 흐름. 발급은 됐는데 클립보드가 실패하면 그 토큰은 버려진 상태로
+  // 남지만, 다음 시도가 자동 폐기하므로 따로 청소하지 않는다.
+  async function copyPromptWithToken() {
+    setCopying(true);
     setError(null);
+    setCopiedOnce(false);
     try {
       const res = await fetch("/api/tokens", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newName.trim() || null }),
+        body: JSON.stringify({ auto: true }),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
         setError(body.error || t.connect.issueFailed);
         return;
       }
-      setRevealed(body.token as string);
-      setNewName("");
+      const ok = await copyText(pastePrompt(origin, locale, body.token as string));
+      if (!ok) {
+        setError(t.connect.copyFailed);
+        return;
+      }
+      setCopiedOnce(true);
       await load();
     } catch {
       setError(t.connect.networkFailed);
     } finally {
-      setCreating(false);
+      setCopying(false);
     }
   }
 
@@ -104,66 +95,33 @@ export default function ConnectPanel({ username }: { username: string }) {
         {t.connect.intro1}<b style={{ color: "var(--text-primary)" }}>{username}</b>{t.connect.intro2}
       </p>
 
-      {/* 1) 토큰 발급 */}
+      {/* 붙여넣기 프롬프트 — 복사 순간 토큰 자동 발급·내장 */}
       <div className="vf-card p-5 mb-5">
-        <p className="text-sm mb-1" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontWeight: 600 }}>
-          {t.connect.step1Title}
-        </p>
+        <div className="flex items-center justify-between gap-3 mb-2">
+          <p className="text-sm" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontWeight: 600 }}>
+            {t.connect.promptTitle}
+          </p>
+          <button
+            type="button"
+            onClick={copyPromptWithToken}
+            disabled={copying}
+            className="vf-button-primary"
+            style={{ whiteSpace: "nowrap", fontSize: "0.8rem", padding: "0.45rem 0.9rem", opacity: copying ? 0.6 : 1 }}
+          >
+            {copying ? t.connect.copying : t.connect.copyPrompt}
+          </button>
+        </div>
         <p className="text-xs mb-3" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", lineHeight: 1.6 }}>
-          {t.connect.step1Body}
+          {t.connect.promptBody}
         </p>
-
-        {revealed ? (
-          <div className="p-3 rounded-lg mb-1" style={{ background: "var(--surface-soft)", border: "1px solid var(--border)" }}>
-            <p className="text-xs mb-2" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
-              {t.connect.revealNote}
-            </p>
-            <div className="flex items-center gap-2 mb-2">
-              <code className="flex-1 min-w-0 text-xs px-2 py-2 rounded" style={{ background: "var(--bg)", color: "var(--text-primary)", fontFamily: "var(--font-mono), monospace", overflowX: "auto", whiteSpace: "nowrap" }}>
-                {revealed}
-              </code>
-              <CopyButton text={revealed} />
-            </div>
-            <p className="text-xs mb-1" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
-              {t.connect.terminalOnce}
-            </p>
-            <div className="flex items-center gap-2 mb-2">
-              <code className="flex-1 min-w-0 text-xs px-2 py-2 rounded" style={{ background: "var(--bg)", color: "var(--text-secondary)", fontFamily: "var(--font-mono), monospace", overflowX: "auto", whiteSpace: "nowrap" }}>
-                {envExport(revealed)}
-              </code>
-              <CopyButton text={envExport(revealed)} />
-            </div>
-            <button onClick={() => setRevealed(null)} className="vf-button-ghost" style={{ fontSize: "0.75rem", padding: "0.35rem 0.7rem" }}>
-              {t.connect.savedClose}
-            </button>
-          </div>
-        ) : (
-          <div className="flex items-center gap-2">
-            <input
-              className="vf-input flex-1"
-              placeholder={t.connect.tokenNamePlaceholder}
-              value={newName}
-              maxLength={80}
-              onChange={(e) => setNewName(e.target.value)}
-            />
-            <button onClick={createToken} disabled={creating} className="vf-button-primary" style={{ whiteSpace: "nowrap", opacity: creating ? 0.6 : 1 }}>
-              {creating ? t.connect.issuing : t.connect.issue}
-            </button>
-          </div>
+        {copiedOnce && (
+          <p className="text-xs mb-3 p-3 rounded-lg" style={{ background: "var(--surface-soft)", color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", lineHeight: 1.6 }}>
+            {t.connect.copiedNote}
+          </p>
         )}
         {error && (
-          <p className="text-xs mt-2" style={{ color: "var(--danger)", fontFamily: "var(--font-nunito)" }}>{error}</p>
+          <p className="text-xs mb-3" style={{ color: "var(--danger)", fontFamily: "var(--font-nunito)" }}>{error}</p>
         )}
-      </div>
-
-      {/* 2) 붙여넣기 프롬프트 */}
-      <div className="vf-card p-5 mb-5">
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-sm" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontWeight: 600 }}>
-            {t.connect.step2Title}
-          </p>
-          <CopyButton text={pastePrompt(origin, locale)} label={t.connect.copyPrompt} />
-        </div>
         <pre
           className="text-xs p-3 rounded-lg"
           style={{ background: "var(--surface-soft)", color: "var(--text-secondary)", fontFamily: "var(--font-mono), monospace", whiteSpace: "pre-wrap", lineHeight: 1.6, maxHeight: 240, overflowY: "auto" }}
@@ -171,11 +129,11 @@ export default function ConnectPanel({ username }: { username: string }) {
           {pastePrompt(origin, locale)}
         </pre>
         <p className="text-xs mt-2" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", lineHeight: 1.6 }}>
-          {t.connect.noShell1}<Link href="/publish" style={{ color: "var(--text-primary)", textDecoration: "underline" }}>{origin.replace(/^https?:\/\//, "")}/publish</Link>{t.connect.noShell2}<code style={{ fontFamily: "var(--font-mono), monospace" }}>{NPX_LOGIN}</code>{t.connect.noShell3}
+          {t.connect.noShell1}<Link href="/publish" style={{ color: "var(--text-primary)", textDecoration: "underline" }}>{origin.replace(/^https?:\/\//, "")}/publish</Link>{t.connect.noShell2}
         </p>
       </div>
 
-      {/* 3) 발급된 토큰 목록 */}
+      {/* 발급된 토큰 목록 */}
       <div className="vf-card p-5">
         <p className="text-sm mb-3" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontWeight: 600 }}>
           {t.connect.tokensTitle}
@@ -190,7 +148,7 @@ export default function ConnectPanel({ username }: { username: string }) {
               <div key={row.id} className="flex items-center justify-between gap-3 py-2" style={{ borderBottom: "1px solid var(--border)" }}>
                 <div className="min-w-0">
                   <p className="text-sm" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontWeight: 500 }}>
-                    {row.name || t.connect.unnamed}
+                    {row.name === AUTO_TOKEN_NAME ? t.connect.autoTokenName : row.name || t.connect.unnamed}
                   </p>
                   <p className="text-xs" style={{ color: "var(--text-muted)", fontFamily: "var(--font-mono), monospace" }}>
                     {row.token_prefix} · {row.last_used_at ? t.connect.lastUsed(new Date(row.last_used_at).toLocaleDateString(locale === "ko" ? "ko-KR" : "en-US")) : t.connect.neverUsed}
