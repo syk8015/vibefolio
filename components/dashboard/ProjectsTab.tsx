@@ -163,7 +163,9 @@ export default function ProjectsTab({ user, username, reviewProjectId }: { user:
     if (error) throw new Error(error.message);
     if (data) {
       const inserted = data as DBProject;
-      const source = detectDemoSource(form.demo_url);
+      // 수동 시연 영상이 있으면 자동 촬영 생략: 노출 순위에서 video_url이 항상
+      // 이겨 촬영본이 보일 일이 없으므로 비용·워커 시간만 쓴다(Connect 요청1 합의).
+      const source = form.video_url ? null : detectDemoSource(form.demo_url);
       // 자동 시연 영상이 가능한 소스(github URL · 파일 업로드 · 외부 URL)는 잡 트리거 + 옵티미스틱 pending 배지
       const optimistic: DBProject = source
         ? { ...inserted, demo_build_status: "pending", demo_source_type: source.type, demo_source_value: source.value }
@@ -302,7 +304,9 @@ export default function ProjectsTab({ user, username, reviewProjectId }: { user:
     // 초안 → 공개: is_draft=false로 내리고 published 리스트로 옮긴 뒤, 기존 추가
     // 플로우와 동일하게 자동 시연을 트리거한다(쿼터·모더레이션·held 전부 상속).
     const supabase = createClient();
-    const source = detectDemoSource(project.demo_url);
+    // 인제스트로 들어온 수동 시연 영상(video_url)이 있으면 자동 촬영 생략 — 위
+    // handleAdd와 같은 이유(노출 순위상 촬영본이 보이지 않음).
+    const source = project.video_url ? null : detectDemoSource(project.demo_url);
     const published: DBProject = source
       ? { ...project, is_draft: false, demo_build_status: "pending", demo_source_type: source.type, demo_source_value: source.value }
       : { ...project, is_draft: false };

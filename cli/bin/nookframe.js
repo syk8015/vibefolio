@@ -14,6 +14,8 @@ const HELP = `nookframe — 바이브코딩 작품을 한 줄로 Nookframe에 �
     --access-url <u>   로그인 필요 앱의 데모/게스트 진입 URL·경로 (예 /demo)
     --access-params <q> 진입 URL에 붙일 쿼리 (예 "guest=1&lang=ko")
     --access-note <t>  데모 모드 보는 법 한두 문장 (계정 아이디/비번 금지 — 안 받음)
+    --screenshot <p>   썸네일용 스크린샷 이미지 (png/jpg/webp/gif, ≤5MB)
+    --video <p>        직접 만든 시연 영상 (mp4/webm, ≤20MB — 주면 자동 촬영 생략)
     --json '<payload>' AI가 만든 전체 payload JSON (다른 플래그와 병합, JSON 우선)
     --origin <url>     API origin (기본 ${getOrigin()})
   login <token>      토큰을 ~/.nookframe/config.json 에 저장

@@ -38,6 +38,11 @@
     (`appUrl` = 랜딩과 앱이 나뉜 제품의 실제 앱 화면 URL — 있으면 deployUrl보다 우선해 임베드·촬영 대상이 된다. 검증은 deployUrl과 동일)
     (`demoAccess` = 로그인 필요 앱의 데모 모드 진입 정보 `{ url?, params?, note? }` — url은 데모/게스트 진입 URL 또는 `/`경로(≤500자, 절대 URL은 deployUrl과 같은 콘텐츠호스트·사설망·SSRF 게이트), params는 진입 URL에 붙일 쿼리(≤12개, 키·값 ≤120자), note는 데모 모드 보는 법(≤500자, 레코더 브리핑에 데이터로 주입). **계정 아이디/비번은 받지 않는다.** 인제스트는 `projects.demo_access` jsonb에 저장만 하고, 사용은 발행 시점 trigger-demo(절대 URL 재검증) → 로컬 워커(진입 URL 조립+브리핑)가 유일 경로 — demo_* 파이프라인 불변식과 무관한 유저 콘텐츠 컬럼이다. 마이그레이션: `supabase/migration_demo_access.sql`)
   - `multipart/form-data` — `payload`(위 JSON 문자열) + `bundle`(정적 사이트 zip, ≤25MB, `index.html` 필수)
+    + 선택 미디어 파트(요청1): `screenshot`(이미지 1장 → `thumbnail`, png/jpg/webp/gif ≤5MB) ·
+    `video`(제작자 시연 영상 1개 → `video_url`=노출 1순위, mp4/webm ≤20MB). 형식은 서버가
+    **매직바이트로 판정**(자칭 Content-Type·확장자 불신), 저장은 `{uid}/{rowId}/_media/`(행 수명주기 공유).
+    video가 있으면 대시보드 발행 시 **자동 촬영을 생략**한다(노출 순위상 촬영본이 보이지 않으므로).
+    내용 모더레이션은 1차 미도입 — 대시보드 수동 업로드와 같은 노출면(신고·admin 사후 대응).
 - payload 매핑: `demoHighlights`→`demo_user_hint`(≤500, 레코더에 주입되는 유일 텍스트),
   `builderNote`→`comment`, `tags`는 AI_TOOLS 화이트리스트로 필터, `contentType`은 8개 고정 id.
 - 파일 경로: 행 id 확보 → `project-files/{uid}/{rowId}/…` 업로드 → `demo_url=/api/preview/…/index.html`.

@@ -26,7 +26,7 @@ export async function runMcp() {
   const TOOL = {
     name: "publish_to_nookframe",
     description:
-      "이 프로젝트를 Nookframe(바이브코딩 포트폴리오)에 초안으로 올린다. 당신이 이 프로젝트를 만든 AI로서 레포(README·라우트·git log)를 근거로 title/description/demoHighlights를 직접 작성해 전달하라. deployUrl(배포된 공개 URL) 또는 dir(로컬 정적 빌드 폴더 절대경로) 중 하나를 준다. 랜딩과 실제 앱 화면 주소가 다르면 appUrl에 앱 URL을 함께 줘라(시연·임베드는 appUrl을 연다). 로그인해야 화면이 보이는 앱이면 demoAccess에 로그인 없이 들어가는 데모/게스트 진입 정보를 줘라(계정 아이디/비번은 받지 않는다). demoHighlights는 '○○를 클릭' 같은 지시가 아니라 '○○ 기능이 핵심' 처럼 서술형으로.",
+      "이 프로젝트를 Nookframe(바이브코딩 포트폴리오)에 초안으로 올린다. 당신이 이 프로젝트를 만든 AI로서 레포(README·라우트·git log)를 근거로 title/description/demoHighlights를 직접 작성해 전달하라. deployUrl(배포된 공개 URL) 또는 dir(로컬 정적 빌드 폴더 절대경로) 중 하나를 준다. 랜딩과 실제 앱 화면 주소가 다르면 appUrl에 앱 URL을 함께 줘라(시연·임베드는 appUrl을 연다). 로그인해야 화면이 보이는 앱이면 demoAccess에 로그인 없이 들어가는 데모/게스트 진입 정보를 줘라(계정 아이디/비번은 받지 않는다). 직접 찍은 스크린샷·시연 영상 파일이 있으면 screenshot/video에 절대경로로 줘라(영상을 주면 자동 촬영은 생략된다). demoHighlights는 '○○를 클릭' 같은 지시가 아니라 '○○ 기능이 핵심' 처럼 서술형으로.",
     inputSchema: {
       type: "object",
       properties: {
@@ -56,6 +56,8 @@ export async function runMcp() {
           },
         },
         dir: { type: "string", description: "정적 빌드 디렉터리 절대경로 (deployUrl이 없을 때)" },
+        screenshot: { type: "string", description: "썸네일로 쓸 스크린샷 이미지 절대경로 (png/jpg/webp/gif, ≤5MB)" },
+        video: { type: "string", description: "직접 만든 시연 영상 절대경로 (mp4/webm, ≤20MB — 있으면 자동 촬영 생략)" },
       },
       required: ["title"],
     },
@@ -68,11 +70,13 @@ export async function runMcp() {
       return { isError: true, content: [{ type: "text", text: `알 수 없는 툴: ${req.params.name}` }] };
     }
     const a = req.params.arguments || {};
-    const { dir, ...payload } = a;
+    const { dir, screenshot, video, ...payload } = a;
     try {
       const body = await runPublish({
         payload,
         dir: dir || null,
+        screenshotPath: screenshot || null,
+        videoPath: video || null,
         token: getToken(),
         origin: getOrigin(),
       });

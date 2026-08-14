@@ -60,6 +60,48 @@ export class UploadError extends Error {
   }
 }
 
+// ── 제작자 미디어(Connect 요청1) — 인제스트 multipart의 screenshot/video 파트 캡.
+// 대시보드 수동 업로드와 같은 노출면(thumbnail·video_url)이므로 캡도 맞춘다
+// (영상 20MB=대시보드 동일, 이미지 5MB). 대시보드의 30초 길이 검사는 브라우저
+// 메타데이터로만 가능해 서버 인제스트는 바이트 캡만 건다(의도된 비대칭).
+export const MAX_MEDIA_IMAGE_BYTES = 5 * 1024 * 1024;
+export const MAX_MEDIA_VIDEO_BYTES = 20 * 1024 * 1024;
+
+// 매직바이트 스니핑 — 확장자/Content-Type 자칭은 신뢰하지 않는다(서비스롤 업로드라
+// 스토리지 RLS 우회 → 여기서 실제 미디어인지 확정하고 저장 확장자·MIME도 여기서
+// 나온 값만 쓴다). 반환 null = 지원 포맷 아님.
+export function sniffImage(buf: Uint8Array): { ext: string; mime: string } | null {
+  if (buf.length < 12) return null;
+  if (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47) {
+    return { ext: "png", mime: "image/png" };
+  }
+  if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) {
+    return { ext: "jpg", mime: "image/jpeg" };
+  }
+  if (buf[0] === 0x47 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x38) {
+    return { ext: "gif", mime: "image/gif" };
+  }
+  const ascii = (i: number, s: string) =>
+    s.split("").every((ch, k) => buf[i + k] === ch.charCodeAt(0));
+  if (ascii(0, "RIFF") && ascii(8, "WEBP")) {
+    return { ext: "webp", mime: "image/webp" };
+  }
+  return null;
+}
+
+export function sniffVideo(buf: Uint8Array): { ext: string; mime: string } | null {
+  if (buf.length < 12) return null;
+  const ascii = (i: number, s: string) =>
+    s.split("").every((ch, k) => buf[i + k] === ch.charCodeAt(0));
+  // mp4/mov 계열: 4~7 바이트가 "ftyp".
+  if (ascii(4, "ftyp")) return { ext: "mp4", mime: "video/mp4" };
+  // webm(EBML 헤더 — mkv도 걸리지만 브라우저 재생 가능 범위로 수용).
+  if (buf[0] === 0x1a && buf[1] === 0x45 && buf[2] === 0xdf && buf[3] === 0xa3) {
+    return { ext: "webm", mime: "video/webm" };
+  }
+  return null;
+}
+
 export interface ExpandedEntry {
   relativePath: string;
   data: Uint8Array;

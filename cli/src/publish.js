@@ -1,4 +1,5 @@
 import { existsSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import { join, basename, resolve } from "node:path";
 import { getToken, getOrigin } from "./config.js";
 import { zipDir } from "./zip.js";
@@ -6,8 +7,10 @@ import { zipDir } from "./zip.js";
 const BUILD_DIRS = ["dist", "out", "build", "public"];
 
 // CLI와 MCP가 공유하는 인제스트 코어. payload(제목·설명 등) + (dir zip | deployUrl) 중
-// 하나로 POST /api/ingest. 성공 시 { projectId, reviewUrl } 반환, 실패 시 throw.
-export async function runPublish({ payload = {}, dir = null, token, origin }) {
+// 하나로 POST /api/ingest. screenshotPath/videoPath(제작자 미디어 — 이미지≤5MB·
+// 영상≤20MB, 영상을 주면 발행 시 자동 촬영 생략)가 있으면 multipart로 동봉.
+// 성공 시 { projectId, reviewUrl } 반환, 실패 시 throw.
+export async function runPublish({ payload = {}, dir = null, screenshotPath = null, videoPath = null, token, origin }) {
   if (!token) {
     throw new Error(
       "토큰이 없어요. nookframe.com/dashboard → 연결 탭에서 발급 후 `NOOKFRAME_TOKEN` 환경변수에 넣거나 `npx nookframe login <token>` 하세요.",
@@ -20,26 +23,37 @@ export async function runPublish({ payload = {}, dir = null, token, origin }) {
     payload.title = dir ? basename(dir) : entryUrl ? safeHost(entryUrl) : "제목 없음";
   }
 
+  if (!dir && !entryUrl) {
+    throw new Error("올릴 대상이 없어요 — 배포 URL은 --url, 정적 빌드는 --dir 로 알려주세요.");
+  }
+
   let res;
-  if (dir) {
-    const buf = await zipDir(dir);
+  if (dir || screenshotPath || videoPath) {
+    // 파일이 하나라도 있으면 multipart(미디어만 있고 dir이 없으면 payload의 URL이 대상).
     const fd = new FormData();
     fd.append("payload", JSON.stringify(payload));
-    fd.append("bundle", new Blob([buf], { type: "application/zip" }), "bundle.zip");
+    if (dir) {
+      const buf = await zipDir(dir);
+      fd.append("bundle", new Blob([buf], { type: "application/zip" }), "bundle.zip");
+    }
+    if (screenshotPath) {
+      fd.append("screenshot", new Blob([await readFile(screenshotPath)]), basename(screenshotPath));
+    }
+    if (videoPath) {
+      fd.append("video", new Blob([await readFile(videoPath)]), basename(videoPath));
+    }
     // FormData는 fetch가 boundary 포함 Content-Type을 자동 설정 — 직접 넣지 않는다.
     res = await fetch(endpoint, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },
       body: fd,
     });
-  } else if (entryUrl) {
+  } else {
     res = await fetch(endpoint, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-  } else {
-    throw new Error("올릴 대상이 없어요 — 배포 URL은 --url, 정적 빌드는 --dir 로 알려주세요.");
   }
 
   const body = await res.json().catch(() => ({}));
@@ -97,11 +111,25 @@ export async function publishCommand(args) {
     }
   }
 
+  // 제작자 미디어(요청1): 이미지≤5MB(png/jpg/webp/gif)·영상≤20MB(mp4/webm),
+  // 검증은 서버(매직바이트)가 한다. 영상을 주면 발행 시 자동 촬영이 생략된다.
+  const screenshotPath = args.screenshot ? resolve(args.screenshot) : null;
+  const videoPath = args.video ? resolve(args.video) : null;
+  if (screenshotPath && !existsSync(screenshotPath)) {
+    throw new Error(`스크린샷 파일이 없어요: ${screenshotPath}`);
+  }
+  if (videoPath && !existsSync(videoPath)) {
+    throw new Error(`영상 파일이 없어요: ${videoPath}`);
+  }
+
   const shownUrl = payload.appUrl || payload.deployUrl;
   if (dir) console.log(`📦 ${dir} 압축·업로드 중…`);
   else if (shownUrl) console.log(`🔗 ${shownUrl} 등록 중…`);
+  if (screenshotPath || videoPath) {
+    console.log(`🖼️ 미디어 동봉: ${[screenshotPath, videoPath].filter(Boolean).map((p) => basename(p)).join(", ")}`);
+  }
 
-  const body = await runPublish({ payload, dir, token, origin });
+  const body = await runPublish({ payload, dir, screenshotPath, videoPath, token, origin });
   console.log("\n✓ Nookframe에 초안으로 올렸어요.");
   console.log(`  확인하고 공개: ${body.reviewUrl}`);
 }

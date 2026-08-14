@@ -11,7 +11,10 @@ import { assertSafePublicUrl, SsrfError } from "@/lib/ssrf";
 import { screenshotUrl } from "@/lib/thumbnail";
 import { normalizeTags, normalizeContentType } from "@/lib/projectTaxonomy";
 import { normalizeDemoAccess, type DemoAccess } from "@/lib/demoAccess";
-import { MAX_UPLOAD_BYTES, MAX_ZIP_ENTRIES, expandZipBundle, findIndexHtml, UploadError } from "@/lib/upload-safety";
+import {
+  MAX_UPLOAD_BYTES, MAX_ZIP_ENTRIES, expandZipBundle, findIndexHtml, UploadError,
+  MAX_MEDIA_IMAGE_BYTES, MAX_MEDIA_VIDEO_BYTES, sniffImage, sniffVideo,
+} from "@/lib/upload-safety";
 import { logger } from "@/lib/logger";
 
 // POST /api/ingest — Nookframe Connect. 외부 AI 에이전트(CLI/MCP/붙여넣기)가 로그인된
@@ -22,9 +25,10 @@ import { logger } from "@/lib/logger";
 
 // 검토 대기 초안 상한(유저당). 무한 초안 생성 남용을 막는다.
 const MAX_ACTIVE_DRAFTS = 20;
-// multipart 본문 상한(zip 25MB + form 오버헤드 여유). Next 16 App Router는 암묵
-// 본문 상한이 없어 명시적으로 막는다.
-const MAX_BODY_BYTES = MAX_UPLOAD_BYTES + 2 * 1024 * 1024;
+// multipart 본문 상한(zip 25MB + 미디어 20+5MB + form 오버헤드 여유). Next 16
+// App Router는 암묵 본문 상한이 없어 명시적으로 막는다.
+const MAX_BODY_BYTES =
+  MAX_UPLOAD_BYTES + MAX_MEDIA_VIDEO_BYTES + MAX_MEDIA_IMAGE_BYTES + 2 * 1024 * 1024;
 
 interface IngestPayload {
   title?: unknown;
@@ -74,6 +78,11 @@ export async function POST(req: NextRequest) {
     const contentType = req.headers.get("content-type") ?? "";
     let payload: IngestPayload;
     let bundle: File | null = null;
+    // 제작자 미디어(요청1): screenshot(이미지 1장→thumbnail)·video(영상 1개→
+    // video_url, 노출 1순위). 내용 스캔은 1차 미도입 — 대시보드 수동 업로드와
+    // 같은 노출면·같은 사후 대응(신고·admin), 위협모델의 기존 열린 항목에 합류.
+    let screenshot: File | null = null;
+    let video: File | null = null;
 
     if (contentType.includes("multipart/form-data")) {
       const declaredLen = Number(req.headers.get("content-length") ?? "0");
@@ -93,6 +102,14 @@ export async function POST(req: NextRequest) {
       const file = form.get("bundle");
       if (file && typeof file === "object" && "arrayBuffer" in file) {
         bundle = file as File;
+      }
+      const shot = form.get("screenshot");
+      if (shot && typeof shot === "object" && "arrayBuffer" in shot) {
+        screenshot = shot as File;
+      }
+      const vid = form.get("video");
+      if (vid && typeof vid === "object" && "arrayBuffer" in vid) {
+        video = vid as File;
       }
     } else {
       let body: unknown;
@@ -155,6 +172,40 @@ export async function POST(req: NextRequest) {
           }
           throw e;
         }
+      }
+    }
+
+    // 미디어 검증 — 행을 만들기 전에 캡·매직바이트로 실패를 조기 확정한다.
+    // 저장 확장자·MIME은 스니핑 결과만 쓴다(자칭 Content-Type·파일명 불신 —
+    // 서비스롤 업로드는 스토리지 RLS를 우회하므로 여기가 형식 게이트다).
+    let shotBuf: Uint8Array | null = null;
+    let shotType: { ext: string; mime: string } | null = null;
+    if (screenshot) {
+      if (screenshot.size > MAX_MEDIA_IMAGE_BYTES) {
+        return apiError({
+          status: 413, code: "MEDIA_TOO_LARGE",
+          message: t.api.mediaImageTooLarge(MAX_MEDIA_IMAGE_BYTES / 1024 / 1024),
+        });
+      }
+      shotBuf = new Uint8Array(await screenshot.arrayBuffer());
+      shotType = sniffImage(shotBuf);
+      if (!shotType) {
+        return apiError({ status: 400, message: t.api.mediaImageBadType, code: "BAD_MEDIA" });
+      }
+    }
+    let videoBuf: Uint8Array | null = null;
+    let videoType: { ext: string; mime: string } | null = null;
+    if (video) {
+      if (video.size > MAX_MEDIA_VIDEO_BYTES) {
+        return apiError({
+          status: 413, code: "MEDIA_TOO_LARGE",
+          message: t.api.mediaVideoTooLarge(MAX_MEDIA_VIDEO_BYTES / 1024 / 1024),
+        });
+      }
+      videoBuf = new Uint8Array(await video.arrayBuffer());
+      videoType = sniffVideo(videoBuf);
+      if (!videoType) {
+        return apiError({ status: 400, message: t.api.mediaVideoBadType, code: "BAD_MEDIA" });
       }
     }
 
@@ -238,7 +289,7 @@ export async function POST(req: NextRequest) {
         demo_access: demoAccess,
         tags,
         content_type: contentTypeId,
-        type: "image",
+        type: videoBuf ? "video" : "image",
         year: new Date().getFullYear().toString(),
         demo_url: demoUrl,
         thumbnail,
@@ -316,6 +367,39 @@ export async function POST(req: NextRequest) {
         }
         logger.error("ingest: file upload failed", { error: e, projectId });
         return apiError({ status: 500, message: t.api.uploadProcessingError, code: "UPLOAD_ERROR", cause: e });
+      }
+    }
+
+    // 8.5. 제작자 미디어 업로드 — 행 폴더 아래 `_media/`(프로젝트 삭제 시 zip과
+    // 같은 수명주기로 정리). 키는 서버가 고정 파일명+스니핑 확장자로 조립하므로
+    // traversal 여지가 없다. screenshot은 thumbnail을(thum.io 스크린샷보다 우선),
+    // video는 video_url(노출 1순위 표면)을 채운다.
+    if (shotBuf || videoBuf) {
+      try {
+        const updates: Record<string, string> = {};
+        if (shotBuf && shotType) {
+          const key = `${userId}/${projectId}/_media/screenshot.${shotType.ext}`;
+          const { error: upErr } = await admin.storage
+            .from("project-files")
+            .upload(key, shotBuf, { upsert: true, contentType: shotType.mime });
+          if (upErr) throw new Error(`screenshot upload: ${upErr.message}`);
+          updates.thumbnail = admin.storage.from("project-files").getPublicUrl(key).data.publicUrl;
+        }
+        if (videoBuf && videoType) {
+          const key = `${userId}/${projectId}/_media/video.${videoType.ext}`;
+          const { error: upErr } = await admin.storage
+            .from("project-files")
+            .upload(key, videoBuf, { upsert: true, contentType: videoType.mime });
+          if (upErr) throw new Error(`video upload: ${upErr.message}`);
+          updates.video_url = admin.storage.from("project-files").getPublicUrl(key).data.publicUrl;
+        }
+        const { error: updErr } = await admin.from("projects").update(updates).eq("id", projectId);
+        if (updErr) throw new Error(`media row update: ${updErr.message}`);
+      } catch (e) {
+        // 고아 행 정리 — zip 실패 경로와 동일 정책(스토리지 잔재는 storage-audit이 회수).
+        await admin.from("projects").delete().eq("id", projectId);
+        logger.error("ingest: media upload failed", { error: e, projectId });
+        return apiError({ status: 500, message: t.api.mediaUploadFailed, code: "MEDIA_UPLOAD_FAILED", cause: e });
       }
     }
 
