@@ -41,6 +41,10 @@
 - 본문:
   - `application/json` — `{ title, description?, builderNote?, demoHighlights?, tags?, contentType?, deployUrl?, appUrl?, demoAccess? }`
     (`appUrl` = 랜딩과 앱이 나뉜 제품의 실제 앱 화면 URL — 있으면 deployUrl보다 우선해 임베드·촬영 대상이 된다. 검증은 deployUrl과 동일)
+    (`deployUrl`/`appUrl`은 `detectDemoSource`가 github 저장소 URL도 인식한다 — 미배포+서버/DB 필요 앱의
+    최후수단으로 08-14부터 프롬프트·MCP·CLI가 안내. 공개 저장소·`dev`/`start` 스크립트 필수, 원격 DB
+    감지 시 읽기전용 데모로 격하, best-effort(`local-runner/build.ts`). 같은 날 발견한 버그
+    — `next dev`는 `--host`가 아니라 `-H`만 지원해 Next.js 프로젝트가 이 경로에서 죽던 것 — 도 같이 수정)
     (`demoAccess` = 로그인 필요 앱의 데모 모드 진입 정보 `{ url?, params?, note? }` — url은 데모/게스트 진입 URL 또는 `/`경로(≤500자, 절대 URL은 deployUrl과 같은 콘텐츠호스트·사설망·SSRF 게이트), params는 진입 URL에 붙일 쿼리(≤12개, 키·값 ≤120자), note는 데모 모드 보는 법(≤500자, 레코더 브리핑에 데이터로 주입). **계정 아이디/비번은 받지 않는다.** 인제스트는 `projects.demo_access` jsonb에 저장만 하고, 사용은 발행 시점 trigger-demo(절대 URL 재검증) → 로컬 워커(진입 URL 조립+브리핑)가 유일 경로 — demo_* 파이프라인 불변식과 무관한 유저 콘텐츠 컬럼이다. 마이그레이션: `supabase/migration_demo_access.sql`)
   - `multipart/form-data` — `payload`(위 JSON 문자열) + `bundle`(정적 사이트 zip, `index.html` 필수)
     + 선택 미디어 파트(요청1): `screenshot`(이미지 1장 → `thumbnail`, png/jpg/webp/gif ≤5MB) ·
