@@ -298,13 +298,14 @@ function RowMenu({ items }: { items: RowMenuItem[] }) {
 // AI가 인제스트로 보낸 "초안" 행. 공개 리스트와 같은 행 언어(시안 A 확정) —
 // 좌측 잉크 바 + "확인하고 공개" 1차 버튼만 다르다. AI가 쓴 카피를 확인 후
 // 공개하면 기존 추가 플로우처럼 자동 시연이 트리거된다.
-export function DraftRow({ draft, highlight, isLast, onEdit, onDelete, onPublish }: {
+export function DraftRow({ draft, highlight, isLast, onEdit, onDelete, onPublish, onReview }: {
   draft: DBProject;
   highlight: boolean;
   isLast: boolean;
   onEdit: () => void;
   onDelete: () => void;
   onPublish: () => void;
+  onReview: () => void;
 }) {
   const { t } = useT();
   const [publishing, setPublishing] = useState(false);
@@ -315,13 +316,16 @@ export function DraftRow({ draft, highlight, isLast, onEdit, onDelete, onPublish
   return (
     <div
       id={`draft-${draft.id}`}
-      className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4 p-3 md:p-4"
+      // 행 자체가 검토 모달 진입점 — "확인하고 공개"의 확인을 여기서 한다.
+      onClick={onReview}
+      className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4 p-3 md:p-4 transition-opacity hover:opacity-85"
       style={{
         background: "var(--surface)",
         borderBottom: isLast ? "none" : "1px solid var(--border)",
         borderLeft: "3px solid var(--text-primary)",
         boxShadow: highlight ? "inset 0 0 0 2px var(--text-primary)" : undefined,
         transition: "box-shadow 0.4s",
+        cursor: "pointer",
       }}
     >
       <div className="flex items-start md:items-center gap-3 md:gap-4 flex-1 min-w-0">
@@ -351,7 +355,8 @@ export function DraftRow({ draft, highlight, isLast, onEdit, onDelete, onPublish
         </div>
       </div>
 
-      <div className="flex items-center gap-1.5 md:gap-2 justify-end shrink-0">
+      {/* 버튼 영역 클릭은 행의 검토 모달 열기로 번지지 않게 차단 */}
+      <div className="flex items-center gap-1.5 md:gap-2 justify-end shrink-0" onClick={e => e.stopPropagation()}>
         <button
           onClick={() => { setPublishing(true); onPublish(); }}
           disabled={publishing}

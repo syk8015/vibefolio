@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import { RerecordRequestModal } from "@/components/dashboard/RerecordRequestModal";
@@ -13,6 +13,7 @@ import { type DBProject, type ProjectForm } from "./projects/types";
 import { DraftRow, ProjectRow } from "./projects/rows";
 import { ProjectFormModal } from "./projects/ProjectFormModal";
 import { AddProjectModal } from "./projects/AddProjectModal";
+import { DraftReviewModal } from "./projects/DraftReviewModal";
 import { useDemoStatusSync } from "./projects/useDemoStatusSync";
 
 // username comes from DashboardClient's profiles row (the handle public links
@@ -25,6 +26,10 @@ export default function ProjectsTab({ user, username, reviewProjectId }: { user:
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editProject, setEditProject] = useState<DBProject | null>(null);
+  const [reviewDraft, setReviewDraft] = useState<DBProject | null>(null);
+  // ?review 딥링크는 첫 매칭 때 한 번만 모달을 연다 — 닫은 뒤 drafts가 갱신될
+  // 때마다 다시 열리면 안 되니까.
+  const reviewLinkConsumed = useRef(false);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [rerecordModal, setRerecordModal] = useState<{ id: string; title: string } | null>(null);
@@ -57,11 +62,21 @@ export default function ProjectsTab({ user, username, reviewProjectId }: { user:
   // eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps
   useEffect(() => { loadProjects(); }, []);
 
-  // ?review=<id> 로 들어오면 그 초안 카드로 스크롤+하이라이트.
+  // ?review=<id> 로 들어오면 그 초안 카드로 스크롤+하이라이트하고, 검토 모달을
+  // 바로 연다(메일 링크의 목적지가 곧 검토 화면).
   useEffect(() => {
     if (!reviewProjectId) return;
     const el = document.getElementById(`draft-${reviewProjectId}`);
     el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    if (!reviewLinkConsumed.current) {
+      const match = drafts.find(d => d.id === reviewProjectId);
+      if (match) {
+        reviewLinkConsumed.current = true;
+        // URL 딥링크 1회 소비 — 캐스케이드 없는 단발 오픈이라 보수 판정만 억제.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setReviewDraft(match);
+      }
+    }
   }, [reviewProjectId, drafts]);
 
   async function saveOrder(ordered: DBProject[]) {
@@ -388,6 +403,7 @@ export default function ProjectsTab({ user, username, reviewProjectId }: { user:
                 onEdit={() => setEditProject(d)}
                 onDelete={() => handleDelete(d.id)}
                 onPublish={() => handlePublishDraft(d)}
+                onReview={() => setReviewDraft(d)}
               />
             ))}
             {projects.map((project, i) => (
@@ -426,6 +442,17 @@ export default function ProjectsTab({ user, username, reviewProjectId }: { user:
           userId={user.id}
           onClose={() => setShowAddModal(false)}
           onSubmit={handleAdd}
+        />
+      )}
+
+      {/* 초안 검토 — 행 클릭/메일 딥링크로 진입, AI가 쓴 전체 내용+미리보기 확인. */}
+      {reviewDraft && (
+        <DraftReviewModal
+          draft={reviewDraft}
+          onClose={() => setReviewDraft(null)}
+          onPublish={() => { const d = reviewDraft; setReviewDraft(null); handlePublishDraft(d); }}
+          onEdit={() => { setEditProject(reviewDraft); setReviewDraft(null); }}
+          onDelete={() => { const d = reviewDraft; setReviewDraft(null); handleDelete(d.id); }}
         />
       )}
 
