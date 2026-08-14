@@ -78,6 +78,10 @@ const SYSTEM_PROMPT = [
   "  features. Never repeat an element, or another with the same purpose. The finished film is capped at",
   "  ~30 seconds — a tight 5-8 beats fits; anything past the budget is cut from the END, so put the most",
   "  impressive features FIRST.",
+  "- COVER THE BREADTH: spread your beats across DIFFERENT sections/screens/tabs of the product. After",
+  "  one or two beats in an area, MOVE ON to the next one — a film that lingers in one section while",
+  "  others go unvisited is a failed demo even if every beat worked. If an action in one area fails or",
+  "  gets cut, do NOT burn more steps there; show a different part instead.",
   "- Every click must visibly change the screen. If a click did nothing visible, do NOT repeat or linger",
   "  on it — move on to a control that clearly does something.",
   "- To CLOSE an open menu/dropdown/popover, press Escape or click its own trigger button again — NEVER",
@@ -93,7 +97,9 @@ const SYSTEM_PROMPT = [
   "If this is only a MARKETING / LANDING page gated behind sign-up (no usable in-page features — just hero",
   "text, sections and a sign-up CTA), do NOT force clicks and do NOT click sign-up/login. Present it as a",
   "smooth scroll-tour: scroll unhurriedly, pausing on each key section (hero, features, FAQ, showcase).",
-  "That IS the demo for a landing page.",
+  "That IS the demo for a landing page. Give EVERY section its pause exactly once, in order — never circle",
+  "back to one you already showed. If the page switches sections IN PLACE (pill buttons / an in-page nav",
+  "that swaps the visible block), visit each DIFFERENT target once and never re-open the same one twice.",
   "",
   "End your turn (no tool call) once you've shown the product well and there is no genuinely new",
   "interactive feature (or, for a landing, no more sections) left to show. Don't pad with repeated or",
@@ -354,6 +360,31 @@ async function dragNoVisibleChange(
   if (g < EXPLORE_NOOP_SSIM) return false;
   if (!(await patchUnchanged(before, after, d.x, d.y))) return false;
   return await patchUnchanged(before, after, d.toX, d.toY);
+}
+
+// Slow-effect recheck (피드백 A-2): an action that reads as a no-op right after
+// pacing may just be AHEAD of its effect — navigation committing, spinner-less
+// async UI, or an in-place section transition whose animation starts late (the
+// observed case: a landing's section-switch button kept getting pruned as "no
+// change", so the model re-toured the one section that stuck). The old single
+// 600ms recheck fit entirely inside such a transition's delay; instead, poll
+// frames across a wider window and call it unchanged only if EVERY poll still
+// matches the before-frame — the first differing frame (or URL change) keeps
+// the action immediately, so genuinely slow effects cost no extra time.
+const PRUNE_RECHECK_STEP_MS = 600;
+const PRUNE_RECHECK_POLLS = 4; // 600ms × 4 = up to ~2.4s past the first check
+async function settledUnchanged(
+  page: Page,
+  urlBefore: string,
+  unchanged: (cur: Buffer) => Promise<boolean>,
+): Promise<{ unchanged: boolean; cur: Buffer }> {
+  let cur!: Buffer;
+  for (let i = 0; i < PRUNE_RECHECK_POLLS; i++) {
+    await sleep(PRUNE_RECHECK_STEP_MS);
+    cur = await shotBuf(page);
+    if (page.url() !== urlBefore || !(await unchanged(cur))) return { unchanged: false, cur };
+  }
+  return { unchanged: true, cur };
 }
 
 // 컴퓨터유즈 툴 세대는 모델이 결정한다(교차 사용 불가): Sonnet 4.5·Haiku 4.5 =
@@ -937,21 +968,21 @@ export async function explore(page: Page, opts: ExploreOptions = {}): Promise<Ex
             page.url() === urlBefore &&
             (await noVisibleChange(before, cur, clicked.x ?? state.x, clicked.y ?? state.y))
           ) {
-            // Might be a slow effect (navigation committing, spinner-less async
-            // UI): give it one more beat and prune only if STILL unchanged.
-            await sleep(600);
-            cur = await shotBuf(page);
-            if (
-              page.url() === urlBefore &&
-              (await noVisibleChange(before, cur, clicked.x ?? state.x, clicked.y ?? state.y)) &&
-              !(await evalCall<boolean>(page, FOCUSED_INPUT_SRC))
-            ) {
+            // Might be a slow effect: poll a wider window (see settledUnchanged)
+            // and prune only if NO polled frame ever differed.
+            const b = before;
+            const re = await settledUnchanged(page, urlBefore, (c) =>
+              noVisibleChange(b, c, clicked.x ?? state.x, clicked.y ?? state.y),
+            );
+            cur = re.cur;
+            if (re.unchanged && !(await evalCall<boolean>(page, FOCUSED_INPUT_SRC))) {
               actions.splice(lenBefore);
               prunedThis = true;
               console.log(`[explore] pruned click (no visible change): ${name}`);
               note =
                 "That click produced no visible change, so it was cut from the demo script. Don't click " +
-                "empty space or inert elements; pick a control that visibly does something.";
+                "empty space or inert elements, and don't retry this area — move ON to a control in a " +
+                "DIFFERENT section or feature that visibly does something.";
             }
           }
         } catch (e) {
@@ -966,9 +997,10 @@ export async function explore(page: Page, opts: ExploreOptions = {}): Promise<Ex
         const name = dragged.label || dragged.selector || "(coord)";
         try {
           if (page.url() === urlBefore && (await dragNoVisibleChange(before, cur, dragged))) {
-            await sleep(600);
-            cur = await shotBuf(page);
-            if (page.url() === urlBefore && (await dragNoVisibleChange(before, cur, dragged))) {
+            const b = before;
+            const re = await settledUnchanged(page, urlBefore, (c) => dragNoVisibleChange(b, c, dragged));
+            cur = re.cur;
+            if (re.unchanged) {
               actions.splice(lenBefore);
               prunedThis = true;
               console.log(`[explore] pruned drag (no visible change): ${name}`);

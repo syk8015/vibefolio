@@ -62,6 +62,11 @@ update projects set demo_build_status = 'pending', demo_build_error = null
   거절(격리 파일 삭제 + failed `[policy]`). 30분 넘게 방치되면 워치독이 재경보.
 - `[moderation]` 홀드는 크레딧 해제 스윕(`like '[credit]%'`)에 **안 걸린다** —
   마커가 다르므로 위 SQL을 그대로 써도 안전.
+- 같은 프레임으로 **coverage**(`app-ui`/`landing-only`/`unclear`)도 같이 판정한다
+  (08-14 피드백 A-1): 필름에 앱 UI가 실제로 담겼는지 vs 랜딩 스크롤뿐인지. 게시를
+  막지 않는 중립 관측으로, RUN REPORT에 `coverage :` 줄로 찍힌다(landing-only면
+  제작자 `--video` 업로드 권장 문구). `demoAccess.impossible` 선언 시엔 선언 줄이
+  우선. 스캔 안 돈 실행(dry-run·fail-open)은 `unclear`로 줄 생략.
 
 무과금 경로 테스트: `NF_FAKE_MODERATION=flag|ok` (운영 env 설정 금지). 배관 검증:
 `npx -y tsx local-runner/probe-moderation.ts` (`--live` = 실 분류기 1회, ~$0.01).

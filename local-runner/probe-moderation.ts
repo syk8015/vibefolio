@@ -47,6 +47,7 @@ try {
   process.env.NF_FAKE_MODERATION = "ok";
   const fakeOk = await moderateDemo({ framePaths: frames });
   check("NF_FAKE_MODERATION=ok → ok", fakeOk.verdict === "ok" && !fakeOk.failedOpen);
+  check("fake paths report coverage=unclear", fakeFlag.coverage === "unclear" && fakeOk.coverage === "unclear");
   delete process.env.NF_FAKE_MODERATION;
 
   // ── marker safety: credit release sweep keys on '[credit]%' ─────────────────
@@ -64,9 +65,12 @@ try {
   // ── live classifier (opt-in) ────────────────────────────────────────────────
   if (live) {
     const verdict = await moderateDemo({ framePaths: frames, projectTitle: "probe test pattern" });
-    console.log(`  live verdict: ${verdict.verdict} [${verdict.categories.join(", ")}] — ${verdict.reason}`);
+    console.log(`  live verdict: ${verdict.verdict} [${verdict.categories.join(", ")}] coverage=${verdict.coverage} — ${verdict.reason}`);
     check("live: scan ran (not failed-open)", !verdict.failedOpen);
     check("live: benign frames → ok", verdict.verdict === "ok");
+    // A test pattern is neither app UI nor a landing — any enum value proves the
+    // structured-output schema (new required coverage) is accepted end-to-end.
+    check("live: coverage is a valid enum value", ["app-ui", "landing-only", "unclear"].includes(verdict.coverage));
   } else {
     console.log("(--live 생략: 실제 분류기 호출 없음)");
   }

@@ -27,7 +27,7 @@ import { explore, isLoginGated } from "./explore";
 import { installSafety, type BlockedWrite, type SafetyPolicy } from "./safety";
 import { assertFinalUrlPublic, watchLanBreach } from "./netguard";
 import { assertFocusShortcuts, enableFocus } from "./focus";
-import { extractModerationFrames, moderateDemo } from "./moderate";
+import { extractModerationFrames, moderateDemo, type DemoCoverage } from "./moderate";
 import {
   uploadAndMarkDone,
   uploadQuarantined,
@@ -102,6 +102,9 @@ export type RecordDemoResult =
       uploaded?: UploadResult;
       // Scan couldn't run and the take shipped unscanned — worker Sentry-flags it.
       moderationFailedOpen?: boolean;
+      // Vision read of what the film shows (피드백 A-1) — "unclear" when the scan
+      // didn't run (dry-runs) or failed open. For future completion-email copy.
+      coverage?: DemoCoverage;
     };
 
 // Robust load for an arbitrary SPA: domcontentloaded (networkidle can hang on
@@ -369,6 +372,7 @@ export async function recordDemo(opts: RecordDemoOptions): Promise<RecordDemoRes
     // body.mp4 (pre-endcap film) so the brand outro never dilutes the sample.
     const shouldModerate = opts.upload && !projectId.startsWith("manual-");
     let moderationFailedOpen = false;
+    let coverage: DemoCoverage = "unclear";
     if (shouldModerate) {
       const bodyPath = existsSync(`${OUT_DIR}/body.mp4`) ? `${OUT_DIR}/body.mp4` : demo;
       const frames = await extractModerationFrames(bodyPath, `${OUT_DIR}/mod-frames`);
@@ -380,9 +384,11 @@ export async function recordDemo(opts: RecordDemoOptions): Promise<RecordDemoRes
         `[moderate] ${verdict.verdict}` +
           (verdict.categories.length ? ` [${verdict.categories.join(", ")}]` : "") +
           (verdict.failedOpen ? " (failed open — unscanned)" : "") +
+          ` coverage=${verdict.coverage}` +
           ` — ${verdict.reason}`,
       );
       moderationFailedOpen = verdict.failedOpen;
+      coverage = verdict.coverage;
       if (verdict.verdict === "flag") {
         // Quarantine: upload for admin review, but leave demo_video_url alone —
         // the caller (worker) parks the row as held + files the review item.
@@ -409,10 +415,16 @@ export async function recordDemo(opts: RecordDemoOptions): Promise<RecordDemoRes
     console.log("\n=== RUN REPORT ===");
     console.log(`target      : ${url}`);
     console.log(`policy      : ${policy}`);
-    // Coverage honesty (피드백 A-1/B-3): when the maker declared the app itself
-    // unreachable, say plainly that this film is the landing page, not the app.
+    // Coverage honesty (피드백 A-1/B-3): a declared-impossible app is knowingly a
+    // landing film; otherwise the moderation frames' vision read says whether any
+    // app UI actually made it into the film — the failure mode where a green
+    // pipeline ships a "product demo" that is really a landing scroll.
     if (opts.accessImpossible) {
       console.log(`coverage    : landing-only (maker declared the app demo impossible — recommend a creator-made --video)`);
+    } else if (coverage === "landing-only") {
+      console.log(`coverage    : landing-only (vision scan saw no app UI in sampled frames — recommend a creator-made --video, or an appUrl/demoAccess entry the robot can reach)`);
+    } else if (coverage === "app-ui") {
+      console.log(`coverage    : app-ui (vision scan saw the app's interface in the film)`);
     }
     console.log(`script      : ${script.actions.length} actions  (${script.notes})`);
     console.log(`blockedWrites: ${blockedWrites.length}  (mutating requests intercepted → 0 reached the server)`);
@@ -438,6 +450,7 @@ export async function recordDemo(opts: RecordDemoOptions): Promise<RecordDemoRes
       demoDur: ddur,
       uploaded,
       moderationFailedOpen,
+      coverage,
     };
   } finally {
     await restoreFocus();
