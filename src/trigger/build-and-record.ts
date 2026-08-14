@@ -59,6 +59,13 @@ const DISPLAY_H = 887;
 const CAP_W = 1280;
 const CAP_H = 800;
 const DEV_PORT = 3000;
+// Dedicated unprivileged OS user for ALL untrusted project code (npm install
+// postinstall scripts, the background dev server). The recorder runs as the
+// template's default user with ANTHROPIC_API_KEY in its environment, and any
+// same-UID process can read another's /proc/<pid>/environ — so untrusted code
+// must never share a UID with the recorder. Created at runtime (as root) in
+// the github/zip branch below.
+const APP_USER = "demoapp";
 const NODE_PATH_PREFIX = "export PATH=/opt/node/bin:$PATH && ";
 const RECORD_PREFIX =
   NODE_PATH_PREFIX +
@@ -378,9 +385,21 @@ export const buildAndRecord = task({
         });
       }
 
+      // Privilege separation: from here on the project's own code executes
+      // (npm postinstall scripts, then a persistent dev server), and later the
+      // recorder runs with ANTHROPIC_API_KEY in its env. Create APP_USER and
+      // hand the project tree to it so those untrusted processes run under a
+      // different UID and cannot read the recorder's /proc/<pid>/environ. A
+      // failure here throws (CommandExitError), so the job fails closed rather
+      // than ever running untrusted code as the recorder's user.
+      await sandbox.commands.run(
+        `useradd --create-home --shell /bin/bash ${APP_USER} && chown -R ${APP_USER}:${APP_USER} ${shQuote(repoPath)}`,
+        { user: "root" },
+      );
+
       const install = await sandbox.commands.run(
         `${NODE_PATH_PREFIX}cd ${repoPath} && npm install --no-audit --no-fund --prefer-offline`,
-        { timeoutMs: INSTALL_TIMEOUT_MS },
+        { timeoutMs: INSTALL_TIMEOUT_MS, user: APP_USER },
       );
       logger.log("npm install done", { exitCode: install.exitCode });
 
@@ -417,7 +436,7 @@ export const buildAndRecord = task({
 
       await sandbox.commands.run(
         `${NODE_PATH_PREFIX}cd ${repoPath} && npm run ${scriptCheck.devScript} -- ${hostFlag} --port ${DEV_PORT} > /tmp/dev.log 2>&1`,
-        { background: true },
+        { background: true, user: APP_USER },
       );
 
       sandboxPublicUrl = `https://${sandbox.getHost(DEV_PORT)}`;
@@ -471,7 +490,10 @@ export const buildAndRecord = task({
     await new Promise((r) => setTimeout(r, 1000));
 
     // Inject the Anthropic key via `envs` (never the command string) so it
-    // drives the computer-use agent loop without leaking into logs. Absent key
+    // drives the computer-use agent loop without leaking into logs. The
+    // recorder runs as the template's default user while all untrusted project
+    // code runs as APP_USER (see above), so that code cannot read this env via
+    // /proc. Absent key
     // -> the recorder falls back to a plain scroll, still producing a video.
     // DISPLAY / DEMO_DISPLAY_H tell the headed recorder where to render + how far
     // down the toolbar sits so it grabs only the content region.
