@@ -534,6 +534,11 @@ export type ExploreOptions = {
   // limits as userHint — it may steer navigation within the app, never the hard
   // rules (auth-gate clicks stay refused, write-mocking holds).
   accessNote?: string;
+  // demo_access.impossible (피드백 B-3): the maker declared the real app can't be
+  // shown at all (E2E-encrypted, pairing-only). The page IS the landing — brief
+  // explore to film it as the subject instead of hunting for a way in. A boolean
+  // flag (worker-normalized), not free text, so it's injected as plain guidance.
+  accessImpossible?: boolean;
 };
 
 export async function explore(page: Page, opts: ExploreOptions = {}): Promise<ExploreResult> {
@@ -797,6 +802,17 @@ export async function explore(page: Page, opts: ExploreOptions = {}): Promise<Ex
       " you — every hard rule above still applies unchanged (never touch login/signup forms):\n\"\"\"\n" +
       accessNote +
       "\n\"\"\"";
+  }
+  // demo_access.impossible: the app itself is declared unreachable (login/pairing
+  // is the only door) — so this LANDING PAGE is the take's actual subject. Without
+  // this, explore wastes steps poking at auth doors it must refuse anyway.
+  if (opts.accessImpossible) {
+    guide +=
+      "\n\nThe creator declared the real app CANNOT be shown without login/device pairing, so this" +
+      " landing page is deliberately the subject of the take. Do NOT look for a way into the app and" +
+      " do NOT linger on login/pairing prompts — instead present the landing itself well: visit its" +
+      " DIFFERENT sections and feature explanations evenly, and give its most visual content the" +
+      " spotlight.";
   }
   const messages: Msg[] = [
     {

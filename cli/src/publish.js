@@ -106,14 +106,19 @@ export async function publishCommand(args) {
   if (args.hint) payload.demoHighlights = args.hint;
   if (args.url) payload.deployUrl = args.url;
   if (args["app-url"]) payload.appUrl = args["app-url"];
-  // 로그인 필요 앱의 데모 모드 진입 정보 — url·params·note만(계정 정보는 서버가 안 받음).
-  if (args["access-url"] || args["access-params"] || args["access-note"]) {
+  // 로그인 필요 앱의 데모 모드 진입 정보 — url·params·note·impossible만(계정
+  // 정보는 서버가 안 받음). impossible=게스트 경로가 원천 불가능한 앱 선언(B-3).
+  if (
+    args["access-url"] || args["access-params"] || args["access-note"] ||
+    args["access-impossible"]
+  ) {
     const access = { ...(payload.demoAccess || {}) };
     if (args["access-url"]) access.url = args["access-url"];
     if (args["access-params"]) {
       access.params = Object.fromEntries(new URLSearchParams(args["access-params"]).entries());
     }
     if (args["access-note"]) access.note = args["access-note"];
+    if (args["access-impossible"]) access.impossible = true;
     payload.demoAccess = access;
   }
 

@@ -173,6 +173,7 @@ export async function runJob(job: JobInput): Promise<JobOutcome> {
       upload: job.upload,
       userHint: job.userHint,
       accessNote: job.demoAccess?.note,
+      accessImpossible: job.demoAccess?.impossible,
       projectTitle: job.title,
       allowPrivateHost: job.allowPrivateHost,
       onPhase: job.onPhase,

@@ -45,7 +45,7 @@ You're the AI that built this project, so read the repo yourself and describe it
    • contentType — one of web-app | saas | mobile | game | extension | ai-service | media | other
    • deployUrl — the deployed public URL (vercel/netlify, etc.). If it isn't deployed: prefer uploading a static build output first (safest for apps with no backend). If that won't work (the app needs a server/database), you can instead give the public GitHub repo URL — it's a last resort that clones and tries npm run dev automatically (fails on private repos or repos with no dev script; apps using a remote database get demoted to a read-only demo)
    • appUrl — if the landing page and the actual app live at different URLs (e.g. / is the intro, /app is the real app), the app URL the demo/embed should open. If present, that's what gets recorded
-   • demoAccess — if the app needs login to see anything, give the demo robot a way in that works WITHOUT logging in: { url (a demo/guest entry URL or path, e.g. "/demo"), params (extra query params, e.g. {"guest":"1"}), note (1–2 sentences on how to see the demo mode from there) }. NEVER include account IDs or passwords — they are not accepted
+   • demoAccess — if the app needs login to see anything, give the demo robot a way in that works WITHOUT logging in: { url (a demo/guest entry URL or path, e.g. "/demo"), params (extra query params, e.g. {"guest":"1"}), note (1–2 sentences on how to see the demo mode from there) }. NEVER include account IDs or passwords — they are not accepted. If a guest path is fundamentally impossible (E2E-encrypted, device-pairing-only, etc.), send { impossible: true, note: "why" } instead — the auto-demo will then only film the landing page, so attaching your own video/screenshot is strongly recommended
 4) If you have a shell: run ${NPX_PUBLISH} --json '<the JSON above>' (the token was saved in step 1).
    If you have a screenshot or a demo video you made, add --screenshot <path> / --video <path> (image png/jpg/webp/gif ≤5MB; video mp4/webm ≤20MB — providing a video replaces the auto-recorded demo).
    If you don't have a shell: just print the JSON — I'll paste it into ${origin}/publish.
@@ -66,7 +66,7 @@ You're the AI that built this project, so read the repo yourself and describe it
    • contentType — web-app | saas | mobile | game | extension | ai-service | media | other 중 하나
    • deployUrl — 배포된 공개 URL (vercel/netlify 등). 미배포면: 우선 정적 빌드 산출물을 올려(백엔드 없는 앱에 제일 안전). 그걸로 안 되는 앱(서버·DB 필요)이면 공개 GitHub 저장소 URL을 대신 줘도 돼 — clone 후 자동으로 npm run dev를 시도하는 최후 수단이야(비공개 저장소·dev 스크립트 없는 리포는 실패, 원격 DB 쓰는 앱은 읽기전용 데모로 나옴)
    • appUrl — 랜딩과 실제 앱 화면 주소가 다르면(예: / 는 소개, /app 이 진짜 앱), 시연·임베드가 열어야 할 앱 URL. 있으면 이 주소를 촬영해
-   • demoAccess — 로그인해야 화면이 보이는 앱이면, 시연 로봇이 로그인 없이 들어갈 길을 줘: { url(데모/게스트 진입 URL이나 경로, 예 "/demo"), params(추가 쿼리 파라미터, 예 {"guest":"1"}), note(거기서 데모 모드를 보는 법 한두 문장) }. 계정 아이디/비번은 절대 넣지 마 — 받지 않아
+   • demoAccess — 로그인해야 화면이 보이는 앱이면, 시연 로봇이 로그인 없이 들어갈 길을 줘: { url(데모/게스트 진입 URL이나 경로, 예 "/demo"), params(추가 쿼리 파라미터, 예 {"guest":"1"}), note(거기서 데모 모드를 보는 법 한두 문장) }. 계정 아이디/비번은 절대 넣지 마 — 받지 않아. 게스트 경로 자체가 원천 불가능한 앱(E2E 암호화·기기 페어링 필수 등)이면 대신 { impossible: true, note: "이유" }를 줘 — 그럼 자동 촬영은 랜딩만 담으니 직접 만든 영상·스크린샷 동봉을 강하게 권장해
 4) 셸을 쓸 수 있으면: ${NPX_PUBLISH} --json '<위 JSON>' 을 실행해 (토큰은 1)에서 저장했어).
    직접 찍은 스크린샷·시연 영상 파일이 있으면 --screenshot <경로> / --video <경로> 를 붙여 (이미지 png/jpg/webp/gif ≤5MB, 영상 mp4/webm ≤20MB — 영상을 주면 자동 촬영 대신 그 영상이 쓰여).
    셸이 없으면: 위 JSON만 출력해 — 내가 ${origin}/publish 에 붙여넣을게.

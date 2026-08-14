@@ -62,6 +62,10 @@ export type RecordDemoOptions = {
   // demo mode from the entry URL the job assembled. Same untrusted-data framing
   // as userHint in the brief.
   accessNote?: string;
+  // Creator declared the real app fundamentally can't be shown without
+  // login/pairing (demo_access.impossible, 피드백 B-3): this take is knowingly a
+  // landing-page film. Steers the explore brief + stamps coverage in the report.
+  accessImpossible?: boolean;
   // Project title, shown to the moderation classifier as extra (untrusted)
   // context — a phishing page often names its target brand in the title.
   projectTitle?: string;
@@ -209,7 +213,11 @@ export async function recordDemo(opts: RecordDemoOptions): Promise<RecordDemoRes
     }
 
     const storage0 = await exploreCtx.storageState(); // shared footing for the take
-    const script = await explore(explorePage, { userHint: opts.userHint, accessNote: opts.accessNote });
+    const script = await explore(explorePage, {
+      userHint: opts.userHint,
+      accessNote: opts.accessNote,
+      accessImpossible: opts.accessImpossible,
+    });
     await exploreCtx.close();
     await browser.close(); // explore done — no stray window at (0,0) during capture
     console.log(`[explore] ${script.notes}`);
@@ -346,8 +354,12 @@ export async function recordDemo(opts: RecordDemoOptions): Promise<RecordDemoRes
     const dw = await ffprobeValue(demo, "stream=width");
     const dh = await ffprobeValue(demo, "stream=height");
     const ddur = await ffprobeValue(demo, "format=duration");
+    // Sheet from body.mp4 (pre-endcap film), same principle as moderation frames:
+    // the endcap is a separate outro APPENDED to the film, not part of it
+    // (2026-08-14 user decision) — its typing frames were crowding review sheets.
+    const sheetSource = existsSync(`${OUT_DIR}/body.mp4`) ? `${OUT_DIR}/body.mp4` : demo;
     await run("ffmpeg", [
-      "-hide_banner", "-i", demo,
+      "-hide_banner", "-i", sheetSource,
       "-vf", "fps=1,scale=320:-1,tile=5x5", "-frames:v", "1", "-y", sheet,
     ]);
 
@@ -397,11 +409,17 @@ export async function recordDemo(opts: RecordDemoOptions): Promise<RecordDemoRes
     console.log("\n=== RUN REPORT ===");
     console.log(`target      : ${url}`);
     console.log(`policy      : ${policy}`);
+    // Coverage honesty (피드백 A-1/B-3): when the maker declared the app itself
+    // unreachable, say plainly that this film is the landing page, not the app.
+    if (opts.accessImpossible) {
+      console.log(`coverage    : landing-only (maker declared the app demo impossible — recommend a creator-made --video)`);
+    }
     console.log(`script      : ${script.actions.length} actions  (${script.notes})`);
     console.log(`blockedWrites: ${blockedWrites.length}  (mutating requests intercepted → 0 reached the server)`);
     for (const w of blockedWrites) console.log(`   ✕ ${w.method} ${w.kind}  ${w.url.slice(0, 90)}`);
     console.log(`raw         : ${raw}  (${crop.w}×${crop.h}, ${durationSec.toFixed(2)}s)`);
-    console.log(`demo        : ${demo}  (${dw}×${dh}, ${ddur.toFixed(2)}s, clipLen ${clipLen.toFixed(2)})`);
+    // Film vs endcap split so nobody reads the outro as demo runtime again.
+    console.log(`demo        : ${demo}  (${dw}×${dh}, ${ddur.toFixed(2)}s = film ${clipLen.toFixed(2)}s + endcap ${Math.max(0, ddur - clipLen).toFixed(2)}s)`);
     console.log(`contact     : ${sheet}`);
     if (uploaded) console.log(`uploaded    : ${uploaded.publicUrl}`);
 
