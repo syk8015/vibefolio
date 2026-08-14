@@ -613,3 +613,16 @@
 - `components/FaqRepliesSection.tsx` → `FAQ_EN` (4쌍)
 - `components/PortfolioPipSection.tsx` → `TITLE_VARIANTS_EN` (5개) + 시연 힌트 2종 + 어트리뷰션
 - `lib/identityLine.ts` → `I mostly build {복수형 라벨}` (+`and` 결합), 라벨 복수형 별도 맵(CONTENT_TYPE_LABELS_EN)
+
+## legal (privacy/terms — 4단계 잔여, 2026-08-14)
+
+사전 밖 — 법률 문서라 키로 쪼개지 않고 페이지 안에서 한/영 본문(JSX)을 통째로 분기.
+원본 코드: `app/privacy/page.tsx` · `app/terms/page.tsx` (각각 `KoBody`/`EnBody`).
+검수는 실서버 육안 대조 권장: nookframe.com/privacy · /terms (토글로 한↔영 전환).
+
+- 제목: 개인정보처리방침 → Privacy Policy · 이용약관 → Terms of Service
+- 조 표기: 제N조 (…) → Article N (…) — 구조 1:1 대응, 조/항 순서 동일
+- 시행일: 2026년 7월 26일 → Effective date: July 26, 2026
+- 영문판 말미에 고지 추가: "This English version is provided for convenience. … the Korean version prevails." (한국법 준거 서비스의 표준 안전장치 — 한국어판에는 없음) ⚠️
+- 준거법·관할(terms 제9조): laws/courts of the Republic of Korea 유지
+- 푸터 링크: 이용약관/개인정보처리방침 → Terms of Service / Privacy Policy
