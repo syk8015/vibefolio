@@ -10,7 +10,23 @@ export function envExport(token: string): string {
   return `export NOOKFRAME_TOKEN="${token}"`;
 }
 
-export function pastePrompt(origin: string): string {
+export function pastePrompt(origin: string, locale: "ko" | "en" = "ko"): string {
+  if (locale === "en") {
+    return `Publish this project to Nookframe (a vibe-coding portfolio).
+
+You're the AI that built this project, so read the repo yourself and describe it on my behalf:
+1) Investigate from the README, package.json, the actual routes/screens, and git log. If it's still half-built, also work out what it was going to be.
+2) Build a publish payload (JSON) with these fields:
+   • title — a short, clear product name
+   • description — one paragraph: what it is and who it's useful for (if unfinished, include where it's headed)
+   • demoHighlights — 3–5 key things the auto-demo video must show, written descriptively. Not instructions like "click X" — more like "the X feature is the heart of this product". Under 500 characters
+   • tags — the AI tools used to build this (e.g. "Claude Code", "Cursor")
+   • contentType — one of web-app | saas | mobile | game | extension | ai-service | media | other
+   • deployUrl — the deployed public URL (vercel/netlify, etc.). If it isn't deployed, skip this — you can upload a static build output instead
+   • appUrl — if the landing page and the actual app live at different URLs (e.g. / is the intro, /app is the real app), the app URL the demo/embed should open. If present, that's what gets recorded
+3) If you have a shell: run ${NPX_PUBLISH} --json '<the JSON above>' (the token is already in the NOOKFRAME_TOKEN env var).
+   If you don't have a shell: just print the JSON — I'll paste it into ${origin}/publish.`;
+  }
   return `이 프로젝트를 Nookframe(바이브코딩 포트폴리오)에 올려줘.
 
 너가 이 프로젝트를 만든 AI니까, 레포를 직접 읽고 나 대신 설명해줘:

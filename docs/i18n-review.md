@@ -626,3 +626,29 @@
 - 영문판 말미에 고지 추가: "This English version is provided for convenience. … the Korean version prevails." (한국법 준거 서비스의 표준 안전장치 — 한국어판에는 없음) ⚠️
 - 준거법·관할(terms 제9조): laws/courts of the Republic of Korea 유지
 - 푸터 링크: 이용약관/개인정보처리방침 → Terms of Service / Privacy Policy
+
+## 5단계 잔존 스윕 추가분 (2026-08-14)
+
+grep 게이트에서 잡힌 유저 노출 한글 잔존 수리분.
+
+| 키 | 한국어 | English | 비고 |
+|---|---|---|---|
+| common.switchToDark | 다크 모드로 전환 | Switch to dark mode | ThemeToggle aria-label |
+| common.switchToLight | 라이트 모드로 전환 | Switch to light mode | ThemeToggle aria-label |
+| landing.settings | 설정 | Settings | 랜딩 프로필 메뉴 |
+| (재사용) dashboard.logout | 로그아웃 | Log out | 랜딩 프로필 메뉴가 기존 키 재사용 |
+| auth.turnstileFailed | 보안 확인을 불러오지 못했어요. | Couldn't load the security check. | Turnstile 로드 실패 |
+| auth.turnstileFixPrefix | 광고 차단을 끄거나 | Turn off your ad blocker or | ⚠️ [다시 시도] 버튼과 조립되는 문장 조각 |
+| auth.turnstileRetry | 다시 시도 | try again | 버튼 |
+| auth.turnstileFixSuffix | 해 주세요. | . | ⚠️ 버튼 뒤에 붙는 조각 (영어는 마침표만) |
+| theater.mobilePreview | 모바일 미리보기 | Mobile preview | ViewportFrame iframe title(접근성) |
+
+### 사전 밖
+- `lib/connectSnippets.ts` `pastePrompt(origin, locale)` — "AI에 붙여넣기" 프롬프트 전문 영어판 추가(구조 1:1, 번역 아닌 동일 지시 재작성). ConnectPanel이 locale 전달
+- `app/global-error.tsx` — 루트 크래시 화면. LocaleProvider 밖이라 자체 COPY 상수(ko/en)+NEXT_LOCALE 쿠키 직접 감지
+
+### 의도적 잔존(번역 안 함) — 확인 완료
+- 관리자 경보 메일·admin API 라우트·cron(report/trigger-demo/request-rerecord의 sendEmail 본문, REASON_LABEL 포함) = admin 한국어 유지 정책
+- lib/traffic-source·projectTaxonomy 원본 라벨 = 표시 시점에 사전 매핑으로 번역
+- upload-safety UploadError 한국어 기본 메시지 = code로 locale 재매핑됨(서버 폴백)
+- 메타데이터·OG(루트 description, 인증 페이지 title, /publish title, [username] og fallback) = 6덩어리 ⑥, 정적 페이지·크롤러는 쿠키가 없어 별도 결정 필요(미착수)

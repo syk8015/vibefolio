@@ -11,6 +11,8 @@ export const ko = {
     privacy: "개인정보처리방침",
     contact: "문의",
     ok: "확인",
+    switchToDark: "다크 모드로 전환",
+    switchToLight: "라이트 모드로 전환",
   },
   // 랜딩(/) — 회전 카피 풀은 lib/taglines.ts·lib/loggedInTaglines.ts에 ko/en 별도
   landing: {
@@ -20,6 +22,7 @@ export const ko = {
     greetingAfter: "님!",
     viewMyFrame: "내 프레임 보기",
     editFrame: "프레임 수정",
+    settings: "설정",
   },
   // 인증 화면들(로그인·회원가입·비밀번호 찾기/재설정)이 공유하는 문구
   auth: {
@@ -33,6 +36,11 @@ export const ko = {
     resendPrompt: "메일이 오지 않았거나 이메일을 잘못 입력했나요?",
     reenter: "다시 입력하기",
     usernamePattern: "영문, 숫자, _-만 사용 가능해요",
+    // Turnstile 위젯 로드 실패 문구 — "…끄거나 [다시 시도]해 주세요." 순서로 조립
+    turnstileFailed: "보안 확인을 불러오지 못했어요.",
+    turnstileFixPrefix: "광고 차단을 끄거나",
+    turnstileRetry: "다시 시도",
+    turnstileFixSuffix: "해 주세요.",
     errors: {
       captcha: "보안 확인에 실패했어요. 다시 확인 후 시도해주세요.",
       generic: "오류가 발생했어요. 잠시 후 다시 시도해주세요.",
@@ -445,6 +453,7 @@ export const ko = {
   theater: {
     editFrame: "프레임 수정",
     myFrame: "내 프레임",
+    mobilePreview: "모바일 미리보기",
     login: "로그인",
     emptyTitle: "아직 공개된 프로젝트가 없어요",
     emptyBody: "곧 새로운 작업물이 올라올 예정이에요.",

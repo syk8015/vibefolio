@@ -1,7 +1,39 @@
 "use client"; // Error boundaries must be Client Components
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { logger } from "@/lib/logger";
+import { LOCALE_COOKIE, isLocale, type Locale } from "@/lib/i18n/config";
+
+// LocaleProvider도 루트 레이아웃과 함께 날아간 상태라 useT를 못 쓴다 —
+// 쿠키만 직접 읽어 ko/en을 고른다(항상 클라이언트 렌더라 document 접근 안전).
+const COPY = {
+  ko: {
+    title: "문제가 발생했어요 — Nookframe",
+    eyebrow: "문제가 발생했어요",
+    heading: "페이지를 불러오지 못했어요",
+    desc: "잠시 문제가 생겼어요. 다시 시도하거나 홈으로 돌아가 주세요.",
+    retry: "다시 시도",
+    home: "홈으로",
+    digest: "오류 코드",
+  },
+  en: {
+    title: "Something went wrong — Nookframe",
+    eyebrow: "Something went wrong",
+    heading: "We couldn't load this page",
+    desc: "Something briefly went wrong. Try again or head back home.",
+    retry: "Try again",
+    home: "Go home",
+    digest: "Error code",
+  },
+} satisfies Record<Locale, Record<string, string>>;
+
+function detectLocale(): Locale {
+  if (typeof document === "undefined") return "ko";
+  const value = document.cookie.match(
+    new RegExp(`(?:^|;\\s*)${LOCALE_COOKIE}=([^;]*)`)
+  )?.[1];
+  return isLocale(value) ? value : "ko";
+}
 
 // Root-level fallback. This REPLACES the root layout when a render error escapes
 // every nested boundary (including the root layout itself), so it must ship its
@@ -123,6 +155,9 @@ export default function GlobalError({
   reset?: () => void;
   unstable_retry?: () => void;
 }) {
+  const [locale] = useState<Locale>(detectLocale);
+  const t = COPY[locale];
+
   useEffect(() => {
     logger.error("Global (root) error", {
       error,
@@ -134,20 +169,18 @@ export default function GlobalError({
   const retry = unstable_retry ?? reset;
 
   return (
-    <html lang="ko">
+    <html lang={locale}>
       <body className="ge-root">
-        <title>문제가 발생했어요 — Nookframe</title>
+        <title>{t.title}</title>
         <style>{STYLES}</style>
         <main className="ge-card">
-          <div className="ge-eyebrow">문제가 발생했어요</div>
-          <h1 className="ge-title">페이지를 불러오지 못했어요</h1>
-          <p className="ge-desc">
-            잠시 문제가 생겼어요. 다시 시도하거나 홈으로 돌아가 주세요.
-          </p>
+          <div className="ge-eyebrow">{t.eyebrow}</div>
+          <h1 className="ge-title">{t.heading}</h1>
+          <p className="ge-desc">{t.desc}</p>
           <div className="ge-actions">
             {retry && (
               <button type="button" className="ge-btn ge-btn-primary" onClick={() => retry()}>
-                다시 시도
+                {t.retry}
               </button>
             )}
             <button
@@ -157,10 +190,10 @@ export default function GlobalError({
                 window.location.href = "/";
               }}
             >
-              홈으로
+              {t.home}
             </button>
           </div>
-          {error.digest && <div className="ge-digest">오류 코드: {error.digest}</div>}
+          {error.digest && <div className="ge-digest">{t.digest}: {error.digest}</div>}
         </main>
       </body>
     </html>

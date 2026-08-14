@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useT } from "@/lib/i18n/client";
 
 type ViewportMode = "desktop" | "mobile";
 
@@ -29,6 +30,7 @@ interface Props {
 }
 
 export default function ViewportFrame({ username, enabled, children }: Props) {
+  const { t } = useT();
   const [mode, setMode] = useState<ViewportMode>("desktop");
   const [mounted, setMounted] = useState(false);
   const [scale, setScale] = useState(1);
@@ -196,7 +198,7 @@ export default function ViewportFrame({ username, enabled, children }: Props) {
             {/* Iframe — sits below the status bar */}
             <iframe
               src={`/${username}?embed=1`}
-              title="모바일 미리보기"
+              title={t.theater.mobilePreview}
               width={MOBILE_W}
               height={MOBILE_H - STATUS_BAR_H}
               onLoad={() => setIframeLoaded(true)}

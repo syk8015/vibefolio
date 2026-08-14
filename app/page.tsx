@@ -96,7 +96,7 @@ export default async function LandingPage() {
           <div className="flex items-center gap-3">
             <LanguageToggle />
             <ThemeToggle />
-            <HomeProfileMenu username={username} name={name} avatarUrl={avatarUrl} />
+            <HomeProfileMenu username={username} name={name} avatarUrl={avatarUrl} locale={locale} />
           </div>
         </nav>
 

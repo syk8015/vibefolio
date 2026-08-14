@@ -4,14 +4,20 @@ import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { getDictionary } from "@/lib/i18n/dictionaries";
+import type { Locale } from "@/lib/i18n/config";
 
 interface Props {
   username: string;
   name: string;
   avatarUrl?: string;
+  // 랜딩(서버·동적)이 getLocale() 값을 내려준다 — 루트 LocaleProvider는
+  // 마운트 후에야 언어를 알아서 useT를 쓰면 첫 페인트가 ko로 깜빡인다.
+  locale: Locale;
 }
 
-export default function HomeProfileMenu({ username, name, avatarUrl }: Props) {
+export default function HomeProfileMenu({ username, name, avatarUrl, locale }: Props) {
+  const t = getDictionary(locale);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const router = useRouter();
@@ -64,7 +70,7 @@ export default function HomeProfileMenu({ username, name, avatarUrl }: Props) {
             className="w-full text-left px-4 py-3 text-sm font-bold transition-colors hover:opacity-70"
             style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", background: "none", border: "none", cursor: "pointer", display: "block" }}
           >
-            설정
+            {t.landing.settings}
           </button>
           <div style={{ height: "1px", background: "var(--border)" }} />
           <button
@@ -72,7 +78,7 @@ export default function HomeProfileMenu({ username, name, avatarUrl }: Props) {
             className="w-full text-left px-4 py-3 text-sm font-bold transition-colors hover:opacity-70"
             style={{ color: "#ef4444", fontFamily: "var(--font-nunito)", background: "none", border: "none", cursor: "pointer", display: "block" }}
           >
-            로그아웃
+            {t.dashboard.logout}
           </button>
         </div>
       )}

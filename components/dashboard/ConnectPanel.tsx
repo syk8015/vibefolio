@@ -162,13 +162,13 @@ export default function ConnectPanel({ username }: { username: string }) {
           <p className="text-sm" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontWeight: 600 }}>
             {t.connect.step2Title}
           </p>
-          <CopyButton text={pastePrompt(origin)} label={t.connect.copyPrompt} />
+          <CopyButton text={pastePrompt(origin, locale)} label={t.connect.copyPrompt} />
         </div>
         <pre
           className="text-xs p-3 rounded-lg"
           style={{ background: "var(--surface-soft)", color: "var(--text-secondary)", fontFamily: "var(--font-mono), monospace", whiteSpace: "pre-wrap", lineHeight: 1.6, maxHeight: 240, overflowY: "auto" }}
         >
-          {pastePrompt(origin)}
+          {pastePrompt(origin, locale)}
         </pre>
         <p className="text-xs mt-2" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", lineHeight: 1.6 }}>
           {t.connect.noShell1}<Link href="/publish" style={{ color: "var(--text-primary)", textDecoration: "underline" }}>{origin.replace(/^https?:\/\//, "")}/publish</Link>{t.connect.noShell2}<code style={{ fontFamily: "var(--font-mono), monospace" }}>{NPX_LOGIN}</code>{t.connect.noShell3}

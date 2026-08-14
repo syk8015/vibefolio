@@ -9,6 +9,8 @@ export const en: Dictionary = {
     privacy: "Privacy",
     contact: "Contact",
     ok: "OK",
+    switchToDark: "Switch to dark mode",
+    switchToLight: "Switch to light mode",
   },
   landing: {
     login: "Log in",
@@ -17,6 +19,7 @@ export const en: Dictionary = {
     greetingAfter: "!",
     viewMyFrame: "View my frame",
     editFrame: "Edit frame",
+    settings: "Settings",
   },
   auth: {
     googleContinue: "Continue with Google",
@@ -29,6 +32,11 @@ export const en: Dictionary = {
     resendPrompt: "Didn't get the email, or typed it wrong?",
     reenter: "Try again",
     usernamePattern: "Letters, numbers, _ and - only",
+    // Turnstile 위젯 로드 실패 문구 — "… or [try again]." 순서로 조립
+    turnstileFailed: "Couldn't load the security check.",
+    turnstileFixPrefix: "Turn off your ad blocker or",
+    turnstileRetry: "try again",
+    turnstileFixSuffix: ".",
     errors: {
       captcha: "Security check failed. Please try again.",
       generic: "Something went wrong. Please try again shortly.",
@@ -435,6 +443,7 @@ export const en: Dictionary = {
   theater: {
     editFrame: "Edit frame",
     myFrame: "My frame",
+    mobilePreview: "Mobile preview",
     login: "Log in",
     emptyTitle: "No public projects yet",
     emptyBody: "New work is coming soon.",

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useT } from "@/lib/i18n/client";
 
 // Cloudflare Turnstile (T6 signup-bot gate) — explicit-render widget for the
 // auth forms. Wholly gated on NEXT_PUBLIC_TURNSTILE_SITE_KEY: with the env
@@ -69,6 +70,7 @@ export default function TurnstileWidget({
   /** Fires with the token when solved, and null when it expires/errors/fails to load. */
   onToken: (token: string | null) => void;
 }) {
+  const { t } = useT();
   const ref = useRef<HTMLDivElement>(null);
   const cbRef = useRef(onToken);
   // Keep the latest callback without re-running the render effect (mutating a ref
@@ -130,8 +132,8 @@ export default function TurnstileWidget({
           className="text-xs font-semibold text-center leading-relaxed"
           style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}
         >
-          <span style={{ color: "#ef4444" }}>보안 확인을 불러오지 못했어요.</span>{" "}
-          광고 차단을 끄거나{" "}
+          <span style={{ color: "#ef4444" }}>{t.auth.turnstileFailed}</span>{" "}
+          {t.auth.turnstileFixPrefix}{" "}
           <button
             type="button"
             onClick={() => setAttempt((a) => a + 1)}
@@ -141,9 +143,9 @@ export default function TurnstileWidget({
               fontFamily: "var(--font-nunito)", fontSize: "inherit",
             }}
           >
-            다시 시도
+            {t.auth.turnstileRetry}
           </button>
-          해 주세요.
+          {t.auth.turnstileFixSuffix}
         </p>
       )}
     </div>
