@@ -53,7 +53,9 @@
   3. `POST /api/ingest/finalize` `{ projectId }` → 임시 오브젝트를 내려받아 **인라인과 동일 검증**
      (zip 안전 일습·미디어 매직바이트, 공유 코어=`lib/ingestStore.ts`) 후 demo_url·thumbnail·video_url
      연결, `_upload/` 삭제. 검증 실패 시 행 삭제(인라인과 동일 정책). is_draft=false 행은 409 거부
-     (PAT 폭발반경 유지). 재호출은 멱등(`deduped:true`). CLI ≥0.1.3은 파일이 있으면 자동으로 이 경로.
+     (PAT 폭발반경 유지). 재호출은 멱등 200(같은 결과로 수렴 — `deduped:true` 플래그는 best-effort:
+     지워진 임시 오브젝트가 스토리지 CDN 캐시에서 잠깐 더 읽히면 재처리로 돌아 플래그가 빠질 수 있음,
+     실측 2026-08-14). CLI ≥0.1.3은 파일이 있으면 자동으로 이 경로.
 - payload 매핑: `demoHighlights`→`demo_user_hint`(≤500, 레코더에 주입되는 유일 텍스트),
   `builderNote`→`comment`, `tags`는 AI_TOOLS 화이트리스트로 필터, `contentType`은 8개 고정 id.
 - 파일 경로: 행 id 확보 → `project-files/{uid}/{rowId}/…` 업로드 → `demo_url=/api/preview/…/index.html`.
