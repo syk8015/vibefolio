@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
-import ConnectPanel from "@/components/dashboard/ConnectPanel";
 import { RerecordRequestModal } from "@/components/dashboard/RerecordRequestModal";
 import { detectDemoSource } from "@/lib/demoSource";
 import { AnalyticsEvent, trackClientEvent } from "@/lib/analytics-client";
@@ -29,9 +28,6 @@ export default function ProjectsTab({ user, username, reviewProjectId }: { user:
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [rerecordModal, setRerecordModal] = useState<{ id: string; title: string } | null>(null);
-  // 연결(AI 인제스트) 접기 영역 — 닫혀 있는 동안은 패널을 마운트하지 않아
-  // 토큰 목록 조회가 탭 진입마다 나가지 않는다.
-  const [connectOpen, setConnectOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   // 촬영 상태 배지의 realtime 구독 + 폴백 폴링 (projects/useDemoStatusSync.ts).
   const { demoPaused, nowMs } = useDemoStatusSync(user.id, projects, drafts, setProjects, setDrafts);
@@ -422,39 +418,8 @@ export default function ProjectsTab({ user, username, reviewProjectId }: { user:
         )}
       </div>
 
-      {/* 연결(AI 인제스트) — 독립 탭에서 흡수(리디자인 결정 2). 작품을 "넣는
-          또 하나의 방법"이라 작품 탭 소속, 평소엔 접혀 있다. */}
-      <div className="mt-6">
-        <button
-          type="button"
-          onClick={() => setConnectOpen(v => !v)}
-          aria-expanded={connectOpen}
-          className="vf-card w-full flex items-center justify-between gap-3 px-5 py-4 transition-opacity hover:opacity-85"
-          style={{ border: "none", cursor: "pointer", textAlign: "left" }}
-        >
-          <div className="min-w-0">
-            <p className="text-sm" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontWeight: 600, margin: 0 }}>
-              {t.projects.connectTitle}
-            </p>
-            <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", margin: 0 }}>
-              {t.projects.connectSubtitle}
-            </p>
-          </div>
-          <svg
-            width="12" height="12" viewBox="0 0 12 12" fill="none"
-            style={{ transform: connectOpen ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.2s", color: "var(--text-muted)", flexShrink: 0 }}
-          >
-            <path d="M4 2l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-        </button>
-        {connectOpen && (
-          <div className="mt-4">
-            <ConnectPanel username={username} />
-          </div>
-        )}
-      </div>
-
-      {/* 추가 = 오버레이 모달, 기본 화면은 AI 연결(수동 위저드는 우상단 버튼으로). */}
+      {/* 추가 = 오버레이 모달, 기본 화면은 AI 연결(수동 위저드는 우상단 버튼으로).
+          옛 접이식 연결 카드(리디자인 결정 2)는 모달이 그 역할을 흡수하며 제거. */}
       {showAddModal && (
         <AddProjectModal
           username={username}
