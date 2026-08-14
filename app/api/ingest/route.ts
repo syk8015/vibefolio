@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { apiError } from "@/lib/apiError";
 import { getT } from "@/lib/i18n/server";
 import { getDictionary } from "@/lib/i18n/dictionaries";
 import { rateLimit } from "@/lib/rate-limit";
-import { verifyToken, bearerFromHeader } from "@/lib/apiToken";
-import { detectDemoSource, liveUrlIssue } from "@/lib/demoSource";
-import { assertSafePublicUrl, SsrfError } from "@/lib/ssrf";
+import { bearerFromHeader } from "@/lib/apiToken";
+import { detectDemoSource } from "@/lib/demoSource";
 import { screenshotUrl } from "@/lib/thumbnail";
+import { ingestAuth, publicUrlGate, strOrNull } from "./shared";
 import { normalizeTags, normalizeContentType } from "@/lib/projectTaxonomy";
 import { normalizeDemoAccess, type DemoAccess } from "@/lib/demoAccess";
 import {
@@ -25,7 +24,8 @@ import { logger } from "@/lib/logger";
 // 유저 대신 프로젝트를 "초안"으로 밀어넣는다. 초안은 공개 어디에도 안 뜨고(RLS),
 // 유저가 대시보드에서 확인 후 "공개"를 눌러야 노출+데모 촬영이 시작된다. 이 라우트는
 // 데모 파이프라인 컬럼을 절대 건드리지 않는다 — 데모는 발행 시점의 쿠키 인증
-// trigger-demo 라우트가 처리한다(인증 경계 분리). 설계 상세: docs/nookframe-connect.md.
+// trigger-demo 라우트가 처리한다(인증 경계 분리). 같은 진입 URL의 초안이 이미
+// 있으면 새 행 대신 그 행을 갱신한다(upsert — 6단계). 설계 상세: docs/nookframe-connect.md.
 
 // 검토 대기 초안 상한(유저당). 무한 초안 생성 남용을 막는다.
 const MAX_ACTIVE_DRAFTS = 20;
@@ -47,31 +47,12 @@ interface IngestPayload {
   uploads?: unknown;
 }
 
-function strOrNull(v: unknown): string | null {
-  return typeof v === "string" && v.trim() ? v.trim() : null;
-}
-
 export async function POST(req: NextRequest) {
   try {
     // 1. 인증 — Bearer PAT 우선, 없으면 쿠키 세션(=/publish 웹 경로). PAT는 헤더로만.
-    // 언어: PAT는 기계/AI 호출자라 en 고정, 세션(/publish)은 쿠키 locale.
-    const bearer = bearerFromHeader(req.headers.get("authorization"));
-    const t = bearer ? getDictionary("en") : (await getT()).t;
-    let userId: string;
-    if (bearer) {
-      const tok = await verifyToken(bearer);
-      if (!tok) {
-        return apiError({ status: 401, message: t.api.tokenInvalid, code: "UNAUTHORIZED" });
-      }
-      userId = tok.userId;
-    } else {
-      const supabase = await createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        return apiError({ status: 401, message: t.api.loginOrTokenRequired, code: "UNAUTHORIZED" });
-      }
-      userId = user.id;
-    }
+    const auth = await ingestAuth(req);
+    if (auth.fail) return auth.fail;
+    const { userId, t } = auth;
 
     // 2. 레이트리밋 — user_id 키(토큰 여러 개로 우회 못 하게).
     const allowed = await rateLimit({ name: "ingest", key: userId, windowSeconds: 3600, max: 20 });
@@ -153,30 +134,8 @@ export async function POST(req: NextRequest) {
       }
       demoAccess = norm.access;
       if (demoAccess?.url && !demoAccess.url.startsWith("/")) {
-        const issue = liveUrlIssue(demoAccess.url);
-        if (issue?.kind === "content-host") {
-          return apiError({
-            status: 400, code: "CONTENT_HOST",
-            message: t.api.contentHostShort(issue.host),
-          });
-        }
-        if (issue?.kind === "private-host") {
-          return apiError({
-            status: 400, code: "PRIVATE_HOST",
-            message: t.api.privateHostShort,
-          });
-        }
-        try {
-          await assertSafePublicUrl(demoAccess.url);
-        } catch (e) {
-          if (e instanceof SsrfError) {
-            return apiError({
-              status: 400, code: "PRIVATE_HOST",
-              message: t.api.notPublicUrl,
-            });
-          }
-          throw e;
-        }
+        const gate = await publicUrlGate(demoAccess.url, t);
+        if (gate) return gate;
       }
     }
 
@@ -209,21 +168,7 @@ export async function POST(req: NextRequest) {
 
     const admin = createAdminClient();
 
-    // 5. 초안 상한 체크.
-    const { count: draftCount } = await admin
-      .from("projects")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", userId)
-      .eq("is_draft", true);
-    if ((draftCount ?? 0) >= MAX_ACTIVE_DRAFTS) {
-      return apiError({
-        status: 409,
-        message: t.api.draftLimit(MAX_ACTIVE_DRAFTS),
-        code: "DRAFT_LIMIT",
-      });
-    }
-
-    // 6. URL 경로면 여기서 demo_url·thumbnail 확정(파일 경로는 행 생성 후).
+    // 5. URL 경로면 여기서 demo_url·thumbnail 확정(파일 경로는 행 생성 후).
     // 랜딩(/)과 실제 앱(/app)이 나뉜 제품은 deployUrl(랜딩)만 받으면 시연 로봇이
     // 랜딩만 찍는다 → appUrl(앱 화면 진입 URL)이 있으면 그걸 임베드·촬영 대상으로
     // 우선 사용. 검증(소스 판별·콘텐츠호스트·SSRF)은 deployUrl과 동일 경로를 탄다.
@@ -240,46 +185,34 @@ export async function POST(req: NextRequest) {
       }
       // 외부 live_url은 콘텐츠호스트·사설망 조기 차단(실 SSRF 게이트는 발행 시 trigger-demo).
       if (source.type === "live_url") {
-        const issue = liveUrlIssue(source.value);
-        if (issue?.kind === "content-host") {
-          return apiError({
-            status: 400, code: "CONTENT_HOST",
-            message: t.api.contentHostShort(issue.host),
-          });
-        }
-        if (issue?.kind === "private-host") {
-          return apiError({
-            status: 400, code: "PRIVATE_HOST",
-            message: t.api.privateHostShort,
-          });
-        }
-        try {
-          await assertSafePublicUrl(source.value);
-        } catch (e) {
-          if (e instanceof SsrfError) {
-            return apiError({
-              status: 400, code: "PRIVATE_HOST",
-              message: t.api.notPublicUrl,
-            });
-          }
-          throw e;
-        }
+        const gate = await publicUrlGate(source.value, t);
+        if (gate) return gate;
         // 외부 URL은 theater가 iframe하지 않으므로 썸네일이 없으면 밋밋하다 → thum.io로 찍는다.
         thumbnail = screenshotUrl(source.value);
       }
       demoUrl = source.value;
     }
 
-    // 7. 초안 행 먼저 insert — 행 id를 파일 스토리지 폴더로 쓰기 위해(삭제 누수 wart도 해소).
-    const { count: totalCount } = await admin
-      .from("projects")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", userId);
-    const { data: created, error: insErr } = await admin
-      .from("projects")
-      .insert({
-        user_id: userId,
-        is_draft: true,
+    // 6. upsert 판별(요청4) — 같은 진입 URL의 "초안"이 이미 있으면 새 행을 만들지
+    // 않고 그 행을 갱신한다(재푸시=최신 페이로드가 진실). 초안 한정: 공개된 행은
+    // 절대 건드리지 않아 PAT의 폭발반경(자기 초안뿐)이 유지된다. zip 경로는 비교할
+    // URL이 없어 항상 새 초안(기존 동작).
+    let projectId: string;
+    let upserted = false;
+    const { data: existing } = demoUrl
+      ? await admin
+          .from("projects")
+          .select("id, thumbnail")
+          .eq("user_id", userId)
+          .eq("is_draft", true)
+          .eq("demo_url", demoUrl)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle()
+      : { data: null };
+
+    if (existing) {
+      const upd: Record<string, unknown> = {
         title,
         description,
         comment,
@@ -287,18 +220,62 @@ export async function POST(req: NextRequest) {
         demo_access: demoAccess,
         tags,
         content_type: contentTypeId,
-        type: videoBuf ? "video" : "image",
-        year: new Date().getFullYear().toString(),
-        demo_url: demoUrl,
-        thumbnail,
-        sort_order: totalCount ?? 0,
-      })
-      .select("id")
-      .single();
-    if (insErr || !created) {
-      return apiError({ status: 500, message: t.api.projectCreateFailed, code: "DB_INSERT_FAILED", cause: insErr });
+      };
+      if (videoBuf) upd.type = "video";
+      // 제작자 스크린샷(_media/) 썸네일은 보존 — thum.io 자동 썸네일로 덮지 않는다.
+      if (thumbnail && !(existing.thumbnail as string | null)?.includes("/_media/")) {
+        upd.thumbnail = thumbnail;
+      }
+      const { error: updErr } = await admin.from("projects").update(upd).eq("id", existing.id);
+      if (updErr) {
+        return apiError({ status: 500, message: t.api.projectCreateFailed, code: "DB_UPDATE_FAILED", cause: updErr });
+      }
+      projectId = existing.id as string;
+      upserted = true;
+    } else {
+      // 7. 초안 상한 체크(새 행을 만들 때만) 후 insert — 행 id를 파일 스토리지
+      // 폴더로 쓰기 위해(삭제 누수 wart도 해소).
+      const { count: draftCount } = await admin
+        .from("projects")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .eq("is_draft", true);
+      if ((draftCount ?? 0) >= MAX_ACTIVE_DRAFTS) {
+        return apiError({
+          status: 409,
+          message: t.api.draftLimit(MAX_ACTIVE_DRAFTS),
+          code: "DRAFT_LIMIT",
+        });
+      }
+      const { count: totalCount } = await admin
+        .from("projects")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", userId);
+      const { data: created, error: insErr } = await admin
+        .from("projects")
+        .insert({
+          user_id: userId,
+          is_draft: true,
+          title,
+          description,
+          comment,
+          demo_user_hint: demoHint,
+          demo_access: demoAccess,
+          tags,
+          content_type: contentTypeId,
+          type: videoBuf ? "video" : "image",
+          year: new Date().getFullYear().toString(),
+          demo_url: demoUrl,
+          thumbnail,
+          sort_order: totalCount ?? 0,
+        })
+        .select("id")
+        .single();
+      if (insErr || !created) {
+        return apiError({ status: 500, message: t.api.projectCreateFailed, code: "DB_INSERT_FAILED", cause: insErr });
+      }
+      projectId = created.id as string;
     }
-    const projectId = created.id as string;
 
     // 8. 인라인 zip: 확장(방어)→업로드→demo_url·thumbnail 세팅(lib/ingestStore
     // 공유 코어). 실패 시 고아 행 정리 — null demo_url 초안이 남지 않게 방금 만든
@@ -334,8 +311,9 @@ export async function POST(req: NextRequest) {
         const { error: updErr } = await admin.from("projects").update(updates).eq("id", projectId);
         if (updErr) throw new Error(`media row update: ${updErr.message}`);
       } catch (e) {
-        // 고아 행 정리 — zip 실패 경로와 동일 정책(스토리지 잔재는 storage-audit이 회수).
-        await admin.from("projects").delete().eq("id", projectId);
+        // 고아 행 정리 — zip 실패 경로와 동일 정책(스토리지 잔재는 storage-audit이
+        // 회수). 단 upsert된 기존 초안은 지우지 않는다(이전 상태가 남는 게 낫다).
+        if (!upserted) await admin.from("projects").delete().eq("id", projectId);
         logger.error("ingest: media upload failed", { error: e, projectId });
         return apiError({ status: 500, message: t.api.mediaUploadFailed, code: "MEDIA_UPLOAD_FAILED", cause: e });
       }
@@ -351,7 +329,7 @@ export async function POST(req: NextRequest) {
           .from("project-files")
           .createSignedUploadUrl(UPLOAD_TEMP_KEYS[kind](userId, projectId), { upsert: true });
         if (error || !data) {
-          await admin.from("projects").delete().eq("id", projectId);
+          if (!upserted) await admin.from("projects").delete().eq("id", projectId);
           return apiError({
             status: 500, message: t.api.mediaUploadFailed, code: "SIGN_FAILED",
             cause: error, context: { projectId, kind },
@@ -365,6 +343,7 @@ export async function POST(req: NextRequest) {
     const reviewUrl = `${req.nextUrl.origin}/dashboard?review=${projectId}`;
     return NextResponse.json({
       ok: true, projectId, reviewUrl, isDraft: true,
+      ...(upserted ? { upserted: true } : {}),
       ...(uploads ? { uploads, finalizeUrl: `${req.nextUrl.origin}/api/ingest/finalize` } : {}),
     });
   } catch (err) {

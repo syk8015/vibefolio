@@ -59,7 +59,28 @@
 - payload 매핑: `demoHighlights`→`demo_user_hint`(≤500, 레코더에 주입되는 유일 텍스트),
   `builderNote`→`comment`, `tags`는 AI_TOOLS 화이트리스트로 필터, `contentType`은 8개 고정 id.
 - 파일 경로: 행 id 확보 → `project-files/{uid}/{rowId}/…` 업로드 → `demo_url=/api/preview/…/index.html`.
-- 응답: `{ ok, projectId, reviewUrl, isDraft:true }`. reviewUrl은 요청 origin 기준.
+- **upsert(요청4)**: 같은 유저의 **초안** 중 `demo_url`이 이번 진입 URL(appUrl 우선, `detectDemoSource`
+  정규화 후 값)과 같은 행이 있으면 insert 대신 그 행을 **갱신**한다(재푸시=최신 페이로드가 진실.
+  응답에 `upserted:true`). 초안 한정이라 공개된 행은 절대 안 건드림(PAT 폭발반경 유지). zip 경로는
+  비교할 URL이 없어 항상 새 초안. 제작자 스크린샷(`_media/`) 썸네일은 thum.io로 안 덮는다.
+  upsert된 행은 미디어 업로드 실패 시에도 삭제하지 않는다(신규 행만 고아 정리).
+- 응답: `{ ok, projectId, reviewUrl, isDraft:true, upserted? }`. reviewUrl은 요청 origin 기준.
+
+## 초안 관리 API (요청4) — `/api/ingest/drafts`
+
+전부 PAT 또는 쿠키 인증, **is_draft=true 행만** 다룬다 — 공개된 프로젝트는 이 표면에 없다(목록에서
+안 보이고, 수정·삭제는 409 `NOT_DRAFT`). 레이트리밋은 발행과 별도 버킷(`ingest-manage` 60/h).
+
+- `GET /api/ingest/drafts` — 내 초안 목록 `{ ok, count, drafts:[{ id, title, …, reviewUrl }] }`.
+- `PATCH /api/ingest/drafts/[id]` — 보낸 필드만 갱신(title/description/builderNote/demoHighlights/
+  tags/contentType/demoAccess — 검증은 생성 경로와 동일 규칙·동일 게이트). `deployUrl`·`appUrl`·
+  `uploads`가 오면 400 `ARTIFACT_IMMUTABLE` — 아티팩트 교체는 같은 URL로 publish 재실행(upsert)이
+  정규 경로(검증 경로 단일화).
+- `DELETE /api/ingest/drafts/[id]` — 행 + 스토리지(행 폴더 `{uid}/{id}/` BFS: zip 확장·`_media`·
+  `_upload`) 삭제. 인제스트 초안은 행을 먼저 만들고 그 id 폴더에 올리므로 demo-assets 라우트의
+  M16(업로드 UUID≠행 id) 문제가 없고, R2 데모 산출물은 발행 후에만 생겨 초안엔 없다.
+- CLI: `nookframe drafts` / `drafts update <id> --title …` / `drafts delete <id>` (≥0.1.4).
+  MCP 툴: `list_nookframe_drafts` · `update_nookframe_draft` · `delete_nookframe_draft`.
 
 ### 보안 불변식
 - **인제스트는 데모 파이프라인 컬럼을 절대 안 만진다.** `request_demo()`는 `auth.uid()`(쿠키) 기반이라
@@ -75,7 +96,8 @@
 
 - 마이그레이션: `supabase/migration_api_ingest.sql` (api_tokens · is_draft · RLS 정책 교체)
 - libs: `lib/apiToken.ts` · `lib/upload-safety.ts` · `lib/projectTaxonomy.ts` · `lib/connectSnippets.ts`
-- API: `app/api/ingest/route.ts` · `app/api/tokens/route.ts` · `app/api/tokens/[id]/route.ts`
+- API: `app/api/ingest/route.ts` · `app/api/ingest/finalize/route.ts` · `app/api/ingest/drafts/*`
+  (공용 인증·URL 게이트=`app/api/ingest/shared.ts`) · `app/api/tokens/route.ts` · `app/api/tokens/[id]/route.ts`
 - UI: `components/dashboard/SettingsTab.tsx`(연결 탭) · `ProjectsTab.tsx`(초안 검토·발행) · `app/publish/*`
 - CLI/MCP: `cli/` (배포명 `nookframe`)
 - 검증: `scripts/probe-api-ingest.mjs`

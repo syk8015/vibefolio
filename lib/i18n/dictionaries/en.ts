@@ -519,6 +519,8 @@ export const en: Dictionary = {
     mediaUploadFailed: "Media upload failed. Please try again in a moment.",
     finalizeNothing: "No uploaded files found. PUT your files to the issued URLs first, then call finalize.",
     finalizeNotDraft: "A published project can't be modified through this path.",
+    draftNoFields: "No fields to update.",
+    draftUrlImmutable: "To change the URL or files, run publish again — pushing the same URL updates the existing draft.",
     projectCreateFailed: "Couldn't create the project.",
     indexHtmlMissing: "No index.html found. Auto demos film what shows up in a browser — include index.html in your static site bundle.",
     badFilePath: "An invalid file path was detected.",

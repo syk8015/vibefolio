@@ -536,6 +536,8 @@ export const ko = {
     mediaUploadFailed: "미디어 업로드에 실패했어요. 잠시 후 다시 시도해 주세요.",
     finalizeNothing: "업로드된 파일이 없어요. 발급받은 URL로 파일을 먼저 올린 뒤 finalize를 호출해 주세요.",
     finalizeNotDraft: "이미 공개된 프로젝트는 이 경로로 수정할 수 없어요.",
+    draftNoFields: "수정할 항목이 없어요.",
+    draftUrlImmutable: "URL이나 파일 교체는 publish를 다시 실행하세요 — 같은 URL이면 기존 초안이 갱신돼요.",
     projectCreateFailed: "프로젝트를 만들지 못했어요.",
     indexHtmlMissing: "index.html이 없어요. 자동 시연은 브라우저에 뜨는 화면을 촬영해요 — 정적 사이트 번들에 index.html을 포함해 주세요.",
     badFilePath: "잘못된 파일 경로가 감지됐어요.",

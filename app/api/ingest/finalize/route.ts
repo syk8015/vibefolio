@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { apiError } from "@/lib/apiError";
 import { getT } from "@/lib/i18n/server";
 import { getDictionary } from "@/lib/i18n/dictionaries";
 import { rateLimit } from "@/lib/rate-limit";
-import { verifyToken, bearerFromHeader } from "@/lib/apiToken";
+import { bearerFromHeader } from "@/lib/apiToken";
+import { ingestAuth } from "../shared";
 import { screenshotUrl } from "@/lib/thumbnail";
 import { MAX_UPLOAD_BYTES, UploadError } from "@/lib/upload-safety";
 import {
@@ -27,24 +27,10 @@ import { logger } from "@/lib/logger";
 
 export async function POST(req: NextRequest) {
   try {
-    // 1. 인증 — /api/ingest와 동일(PAT 헤더 우선, 아니면 쿠키 세션).
-    const bearer = bearerFromHeader(req.headers.get("authorization"));
-    const t = bearer ? getDictionary("en") : (await getT()).t;
-    let userId: string;
-    if (bearer) {
-      const tok = await verifyToken(bearer);
-      if (!tok) {
-        return apiError({ status: 401, message: t.api.tokenInvalid, code: "UNAUTHORIZED" });
-      }
-      userId = tok.userId;
-    } else {
-      const supabase = await createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        return apiError({ status: 401, message: t.api.loginOrTokenRequired, code: "UNAUTHORIZED" });
-      }
-      userId = user.id;
-    }
+    // 1. 인증 — /api/ingest와 동일(PAT 헤더 우선, 아니면 쿠키 세션 — 공용 헬퍼).
+    const auth = await ingestAuth(req);
+    if (auth.fail) return auth.fail;
+    const { userId, t } = auth;
 
     // 2. 레이트리밋 — ingest와 같은 버킷(2단계 발행 = 2히트, 상한 내 여유 충분).
     const allowed = await rateLimit({ name: "ingest", key: userId, windowSeconds: 3600, max: 20 });

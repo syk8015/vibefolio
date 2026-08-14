@@ -146,6 +146,8 @@ export async function publishCommand(args) {
   }
 
   const body = await runPublish({ payload, dir, screenshotPath, videoPath, token, origin });
-  console.log("\n✓ Nookframe에 초안으로 올렸어요.");
+  console.log(body.upserted
+    ? "\n✓ 같은 URL의 기존 초안을 갱신했어요."
+    : "\n✓ Nookframe에 초안으로 올렸어요.");
   console.log(`  확인하고 공개: ${body.reviewUrl}`);
 }

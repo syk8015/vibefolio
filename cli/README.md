@@ -24,13 +24,22 @@ nookframe publish            현재 폴더 작품을 초안으로 올림
   --dir <path>              올릴 정적 빌드 디렉터리 (zip 업로드)
   --title <t>               제목
   --hint <text>             시연 영상에서 보여줄 핵심 (demoHighlights)
+  --access-url <u>          로그인 필요 앱의 데모/게스트 진입 URL·경로 (예 /demo)
+  --access-params <q>       진입 URL에 붙일 쿼리 (예 "guest=1&lang=ko")
+  --access-note <t>         데모 모드 보는 법 한두 문장 (계정 정보는 안 받음)
+  --screenshot <p>          썸네일용 스크린샷 (png/jpg/webp/gif ≤5MB)
+  --video <p>               직접 만든 시연 영상 (mp4/webm ≤20MB — 주면 자동 촬영 생략)
   --json '<payload>'        AI가 만든 전체 payload JSON
   --origin <url>            API origin (기본 https://nookframe.com)
+nookframe drafts             내 초안 목록
+nookframe drafts update <id>  초안 메타데이터 수정 (--title/--description/--note/--hint/--json)
+nookframe drafts delete <id>  초안 삭제 (공개된 프로젝트는 못 지움)
 nookframe login <token>      토큰 저장 (~/.nookframe/config.json)
 nookframe mcp                MCP stdio 서버 실행
 ```
 
 올린 작품은 **초안**으로 들어가며, 대시보드에서 확인·수정 후 공개하면 자동 시연 영상이 촬영됩니다.
+같은 URL로 `publish`를 다시 실행하면 새 초안이 생기지 않고 **기존 초안이 갱신**됩니다.
 
 ## MCP (클로드 데스크탑 · 커서)
 
@@ -46,4 +55,4 @@ nookframe mcp                MCP stdio 서버 실행
 }
 ```
 
-툴 `publish_to_nookframe` 가 노출됩니다.
+툴 `publish_to_nookframe` · `list_nookframe_drafts` · `update_nookframe_draft` · `delete_nookframe_draft` 가 노출됩니다.

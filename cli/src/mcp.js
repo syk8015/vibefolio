@@ -1,5 +1,6 @@
 import { getToken, getOrigin } from "./config.js";
 import { runPublish } from "./publish.js";
+import { listDrafts, updateDraft, deleteDraft } from "./drafts.js";
 
 // `nookframe mcp` — MCP stdio 서버. 클로드 데스크탑·커서 등 MCP 호스트가
 // `npx -y nookframe mcp` 로 띄우고, 그 안의 AI가 publish_to_nookframe 툴을 호출한다.
@@ -26,7 +27,7 @@ export async function runMcp() {
   const TOOL = {
     name: "publish_to_nookframe",
     description:
-      "이 프로젝트를 Nookframe(바이브코딩 포트폴리오)에 초안으로 올린다. 당신이 이 프로젝트를 만든 AI로서 레포(README·라우트·git log)를 근거로 title/description/demoHighlights를 직접 작성해 전달하라. deployUrl(배포된 공개 URL) 또는 dir(로컬 정적 빌드 폴더 절대경로) 중 하나를 준다. 랜딩과 실제 앱 화면 주소가 다르면 appUrl에 앱 URL을 함께 줘라(시연·임베드는 appUrl을 연다). 로그인해야 화면이 보이는 앱이면 demoAccess에 로그인 없이 들어가는 데모/게스트 진입 정보를 줘라(계정 아이디/비번은 받지 않는다). 직접 찍은 스크린샷·시연 영상 파일이 있으면 screenshot/video에 절대경로로 줘라(영상을 주면 자동 촬영은 생략된다). demoHighlights는 '○○를 클릭' 같은 지시가 아니라 '○○ 기능이 핵심' 처럼 서술형으로.",
+      "이 프로젝트를 Nookframe(바이브코딩 포트폴리오)에 초안으로 올린다. 당신이 이 프로젝트를 만든 AI로서 레포(README·라우트·git log)를 근거로 title/description/demoHighlights를 직접 작성해 전달하라. deployUrl(배포된 공개 URL) 또는 dir(로컬 정적 빌드 폴더 절대경로) 중 하나를 준다. 랜딩과 실제 앱 화면 주소가 다르면 appUrl에 앱 URL을 함께 줘라(시연·임베드는 appUrl을 연다). 로그인해야 화면이 보이는 앱이면 demoAccess에 로그인 없이 들어가는 데모/게스트 진입 정보를 줘라(계정 아이디/비번은 받지 않는다). 직접 찍은 스크린샷·시연 영상 파일이 있으면 screenshot/video에 절대경로로 줘라(영상을 주면 자동 촬영은 생략된다). demoHighlights는 '○○를 클릭' 같은 지시가 아니라 '○○ 기능이 핵심' 처럼 서술형으로. 같은 URL로 다시 올리면 새 초안이 생기지 않고 기존 초안이 갱신된다(내용 수정에 이 방법을 써라).",
     inputSchema: {
       type: "object",
       properties: {
@@ -63,24 +64,92 @@ export async function runMcp() {
     },
   };
 
-  server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: [TOOL] }));
+  // 초안 관리(요청4) — 전부 초안(is_draft) 한정. 공개된 프로젝트는 서버가 409로 거부.
+  const DRAFT_TOOLS = [
+    {
+      name: "list_nookframe_drafts",
+      description:
+        "내가 Nookframe에 올린 초안(아직 공개 전) 목록을 본다. 공개된 프로젝트는 안 보인다.",
+      inputSchema: { type: "object", properties: {} },
+    },
+    {
+      name: "update_nookframe_draft",
+      description:
+        "Nookframe 초안의 메타데이터(title/description/builderNote/demoHighlights/tags/contentType/demoAccess)를 수정한다. 보낸 필드만 바뀐다. URL·파일 교체는 이 툴로 안 되고, 같은 URL로 publish_to_nookframe를 다시 호출하면 그 초안이 갱신된다. 공개된 프로젝트는 수정 불가.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: "초안 id (list_nookframe_drafts로 확인)" },
+          title: { type: "string" },
+          description: { type: "string" },
+          builderNote: { type: "string" },
+          demoHighlights: { type: "string" },
+          tags: { type: "array", items: { type: "string" } },
+          contentType: {
+            type: "string",
+            enum: ["web-app", "saas", "mobile", "game", "extension", "ai-service", "media", "other"],
+          },
+          demoAccess: {
+            type: "object",
+            properties: {
+              url: { type: "string" },
+              params: { type: "object", additionalProperties: { type: "string" } },
+              note: { type: "string" },
+            },
+          },
+        },
+        required: ["id"],
+      },
+    },
+    {
+      name: "delete_nookframe_draft",
+      description:
+        "Nookframe 초안을 삭제한다(올라간 파일 포함). 공개된 프로젝트는 이 툴로 못 지운다. 유저가 지워달라고 했거나 잘못 올린 초안일 때만 써라.",
+      inputSchema: {
+        type: "object",
+        properties: { id: { type: "string", description: "초안 id (list_nookframe_drafts로 확인)" } },
+        required: ["id"],
+      },
+    },
+  ];
+
+  server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: [TOOL, ...DRAFT_TOOLS] }));
 
   server.setRequestHandler(CallToolRequestSchema, async (req) => {
-    if (req.params.name !== "publish_to_nookframe") {
-      return { isError: true, content: [{ type: "text", text: `알 수 없는 툴: ${req.params.name}` }] };
-    }
     const a = req.params.arguments || {};
-    const { dir, screenshot, video, ...payload } = a;
+    const conn = { token: getToken(), origin: getOrigin() };
     try {
-      const body = await runPublish({
-        payload,
-        dir: dir || null,
-        screenshotPath: screenshot || null,
-        videoPath: video || null,
-        token: getToken(),
-        origin: getOrigin(),
-      });
-      return { content: [{ type: "text", text: `Nookframe에 초안으로 올렸어요. 확인하고 공개: ${body.reviewUrl}` }] };
+      switch (req.params.name) {
+        case "publish_to_nookframe": {
+          const { dir, screenshot, video, ...payload } = a;
+          const body = await runPublish({
+            payload,
+            dir: dir || null,
+            screenshotPath: screenshot || null,
+            videoPath: video || null,
+            ...conn,
+          });
+          const verb = body.upserted ? "기존 초안을 갱신했어요" : "초안으로 올렸어요";
+          return { content: [{ type: "text", text: `Nookframe에 ${verb}. 확인하고 공개: ${body.reviewUrl}` }] };
+        }
+        case "list_nookframe_drafts": {
+          const { drafts } = await listDrafts(conn);
+          if (!drafts?.length) return { content: [{ type: "text", text: "초안이 없어요." }] };
+          const lines = drafts.map((d) => `- ${d.id} · ${d.title}${d.demo_url ? ` · ${d.demo_url}` : ""}`);
+          return { content: [{ type: "text", text: `초안 ${drafts.length}개:\n${lines.join("\n")}` }] };
+        }
+        case "update_nookframe_draft": {
+          const { id, ...payload } = a;
+          const body = await updateDraft(id, payload, conn);
+          return { content: [{ type: "text", text: `초안을 수정했어요. 확인: ${body.reviewUrl}` }] };
+        }
+        case "delete_nookframe_draft": {
+          await deleteDraft(a.id, conn);
+          return { content: [{ type: "text", text: "초안을 삭제했어요 (올라간 파일 포함)." }] };
+        }
+        default:
+          return { isError: true, content: [{ type: "text", text: `알 수 없는 툴: ${req.params.name}` }] };
+      }
     } catch (err) {
       return { isError: true, content: [{ type: "text", text: `실패: ${err instanceof Error ? err.message : String(err)}` }] };
     }

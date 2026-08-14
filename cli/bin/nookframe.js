@@ -18,6 +18,9 @@ const HELP = `nookframe — 바이브코딩 작품을 한 줄로 Nookframe에 �
     --video <p>        직접 만든 시연 영상 (mp4/webm, ≤20MB — 주면 자동 촬영 생략)
     --json '<payload>' AI가 만든 전체 payload JSON (다른 플래그와 병합, JSON 우선)
     --origin <url>     API origin (기본 ${getOrigin()})
+  drafts             내 초안 목록 (같은 URL로 publish를 다시 실행하면 새 초안 대신 기존 초안이 갱신됨)
+    update <id>        초안 메타데이터 수정 (--title/--description/--note/--hint/--json — URL·파일 교체는 publish 재실행)
+    delete <id>        초안 삭제 (공개된 프로젝트는 이 명령으로 못 지움)
   login <token>      토큰을 ~/.nookframe/config.json 에 저장
   mcp                MCP stdio 서버 실행 (클로드 데스크탑·커서 등에서 사용)
 
@@ -51,6 +54,11 @@ try {
     case "publish":
       await publishCommand(args);
       break;
+    case "drafts": {
+      const { draftsCommand } = await import("../src/drafts.js");
+      await draftsCommand(args);
+      break;
+    }
     case "login": {
       const token = args._[0] || (typeof args.token === "string" ? args.token : null);
       if (!token) {
