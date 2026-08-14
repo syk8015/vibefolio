@@ -10,6 +10,8 @@ const HELP = `nookframe — 바이브코딩 작품을 한 줄로 Nookframe에 �
     --app-url <url>    실제 앱 화면 URL (랜딩과 다를 때 — 시연은 이 주소를 촬영)
     --dir <path>       올릴 정적 빌드 디렉터리 (지정 시 zip 업로드)
     --title <t>        제목
+    --description <t>  한 문단 설명
+    --note <text>      공개 카드 말풍선에 뜨는 짧은 한마디 (builderNote)
     --hint <text>      시연 영상에서 보여줄 핵심 (demoHighlights)
     --access-url <u>   로그인 필요 앱의 데모/게스트 진입 URL·경로 (예 /demo)
     --access-params <q> 진입 URL에 붙일 쿼리 (예 "guest=1&lang=ko")

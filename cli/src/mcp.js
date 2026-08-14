@@ -24,6 +24,17 @@ export async function runMcp() {
     { capabilities: { tools: {} } },
   );
 
+  // AI_TOOLS 화이트리스트 사본 — lib/projectTaxonomy.ts와 짝. cli/는 독립 배포
+  // 패키지라 레포 코드를 import 못 해(AGENTS.md) 하드코딩한다. 서버가 이 철자만
+  // 정확히 받고 나머지는 조용히 버리므로, 저 목록이 바뀌면 여기도 같이 고쳐야 한다.
+  const AI_TOOL_IDS = [
+    "ChatGPT", "Claude Code", "Cursor", "GitHub Copilot", "Gemini", "v0",
+    "Bolt.new", "Windsurf", "Lovable", "Replit AI", "Devin", "Aider",
+    "Continue.dev", "Codeium", "Amazon Q", "Perplexity", "Midjourney",
+    "DALL-E", "Stable Diffusion", "Ideogram", "Flux", "Runway", "Kling",
+    "Pika", "Suno", "ElevenLabs",
+  ];
+
   const TOOL = {
     name: "publish_to_nookframe",
     description:
@@ -33,9 +44,13 @@ export async function runMcp() {
       properties: {
         title: { type: "string", description: "짧고 명확한 제품 이름" },
         description: { type: "string", description: "한 문단 설명 (미완성이면 지향점까지)" },
-        builderNote: { type: "string", description: "만들려던 의도 등 부가 메모" },
+        builderNote: { type: "string", description: "(선택) 공개 카드에 말풍선으로 뜨는 짧은 한마디. 문단이 아니라 한 줄, 예: '이게 제 첫 사이드프로젝트예요!'" },
         demoHighlights: { type: "string", description: "시연 영상에서 보여줄 핵심 3~5가지, 서술형, 500자 이내" },
-        tags: { type: "array", items: { type: "string" }, description: "이 작업에 쓴 AI 툴들 (예: Claude Code)" },
+        tags: {
+          type: "array",
+          items: { type: "string", enum: AI_TOOL_IDS },
+          description: "이 작업에 쓴 AI 툴. 목록 밖 철자는 서버가 조용히 버린다.",
+        },
         contentType: {
           type: "string",
           enum: ["web-app", "saas", "mobile", "game", "extension", "ai-service", "media", "other"],
@@ -84,7 +99,7 @@ export async function runMcp() {
           description: { type: "string" },
           builderNote: { type: "string" },
           demoHighlights: { type: "string" },
-          tags: { type: "array", items: { type: "string" } },
+          tags: { type: "array", items: { type: "string", enum: AI_TOOL_IDS } },
           contentType: {
             type: "string",
             enum: ["web-app", "saas", "mobile", "game", "extension", "ai-service", "media", "other"],

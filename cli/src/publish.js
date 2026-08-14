@@ -101,6 +101,8 @@ export async function publishCommand(args) {
     }
   }
   if (args.title) payload.title = args.title;
+  if (args.description) payload.description = args.description;
+  if (args.note) payload.builderNote = args.note;
   if (args.hint) payload.demoHighlights = args.hint;
   if (args.url) payload.deployUrl = args.url;
   if (args["app-url"]) payload.appUrl = args["app-url"];

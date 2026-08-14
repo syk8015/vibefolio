@@ -62,7 +62,9 @@
      지워진 임시 오브젝트가 스토리지 CDN 캐시에서 잠깐 더 읽히면 재처리로 돌아 플래그가 빠질 수 있음,
      실측 2026-08-14). CLI ≥0.1.3은 파일이 있으면 자동으로 이 경로.
 - payload 매핑: `demoHighlights`→`demo_user_hint`(≤500, 레코더에 주입되는 유일 텍스트),
-  `builderNote`→`comment`, `tags`는 AI_TOOLS 화이트리스트로 필터, `contentType`은 8개 고정 id.
+  `builderNote`→`comment`(공개 카드 말풍선 — 08-14까지 프롬프트·MCP 스키마에 안내가 빠져 있어 AI가 실질적으로
+  못 채웠다. pastePrompt·MCP TOOL 스키마 양쪽에 보완), `tags`는 `AI_TOOLS` **화이트리스트 정확 일치**로
+  필터(다른 철자는 조용히 버려짐 — 프롬프트·MCP 스키마 enum에 전체 목록 명시로 보완), `contentType`은 8개 고정 id.
 - 파일 경로: 행 id 확보 → `project-files/{uid}/{rowId}/…` 업로드 → `demo_url=/api/preview/…/index.html`.
 - **upsert(요청4)**: 같은 유저의 **초안** 중 `demo_url`이 이번 진입 URL(appUrl 우선, `detectDemoSource`
   정규화 후 값)과 같은 행이 있으면 insert 대신 그 행을 **갱신**한다(재푸시=최신 페이로드가 진실.

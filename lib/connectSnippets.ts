@@ -39,8 +39,9 @@ You're the AI that built this project, so read the repo yourself and describe it
 3) Build a publish payload (JSON) with these fields:
    • title — a short, clear product name
    • description — one paragraph: what it is and who it's useful for (if unfinished, include where it's headed)
+   • builderNote — (optional) a short one-liner shown as a speech bubble on the public card. One line, not a paragraph — e.g. "This is my first side project!"
    • demoHighlights — 3–5 key things the auto-demo video must show, written descriptively. Not instructions like "click X" — more like "the X feature is the heart of this product". Under 500 characters
-   • tags — the AI tools used to build this (e.g. "Claude Code", "Cursor")
+   • tags — which AI tools were used to build this. Pick from this exact list (anything else is silently dropped): ChatGPT, Claude Code, Cursor, GitHub Copilot, Gemini, v0, Bolt.new, Windsurf, Lovable, Replit AI, Devin, Aider, Continue.dev, Codeium, Amazon Q, Perplexity, Midjourney, DALL-E, Stable Diffusion, Ideogram, Flux, Runway, Kling, Pika, Suno, ElevenLabs
    • contentType — one of web-app | saas | mobile | game | extension | ai-service | media | other
    • deployUrl — the deployed public URL (vercel/netlify, etc.). If it isn't deployed, skip this — you can upload a static build output instead
    • appUrl — if the landing page and the actual app live at different URLs (e.g. / is the intro, /app is the real app), the app URL the demo/embed should open. If present, that's what gets recorded
@@ -59,8 +60,9 @@ You're the AI that built this project, so read the repo yourself and describe it
 3) 아래 항목을 채운 publish 페이로드(JSON)를 만들어:
    • title — 짧고 명확한 제품 이름
    • description — 한 문단. 무엇이고 누구에게 쓸모있는지 (미완성이면 지향점까지)
+   • builderNote — (선택) 공개 카드에 말풍선으로 뜨는 짧은 한마디. 문단이 아니라 한 줄, 예: "이게 제 첫 사이드프로젝트예요!"
    • demoHighlights — 자동 시연 영상에서 꼭 보여줄 핵심 3~5가지를 서술형으로. "○○를 클릭해" 같은 지시가 아니라 "○○ 기능이 이 제품의 핵심" 처럼. 500자 이내
-   • tags — 이 작업에 쓴 AI 툴들 (예: "Claude Code", "Cursor")
+   • tags — 이 작업에 쓴 AI 툴. 아래 목록에서 철자 그대로 골라줘(다른 이름은 조용히 버려짐): ChatGPT, Claude Code, Cursor, GitHub Copilot, Gemini, v0, Bolt.new, Windsurf, Lovable, Replit AI, Devin, Aider, Continue.dev, Codeium, Amazon Q, Perplexity, Midjourney, DALL-E, Stable Diffusion, Ideogram, Flux, Runway, Kling, Pika, Suno, ElevenLabs
    • contentType — web-app | saas | mobile | game | extension | ai-service | media | other 중 하나
    • deployUrl — 배포된 공개 URL (vercel/netlify 등). 미배포면 생략하고 정적 빌드 산출물을 올려도 돼
    • appUrl — 랜딩과 실제 앱 화면 주소가 다르면(예: / 는 소개, /app 이 진짜 앱), 시연·임베드가 열어야 할 앱 URL. 있으면 이 주소를 촬영해
