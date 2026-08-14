@@ -184,6 +184,29 @@ export async function parkPhysicalCursor(x: number, y: number): Promise<void> {
   }
 }
 
+// Same warp, but for a page whose window position we have to ask for: park the
+// real cursor on the browser's own chrome strip, just above the content.
+//
+// This is not about tooltips (nothing is filmed yet during explore) — it is about
+// INPUT. A physical cursor resting over the page makes Blink re-fire hover as a
+// mousemove with buttons=0 whenever the DOM changes underneath it, and that ends a
+// native <input type=range> drag mid-gesture: the slider takes the first step or
+// two and then stops following. JS drag handlers (a kanban board's own mousemove
+// listener) ignore the button state and never noticed, which is why takes showed
+// cards moving fine while sliders "did nothing" and got pruned. Measured
+// 2026-08-15 on the nookgym fixture: 4/36 drags died with the cursor on the page,
+// 0/30 with it parked here.
+export async function parkCursorOffPage(page: Page): Promise<void> {
+  try {
+    const g = (await page.evaluate(
+      "({sx: window.screenX, sy: window.screenY, oh: window.outerHeight, ih: window.innerHeight, iw: window.innerWidth})",
+    )) as { sx: number; sy: number; oh: number; ih: number; iw: number };
+    await parkPhysicalCursor(g.sx + g.iw / 2, Math.max(8, g.sy + (g.oh - g.ih) - 35));
+  } catch (e) {
+    console.error("[cleanliness] cursor park failed (non-fatal):", (e as Error).message);
+  }
+}
+
 // A cookies+localStorage snapshot (from context.storageState()), used to start
 // the recording context on the same footing the explore pass reached (§4.6).
 export type StorageState = Awaited<ReturnType<BrowserContext["storageState"]>>;

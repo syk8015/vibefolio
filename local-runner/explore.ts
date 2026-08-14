@@ -323,6 +323,62 @@ const DRAGGABLE_SRC = `() => {
   return out;
 }`;
 
+// What a drag GRABBED, in DOM terms — read at the start point before the gesture,
+// re-read after it. Pixels are an inference; this is the ground truth, and the two
+// disagree exactly where it hurts: a slider that moved for real is a couple hundred
+// changed pixels in a 1280×720 frame, close enough to "unchanged" that only the
+// 300×300 patch keeps it (measured 2026-08-15: patch 0.962-0.982 vs the 0.998 bar —
+// real, but not by much). If the state moved, the drag is a beat no matter what the
+// frames say. And when nothing moved, the recorded value tells the post-mortem WHY
+// a drag was cut: aim that never landed on a control (no state at all) reads
+// differently from a grab that landed and simply did not track.
+// The element is stashed on window so the after-read follows the same node — after
+// a drag the point may sit over something else entirely (a moved card, a new thumb).
+// The signature itself: value for form controls, position + parent for things that
+// move (kanban cards, canvas objects), scroll offsets for pannable surfaces.
+// Rounded to 2px so subpixel noise never reads as a change. Inlined into both
+// readers as a string (the __name trap) so a navigation can't leave it uninstalled.
+const DRAG_SIG_SRC = `function (el) {
+  var t = (el.tagName || "").toLowerCase();
+  var parts = [];
+  if (t === "input" || t === "textarea" || t === "select") {
+    parts.push("v=" + (el.type === "checkbox" || el.type === "radio" ? (el.checked ? 1 : 0) : el.value));
+  }
+  var av = el.getAttribute && el.getAttribute("aria-valuenow");
+  if (av != null) parts.push("av=" + av);
+  var r = el.getBoundingClientRect();
+  var q = function (n) { return Math.round(n / 2) * 2; };
+  parts.push("r=" + q(r.left) + "," + q(r.top) + "," + q(r.width) + "," + q(r.height));
+  var p = el.parentElement;
+  if (p) parts.push("p=" + (p.getAttribute("data-testid") || p.id || p.className || p.tagName) +
+    ":" + Array.prototype.indexOf.call(p.children, el));
+  if (el.scrollWidth > el.clientWidth || el.scrollHeight > el.clientHeight)
+    parts.push("s=" + q(el.scrollLeft) + "," + q(el.scrollTop));
+  return parts.join("|");
+}`;
+
+// Read at the start point before the gesture; the node is stashed on window so the
+// after-read follows the SAME element — after a drag the point may sit over
+// something else entirely (a moved card, a thumb that travelled).
+const DRAG_STATE_SRC = `(x, y) => {
+  var el = document.elementFromPoint(x, y);
+  window.__nfDragEl = el;
+  return el ? (${DRAG_SIG_SRC})(el) : "";
+}`;
+const DRAG_STATE_AFTER_SRC = `() => {
+  var el = window.__nfDragEl;
+  return el && el.isConnected ? (${DRAG_SIG_SRC})(el) : "";
+}`;
+
+// Exported for probe-slider-prune.ts (no API, no capture): the readers are the
+// only new injected code, so the probe exercises them directly.
+export function dragStateAt(page: Page, x: number, y: number): Promise<string> {
+  return evalCall<string>(page, DRAG_STATE_SRC, x, y);
+}
+export function dragStateOfGrab(page: Page): Promise<string> {
+  return evalCall<string>(page, DRAG_STATE_AFTER_SRC);
+}
+
 type Resolved = { selector: string | null; label: string };
 
 function evalCall<T>(page: Page, src: string, ...args: number[]): Promise<T> {
@@ -583,6 +639,20 @@ function applyCache(messages: Msg[]): void {
 // ── Action execution → Script trace ─────────────────────────────────────────────
 
 const ACTION_PACING_MS = 420; // let the UI settle before the next observation
+const DRAG_STEPS = 18;
+const DRAG_STEP_MS = 14; // ≈ one frame per step, so ~250ms per drag
+
+// Press, travel, release — paced a frame at a time rather than as a CDP burst, so
+// the gesture reaches the page the way replay's eased drag will.
+async function dragGesture(page: Page, fromX: number, fromY: number, toX: number, toY: number): Promise<void> {
+  await page.mouse.move(fromX, fromY);
+  await page.mouse.down();
+  for (let i = 1; i <= DRAG_STEPS; i++) {
+    await page.mouse.move(fromX + ((toX - fromX) * i) / DRAG_STEPS, fromY + ((toY - fromY) * i) / DRAG_STEPS);
+    await sleep(DRAG_STEP_MS);
+  }
+  await page.mouse.up();
+}
 const TYPE_DELAY_MS = 40;
 
 const clampX = (n: number) => Math.max(0, Math.min(VIEW_W - 1, Math.round(n)));
@@ -640,6 +710,9 @@ export async function explore(page: Page, opts: ExploreOptions = {}): Promise<Ex
   // key this environment can't press) — surfaced to the model as the turn's note.
   // No action was pushed in that case, so the prune path never produces one.
   let refusalNote: string | undefined;
+  // DOM state of the grabbed element, read by perform() just before a drag and
+  // compared after it by the prune branch (see DRAG_STATE_SRC).
+  let dragStateBefore = "";
 
   // Run one computer-use action on the live page, recording the resulting Script
   // action (with a resolved selector + coordinate fallback). Returns whether it
@@ -762,10 +835,21 @@ export async function explore(page: Page, opts: ExploreOptions = {}): Promise<Ex
           actions.pop();
           hovered.delete(selector ?? "");
         }
-        await page.mouse.move(s[0], s[1]);
-        await page.mouse.down();
-        await page.mouse.move(state.x, state.y, { steps: 18 });
-        await page.mouse.up();
+        dragStateBefore = await dragStateAt(page, s[0], s[1]).catch(() => "");
+        await dragGesture(page, s[0], s[1], state.x, state.y);
+        // A control with a VALUE that did not budge is the known tracking failure:
+        // a stray hover mousemove (buttons=0) ends a native slider's drag after a
+        // step or two, so a perfectly aimed grab reads as inert and gets pruned —
+        // 2026-08-15 take: two of three slider drags, both aimed dead on the thumb.
+        // The physical cursor is parked before the pass now (browser.ts), and this
+        // is the second line: one honest retry before the pixels get to judge.
+        if (/(^|\|)a?v=/.test(dragStateBefore)) {
+          const mid = await dragStateOfGrab(page).catch(() => "");
+          if (mid && mid === dragStateBefore) {
+            console.log(`[explore] drag retried (first attempt did not take): ${label || selector || "(coord)"}`);
+            await dragGesture(page, s[0], s[1], state.x, state.y);
+          }
+        }
         // Clear any text selection the gesture smeared BEFORE the after-shot: a
         // grab on an item's text selects instead of moving, and the blue smear
         // read as "visible change" to the pruner — the 2026-07-18 phantom drags.
@@ -1000,6 +1084,7 @@ export async function explore(page: Page, opts: ExploreOptions = {}): Promise<Ex
       const lenBefore = actions.length;
       const chooserBefore = chooserCount;
       const urlBefore = page.url();
+      dragStateBefore = ""; // never compare against a previous action's grab
       // Fresh before-frame per click/drag: the previous tool_result frame is stale
       // by a whole model turn — passive motion during API latency (a toast fading,
       // a carousel) would mask a genuine no-op.
@@ -1080,24 +1165,42 @@ export async function explore(page: Page, opts: ExploreOptions = {}): Promise<Ex
         const dragged = actions[lenBefore] as { selector?: string; label?: string; x: number; y: number; toX: number; toY: number };
         const name = dragged.label || dragged.selector || "(coord)";
         try {
-          if (page.url() === urlBefore && (await dragNoVisibleChange(before, cur, dragged))) {
+          // Ground truth first (free, no ffmpeg): if what we grabbed actually moved
+          // — a slider's value, a card's parent, a surface's scroll — the drag is a
+          // beat, whatever the frames scored. Only when the DOM agrees nothing
+          // happened do the pixels get to cut it.
+          const stateAfter = dragStateBefore ? await dragStateOfGrab(page).catch(() => "") : "";
+          const stateMoved = !!dragStateBefore && !!stateAfter && stateAfter !== dragStateBefore;
+          if (stateMoved) {
+            console.log(`[explore] kept drag (DOM state moved): ${name} ${dragStateBefore} → ${stateAfter}`);
+          } else if (page.url() === urlBefore && (await dragNoVisibleChange(before, cur, dragged))) {
             const b = before;
             const re = await settledUnchanged(page, urlBefore, (c) => dragNoVisibleChange(b, c, dragged));
             cur = re.cur;
             if (re.unchanged) {
               actions.splice(lenBefore);
               prunedThis = true;
-              // Coordinates matter for the post-mortem: a pruned slider drag is
-              // either a bad grab (aimed off the thumb) or a false prune, and the
-              // log is the only place that can tell those apart later.
+              // Coordinates AND the grabbed element's state matter for the
+              // post-mortem: "no state at all" means the aim never landed on a
+              // control, while a state that is present and unchanged means the grab
+              // landed and the gesture simply did not take. The log is the only
+              // place that can tell those apart after the fact.
               console.log(
                 `[explore] pruned drag (no visible change): ${name} ` +
-                  `(${dragged.x},${dragged.y})→(${dragged.toX},${dragged.toY})`,
+                  `(${dragged.x},${dragged.y})→(${dragged.toX},${dragged.toY}) ` +
+                  `[state ${dragStateBefore || "(none)"} → ${stateAfter || "(none)"}]`,
               );
-              note =
-                "That drag changed nothing on screen — you likely grabbed empty space or an inert area, so " +
-                "it was cut from the demo script. Grab the actual item / handle / thumb (not the gap around " +
-                "it), or show a different feature.";
+              // Two different failures, two different instructions. Telling a
+              // model that aimed dead on the thumb "you grabbed empty space" sends
+              // it back to re-aim at the same pixel — the 2026-08-15 take burned
+              // three steps that way. If the grab DID land on a control (we read
+              // its value), the honest note is that the control ignored the drag.
+              note = /(^|\|)a?v=/.test(dragStateBefore)
+                ? "That drag landed on the control but it did not respond, even on a retry — it was cut from " +
+                  "the demo script. Do not drag it again; show a different feature."
+                : "That drag changed nothing on screen — you likely grabbed empty space or an inert area, so " +
+                  "it was cut from the demo script. Grab the actual item / handle / thumb (not the gap around " +
+                  "it), or show a different feature.";
             }
           }
         } catch (e) {

@@ -17,6 +17,7 @@ import {
   ensureExactViewport,
   installCaptureCleanliness,
   parkPhysicalCursor,
+  parkCursorOffPage,
 } from "./browser";
 import { computeCropRect, startRecording, resolveScreenDevice, assertRawHasContent } from "./record";
 import { injectCursorOverlay, ensureCursor, cursorSetPos } from "./cursor";
@@ -278,6 +279,10 @@ export async function recordDemo(opts: RecordDemoOptions): Promise<RecordDemoRes
     }
 
     console.log(`[explore] ${url}  (policy: ${policy})`);
+    // Get the REAL cursor off the page before the pass: resting on it, it kills
+    // native slider drags mid-gesture (see parkCursorOffPage). Recording parks it
+    // too, for a different reason — explore needs it for input, not cleanliness.
+    await parkCursorOffPage(explorePage);
     const storage0 = await exploreCtx.storageState(); // shared footing for the take
     const script = await explore(explorePage, {
       userHint: opts.userHint,
