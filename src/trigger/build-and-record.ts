@@ -384,8 +384,27 @@ export const buildAndRecord = task({
       );
       logger.log("npm install done", { exitCode: install.exitCode });
 
+      // next dev takes no --host flag at all (only -H/--hostname) and errors out on
+      // unrecognized options, so --host 0.0.0.0 (Vite's convention) silently kills
+      // the dev server for any Next.js repo — confirmed against
+      // node_modules/next/dist/docs 2026-08-14 (next dev already defaults hostname
+      // to 0.0.0.0 regardless). Same fix ported to local-runner/build.ts, the live
+      // path this task was forked from.
+      const isNext = await sandbox.commands
+        .run(
+          `test -f ${repoPath}/package.json && node -e "` +
+            `const p=require('${repoPath}/package.json');` +
+            `const d=Object.assign({},p.dependencies,p.devDependencies);` +
+            `const dv=(p.scripts||{}).dev||(p.scripts||{}).start||'';` +
+            `process.exit(Boolean(d.next)||/\\bnext\\b/.test(dv)?0:1);` +
+            `"`,
+        )
+        .then((r) => r.exitCode === 0)
+        .catch(() => false);
+      const hostFlag = isNext ? "-H 0.0.0.0" : "--host 0.0.0.0";
+
       await sandbox.commands.run(
-        `${NODE_PATH_PREFIX}cd ${repoPath} && npm run dev -- --host 0.0.0.0 --port ${DEV_PORT} > /tmp/dev.log 2>&1`,
+        `${NODE_PATH_PREFIX}cd ${repoPath} && npm run dev -- ${hostFlag} --port ${DEV_PORT} > /tmp/dev.log 2>&1`,
         { background: true },
       );
 

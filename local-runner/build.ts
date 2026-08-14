@@ -249,12 +249,30 @@ export async function buildAndServe(
     // "I pushed my Claude artifact") had no dev script and died "not reachable".
     // Buildable = package.json with a dev/start script; otherwise serve statically
     // if there's any HTML, else it isn't a web app at all.
-    const hasDevScript = await sandbox.commands
-      .run(`test -f ${repoPath}/package.json && node -e "const s=require('${repoPath}/package.json').scripts||{};process.exit(s.dev||s.start?0:1)"`)
-      .then((r) => r.exitCode === 0)
-      .catch(() => false);
+    // Next.js's `next dev` takes no --host flag at all (only -H/--hostname) and
+    // Commander errors out on unrecognized options — so the --host 0.0.0.0 below
+    // (added for Vite's allowlist, see the launch command) silently kills the dev
+    // server for any Next.js repo (confirmed against node_modules/next/dist/docs
+    // 2026-08-14; next dev already defaults hostname to 0.0.0.0 regardless). One
+    // combined check for both signals to avoid a second sandbox round-trip.
+    const scriptCheck = await sandbox.commands
+      .run(
+        `test -f ${repoPath}/package.json && node -e "` +
+          `const p=require('${repoPath}/package.json');` +
+          `const s=p.scripts||{};` +
+          `const d=Object.assign({},p.dependencies,p.devDependencies);` +
+          `const dv=s.dev||s.start||'';` +
+          `const isNext=Boolean(d.next)||/\\bnext\\b/.test(dv);` +
+          `console.log((s.dev||s.start?1:0)+' '+(isNext?1:0));` +
+          `"`,
+      )
+      .then((r) => {
+        const [dev, next] = r.stdout.trim().split(" ");
+        return { hasDevScript: dev === "1", isNext: next === "1" };
+      })
+      .catch(() => ({ hasDevScript: false, isNext: false }));
 
-    if (!hasDevScript) {
+    if (!scriptCheck.hasDevScript) {
       // Find the shallowest index.html (root, or dist/build/public/ from a checked-in build).
       const found = await sandbox.commands.run(
         `find ${repoPath} -maxdepth 3 -name index.html -not -path '*/node_modules/*' -printf '%d %p\\n' 2>/dev/null | sort -n | head -1 | cut -d' ' -f2-`,
@@ -285,10 +303,13 @@ export async function buildAndServe(
     // public URL from outside). Harmless for non-Vite dev servers.
     const host = sandbox.getHost(DEV_PORT);
     const url = `https://${host}`;
+    // --host is Vite/Astro/webpack-dev-server's convention; next dev needs -H
+    // instead (see scriptCheck above) — --port is spelled the same in both.
+    const hostFlag = scriptCheck.isNext ? "-H 0.0.0.0" : "--host 0.0.0.0";
     await sandbox.commands.run(
       `${NODE_PATH_PREFIX}cd ${repoPath} && ` +
         `__VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS=${shQuote(host)} ` +
-        `npm run dev -- --host 0.0.0.0 --port ${DEV_PORT} > /tmp/dev.log 2>&1`,
+        `npm run dev -- ${hostFlag} --port ${DEV_PORT} > /tmp/dev.log 2>&1`,
       { background: true },
     );
 
