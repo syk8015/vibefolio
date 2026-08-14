@@ -119,7 +119,12 @@ export default async function LandingPage({
           <p className="text-sm" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
             {t.landing.greetingBefore}<span style={{ color: "var(--text-primary)", fontWeight: 600 }}>{name}</span>{t.landing.greetingAfter}
           </p>
-          <LoggedInHeadline locale={locale} />
+          <LoggedInHeadline
+            locale={locale}
+            forceText={forcedTagline?.text}
+            forceReply={forcedTagline?.reply}
+            promoNotFound={!!promo && !forcedTagline}
+          />
           <div className="flex flex-wrap justify-center items-center gap-3">
             <Link href={`/${username}`}
               className="px-7 py-3 rounded-full text-sm transition-opacity hover:opacity-80"

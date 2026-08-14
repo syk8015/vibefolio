@@ -25,6 +25,7 @@ import {
   EXPLORE_MAX_STEPS,
   EXPLORE_MIN_INTERACTIONS,
   EXPLORE_MAX_REPROMPTS,
+  MAX_HOVER_BEATS,
   EXPLORE_MAX_MS,
   EXPLORE_NOOP_SSIM,
   EXPLORE_NOOP_SSIM_LOCAL,
@@ -106,10 +107,19 @@ const SYSTEM_PROMPT = [
   "  items (the set on screen just changed under you — you may grab an empty slot). Searching is a closing",
   "  beat; if a drag is still owed, clear the search first. Treat filters as GLOBAL: a search box in one",
   "  section may have filtered every list on the page, including a board it doesn't sit next to.",
-  "- One clear, unhurried action at a time. Aim for 5-8 DISTINCT, meaningful interactions across different",
+  "- One clear, unhurried action at a time. Aim for 8-12 DISTINCT, meaningful interactions across different",
   "  features. Never repeat an element, or another with the same purpose. The finished film is capped at",
-  "  ~30 seconds — a tight 5-8 beats fits; anything past the budget is cut from the END, so put the most",
-  "  impressive features FIRST.",
+  "  ~30 seconds — 8-12 beats is what fills it; anything past the budget is cut from the END, so put the",
+  "  most impressive features FIRST.",
+  "- Do NOT finish early. A film that ends at 5 beats reads as an unfinished product, so keep going while",
+  "  any core feature of this app is still unshown — the viewer should come away knowing what it DOES.",
+  "  Only stop before 8 beats if the app genuinely has nothing else: every distinct feature already shown,",
+  "  and what's left is repeats of the same control.",
+  "- CORE FEATURES FIRST, chrome LAST. A dark-mode switch, an accent-colour picker, a settings panel, a",
+  "  'take the tour' button — that is furniture every app has, and it tells the viewer nothing about what",
+  "  THIS product does. Spend your beats on the product's own content: its lists, boards, editors, filters,",
+  "  results, the thing it was built to do. Reach for chrome only if the real features are genuinely used",
+  "  up and the film still needs a beat.",
   "- COVER THE BREADTH: spread your beats across DIFFERENT sections/screens/tabs of the product. After",
   "  one or two beats in an area, MOVE ON to the next one — a film that lingers in one section while",
   "  others go unvisited is a failed demo even if every beat worked. If an action in one area fails or",
@@ -142,11 +152,15 @@ const SYSTEM_PROMPT = [
   "pointless actions.",
 ].join("\n");
 
+// Sent when the agent ends its turn under the interaction floor. It fires at two
+// very different moments — "barely started" and "stopped at 6 of the 8-12 beats
+// the film needs" — so it names the gap instead of assuming the first.
 const REPROMPT_TEXT =
-  "You've barely interacted yet. If this app has a real interactive feature, use the most prominent one " +
-  "NOW (a hero control that DOES something on screen, a tab, a toggle, a filter, a search box) — but NOT " +
-  "submit / login / like / delete. If this is only a sign-up-gated landing, keep touring its sections by " +
-  "scrolling. Then show one or two more distinct parts.";
+  "Too early to stop — the film would end well short of its 30 seconds. Keep going and show a feature you " +
+  "have NOT touched yet: a toggle, a dropdown, a native select, a modal (then close it), a slider, a hover " +
+  "detail, a different section or tab. Not submit / login / like / delete, and never a control you already " +
+  "used. If this is a sign-up-gated landing with nothing left to operate, keep touring its remaining " +
+  "sections by scrolling. Add two or three more distinct beats before you finish.";
 
 // ── In-page probes (strings — see trap note) ─────────────────────────────────────
 
@@ -603,6 +617,8 @@ export async function explore(page: Page, opts: ExploreOptions = {}): Promise<Ex
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY not set (.env.local)");
 
   const actions: ScriptAction[] = [];
+  // Elements that already spent a hover beat (see the mouse_move branch).
+  const hovered = new Set<string>();
   const state = { x: Math.floor(VIEW_W / 2), y: Math.floor(VIEW_H / 2) };
 
   // File choosers are suppressed (browser.ts) — count arrivals so a click that
@@ -653,7 +669,10 @@ export async function explore(page: Page, opts: ExploreOptions = {}): Promise<Ex
       // Collapse the aiming hover: a mouse_move onto the same element right
       // before a click is aim, not a hover beat.
       const prevA = actions[actions.length - 1];
-      if (prevA && prevA.kind === "hover" && prevA.selector === (selector ?? "")) actions.pop();
+      if (prevA && prevA.kind === "hover" && prevA.selector === (selector ?? "")) {
+        actions.pop();
+        hovered.delete(selector ?? ""); // aim, so it never spent a hover beat
+      }
       actions.push({ kind: "click", selector: selector ?? "", x: state.x, y: state.y, label });
       return true;
     }
@@ -739,7 +758,10 @@ export async function explore(page: Page, opts: ExploreOptions = {}): Promise<Ex
         const { selector, label } = await evalCall<Resolved>(page, SELECTOR_SRC, s[0], s[1]);
         // Aiming hover onto the drag target is aim, not a hover beat.
         const prevD = actions[actions.length - 1];
-        if (prevD && prevD.kind === "hover" && prevD.selector === (selector ?? "")) actions.pop();
+        if (prevD && prevD.kind === "hover" && prevD.selector === (selector ?? "")) {
+          actions.pop();
+          hovered.delete(selector ?? "");
+        }
         await page.mouse.move(s[0], s[1]);
         await page.mouse.down();
         await page.mouse.move(state.x, state.y, { steps: 18 });
@@ -765,13 +787,30 @@ export async function explore(page: Page, opts: ExploreOptions = {}): Promise<Ex
         // Record a standalone hover beat (audit A-C3) so hover-revealed UI
         // (tooltips, hover menus) replays. Aiming moves collapse: a click/drag
         // on the same element pops the hover (see those branches).
+        //
+        // Hover is also the cheapest beat to emit, and the moment the agent is
+        // told "don't finish early" while it believes it is out of features, it
+        // reaches for it: one 2026-08-15 take spent 8 of its 20 steps hovering
+        // the same three kanban cards and shipped a film of nothing happening.
+        // The move itself is never blocked (it doubles as aim), but a repeat or
+        // an over-cap hover is not recorded and the agent is told why.
         const { selector } = await evalCall<Resolved>(page, SELECTOR_SRC, state.x, state.y);
         if (selector) {
           const prevH = actions[actions.length - 1];
           if (prevH && prevH.kind === "hover" && prevH.selector === selector) {
             prevH.x = state.x;
             prevH.y = state.y;
+          } else if (hovered.has(selector)) {
+            refusalNote =
+              "You already hovered that element — hovering it again adds nothing to the film. Use a " +
+              "control you have not used yet, one that visibly changes the screen.";
+          } else if (hovered.size >= MAX_HOVER_BEATS) {
+            refusalNote =
+              `${MAX_HOVER_BEATS} hover beats is all a film can carry — hovering shows the viewer that a ` +
+              "tooltip exists, not what the app DOES. Operate something instead (a filter, a drag, a " +
+              "dropdown, a modal, a different section), or finish if there is genuinely nothing left.";
           } else {
+            hovered.add(selector);
             actions.push({ kind: "hover", selector, x: state.x, y: state.y });
           }
         }
@@ -1020,7 +1059,10 @@ export async function explore(page: Page, opts: ExploreOptions = {}): Promise<Ex
             if (re.unchanged && !(await evalCall<boolean>(page, FOCUSED_INPUT_SRC))) {
               actions.splice(lenBefore);
               prunedThis = true;
-              console.log(`[explore] pruned click (no visible change): ${name}`);
+              console.log(
+                `[explore] pruned click (no visible change): ${name} ` +
+                  `(${clicked.x ?? state.x},${clicked.y ?? state.y})`,
+              );
               note =
                 "That click produced no visible change, so it was cut from the demo script. Don't click " +
                 "empty space or inert elements, and don't retry this area — move ON to a control in a " +
@@ -1045,7 +1087,13 @@ export async function explore(page: Page, opts: ExploreOptions = {}): Promise<Ex
             if (re.unchanged) {
               actions.splice(lenBefore);
               prunedThis = true;
-              console.log(`[explore] pruned drag (no visible change): ${name}`);
+              // Coordinates matter for the post-mortem: a pruned slider drag is
+              // either a bad grab (aimed off the thumb) or a false prune, and the
+              // log is the only place that can tell those apart later.
+              console.log(
+                `[explore] pruned drag (no visible change): ${name} ` +
+                  `(${dragged.x},${dragged.y})→(${dragged.toX},${dragged.toY})`,
+              );
               note =
                 "That drag changed nothing on screen — you likely grabbed empty space or an inert area, so " +
                 "it was cut from the demo script. Grab the actual item / handle / thumb (not the gap around " +

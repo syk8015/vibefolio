@@ -478,6 +478,7 @@ export default async function AdminPage() {
         </div>
         <div className="flex flex-wrap gap-x-4 gap-y-1">
           {[
+            ["홍보 클립 관리", "/admin/promo"],
             ["Vercel", "https://vercel.com/dashboard"],
             ["Supabase", "https://supabase.com/dashboard/project/nepwsgrtonmexgqplcdp"],
             ["R2", "https://dash.cloudflare.com/?to=/:account/r2"],

@@ -162,14 +162,26 @@ export const MODERATION_FRAME_HEIGHT = 480;
 
 // Hard cap on agent turns during the read-only explore pass (cost guard). Explore
 // is NOT recorded, so steps don't affect clip length — only API cost.
-export const EXPLORE_MAX_STEPS = 14;
+// 14 → 20 (2026-08-15): the first real-film batch came in at 16-18s of film for a
+// 34s cap because the agent ran out of room, not out of app — 13 of 14 steps went
+// to 7 kept beats once pruning and retries took their cut. 20 leaves headroom for
+// the 8-12 beats the prompt now asks for. Marginal cost ~$0.008/step.
+export const EXPLORE_MAX_STEPS = 20;
 
 // Floor: re-prompt rather than accept a demo that touched fewer real interactions
-// than this (a scroll-only / one-click pass isn't worth shipping).
-export const EXPLORE_MIN_INTERACTIONS = 4;
+// than this (a scroll-only / one-click pass isn't worth shipping). 4 → 8
+// (2026-08-15): asking for 8-12 beats in the prompt was not enough on its own —
+// a fixture with ten distinct controls still ended itself at 6 and shipped an 18s
+// film. This is the enforcement half; the prompt is only the request.
+export const EXPLORE_MIN_INTERACTIONS = 8;
 
 // Bounded re-prompts when the agent ends early (too few interactions).
 export const EXPLORE_MAX_REPROMPTS = 2;
+
+// How many standalone hover beats one film may carry. A hover reveals a tooltip;
+// it does not show what the app does, and it is the beat the agent pads with when
+// it is pushed to keep going (2026-08-15: 8 hovers on 3 cards in one take).
+export const MAX_HOVER_BEATS = 3;
 
 // A click whose before/after screenshots score at least this (ffmpeg SSIM All)
 // changed nothing visible → it is cut from the demo script (unless it focused a
@@ -183,8 +195,11 @@ export const EXPLORE_NOOP_SSIM = 0.995;
 // film flaw; false-prune desyncs the script from the live page — stay conservative.
 export const EXPLORE_NOOP_SSIM_LOCAL = 0.998;
 
-// Wall-clock budget for the whole explore loop (cost + hang guard).
-export const EXPLORE_MAX_MS = 4 * 60_000;
+// Wall-clock budget for the whole explore loop (cost + hang guard). Raised with
+// EXPLORE_MAX_STEPS 14 → 20 so the step cap, not the clock, is what ends a normal
+// pass (~8s/step measured, plus up to 2.4s of prune re-check on a no-op). Still
+// well inside the worker's 12-minute per-job self-heal timeout.
+export const EXPLORE_MAX_MS = 5.5 * 60_000;
 
 // zoompan expression guards (2026-07-12): ffmpeg fails to configure zoompan once
 // the piecewise expr passes its parse limit (measured: ~31k chars OK, ~48k fails,
@@ -192,3 +207,34 @@ export const EXPLORE_MAX_MS = 4 * 60_000;
 // coalesced; if the built filter still exceeds the char cap it coalesces harder.
 export const CAMERA_MAX_EVENTS = 40;
 export const CAMERA_VF_MAX_CHARS = 26_000;
+
+// ── Promo clip factory (2026-08) ───────────────────────────────────────────────
+// Short vertical clips of the logged-in home's typing headline (LoggedInHeadline
+// forceText mode — lib/promo.ts), for /admin/promo. Separate pipeline from the
+// demo recorder above: no explore/replay/camera/moderation, one fixed shot.
+
+// 9:16 for short-form (Reels/Shorts/TikTok). On this M5 (native DPR2) a
+// 540×960 logical viewport captures at 1080×1920 — exactly vertical-HD, no
+// upscale needed in promo-postprocess.
+export const PROMO_VIEW_W = 540;
+export const PROMO_VIEW_H = 960;
+
+// Shipped output size — fixed regardless of the capture machine's actual DPR
+// (promo-postprocess.ts always scales to this), so clips stay identical across
+// runs/machines even though the raw capture's native pixel size can vary.
+export const PROMO_OUTPUT_W = 1080;
+export const PROMO_OUTPUT_H = 1920;
+
+// The recorder targets a locally-run dev server, not prod — /login's Turnstile
+// widget and the disposable Chrome profile (no surviving cookies) make an
+// unattended prod login unreliable, and the rendering is byte-identical to prod
+// (same component tree) so nothing is lost visually. Override for a non-default
+// dev port.
+export const PROMO_APP_URL = process.env.PROMO_APP_URL || "http://localhost:3000";
+
+// Scratch dir for promo captures, kept apart from OUT_DIR's demo-pipeline files.
+export const PROMO_OUT_DIR = `${OUT_DIR}/promo`;
+
+// Cached login session (playwright storageState JSON) so promo-worker doesn't
+// re-run the login form on every clip. Gitignored — holds a live session cookie.
+export const PROMO_SESSION_PATH = fileURLToPath(new URL("./.promo-session.json", import.meta.url));

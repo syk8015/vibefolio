@@ -14,7 +14,11 @@ import { sleep } from "./util";
 const SAME_PLACE_PX = 12; // closer than this → no glide/zoom (e.g. re-typing same input)
 const SETTLE_MS = 180; // brief hold at full zoom before the pull-out begins
 const PRECLICK_PAUSE_MS = 120; // tiny beat before a no-zoom click
-const HOLD_MS = 600; // hold at 1x after a click so the result reads
+// Hold at 1x after a click so the result reads. 600 → 900 (2026-08-15): a real app
+// often paints its result AFTER 600ms (the landing fixture's tab panel lands at
+// 900ms), so the camera was leaving for the next beat before the thing the click
+// did appeared on film. Also the cheapest length lever — pacing costs no API fee.
+const HOLD_MS = 900;
 const TYPE_DELAY_MS = 55; // per-keystroke (human-like)
 const DRAG_MIN_MS = 520; // even a short slider pull should read as a deliberate gesture
 const DRAG_STEP_MS = 25; // real-mouse update cadence along the drag ease

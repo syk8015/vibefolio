@@ -30,11 +30,23 @@ function sessionId(): string | null {
 // anything, and it never leaves our own analytics table.
 const FT_KEY = "nf_first_touch";
 
-export function captureFirstTouch(): void {
+export interface FirstTouchData {
+  referrer: string | null;
+  utm_source: string | null;
+  utm_medium: string | null;
+  utm_campaign: string | null;
+  landing: string | null;
+  at: string | null;
+}
+
+// 처음 캡처된 경우에만 그 값을 반환한다(이미 있었으면 null) — components/
+// FirstTouch.tsx가 이 반환값으로 "진짜 첫 방문"인지 판단해 홍보 클립 유입
+// 이벤트(promo_link_visit)를 딱 한 번만 쏜다.
+export function captureFirstTouch(): FirstTouchData | null {
   try {
-    if (localStorage.getItem(FT_KEY)) return;
+    if (localStorage.getItem(FT_KEY)) return null;
     const params = new URLSearchParams(location.search);
-    const ft = {
+    const ft: FirstTouchData = {
       referrer: document.referrer || null,
       utm_source: params.get("utm_source"),
       utm_medium: params.get("utm_medium"),
@@ -43,19 +55,13 @@ export function captureFirstTouch(): void {
       at: new Date().toISOString(),
     };
     localStorage.setItem(FT_KEY, JSON.stringify(ft));
+    return ft;
   } catch {
-    // storage blocked — attribution simply degrades to "(알 수 없음)"
+    return null; // storage blocked — attribution simply degrades to "(알 수 없음)"
   }
 }
 
-export function firstTouch(): {
-  referrer: string | null;
-  utm_source: string | null;
-  utm_medium: string | null;
-  utm_campaign: string | null;
-  landing: string | null;
-  at: string | null;
-} | null {
+export function firstTouch(): FirstTouchData | null {
   try {
     return JSON.parse(localStorage.getItem(FT_KEY) ?? "null");
   } catch {

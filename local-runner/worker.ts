@@ -73,8 +73,9 @@ const MAX_ATTEMPTS_PER_SESSION = 2;
 // browser / stalled ffmpeg) would block this single-threaded worker forever. Past
 // this we mark it failed and process.exit(1) — launchd restarts a clean worker and
 // the dying process takes its hung children with it. Set well above a normal job
-// (dashboard says "보통 1–3분") so it only ever catches real hangs.
-const JOB_HARD_TIMEOUT_MS = 10 * 60_000;
+// so it only ever catches real hangs — 10 → 12min with the longer explore budget
+// (EXPLORE_MAX_MS 5.5min + take + post still leaves several minutes of slack).
+const JOB_HARD_TIMEOUT_MS = 12 * 60_000;
 // github/zip jobs legitimately spend longer than the live_url ceiling: the E2B
 // build alone budgets clone 2min + install 10min + readiness 1.5min BEFORE the
 // ~8min explore+take+post (audit C-F3 — the old flat 10min killed slow installs

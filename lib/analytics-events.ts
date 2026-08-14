@@ -23,6 +23,7 @@ export const AnalyticsEvent = {
   ShareCopied: "share_copied",
   DemoDownloaded: "demo_downloaded",
   WatchView: "watch_view", // ?p= watch page load — viral attribution
+  PromoLinkVisit: "promo_link_visit", // first touch via a /admin/promo tracking link (lib/promo.ts)
 } as const;
 
 export type AnalyticsEventName = (typeof AnalyticsEvent)[keyof typeof AnalyticsEvent];
@@ -37,6 +38,7 @@ export const CLIENT_EVENTS = new Set<string>([
   AnalyticsEvent.ShareCopied,
   AnalyticsEvent.DemoDownloaded,
   AnalyticsEvent.WatchView,
+  AnalyticsEvent.PromoLinkVisit,
 ]);
 
 export function isClientEvent(event: unknown): event is AnalyticsEventName {
