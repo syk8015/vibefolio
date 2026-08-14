@@ -25,6 +25,7 @@ import "./config"; // side-effect: load .env.local
 import { runJob, type JobPhase, type JobOutcome } from "./job";
 import type { SourceType } from "./safety";
 import { DEMO_QUOTA } from "../lib/demoQuota";
+import { normalizeDemoAccess } from "../lib/demoAccess";
 import { AnalyticsEvent } from "../lib/analytics-events";
 import { formatDemoFailure, demoFailureCopy, type DemoFailureCode } from "../lib/demo-failure";
 import { recipientLocale } from "../lib/i18n/user-locale";
@@ -116,6 +117,7 @@ const transientRequeues = new Map<string, number>();
 let stopping = false;
 let busy = false;
 let hintColumnMissing = false; // set on first 42703 → poll drops the column
+let accessColumnMissing = false; // same degrade for projects.demo_access
 
 process.on("SIGINT", () => {
   if (!busy) {
@@ -377,6 +379,10 @@ type PendingRow = {
   demo_source_type: SourceType | null;
   demo_source_value: string | null;
   demo_user_hint?: string | null;
+  // Creator-supplied demo-mode entry info ({ url?, params?, note? }, Connect
+  // 요청2). Raw jsonb off the row — normalizeDemoAccess() re-shapes it at the
+  // sink before it reaches the job.
+  demo_access?: unknown;
 };
 
 // Wallet backstop, independent of the route's admission caps: the worker refuses
@@ -405,13 +411,14 @@ async function claimNext(): Promise<PendingRow | null> {
     );
     return null;
   }
+  const selectCols = [
+    "id, user_id, title, demo_source_type, demo_source_value",
+    !hintColumnMissing && "demo_user_hint",
+    !accessColumnMissing && "demo_access",
+  ].filter(Boolean).join(", ");
   const { data, error } = await supabase
     .from("projects")
-    .select(
-      hintColumnMissing
-        ? "id, user_id, title, demo_source_type, demo_source_value"
-        : "id, user_id, title, demo_source_type, demo_source_value, demo_user_hint",
-    )
+    .select(selectCols)
     .eq("demo_build_status", "pending")
     .not("demo_source_type", "is", null)
     .limit(5);
@@ -423,6 +430,13 @@ async function claimNext(): Promise<PendingRow | null> {
       hintColumnMissing = true;
       console.error(
         "[worker] projects.demo_user_hint missing — polling without hints (apply migration_demo_user_hint.sql)",
+      );
+      return null;
+    }
+    if (!accessColumnMissing && error.code === "42703" && error.message.includes("demo_access")) {
+      accessColumnMissing = true;
+      console.error(
+        "[worker] projects.demo_access missing — polling without demo access (apply migration_demo_access.sql)",
       );
       return null;
     }
@@ -479,6 +493,7 @@ async function processOne(row: PendingRow) {
         ownerId: row.user_id, // binds zip prefix / preview path to the owner (F2/F5)
         upload: true, // uploadAndMarkDone sets status=done on success
         userHint: row.demo_user_hint ?? undefined,
+        demoAccess: normalizeDemoAccess(row.demo_access).access ?? undefined,
         title: row.title ?? undefined,
         onPhase: (phase) => setStatus(row.id, phase),
       }),

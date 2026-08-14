@@ -13,6 +13,7 @@ import { buildAndServe, type BuiltApp } from "./build";
 import { decidePolicy, type SafetyPolicy, type SourceType } from "./safety";
 import { recordDemo, type PipelinePhase } from "./pipeline";
 import type { QuarantineUpload } from "./upload";
+import type { DemoAccess } from "../lib/demoAccess";
 
 export type JobPhase = "building" | PipelinePhase;
 
@@ -44,6 +45,11 @@ export type JobInput = {
   // Creator-written core-feature description (projects.demo_user_hint) — steers
   // what explore demonstrates. Optional; untrusted user data end to end.
   userHint?: string;
+  // Demo-mode entry info (projects.demo_access, Connect 요청2) for login-gated
+  // apps: url+params decide WHERE the robot lands, note reaches the explore
+  // brief. Optional; untrusted user data end to end — an absolute url passes
+  // the same sink-side gate as the source URL.
+  demoAccess?: DemoAccess;
   // Project title — moderation-classifier context only. Untrusted user data.
   title?: string;
   // Explicit operator override (CLI only). The worker never sets this — the
@@ -76,6 +82,69 @@ export type JobOutcome =
       quarantine?: QuarantineUpload;
     };
 
+// Sink-side gate for anything the recorder will NAVIGATE to — the live_url
+// source and an absolute demo_access.url alike. The route sanitized these before
+// storing, but the worker consumes DB rows — re-validate here so a tampered row
+// can't make the recorder open file://, an arbitrary scheme, or
+// (belt-and-suspenders to the route's full SSRF check) an obvious
+// localhost/private literal on THIS machine. /api/preview paths are our own
+// origin — the host check is skipped for them, but they must belong to the
+// job's owner (cross-tenant preview guard, F5 defense-in-depth: only asserted
+// for OUR origins so an external app that merely has a /api/preview/ route is
+// never false-flagged).
+function assertRecordableUrl(parsed: URL, job: JobInput) {
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    throw new Error(`record target must be http(s), got '${parsed.protocol}'`);
+  }
+  if (!job.allowPrivateHost && !parsed.pathname.startsWith("/api/preview/")) {
+    const h = parsed.hostname.toLowerCase().replace(/^\[/, "").replace(/\]$/, "");
+    const v4 = h.match(/^(\d{1,3})\.(\d{1,3})\.\d{1,3}\.\d{1,3}$/);
+    const priv = h === "localhost" || h.endsWith(".local") || h === "::1" ||
+      (!!v4 && (() => { const a = +v4[1], b = +v4[2];
+        return a === 10 || a === 127 || a === 0 ||
+          (a === 192 && b === 168) || (a === 172 && b >= 16 && b <= 31) ||
+          (a === 169 && b === 254) || (a === 100 && b >= 64 && b <= 127); })());
+    if (priv) throw new Error(`refusing to record a private/local host: ${h}`);
+  }
+  if (job.ownerId && parsed.pathname.startsWith("/api/preview/") && OUR_PREVIEW_HOSTS.has(parsed.host)) {
+    const seg = parsed.pathname.split("/")[3]; // /api/preview/{uid}/...
+    if (seg !== job.ownerId) {
+      throw new Error("preview source does not belong to the project owner");
+    }
+  }
+}
+
+// Demo-mode entry assembly (projects.demo_access): where the robot actually
+// lands. A relative url resolves against the job URL. An absolute url is taken
+// as-is for live_url jobs (after the same gate as the source); for BUILT
+// sources only its path+query+hash count — the deployed origin in the URL is
+// not the sandbox we just built. params are appended last so they apply to
+// whichever base won.
+function applyDemoAccess(baseUrl: string, job: JobInput): string {
+  const access = job.demoAccess;
+  if (!access) return baseUrl;
+  let target = baseUrl;
+  if (access.url) {
+    if (/^https?:\/\//i.test(access.url)) {
+      const parsed = new URL(access.url);
+      if (job.sourceType === "live_url") {
+        assertRecordableUrl(parsed, job);
+        target = parsed.toString();
+      } else {
+        target = new URL(parsed.pathname + parsed.search + parsed.hash, baseUrl).toString();
+      }
+    } else if (access.url.startsWith("/")) {
+      target = new URL(access.url, baseUrl).toString();
+    }
+  }
+  if (access.params) {
+    const u = new URL(target);
+    for (const [k, v] of Object.entries(access.params)) u.searchParams.set(k, v);
+    target = u.toString();
+  }
+  return target;
+}
+
 export async function runJob(job: JobInput): Promise<JobOutcome> {
   let built: BuiltApp | undefined;
   try {
@@ -83,35 +152,8 @@ export async function runJob(job: JobInput): Promise<JobOutcome> {
     let policy: SafetyPolicy;
 
     if (job.sourceType === "live_url") {
-      // The route sanitized this before storing, but the worker consumes DB rows —
-      // re-validate at the sink so a tampered row can't make the recorder navigate
-      // to file://, an arbitrary scheme, or (belt-and-suspenders to the route's
-      // full SSRF check) an obvious localhost/private literal on THIS machine.
-      // /api/preview uploads are our own origin — skip the host check for them.
       const parsed = new URL(job.sourceValue);
-      if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-        throw new Error(`live_url must be http(s), got '${parsed.protocol}'`);
-      }
-      if (!job.allowPrivateHost && !job.sourceValue.includes("/api/preview/")) {
-        const h = parsed.hostname.toLowerCase().replace(/^\[/, "").replace(/\]$/, "");
-        const v4 = h.match(/^(\d{1,3})\.(\d{1,3})\.\d{1,3}\.\d{1,3}$/);
-        const priv = h === "localhost" || h.endsWith(".local") || h === "::1" ||
-          (!!v4 && (() => { const a = +v4[1], b = +v4[2];
-            return a === 10 || a === 127 || a === 0 ||
-              (a === 192 && b === 168) || (a === 172 && b >= 16 && b <= 31) ||
-              (a === 169 && b === 254) || (a === 100 && b >= 64 && b <= 127); })());
-        if (priv) throw new Error(`refusing to record a private/local host: ${h}`);
-      }
-      // Cross-tenant preview guard (F5 defense-in-depth). Our own uploads resolve to
-      // {origin}/api/preview/{ownerUid}/{pid}/... . A tampered row (or a direct-RPC
-      // caller) could aim at another user's path. Only assert for OUR origins — an
-      // external app that merely has a /api/preview/ route must not be false-flagged.
-      if (job.ownerId && parsed.pathname.startsWith("/api/preview/") && OUR_PREVIEW_HOSTS.has(parsed.host)) {
-        const seg = parsed.pathname.split("/")[3]; // /api/preview/{uid}/...
-        if (seg !== job.ownerId) {
-          throw new Error("preview source does not belong to the project owner");
-        }
-      }
+      assertRecordableUrl(parsed, job);
       url = job.sourceValue;
       policy = job.policyOverride ?? "read-only";
     } else {
@@ -121,6 +163,8 @@ export async function runJob(job: JobInput): Promise<JobOutcome> {
       url = built.url;
     }
 
+    url = applyDemoAccess(url, job);
+
     console.log(`[job] ${job.sourceType} → ${url}  (policy: ${policy})`);
     const result = await recordDemo({
       url,
@@ -128,6 +172,7 @@ export async function runJob(job: JobInput): Promise<JobOutcome> {
       policy,
       upload: job.upload,
       userHint: job.userHint,
+      accessNote: job.demoAccess?.note,
       projectTitle: job.title,
       allowPrivateHost: job.allowPrivateHost,
       onPhase: job.onPhase,

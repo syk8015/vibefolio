@@ -10,6 +10,7 @@ import { detectDemoSource, liveUrlIssue } from "@/lib/demoSource";
 import { assertSafePublicUrl, SsrfError } from "@/lib/ssrf";
 import { screenshotUrl } from "@/lib/thumbnail";
 import { normalizeTags, normalizeContentType } from "@/lib/projectTaxonomy";
+import { normalizeDemoAccess, type DemoAccess } from "@/lib/demoAccess";
 import { MAX_UPLOAD_BYTES, MAX_ZIP_ENTRIES, expandZipBundle, findIndexHtml, UploadError } from "@/lib/upload-safety";
 import { logger } from "@/lib/logger";
 
@@ -34,6 +35,7 @@ interface IngestPayload {
   contentType?: unknown;
   deployUrl?: unknown;
   appUrl?: unknown;
+  demoAccess?: unknown;
 }
 
 function strOrNull(v: unknown): string | null {
@@ -117,6 +119,45 @@ export async function POST(req: NextRequest) {
     const tags = normalizeTags(payload?.tags);
     const contentTypeId = normalizeContentType(payload?.contentType);
 
+    // demoAccess — 로그인 필요 앱의 데모 모드 진입 정보(url·params·note만, 계정
+    // 정보는 설계상 범위 밖). 여기서는 "저장만": 사용(진입 URL 조립·로봇 브리핑
+    // 주입)은 발행 시점 쿠키 인증 trigger-demo → 로컬 워커 경로가 유일하다.
+    // 절대 URL은 appUrl과 같은 게이트(콘텐츠호스트·사설망·SSRF)를 통과해야 한다.
+    let demoAccess: DemoAccess | null = null;
+    {
+      const norm = normalizeDemoAccess(payload?.demoAccess);
+      if (norm.issue === "bad-url") {
+        return apiError({ status: 400, message: t.api.demoAccessBadUrl, code: "BAD_DEMO_ACCESS" });
+      }
+      demoAccess = norm.access;
+      if (demoAccess?.url && !demoAccess.url.startsWith("/")) {
+        const issue = liveUrlIssue(demoAccess.url);
+        if (issue?.kind === "content-host") {
+          return apiError({
+            status: 400, code: "CONTENT_HOST",
+            message: t.api.contentHostShort(issue.host),
+          });
+        }
+        if (issue?.kind === "private-host") {
+          return apiError({
+            status: 400, code: "PRIVATE_HOST",
+            message: t.api.privateHostShort,
+          });
+        }
+        try {
+          await assertSafePublicUrl(demoAccess.url);
+        } catch (e) {
+          if (e instanceof SsrfError) {
+            return apiError({
+              status: 400, code: "PRIVATE_HOST",
+              message: t.api.notPublicUrl,
+            });
+          }
+          throw e;
+        }
+      }
+    }
+
     const admin = createAdminClient();
 
     // 5. 초안 상한 체크.
@@ -194,6 +235,7 @@ export async function POST(req: NextRequest) {
         description,
         comment,
         demo_user_hint: demoHint,
+        demo_access: demoAccess,
         tags,
         content_type: contentTypeId,
         type: "image",

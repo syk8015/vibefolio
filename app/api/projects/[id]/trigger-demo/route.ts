@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { tasks } from "@trigger.dev/sdk";
 import { createClient } from "@/lib/supabase/server";
 import { detectDemoSource, liveUrlIssue } from "@/lib/demoSource";
+import { normalizeDemoAccess } from "@/lib/demoAccess";
 import { resolveBuildPayload, DemoSourceError } from "@/lib/demoPayload";
 import { assertSafePublicUrl, SsrfError } from "@/lib/ssrf";
 import { apiError } from "@/lib/apiError";
@@ -37,7 +38,7 @@ export async function POST(
 
     const { data: project, error: selErr } = await supabase
       .from("projects")
-      .select("id, user_id, title, demo_url")
+      .select("id, user_id, title, demo_url, demo_access")
       .eq("id", id)
       .single();
     if (selErr || !project) {
@@ -79,6 +80,47 @@ export async function POST(
       // (catches domains that resolve inward, decimal/hex IP notations, etc.).
       try {
         await assertSafePublicUrl(source.value);
+      } catch (e) {
+        if (e instanceof SsrfError) {
+          return apiError({
+            status: 400,
+            code: "PRIVATE_HOST",
+            message: t.api.notPublicUrl,
+          });
+        }
+        throw e;
+      }
+    }
+
+    // demo_access (Connect 요청2) is a user-content column — owners can write it
+    // directly through RLS, bypassing ingest's checks — so the publish gate
+    // re-validates here: absolute entry URLs get the same content-host /
+    // private-host / SSRF treatment as demo_url. The worker re-checks at the
+    // sink and its netguard is the final backstop. Storage only — the payload
+    // stays untouched; the worker reads demo_access off the job row.
+    const demoAccess = normalizeDemoAccess(project.demo_access);
+    if (demoAccess.issue === "bad-url") {
+      return apiError({ status: 400, message: t.api.demoAccessBadUrl, code: "BAD_DEMO_ACCESS" });
+    }
+    const accessUrl = demoAccess.access?.url;
+    if (accessUrl && !accessUrl.startsWith("/")) {
+      const issue = liveUrlIssue(accessUrl);
+      if (issue?.kind === "content-host") {
+        return apiError({
+          status: 400,
+          code: "CONTENT_HOST",
+          message: t.api.contentHost(issue.host),
+        });
+      }
+      if (issue?.kind === "private-host") {
+        return apiError({
+          status: 400,
+          code: "PRIVATE_HOST",
+          message: t.api.privateHost,
+        });
+      }
+      try {
+        await assertSafePublicUrl(accessUrl);
       } catch (e) {
         if (e instanceof SsrfError) {
           return apiError({

@@ -58,6 +58,10 @@ export type RecordDemoOptions = {
   // Creator-written core-feature description (projects.demo_user_hint) — passed
   // through to explore's opening brief. Optional; untrusted user data.
   userHint?: string;
+  // Creator's demo-mode note (projects.demo_access.note) — how to see the app's
+  // demo mode from the entry URL the job assembled. Same untrusted-data framing
+  // as userHint in the brief.
+  accessNote?: string;
   // Project title, shown to the moderation classifier as extra (untrusted)
   // context — a phishing page often names its target brand in the title.
   projectTitle?: string;
@@ -205,7 +209,7 @@ export async function recordDemo(opts: RecordDemoOptions): Promise<RecordDemoRes
     }
 
     const storage0 = await exploreCtx.storageState(); // shared footing for the take
-    const script = await explore(explorePage, { userHint: opts.userHint });
+    const script = await explore(explorePage, { userHint: opts.userHint, accessNote: opts.accessNote });
     await exploreCtx.close();
     await browser.close(); // explore done — no stray window at (0,0) during capture
     console.log(`[explore] ${script.notes}`);

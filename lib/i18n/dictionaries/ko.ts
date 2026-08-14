@@ -528,6 +528,7 @@ export const ko = {
       `검토 대기 중인 초안이 너무 많아요 (최대 ${max}개). 대시보드에서 먼저 공개하거나 정리해 주세요.`,
     artifactRequired: "deployUrl(또는 appUrl) 또는 파일 번들(bundle)이 필요해요.",
     badUrl: "임베드·시연할 수 있는 URL이 아니에요.",
+    demoAccessBadUrl: "demoAccess.url은 http(s) 주소이거나 /로 시작하는 경로여야 해요.",
     projectCreateFailed: "프로젝트를 만들지 못했어요.",
     indexHtmlMissing: "index.html이 없어요. 자동 시연은 브라우저에 뜨는 화면을 촬영해요 — 정적 사이트 번들에 index.html을 포함해 주세요.",
     badFilePath: "잘못된 파일 경로가 감지됐어요.",

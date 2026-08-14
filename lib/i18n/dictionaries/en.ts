@@ -511,6 +511,7 @@ export const en: Dictionary = {
       `Too many drafts are waiting for review (max ${max}). Publish or clean some up on your dashboard first.`,
     artifactRequired: "Either deployUrl (or appUrl) or a file bundle is required.",
     badUrl: "This URL can't be embedded or filmed for a demo.",
+    demoAccessBadUrl: "demoAccess.url must be an http(s) URL or a path starting with /.",
     projectCreateFailed: "Couldn't create the project.",
     indexHtmlMissing: "No index.html found. Auto demos film what shows up in a browser — include index.html in your static site bundle.",
     badFilePath: "An invalid file path was detected.",

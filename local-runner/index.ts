@@ -23,7 +23,7 @@ const flag = (name: string, dflt?: string) => {
   return i >= 0 && argv[i + 1] && !argv[i + 1].startsWith("--") ? argv[i + 1] : dflt;
 };
 
-const positionalUrl = argv.find((a) => !a.startsWith("--") && a !== flag("project") && a !== flag("policy") && a !== flag("type") && a !== flag("value") && a !== flag("hint"));
+const positionalUrl = argv.find((a) => !a.startsWith("--") && a !== flag("project") && a !== flag("policy") && a !== flag("type") && a !== flag("value") && a !== flag("hint") && a !== flag("access-url") && a !== flag("access-params") && a !== flag("access-note"));
 const typeFlag = flag("type");
 const valueFlag = flag("value");
 
@@ -58,6 +58,21 @@ const policyOverride: SafetyPolicy | undefined =
 const doUpload = argv.includes("--upload");
 // Creator core-feature hint (변형① dry-runs): --hint "캔버스에 그림을 그리는 앱"
 const userHint = flag("hint");
+// Demo-access dry-runs (Connect 요청2): --access-url "/demo" --access-params "guest=1&lang=ko"
+// --access-note "상단 '둘러보기'를 누르면 샘플 데이터가 뜬다"
+const accessUrl = flag("access-url");
+const accessParams = flag("access-params");
+const accessNote = flag("access-note");
+const demoAccess =
+  accessUrl || accessParams || accessNote
+    ? {
+        url: accessUrl,
+        params: accessParams
+          ? Object.fromEntries(new URLSearchParams(accessParams).entries())
+          : undefined,
+        note: accessNote,
+      }
+    : undefined;
 
 const outcome = await runJob({
   projectId,
@@ -65,6 +80,7 @@ const outcome = await runJob({
   sourceValue,
   upload: doUpload,
   userHint,
+  demoAccess,
   policyOverride,
   // CLI = the operator pointing the recorder at their own machine on purpose
   // (fixtures, dev servers). Queue jobs never get this.

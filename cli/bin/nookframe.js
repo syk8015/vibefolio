@@ -11,6 +11,9 @@ const HELP = `nookframe — 바이브코딩 작품을 한 줄로 Nookframe에 �
     --dir <path>       올릴 정적 빌드 디렉터리 (지정 시 zip 업로드)
     --title <t>        제목
     --hint <text>      시연 영상에서 보여줄 핵심 (demoHighlights)
+    --access-url <u>   로그인 필요 앱의 데모/게스트 진입 URL·경로 (예 /demo)
+    --access-params <q> 진입 URL에 붙일 쿼리 (예 "guest=1&lang=ko")
+    --access-note <t>  데모 모드 보는 법 한두 문장 (계정 아이디/비번 금지 — 안 받음)
     --json '<payload>' AI가 만든 전체 payload JSON (다른 플래그와 병합, JSON 우선)
     --origin <url>     API origin (기본 ${getOrigin()})
   login <token>      토큰을 ~/.nookframe/config.json 에 저장

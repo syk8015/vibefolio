@@ -74,6 +74,16 @@ export async function publishCommand(args) {
   if (args.hint) payload.demoHighlights = args.hint;
   if (args.url) payload.deployUrl = args.url;
   if (args["app-url"]) payload.appUrl = args["app-url"];
+  // 로그인 필요 앱의 데모 모드 진입 정보 — url·params·note만(계정 정보는 서버가 안 받음).
+  if (args["access-url"] || args["access-params"] || args["access-note"]) {
+    const access = { ...(payload.demoAccess || {}) };
+    if (args["access-url"]) access.url = args["access-url"];
+    if (args["access-params"]) {
+      access.params = Object.fromEntries(new URLSearchParams(args["access-params"]).entries());
+    }
+    if (args["access-note"]) access.note = args["access-note"];
+    payload.demoAccess = access;
+  }
 
   // 아티팩트: --dir 명시 > URL 있음 > 자동으로 빌드 디렉터리 탐색.
   let dir = args.dir ? resolve(args.dir) : null;
