@@ -43,7 +43,7 @@ You're the AI that built this project, so read the repo yourself and describe it
    • demoHighlights — 3–5 key things the auto-demo video must show, written descriptively. Not instructions like "click X" — more like "the X feature is the heart of this product". Under 500 characters
    • tags — which AI tools were used to build this. Pick from this exact list (anything else is silently dropped): ChatGPT, Claude Code, Cursor, GitHub Copilot, Gemini, v0, Bolt.new, Windsurf, Lovable, Replit AI, Devin, Aider, Continue.dev, Codeium, Amazon Q, Perplexity, Midjourney, DALL-E, Stable Diffusion, Ideogram, Flux, Runway, Kling, Pika, Suno, ElevenLabs
    • contentType — one of web-app | saas | mobile | game | extension | ai-service | media | other
-   • deployUrl — the deployed public URL (vercel/netlify, etc.). If it isn't deployed, skip this — you can upload a static build output instead
+   • deployUrl — the deployed public URL (vercel/netlify, etc.). If it isn't deployed: prefer uploading a static build output first (safest for apps with no backend). If that won't work (the app needs a server/database), you can instead give the public GitHub repo URL — it's a last resort that clones and tries npm run dev automatically (fails on private repos or repos with no dev script; apps using a remote database get demoted to a read-only demo)
    • appUrl — if the landing page and the actual app live at different URLs (e.g. / is the intro, /app is the real app), the app URL the demo/embed should open. If present, that's what gets recorded
    • demoAccess — if the app needs login to see anything, give the demo robot a way in that works WITHOUT logging in: { url (a demo/guest entry URL or path, e.g. "/demo"), params (extra query params, e.g. {"guest":"1"}), note (1–2 sentences on how to see the demo mode from there) }. NEVER include account IDs or passwords — they are not accepted
 4) If you have a shell: run ${NPX_PUBLISH} --json '<the JSON above>' (the token was saved in step 1).
@@ -64,7 +64,7 @@ You're the AI that built this project, so read the repo yourself and describe it
    • demoHighlights — 자동 시연 영상에서 꼭 보여줄 핵심 3~5가지를 서술형으로. "○○를 클릭해" 같은 지시가 아니라 "○○ 기능이 이 제품의 핵심" 처럼. 500자 이내
    • tags — 이 작업에 쓴 AI 툴. 아래 목록에서 철자 그대로 골라줘(다른 이름은 조용히 버려짐): ChatGPT, Claude Code, Cursor, GitHub Copilot, Gemini, v0, Bolt.new, Windsurf, Lovable, Replit AI, Devin, Aider, Continue.dev, Codeium, Amazon Q, Perplexity, Midjourney, DALL-E, Stable Diffusion, Ideogram, Flux, Runway, Kling, Pika, Suno, ElevenLabs
    • contentType — web-app | saas | mobile | game | extension | ai-service | media | other 중 하나
-   • deployUrl — 배포된 공개 URL (vercel/netlify 등). 미배포면 생략하고 정적 빌드 산출물을 올려도 돼
+   • deployUrl — 배포된 공개 URL (vercel/netlify 등). 미배포면: 우선 정적 빌드 산출물을 올려(백엔드 없는 앱에 제일 안전). 그걸로 안 되는 앱(서버·DB 필요)이면 공개 GitHub 저장소 URL을 대신 줘도 돼 — clone 후 자동으로 npm run dev를 시도하는 최후 수단이야(비공개 저장소·dev 스크립트 없는 리포는 실패, 원격 DB 쓰는 앱은 읽기전용 데모로 나옴)
    • appUrl — 랜딩과 실제 앱 화면 주소가 다르면(예: / 는 소개, /app 이 진짜 앱), 시연·임베드가 열어야 할 앱 URL. 있으면 이 주소를 촬영해
    • demoAccess — 로그인해야 화면이 보이는 앱이면, 시연 로봇이 로그인 없이 들어갈 길을 줘: { url(데모/게스트 진입 URL이나 경로, 예 "/demo"), params(추가 쿼리 파라미터, 예 {"guest":"1"}), note(거기서 데모 모드를 보는 법 한두 문장) }. 계정 아이디/비번은 절대 넣지 마 — 받지 않아
 4) 셸을 쓸 수 있으면: ${NPX_PUBLISH} --json '<위 JSON>' 을 실행해 (토큰은 1)에서 저장했어).

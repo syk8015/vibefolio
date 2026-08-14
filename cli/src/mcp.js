@@ -38,7 +38,7 @@ export async function runMcp() {
   const TOOL = {
     name: "publish_to_nookframe",
     description:
-      "이 프로젝트를 Nookframe(바이브코딩 포트폴리오)에 초안으로 올린다. 당신이 이 프로젝트를 만든 AI로서 레포(README·라우트·git log)를 근거로 title/description/demoHighlights를 직접 작성해 전달하라. deployUrl(배포된 공개 URL) 또는 dir(로컬 정적 빌드 폴더 절대경로) 중 하나를 준다. 랜딩과 실제 앱 화면 주소가 다르면 appUrl에 앱 URL을 함께 줘라(시연·임베드는 appUrl을 연다). 로그인해야 화면이 보이는 앱이면 demoAccess에 로그인 없이 들어가는 데모/게스트 진입 정보를 줘라(계정 아이디/비번은 받지 않는다). 직접 찍은 스크린샷·시연 영상 파일이 있으면 screenshot/video에 절대경로로 줘라(영상을 주면 자동 촬영은 생략된다). demoHighlights는 '○○를 클릭' 같은 지시가 아니라 '○○ 기능이 핵심' 처럼 서술형으로. 같은 URL로 다시 올리면 새 초안이 생기지 않고 기존 초안이 갱신된다(내용 수정에 이 방법을 써라).",
+      "이 프로젝트를 Nookframe(바이브코딩 포트폴리오)에 초안으로 올린다. 당신이 이 프로젝트를 만든 AI로서 레포(README·라우트·git log)를 근거로 title/description/demoHighlights를 직접 작성해 전달하라. deployUrl(배포된 공개 URL) 또는 dir(로컬 정적 빌드 폴더 절대경로) 중 하나를 준다. 미배포+서버·DB가 필요해 dir로 안 되면 deployUrl에 공개 GitHub 저장소 URL을 대신 줘도 된다(clone 후 npm run dev를 시도하는 최후 수단 — 비공개 저장소·dev 스크립트 없으면 실패, 원격 DB 앱은 읽기전용 데모). 랜딩과 실제 앱 화면 주소가 다르면 appUrl에 앱 URL을 함께 줘라(시연·임베드는 appUrl을 연다). 로그인해야 화면이 보이는 앱이면 demoAccess에 로그인 없이 들어가는 데모/게스트 진입 정보를 줘라(계정 아이디/비번은 받지 않는다). 직접 찍은 스크린샷·시연 영상 파일이 있으면 screenshot/video에 절대경로로 줘라(영상을 주면 자동 촬영은 생략된다). demoHighlights는 '○○를 클릭' 같은 지시가 아니라 '○○ 기능이 핵심' 처럼 서술형으로. 같은 URL로 다시 올리면 새 초안이 생기지 않고 기존 초안이 갱신된다(내용 수정에 이 방법을 써라).",
     inputSchema: {
       type: "object",
       properties: {
