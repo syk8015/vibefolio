@@ -652,3 +652,16 @@ grep 게이트에서 잡힌 유저 노출 한글 잔존 수리분.
 - lib/traffic-source·projectTaxonomy 원본 라벨 = 표시 시점에 사전 매핑으로 번역
 - upload-safety UploadError 한국어 기본 메시지 = code로 locale 재매핑됨(서버 폴백)
 - 메타데이터·OG(루트 description, 인증 페이지 title, /publish title, [username] og fallback) = 6덩어리 ⑥, 정적 페이지·크롤러는 쿠키가 없어 별도 결정 필요(미착수)
+
+## 탭 제목 (⑥ 메타데이터 절충안 — 2026-08-14, ②안 사용자 확정)
+
+정적 페이지 탭 제목은 마운트 후 클라이언트에서 바꿔치기(`components/LocalizedTitle.tsx`, 사전 밖 props).
+SNS/검색 로봇은 JS를 안 돌려 OG·크롤러 노출 문구(루트 description 등)는 ko 유지 — ③ /en 경로는 보류 결정 그대로.
+
+| 페이지 | 한국어 | English | 비고 |
+|---|---|---|---|
+| /login | 로그인 \| Nookframe | Log in \| Nookframe | LocalizedTitle |
+| /signup | 회원가입 \| Nookframe | Sign up \| Nookframe | LocalizedTitle |
+| /forgot-password | 비밀번호 찾기 \| Nookframe | Forgot password \| Nookframe | LocalizedTitle |
+| /reset-password | 비밀번호 재설정 \| Nookframe | Reset password \| Nookframe | LocalizedTitle |
+| /publish | AI 초안 붙여넣기 · Nookframe | Paste your AI draft · Nookframe | 동적 페이지라 generateMetadata 서버 분기 |

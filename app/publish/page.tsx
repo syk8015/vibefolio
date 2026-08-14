@@ -1,8 +1,15 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getLocale } from "@/lib/i18n/server";
 import PublishForm from "./PublishForm";
 
-export const metadata = { title: "AI 초안 붙여넣기 · Nookframe" };
+// 이 페이지는 auth 쿠키 때문에 이미 매 요청 렌더 — 탭 제목도 서버에서 locale 분기.
+export async function generateMetadata() {
+  const locale = await getLocale();
+  return {
+    title: locale === "en" ? "Paste your AI draft · Nookframe" : "AI 초안 붙여넣기 · Nookframe",
+  };
+}
 
 // 셸 없는 AI(챗봇) 경로: 유저가 AI가 뱉은 publish JSON을 여기 붙여넣으면 쿠키 세션으로
 // /api/ingest에 제출된다(토큰 불필요 — 서버가 세션 uid 사용). CLI/MCP를 쓸 수 있는
