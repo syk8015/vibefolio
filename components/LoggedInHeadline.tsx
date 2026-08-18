@@ -138,11 +138,19 @@ export default function LoggedInHeadline({
       const sample = Array.from(
         new Set(glyphSource.flatMap((t) => [...t.text, ...(t.reply ?? "")]))
       ).join("");
-      const HEADLINE_SPEC = "500 2.5rem 'Noto Serif KR', serif";
-      const REPLY_SPEC = "italic 400 2rem 'Noto Serif KR', serif";
+      // 프리워밍은 **실제로 쓰이는 스택 전체**를 대상으로 해야 한다.
+      // 'Noto Serif KR'만 데우던 시절엔 한글이 Hahmlet(--font-serif, 스택
+      // 1순위이며 한글도 덮는다)으로 그려지는데 그 서브셋은 안 데워져서,
+      // 타이핑 도중 fallback → Hahmlet으로 글꼴이 한 번 휙 바뀌었다
+      // (2026-08-18 홍보 클립에서 육안 접수). next/font가 만드는 패밀리명은
+      // 해시가 붙어 하드코딩할 수 없으므로 CSS 변수에서 읽어 온다.
+      const serifVar = getComputedStyle(document.documentElement)
+        .getPropertyValue("--font-serif")
+        .trim();
+      const families = [serifVar, "'Noto Serif KR'"].filter(Boolean);
+      const specs = families.flatMap((f) => [`500 2.5rem ${f}, serif`, `italic 400 2rem ${f}, serif`]);
       Promise.all([
-        document.fonts.load(HEADLINE_SPEC, sample).catch(() => null),
-        document.fonts.load(REPLY_SPEC, sample).catch(() => null),
+        ...specs.map((spec) => document.fonts.load(spec, sample).catch(() => null)),
         document.fonts.ready,
       ]).then(start);
     } else {
