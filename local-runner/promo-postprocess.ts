@@ -16,6 +16,9 @@ export type PromoPostInput = {
   // 헤드리스 녹화는 컨텍스트 생성 시점부터 녹화되므로 네비게이션·마운트
   // 구간이 앞에 붙는다(promo-record.ts가 첫 글자 시점으로 계산해 넘긴다).
   trimHeadSec?: number;
+  // 이 시각(원본 기준 초)에서 끊는다 — 그 뒤는 Playwright가 채워 넣은 정지
+  // 프레임이라 커서가 얼어붙는다.
+  trimTailAtSec?: number;
 };
 
 export type PromoPostResult = {
@@ -65,8 +68,15 @@ export async function promoPostprocess(input: PromoPostInput): Promise<PromoPost
   // fade의 st=0이 트림 후 타임라인 기준이어야 하고, VP8은 키프레임이 성겨서
   // 입력측 -ss가 프레임 단위로 안 맞는다.
   const trimHead = Math.max(0, Math.min(input.trimHeadSec ?? 0, rawDuration - 1));
-  const bodyDuration = rawDuration - trimHead;
-  const trimFilter = trimHead > 0.01 ? `trim=start=${trimHead.toFixed(3)},setpts=PTS-STARTPTS,` : "";
+  const trimTail =
+    input.trimTailAtSec && input.trimTailAtSec > trimHead + 0.5
+      ? Math.min(input.trimTailAtSec, rawDuration)
+      : rawDuration;
+  const bodyDuration = trimTail - trimHead;
+  const trimFilter =
+    trimHead > 0.01 || trimTail < rawDuration - 0.01
+      ? `trim=start=${trimHead.toFixed(3)}:end=${trimTail.toFixed(3)},setpts=PTS-STARTPTS,`
+      : "";
 
   // body — 스케일 + 페이드인만. 페이드아웃은 없다: 엔드캡이 바로 이어붙으므로
   // body가 갑자기 사라지면 이상하고, 지우기 끝난 빈 화면 그대로 로고 씬으로

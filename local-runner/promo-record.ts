@@ -22,18 +22,29 @@ import { promoPostprocess } from "./promo-postprocess";
 import { estimateTaglineRecordMs } from "../lib/promo";
 import { uploadToR2 } from "../lib/r2";
 import { PROMO_APP_URL, PROMO_FORMATS, PROMO_OUT_DIR, type PromoFormat } from "./config";
-import { run } from "./util";
+import { run, ffprobeValue } from "./util";
 
 // 첫 페인트(흰→크림)를 찾을 때 쓰는 밝기 계단 임계값과 탐색 상한.
 // 크림 배경은 흰 화면보다 YAVG가 ~11 낮게 잡힌다(2026-08-18 실측).
 const FIRST_PAINT_DROP = 4;
-// 문구가 다 지워진 뒤 남길 여운. 헤드라인이 다음 사이클을 시작하는 420ms보다
-// 확실히 짧아야 한다(길면 다음 문구 첫 글자가 클립 끝에 찍힌다).
-const ERASED_TAIL_MS = 250;
+// 다 지워진 뒤 녹화를 더 돌릴 시간. 다음 사이클 첫 글자는 420ms(runPhrase 예약)
+// + 90~150ms(첫 타이핑 간격) = 최소 510ms 뒤에 보이므로 그보다 짧아야 한다.
+const ERASED_TAIL_MS = 350;
+// 정지가 시작된 뒤 남길 여운. 길게 두면 커서가 안 깜빡이는 정지 화면이 그대로
+// 보이므로 짧게. 엔드캡이 자체 리드(0.35s 커서 깜빡임)로 이어받는다.
+const TAIL_HOLD_SEC = 0.15;
+// freezedetect 최소 정지 길이. 커서 반주기(0.475s)보다 커야 살아있는 화면을
+// 정지로 오인하지 않는다.
+const FREEZE_MIN_SEC = 0.55;
+// 허용 오차. 기본값(-60dB)이나 -50dB로는 **타이핑 구간까지 "정지"로 잡힌다** —
+// 1080×1920 크림 배경에서 글자 한 자가 차지하는 면적이 워낙 작아 프레임 평균
+// 차이가 임계 아래로 떨어지기 때문(2026-08-18 실측: -50dB에서 0.52~5.12s를
+// 정지로 오판). 0.0001이면 커서 깜빡임(≈0.00028)은 살고 정지만 잡힌다.
+const FREEZE_NOISE = "0.0001";
 const FIRST_PAINT_MAX_SEC = 6;
 
-// 녹화 앞부분의 흰 화면 길이를 영상에서 직접 잰다. 못 찾으면 0(=안 자름) —
-// 조용히 엉뚱한 지점을 자르느니 리드가 긴 편이 낫다.
+// 첫 페인트(흰 화면 → 크림 배경) 시각을 영상에서 직접 잰다. 못 찾으면 0.
+// 앞 트림의 기준이자, 벽시계 ↔ 영상시간을 잇는 유일한 앵커다.
 async function findFirstPaintSec(rawPath: string): Promise<number> {
   const { stdout } = await run(
     "ffmpeg",
@@ -52,7 +63,7 @@ async function findFirstPaintSec(rawPath: string): Promise<number> {
   const white = samples[0][1];
   for (const [ts, y] of samples) {
     if (ts > FIRST_PAINT_MAX_SEC) break;
-    if (y < white - FIRST_PAINT_DROP) return Math.max(0, ts - 0.05);
+    if (y < white - FIRST_PAINT_DROP) return ts;
   }
   return 0;
 }
@@ -71,6 +82,26 @@ export type PromoRecordResult = {
   posterUrl?: string;
   durationSec: number;
 };
+
+// 영상 끝의 "더 이상 안 변하는" 구간이 시작되는 시각. 없으면 undefined.
+async function findTailFreezeSec(rawPath: string): Promise<number | undefined> {
+  try {
+    const { stdout } = await run(
+      "ffmpeg",
+      ["-hide_banner", "-v", "error", "-i", rawPath,
+       "-vf", `freezedetect=n=${FREEZE_NOISE}:d=${FREEZE_MIN_SEC},metadata=mode=print:file=-`, "-f", "null", "-"],
+      { timeoutMs: 120_000 },
+    );
+    const starts = [...stdout.matchAll(/lavfi\.freezedetect\.freeze_start=([\d.]+)/g)].map((m) => Number(m[1]));
+    if (!starts.length) return undefined;
+    const last = starts[starts.length - 1];
+    const dur = (await ffprobeValue(rawPath, "format=duration")) ?? 0;
+    // 끝까지 이어지는 정지만 자른다(중간에 잠깐 멎은 건 연출일 수 있음).
+    return dur > 0 && dur - last > 0.4 ? last : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 export async function recordPromoClip(input: PromoRecordInput): Promise<PromoRecordResult> {
   const { clipId, taglineText, taglineReply, locale, format } = input;
@@ -183,7 +214,23 @@ export async function recordPromoClip(input: PromoRecordInput): Promise<PromoRec
     // 첫 페인트는 화면 전체가 흰색(#fff) → 크림(--bg #fdfaf3)으로 바뀌는
     // 큰 밝기 계단이라 영상 안에서 직접 찾는 게 훨씬 정확하다. 잘라낸 뒤 남는
     // 리드(빈 화면 + 깜빡이는 커서)는 페이지 자체의 프리롤 800ms다.
-    const trimHeadSec = await findFirstPaintSec(rawPath);
+    const firstPaintSec = await findFirstPaintSec(rawPath);
+    const trimHeadSec = Math.max(0, firstPaintSec - 0.05);
+
+    // 뒤쪽 **얼어붙은 구간** 잘라내기. Playwright는 녹화가 끝날 때까지 마지막
+    // 프레임을 그대로 채워 넣는다 — 문구를 다 지운 뒤 1초 가까이 정지 화면이
+    // 붙고(커서 깜빡임도 멎는다) 거기서 엔드캡 커서가 새로 뜨니 커서가 툭
+    // 끊겨 보였다(2026-08-18 사용자 접수). 벽시계로 계산하지 않는다: 흰 화면
+    // 앵커는 어떤 판에선 아예 안 찍힌다(영상이 첫 페인트 이후에 시작). 대신
+    // "화면이 더 이상 안 변하는 시점"을 ffmpeg freezedetect로 직접 찾는다 —
+    // 커서가 0.475s마다 깜빡이므로 살아있는 구간은 절대 freeze로 안 잡힌다.
+    const freezeAt = await findTailFreezeSec(rawPath);
+    const trimTailAtSec = freezeAt !== undefined ? freezeAt + TAIL_HOLD_SEC : undefined;
+    console.log(
+      `[promo-record] 앞 ${trimHeadSec.toFixed(2)}s 트림` +
+        (trimTailAtSec ? ` · ${trimTailAtSec.toFixed(2)}s에서 끊음(정지 시작 ${freezeAt?.toFixed(2)}s)` : " · 뒤 정지구간 없음"),
+    );
+
     const { durationSec, posterPath } = await promoPostprocess({
       rawPath,
       outPath: clipPath,
@@ -191,6 +238,7 @@ export async function recordPromoClip(input: PromoRecordInput): Promise<PromoRec
       outH: size.outputH,
       outDir: dir,
       trimHeadSec,
+      trimTailAtSec,
     });
 
     const ts = Date.now();
