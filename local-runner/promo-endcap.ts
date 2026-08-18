@@ -27,8 +27,12 @@ const ERASE_MIN_MS = 35, ERASE_JIT_MS = 20; // 지워지는 글자당
 const LAND_BLINK_SEC = 0.95; // n에 착지한 뒤 한 번 깜빡
 const LAND_HOLD_SEC = 1.0; // 그 다음 고정 유지
 const BLINK_PERIOD_SEC = 0.95;
-// 프레임 하나에 로고만 있는 화면이라 데모 엔드캡(0.05)보다 살짝 크게.
-const FONT_FRAC = 0.07;
+// 태그라인 헤드라인과 **같은 크기**로 간다 — components/LoggedInHeadline.tsx의
+// HEADLINE_FONT_SIZE(clamp의 3.4vw)와 동일한 비율. 본편에서 세리프 3.4vw로
+// 흐르다가 엔드캡만 3배 큰 글자가 튀어나오면 다른 영상처럼 보인다(2026-08-18
+// 사용자 접수). 글꼴 자체는 mono 유지 — 공식 로고가 JetBrains Mono + 블록
+// 커서라 여기서 세리프로 바꾸면 로고가 로고가 아니게 된다([[project-brand-logo]]).
+const FONT_VW = 0.034;
 
 // 매 촬영마다 동일한 타이핑 리듬(결정론적 — Date.now/Math.random 없음).
 // WORD가 고정 문자열이라 시드도 항상 같다.
@@ -43,7 +47,8 @@ function mulberry32(seed: number): () => number {
 }
 
 function sceneHtml(w: number, h: number, bg: string): string {
-  const fontPx = Math.min(Math.floor(h * FONT_FRAC), Math.floor((w * 0.86) / (WORD.length * 0.6)));
+  // 폭 기준(vw)이라 세로·가로 어느 포맷에서도 태그라인과 같은 비율로 보인다.
+  const fontPx = Math.max(12, Math.round(w * FONT_VW));
   return `<!doctype html><html><head><meta charset="utf-8">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">

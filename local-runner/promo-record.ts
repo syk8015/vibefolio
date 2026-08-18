@@ -19,7 +19,7 @@
 import { mkdirSync, readFileSync } from "node:fs";
 import { chromium } from "playwright-core";
 import { promoPostprocess } from "./promo-postprocess";
-import { estimateTaglineRecordMs, PROMO_PREROLL_MS } from "../lib/promo";
+import { estimateTaglineRecordMs } from "../lib/promo";
 import { uploadToR2 } from "../lib/r2";
 import { PROMO_APP_URL, PROMO_FORMATS, PROMO_OUT_DIR, type PromoFormat } from "./config";
 import { run } from "./util";
@@ -27,6 +27,9 @@ import { run } from "./util";
 // 첫 페인트(흰→크림)를 찾을 때 쓰는 밝기 계단 임계값과 탐색 상한.
 // 크림 배경은 흰 화면보다 YAVG가 ~11 낮게 잡힌다(2026-08-18 실측).
 const FIRST_PAINT_DROP = 4;
+// 문구가 다 지워진 뒤 남길 여운. 헤드라인이 다음 사이클을 시작하는 420ms보다
+// 확실히 짧아야 한다(길면 다음 문구 첫 글자가 클립 끝에 찍힌다).
+const ERASED_TAIL_MS = 250;
 const FIRST_PAINT_MAX_SEC = 6;
 
 // 녹화 앞부분의 흰 화면 길이를 영상에서 직접 잰다. 못 찾으면 0(=안 자름) —
@@ -146,9 +149,26 @@ export async function recordPromoClip(input: PromoRecordInput): Promise<PromoRec
       { timeout: 15_000 },
     );
 
-    // 첫 글자 이후 남은 연출(타이핑 잔여 + 읽기 대기 + 지우기 + 안전마진).
+    // 문구가 **다 지워져 빈 화면이 된 순간**을 DOM으로 잡아 거기서 끊는다.
+    // 시간 계산으로 끊으면 안 된다: 추정식의 안전마진(700ms)이 헤드라인이 다음
+    // 사이클을 재시작하기까지의 여유(420ms)보다 커서, 다음 문구의 첫 글자가
+    // 찍힌 상태로 엔드캡이 붙는다(2026-08-18 사용자 접수 — "영역전개…" 다 지운
+    // 뒤 "영"이 한 글자 찍히고 로고 타이핑이 시작됨). 추정식은 이제 상한
+    // 타임아웃으로만 쓴다.
     const recordMs = estimateTaglineRecordMs({ text: taglineText, reply: taglineReply ?? undefined });
-    await page.waitForTimeout(Math.max(1000, recordMs - PROMO_PREROLL_MS));
+    await page
+      .waitForFunction(
+        () => {
+          const root = document.querySelector(".vf-logged-in-headline");
+          if (!root) return false;
+          // h1의 zero-width space와 답글 마커(↳)는 글자가 아니므로 뺀다.
+          return (root.textContent ?? "").replace(/[\u200b↳]/g, "").trim().length === 0;
+        },
+        { timeout: Math.max(3000, recordMs) },
+      )
+      .catch(() => {}); // 못 잡으면 추정 길이까지 찍고 넘어간다(빈 화면 대신 문구가 남는 정도)
+    // 다음 사이클 첫 글자까지 420ms — 그 안에서 빈 화면 여운만 조금 남긴다.
+    await page.waitForTimeout(ERASED_TAIL_MS);
 
     const video = page.video();
     if (!video) throw new Error("recordVideo가 활성화되지 않았어요(Playwright 컨텍스트 설정 확인)");
