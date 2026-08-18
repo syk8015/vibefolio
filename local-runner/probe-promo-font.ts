@@ -21,11 +21,16 @@ async function main() {
     await page.waitForSelector("[data-promo-tagline-status]", { timeout: 15_000 });
 
     // 프리워밍이 실제로 쓰이는 스택(--font-serif = Hahmlet 계열)까지 덮는지.
+    // **첫 글자가 찍힌 순간**에 재야 한다 — 마커는 프리워밍보다 먼저 뜬다.
+    await page.waitForFunction(`(() => {
+      var h1 = document.querySelector(".vf-logged-in-headline h1");
+      return !!h1 && (h1.textContent || "").replace(/\u200b/g, "").trim().length > 0;
+    })()`, { timeout: 20_000 });
     const serifReady = await page.evaluate(`(() => {
       var v = getComputedStyle(document.documentElement).getPropertyValue("--font-serif").trim();
       return !v || document.fonts.check("500 40px " + v, ${JSON.stringify(TAG)});
     })()`);
-    if (!serifReady) failures.push("타이핑 시작 시점에 --font-serif 스택이 아직 안 준비됨");
+    if (!serifReady) failures.push("첫 글자가 찍히는 시점에 --font-serif 스택이 아직 안 준비됨");
 
     const seen = new Map<number, number>();
     for (let i = 0; i < 140; i++) {
