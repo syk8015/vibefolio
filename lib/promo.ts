@@ -18,7 +18,9 @@ const AVG_ERASE_CHAR_MS = 67.5;
 const COMMENT_BEAT_MS = 650;
 const READ_PAUSE_MS = 1600;
 const ERASE_HANDOFF_MS = 120; // reply 지우기 완료 → 본문 지우기 시작
-const PROMO_PREROLL_MS = 800;
+// local-runner/promo-record.ts도 쓴다 — 헤드리스 녹화는 "첫 글자가 찍힌 순간"부터
+// 남은 시간을 세므로 프리롤을 빼야 한다.
+export const PROMO_PREROLL_MS = 800;
 const SAFETY_MARGIN_MS = 700;
 const MIN_RECORD_MS = 3000; // 아주 짧은 문구도 클립 형태를 갖추도록
 

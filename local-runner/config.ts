@@ -224,10 +224,12 @@ export const CAMERA_VF_MAX_CHARS = 26_000;
 export const PROMO_APP_URL = process.env.PROMO_APP_URL || "https://nookframe.com";
 
 export const PROMO_FORMATS = {
-  // Reels/Shorts/TikTok. 540×960 logical (9:16) → 1080×1920 shipped.
-  vertical: { viewW: 540, viewH: 960, outputW: 1080, outputH: 1920 },
-  // YouTube. 960×540 logical (16:9) → 1920×1080 shipped.
-  horizontal: { viewW: 960, viewH: 540, outputW: 1920, outputH: 1080 },
+  // Reels/Shorts/TikTok (9:16). 헤드리스 녹화라 뷰포트=출력 해상도 그대로다
+  // (구 화면캡처 경로의 540×960 논리 뷰포트는 이 맥 화면(논리 1280×832)에
+  // 물리적으로 안 들어가서 전량 실패했다 — promo-record.ts 상단 주석 참고).
+  vertical: { outputW: 1080, outputH: 1920 },
+  // YouTube (16:9).
+  horizontal: { outputW: 1920, outputH: 1080 },
 } as const;
 export type PromoFormat = keyof typeof PROMO_FORMATS;
 

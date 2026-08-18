@@ -29,6 +29,16 @@ export default async function PromoRecordPage({
   const isHorizontal = format === "horizontal";
 
   return (
+    <>
+      {/* 헤드라인 폰트 크기의 clamp 상한(2.5rem)을 이 페이지에서만 푼다.
+          촬영은 헤드리스 브라우저를 최종 출력 해상도(1080×1920 / 1920×1080)로
+          띄우는데, 상한이 걸리면 뷰포트가 커질수록 글자만 상대적으로
+          작아져 로그인 후 메인에서 보던 비율과 달라진다. 순수 vw로 고정하면
+          어떤 해상도로 찍어도 화면상의 비율이 같다(2026-08-18). */}
+      <style>{`
+        .vf-logged-in-headline h1 { font-size: 3.4vw !important; }
+        .vf-logged-in-headline p  { font-size: 2.8vw !important; }
+      `}</style>
     <main
       style={{
         display: "flex",
@@ -47,5 +57,6 @@ export default async function PromoRecordPage({
         promoNotFound={!!promo && !forced}
       />
     </main>
+    </>
   );
 }

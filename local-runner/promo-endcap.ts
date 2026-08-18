@@ -11,10 +11,12 @@ import { copyFile, mkdir, rm, writeFile } from "node:fs/promises";
 import { chromium } from "playwright-core";
 import { run } from "./util";
 
-// app/globals.css --bg 라이트값과 동일(endcap.ts의 CREAM/INK 상수와 같은 값
-// — 한 파일에서 export하지 않는 이유는 그쪽이 local-runner 데모 전용 모듈이라
-// 이 프로모 모듈이 import하기엔 결합이 부적절하기 때문. 값이 바뀌면 양쪽 다).
-const CREAM = "#f4ede0";
+// app/globals.css 라이트 토큰과 정확히 같아야 한다 — 프로모 본편은 이 배경을
+// 그대로 채운 페이지(app/promo-record/page.tsx의 var(--bg))이고 엔드캡이 컷 없이
+// 이어붙으므로, 값이 다르면 이음매에서 배경 톤이 한 번 튄다(2026-08-18 실측:
+// 데모 엔드캡 상수 #f4ede0을 그대로 썼다가 본편 #fdfaf3와 어긋난 걸 발견).
+// 데모용 endcap.ts는 블러 크로스페이드가 앞에 있어 이 문제가 없으므로 안 건드림.
+const CREAM = "#fdfaf3"; // --bg (light) — 실제로는 본편에서 샘플한 색이 우선한다
 const INK = "#1a1612";
 
 const WORD = "nookframe.com";
@@ -40,13 +42,13 @@ function mulberry32(seed: number): () => number {
   };
 }
 
-function sceneHtml(w: number, h: number): string {
+function sceneHtml(w: number, h: number, bg: string): string {
   const fontPx = Math.min(Math.floor(h * FONT_FRAC), Math.floor((w * 0.86) / (WORD.length * 0.6)));
   return `<!doctype html><html><head><meta charset="utf-8">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 <style>
-  html,body{margin:0;background:${CREAM}}
+  html,body{margin:0;background:${bg}}
   #frame{width:${w}px;height:${h}px;display:flex;align-items:center;justify-content:center}
   #row{display:inline-flex;align-items:center;min-height:1.3em;
     font-family:'JetBrains Mono',ui-monospace,'SF Mono',Menlo,monospace;
@@ -73,8 +75,13 @@ export async function renderPromoEndcap(opts: {
   fps: number;
   outDir: string;
   encodeArgs: string[];
+  // 본편 마지막 프레임에서 실측한 배경색. Chrome 스크린캐스트를 거치면
+  // --bg(#fdfaf3)가 살짝 어둡게 인코딩돼서(2026-08-18 실측 #f8f4ec) 토큰값을
+  // 그대로 쓰면 이음매에서 배경이 한 번 튄다. 못 재면 토큰값으로 폴백.
+  bg?: string;
 }): Promise<{ durationSec: number }> {
   const { outPath, width, height, fps, outDir, encodeArgs } = opts;
+  const bg = opts.bg || CREAM;
   let seed = 0;
   for (const c of WORD) seed = (seed * 31 + c.charCodeAt(0)) >>> 0;
   const rand = mulberry32(seed || 1);
@@ -115,7 +122,7 @@ export async function renderPromoEndcap(opts: {
   try {
     const ctx = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: 1 });
     const page = await ctx.newPage();
-    await page.setContent(sceneHtml(width, height), { waitUntil: "load" });
+    await page.setContent(sceneHtml(width, height, bg), { waitUntil: "load" });
     // 웹폰트는 best-effort — 오프라인/콜드면 ui-monospace 폴백으로 그대로 진행.
     await page.evaluate(() => Promise.race([
       (document as unknown as { fonts: { ready: Promise<unknown> } }).fonts.ready,
