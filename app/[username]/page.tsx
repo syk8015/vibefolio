@@ -198,6 +198,10 @@ export default async function UserPortfolioPage({
   // 이것들이다 — 라고 구글에 알려준다. workExample의 URL이 곧 상세 페이지라,
   // 화면에 링크를 새로 달지 않고도 구글이 상세 페이지를 발견할 수 있다.
   // (테아터 레이아웃은 손대지 않는다.)
+  const sameAs = socialLinks
+    .map((u) => u.trim())
+    .filter(Boolean)
+    .map((u) => (u.startsWith("http://") || u.startsWith("https://") ? u : `https://${u}`));
   const profileUrl = `https://nookframe.com/${p.username}`;
   const profileJsonLd = {
     "@context": "https://schema.org",
@@ -213,7 +217,10 @@ export default async function UserPortfolioPage({
       url: profileUrl,
       ...(p.bio ? { description: p.bio } : {}),
       ...(p.avatar_url ? { image: p.avatar_url } : {}),
-      ...(socialLinks.length ? { sameAs: socialLinks } : {}),
+      // sameAs는 스킴이 붙은 절대 URL이어야 한다. 유저가 "instagram.com/id"
+      // 처럼 저장한 값이 그대로 나가면 구글이 무시한다 — 화면 렌더(getSocialMeta)와
+      // 같은 규칙으로 https://를 붙여준다.
+      ...(sameAs.length ? { sameAs } : {}),
       // 프로필 하나에 작품이 아주 많아도 문서가 비대해지지 않게 상한을 둔다.
       ...(dbProjects.length
         ? {
