@@ -11,6 +11,7 @@ import FaqRepliesSection from "@/components/FaqRepliesSection";
 import TypingTagline from "@/components/TypingTagline";
 import ScrollHint from "@/components/ScrollHint";
 import Logo from "@/components/Logo";
+import JsonLd from "@/components/JsonLd";
 import { getT } from "@/lib/i18n/server";
 
 interface FeaturedProfile {
@@ -53,6 +54,31 @@ const getLandingData = unstable_cache(
   ["landing-data"],
   { revalidate: 60, tags: ["portfolio"] }
 );
+
+// 사이트 정체성을 구글에 한 번만 선언한다. 다른 페이지의 구조화 데이터는
+// @id로 이 두 노드를 참조만 하므로 중복 선언이 없다.
+const SITE_JSONLD = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://nookframe.com/#website",
+      url: "https://nookframe.com",
+      name: "Nookframe",
+      inLanguage: "ko",
+      publisher: { "@id": "https://nookframe.com/#org" },
+    },
+    {
+      "@type": "Organization",
+      "@id": "https://nookframe.com/#org",
+      name: "Nookframe",
+      url: "https://nookframe.com",
+      logo: "https://nookframe.com/brand/oauth-logo-512.png",
+      description:
+        "바이브코더를 위한 라이브 포트폴리오. 프로젝트를 전시하고, 링크 하나로 나를 소개하세요.",
+    },
+  ],
+};
 
 export default async function LandingPage() {
   const supabase = await createClient();
@@ -132,6 +158,7 @@ export default async function LandingPage() {
   /* ─── Public landing ─── */
   return (
     <main className="flex flex-col" style={{ background: "var(--bg)", overflowX: "clip" }}>
+      <JsonLd data={SITE_JSONLD} />
 
       {/* Hero — single rotating phrase, true viewport center.
           Nav floats absolutely so it doesn't offset the tagline. */}

@@ -16,6 +16,7 @@ import EmbedLoginButton from "@/components/EmbedLoginButton";
 import TheaterShell from "@/components/theater/TheaterShell";
 import ReportButton from "@/components/ReportButton";
 import Logo from "@/components/Logo";
+import JsonLd from "@/components/JsonLd";
 import LanguageToggle from "@/components/LanguageToggle";
 import { getT } from "@/lib/i18n/server";
 
@@ -193,12 +194,48 @@ export default async function UserPortfolioPage({
   const currentUser = (isEmbed || isShowcase) ? null : rawUser;
   const isOwner = currentUser?.id === p.id;
 
+  // 구조화 데이터: 이 페이지는 한 사람의 프로필이고, 그 사람의 작품 목록은
+  // 이것들이다 — 라고 구글에 알려준다. workExample의 URL이 곧 상세 페이지라,
+  // 화면에 링크를 새로 달지 않고도 구글이 상세 페이지를 발견할 수 있다.
+  // (테아터 레이아웃은 손대지 않는다.)
+  const profileUrl = `https://nookframe.com/${p.username}`;
+  const profileJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "ProfilePage",
+    "@id": `${profileUrl}#profile`,
+    url: profileUrl,
+    isPartOf: { "@id": "https://nookframe.com/#website" },
+    mainEntity: {
+      "@type": "Person",
+      "@id": `${profileUrl}#person`,
+      name: p.name || p.username,
+      alternateName: `@${p.username}`,
+      url: profileUrl,
+      ...(p.bio ? { description: p.bio } : {}),
+      ...(p.avatar_url ? { image: p.avatar_url } : {}),
+      ...(socialLinks.length ? { sameAs: socialLinks } : {}),
+      // 프로필 하나에 작품이 아주 많아도 문서가 비대해지지 않게 상한을 둔다.
+      ...(dbProjects.length
+        ? {
+            workExample: dbProjects.slice(0, 50).map((dp) => ({
+              "@type": "CreativeWork",
+              "@id": `${profileUrl}/${dp.id}`,
+              url: `${profileUrl}/${dp.id}`,
+              name: dp.title,
+              ...(dp.description ? { description: dp.description } : {}),
+            })),
+          }
+        : {}),
+    },
+  };
+
   return (
     <main className="relative min-h-screen" style={{ background: "var(--bg)" }}>
       {/* embed=1은 오너 대시보드의 모바일 프리뷰 iframe — 미리볼 때마다 자기
           조회수가 오르면 안 되므로 showcase(랜딩 PiP)와 함께 집계에서 뺀다.
           ownerId는 로그인한 오너 본인의 일반 방문을 클라이언트에서 거른다. */}
       {!isShowcase && !isEmbed && <ViewTracker username={p.username} ownerId={p.id} />}
+      {!isShowcase && !isEmbed && <JsonLd data={profileJsonLd} />}
 
       {/* Nav */}
       {!isShowcase && (

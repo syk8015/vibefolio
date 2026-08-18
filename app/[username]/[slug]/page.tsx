@@ -5,6 +5,7 @@ import { getProfileByUsername, getProjectById, posterFromDemo } from "@/lib/port
 import WatchPing from "@/components/WatchPing";
 import ReportButton from "@/components/ReportButton";
 import Logo from "@/components/Logo";
+import JsonLd from "@/components/JsonLd";
 
 // The public per-project watch page. Its whole job is to unfurl the demo mp4 as
 // og:video (Discord/Slack/Telegram/iMessage inline-play it) and hand the viewer a
@@ -96,12 +97,50 @@ export default async function WatchPage({ params }: Params) {
     ? versioned(project.demo_video_url, project.demo_generated_at)
     : undefined;
 
+  // 구조화 데이터. 영상이 실제로 있을 때만 VideoObject를 쓴다 — 구글이
+  // VideoObject에 uploadDate를 요구하는데, 그건 촬영 시각(demo_generated_at)
+  // 뿐이라 둘 중 하나라도 없으면 일반 CreativeWork로 떨어뜨린다.
+  const watchUrl = `${SITE}/${profile.username}/${project.id}`;
+  const profileUrl = `${SITE}/${profile.username}`;
+  const creator = {
+    "@type": "Person",
+    "@id": `${profileUrl}#person`,
+    name,
+    url: profileUrl,
+  };
+  const jsonLd =
+    video && project.demo_generated_at
+      ? {
+          "@context": "https://schema.org",
+          "@type": "VideoObject",
+          "@id": `${watchUrl}#video`,
+          url: watchUrl,
+          name: project.title,
+          description: project.description || CAPTION,
+          contentUrl: video,
+          uploadDate: project.demo_generated_at,
+          ...(poster ? { thumbnailUrl: [poster] } : {}),
+          creator,
+          isPartOf: { "@id": "https://nookframe.com/#website" },
+        }
+      : {
+          "@context": "https://schema.org",
+          "@type": "CreativeWork",
+          "@id": watchUrl,
+          url: watchUrl,
+          name: project.title,
+          ...(project.description ? { description: project.description } : {}),
+          creator,
+          isPartOf: { "@id": "https://nookframe.com/#website" },
+        };
+
   return (
     <main
       className="relative min-h-screen flex flex-col"
       style={{ background: "var(--bg)" }}
     >
       <WatchPing projectId={project.id} username={profile.username} />
+      <JsonLd data={jsonLd} />
       {/* Top bar */}
       <header className="flex items-center justify-between px-5 md:px-8 py-4">
         <Logo />
