@@ -3,7 +3,6 @@
 import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 import { getDictionary } from "@/lib/i18n/dictionaries";
 import type { Locale } from "@/lib/i18n/config";
 
@@ -33,9 +32,10 @@ export default function HomeProfileMenu({ username, name, avatarUrl, locale }: P
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
+  // supabase-js를 부르지 않는다 — 이 한 줄 때문에 로그아웃 상태 방문자에게도
+  // supabase 청크(전송 55KB)가 랜딩 번들로 내려갔다. 세션 쿠키는 서버에서 지운다.
   async function handleLogout() {
-    const supabase = createClient();
-    await supabase.auth.signOut();
+    await fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
     router.push("/");
     router.refresh();
   }

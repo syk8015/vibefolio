@@ -243,8 +243,10 @@ export default async function UserPortfolioPage({
     <main className="relative min-h-screen" style={{ background: "var(--bg)" }}>
       {/* embed=1은 오너 대시보드의 모바일 프리뷰 iframe — 미리볼 때마다 자기
           조회수가 오르면 안 되므로 showcase(랜딩 PiP)와 함께 집계에서 뺀다.
-          ownerId는 로그인한 오너 본인의 일반 방문을 클라이언트에서 거른다. */}
-      {!isShowcase && !isEmbed && <ViewTracker username={p.username} ownerId={p.id} />}
+          오너 본인의 일반 방문도 여기서 건다: 예전엔 ViewTracker가 클라에서
+          getSession()으로 걸렀지만 그 한 줄이 supabase 청크(전송 55KB)를
+          공개 페이지 번들에 끌고 왔다. isOwner는 위에서 이미 검증된 값이다. */}
+      {!isShowcase && !isEmbed && !isOwner && <ViewTracker username={p.username} />}
       {!isShowcase && !isEmbed && <JsonLd data={profileJsonLd} />}
 
       {/* Nav */}
