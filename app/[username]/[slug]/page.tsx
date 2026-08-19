@@ -5,6 +5,7 @@ import { getProfileByUsername, getProjectById, posterFromDemo } from "@/lib/port
 import WatchPing from "@/components/WatchPing";
 import ReportButton from "@/components/ReportButton";
 import Logo from "@/components/Logo";
+import ClampText from "@/components/ClampText";
 import JsonLd from "@/components/JsonLd";
 
 // The public per-project watch page. Its whole job is to unfurl the demo mp4 as
@@ -199,7 +200,7 @@ export default async function WatchPage({ params }: Params) {
         {/* Caption — the source claim */}
         <p
           className="mt-4 text-center vf-mono"
-          style={{ color: "var(--text-muted)", fontSize: "0.8rem", letterSpacing: "0.01em" }}
+          style={{ color: "var(--text-primary)", opacity: 0.5, fontSize: "0.8rem", letterSpacing: "0.01em" }}
         >
           {CAPTION}
         </p>
@@ -238,7 +239,7 @@ export default async function WatchPage({ params }: Params) {
             >
               {name}
             </div>
-            <div className="vf-mono truncate" style={{ color: "var(--text-muted)", fontSize: "0.8rem" }}>
+            <div className="vf-mono truncate" style={{ color: "var(--text-primary)", opacity: 0.5, fontSize: "0.8rem" }}>
               {handle}
             </div>
           </div>
@@ -251,19 +252,25 @@ export default async function WatchPage({ params }: Params) {
           {project.title}
         </h1>
 
+        {/* 본문은 제목과 같은 잉크에 투명도만 한 단계 낮춘다 — 색이 두 갈래로
+            갈리면(크림 제목 + 탄색 본문) 폰에서 특히 산만해 보인다.
+            길면 폰에서만 8줄로 접는다(데스크탑은 전문 그대로). */}
         {project.description && (
-          <p
+          <ClampText
+            text={project.description}
+            lines={8}
+            moreLabel="Show more"
+            lessLabel="Show less"
             className="mt-3"
             style={{
-              color: "var(--text-secondary)",
+              color: "var(--text-primary)",
+              opacity: 0.82,
               fontFamily: "var(--font-nunito)",
               fontSize: "1rem",
               lineHeight: 1.6,
               whiteSpace: "pre-wrap",
             }}
-          >
-            {project.description}
-          </p>
+          />
         )}
 
         {/* Door into the owner's Nookframe */}

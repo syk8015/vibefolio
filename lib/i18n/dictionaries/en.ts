@@ -439,6 +439,7 @@ export const en: Dictionary = {
   theater: {
     editFrame: "Edit frame",
     myFrame: "My frame",
+    menu: "Menu",
     mobilePreview: "Mobile preview",
     login: "Log in",
     emptyTitle: "No public projects yet",

@@ -2,27 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { useT } from "@/lib/i18n/client";
-
-type Theme = "dark" | "light";
-
-function getSystemTheme(): Theme {
-  if (typeof window === "undefined") return "dark";
-  return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
-}
-
-function getInitialTheme(): Theme {
-  try {
-    const stored = localStorage.getItem("vf-theme") as Theme | null;
-    if (stored === "dark" || stored === "light") return stored;
-    return getSystemTheme();
-  } catch { /* SSR */ }
-  return "dark";
-}
-
-function applyTheme(theme: Theme) {
-  document.documentElement.setAttribute("data-theme", theme);
-  document.dispatchEvent(new CustomEvent("vf-theme-change", { detail: { theme } }));
-}
+import {
+  applyTheme,
+  getInitialTheme,
+  onThemeChange,
+  setStoredTheme,
+  THEME_STORAGE_KEY,
+  type Theme,
+} from "@/lib/theme";
 
 export default function ThemeToggle() {
   const { t } = useT();
@@ -39,19 +26,23 @@ export default function ThemeToggle() {
     const mq = window.matchMedia("(prefers-color-scheme: light)");
     const handleSystemChange = (e: MediaQueryListEvent) => {
       const next: Theme = e.matches ? "light" : "dark";
-      localStorage.removeItem("vf-theme"); // system override clears manual preference
+      localStorage.removeItem(THEME_STORAGE_KEY); // system override clears manual preference
       setTheme(next);
       applyTheme(next);
     };
     mq.addEventListener("change", handleSystemChange);
-    return () => mq.removeEventListener("change", handleSystemChange);
+    // 모바일 nav 메뉴에도 같은 토글이 있다 — 거기서 바꾸면 여기 아이콘도 따라온다.
+    const unsubscribe = onThemeChange(setTheme);
+    return () => {
+      mq.removeEventListener("change", handleSystemChange);
+      unsubscribe();
+    };
   }, []);
 
   const toggle = () => {
     const next: Theme = theme === "dark" ? "light" : "dark";
     setTheme(next);
-    applyTheme(next);
-    localStorage.setItem("vf-theme", next);
+    setStoredTheme(next);
   };
 
   if (!mounted) return <div style={{ width: 34, height: 34 }} />;

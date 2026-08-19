@@ -449,6 +449,7 @@ export const ko = {
   theater: {
     editFrame: "프레임 수정",
     myFrame: "내 프레임",
+    menu: "메뉴",
     mobilePreview: "모바일 미리보기",
     login: "로그인",
     emptyTitle: "아직 공개된 프로젝트가 없어요",

@@ -18,6 +18,7 @@ import ReportButton from "@/components/ReportButton";
 import Logo from "@/components/Logo";
 import JsonLd from "@/components/JsonLd";
 import LanguageToggle from "@/components/LanguageToggle";
+import MobileNavMenu from "@/components/MobileNavMenu";
 import { getT } from "@/lib/i18n/server";
 
 // Public portfolio data is identical for every visitor, so we cache the two
@@ -268,9 +269,14 @@ export default async function UserPortfolioPage({
               <ViewportModeToggle />
             </div>
           )}
-          <ThemeToggle />
-          <LanguageToggle />
-          <CopyLinkButton username={p.username} />
+          {/* 모바일에서는 이 부수 컨트롤들이 점 세 개 메뉴 안으로 들어간다
+              (아래 MobileNavMenu). 폰 첫 화면에 버튼이 다섯 개 늘어서면
+              작품보다 크롬이 먼저 읽힌다. 데스크탑 줄은 그대로. */}
+          <div className="hidden md:flex items-center gap-3">
+            <ThemeToggle />
+            <LanguageToggle />
+            <CopyLinkButton username={p.username} />
+          </div>
 
           {/* Auth pill */}
           {isOwner ? (
@@ -328,7 +334,7 @@ export default async function UserPortfolioPage({
           ) : (
             <Link
               href="/login"
-              className="px-3.5 py-1.5 rounded-full text-xs font-bold transition-opacity hover:opacity-80"
+              className="hidden md:inline-block px-3.5 py-1.5 rounded-full text-xs font-bold transition-opacity hover:opacity-80"
               style={{
                 border: "1px solid var(--border-bright)",
                 color: "var(--text-secondary)",
@@ -339,6 +345,12 @@ export default async function UserPortfolioPage({
               {t.theater.login}
             </Link>
           )}
+
+          {/* 모바일 전용 — 위 컨트롤들을 접어 담는다. embed(오너 대시보드의
+              모바일 프리뷰)는 자체 로그인 안내 버튼이 따로 있으므로 제외. */}
+          <div className="md:hidden">
+            <MobileNavMenu username={p.username} showLogin={!currentUser && !isEmbed} />
+          </div>
         </div>
       </nav>
       )}

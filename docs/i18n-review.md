@@ -434,6 +434,7 @@
 |---|---|---|---|
 | editFrame | 프레임 수정 | Edit frame | 오너 pill |
 | myFrame | 내 프레임 | My frame | 로그인 방문자 pill |
+| menu | 메뉴 | Menu | 모바일 nav 점 세 개 버튼 aria-label |
 | login | 로그인 | Log in | |
 | emptyTitle | 아직 공개된 프로젝트가 없어요 | No public projects yet | |
 | emptyBody | 곧 새로운 작업물이 올라올 예정이에요. | New work is coming soon. | |

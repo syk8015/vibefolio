@@ -357,27 +357,33 @@ export default function TheaterShell({ profile, profileUrl, projects, initialAct
           identity={identity}
         />
 
-        {/* Reel */}
-        <div className="px-5 pt-7">
-          <SectionHeader label={t.theater.screenings(total)} />
-        </div>
-        <div
-          className="flex gap-2.5 px-4 pt-4 pb-2 overflow-x-auto"
-          style={{
-            scrollbarWidth: "thin",
-            WebkitOverflowScrolling: "touch",
-          }}
-        >
-          {projects.map((p, i) => (
-            <ReelTile
-              key={p.id}
-              project={p}
-              index={i}
-              active={i === activeIndex}
-              onClick={() => setActiveIndex(i)}
-            />
-          ))}
-        </div>
+        {/* Reel — 작품이 하나뿐이면 히어로와 같은 것을 한 번 더 보여줄 뿐이라
+            모바일에서는 통째로 뺀다(화면이 좁을수록 중복이 크게 느껴진다).
+            데스크탑 Up Next는 사이드 칼럼이라 그대로 둔다. */}
+        {total > 1 && (
+          <>
+            <div className="px-5 pt-7">
+              <SectionHeader label={t.theater.screenings(total)} />
+            </div>
+            <div
+              className="flex gap-2.5 px-4 pt-4 pb-2 overflow-x-auto"
+              style={{
+                scrollbarWidth: "thin",
+                WebkitOverflowScrolling: "touch",
+              }}
+            >
+              {projects.map((p, i) => (
+                <ReelTile
+                  key={p.id}
+                  project={p}
+                  index={i}
+                  active={i === activeIndex}
+                  onClick={() => setActiveIndex(i)}
+                />
+              ))}
+            </div>
+          </>
+        )}
 
         {/* About — 정체성 한 줄은 이미 히어로에 있으므로 압축: 슬림 명함 카드 한 장
             (짧은 bio 2줄 말줄임 + 소셜 + QR). */}

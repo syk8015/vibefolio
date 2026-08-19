@@ -788,3 +788,19 @@ body::before {
     .vf-mhero-fade { animation: vf-mhero-rise 0.5s cubic-bezier(0.22, 1, 0.36, 1); }
   }
 }
+
+/* =============================================================
+   Mobile text clamp (< md / 768px)
+   긴 본문을 폰에서만 몇 줄로 접는다. 데스크탑에는 클래스가 아무 일도 하지
+   않으므로(미디어 쿼리 밖에 규칙 없음) PC 레이아웃은 그대로다.
+   줄 수는 --vf-clamp-lines로 호출부에서 정한다.
+   ============================================================= */
+@media (max-width: 767px) {
+  .vf-clamp-m {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: var(--vf-clamp-lines, 8);
+    line-clamp: var(--vf-clamp-lines, 8);
+    overflow: hidden;
+  }
+}
