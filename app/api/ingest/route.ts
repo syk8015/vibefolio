@@ -9,9 +9,11 @@ import { detectDemoSource } from "@/lib/demoSource";
 import { screenshotUrl } from "@/lib/thumbnail";
 import {
   ingestAuth, publicUrlGate, strOrNull, buildAccepted, descriptionTooLong, DESCRIPTION_MAX,
+  missingScriptColumn,
 } from "./shared";
 import { normalizeTags, normalizeContentType } from "@/lib/projectTaxonomy";
 import { normalizeDemoAccess, type DemoAccess } from "@/lib/demoAccess";
+import { normalizeDemoScript } from "@/lib/demoScript";
 import {
   MAX_UPLOAD_BYTES, MAX_MEDIA_IMAGE_BYTES, MAX_MEDIA_VIDEO_BYTES, UploadError,
 } from "@/lib/upload-safety";
@@ -41,6 +43,7 @@ interface IngestPayload {
   description?: unknown;
   builderNote?: unknown;
   demoHighlights?: unknown;
+  demoScript?: unknown;
   tags?: unknown;
   contentType?: unknown;
   deployUrl?: unknown;
@@ -126,6 +129,10 @@ export async function POST(req: NextRequest) {
     const demoHint = typeof payload?.demoHighlights === "string"
       ? payload.demoHighlights.trim().slice(0, 500) || null
       : null;
+    // 촬영 대본(demoHighlights의 구조화 승격) — 저장만. 형식이 어긋난 스텝은
+    // 정규화가 조용히 버리고, 살아남은 스텝 수는 accepted 에코가 알린다.
+    const demoScript = normalizeDemoScript(payload?.demoScript);
+    let scriptStored = !!demoScript; // 컬럼 부재 디그레이드 시 false로 — 에코가 진실을 말하게
     const tags = normalizeTags(payload?.tags);
     const contentTypeId = normalizeContentType(payload?.contentType);
 
@@ -242,6 +249,7 @@ export async function POST(req: NextRequest) {
         description,
         comment,
         demo_user_hint: demoHint,
+        demo_script: demoScript,
         demo_access: demoAccess,
         tags,
         content_type: contentTypeId,
@@ -251,7 +259,15 @@ export async function POST(req: NextRequest) {
       if (thumbnail && !(existing.thumbnail as string | null)?.includes("/_media/")) {
         upd.thumbnail = thumbnail;
       }
-      const { error: updErr } = await admin.from("projects").update(upd).eq("id", existing.id);
+      let { error: updErr } = await admin.from("projects").update(upd).eq("id", existing.id);
+      // migration_demo_script.sql 적용 전 무중단 디그레이드(워커의 42703 정책과
+      // 동일): 컬럼이 없다고 발행 전체가 죽으면 안 된다 — 대본만 빼고 재시도.
+      if (missingScriptColumn(updErr)) {
+        logger.error("[ingest] projects.demo_script missing — apply migration_demo_script.sql (storing without the script)");
+        delete upd.demo_script;
+        scriptStored = false;
+        ({ error: updErr } = await admin.from("projects").update(upd).eq("id", existing.id));
+      }
       if (updErr) {
         return apiError({ status: 500, message: t.api.projectCreateFailed, code: "DB_UPDATE_FAILED", cause: updErr });
       }
@@ -276,26 +292,33 @@ export async function POST(req: NextRequest) {
         .from("projects")
         .select("id", { count: "exact", head: true })
         .eq("user_id", userId);
-      const { data: created, error: insErr } = await admin
-        .from("projects")
-        .insert({
-          user_id: userId,
-          is_draft: true,
-          title,
-          description,
-          comment,
-          demo_user_hint: demoHint,
-          demo_access: demoAccess,
-          tags,
-          content_type: contentTypeId,
-          type: videoBuf ? "video" : "image",
-          year: new Date().getFullYear().toString(),
-          demo_url: demoUrl,
-          thumbnail,
-          sort_order: totalCount ?? 0,
-        })
-        .select("id")
-        .single();
+      const row: Record<string, unknown> = {
+        user_id: userId,
+        is_draft: true,
+        title,
+        description,
+        comment,
+        demo_user_hint: demoHint,
+        demo_script: demoScript,
+        demo_access: demoAccess,
+        tags,
+        content_type: contentTypeId,
+        type: videoBuf ? "video" : "image",
+        year: new Date().getFullYear().toString(),
+        demo_url: demoUrl,
+        thumbnail,
+        sort_order: totalCount ?? 0,
+      };
+      let { data: created, error: insErr } = await admin
+        .from("projects").insert(row).select("id").single();
+      // 위 update 브랜치와 같은 마이그레이션 전 디그레이드.
+      if (missingScriptColumn(insErr)) {
+        logger.error("[ingest] projects.demo_script missing — apply migration_demo_script.sql (storing without the script)");
+        delete row.demo_script;
+        scriptStored = false;
+        ({ data: created, error: insErr } = await admin
+          .from("projects").insert(row).select("id").single());
+      }
       if (insErr || !created) {
         return apiError({ status: 500, message: t.api.projectCreateFailed, code: "DB_INSERT_FAILED", cause: insErr });
       }
@@ -372,6 +395,7 @@ export async function POST(req: NextRequest) {
       // 500자 절단은 에러가 아니라 조용한 폐기라, 이 에코가 유일한 사후 확인 수단이다.
       accepted: buildAccepted(payload as unknown as Record<string, unknown>, {
         title, description, comment, demoHint, tags,
+        demoScript: scriptStored ? demoScript : null,
         contentTypeId, demoAccess, entryUrl: demoUrl,
       }, normalizeTags),
       ...(upserted ? { upserted: true } : {}),

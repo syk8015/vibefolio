@@ -7,10 +7,11 @@ import { rateLimit } from "@/lib/rate-limit";
 import { bearerFromHeader } from "@/lib/apiToken";
 import { normalizeTags, normalizeContentType } from "@/lib/projectTaxonomy";
 import { normalizeDemoAccess } from "@/lib/demoAccess";
+import { normalizeDemoScript, type DemoScript } from "@/lib/demoScript";
 import { logger } from "@/lib/logger";
 import {
   ingestAuth, publicUrlGate, strOrNull, type IngestDict, buildAccepted,
-  descriptionTooLong, DESCRIPTION_MAX,
+  descriptionTooLong, DESCRIPTION_MAX, missingScriptColumn,
 } from "../../shared";
 
 // PATCH·DELETE /api/ingest/drafts/[id] — Nookframe Connect 초안 수정·삭제(요청4).
@@ -102,6 +103,7 @@ export async function PATCH(
         ? payload.demoHighlights.trim().slice(0, 500) || null
         : null;
     }
+    if ("demoScript" in payload) upd.demo_script = normalizeDemoScript(payload.demoScript);
     if ("tags" in payload) upd.tags = normalizeTags(payload.tags);
     if ("contentType" in payload) upd.content_type = normalizeContentType(payload.contentType);
     if ("demoAccess" in payload) {
@@ -124,12 +126,27 @@ export async function PATCH(
 
     // 갱신된 행을 그대로 돌려받아 에코를 만든다(C-1) — 보낸 키만 바뀌므로
     // "요청 payload"로는 최종 상태를 알 수 없다. 저장된 행이 유일한 진실.
-    const { data: after, error: updErr } = await admin
+    const AFTER_COLS =
+      "title, description, comment, demo_user_hint, demo_script, tags, content_type, demo_access, demo_url";
+    let { data: after, error: updErr } = await admin
       .from("projects")
       .update(upd)
       .eq("id", draft.id)
-      .select("title, description, comment, demo_user_hint, tags, content_type, demo_access, demo_url")
+      .select(AFTER_COLS)
       .single();
+    // migration_demo_script.sql 적용 전 디그레이드(ingest 생성 경로와 동일 정책).
+    if (missingScriptColumn(updErr)) {
+      delete upd.demo_script;
+      if (!Object.keys(upd).length) {
+        return apiError({ status: 400, message: t.api.draftNoFields, code: "NO_FIELDS" });
+      }
+      ({ data: after, error: updErr } = await admin
+        .from("projects")
+        .update(upd)
+        .eq("id", draft.id)
+        .select(AFTER_COLS.replace(", demo_script", ""))
+        .single());
+    }
     if (updErr) {
       return apiError({ status: 500, message: t.api.retryLater, code: "DB_UPDATE_FAILED", cause: updErr });
     }
@@ -142,6 +159,7 @@ export async function PATCH(
         description: after?.description ?? "",
         comment: after?.comment ?? "",
         demoHint: after?.demo_user_hint ?? null,
+        demoScript: ((after as { demo_script?: unknown } | null)?.demo_script ?? null) as DemoScript | null,
         tags: after?.tags ?? [],
         contentTypeId: after?.content_type ?? null,
         demoAccess: after?.demo_access ?? null,

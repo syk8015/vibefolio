@@ -14,6 +14,7 @@ import { decidePolicy, type SafetyPolicy, type SourceType } from "./safety";
 import { recordDemo, type PipelinePhase } from "./pipeline";
 import type { QuarantineUpload } from "./upload";
 import type { DemoAccess } from "../lib/demoAccess";
+import type { DemoScript } from "../lib/demoScript";
 
 export type JobPhase = "building" | PipelinePhase;
 
@@ -45,6 +46,9 @@ export type JobInput = {
   // Creator-written core-feature description (projects.demo_user_hint) — steers
   // what explore demonstrates. Optional; untrusted user data end to end.
   userHint?: string;
+  // 만든 AI의 촬영 대본(projects.demo_script) — explore 브리핑의 등뼈. "제안"으로만
+  // 취급된다(하드룰·쓰기 mock 불변). Optional; untrusted user data end to end.
+  demoScript?: DemoScript;
   // Demo-mode entry info (projects.demo_access, Connect 요청2) for login-gated
   // apps: url+params decide WHERE the robot lands, note reaches the explore
   // brief. Optional; untrusted user data end to end — an absolute url passes
@@ -211,6 +215,7 @@ export async function runJob(job: JobInput): Promise<JobOutcome> {
       policy,
       upload: job.upload,
       userHint: job.userHint,
+      demoScript: job.demoScript,
       accessNote: job.demoAccess?.note,
       accessImpossible: job.demoAccess?.impossible,
       projectTitle: job.title,

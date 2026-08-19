@@ -39,7 +39,7 @@
 
 - 인증: `Authorization: Bearer nf_live_…` (우선) 또는 쿠키 세션(`/publish` 경로).
 - 본문:
-  - `application/json` — `{ title, description?, builderNote?, demoHighlights?, tags?, contentType?, deployUrl?, appUrl?, demoAccess? }`
+  - `application/json` — `{ title, description?, builderNote?, demoHighlights?, demoScript?, tags?, contentType?, deployUrl?, appUrl?, demoAccess? }`
     (`appUrl` = 랜딩과 앱이 나뉜 제품의 실제 앱 화면 URL — 있으면 deployUrl보다 우선해 임베드·촬영 대상이 된다. 검증은 deployUrl과 동일)
     (`deployUrl`/`appUrl`은 `detectDemoSource`가 github 저장소 URL도 인식한다 — 미배포+서버/DB 필요 앱의
     최후수단으로 08-14부터 프롬프트·MCP·CLI가 안내. 공개 저장소·`dev`/`start` 스크립트 필수, 원격 DB
@@ -76,7 +76,14 @@
      (PAT 폭발반경 유지). 재호출은 멱등 200(같은 결과로 수렴 — `deduped:true` 플래그는 best-effort:
      지워진 임시 오브젝트가 스토리지 CDN 캐시에서 잠깐 더 읽히면 재처리로 돌아 플래그가 빠질 수 있음,
      실측 2026-08-14). CLI ≥0.1.3은 파일이 있으면 자동으로 이 경로.
-- payload 매핑: `demoHighlights`→`demo_user_hint`(≤500, 레코더에 주입되는 유일 텍스트),
+- payload 매핑: `demoScript`→`demo_script`(**촬영 대본** — demoHighlights의 구조화 승격, 2026-08-20.
+  `{ steps: [{ goal, where?, action?, text?, expect? }], skip?, prep? }`, 정규화=`lib/demoScript.ts`:
+  스텝≤10·필드 캡·action 화이트리스트, 형식 어긋난 스텝은 조용히 드랍 후 에코의 `demoScriptSteps`/
+  `demoScriptDropped`로 보고. 레코더에선 explore 브리핑의 등뼈가 되고 `mark_step` 툴로 커버리지를
+  코드가 추적, 마지막 스텝 도달 전 종료는 재촉으로 거부된다. **"제안"으로만 취급** — 하드룰·쓰기
+  mock은 대본과 무관하게 유지. 컬럼 부재 시 3개 라우트+워커 전부 42703/PGRST204 디그레이드로 대본만
+  빼고 동작), `demoHighlights`→`demo_user_hint`(≤500, 하위호환 산문 힌트 — 대본이 있으면 브리핑에서
+  배경 맥락으로 강등),
   `builderNote`→`comment`(공개 카드 말풍선 — 08-14까지 프롬프트·MCP 스키마에 안내가 빠져 있어 AI가 실질적으로
   못 채웠다. pastePrompt·MCP TOOL 스키마 양쪽에 보완), `tags`는 `AI_TOOLS` **화이트리스트 정확 일치**로
   필터(다른 철자는 조용히 버려짐 — 프롬프트·MCP 스키마 enum에 전체 목록 명시로 보완), `contentType`은 8개 고정 id.
@@ -94,7 +101,7 @@
 안 보이고, 수정·삭제는 409 `NOT_DRAFT`). 레이트리밋은 발행과 별도 버킷(`ingest-manage` 60/h).
 
 - `GET /api/ingest/drafts` — 내 초안 목록 `{ ok, count, drafts:[{ id, title, …, reviewUrl }] }`.
-- `PATCH /api/ingest/drafts/[id]` — 보낸 필드만 갱신(title/description/builderNote/demoHighlights/
+- `PATCH /api/ingest/drafts/[id]` — 보낸 필드만 갱신(title/description/builderNote/demoHighlights/demoScript/
   tags/contentType/demoAccess — 검증은 생성 경로와 동일 규칙·동일 게이트). `deployUrl`·`appUrl`·
   `uploads`가 오면 400 `ARTIFACT_IMMUTABLE` — 아티팩트 교체는 같은 URL로 publish 재실행(upsert)이
   정규 경로(검증 경로 단일화).
@@ -117,7 +124,7 @@
 ## 저장 결과 에코 — `accepted` (도그푸딩 C-1)
 
 인제스트는 **틀린 값을 에러 대신 조용히 버린다**: AI 툴 태그는 철자가 `AI_TOOLS`와
-안 맞으면 사라지고, `contentType` 오타는 `null`, `demoHighlights`는 500자에서 잘리고,
+안 맞으면 사라지고, `contentType` 오타는 `null`, `demoHighlights`는 500자에서 잘리고, `demoScript`는 형식 어긋난 스텝이 드랍되고,
 형태가 어긋난 `demoAccess`는 통째로 없어진다. 이건 "AI가 올리다 실패하는 것보다
 일부라도 올라가는 게 낫다"는 의도적 설계다 — 문제는 발행이 성공해도 **무엇이
 살아남았는지 알 방법이 없었다**는 것(자체 도그푸딩에서 확인).
@@ -126,7 +133,7 @@
 싣는다. 요청 payload가 아니라 **저장 직전(PATCH는 갱신된 행)의 값**으로 조립한다.
 
 - 조립: `app/api/ingest/shared.ts` 의 `buildAccepted()` — 표시 전용, 저장 내용 불변.
-- 필드: `title` · `descriptionChars` · `builderNoteChars` · `demoHighlightsChars` ·
+- 필드: `title` · `descriptionChars` · `builderNoteChars` · `demoHighlightsChars` · `demoScriptSteps` · `demoScriptDropped` ·
   `demoHighlightsTruncated` · `tags` · `droppedTags` · `contentType` ·
   `droppedContentType` · `entryUrl` · `scoutAltUrl` · `demoAccess` · `demoAccessDropped`.
 - 파일 업로드(2단계) 경로는 `finalize` 응답에 `accepted`가 없으므로 CLI가 1단계 것을

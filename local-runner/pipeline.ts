@@ -30,6 +30,7 @@ import { assertFinalUrlPublic, watchLanBreach } from "./netguard";
 import { assertFocusShortcuts, enableFocus } from "./focus";
 import { extractModerationFrames, moderateDemo, type DemoCoverage } from "./moderate";
 import { scoutEntry, surveyCandidates, type ScoutCandidate, type ScoutPick } from "./scout";
+import type { DemoScript } from "../lib/demoScript";
 import {
   uploadAndMarkDone,
   uploadQuarantined,
@@ -65,6 +66,9 @@ export type RecordDemoOptions = {
   // Creator-written core-feature description (projects.demo_user_hint) — passed
   // through to explore's opening brief. Optional; untrusted user data.
   userHint?: string;
+  // 만든 AI의 촬영 대본(projects.demo_script) — explore 브리핑의 등뼈로 주입.
+  // Optional; untrusted user data (하드룰·쓰기 mock은 대본과 무관하게 유지).
+  demoScript?: DemoScript;
   // Creator's demo-mode note (projects.demo_access.note) — how to see the app's
   // demo mode from the entry URL the job assembled. Same untrusted-data framing
   // as userHint in the brief.
@@ -286,6 +290,7 @@ export async function recordDemo(opts: RecordDemoOptions): Promise<RecordDemoRes
     const storage0 = await exploreCtx.storageState(); // shared footing for the take
     const script = await explore(explorePage, {
       userHint: opts.userHint,
+      demoScript: opts.demoScript,
       accessNote: opts.accessNote,
       accessImpossible: opts.accessImpossible,
     });

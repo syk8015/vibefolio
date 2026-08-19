@@ -4,6 +4,7 @@ import { apiError } from "@/lib/apiError";
 import { getT } from "@/lib/i18n/server";
 import { getDictionary } from "@/lib/i18n/dictionaries";
 import { verifyToken, bearerFromHeader } from "@/lib/apiToken";
+import type { DemoScript } from "@/lib/demoScript";
 import { liveUrlIssue } from "@/lib/demoSource";
 import { assertSafePublicUrl, SsrfError } from "@/lib/ssrf";
 
@@ -76,6 +77,10 @@ export type AcceptedEcho = {
   builderNoteChars: number;
   demoHighlightsChars: number;
   demoHighlightsTruncated: boolean;
+  // 촬영 대본(demoScript): 저장된 스텝 수. 0 + demoScriptDropped=true 는 "보냈는데
+  // 형식이 어긋나 통째로 버려짐" — 조용한 폐기를 에코가 알리는 기존 원칙 그대로.
+  demoScriptSteps: number;
+  demoScriptDropped: boolean;
   tags: string[];
   droppedTags: string[];
   contentType: string | null;
@@ -87,6 +92,16 @@ export type AcceptedEcho = {
 };
 
 const DEMO_HIGHLIGHTS_MAX = 500;
+
+// migration_demo_script.sql 적용 전 디그레이드 판별(insert/update 공용) —
+// PostgREST는 스키마 캐시 기준 PGRST204("Could not find the '…' column"),
+// 직결 SQL은 42703을 낸다. 어느 쪽이든 대본만 빼고 재시도할 근거.
+export function missingScriptColumn(
+  e: { code?: string; message?: string } | null | undefined,
+): boolean {
+  return !!e && (e.code === "PGRST204" || e.code === "42703") &&
+    (e.message ?? "").includes("demo_script");
+}
 
 // 설명은 일부러 3줄로 끊어 쓰는 카피라, "몇 자냐"보다 "몇 줄이고 한 줄이 얼마나
 // 기냐"가 실제 화면을 결정한다. 한글은 터미널·화면에서 두 칸을 먹으므로 글자 수가
@@ -134,6 +149,7 @@ export function buildAccepted(
     description: string;
     comment: string;
     demoHint: string | null;
+    demoScript: DemoScript | null;
     tags: string[];
     contentTypeId: string | null;
     demoAccess: { url?: string; params?: Record<string, string>; impossible?: boolean; altUrl?: string } | null;
@@ -154,6 +170,8 @@ export function buildAccepted(
     builderNoteChars: [...stored.comment].length,
     demoHighlightsChars: stored.demoHint ? [...stored.demoHint].length : 0,
     demoHighlightsTruncated: [...rawHint].length > DEMO_HIGHLIGHTS_MAX,
+    demoScriptSteps: stored.demoScript?.steps.length ?? 0,
+    demoScriptDropped: !!raw?.demoScript && !stored.demoScript,
     tags: stored.tags,
     droppedTags: droppedTagsOf(raw?.tags, stored.tags, normalizeTags),
     contentType: stored.contentTypeId,

@@ -23,7 +23,7 @@ nookframe publish            현재 폴더 작품을 초안으로 올림
   --app-url <url>            실제 앱 화면 URL (랜딩과 다를 때 — 시연은 이 주소를 촬영)
   --dir <path>              올릴 정적 빌드 디렉터리 (zip 업로드)
   --title <t>               제목
-  --hint <text>             시연 영상에서 보여줄 핵심 (demoHighlights)
+  --hint <text>             시연 영상에서 보여줄 핵심 (demoHighlights) — 촬영 대본은 --json의 demoScript로
   --access-url <u>          로그인 필요 앱의 데모/게스트 진입 URL·경로 (예 /demo)
   --access-params <q>       진입 URL에 붙일 쿼리 (예 "guest=1&lang=ko")
   --access-note <t>         데모 모드 보는 법 한두 문장 (계정 정보는 안 받음)

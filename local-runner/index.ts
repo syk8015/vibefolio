@@ -14,8 +14,10 @@
 //
 // manual-* projectIds are dry-runs: upload lands under _test/ and the DB is never
 // touched. --policy overrides the automatic gate — operator's own call, CLI only.
+import { readFileSync } from "node:fs";
 import { runJob } from "./job";
 import type { SafetyPolicy, SourceType } from "./safety";
+import { normalizeDemoScript, type DemoScript } from "../lib/demoScript";
 
 const argv = process.argv.slice(2);
 const flag = (name: string, dflt?: string) => {
@@ -23,7 +25,7 @@ const flag = (name: string, dflt?: string) => {
   return i >= 0 && argv[i + 1] && !argv[i + 1].startsWith("--") ? argv[i + 1] : dflt;
 };
 
-const positionalUrl = argv.find((a) => !a.startsWith("--") && a !== flag("project") && a !== flag("policy") && a !== flag("type") && a !== flag("value") && a !== flag("hint") && a !== flag("access-url") && a !== flag("access-params") && a !== flag("access-note") && a !== flag("alt-url"));
+const positionalUrl = argv.find((a) => !a.startsWith("--") && a !== flag("project") && a !== flag("policy") && a !== flag("type") && a !== flag("value") && a !== flag("hint") && a !== flag("access-url") && a !== flag("access-params") && a !== flag("access-note") && a !== flag("alt-url") && a !== flag("script-file"));
 const typeFlag = flag("type");
 const valueFlag = flag("value");
 
@@ -45,7 +47,7 @@ if (typeFlag) {
   sourceValue = positionalUrl;
 } else {
   console.error(
-    "usage: tsx local-runner/index.ts <url> [--project <id>] [--policy read-only|full] [--upload] [--hint <core-feature>] [--alt-url <2nd candidate>]\n" +
+    "usage: tsx local-runner/index.ts <url> [--project <id>] [--policy read-only|full] [--upload] [--hint <core-feature>] [--script-file <shot.json>] [--alt-url <2nd candidate>]\n" +
       "       tsx local-runner/index.ts --type github|zip|live_url --value <v> [--project <id>] [--upload] [--hint <core-feature>]",
   );
   process.exit(1);
@@ -58,6 +60,20 @@ const policyOverride: SafetyPolicy | undefined =
 const doUpload = argv.includes("--upload");
 // Creator core-feature hint (변형① dry-runs): --hint "캔버스에 그림을 그리는 앱"
 const userHint = flag("hint");
+// 촬영 대본 dry-run: --script-file shot.json (형식=lib/demoScript.ts, 인제스트와
+// 같은 정규화를 태워 큐 경로와 동일한 값이 브리핑에 들어가게 한다).
+const scriptFile = flag("script-file");
+let demoScript: DemoScript | undefined;
+if (scriptFile) {
+  const raw = JSON.parse(readFileSync(scriptFile, "utf8")) as unknown;
+  demoScript = normalizeDemoScript(raw) ?? undefined;
+  if (!demoScript) {
+    console.error(`--script-file ${scriptFile}: no valid steps survived normalization`);
+    process.exit(1);
+  }
+  console.log(`[cli] shot list loaded: ${demoScript.steps.length} steps` +
+    (demoScript.skip?.length ? `, skip ${demoScript.skip.length}` : ""));
+}
 // Demo-access dry-runs (Connect 요청2): --access-url "/demo" --access-params "guest=1&lang=ko"
 // --access-note "상단 '둘러보기'를 누르면 샘플 데이터가 뜬다"
 const accessUrl = flag("access-url");
@@ -84,6 +100,7 @@ const outcome = await runJob({
   sourceValue,
   upload: doUpload,
   userHint,
+  demoScript,
   demoAccess,
   policyOverride,
   // CLI = the operator pointing the recorder at their own machine on purpose

@@ -34,6 +34,7 @@ export function formatAccepted(accepted) {
   ];
   if (accepted.builderNoteChars) texts.push(`말풍선 ${accepted.builderNoteChars}자`);
   if (accepted.demoHighlightsChars) texts.push(`시연 핵심 ${accepted.demoHighlightsChars}자`);
+  if (accepted.demoScriptSteps) texts.push(`촬영 대본 ${accepted.demoScriptSteps}스텝`);
   lines.push(ROW("글", texts.join(" · ")));
 
   lines.push(ROW("AI 툴", accepted.tags?.length ? accepted.tags.join(", ") : "(없음)"));
@@ -48,6 +49,9 @@ export function formatAccepted(accepted) {
   const warn = [];
   if (accepted.droppedTags?.length) {
     warn.push(`⚠ 버려진 AI 툴: ${accepted.droppedTags.join(", ")} — 지원 목록의 철자와 달라 저장되지 않았어요.`);
+  }
+  if (accepted.demoScriptDropped) {
+    warn.push("⚠ 버려진 촬영 대본: demoScript 형식이 어긋나 저장되지 않았어요 — { steps: [{ goal, where?, action?, text?, expect? }] } 형태여야 해요.");
   }
   if (accepted.droppedContentType) {
     warn.push(`⚠ 버려진 분류: ${accepted.droppedContentType} — web-app·saas·mobile·game·extension·ai-service·media·other 중 하나여야 해요.`);

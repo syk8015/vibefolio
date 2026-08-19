@@ -73,7 +73,7 @@ export default function PublishForm() {
         <textarea
           className="vf-input w-full"
           style={{ minHeight: 220, fontFamily: "var(--font-mono), monospace", fontSize: "0.85rem", lineHeight: 1.6 }}
-          placeholder={'{\n  "title": "...",\n  "description": "...",\n  "demoHighlights": "...",\n  "tags": ["Claude Code"],\n  "contentType": "web-app",\n  "deployUrl": "https://..."\n}'}
+          placeholder={'{\n  "title": "...",\n  "description": "...",\n  "demoScript": { "steps": [{ "goal": "...", "where": "...", "action": "click", "expect": "..." }] },\n  "tags": ["Claude Code"],\n  "contentType": "web-app",\n  "deployUrl": "https://..."\n}'}
           value={raw}
           onChange={(e) => setRaw(e.target.value)}
         />

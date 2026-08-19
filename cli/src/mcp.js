@@ -39,14 +39,43 @@ export async function runMcp() {
   const TOOL = {
     name: "publish_to_nookframe",
     description:
-      "이 프로젝트를 Nookframe(바이브코딩 포트폴리오)에 초안으로 올린다. 당신이 이 프로젝트를 만든 AI로서 레포(README·라우트·git log)를 근거로 title/description/demoHighlights를 직접 작성해 전달하라. deployUrl(배포된 공개 URL) 또는 dir(로컬 정적 빌드 폴더 절대경로) 중 하나를 준다. 미배포+서버·DB가 필요해 dir로 안 되면 deployUrl에 공개 GitHub 저장소 URL을 대신 줘도 된다(clone 후 npm run dev를 시도하는 최후 수단 — 비공개 저장소·dev 스크립트 없으면 실패, 원격 DB 앱은 읽기전용 데모). 랜딩과 실제 앱 화면 주소가 다르면 appUrl에 앱 URL을 함께 줘라(시연·임베드는 appUrl을 연다). 로그인해야 화면이 보이는 앱이면 demoAccess에 로그인 없이 들어가는 데모/게스트 진입 정보를 줘라(계정 아이디/비번은 받지 않는다). 게스트 경로 자체가 원천 불가능한 앱(E2E 암호화·기기 페어링 필수 등)이면 demoAccess를 { impossible: true, note: \"이유\" }로 줘라 — 그 경우 자동 촬영은 랜딩만 담으니 video 동봉을 강하게 권장한다. 직접 찍은 스크린샷·시연 영상 파일이 있으면 screenshot/video에 절대경로로 줘라(영상을 주면 자동 촬영은 생략된다). demoHighlights는 '○○를 클릭' 같은 지시가 아니라 '○○ 기능이 핵심' 처럼 서술형으로. 같은 URL로 다시 올리면 새 초안이 생기지 않고 기존 초안이 갱신된다(내용 수정에 이 방법을 써라).",
+      "이 프로젝트를 Nookframe(바이브코딩 포트폴리오)에 초안으로 올린다. 당신이 이 프로젝트를 만든 AI로서 레포(README·라우트·git log)를 근거로 title/description/demoScript(촬영 대본)를 직접 작성해 전달하라. deployUrl(배포된 공개 URL) 또는 dir(로컬 정적 빌드 폴더 절대경로) 중 하나를 준다. 미배포+서버·DB가 필요해 dir로 안 되면 deployUrl에 공개 GitHub 저장소 URL을 대신 줘도 된다(clone 후 npm run dev를 시도하는 최후 수단 — 비공개 저장소·dev 스크립트 없으면 실패, 원격 DB 앱은 읽기전용 데모). 랜딩과 실제 앱 화면 주소가 다르면 appUrl에 앱 URL을 함께 줘라(시연·임베드는 appUrl을 연다). 로그인해야 화면이 보이는 앱이면 demoAccess에 로그인 없이 들어가는 데모/게스트 진입 정보를 줘라(계정 아이디/비번은 받지 않는다). 게스트 경로 자체가 원천 불가능한 앱(E2E 암호화·기기 페어링 필수 등)이면 demoAccess를 { impossible: true, note: \"이유\" }로 줘라 — 그 경우 자동 촬영은 랜딩만 담으니 video 동봉을 강하게 권장한다. 직접 찍은 스크린샷·시연 영상 파일이 있으면 screenshot/video에 절대경로로 줘라(영상을 주면 자동 촬영은 생략된다). demoScript.steps는 중요한 순서대로 — 1번이 절대 빠지면 안 되는 핵심 기능이다. 같은 URL로 다시 올리면 새 초안이 생기지 않고 기존 초안이 갱신된다(내용 수정에 이 방법을 써라).",
     inputSchema: {
       type: "object",
       properties: {
         title: { type: "string", description: "짧고 명확한 제품 이름" },
         description: { type: "string", description: "한 문단 설명 (미완성이면 지향점까지)" },
         builderNote: { type: "string", description: "(선택) 공개 카드에 말풍선으로 뜨는 짧은 한마디. 문단이 아니라 한 줄, 예: '이게 제 첫 사이드프로젝트예요!'" },
-        demoHighlights: { type: "string", description: "시연 영상에서 보여줄 핵심 3~5가지, 서술형, 500자 이내" },
+        demoHighlights: { type: "string", description: "(구식 — demoScript가 있으면 생략 가능) 시연 핵심 서술형 3~5가지, 500자 이내" },
+        demoScript: {
+          type: "object",
+          description:
+            "자동 시연 로봇이 따라 찍는 촬영 대본. 네가 이 앱을 만들었으니 어떤 화면에서 뭘 눌러야 핵심이 보이는지 안다 — 로봇이 픽셀만 보고 추측하게 두지 마. steps는 중요한 순서대로 3~10개(필름 ~30초, 뒤부터 잘림 — 1번이 절대 빠지면 안 되는 기능). 로봇은 각 스텝을 실제 화면에서 확인하고 못 찾으면 건너뛰며, 대본에 있어도 로그인/제출/삭제/파일선택은 절대 안 누른다.",
+          properties: {
+            steps: {
+              type: "array",
+              maxItems: 10,
+              items: {
+                type: "object",
+                properties: {
+                  goal: { type: "string", description: "이 비트가 증명하는 것 (120자 이내)" },
+                  where: { type: "string", description: "화면에서 그 컨트롤을 찾는 법 — CSS 셀렉터가 아니라 보이는 라벨·위치 (120자 이내)" },
+                  action: { type: "string", enum: ["click", "type", "drag", "scroll", "hover", "draw"] },
+                  text: { type: "string", description: "action=type일 때 입력할 내용 (60자 이내)" },
+                  expect: { type: "string", description: "하고 나면 화면에 나타나야 하는 것 (120자 이내)" },
+                },
+                required: ["goal"],
+              },
+            },
+            skip: {
+              type: "array",
+              items: { type: "string" },
+              description: "모든 앱에 다 있어서 비트가 아까운 것들 (예: 다크 모드·언어 토글)",
+            },
+            prep: { type: "string", description: "(선택) 투어 전 준비 한 줄" },
+          },
+          required: ["steps"],
+        },
         tags: {
           type: "array",
           items: { type: "string", enum: AI_TOOL_IDS },
@@ -96,7 +125,7 @@ export async function runMcp() {
     {
       name: "update_nookframe_draft",
       description:
-        "Nookframe 초안의 메타데이터(title/description/builderNote/demoHighlights/tags/contentType/demoAccess)를 수정한다. 보낸 필드만 바뀐다. URL·파일 교체는 이 툴로 안 되고, 같은 URL로 publish_to_nookframe를 다시 호출하면 그 초안이 갱신된다. 공개된 프로젝트는 수정 불가.",
+        "Nookframe 초안의 메타데이터(title/description/builderNote/demoHighlights/demoScript/tags/contentType/demoAccess)를 수정한다. 보낸 필드만 바뀐다. URL·파일 교체는 이 툴로 안 되고, 같은 URL로 publish_to_nookframe를 다시 호출하면 그 초안이 갱신된다. 공개된 프로젝트는 수정 불가.",
       inputSchema: {
         type: "object",
         properties: {
@@ -105,6 +134,7 @@ export async function runMcp() {
           description: { type: "string" },
           builderNote: { type: "string" },
           demoHighlights: { type: "string" },
+          demoScript: { type: "object", description: "촬영 대본 — publish_to_nookframe의 demoScript와 같은 형식 { steps, skip?, prep? }" },
           tags: { type: "array", items: { type: "string", enum: AI_TOOL_IDS } },
           contentType: {
             type: "string",
