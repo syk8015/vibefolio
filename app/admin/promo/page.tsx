@@ -5,7 +5,7 @@ import { isAdminEmail } from "@/lib/demoQuota";
 import { AnalyticsEvent } from "@/lib/analytics-events";
 import { promoTrackingUrl } from "@/lib/promo";
 import { Panel, SectionTitle, MonoAside, Ledger, type LedgerEntry, RankList } from "../panels";
-import TaglinePicker from "./TaglinePicker";
+import TaglinePicker, { type TaglineShots } from "./TaglinePicker";
 import ClipGallery, { type ClipData } from "./ClipGallery";
 import type { PostRowData } from "./PostRow";
 
@@ -92,6 +92,16 @@ export default async function PromoPage() {
     posts: postsByClipId.get(c.id) ?? [],
   }));
 
+  // 태그라인 풀에서 "이미 찍은 문구"를 표시하려고 문구 텍스트로 묶는다
+  // (promo_clips에 문구 원문이 그대로 저장돼 있어 조인이 필요 없다).
+  const taglineShots: TaglineShots = {};
+  for (const c of clips) {
+    const bucket = (taglineShots[c.tagline_text] ??= { done: 0, queued: 0, failed: 0 });
+    if (c.status === "done") bucket.done++;
+    else if (c.status === "failed") bucket.failed++;
+    else bucket.queued++;
+  }
+
   const doneCount = clips.filter((c) => c.status === "done").length;
   const pendingCount = clips.filter((c) => c.status === "pending" || c.status === "recording").length;
   const conv = totalVisits > 0 ? Math.round((totalSignups / totalVisits) * 100) : null;
@@ -133,7 +143,7 @@ export default async function PromoPage() {
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 items-start">
           <div className="xl:col-span-8">
             <Panel title="태그라인 풀" aside={<MonoAside>문구를 누르면 촬영 큐에 추가</MonoAside>}>
-              <TaglinePicker />
+              <TaglinePicker shots={taglineShots} />
             </Panel>
           </div>
           <div className="xl:col-span-4">
@@ -148,10 +158,8 @@ export default async function PromoPage() {
                 npm run promo:batch
               </code>
               <p className="text-sm mt-2" style={{ color: "var(--text-secondary)" }}>
-                를 실행하면 큐가 소화되며 실제 촬영이 시작돼요(Chrome 창이 떠요 — 그동안
-                마우스·키보드를 건드리지 마세요). 로그인 세션이 없으면{" "}
-                <code className="vf-mono" style={{ fontSize: "0.75rem" }}>--login-only</code>로 먼저
-                로그인해 주세요.
+                를 실행하면 큐가 소화되며 촬영이 시작돼요. 화면 없이(헤드리스) 찍기 때문에
+                창이 뜨지 않고, 촬영 중에도 맥을 그대로 쓰면 돼요. 편당 40초쯤 걸려요.
               </p>
             </Panel>
           </div>

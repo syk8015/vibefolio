@@ -79,8 +79,3 @@ export const CHANNEL_UPLOAD_LINKS: Record<string, string> = {
   "스레드": "https://www.threads.net/",
   "디시인사이드": "https://www.dcinside.com/",
 };
-
-// ── 캡션 생성 ───────────────────────────────────────────────────────────
-// 가벼운 텍스트 생성 작업이라 opus 계열은 과함 — local-runner/explore.ts와
-// 같은 sonnet 계열 기본값.
-export const PROMO_CAPTION_MODEL = process.env.PROMO_CAPTION_MODEL || "claude-sonnet-5";

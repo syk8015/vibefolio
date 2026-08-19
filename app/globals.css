@@ -154,6 +154,13 @@ body::before {
   transition: background-color 0.18s ease, border-color 0.18s ease;
 }
 .vf-input::placeholder { color: var(--text-muted); }
+/* 촘촘한 목록 안에서 쓰는 입력칸(예: /admin/promo 업로드 기록) — 한 줄이
+   차지하는 세로 공간을 줄이려고 패딩·글자만 줄인 같은 채움 스타일. */
+.vf-input-compact {
+  padding: 0.4rem 0.65rem;
+  border-radius: 8px;
+  font-size: 0.8rem;
+}
 .vf-input:hover:not(:focus) { background: var(--surface-soft-hover); }
 .vf-input:focus {
   background: var(--surface);
