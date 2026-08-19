@@ -13,6 +13,9 @@ export type ClipData = {
   posterUrl: string | null;
   error: string | null;
   posts: PostRowData[];
+  // 이 클립의 모든 포스트 합계(채널이 여러 개면 다 더한 값).
+  visits: number;
+  signups: number;
 };
 
 const FORMAT_LABEL: Record<ClipData["format"], string> = {
@@ -100,6 +103,14 @@ export default function ClipGallery({ clips }: { clips: ClipData[] }) {
                     </p>
                   )}
                 </div>
+                {clip.status === "done" && clip.posts.length > 0 && (
+                  <span
+                    className="vf-mono shrink-0"
+                    style={{ fontSize: "0.62rem", color: "var(--text-muted)", fontVariantNumeric: "tabular-nums" }}
+                  >
+                    유입 {clip.visits} · 가입 {clip.signups}
+                  </span>
+                )}
                 <span
                   className="px-1.5 py-0.5 rounded-full font-semibold shrink-0"
                   style={{

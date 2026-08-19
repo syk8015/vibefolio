@@ -4,9 +4,10 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { isAdminEmail } from "@/lib/demoQuota";
 import { AnalyticsEvent } from "@/lib/analytics-events";
 import { promoTrackingUrl } from "@/lib/promo";
-import { Panel, SectionTitle, MonoAside, Ledger, type LedgerEntry, RankList } from "../panels";
+import { Panel, SectionTitle, MonoAside, Ledger, type LedgerEntry } from "../panels";
 import TaglinePicker, { type TaglineShots } from "./TaglinePicker";
 import ClipGallery, { type ClipData } from "./ClipGallery";
+import PerfRank, { type PerfRow } from "./PerfRank";
 import type { PostRowData } from "./PostRow";
 
 // 홍보 클립 관리 — 관제탑(/admin)과 워크플로우 성격이 달라(운영 모니터링 vs
@@ -54,7 +55,10 @@ export default async function PromoPage() {
   }
 
   const postsByClipId = new Map<string, PostRowData[]>();
-  const channelStats = new Map<string, number>();
+  // 클립 단위 합계 — "어떤 태그라인이 먹혔나"를 보려면 채널이 아니라 클립으로
+  // 묶어야 한다(한 클립을 여러 채널에 올리면 포스트가 여러 개로 쪼개진다).
+  const clipStats = new Map<string, { visits: number; signups: number }>();
+  const channelStats = new Map<string, { visits: number; signups: number }>();
   let totalVisits = 0;
   let totalSignups = 0;
   let postedCount = 0;
@@ -63,7 +67,14 @@ export default async function PromoPage() {
     totalVisits += stats.visits;
     totalSignups += stats.signups;
     if (p.status === "posted") postedCount++;
-    channelStats.set(p.channel, (channelStats.get(p.channel) ?? 0) + stats.visits);
+    const ch = channelStats.get(p.channel) ?? { visits: 0, signups: 0 };
+    ch.visits += stats.visits;
+    ch.signups += stats.signups;
+    channelStats.set(p.channel, ch);
+    const cl = clipStats.get(p.clip_id) ?? { visits: 0, signups: 0 };
+    cl.visits += stats.visits;
+    cl.signups += stats.signups;
+    clipStats.set(p.clip_id, cl);
 
     const row: PostRowData = {
       id: p.id,
@@ -90,7 +101,27 @@ export default async function PromoPage() {
     posterUrl: c.poster_url,
     error: c.error,
     posts: postsByClipId.get(c.id) ?? [],
+    visits: clipStats.get(c.id)?.visits ?? 0,
+    signups: clipStats.get(c.id)?.signups ?? 0,
   }));
+
+  // 같은 문구를 다시 찍으면 클립 행이 하나 더 생기므로, 성적은 **문구 기준**으로
+  // 합쳐야 비교가 된다.
+  const byTagline = new Map<string, PerfRow>();
+  for (const c of clipData) {
+    const row = byTagline.get(c.taglineText) ?? {
+      label: c.taglineText,
+      sub: c.taglineReply,
+      visits: 0,
+      signups: 0,
+    };
+    row.visits += c.visits;
+    row.signups += c.signups;
+    byTagline.set(c.taglineText, row);
+  }
+  const taglineRank = [...byTagline.values()].sort(
+    (a, b) => b.visits - a.visits || b.signups - a.signups || a.label.localeCompare(b.label),
+  );
 
   // 태그라인 풀에서 "이미 찍은 문구"를 표시하려고 문구 텍스트로 묶는다
   // (promo_clips에 문구 원문이 그대로 저장돼 있어 조인이 필요 없다).
@@ -118,9 +149,9 @@ export default async function PromoPage() {
     },
   ];
 
-  const channelRank = [...channelStats.entries()]
-    .map(([label, count]) => ({ label, count }))
-    .sort((a, b) => b.count - a.count);
+  const channelRank: PerfRow[] = [...channelStats.entries()]
+    .map(([label, v]) => ({ label, visits: v.visits, signups: v.signups }))
+    .sort((a, b) => b.visits - a.visits || b.signups - a.signups);
 
   return (
     <main
@@ -172,10 +203,13 @@ export default async function PromoPage() {
       </section>
 
       <section>
-        <SectionTitle>채널별 효과</SectionTitle>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          <Panel title="채널별 유입" aside={<MonoAside>합계 {totalVisits}</MonoAside>}>
-            <RankList rows={channelRank} empty="아직 유입이 없어요." />
+        <SectionTitle>효과</SectionTitle>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-start">
+          <Panel title="문구별 성적" aside={<MonoAside>유입 많은 순</MonoAside>}>
+            <PerfRank rows={taglineRank} empty="아직 유입이 없어요. 추적 링크로 올린 뒤에 쌓여요." />
+          </Panel>
+          <Panel title="채널별 성적" aside={<MonoAside>합계 {totalVisits}</MonoAside>}>
+            <PerfRank rows={channelRank} empty="아직 유입이 없어요." />
           </Panel>
         </div>
       </section>

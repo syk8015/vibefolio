@@ -8,16 +8,29 @@ import { captureFirstTouch, trackClientEvent, AnalyticsEvent } from "@/lib/analy
 // Renders nothing, fires once, never throws.
 export default function FirstTouch() {
   useEffect(() => {
-    const ft = captureFirstTouch();
-    // 홍보 클립 추적 링크(lib/promo.ts promoTrackingUrl)로 들어온 진짜 첫
-    // 방문만 서버에 카운트한다. signup_completed 귀속은 기존 first-touch
-    // 인프라로 이미 되지만, "방문 자체"는 지금까지 서버에 전혀 안 남았다 —
-    // /admin/promo의 유입 수는 이 이벤트로 센다.
-    if (ft?.utm_campaign?.startsWith("promo-")) {
+    // 가입 귀속용 first-touch는 그대로 — "이 사람을 처음 데려온 채널"이 기준이라
+    // 최초 1회만 저장하는 게 맞다.
+    captureFirstTouch();
+
+    // 유입 카운트는 first-touch와 **분리**한다. 예전엔 captureFirstTouch()의
+    // 반환값으로 셌는데, 그 함수는 이미 방문 기록이 있으면 null을 돌려준다 →
+    // 사이트를 한 번이라도 본 사람이 홍보 링크로 다시 오면 유입이 0으로
+    // 집계됐다(2026-08-19 발견). 홍보는 반복 노출이 핵심이라 구조적 누수였다.
+    // 지금은 URL에 promo 캠페인이 있으면 매 방문 센다. 중복은 브라우저 세션당
+    // 캠페인 1회로 막는다(새로고침·내부 이동으로 부풀지 않게).
+    try {
+      const params = new URLSearchParams(location.search);
+      const campaign = params.get("utm_campaign");
+      if (!campaign?.startsWith("promo-")) return;
+      const key = `vf-promo-visit:${campaign}`;
+      if (sessionStorage.getItem(key)) return;
+      sessionStorage.setItem(key, "1");
       trackClientEvent(AnalyticsEvent.PromoLinkVisit, {
-        utm_campaign: ft.utm_campaign,
-        utm_source: ft.utm_source,
+        utm_campaign: campaign,
+        utm_source: params.get("utm_source"),
       });
+    } catch {
+      // 스토리지가 막힌 브라우저 — 집계만 포기하고 조용히 넘어간다.
     }
   }, []);
   return null;
