@@ -61,6 +61,11 @@ const TAIL = `
 // 실제로 어떻게 쓰이는지 보여주는 표본. 목록이 비대해지지 않게 상한을 둔다.
 const SAMPLE_LIMIT = 20;
 
+// 유저가 이만큼은 있어야 목록을 내보낸다. 초기의 테스트·운영자 계정 몇 개가
+// "이 서비스 쓰는 사람들"로 읽히면 표본이 없느니만 못하다. SAMPLE_LIMIT보다
+// 작으므로 한 번 읽은 행 수만으로 판정된다 — 별도 count 질의가 필요 없다.
+const SAMPLE_MIN = 5;
+
 async function sampleFrames(): Promise<string> {
   try {
     const supabase = createPublicClient();
@@ -72,7 +77,7 @@ async function sampleFrames(): Promise<string> {
     throwIfReadFailed(error, "llms:profiles");
 
     const rows = (data ?? []).filter((p) => Boolean(p.username));
-    if (rows.length === 0) return "";
+    if (rows.length < SAMPLE_MIN) return "";
 
     const lines = rows
       .map((p) => {
