@@ -122,9 +122,9 @@ export default function LoggedInHeadline({
     };
 
     // Pre-warm every glyph used in the pool so Hangul characters delivered
-    // via Noto Serif KR's unicode-range subsets are already cached before
-    // typing starts — otherwise a fresh syllable can flash in the system
-    // serif for the first paint.
+    // via Hahmlet's unicode-range subsets are already cached before typing
+    // starts — otherwise a fresh syllable can flash in the system serif for
+    // the first paint.
     // 프로모 촬영 전용 프리롤: 외부 화면 녹화기가 ffmpeg 캡처를 먼저 롤링할
     // 여유를 준다. 일반 방문자(forceText 없음)는 지금과 동일하게 즉시 시작.
     const start = () => {
@@ -138,16 +138,17 @@ export default function LoggedInHeadline({
       const sample = Array.from(
         new Set(glyphSource.flatMap((t) => [...t.text, ...(t.reply ?? "")]))
       ).join("");
-      // 프리워밍은 **실제로 쓰이는 스택 전체**를 대상으로 해야 한다.
-      // 'Noto Serif KR'만 데우던 시절엔 한글이 Hahmlet(--font-serif, 스택
-      // 1순위이며 한글도 덮는다)으로 그려지는데 그 서브셋은 안 데워져서,
-      // 타이핑 도중 fallback → Hahmlet으로 글꼴이 한 번 휙 바뀌었다
+      // 프리워밍 대상은 **실제로 한글을 그리는 폰트**여야 한다. 한글은
+      // Hahmlet(--font-serif, 스택 1순위)이 덮는다 — 그 서브셋을 안 데우면
+      // 타이핑 도중 fallback → Hahmlet으로 글꼴이 한 번 휙 바뀐다
       // (2026-08-18 홍보 클립에서 육안 접수). next/font가 만드는 패밀리명은
       // 해시가 붙어 하드코딩할 수 없으므로 CSS 변수에서 읽어 온다.
+      // 'Noto Serif KR'은 데우지 않는다: 원격 CSS를 걷어내 등록된 face가
+      // 없고, 실측상 한 글자도 이 폰트로 그려지지 않았다 (2026-08-19).
       const serifVar = getComputedStyle(document.documentElement)
         .getPropertyValue("--font-serif")
         .trim();
-      const families = [serifVar, "'Noto Serif KR'"].filter(Boolean);
+      const families = [serifVar].filter(Boolean);
       const specs = families.flatMap((f) => [`500 2.5rem ${f}, serif`, `italic 400 2rem ${f}, serif`]);
       Promise.all([
         ...specs.map((spec) => document.fonts.load(spec, sample).catch(() => null)),
