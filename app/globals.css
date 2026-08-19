@@ -716,19 +716,25 @@ body::before {
   .vf-mhero-top { top: 0; }
   .vf-mhero-bottom { bottom: 0; }
 
+  /* 스크림은 페이지 배경색(--bg)에서 시작해 아래로 가며 앰비언트를 드러낸다.
+     맨 윗줄이 곧 nav 배경색이라 헤더와 히어로 사이에 색 경계가 생기지 않는다
+     (2026-08-19 사용자 지적: "헤더랑 영상 부분 색이 뚝 끊긴다"). */
   .vf-mhero-scrim-top {
     background: linear-gradient(180deg,
-      color-mix(in srgb, var(--bg) 80%, transparent) 0%,
-      color-mix(in srgb, var(--bg) 64%, transparent) 70%,
+      var(--bg) 0%,
+      color-mix(in srgb, var(--bg) 88%, transparent) 32%,
+      color-mix(in srgb, var(--bg) 64%, transparent) 74%,
       transparent 100%);
     -webkit-backdrop-filter: blur(14px) saturate(1.1);
     backdrop-filter: blur(14px) saturate(1.1);
     padding-bottom: 26px;
   }
+  /* 아래쪽도 같은 이유 — 히어로가 끝나고 이어지는 본문 배경과 이어붙는다. */
   .vf-mhero-scrim-bottom {
     background: linear-gradient(0deg,
-      color-mix(in srgb, var(--bg) 82%, transparent) 0%,
-      color-mix(in srgb, var(--bg) 66%, transparent) 72%,
+      var(--bg) 0%,
+      color-mix(in srgb, var(--bg) 88%, transparent) 34%,
+      color-mix(in srgb, var(--bg) 66%, transparent) 76%,
       transparent 100%);
     -webkit-backdrop-filter: blur(14px) saturate(1.1);
     backdrop-filter: blur(14px) saturate(1.1);
@@ -789,6 +795,10 @@ body::before {
   }
 }
 
+/* 명함 페이지 상단 nav의 헤어라인. 인라인 스타일로 두면 모바일에서 못 지우므로
+   클래스가 소유한다 (아래 767px 블록에서 투명 처리). */
+.vf-nav-hairline { border-bottom: 1px solid var(--border); }
+
 /* =============================================================
    Mobile text clamp (< md / 768px)
    긴 본문을 폰에서만 몇 줄로 접는다. 데스크탑에는 클래스가 아무 일도 하지
@@ -796,6 +806,10 @@ body::before {
    줄 수는 --vf-clamp-lines로 호출부에서 정한다.
    ============================================================= */
 @media (max-width: 767px) {
+  /* 모바일 nav 실선 제거 — 히어로 맨 윗줄이 nav와 같은 색이라 선이 없어야
+     하나의 면으로 이어진다. 데스크탑은 헤어라인 유지. */
+  .vf-nav-hairline { border-bottom-color: transparent; }
+
   .vf-clamp-m {
     display: -webkit-box;
     -webkit-box-orient: vertical;
