@@ -485,6 +485,9 @@ export default async function AdminPage() {
             ["cron-job.org", "https://console.cron-job.org"],
             ["Resend", "https://resend.com/emails"],
             ["Sentry", "https://sentry.io"],
+            // 도메인 속성이라 resource_id는 sc-domain: 접두사가 붙는다(URL 속성과 다름).
+            ["Search Console", "https://search.google.com/search-console?resource_id=sc-domain%3Anookframe.com"],
+            ["사이트맵 상태", "https://search.google.com/search-console/sitemaps?resource_id=sc-domain%3Anookframe.com"],
           ].map(([label, href]) => (
             <a
               key={label}
