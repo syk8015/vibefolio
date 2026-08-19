@@ -805,6 +805,10 @@ function MobileStage({
   const numberLabel = String(index + 1).padStart(2, "0");
   const displayName = profile?.name || profile?.username || "";
   const { t } = useT();
+  const detailHref =
+    profile?.username && project.watchId
+      ? `/${profile.username}/${project.watchId}`
+      : undefined;
 
   const contentLabel = project.contentType ? (t.contentTypes as Record<string, string>)[project.contentType] : undefined;
   const aiTools = project.tags.length ? project.tags.join(" · ") : undefined;
@@ -960,6 +964,16 @@ function MobileStage({
             </a>
           )}
         </div>
+
+        {/* 상세(watch) 페이지로 가는 유일한 화면 내부링크 — 모바일 전용.
+            데스크탑 스테이지는 손대지 않는다([[project-theater-layout]] byte-identical).
+            구글은 이미 명함 JSON-LD의 workExample으로 상세를 발견하므로 이건 사람용. */}
+        {detailHref && (
+          <a className="vf-mhero-detaillink" href={detailHref}>
+            {t.theater.viewDetail}
+            <span aria-hidden="true">→</span>
+          </a>
+        )}
       </div>
     </div>
   );

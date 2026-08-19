@@ -4,6 +4,9 @@
 // comes only from Supabase (see app/[username]/page.tsx and the dashboard).
 export interface Project {
   id: number;
+  // DB uuid of the row. `id` above is a 1-based display index, so the watch
+  // page (/@username/{uuid}) needs the real key kept alongside it.
+  watchId?: string;
   title: string;
   description: string;
   type: "image" | "video";

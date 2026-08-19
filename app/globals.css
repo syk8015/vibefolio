@@ -754,6 +754,24 @@ body::before {
     color: var(--text-secondary);
   }
 
+  /* 상세 페이지로 가는 조용한 텍스트 링크. CTA 버튼과 경쟁하지 않도록
+     채움 없이 밑줄만, 터치 타깃은 세로 패딩으로 확보. */
+  .vf-mhero-detaillink {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 10px;
+    padding: 4px 0;
+    font-family: var(--font-nunito), sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: var(--text-secondary);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    text-decoration-color: var(--border-bright);
+  }
+
   .vf-mhero-titlerow {
     display: flex;
     align-items: center;

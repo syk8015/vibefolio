@@ -152,6 +152,7 @@ export default async function UserPortfolioPage({
 
   const projects: Project[] = dbProjects.map((p, i) => ({
     id: i + 1,
+    watchId: p.id,
     title: p.title,
     description: p.description ?? "",
     type: p.type,

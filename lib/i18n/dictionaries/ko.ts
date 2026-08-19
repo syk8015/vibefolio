@@ -462,6 +462,7 @@ export const ko = {
     ctaFullscreen: "전체화면으로 체험",
     ctaFullscreenShort: "전체화면 체험",
     ctaVisit: "체험하러 가기",
+    viewDetail: "자세히 보기",
     errorTitle: "프레임을 불러오지 못했어요",
     errorBody: "이 페이지를 표시하는 중 문제가 생겼어요. 다시 시도하거나 홈으로 돌아가 주세요.",
     copyLink: "링크 복사",
