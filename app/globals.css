@@ -667,30 +667,36 @@ body::before {
     isolation: isolate;
   }
 
-  /* Ambient backdrop — same source, cover + heavy blur, slightly sunken.
-     transform scale hides the blur's soft edges; never interactive. */
+  /* Ambient backdrop — 영상 첫 프레임을 아주 강하게 뭉갠 정지 배경.
+     blur 34px 시절엔 전경(contain) 가장자리에서 배경으로 넘어가는 선이
+     자로 그은 듯 꺾여 보였다. 160px까지 올리면 배경이 거의 한 톤으로
+     수렴해 그 선이 눈에 띄지 않는다(2026-08-19 A/B 캡처로 확정).
+     scale은 blur의 흐린 가장자리를 화면 밖으로 밀어낸다. */
   .vf-mhero-ambient {
     position: absolute;
     inset: 0;
     width: 100%;
     height: 100%;
     object-fit: cover;
-    filter: blur(34px) saturate(1.15) brightness(0.92);
-    transform: scale(1.25);
+    filter: blur(160px) saturate(1.2) brightness(0.97);
+    transform: scale(2);
     pointer-events: none;
     z-index: 0;
   }
-  [data-theme="dark"] .vf-mhero-ambient { filter: blur(34px) saturate(1.1) brightness(0.7); }
+  [data-theme="dark"] .vf-mhero-ambient { filter: blur(160px) saturate(1.15) brightness(0.72); }
 
-  /* Tiny veil so the contained demo + frosted panels read above the backdrop. */
+  /* 위아래 끝을 바탕색으로 넓게 녹여, 히어로가 페이지 배경과 이어지게 한다.
+     radial이던 시절엔 가장자리에서만 살짝 눌러 경계가 그대로 드러났다. */
   .vf-mhero-veil {
     position: absolute;
     inset: 0;
     pointer-events: none;
     z-index: 1;
-    background: radial-gradient(120% 80% at 50% 50%,
-      transparent 0%,
-      color-mix(in srgb, var(--bg) 22%, transparent) 100%);
+    background: linear-gradient(to bottom,
+      color-mix(in srgb, var(--bg) 78%, transparent) 0%,
+      transparent 26%,
+      transparent 70%,
+      color-mix(in srgb, var(--bg) 78%, transparent) 100%);
   }
 
   /* Sharp foreground — ORIGINAL ratio, never cropped. */

@@ -9,6 +9,7 @@ import { createPublicClient, throwIfReadFailed } from "@/lib/supabase/public";
 import CopyLinkButton from "@/components/CopyLinkButton";
 import type { Project } from "@/lib/data";
 import { placeholderThumbnail } from "@/lib/placeholder";
+import { posterFromDemo } from "@/lib/portfolio";
 import ViewTracker from "@/components/ViewTracker";
 import ThemeToggle from "@/components/ThemeToggle";
 import ViewportModeToggle from "@/components/ViewportModeToggle";
@@ -174,6 +175,9 @@ export default async function UserPortfolioPage({
         ? `${p.demo_video_url}?v=${encodeURIComponent(p.demo_generated_at)}`
         : p.demo_video_url
       : undefined,
+    // 영상의 첫 프레임 포스터(R2, demo-{ts}.mp4 → poster-{ts}.jpg 규약).
+    // 컬럼이 아니라 유도값이라 파일이 없을 수 있다 — 소비 측에서 thumbnail 폴백.
+    poster: posterFromDemo(p.demo_video_url, p.demo_generated_at),
   }));
 
   // Theater starts on the explicitly-featured project, falling back to

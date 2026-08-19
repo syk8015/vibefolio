@@ -19,4 +19,8 @@ export interface Project {
   isFeatured?: boolean;
   videoUrl?: string;
   demoVideoUrl?: string;
+  // 자동 시연 영상의 첫 프레임 포스터(R2). thumbnail은 유저가 올린 별개 이미지라
+  // 영상과 색이 안 맞아 로딩 중 화면이 튀고, Supabase 경유라 3배 느리다
+  // (실측 144KB/0.61s vs 40KB/0.20s). 없으면 thumbnail로 폴백.
+  poster?: string;
 }

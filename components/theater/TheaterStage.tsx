@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useT } from "@/lib/i18n/client";
 import Image from "next/image";
 import type { Project } from "@/lib/data";
@@ -24,6 +24,30 @@ function safeHref(url: string | undefined): string | undefined {
   return undefined;
 }
 
+// 모바일 마크업(md:hidden)과 데스크탑 마크업(hidden md:block)이 **둘 다** DOM에
+// 있고 CSS로만 한쪽을 숨긴다. 그런데 display:none인 <video preload="auto">도
+// 브라우저는 그대로 받아온다 — 실측상 명함 한 장에 같은 mp4가 3번(873KB)
+// 내려갔다(2026-08-19). 실제로 그려지는 요소에만 src를 붙여서 막는다.
+// 레이아웃 클래스가 아니라 렌더된 크기를 보므로 마크업 분기 방식에 안 묶인다.
+function useSrcWhenVisible(
+  ref: React.RefObject<HTMLVideoElement | null>,
+  url: string,
+): string | undefined {
+  const [src, setSrc] = useState<string | undefined>(undefined);
+  useEffect(() => {
+    const check = () => {
+      const el = ref.current;
+      if (!el) return;
+      setSrc(el.clientWidth > 0 && el.clientHeight > 0 ? url : undefined);
+    };
+    check();
+    // md 경계를 넘나드는 리사이즈/회전에서 뒤늦게 보이게 된 쪽도 재생되도록.
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, [ref, url]);
+  return src;
+}
+
 // ────────────────────────────────────────────────────────────────
 // LivePreview — the actual demo surface inside the stage.
 // Priority: video > iframe(file upload) > static thumbnail.
@@ -37,12 +61,17 @@ function LivePreview({ project, variant }: { project: Project; variant: "mobile"
   // 16:10 stage keeps `cover`.
   const videoFit = variant === "mobile" ? "contain" : "cover";
 
+  // 포스터는 영상 첫 프레임(R2)을 우선 쓴다. thumbnail은 유저가 따로 올린
+  // 이미지라 영상과 그림이 달라 로딩 중 화면이 한 번 튀고, Supabase 경유라
+  // 3배 느리다(실측 144KB/0.61s vs 40KB/0.20s). 포스터 추출 실패분은 폴백.
+  const posterSrc = project.poster ?? project.thumbnail;
+
   // Priority: 수동 video_url > 자동 demo_video_url(mp4) > iframe(파일 업로드) > 썸네일
   if (hasManualVideo) {
-    return <VideoBackground url={project.videoUrl!} kind={videoKind} poster={project.thumbnail} title={project.title} fit={videoFit} />;
+    return <VideoBackground url={project.videoUrl!} kind={videoKind} poster={posterSrc} title={project.title} fit={videoFit} />;
   }
   if (project.demoVideoUrl) {
-    return <VideoBackground url={project.demoVideoUrl} kind="direct" poster={project.thumbnail} title={project.title} fit={videoFit} />;
+    return <VideoBackground url={project.demoVideoUrl} kind="direct" poster={posterSrc} title={project.title} fit={videoFit} />;
   }
   if (isFile && project.demoUrl) {
     return (
@@ -144,12 +173,13 @@ function VideoBackground({
 // .muted = true + .play() 호출해서 우회.
 function DirectVideo({ url, poster, fit }: { url: string; poster: string; fit: "cover" | "contain" }) {
   const ref = useRef<HTMLVideoElement>(null);
+  const src = useSrcWhenVisible(ref, url);
   useEffect(() => {
     const el = ref.current;
-    if (!el) return;
+    if (!el || !src) return;
     el.muted = true;
     el.play().catch(() => { /* 일부 브라우저는 사용자 인터랙션 전엔 거부 */ });
-  }, [url]);
+  }, [src]);
   return (
     // key={url} forces a remount when the active project changes — a plain
     // <source src> swap does NOT reload an existing <video>, so without this
@@ -165,9 +195,9 @@ function DirectVideo({ url, poster, fit }: { url: string; poster: string; fit: "
       // Literal class strings (not `object-${fit}`) so Tailwind's JIT emits both.
       className={`absolute inset-0 w-full h-full ${fit === "contain" ? "object-contain" : "object-cover"}`}
       preload="auto"
-    >
-      <source src={url} />
-    </video>
+      // <source> 대신 src prop — 나중에 붙는 주소로도 브라우저가 알아서 로드한다.
+      src={src}
+    />
   );
 }
 
@@ -625,9 +655,10 @@ function MobileVideo({
   layer: "sharp" | "ambient";
 }) {
   const ref = useRef<HTMLVideoElement>(null);
+  const src = useSrcWhenVisible(ref, url);
   useEffect(() => {
     const el = ref.current;
-    if (!el) return;
+    if (!el || !src) return;
     el.muted = true;
     const reduce =
       typeof window !== "undefined" &&
@@ -638,7 +669,7 @@ function MobileVideo({
     } else {
       el.play().catch(() => { /* 사용자 인터랙션 전 거부 가능 */ });
     }
-  }, [url]);
+  }, [src]);
   return (
     <video
       key={`${layer}-${url}`}
@@ -651,9 +682,8 @@ function MobileVideo({
       preload="auto"
       className={layer === "ambient" ? "vf-mhero-ambient" : "vf-mhero-media"}
       aria-hidden={layer === "ambient" ? true : undefined}
-    >
-      <source src={url} />
-    </video>
+      src={src}
+    />
   );
 }
 
@@ -677,11 +707,13 @@ function MobileHeroMedia({ project }: { project: Project }) {
       : null;
 
   // ── 배경(앵비언트) 레이어 ──
-  const ambient = directUrl ? (
-    <MobileVideo url={directUrl} poster={project.thumbnail} layer="ambient" />
-  ) : (
+  // 항상 정지 이미지. 예전엔 같은 mp4를 배경으로 한 번 더 재생했는데, 강한
+  // blur를 통과하면 정지/재생을 눈으로 가릴 수 없는 반면 다운로드는 291KB가
+  // 그대로 두 배였다(2026-08-19 실측 + 전후 캡처 육안 확인).
+  const posterSrc = project.poster ?? project.thumbnail;
+  const ambient = (
     <Image
-      src={project.thumbnail}
+      src={posterSrc}
       unoptimized
       alt=""
       aria-hidden
@@ -718,7 +750,7 @@ function MobileHeroMedia({ project }: { project: Project }) {
       />
     ) : null;
   } else if (directUrl) {
-    sharp = <MobileVideo url={directUrl} poster={project.thumbnail} layer="sharp" />;
+    sharp = <MobileVideo url={directUrl} poster={posterSrc} layer="sharp" />;
   } else if (isFile && project.demoUrl) {
     sharp = (
       <iframe
@@ -732,7 +764,7 @@ function MobileHeroMedia({ project }: { project: Project }) {
   } else {
     sharp = (
       <Image
-        src={project.thumbnail}
+        src={posterSrc}
         unoptimized
         alt={project.title}
         fill
