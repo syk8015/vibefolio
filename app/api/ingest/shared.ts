@@ -86,6 +86,13 @@ export type AcceptedEcho = {
 
 const DEMO_HIGHLIGHTS_MAX = 500;
 
+// 설명은 명함 화면에서 작품 위에 겹쳐 뜨는 글(components/theater/TheaterStage.tsx)이라
+// 길면 첫인상을 통째로 망친다. 화면은 3줄에서 자르고, 여기서는 "벽 같은 글"이 애초에
+// 저장되지 못하게 막는다. 조용히 자르지 않고 400으로 되돌려 보내는 이유: 문장 중간에서
+// 잘린 소개글은 안 잘린 것보다 나쁘고, AI 호출자는 에러를 보면 줄여서 다시 보낸다.
+export const DESCRIPTION_MAX = 200;
+export const descriptionTooLong = (v: string) => [...v].length > DESCRIPTION_MAX;
+
 /** 원문 태그 중 저장되지 못한 것들. 철자 불일치·중복·개수 상한(10) 초과를 모두 잡는다. */
 function droppedTagsOf(raw: unknown, kept: string[], normalize: (v: unknown) => string[]): string[] {
   if (!Array.isArray(raw)) return [];

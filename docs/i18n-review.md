@@ -504,6 +504,7 @@
 | payloadJsonInvalid | payload JSON을 읽을 수 없어요. | Couldn't parse the payload JSON. | |
 | jsonBodyInvalid | JSON 본문을 읽을 수 없어요. | Couldn't parse the JSON body. | |
 | titleRequired | title이 필요해요. | title is required. | |
+| descriptionTooLong | description이 너무 길어요(최대 {max}자). 명함 화면에는 2~3문장만 보이니 짧게 줄여주세요. | description is too long (max {max} characters). Only 2–3 sentences show on the card — please shorten it. | 함수형(max) · 설명 200자 상한 |
 | draftLimit | 검토 대기 중인 초안이 너무 많아요 (최대 {max}개). 대시보드에서 먼저 공개하거나 정리해 주세요. | Too many drafts are waiting for review (max {max}). Publish or clean some up on your dashboard first. | 함수(max) |
 | artifactRequired | deployUrl(또는 appUrl) 또는 파일 번들(bundle)이 필요해요. | Either deployUrl (or appUrl) or a file bundle is required. | appUrl 커밋(fe932cb) 문구 기준 |
 | badUrl | 임베드·시연할 수 있는 URL이 아니에요. | This URL can't be embedded or filmed for a demo. | |

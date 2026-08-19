@@ -505,6 +505,8 @@ export const en: Dictionary = {
     payloadJsonInvalid: "Couldn't parse the payload JSON.",
     jsonBodyInvalid: "Couldn't parse the JSON body.",
     titleRequired: "title is required.",
+    descriptionTooLong: (max: number) =>
+      `description is too long (max ${max} characters). Only 2–3 sentences show on the card — please shorten it.`,
     draftLimit: (max: number) =>
       `Too many drafts are waiting for review (max ${max}). Publish or clean some up on your dashboard first.`,
     artifactRequired: "Either deployUrl (or appUrl) or a file bundle is required.",

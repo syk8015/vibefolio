@@ -533,6 +533,13 @@ export default function TheaterStage({ project, index, variant, profile, identit
               fontFamily: "var(--font-nunito)",
               fontWeight: 400,
               textShadow: "0 1px 8px rgba(0,0,0,0.5)",
+              // 작품 위에 겹치는 글이라 길면 포스터를 덮어버린다 → 3줄에서 끊는다.
+              // 전문은 상세 페이지(ClampText, 폰 8줄)에서 볼 수 있으니 여기선
+              // 더보기 토글을 두지 않는다 — 첫 화면은 미끼지 본문이 아니다.
+              display: "-webkit-box",
+              WebkitBoxOrient: "vertical",
+              WebkitLineClamp: 3,
+              overflow: "hidden",
             }}
           >
             {project.description}

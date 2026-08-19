@@ -50,6 +50,10 @@ export function formatAccepted(accepted) {
   if (accepted.droppedContentType) {
     warn.push(`⚠ 버려진 분류: ${accepted.droppedContentType} — web-app·saas·mobile·game·extension·ai-service·media·other 중 하나여야 해요.`);
   }
+  // 서버 상한(200자)보다 화면 한계가 먼저 온다 — 저장은 됐지만 명함에서는 안 보인다.
+  if ((accepted.descriptionChars ?? 0) > 120) {
+    warn.push(`⚠ 설명이 ${accepted.descriptionChars}자예요 — 명함 화면은 3줄까지만 보여줘요(전문은 상세 페이지에서).`);
+  }
   if (accepted.demoHighlightsTruncated) {
     warn.push("⚠ 시연 핵심이 500자에서 잘렸어요.");
   }

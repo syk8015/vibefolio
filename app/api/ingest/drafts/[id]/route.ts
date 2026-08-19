@@ -8,7 +8,10 @@ import { bearerFromHeader } from "@/lib/apiToken";
 import { normalizeTags, normalizeContentType } from "@/lib/projectTaxonomy";
 import { normalizeDemoAccess } from "@/lib/demoAccess";
 import { logger } from "@/lib/logger";
-import { ingestAuth, publicUrlGate, strOrNull, type IngestDict, buildAccepted } from "../../shared";
+import {
+  ingestAuth, publicUrlGate, strOrNull, type IngestDict, buildAccepted,
+  descriptionTooLong, DESCRIPTION_MAX,
+} from "../../shared";
 
 // PATCH·DELETE /api/ingest/drafts/[id] — Nookframe Connect 초안 수정·삭제(요청4).
 // is_draft=true 행만 허용: 공개된 프로젝트는 409로 거부해 PAT의 폭발반경(자기
@@ -84,7 +87,15 @@ export async function PATCH(
       }
       upd.title = title;
     }
-    if ("description" in payload) upd.description = strOrNull(payload.description) ?? "";
+    if ("description" in payload) {
+      const desc = strOrNull(payload.description) ?? "";
+      if (descriptionTooLong(desc)) {
+        return apiError({
+          status: 400, message: t.api.descriptionTooLong(DESCRIPTION_MAX), code: "DESCRIPTION_TOO_LONG",
+        });
+      }
+      upd.description = desc;
+    }
     if ("builderNote" in payload) upd.comment = strOrNull(payload.builderNote) ?? "";
     if ("demoHighlights" in payload) {
       upd.demo_user_hint = typeof payload.demoHighlights === "string"

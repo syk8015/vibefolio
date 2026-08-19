@@ -522,6 +522,8 @@ export const ko = {
     payloadJsonInvalid: "payload JSON을 읽을 수 없어요.",
     jsonBodyInvalid: "JSON 본문을 읽을 수 없어요.",
     titleRequired: "title이 필요해요.",
+    descriptionTooLong: (max: number) =>
+      `description이 너무 길어요(최대 ${max}자). 명함 화면에는 2~3문장만 보이니 짧게 줄여주세요.`,
     draftLimit: (max: number) =>
       `검토 대기 중인 초안이 너무 많아요 (최대 ${max}개). 대시보드에서 먼저 공개하거나 정리해 주세요.`,
     artifactRequired: "deployUrl(또는 appUrl) 또는 파일 번들(bundle)이 필요해요.",

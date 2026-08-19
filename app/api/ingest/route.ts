@@ -7,7 +7,9 @@ import { rateLimit } from "@/lib/rate-limit";
 import { bearerFromHeader } from "@/lib/apiToken";
 import { detectDemoSource } from "@/lib/demoSource";
 import { screenshotUrl } from "@/lib/thumbnail";
-import { ingestAuth, publicUrlGate, strOrNull, buildAccepted } from "./shared";
+import {
+  ingestAuth, publicUrlGate, strOrNull, buildAccepted, descriptionTooLong, DESCRIPTION_MAX,
+} from "./shared";
 import { normalizeTags, normalizeContentType } from "@/lib/projectTaxonomy";
 import { normalizeDemoAccess, type DemoAccess } from "@/lib/demoAccess";
 import {
@@ -115,6 +117,11 @@ export async function POST(req: NextRequest) {
       return apiError({ status: 400, message: t.api.titleRequired, code: "TITLE_REQUIRED" });
     }
     const description = strOrNull(payload?.description) ?? "";
+    if (descriptionTooLong(description)) {
+      return apiError({
+        status: 400, message: t.api.descriptionTooLong(DESCRIPTION_MAX), code: "DESCRIPTION_TOO_LONG",
+      });
+    }
     const comment = strOrNull(payload?.builderNote) ?? "";
     const demoHint = typeof payload?.demoHighlights === "string"
       ? payload.demoHighlights.trim().slice(0, 500) || null
