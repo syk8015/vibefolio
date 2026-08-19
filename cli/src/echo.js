@@ -29,7 +29,9 @@ export function formatAccepted(accepted) {
 
   lines.push(ROW("제목", accepted.title || "(없음)"));
 
-  const texts = [`설명 ${accepted.descriptionChars ?? 0}자`];
+  const texts = [
+    `설명 ${accepted.descriptionLines ?? 0}줄·${accepted.descriptionChars ?? 0}자`,
+  ];
   if (accepted.builderNoteChars) texts.push(`말풍선 ${accepted.builderNoteChars}자`);
   if (accepted.demoHighlightsChars) texts.push(`시연 핵심 ${accepted.demoHighlightsChars}자`);
   lines.push(ROW("글", texts.join(" · ")));
@@ -50,9 +52,13 @@ export function formatAccepted(accepted) {
   if (accepted.droppedContentType) {
     warn.push(`⚠ 버려진 분류: ${accepted.droppedContentType} — web-app·saas·mobile·game·extension·ai-service·media·other 중 하나여야 해요.`);
   }
-  // 서버 상한(200자)보다 화면 한계가 먼저 온다 — 저장은 됐지만 명함에서는 안 보인다.
-  if ((accepted.descriptionChars ?? 0) > 120) {
-    warn.push(`⚠ 설명이 ${accepted.descriptionChars}자예요 — 명함 화면은 3줄까지만 보여줘요(전문은 상세 페이지에서).`);
+  // 설명은 3줄 카피 — 글자 수보다 "줄 수"와 "한 줄 길이"가 화면을 결정한다.
+  // 서버 상한(200자)에 걸리기 전에 이 두 가지가 먼저 화면을 망친다.
+  if ((accepted.descriptionLines ?? 0) > 3) {
+    warn.push(`⚠ 설명이 ${accepted.descriptionLines}줄이에요 — 명함 화면은 3줄까지만 보여줘요(전문은 상세 페이지에서).`);
+  }
+  if ((accepted.descriptionMaxLineCols ?? 0) > 46) {
+    warn.push("⚠ 설명의 한 줄이 너무 길어요 — 폰에서 줄이 접히면서 마지막 줄이 안 보일 수 있어요(한 줄 20자 안팎 권장).");
   }
   if (accepted.demoHighlightsTruncated) {
     warn.push("⚠ 시연 핵심이 500자에서 잘렸어요.");

@@ -6,6 +6,7 @@ import WatchPing from "@/components/WatchPing";
 import ReportButton from "@/components/ReportButton";
 import Logo from "@/components/Logo";
 import ClampText from "@/components/ClampText";
+import { oneLine } from "@/lib/text";
 import JsonLd from "@/components/JsonLd";
 
 // The public per-project watch page. Its whole job is to unfurl the demo mp4 as
@@ -45,8 +46,11 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 
   const handle = `@${profile.username}`;
   const title = `${project.title} · ${handle} on Nookframe`;
-  const description =
-    project.description || `${CAPTION}. Watch ${handle}'s demo on Nookframe.`;
+  // 설명은 3줄로 끊어 쓴 카피라 줄바꿈을 품는다 — 화면은 그대로 살리고,
+  // meta·OG처럼 기계가 읽는 자리에서는 한 줄로 눕힌다(lib/text.ts).
+  const description = project.description
+    ? oneLine(project.description)
+    : `${CAPTION}. Watch ${handle}'s demo on Nookframe.`;
   const watchUrl = `${SITE}/${profile.username}/${project.id}`;
   const video = project.demo_video_url
     ? versioned(project.demo_video_url, project.demo_generated_at)
@@ -117,7 +121,7 @@ export default async function WatchPage({ params }: Params) {
           "@id": `${watchUrl}#video`,
           url: watchUrl,
           name: project.title,
-          description: project.description || CAPTION,
+          description: project.description ? oneLine(project.description) : CAPTION,
           contentUrl: video,
           uploadDate: project.demo_generated_at,
           ...(poster ? { thumbnailUrl: [poster] } : {}),
@@ -130,7 +134,7 @@ export default async function WatchPage({ params }: Params) {
           "@id": watchUrl,
           url: watchUrl,
           name: project.title,
-          ...(project.description ? { description: project.description } : {}),
+          ...(project.description ? { description: oneLine(project.description) } : {}),
           creator,
           isPartOf: { "@id": "https://nookframe.com/#website" },
         };

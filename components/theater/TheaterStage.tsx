@@ -533,6 +533,9 @@ export default function TheaterStage({ project, index, variant, profile, identit
               fontFamily: "var(--font-nunito)",
               fontWeight: 400,
               textShadow: "0 1px 8px rgba(0,0,0,0.5)",
+              // 설명은 일부러 3줄로 끊어 쓰는 카피다("~을 위한 / ~해주는 / ~포트폴리오")
+              // → 줄바꿈을 살린다. 이게 없으면 세 줄이 한 문단으로 뭉개진다.
+              whiteSpace: "pre-line",
               // 작품 위에 겹치는 글이라 길면 포스터를 덮어버린다 → 3줄에서 끊는다.
               // 전문은 상세 페이지(ClampText, 폰 8줄)에서 볼 수 있으니 여기선
               // 더보기 토글을 두지 않는다 — 첫 화면은 미끼지 본문이 아니다.

@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { oneLine } from "@/lib/text";
 import Link from "next/link";
 import Image from "next/image";
 import { unstable_cache } from "next/cache";
@@ -231,7 +232,7 @@ export default async function UserPortfolioPage({
               "@id": `${profileUrl}/${dp.id}`,
               url: `${profileUrl}/${dp.id}`,
               name: dp.title,
-              ...(dp.description ? { description: dp.description } : {}),
+              ...(dp.description ? { description: oneLine(dp.description) } : {}),
             })),
           }
         : {}),

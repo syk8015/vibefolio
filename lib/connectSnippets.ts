@@ -38,7 +38,11 @@ You're the AI that built this project, so read the repo yourself and describe it
 2) Investigate from the README, package.json, the actual routes/screens, and git log. If it's still half-built, also work out what it was going to be.
 3) Build a publish payload (JSON) with these fields:
    • title — a short, clear product name
-   • description — the intro that sits ON TOP of the work on your public card, so first impressions live or die here. Keep it SHORT AND PUNCHY: 2–3 sentences, under 120 characters — what it is and who it's useful for (if unfinished, where it's headed). Line 4 onward is cut off on the card, and anything over 200 characters is rejected
+   • description — the intro that sits ON TOP of the work on your public card, so first impressions live or die here. Do NOT write a paragraph. Write THREE short lines separated by newlines (\\n), where the first two modify and the last one names what it is:
+       For people who create with AI
+       with demo videos recorded automatically
+       a live portfolio you can actually touch
+     Keep each line short (~20 CJK / ~40 Latin characters) so it doesn't wrap on a phone. Only 3 lines show on the card; over 200 characters is rejected
    • builderNote — (optional) a short one-liner shown as a speech bubble on the public card. One line, not a paragraph — e.g. "This is my first side project!"
    • demoHighlights — 3–5 key things the auto-demo video must show, written descriptively. Not instructions like "click X" — more like "the X feature is the heart of this product". Under 500 characters
    • tags — which AI tools were used to build this. Pick from this exact list (anything else is silently dropped): ChatGPT, Claude Code, Cursor, GitHub Copilot, Gemini, v0, Bolt.new, Windsurf, Lovable, Replit AI, Devin, Aider, Continue.dev, Codeium, Amazon Q, Perplexity, Midjourney, DALL-E, Stable Diffusion, Ideogram, Flux, Runway, Kling, Pika, Suno, ElevenLabs
@@ -59,7 +63,11 @@ You're the AI that built this project, so read the repo yourself and describe it
 2) README·package.json·실제 라우트/화면·git log를 근거로 조사해. 아직 만들다 만 거면 "무엇을 만들려던 건지"도 파악해.
 3) 아래 항목을 채운 publish 페이로드(JSON)를 만들어:
    • title — 짧고 명확한 제품 이름
-   • description — 명함 화면에서 작품 위에 겹쳐 뜨는 소개글이라 첫인상이 여기서 갈려. 짧고 굵게: 2~3문장·120자 이내로 무엇이고 누구에게 쓸모있는지 (미완성이면 지향점까지). 4줄째부터는 화면에서 잘리고, 200자를 넘으면 아예 안 받아
+   • description — 명함 화면에서 작품 위에 겹쳐 뜨는 소개글이라 첫인상이 여기서 갈려. 한 문단으로 쓰지 말고, 줄바꿈(\\n)으로 끊은 3줄로 써. 앞 두 줄이 수식하고 마지막 줄이 정체를 밝히는 구조:
+       AI로 창작하는 사람들을 위한
+       자동으로 시연 영상까지 만들어주는
+       직접 보고 느끼는 라이브 포트폴리오
+     각 줄은 20자 안팎으로 짧게(폰에서 줄이 접히면 마지막 줄이 잘려). 명함에는 3줄까지만 보이고, 200자를 넘으면 아예 안 받아
    • builderNote — (선택) 공개 카드에 말풍선으로 뜨는 짧은 한마디. 문단이 아니라 한 줄, 예: "이게 제 첫 사이드프로젝트예요!"
    • demoHighlights — 자동 시연 영상에서 꼭 보여줄 핵심 3~5가지를 서술형으로. "○○를 클릭해" 같은 지시가 아니라 "○○ 기능이 이 제품의 핵심" 처럼. 500자 이내
    • tags — 이 작업에 쓴 AI 툴. 아래 목록에서 철자 그대로 골라줘(다른 이름은 조용히 버려짐): ChatGPT, Claude Code, Cursor, GitHub Copilot, Gemini, v0, Bolt.new, Windsurf, Lovable, Replit AI, Devin, Aider, Continue.dev, Codeium, Amazon Q, Perplexity, Midjourney, DALL-E, Stable Diffusion, Ideogram, Flux, Runway, Kling, Pika, Suno, ElevenLabs

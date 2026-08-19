@@ -71,6 +71,8 @@ export async function publicUrlGate(url: string, t: IngestDict): Promise<NextRes
 export type AcceptedEcho = {
   title: string;
   descriptionChars: number;
+  descriptionLines: number;
+  descriptionMaxLineCols: number;
   builderNoteChars: number;
   demoHighlightsChars: number;
   demoHighlightsTruncated: boolean;
@@ -85,6 +87,23 @@ export type AcceptedEcho = {
 };
 
 const DEMO_HIGHLIGHTS_MAX = 500;
+
+// 설명은 일부러 3줄로 끊어 쓰는 카피라, "몇 자냐"보다 "몇 줄이고 한 줄이 얼마나
+// 기냐"가 실제 화면을 결정한다. 한글은 터미널·화면에서 두 칸을 먹으므로 글자 수가
+// 아니라 칸 수로 잰다. 폰 명함(폭 280px·12px)에서 한 줄에 들어가는 건 대략 46칸.
+function lineCols(line: string): number {
+  let w = 0;
+  for (const ch of line) {
+    const c = ch.codePointAt(0)!;
+    const wide =
+      (c >= 0x1100 && c <= 0x115f) || (c >= 0x2e80 && c <= 0xa4cf) ||
+      (c >= 0xac00 && c <= 0xd7a3) || (c >= 0xf900 && c <= 0xfaff) ||
+      (c >= 0xfe30 && c <= 0xfe4f) || (c >= 0xff00 && c <= 0xff60) ||
+      (c >= 0xffe0 && c <= 0xffe6) || c >= 0x1f300;
+    w += wide ? 2 : 1;
+  }
+  return w;
+}
 
 // 설명은 명함 화면에서 작품 위에 겹쳐 뜨는 글(components/theater/TheaterStage.tsx)이라
 // 길면 첫인상을 통째로 망친다. 화면은 3줄에서 자르고, 여기서는 "벽 같은 글"이 애초에
@@ -128,6 +147,10 @@ export function buildAccepted(
   return {
     title: stored.title,
     descriptionChars: [...stored.description].length,
+    descriptionLines: stored.description ? stored.description.split("\n").length : 0,
+    descriptionMaxLineCols: stored.description
+      ? Math.max(...stored.description.split("\n").map(lineCols))
+      : 0,
     builderNoteChars: [...stored.comment].length,
     demoHighlightsChars: stored.demoHint ? [...stored.demoHint].length : 0,
     demoHighlightsTruncated: [...rawHint].length > DEMO_HIGHLIGHTS_MAX,
