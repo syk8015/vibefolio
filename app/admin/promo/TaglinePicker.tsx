@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { loggedInTaglines, loggedInTaglinesEn } from "@/lib/loggedInTaglines";
+import { PROMO_OPENINGS, type PromoOpening } from "@/lib/promo";
 
 type Pool = "ko" | "en";
 type Format = "vertical" | "horizontal";
@@ -18,6 +19,7 @@ export default function TaglinePicker({ shots = {} }: { shots?: TaglineShots }) 
   const router = useRouter();
   const [pool, setPool] = useState<Pool>("ko");
   const [format, setFormat] = useState<Format>("vertical");
+  const [opening, setOpening] = useState<PromoOpening>("hook");
   const [onlyUnshot, setOnlyUnshot] = useState(false);
   const [busyText, setBusyText] = useState<string | null>(null);
   const [justQueued, setJustQueued] = useState<string | null>(null);
@@ -34,7 +36,7 @@ export default function TaglinePicker({ shots = {} }: { shots?: TaglineShots }) 
       const res = await fetch("/api/admin/promo/clips", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ locale: pool, text, format }),
+        body: JSON.stringify({ locale: pool, text, format, opening }),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
@@ -85,6 +87,24 @@ export default function TaglinePicker({ shots = {} }: { shots?: TaglineShots }) 
           </button>
         ))}
         <span style={{ width: 1, height: 18, background: "var(--border)" }} />
+        {(Object.keys(PROMO_OPENINGS) as PromoOpening[]).map((o) => (
+          <button
+            key={o}
+            type="button"
+            onClick={() => setOpening(o)}
+            title={PROMO_OPENINGS[o].hint}
+            className="px-3 py-1 rounded-full text-xs font-semibold transition-colors"
+            style={{
+              background: opening === o ? "var(--blue)" : "var(--surface-soft)",
+              color: opening === o ? "var(--bg)" : "var(--text-secondary)",
+              border: "none",
+              cursor: "pointer",
+            }}
+          >
+            {PROMO_OPENINGS[o].label}
+          </button>
+        ))}
+        <span style={{ width: 1, height: 18, background: "var(--border)" }} />
         <button
           type="button"
           onClick={() => setOnlyUnshot((v) => !v)}
@@ -99,6 +119,8 @@ export default function TaglinePicker({ shots = {} }: { shots?: TaglineShots }) 
           아직 안 찍은 것만 · {unshotCount}
         </button>
       </div>
+
+      <p style={{ fontSize: "0.68rem", color: "var(--text-muted)" }}>{PROMO_OPENINGS[opening].hint}</p>
 
       {error && (
         <div className="px-3 py-2 rounded-lg text-sm" style={{ background: "rgba(179,71,71,0.12)", color: "#8e3535" }}>

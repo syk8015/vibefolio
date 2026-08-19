@@ -41,6 +41,22 @@ export function estimateTaglineRecordMs(tagline: { text: string; reply?: string 
   return Math.max(MIN_RECORD_MS, Math.round(total));
 }
 
+// ── 오프닝(클립 시작 방식) ─────────────────────────────────────────────
+// 두 가지를 공존시킨다(2026-08-19 사용자 결정): 어느 쪽이 실제로 먹히는지는
+// 올려봐야 알기 때문에, 같은 문구를 양쪽으로 찍어 비교할 수 있어야 한다.
+//   full — 빈 화면(깜빡이는 커서)에서 시작해 한 글자씩. 페이드인 있음(원래 방식).
+//   hook — 문구가 이미 쳐진 지점에서 시작. 페이드 없음(피드 자동재생용).
+export type PromoOpening = "full" | "hook";
+
+export const PROMO_OPENINGS: Record<PromoOpening, { label: string; hint: string }> = {
+  hook: { label: "바로 문구부터", hint: "문구가 이미 쳐진 상태로 시작 (피드용)" },
+  full: { label: "처음부터", hint: "빈 화면에서 한 글자씩 (원래 방식)" },
+};
+
+export function isPromoOpening(v: unknown): v is PromoOpening {
+  return v === "full" || v === "hook";
+}
+
 // ── 추적 링크 ────────────────────────────────────────────────────────────
 // utm_campaign은 DB 컬럼에 저장하지 않고 항상 이 함수로 파생한다 — 포스트
 // id가 이미 전역 유일하므로 별도 slug 발급이 불필요하고, 링크 발급 쪽과 집계

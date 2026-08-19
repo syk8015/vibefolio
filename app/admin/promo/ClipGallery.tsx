@@ -2,6 +2,7 @@
 
 import PostRow, { type PostRowData } from "./PostRow";
 import PostComposer from "./PostComposer";
+import { PROMO_OPENINGS, type PromoOpening } from "@/lib/promo";
 
 export type ClipData = {
   id: string;
@@ -9,6 +10,7 @@ export type ClipData = {
   taglineReply: string | null;
   status: "pending" | "recording" | "done" | "failed";
   format: "vertical" | "horizontal";
+  opening: PromoOpening;
   videoUrl: string | null;
   posterUrl: string | null;
   error: string | null;
@@ -77,7 +79,7 @@ export default function ClipGallery({ clips }: { clips: ClipData[] }) {
                 </div>
               )}
               <span className="vf-mono text-center" style={{ fontSize: "0.6rem", color: "var(--text-muted)" }}>
-                {FORMAT_LABEL[clip.format]}
+                {FORMAT_LABEL[clip.format]} · {PROMO_OPENINGS[clip.opening]?.label ?? clip.opening}
               </span>
             </div>
 

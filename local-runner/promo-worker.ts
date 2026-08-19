@@ -11,6 +11,7 @@ import { createClient } from "@supabase/supabase-js";
 import "./config"; // side-effect: .env.local 로드
 import { recordPromoClip } from "./promo-record";
 import type { PromoFormat } from "./config";
+import type { PromoOpening } from "../lib/promo";
 
 function db() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -29,6 +30,7 @@ type PendingClip = {
   tagline_reply: string | null;
   tagline_locale: "ko" | "en";
   format: PromoFormat;
+  opening: PromoOpening;
 };
 
 // recording 상태로 남은 행 = 이전 실행이 중간에 죽은 흔적(worker.ts와 동일한
@@ -52,7 +54,7 @@ async function recoverStuckClips(supabase: Supabase) {
 async function claimNext(supabase: Supabase): Promise<PendingClip | null> {
   const { data, error } = await supabase
     .from("promo_clips")
-    .select("id, tagline_text, tagline_reply, tagline_locale, format")
+    .select("id, tagline_text, tagline_reply, tagline_locale, format, opening")
     .eq("status", "pending")
     .order("created_at", { ascending: true })
     .limit(5);
@@ -79,7 +81,7 @@ async function claimNext(supabase: Supabase): Promise<PendingClip | null> {
 }
 
 async function processOne(supabase: Supabase, row: PendingClip) {
-  console.log(`\n[promo-worker] clip ${row.id} (${row.format})  "${row.tagline_text.slice(0, 40)}..."`);
+  console.log(`\n[promo-worker] clip ${row.id} (${row.format} · ${row.opening})  "${row.tagline_text.slice(0, 40)}..."`);
   try {
     const result = await recordPromoClip({
       clipId: row.id,
@@ -87,6 +89,7 @@ async function processOne(supabase: Supabase, row: PendingClip) {
       taglineReply: row.tagline_reply,
       locale: row.tagline_locale,
       format: row.format,
+      opening: row.opening,
     });
     const { error } = await supabase
       .from("promo_clips")

@@ -19,7 +19,7 @@
 import { mkdirSync, readFileSync } from "node:fs";
 import { chromium } from "playwright-core";
 import { promoPostprocess } from "./promo-postprocess";
-import { estimateTaglineRecordMs } from "../lib/promo";
+import { estimateTaglineRecordMs, type PromoOpening } from "../lib/promo";
 import { uploadToR2 } from "../lib/r2";
 import { PROMO_APP_URL, PROMO_FORMATS, PROMO_OUT_DIR, type PromoFormat } from "./config";
 import { run, ffprobeValue } from "./util";
@@ -81,6 +81,8 @@ export type PromoRecordInput = {
   taglineReply?: string | null;
   locale: "ko" | "en";
   format: PromoFormat;
+  // 시작 방식. full=빈 화면부터 한 글자씩(+페이드인) · hook=문구가 쳐진 지점부터.
+  opening?: PromoOpening;
 };
 
 export type PromoRecordResult = {
@@ -161,6 +163,7 @@ async function findHookStartSec(rawPath: string): Promise<number | undefined> {
 
 export async function recordPromoClip(input: PromoRecordInput): Promise<PromoRecordResult> {
   const { clipId, taglineText, taglineReply, locale, format } = input;
+  const opening: PromoOpening = input.opening ?? "hook";
   const size = PROMO_FORMATS[format];
   const dir = `${PROMO_OUT_DIR}/${clipId}`;
   mkdirSync(dir, { recursive: true });
@@ -270,9 +273,10 @@ export async function recordPromoClip(input: PromoRecordInput): Promise<PromoRec
     // 첫 페인트는 화면 전체가 흰색(#fff) → 크림(--bg #fdfaf3)으로 바뀌는
     // 큰 밝기 계단이라 영상 안에서 직접 찾는 게 훨씬 정확하다. 잘라낸 뒤 남는
     // 리드(빈 화면 + 깜빡이는 커서)는 페이지 자체의 프리롤 800ms다.
-    // 앞 트림: 문구가 어느 정도 쳐진 지점에서 시작한다. 못 재면 흰 화면만
-    // 잘라내는 예전 방식으로 물러난다.
-    const hookAt = await findHookStartSec(rawPath);
+    // 앞 트림. opening=hook이면 문구가 어느 정도 쳐진 지점에서 시작하고,
+    // full이면 흰 화면만 잘라내 빈 화면(깜빡이는 커서)부터 보여준다.
+    // hook에서 판정에 실패해도 full과 같은 방식으로 물러난다.
+    const hookAt = opening === "hook" ? await findHookStartSec(rawPath) : undefined;
     const firstPaintSec = hookAt === undefined ? await findFirstPaintSec(rawPath) : 0;
     const trimHeadSec = hookAt ?? Math.max(0, firstPaintSec - 0.05);
 
@@ -286,7 +290,7 @@ export async function recordPromoClip(input: PromoRecordInput): Promise<PromoRec
     const freezeAt = await findTailFreezeSec(rawPath);
     const trimTailAtSec = freezeAt !== undefined ? freezeAt + TAIL_HOLD_SEC : undefined;
     console.log(
-      `[promo-record] 앞 ${trimHeadSec.toFixed(2)}s 트림(${hookAt === undefined ? "흰화면 기준" : "문구 " + Math.round(HOOK_TYPED_FRACTION * 100) + "% 지점"})` +
+      `[promo-record] ${opening} · 앞 ${trimHeadSec.toFixed(2)}s 트림(${hookAt === undefined ? "흰화면 기준" : "문구 " + Math.round(HOOK_TYPED_FRACTION * 100) + "% 지점"})` +
         (trimTailAtSec ? ` · ${trimTailAtSec.toFixed(2)}s에서 끊음(정지 시작 ${freezeAt?.toFixed(2)}s)` : " · 뒤 정지구간 없음"),
     );
 
@@ -298,6 +302,9 @@ export async function recordPromoClip(input: PromoRecordInput): Promise<PromoRec
       outDir: dir,
       trimHeadSec,
       trimTailAtSec,
+      // 페이드인은 full에서만. hook은 첫 프레임에 문구가 보이는 게 목적인데
+      // 검은 화면에서 밝아지는 0.25초가 그걸 도로 가린다.
+      fadeInSec: opening === "full" ? 0.25 : 0,
     });
 
     const ts = Date.now();

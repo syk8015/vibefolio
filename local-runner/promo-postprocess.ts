@@ -19,6 +19,9 @@ export type PromoPostInput = {
   // 이 시각(원본 기준 초)에서 끊는다 — 그 뒤는 Playwright가 채워 넣은 정지
   // 프레임이라 커서가 얼어붙는다.
   trimTailAtSec?: number;
+  // 앞부분 페이드인 길이(초). 0이면 안 넣는다 — opening=hook은 첫 프레임부터
+  // 문구가 보여야 해서 페이드가 훅을 가린다.
+  fadeInSec?: number;
 };
 
 export type PromoPostResult = {
@@ -78,18 +81,20 @@ export async function promoPostprocess(input: PromoPostInput): Promise<PromoPost
       ? `trim=start=${trimHead.toFixed(3)}:end=${trimTail.toFixed(3)},setpts=PTS-STARTPTS,`
       : "";
 
-  // body — 스케일만. 페이드는 **넣지 않는다**(2026-08-19):
-  //  - 페이드인: 클립이 "문구가 이미 쳐진 지점"에서 시작하도록 앞을 잘라내는데,
-  //    검은 화면에서 밝아지는 0.25초가 그 훅을 도로 가려버린다. 피드에서
-  //    첫 프레임이 검은 건 빈 화면보다 나쁘다.
-  //  - 페이드아웃: 엔드캡이 바로 이어붙으므로 body가 사라지면 이상하다.
+  // body — 스케일 + (opening=full일 때만) 페이드인.
+  //  - hook에서 페이드를 빼는 이유: 첫 프레임부터 문구가 보이게 앞을 잘라놨는데
+  //    검은 화면에서 밝아지는 0.25초가 그 훅을 도로 가린다.
+  //  - 페이드아웃은 어느 쪽이든 없다: 엔드캡이 바로 이어붙으므로 body가
+  //    사라지면 이상하다.
+  const fadeIn = input.fadeInSec ?? 0;
+  const fadeFilter = fadeIn > 0 ? `,fade=t=in:st=0:d=${fadeIn.toFixed(2)}` : "";
   const bodyPath = `${outDir}/promo-body.mp4`;
   const bodyRes = await run(
     "ffmpeg",
     [
       "-y",
       "-i", rawPath,
-      "-vf", `${trimFilter}scale=${outW}:${outH}:flags=lanczos,format=yuv420p`,
+      "-vf", `${trimFilter}scale=${outW}:${outH}:flags=lanczos${fadeFilter},format=yuv420p`,
       ...ENCODE_ARGS,
       "-movflags", "+faststart",
       bodyPath,
