@@ -166,20 +166,24 @@ async function runAction(
   fallbacks: ReplayFallback[],
 ): Promise<void> {
   const fell = { kind: act.kind, label: (act as { label?: string }).label, out: fallbacks };
+  // 대본 스텝의 hold(초)가 붙은 액션은 그 시간만큼 결과를 화면에 둔다 — 만든 AI가
+  // "이 비트는 천천히"를 지정하는 유일한 페이싱 채널. 없으면 기본 HOLD_MS.
+  const hold = act.holdMs ?? HOLD_MS;
   if (act.kind === "scroll") {
     await smoothScroll(page, act.dy, act.dx ?? 0);
+    if (act.holdMs) await sleep(act.holdMs);
     return;
   }
   if (act.kind === "key") {
     await page.keyboard.press(act.key).catch(() => {});
-    await sleep(HOLD_MS / 2);
+    await sleep(hold / 2);
     return;
   }
   if (act.kind === "hover") {
     const to = await resolveTarget(page, act, fell);
     await approach(page, cam, to);
     await page.mouse.move(to.x, to.y);
-    await sleep(HOLD_MS);
+    await sleep(hold);
     return;
   }
   if (act.kind === "dismiss") {
@@ -190,7 +194,7 @@ async function runAction(
     } else {
       await page.locator(act.selector).first().click({ timeout: 3000 }).catch(() => {});
     }
-    await sleep(HOLD_MS / 2);
+    await sleep(hold / 2);
     return;
   }
   if (act.kind === "drag") {
@@ -209,7 +213,7 @@ async function runAction(
     // A text-grab drag smears a blue selection across the film (2026-07-18 take);
     // the gesture is over, so clearing it is invisible except for removing the smear.
     await page.evaluate("window.getSelection() && window.getSelection().removeAllRanges()").catch(() => {});
-    await sleep(HOLD_MS);
+    await sleep(hold);
     return;
   }
   if (act.kind === "path") {
@@ -228,7 +232,7 @@ async function runAction(
     await approach(page, cam, shifted[0]);
     await sleep(cam.isZoomed() ? SETTLE_MS : PRECLICK_PAUSE_MS);
     await strokePath(page, cam, shifted);
-    await sleep(HOLD_MS);
+    await sleep(hold);
     return;
   }
 
@@ -241,7 +245,7 @@ async function runAction(
     if (act.text) await page.keyboard.type(act.text, { delay: TYPE_DELAY_MS });
     if (act.submit) await page.keyboard.press("Enter");
   }
-  await sleep(HOLD_MS);
+  await sleep(hold);
 }
 
 // Press at `from`, ease to `to`, release. Three layers ride ONE cubic in-out

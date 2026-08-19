@@ -737,8 +737,11 @@ export function buildScriptBrief(script: DemoScript): string {
     "- 'expect' says what should appear right after. Check the next screenshot against it: if it did NOT",
     "  appear, the step failed — do not build later steps on top of it; retry ONCE differently or skip",
     "  ahead to the next step.",
-    "- After the LAST step, if the film still has room, you may add 1-3 extra beats of genuinely",
-    "  different features you found yourself — never anything from the do-not-film list.",
+    "- The shot list IS the film. It replaces the 8-12 beat guidance and the don't-finish-early rule",
+    "  above: when the LAST step is done, END your turn — no padding, no bonus tour. A short film of",
+    "  exactly these beats is the goal; filler clicks are what ruin it. Only exception: at most ONE",
+    "  extra beat, and only for a clearly core feature the list somehow missed — never anything from",
+    "  the do-not-film list, never chrome.",
     "",
     "THE SHOT LIST:",
   );
@@ -748,6 +751,7 @@ export function buildScriptBrief(script: DemoScript): string {
     if (s.action) lines.push(`    do: ${s.action}${s.text ? ` — "${s.text}"` : ""}`);
     else if (s.text) lines.push(`    do: type "${s.text}"`);
     if (s.expect) lines.push(`    expect: ${s.expect}`);
+    if (s.hold) lines.push(`    hold: keep the result on screen ~${s.hold}s (the replay paces this — just do the step once, no stalling)`);
   });
   if (script.skip?.length) {
     lines.push(
@@ -762,16 +766,10 @@ export function buildScriptBrief(script: DemoScript): string {
   return lines.join("\n");
 }
 
-// 대본이 있으면 인터랙션 하한을 스텝 수까지 끌어올린다(필름이 싣는 8-12 안에서).
-// 재촉 게이트가 이 값 미달이면 종료를 거부한다 — 대본 준수를 "부탁"이 아니라
-// 코드로 강제하는 지점.
-export function scriptInteractionFloor(
-  baseFloor: number,
-  script: DemoScript | undefined,
-): number {
-  if (!script) return baseFloor;
-  return Math.max(baseFloor, Math.min(script.steps.length, 12));
-}
+// 대본이 있으면 종료 조건은 "마지막 스텝 도달" 하나다 — 인터랙션 하한·분량 재촉은
+// 대본 없는 자유 탐색용이라 적용하지 않는다. 첫 검증 촬영(2026-08-20)에서 하한(8)이
+// 4스텝 대본 완주 후에도 살아 있어 재촉이 무의미 클릭 7개를 채운 실측 결함의 수리:
+// 대본 = 필름 전체, 완주 = 종료.
 
 // 대본 미완 상태로 턴을 끝내려 할 때의 재촉문 — 어느 스텝이 안 찍혔는지 이름으로
 // 짚어준다(막연한 "더 해" 재촉은 껍데기 비트로 새기 쉽다).
@@ -1155,6 +1153,8 @@ export async function explore(page: Page, opts: ExploreOptions = {}): Promise<Ex
   // 대본 커버리지(mark_step 자기보고): 종료 게이트·테이크 리포트의 근거. 자기보고라
   // 거짓말/누락이 가능하지만, 누락 시 손해는 재촉 몇 번뿐이고(캡 있음) 이득은 없다.
   const markedSteps = new Set<number>();
+  // 방금 마킹된 스텝의 hold(ms) — 다음 생존 기록 액션에 부착 후 비운다.
+  let pendingHoldMs: number | null = null;
   // 비용 실측: 성공 응답의 usage만 집계된다(재시도 실패분은 usage가 없어 자연 제외).
   const usage = emptyUsage();
   let apiCalls = 0;
@@ -1169,15 +1169,22 @@ export async function explore(page: Page, opts: ExploreOptions = {}): Promise<Ex
     >;
 
     if (!toolUses.length) {
-      // 대본이 있으면 하한은 스텝 수까지 올라가고, 마지막 스텝에 도달하기 전엔
-      // 종료를 거부한다(재촉 캡 안에서). 도달 판정은 max — 중간 스텝을 "화면에
-      // 없어서" 건너뛴 것은 실패가 아니다.
-      const floor = scriptInteractionFloor(EXPLORE_MIN_INTERACTIONS, script);
-      const reachedLast = !script || (markedSteps.size > 0 && Math.max(...markedSteps) >= script.steps.length);
-      if (reprompts < EXPLORE_MAX_REPROMPTS && (interactions < floor || !reachedLast)) {
+      // 대본 있는 판: 종료 조건은 "마지막 스텝 도달" 하나 — 도달했으면 즉시 종료
+      // (분량 하한·재촉 없음: 대본이 곧 필름 전체다), 미도달이면 미착수 스텝을
+      // 이름으로 짚어 재촉. 도달 판정은 max — 중간 스텝을 "화면에 없어서" 건너뛴
+      // 것은 실패가 아니다. 대본 없는 판: 기존 하한 재촉 그대로.
+      if (script) {
+        const reachedLast = markedSteps.size > 0 && Math.max(...markedSteps) >= script.steps.length;
+        if (!reachedLast && reprompts < EXPLORE_MAX_REPROMPTS) {
+          reprompts++;
+          messages.push({ role: "user", content: [{ type: "text", text: scriptRepromptText(script, markedSteps) }] });
+          continue;
+        }
+        break;
+      }
+      if (reprompts < EXPLORE_MAX_REPROMPTS && interactions < EXPLORE_MIN_INTERACTIONS) {
         reprompts++;
-        const text = script && !reachedLast ? scriptRepromptText(script, markedSteps) : REPROMPT_TEXT;
-        messages.push({ role: "user", content: [{ type: "text", text }] });
+        messages.push({ role: "user", content: [{ type: "text", text: REPROMPT_TEXT }] });
         continue; // re-ask without consuming a step
       }
       break; // explore complete
@@ -1195,6 +1202,8 @@ export async function explore(page: Page, opts: ExploreOptions = {}): Promise<Ex
           ack = "No shot list was provided for this walkthrough — don't call mark_step again.";
         } else if (Number.isFinite(n) && n >= 1 && n <= script.steps.length) {
           markedSteps.add(n);
+          const h = script.steps[n - 1].hold;
+          pendingHoldMs = h ? Math.round(h * 1000) : null;
           console.log(`[explore] shot-list step ${n}/${script.steps.length} — ${script.steps[n - 1].goal}`);
           ack = `Step ${n} noted.`;
         } else {
@@ -1216,6 +1225,11 @@ export async function explore(page: Page, opts: ExploreOptions = {}): Promise<Ex
         }
         await sleep(ACTION_PACING_MS);
         if (out.recorded) interactions++;
+        // 대본 hold 매핑 — computer 브랜치와 동일(스케치 스텝도 hold를 받는다).
+        if (out.recorded && pendingHoldMs !== null) {
+          actions[actions.length - 1].holdMs = pendingHoldMs;
+          pendingHoldMs = null;
+        }
         // A stroke is never a click-to-type prelude nor a type: reset both guards.
         mergeableClick = false;
         lastWasType = false;
@@ -1362,6 +1376,14 @@ export async function explore(page: Page, opts: ExploreOptions = {}): Promise<Ex
       }
       if (prunedThis) pruned++;
       if (wasInteraction && act && INTERACTIONS.has(act) && !prunedThis) interactions++;
+
+      // 대본 hold 매핑: mark_step(n)이 예고한 hold를 그 스텝의 "첫 생존 기록
+      // 액션"에 붙인다(브리핑이 mark_step을 액션과 같은 턴에 부르게 하므로 이
+      // 근사가 실제로 들어맞는다). 프루닝에서 살아남은 액션에만.
+      if (pendingHoldMs !== null && actions.length > lenBefore && !prunedThis) {
+        actions[actions.length - 1].holdMs = pendingHoldMs;
+        pendingHoldMs = null;
+      }
 
       // Back-reference eligibility for the NEXT tool_use (see declarations above).
       mergeableClick = isClick && !prunedThis && actions.length > lenBefore;

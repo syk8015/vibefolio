@@ -39,6 +39,9 @@ export type DemoScriptStep = {
   // 하고 나면 화면에 나타나야 하는 것 — 레코더가 다음 스크린샷에서 대조해
   // "먹었는지"를 스스로 판정하는 근거(픽셀 프루닝의 상위 신호).
   expect?: string;
+  // 이 비트의 결과를 몇 초 보여줄지(0.5~4초 클램프). 없으면 리플레이 기본
+  // 페이싱(HOLD_MS). 만든 AI가 "여긴 천천히"를 지정하는 채널.
+  hold?: number;
 };
 
 export type DemoScript = {
@@ -60,6 +63,8 @@ export const DEMO_SCRIPT_EXPECT_MAX = 120;
 export const DEMO_SCRIPT_SKIP_MAX = 8;
 export const DEMO_SCRIPT_SKIP_ENTRY_MAX = 80;
 export const DEMO_SCRIPT_PREP_MAX = 300;
+export const DEMO_SCRIPT_HOLD_MIN = 0.5;
+export const DEMO_SCRIPT_HOLD_MAX = 4;
 
 // 제어문자 제거(개행 포함 — 스텝 필드는 전부 한 줄 값) + trim + 상한.
 function clean(v: unknown, max: number): string {
@@ -93,6 +98,13 @@ function normStep(raw: unknown): DemoScriptStep | null {
   if (text) step.text = text;
   const expect = clean(r.expect ?? r.result, DEMO_SCRIPT_EXPECT_MAX);
   if (expect) step.expect = expect;
+  // hold: 숫자 또는 "2s" 같은 숫자 문자열 허용, 0.5~4초 클램프(0.1 단위).
+  const holdRaw = typeof r.hold === "number" ? r.hold : parseFloat(String(r.hold ?? ""));
+  if (Number.isFinite(holdRaw) && holdRaw > 0) {
+    step.hold = Math.round(
+      Math.min(DEMO_SCRIPT_HOLD_MAX, Math.max(DEMO_SCRIPT_HOLD_MIN, holdRaw)) * 10,
+    ) / 10;
+  }
   return step;
 }
 

@@ -45,10 +45,10 @@ You're the AI that built this project, so read the repo yourself and describe it
      Keep each line short (~20 CJK / ~40 Latin characters) so it doesn't wrap on a phone. Only 3 lines show on the card; over 200 characters is rejected
    • builderNote — (optional) a short one-liner shown as a speech bubble on the public card. One line, not a paragraph — e.g. "This is my first side project!"
    • demoScript — the filming script the auto-demo robot follows. You BUILT this app, so you know which screen shows what and which control proves the core value — don't make the robot guess from pixels. Shape:
-       { "steps": [ { "goal": "what this beat proves", "where": "how to FIND the control on screen — its visible label/position, NOT a CSS selector", "action": "click|type|drag|scroll|hover|draw", "text": "what to type (type only)", "expect": "what the screen should show right after" } ],
+       { "steps": [ { "goal": "what this beat proves", "where": "how to FIND the control on screen — its visible label/position, NOT a CSS selector", "action": "click|type|drag|scroll|hover|draw", "text": "what to type (type only)", "expect": "what the screen should show right after", "hold": 2 } ],
          "skip": ["things NOT worth a beat because every app has them — e.g. a dark-mode or language toggle"],
          "prep": "one optional setup line before the tour" }
-     3–10 steps in order of importance — the film is ~30s and gets cut from the END, so step 1 is the one feature the demo must not miss. The robot verifies each step on the live screen and skips what it can't find; it never logs in, submits, deletes, or opens file pickers even if a step asks
+     Your script IS the film — the robot shoots exactly these steps and stops, so cover every feature worth showing: 5–8 steps is the sweet spot (max 10). Order = importance; the film is ~30s and gets cut from the END, so step 1 is the one feature the demo must not miss. "hold" (seconds, 0.5–4) keeps that step's result on screen longer — use it on beats that deserve a pause. The robot verifies each step on the live screen and skips what it can't find; it never logs in, submits, deletes, or opens file pickers even if a step asks
    • tags — which AI tools were used to build this. Pick from this exact list (anything else is silently dropped): ChatGPT, Claude Code, Cursor, GitHub Copilot, Gemini, v0, Bolt.new, Windsurf, Lovable, Replit AI, Devin, Aider, Continue.dev, Codeium, Amazon Q, Perplexity, Midjourney, DALL-E, Stable Diffusion, Ideogram, Flux, Runway, Kling, Pika, Suno, ElevenLabs
    • contentType — one of web-app | saas | mobile | game | extension | ai-service | media | other
    • deployUrl — the deployed public URL (vercel/netlify, etc.). If it isn't deployed: prefer uploading a static build output first (safest for apps with no backend). If that won't work (the app needs a server/database), you can instead give the public GitHub repo URL — it's a last resort that clones and tries npm run dev automatically (fails on private repos or repos with no dev script; apps using a remote database get demoted to a read-only demo)
@@ -74,10 +74,10 @@ You're the AI that built this project, so read the repo yourself and describe it
      각 줄은 20자 안팎으로 짧게(폰에서 줄이 접히면 마지막 줄이 잘려). 명함에는 3줄까지만 보이고, 200자를 넘으면 아예 안 받아
    • builderNote — (선택) 공개 카드에 말풍선으로 뜨는 짧은 한마디. 문단이 아니라 한 줄, 예: "이게 제 첫 사이드프로젝트예요!"
    • demoScript — 자동 시연 로봇이 따라 찍는 촬영 대본. 이 앱은 네가 만들었으니 어떤 화면에서 뭘 눌러야 핵심이 보이는지 안다 — 로봇이 픽셀만 보고 추측하게 두지 마. 형식:
-       { "steps": [ { "goal": "이 비트가 증명하는 것", "where": "화면에서 그 컨트롤을 찾는 법 — CSS 셀렉터가 아니라 보이는 라벨·위치", "action": "click|type|drag|scroll|hover|draw", "text": "type일 때 입력할 내용", "expect": "하고 나면 화면에 나타나야 하는 것" } ],
+       { "steps": [ { "goal": "이 비트가 증명하는 것", "where": "화면에서 그 컨트롤을 찾는 법 — CSS 셀렉터가 아니라 보이는 라벨·위치", "action": "click|type|drag|scroll|hover|draw", "text": "type일 때 입력할 내용", "expect": "하고 나면 화면에 나타나야 하는 것", "hold": 2 } ],
          "skip": ["모든 앱에 다 있어서 비트가 아까운 것들 — 예: 다크 모드·언어 토글"],
          "prep": "(선택) 투어 전 준비 한 줄" }
-     steps는 중요한 순서대로 3~10개 — 필름은 ~30초라 뒤부터 잘리니 1번이 곧 "절대 빠지면 안 되는 기능". 로봇은 각 스텝을 실제 화면에서 확인하고 못 찾으면 건너뛰며, 대본에 있어도 로그인/제출/삭제/파일선택은 절대 안 누른다
+     이 대본이 곧 영상 전체다 — 로봇은 딱 이 스텝들만 찍고 끝내니, 보여줄 가치가 있는 기능을 빠짐없이 담아라: 5~8스텝이 적정(최대 10). 순서=중요도이고 필름은 ~30초라 뒤부터 잘리니 1번이 "절대 빠지면 안 되는 기능". "hold"(초, 0.5~4)를 주면 그 스텝의 결과를 그만큼 오래 보여준다 — 천천히 봐야 하는 비트에 써라. 로봇은 각 스텝을 실제 화면에서 확인하고 못 찾으면 건너뛰며, 대본에 있어도 로그인/제출/삭제/파일선택은 절대 안 누른다
    • tags — 이 작업에 쓴 AI 툴. 아래 목록에서 철자 그대로 골라줘(다른 이름은 조용히 버려짐): ChatGPT, Claude Code, Cursor, GitHub Copilot, Gemini, v0, Bolt.new, Windsurf, Lovable, Replit AI, Devin, Aider, Continue.dev, Codeium, Amazon Q, Perplexity, Midjourney, DALL-E, Stable Diffusion, Ideogram, Flux, Runway, Kling, Pika, Suno, ElevenLabs
    • contentType — web-app | saas | mobile | game | extension | ai-service | media | other 중 하나
    • deployUrl — 배포된 공개 URL (vercel/netlify 등). 미배포면: 우선 정적 빌드 산출물을 올려(백엔드 없는 앱에 제일 안전). 그걸로 안 되는 앱(서버·DB 필요)이면 공개 GitHub 저장소 URL을 대신 줘도 돼 — clone 후 자동으로 npm run dev를 시도하는 최후 수단이야(비공개 저장소·dev 스크립트 없는 리포는 실패, 원격 DB 쓰는 앱은 읽기전용 데모로 나옴)

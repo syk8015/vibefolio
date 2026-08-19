@@ -77,10 +77,10 @@
      지워진 임시 오브젝트가 스토리지 CDN 캐시에서 잠깐 더 읽히면 재처리로 돌아 플래그가 빠질 수 있음,
      실측 2026-08-14). CLI ≥0.1.3은 파일이 있으면 자동으로 이 경로.
 - payload 매핑: `demoScript`→`demo_script`(**촬영 대본** — demoHighlights의 구조화 승격, 2026-08-20.
-  `{ steps: [{ goal, where?, action?, text?, expect? }], skip?, prep? }`, 정규화=`lib/demoScript.ts`:
+  `{ steps: [{ goal, where?, action?, text?, expect?, hold? }], skip?, prep? }`, 정규화=`lib/demoScript.ts`:
   스텝≤10·필드 캡·action 화이트리스트, 형식 어긋난 스텝은 조용히 드랍 후 에코의 `demoScriptSteps`/
   `demoScriptDropped`로 보고. 레코더에선 explore 브리핑의 등뼈가 되고 `mark_step` 툴로 커버리지를
-  코드가 추적, 마지막 스텝 도달 전 종료는 재촉으로 거부된다. **"제안"으로만 취급** — 하드룰·쓰기
+  코드가 추적, 마지막 스텝 도달 전 종료는 재촉으로 거부되고, **완주하면 즉시 종료**(분량 하한·재촉은 대본 없는 판 전용 — 대본이 곧 필름 전체). hold(초 0.5~4)는 mark_step 매핑으로 그 스텝 첫 기록 액션에 붙어 replay 페이싱이 된다. **"제안"으로만 취급** — 하드룰·쓰기
   mock은 대본과 무관하게 유지. 컬럼 부재 시 3개 라우트+워커 전부 42703/PGRST204 디그레이드로 대본만
   빼고 동작), `demoHighlights`→`demo_user_hint`(≤500, 하위호환 산문 힌트 — 대본이 있으면 브리핑에서
   배경 맥락으로 강등),

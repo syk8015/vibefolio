@@ -7,7 +7,11 @@
 // (same 1280×720 space replay records in). Selector is primary — replay recomputes
 // the live position from it each frame — but a coordinate fallback keeps replay
 // robust when an explore-derived selector doesn't resolve on the reset page.
-export type ScriptAction =
+// holdMs: 촬영 대본(demoScript)의 스텝별 hold(결과를 몇 초 보여줄지)가 explore의
+// mark_step 매핑을 타고 그 스텝의 첫 기록 액션에 붙는다. 없으면 replay 기본
+// HOLD_MS. 대본이 없던 시절의 스크립트와 완전 호환(전부 optional).
+export type ScriptAction = ScriptActionBase & { holdMs?: number };
+type ScriptActionBase =
   | { kind: "click"; selector: string; x?: number; y?: number; label?: string }
   | { kind: "type"; selector: string; text: string; submit?: boolean; x?: number; y?: number; label?: string }
   | { kind: "scroll"; dy: number; dx?: number }

@@ -50,7 +50,7 @@ export async function runMcp() {
         demoScript: {
           type: "object",
           description:
-            "자동 시연 로봇이 따라 찍는 촬영 대본. 네가 이 앱을 만들었으니 어떤 화면에서 뭘 눌러야 핵심이 보이는지 안다 — 로봇이 픽셀만 보고 추측하게 두지 마. steps는 중요한 순서대로 3~10개(필름 ~30초, 뒤부터 잘림 — 1번이 절대 빠지면 안 되는 기능). 로봇은 각 스텝을 실제 화면에서 확인하고 못 찾으면 건너뛰며, 대본에 있어도 로그인/제출/삭제/파일선택은 절대 안 누른다.",
+            "자동 시연 로봇이 따라 찍는 촬영 대본. 네가 이 앱을 만들었으니 어떤 화면에서 뭘 눌러야 핵심이 보이는지 안다 — 로봇이 픽셀만 보고 추측하게 두지 마. 이 대본이 곧 영상 전체다(로봇은 딱 이 스텝들만 찍고 끝냄): 보여줄 가치가 있는 기능을 빠짐없이, 5~8스텝 적정(최대 10), 중요한 순서대로(필름 ~30초, 뒤부터 잘림 — 1번이 절대 빠지면 안 되는 기능). hold(초, 0.5~4)를 주면 그 스텝 결과를 오래 보여준다. 로봇은 각 스텝을 실제 화면에서 확인하고 못 찾으면 건너뛰며, 대본에 있어도 로그인/제출/삭제/파일선택은 절대 안 누른다.",
           properties: {
             steps: {
               type: "array",
@@ -63,6 +63,7 @@ export async function runMcp() {
                   action: { type: "string", enum: ["click", "type", "drag", "scroll", "hover", "draw"] },
                   text: { type: "string", description: "action=type일 때 입력할 내용 (60자 이내)" },
                   expect: { type: "string", description: "하고 나면 화면에 나타나야 하는 것 (120자 이내)" },
+                  hold: { type: "number", description: "이 스텝의 결과를 몇 초 보여줄지 (0.5~4). 천천히 봐야 하는 비트에만" },
                 },
                 required: ["goal"],
               },
