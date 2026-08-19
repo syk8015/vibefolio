@@ -18,12 +18,13 @@ export const revalidate = 3600;
 const HEAD = `# Nookframe
 
 > AI로 무언가 만드는 사람을 위한 라이브 포트폴리오. 만든 것을 링크 하나로 보여주고,
-> 방문자는 스크린샷이 아니라 그 자리에서 직접 만져본다.
+> 방문자는 멈춘 스크린샷이 아니라 실제로 도는 화면을 만난다.
 
 Nookframe is a live portfolio for people who build things with AI ("vibe coders").
-Each person gets one page — ${SITE}/{username} — where their projects run live inside
-an embedded frame instead of sitting behind a screenshot. The product is Korean-first
-with an English UI toggle.
+Each person gets one page — ${SITE}/{username} — where the work leads instead of the
+profile. Uploaded builds run live inside the page; projects that live at a deployed URL
+get an auto-recorded demo video plus a one-tap door to the real site. The product is
+Korean-first with an English UI toggle.
 
 깃허브는 코드의 집, 노션은 한 페이지, 링크트리는 링크 묶음 — Nookframe은 한 사람의
 작품 집이다. 완성작만 올리는 곳이 아니라 주말에 만들다 만 것, 시험용, 데모도 전부 올린다.
@@ -31,7 +32,9 @@ with an English UI toggle.
 ## 어떻게 동작하나
 
 - 프레임: 사람 한 명당 페이지 하나(${SITE}/{username}). 소개보다 작품이 먼저 온다.
-- 라이브 임베드: 배포된 URL이면 페이지 안에서 그대로 실행된다. 방문자가 직접 눌러볼 수 있다.
+- 올린 파일은 페이지 안에서 실행: 정적 빌드를 통째로 올리면 방문자가 그 자리에서 직접 만져본다.
+- 배포된 URL은 시연 영상 + 새 탭: 남의 사이트는 임베드를 막는 경우가 많아, 움직이는 화면은
+  자동 시연 영상이 맡고 실물은 새 탭에서 연다.
 - 자동 시연 영상: 작품에 따라 시스템이 앱을 실제로 조작하며 녹화한 시연 영상이 붙는다.
 - 작품별 주소: 작품마다 전용 페이지(${SITE}/{username}/{project-id})가 있고,
   메신저에 붙여넣으면 시연 영상이 바로 재생된다.
