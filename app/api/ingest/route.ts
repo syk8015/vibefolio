@@ -7,7 +7,7 @@ import { rateLimit } from "@/lib/rate-limit";
 import { bearerFromHeader } from "@/lib/apiToken";
 import { detectDemoSource } from "@/lib/demoSource";
 import { screenshotUrl } from "@/lib/thumbnail";
-import { ingestAuth, publicUrlGate, strOrNull } from "./shared";
+import { ingestAuth, publicUrlGate, strOrNull, buildAccepted } from "./shared";
 import { normalizeTags, normalizeContentType } from "@/lib/projectTaxonomy";
 import { normalizeDemoAccess, type DemoAccess } from "@/lib/demoAccess";
 import {
@@ -361,6 +361,12 @@ export async function POST(req: NextRequest) {
     const reviewUrl = `${req.nextUrl.origin}/dashboard?review=${projectId}`;
     return NextResponse.json({
       ok: true, projectId, reviewUrl, isDraft: true,
+      // 무엇이 실제로 저장됐는지 그대로 돌려준다(C-1) — 태그 철자 불일치·타입 오타·
+      // 500자 절단은 에러가 아니라 조용한 폐기라, 이 에코가 유일한 사후 확인 수단이다.
+      accepted: buildAccepted(payload as unknown as Record<string, unknown>, {
+        title, description, comment, demoHint, tags,
+        contentTypeId, demoAccess, entryUrl: demoUrl,
+      }, normalizeTags),
       ...(upserted ? { upserted: true } : {}),
       // 랜딩·앱을 둘 다 준 경우 뭘 찍을지는 촬영 직전에 고른다(피드백 B-4) — 발행
       // AI가 "내가 고른 게 최종"으로 오해하지 않게 후보를 돌려준다.

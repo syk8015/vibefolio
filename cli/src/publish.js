@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { join, basename, resolve } from "node:path";
 import { getToken, getOrigin } from "./config.js";
 import { zipDir } from "./zip.js";
+import { formatAccepted } from "./echo.js";
 
 const BUILD_DIRS = ["dist", "out", "build", "public"];
 
@@ -76,7 +77,9 @@ export async function runPublish({ payload = {}, dir = null, screenshotPath = nu
   });
   const body2 = await fin.json().catch(() => ({}));
   if (!fin.ok) throw new Error(body2.error || `업로드 마무리 실패 (HTTP ${fin.status})`);
-  return body2;
+  // 저장 내용 에코(C-1)는 1단계(=메타데이터를 받은 쪽)가 만든다. finalize는 파일만
+  // 연결하므로 그 결과에 없으면 1단계 것을 그대로 이어붙여야 사라지지 않는다.
+  return { ...body2, accepted: body2.accepted ?? body1.accepted };
 }
 
 function safeHost(url) {
@@ -156,5 +159,6 @@ export async function publishCommand(args) {
   console.log(body.upserted
     ? "\n✓ 같은 URL의 기존 초안을 갱신했어요."
     : "\n✓ Nookframe에 초안으로 올렸어요.");
-  console.log(`  확인하고 공개: ${body.reviewUrl}`);
+  for (const line of formatAccepted(body.accepted)) console.log(line);
+  console.log(`\n  확인하고 공개: ${body.reviewUrl}`);
 }

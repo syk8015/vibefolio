@@ -1,5 +1,6 @@
 import { getToken, getOrigin } from "./config.js";
 import { runPublish } from "./publish.js";
+import { formatAccepted } from "./echo.js";
 import { listDrafts, updateDraft, deleteDraft } from "./drafts.js";
 
 // `nookframe mcp` — MCP stdio 서버. 클로드 데스크탑·커서 등 MCP 호스트가
@@ -151,18 +152,25 @@ export async function runMcp() {
             ...conn,
           });
           const verb = body.upserted ? "기존 초안을 갱신했어요" : "초안으로 올렸어요";
-          return { content: [{ type: "text", text: `Nookframe에 ${verb}. 확인하고 공개: ${body.reviewUrl}` }] };
+          // 저장 에코를 툴 결과에 실어야 호출한 AI가 자기 payload가 어디까지
+          // 살아남았는지(태그 철자·분류·500자 절단) 스스로 확인하고 고칠 수 있다.
+          const echo = formatAccepted(body.accepted);
+          return { content: [{ type: "text", text:
+            `Nookframe에 ${verb}. 확인하고 공개: ${body.reviewUrl}${echo.length ? `\n${echo.join("\n")}` : ""}` }] };
         }
         case "list_nookframe_drafts": {
           const { drafts } = await listDrafts(conn);
           if (!drafts?.length) return { content: [{ type: "text", text: "초안이 없어요." }] };
-          const lines = drafts.map((d) => `- ${d.id} · ${d.title}${d.demo_url ? ` · ${d.demo_url}` : ""}`);
+          const lines = drafts.map((d) => `- ${d.id} · ${d.title}${d.demo_url ? ` · ${d.demo_url}` : ""}`
+            + ` · [${d.tags?.length ? d.tags.join(", ") : "AI 툴 없음"} / ${d.content_type || "분류 없음"}]`);
           return { content: [{ type: "text", text: `초안 ${drafts.length}개:\n${lines.join("\n")}` }] };
         }
         case "update_nookframe_draft": {
           const { id, ...payload } = a;
           const body = await updateDraft(id, payload, conn);
-          return { content: [{ type: "text", text: `초안을 수정했어요. 확인: ${body.reviewUrl}` }] };
+          const echo2 = formatAccepted(body.accepted);
+          return { content: [{ type: "text", text:
+            `초안을 수정했어요. 확인: ${body.reviewUrl}${echo2.length ? `\n${echo2.join("\n")}` : ""}` }] };
         }
         case "delete_nookframe_draft": {
           await deleteDraft(a.id, conn);

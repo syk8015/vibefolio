@@ -8,7 +8,7 @@ import { bearerFromHeader } from "@/lib/apiToken";
 import { normalizeTags, normalizeContentType } from "@/lib/projectTaxonomy";
 import { normalizeDemoAccess } from "@/lib/demoAccess";
 import { logger } from "@/lib/logger";
-import { ingestAuth, publicUrlGate, strOrNull, type IngestDict } from "../../shared";
+import { ingestAuth, publicUrlGate, strOrNull, type IngestDict, buildAccepted } from "../../shared";
 
 // PATCH·DELETE /api/ingest/drafts/[id] — Nookframe Connect 초안 수정·삭제(요청4).
 // is_draft=true 행만 허용: 공개된 프로젝트는 409로 거부해 PAT의 폭발반경(자기
@@ -111,7 +111,14 @@ export async function PATCH(
       return apiError({ status: 400, message: t.api.draftNoFields, code: "NO_FIELDS" });
     }
 
-    const { error: updErr } = await admin.from("projects").update(upd).eq("id", draft.id);
+    // 갱신된 행을 그대로 돌려받아 에코를 만든다(C-1) — 보낸 키만 바뀌므로
+    // "요청 payload"로는 최종 상태를 알 수 없다. 저장된 행이 유일한 진실.
+    const { data: after, error: updErr } = await admin
+      .from("projects")
+      .update(upd)
+      .eq("id", draft.id)
+      .select("title, description, comment, demo_user_hint, tags, content_type, demo_access, demo_url")
+      .single();
     if (updErr) {
       return apiError({ status: 500, message: t.api.retryLater, code: "DB_UPDATE_FAILED", cause: updErr });
     }
@@ -119,6 +126,16 @@ export async function PATCH(
       ok: true,
       projectId: draft.id,
       reviewUrl: `${req.nextUrl.origin}/dashboard?review=${draft.id}`,
+      accepted: buildAccepted(payload as Record<string, unknown>, {
+        title: after?.title ?? "",
+        description: after?.description ?? "",
+        comment: after?.comment ?? "",
+        demoHint: after?.demo_user_hint ?? null,
+        tags: after?.tags ?? [],
+        contentTypeId: after?.content_type ?? null,
+        demoAccess: after?.demo_access ?? null,
+        entryUrl: after?.demo_url ?? null,
+      }, normalizeTags),
     });
   } catch (err) {
     const tc = bearerFromHeader(req.headers.get("authorization")) ? getDictionary("en") : (await getT()).t;

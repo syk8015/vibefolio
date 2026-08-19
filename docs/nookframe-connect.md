@@ -114,6 +114,27 @@
 - 한계: `/api/preview`는 경로만으로 서빙 → 초안 업로드 **바이트는 URL 아는 자에게 열림**(rowId=추측불가 uuid라
   발견 불가). 메타데이터는 숨겨지나 바이트는 URL기밀(발행 업로드와 동일 포스처).
 
+## 저장 결과 에코 — `accepted` (도그푸딩 C-1)
+
+인제스트는 **틀린 값을 에러 대신 조용히 버린다**: AI 툴 태그는 철자가 `AI_TOOLS`와
+안 맞으면 사라지고, `contentType` 오타는 `null`, `demoHighlights`는 500자에서 잘리고,
+형태가 어긋난 `demoAccess`는 통째로 없어진다. 이건 "AI가 올리다 실패하는 것보다
+일부라도 올라가는 게 낫다"는 의도적 설계다 — 문제는 발행이 성공해도 **무엇이
+살아남았는지 알 방법이 없었다**는 것(자체 도그푸딩에서 확인).
+
+그래서 `POST /api/ingest`와 `PATCH /api/ingest/drafts/{id}`는 응답에 `accepted`를
+싣는다. 요청 payload가 아니라 **저장 직전(PATCH는 갱신된 행)의 값**으로 조립한다.
+
+- 조립: `app/api/ingest/shared.ts` 의 `buildAccepted()` — 표시 전용, 저장 내용 불변.
+- 필드: `title` · `descriptionChars` · `builderNoteChars` · `demoHighlightsChars` ·
+  `demoHighlightsTruncated` · `tags` · `droppedTags` · `contentType` ·
+  `droppedContentType` · `entryUrl` · `scoutAltUrl` · `demoAccess` · `demoAccessDropped`.
+- 파일 업로드(2단계) 경로는 `finalize` 응답에 `accepted`가 없으므로 CLI가 1단계 것을
+  이어붙인다(`cli/src/publish.js`).
+- 출력: `cli/src/echo.js` `formatAccepted()` — CLI 콘솔·MCP 툴 결과 공용. 한글 2칸
+  폭을 계산해 열을 맞춘다. **구버전 서버는 `accepted`를 안 주므로 빈 배열로 조용히 물러난다.**
+- `drafts list`도 초안마다 태그·분류·시연 핵심 유무를 함께 출력한다(사후 확인 수단).
+
 ## 관련 파일
 
 - 마이그레이션: `supabase/migration_api_ingest.sql` (api_tokens · is_draft · RLS 정책 교체)

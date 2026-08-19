@@ -1,4 +1,5 @@
 import { getToken, getOrigin } from "./config.js";
+import { formatAccepted } from "./echo.js";
 
 // CLI와 MCP가 공유하는 초안 관리 코어(요청4). 서버가 is_draft=true 행만 다루게
 // 강제하므로 여기서 지울 수 있는 건 "아직 공개 안 한 초안"뿐이다. URL·파일 교체는
@@ -46,6 +47,13 @@ export async function draftsCommand(args) {
     }
     for (const d of drafts) {
       console.log(`${d.id}  ${d.title}${d.demo_url ? `  ${d.demo_url}` : ""}`);
+      // 발행 때 조용히 버려지는 값들(AI 툴·분류)을 나중에도 확인할 수 있게 같이 출력.
+      const meta = [
+        d.tags?.length ? d.tags.join(", ") : "AI 툴 없음",
+        d.content_type || "분류 없음",
+        d.demo_user_hint ? "시연 핵심 있음" : "시연 핵심 없음",
+      ];
+      console.log(`    ${meta.join(" · ")}`);
     }
     console.log(`\n${drafts.length}개. 수정: drafts update <id> --title … · 삭제: drafts delete <id>`);
     return;
@@ -77,7 +85,9 @@ export async function draftsCommand(args) {
       throw new Error("수정할 항목이 없어요 — --title/--description/--note/--hint 또는 --json 을 주세요.");
     }
     const body = await updateDraft(id, payload, { token, origin });
-    console.log(`✓ 초안을 수정했어요. 확인: ${body.reviewUrl}`);
+    console.log("✓ 초안을 수정했어요.");
+    for (const line of formatAccepted(body.accepted)) console.log(line);
+    console.log(`\n  확인: ${body.reviewUrl}`);
     return;
   }
 

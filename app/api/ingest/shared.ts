@@ -59,3 +59,79 @@ export async function publicUrlGate(url: string, t: IngestDict): Promise<NextRes
   }
   return null;
 }
+
+// ── 발행 결과 에코(도그푸딩 C-1) ────────────────────────────────────────────
+// 인제스트는 "틀린 값은 에러 대신 조용히 버린다"가 설계다: AI 툴 태그는 철자가
+// 목록과 안 맞으면 사라지고, contentType 오타는 null이 되고, demoHighlights는
+// 500자에서 잘리고, demoAccess는 형태가 어긋나면 통째로 없어진다. 발행이 성공해도
+// 무엇이 살아남았는지 알 방법이 없어서 올린 AI·사람이 사후 검증을 못 했다.
+// 그래서 "요청한 값"이 아니라 **저장 직전의 값**으로 요약을 조립해 응답에 싣는다.
+// 표시 전용이므로 여기서 저장 내용을 바꾸지 않는다.
+
+export type AcceptedEcho = {
+  title: string;
+  descriptionChars: number;
+  builderNoteChars: number;
+  demoHighlightsChars: number;
+  demoHighlightsTruncated: boolean;
+  tags: string[];
+  droppedTags: string[];
+  contentType: string | null;
+  droppedContentType: string | null;
+  entryUrl: string | null;
+  scoutAltUrl: string | null;
+  demoAccess: string | null;
+  demoAccessDropped: boolean;
+};
+
+const DEMO_HIGHLIGHTS_MAX = 500;
+
+/** 원문 태그 중 저장되지 못한 것들. 철자 불일치·중복·개수 상한(10) 초과를 모두 잡는다. */
+function droppedTagsOf(raw: unknown, kept: string[], normalize: (v: unknown) => string[]): string[] {
+  if (!Array.isArray(raw)) return [];
+  const out: string[] = [];
+  for (const one of raw) {
+    if (typeof one !== "string") {
+      out.push(JSON.stringify(one)?.slice(0, 40) ?? String(one));
+      continue;
+    }
+    const hit = normalize([one])[0];
+    if (!hit || !kept.includes(hit)) out.push(one);
+  }
+  return [...new Set(out)];
+}
+
+export function buildAccepted(
+  raw: Record<string, unknown> | null | undefined,
+  stored: {
+    title: string;
+    description: string;
+    comment: string;
+    demoHint: string | null;
+    tags: string[];
+    contentTypeId: string | null;
+    demoAccess: { url?: string; params?: Record<string, string>; impossible?: boolean; altUrl?: string } | null;
+    entryUrl: string | null;
+  },
+  normalizeTags: (v: unknown) => string[],
+): AcceptedEcho {
+  const rawHint = typeof raw?.demoHighlights === "string" ? raw.demoHighlights.trim() : "";
+  const rawType = typeof raw?.contentType === "string" ? raw.contentType.trim() : "";
+  const access = stored.demoAccess;
+  return {
+    title: stored.title,
+    descriptionChars: [...stored.description].length,
+    builderNoteChars: [...stored.comment].length,
+    demoHighlightsChars: stored.demoHint ? [...stored.demoHint].length : 0,
+    demoHighlightsTruncated: [...rawHint].length > DEMO_HIGHLIGHTS_MAX,
+    tags: stored.tags,
+    droppedTags: droppedTagsOf(raw?.tags, stored.tags, normalizeTags),
+    contentType: stored.contentTypeId,
+    droppedContentType: rawType && !stored.contentTypeId ? rawType : null,
+    entryUrl: stored.entryUrl || null,
+    scoutAltUrl: access?.altUrl ?? null,
+    demoAccess: access?.impossible ? "impossible" : (access?.url ?? null),
+    // altUrl은 서버가 스스로 채우는 값이라 "유저가 준 demoAccess가 살아남았나"의 근거가 못 된다.
+    demoAccessDropped: !!raw?.demoAccess && !access?.url && !access?.impossible,
+  };
+}
