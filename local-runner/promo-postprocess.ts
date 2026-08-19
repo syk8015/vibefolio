@@ -78,16 +78,18 @@ export async function promoPostprocess(input: PromoPostInput): Promise<PromoPost
       ? `trim=start=${trimHead.toFixed(3)}:end=${trimTail.toFixed(3)},setpts=PTS-STARTPTS,`
       : "";
 
-  // body — 스케일 + 페이드인만. 페이드아웃은 없다: 엔드캡이 바로 이어붙으므로
-  // body가 갑자기 사라지면 이상하고, 지우기 끝난 빈 화면 그대로 로고 씬으로
-  // 넘어가는 게 자연스럽다(둘 다 같은 solid 배경).
+  // body — 스케일만. 페이드는 **넣지 않는다**(2026-08-19):
+  //  - 페이드인: 클립이 "문구가 이미 쳐진 지점"에서 시작하도록 앞을 잘라내는데,
+  //    검은 화면에서 밝아지는 0.25초가 그 훅을 도로 가려버린다. 피드에서
+  //    첫 프레임이 검은 건 빈 화면보다 나쁘다.
+  //  - 페이드아웃: 엔드캡이 바로 이어붙으므로 body가 사라지면 이상하다.
   const bodyPath = `${outDir}/promo-body.mp4`;
   const bodyRes = await run(
     "ffmpeg",
     [
       "-y",
       "-i", rawPath,
-      "-vf", `${trimFilter}scale=${outW}:${outH}:flags=lanczos,fade=t=in:st=0:d=0.25,format=yuv420p`,
+      "-vf", `${trimFilter}scale=${outW}:${outH}:flags=lanczos,format=yuv420p`,
       ...ENCODE_ARGS,
       "-movflags", "+faststart",
       bodyPath,

@@ -33,6 +33,13 @@ const ERASED_TAIL_MS = 350;
 // 정지가 시작된 뒤 남길 여운. 길게 두면 커서가 안 깜빡이는 정지 화면이 그대로
 // 보이므로 짧게. 엔드캡이 자체 리드(0.35s 커서 깜빡임)로 이어받는다.
 const TAIL_HOLD_SEC = 0.15;
+// 클립 시작 지점 = 문구가 이 비율만큼 쳐진 순간. 피드에서 자동재생될 때
+// 첫 프레임이 빈 화면이면 스크롤을 멈출 이유가 없다 — 이미 읽을 게 있는
+// 상태에서 시작해야 한다(2026-08-19 사용자 결정). 글자 면적 기준이라 문구
+// 길이에 따라 알아서 스케일된다.
+const HOOK_TYPED_FRACTION = 0.35;
+const HOOK_LEAD_SEC = 0.12; // 그 프레임 직전 약간의 여유
+
 // freezedetect 최소 정지 길이. 커서 반주기(0.475s)보다 커야 살아있는 화면을
 // 정지로 오인하지 않는다.
 const FREEZE_MIN_SEC = 0.55;
@@ -101,6 +108,55 @@ async function findTailFreezeSec(rawPath: string): Promise<number | undefined> {
   } catch {
     return undefined;
   }
+}
+
+// 프레임별 "어두운 픽셀 면적"(=글자+커서가 차지하는 넓이)을 재서, 문구가
+// HOOK_TYPED_FRACTION만큼 쳐진 시점을 찾는다. 못 찾으면 undefined.
+//
+// 커서와 글자를 어떻게 가르냐가 핵심이다: **커서는 깜빡이므로 타이핑 전에는
+// 화면이 주기적으로 완전히 비지만, 첫 글자가 찍힌 뒤로는 절대 안 빈다.**
+// 그래서 "최고점 이전의 마지막 빈 프레임" 다음이 곧 타이핑 시작이고, 그
+// 뒤부터 면적 임계를 넘는 지점을 찾으면 커서에 속지 않는다(면적 임계만 쓰면
+// 짧은 문구에서 커서 하나를 글자로 오인한다).
+async function findHookStartSec(rawPath: string): Promise<number | undefined> {
+  const { stdout } = await run(
+    "ffmpeg",
+    ["-hide_banner", "-v", "error", "-i", rawPath,
+     // 가운데 띠만 본다(브라우저/개발 배지 등 주변 요소 배제) → 어두운 픽셀만
+     // 흰색으로 이진화 → YAVG가 곧 "어두운 픽셀 비율 × 255".
+     "-vf", "fps=20,crop=iw:ih/3:0:ih/3,lutyuv=y=if(lt(val\\,110)\\,255\\,0),signalstats,metadata=print:file=-",
+     "-f", "null", "-"],
+    { timeoutMs: 120_000 },
+  );
+  let t = 0;
+  const samples: Array<[number, number]> = [];
+  for (const line of stdout.split("\n")) {
+    const pts = /pts_time:([\d.]+)/.exec(line);
+    if (pts) t = Number(pts[1]);
+    const avg = /lavfi\.signalstats\.YAVG=([\d.]+)/.exec(line);
+    if (avg) samples.push([t, Number(avg[1])]);
+  }
+  if (samples.length < 10) return undefined;
+
+  const values = samples.map(([, v]) => v);
+  const base = Math.min(...values);
+  const peak = Math.max(...values);
+  if (peak - base < 0.2) return undefined; // 글자가 거의 없다 = 판정 불가
+  const peakAt = samples.find(([, v]) => v === peak)?.[0] ?? 0;
+
+  // 최고점 이전의 마지막 "완전히 빈" 프레임 = 타이핑 직전.
+  let typingFrom = 0;
+  for (const [ts, v] of samples) {
+    if (ts >= peakAt) break;
+    if (v <= base + 0.02) typingFrom = ts;
+  }
+
+  const target = base + (peak - base) * HOOK_TYPED_FRACTION;
+  for (const [ts, v] of samples) {
+    if (ts <= typingFrom) continue;
+    if (v >= target) return Math.max(0, ts - HOOK_LEAD_SEC);
+  }
+  return undefined;
 }
 
 export async function recordPromoClip(input: PromoRecordInput): Promise<PromoRecordResult> {
@@ -214,8 +270,11 @@ export async function recordPromoClip(input: PromoRecordInput): Promise<PromoRec
     // 첫 페인트는 화면 전체가 흰색(#fff) → 크림(--bg #fdfaf3)으로 바뀌는
     // 큰 밝기 계단이라 영상 안에서 직접 찾는 게 훨씬 정확하다. 잘라낸 뒤 남는
     // 리드(빈 화면 + 깜빡이는 커서)는 페이지 자체의 프리롤 800ms다.
-    const firstPaintSec = await findFirstPaintSec(rawPath);
-    const trimHeadSec = Math.max(0, firstPaintSec - 0.05);
+    // 앞 트림: 문구가 어느 정도 쳐진 지점에서 시작한다. 못 재면 흰 화면만
+    // 잘라내는 예전 방식으로 물러난다.
+    const hookAt = await findHookStartSec(rawPath);
+    const firstPaintSec = hookAt === undefined ? await findFirstPaintSec(rawPath) : 0;
+    const trimHeadSec = hookAt ?? Math.max(0, firstPaintSec - 0.05);
 
     // 뒤쪽 **얼어붙은 구간** 잘라내기. Playwright는 녹화가 끝날 때까지 마지막
     // 프레임을 그대로 채워 넣는다 — 문구를 다 지운 뒤 1초 가까이 정지 화면이
@@ -227,7 +286,7 @@ export async function recordPromoClip(input: PromoRecordInput): Promise<PromoRec
     const freezeAt = await findTailFreezeSec(rawPath);
     const trimTailAtSec = freezeAt !== undefined ? freezeAt + TAIL_HOLD_SEC : undefined;
     console.log(
-      `[promo-record] 앞 ${trimHeadSec.toFixed(2)}s 트림` +
+      `[promo-record] 앞 ${trimHeadSec.toFixed(2)}s 트림(${hookAt === undefined ? "흰화면 기준" : "문구 " + Math.round(HOOK_TYPED_FRACTION * 100) + "% 지점"})` +
         (trimTailAtSec ? ` · ${trimTailAtSec.toFixed(2)}s에서 끊음(정지 시작 ${freezeAt?.toFixed(2)}s)` : " · 뒤 정지구간 없음"),
     );
 
