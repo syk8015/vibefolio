@@ -16,6 +16,11 @@ export const template = Template()
     "xvfb",
     "matchbox-window-manager",
     "x11-utils",
+    // Python web apps (Streamlit/Gradio/Flask/FastAPI) build path — the base
+    // image ships python3 but not pip/venv, and build.ts creates a venv per job.
+    "python3",
+    "python3-pip",
+    "python3-venv",
   ])
   .setUser("root")
   .runCmd(

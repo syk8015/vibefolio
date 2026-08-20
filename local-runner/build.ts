@@ -99,6 +99,177 @@ async function collectRepoFiles(
   return files;
 }
 
+// ── Python web apps (2026-08-20, type-coverage audit ①→확장) ─────────────────
+// A repo with no JS dev/start script may still be a Python web app — the most
+// common AI-built shape after JS (Streamlit/Gradio especially). Detection keys on
+// a *.py file importing a known web framework: requirements.txt alone is too weak
+// (utility scripts), and a stray docs/index.html must not shadow the real app,
+// which is why this check runs BEFORE the static-HTML fallback.
+
+type PythonFramework = "streamlit" | "gradio" | "dash" | "fastapi" | "flask";
+
+type PythonApp = {
+  framework: PythonFramework;
+  entry: string; // repo-relative path of the file importing the framework
+  ports: number[]; // candidate ports to probe, in order
+};
+
+// Priority: visual app frameworks first — a repo with both a FastAPI backend and
+// a Streamlit UI should film the UI.
+const PY_FRAMEWORKS: PythonFramework[] = ["streamlit", "gradio", "dash", "fastapi", "flask"];
+
+// Entry-file name preference when several files import the same framework.
+const PY_ENTRY_RANK = [
+  "streamlit_app.py", "app.py", "main.py", "home.py", "server.py", "run.py", "index.py",
+];
+
+function pyEntryScore(path: string): number {
+  const base = path.split("/").pop() ?? path;
+  const nameRank = PY_ENTRY_RANK.indexOf(base);
+  const depth = path.split("/").length;
+  // name match dominates, then shallowness.
+  return (nameRank === -1 ? PY_ENTRY_RANK.length : nameRank) * 100 + depth;
+}
+
+export async function detectPythonApp(sandbox: Sandbox, repoPath: string): Promise<PythonApp | null> {
+  const scan = await sandbox.commands
+    .run(
+      `cd ${shQuote(repoPath)} && ` +
+        `for f in $(grep -RliE '^(import|from)[[:space:]]+(streamlit|gradio|dash|fastapi|flask)\\b' ` +
+        `--include='*.py' --exclude-dir=node_modules --exclude-dir=.venv --exclude-dir=venv ` +
+        `--exclude-dir=.git . 2>/dev/null | head -40); do ` +
+        `for fw in streamlit gradio dash fastapi flask; do ` +
+        `if grep -qiE "^(import|from)[[:space:]]+$fw\\b" "$f"; then echo "$fw $f"; break; fi; ` +
+        `done; done`,
+    )
+    .catch(() => null);
+  if (!scan) return null;
+  const candidates: { framework: PythonFramework; entry: string }[] = [];
+  for (const line of scan.stdout.split("\n")) {
+    const m = line.trim().match(/^(streamlit|gradio|dash|fastapi|flask) (.+)$/);
+    if (!m) continue;
+    candidates.push({ framework: m[1] as PythonFramework, entry: m[2].replace(/^\.\//, "") });
+  }
+  if (!candidates.length) return null;
+  candidates.sort(
+    (a, b) =>
+      PY_FRAMEWORKS.indexOf(a.framework) - PY_FRAMEWORKS.indexOf(b.framework) ||
+      pyEntryScore(a.entry) - pyEntryScore(b.entry),
+  );
+  const best = candidates[0];
+  // Everything below forces DEV_PORT via flags/env — except Dash, whose default
+  // app.run() ignores env and binds 8050, so that port is probed first.
+  const ports = best.framework === "dash" ? [8050, DEV_PORT] : [DEV_PORT];
+  return { ...best, ports };
+}
+
+export async function servePython(
+  sandbox: Sandbox,
+  repoPath: string,
+  app: PythonApp,
+  repoFiles: Record<string, string>,
+): Promise<BuiltApp> {
+  const venv = "/tmp/pyvenv";
+  const py = `${venv}/bin/python`;
+  const pip = `${venv}/bin/pip`;
+  const mk = await sandbox.commands.run(`python3 -m venv ${venv}`, { timeoutMs: 120_000 });
+  if (mk.exitCode !== 0) {
+    throw new BuildFailedError(`python venv creation failed (exit ${mk.exitCode}): ${(mk.stderr || mk.stdout || "").slice(-300)}`);
+  }
+
+  // Dependencies: requirements.txt > pyproject.toml > just the framework itself
+  // (an entry file with zero manifest still deserves a try). FastAPI needs its
+  // server installed too — uvicorn is how we launch it.
+  const dep = await sandbox.commands.run(
+    `cd ${shQuote(repoPath)} && if [ -f requirements.txt ]; then echo req; elif [ -f pyproject.toml ]; then echo proj; else echo none; fi`,
+  );
+  const mode = dep.stdout.trim();
+  const extra = app.framework === "fastapi" ? " uvicorn" : "";
+  const installArgs =
+    mode === "req" ? `-r requirements.txt${extra}` : mode === "proj" ? `.${extra}` : `${app.framework}${extra}`;
+  const install = await sandbox.commands.run(
+    `cd ${shQuote(repoPath)} && ${pip} install -q --no-input ${installArgs}`,
+    { timeoutMs: INSTALL_TIMEOUT_MS },
+  );
+  console.log(`[build] pip install exit ${install.exitCode} (${mode})`);
+  if (install.exitCode !== 0) {
+    throw new BuildFailedError(`pip install failed (exit ${install.exitCode}): ${(install.stderr || install.stdout || "").slice(-300)}`);
+  }
+
+  const entryQ = shQuote(app.entry);
+  let launch: string;
+  switch (app.framework) {
+    case "streamlit":
+      launch =
+        `${py} -m streamlit run ${entryQ} --server.address 0.0.0.0 --server.port ${DEV_PORT} ` +
+        `--server.headless true --browser.gatherUsageStats false`;
+      break;
+    case "gradio":
+      // gradio reads these envs in demo.launch() — no code change needed.
+      launch = `GRADIO_SERVER_NAME=0.0.0.0 GRADIO_SERVER_PORT=${DEV_PORT} ${py} ${entryQ}`;
+      break;
+    case "dash":
+      launch = `HOST=0.0.0.0 PORT=8050 ${py} ${entryQ}`;
+      break;
+    case "fastapi": {
+      // Convention: the ASGI object is named `app`. Anything else fails honestly
+      // into dev.log (surfaced by the ready-wait below).
+      const mod = app.entry.replace(/\.py$/, "").replace(/\//g, ".");
+      launch = `${py} -m uvicorn ${shQuote(`${mod}:app`)} --host 0.0.0.0 --port ${DEV_PORT}`;
+      break;
+    }
+    case "flask":
+      // flask ≥2.2 accepts a file path for --app.
+      launch = `${py} -m flask --app ${entryQ} run --host 0.0.0.0 --port ${DEV_PORT}`;
+      break;
+  }
+  console.log(`[build] python app (${app.framework}) → ${app.entry}`);
+  await sandbox.commands.run(
+    `cd ${shQuote(repoPath)} && ${launch} > /tmp/dev.log 2>&1`,
+    { background: true },
+  );
+
+  const deadline = Date.now() + READY_TIMEOUT_MS;
+  let url: string | null = null;
+  let lastNote = "";
+  while (Date.now() < deadline && !url) {
+    for (const port of app.ports) {
+      const candidate = `https://${sandbox.getHost(port)}`;
+      try {
+        const res = await fetch(candidate, { signal: AbortSignal.timeout(5000) });
+        if (res.status < 500) {
+          url = candidate;
+          break;
+        }
+        lastNote = `status ${res.status} on :${port}`;
+      } catch {
+        lastNote = "no response yet";
+      }
+    }
+    if (!url) await new Promise((r) => setTimeout(r, 2000));
+  }
+  if (!url) {
+    const tail = await sandbox.commands.run("tail -80 /tmp/dev.log");
+    throw new BuildFailedError(
+      `Python app (${app.framework}) did not become reachable within ${READY_TIMEOUT_MS / 1000}s (${lastNote}).\n--- dev.log tail ---\n${tail.stdout}`,
+    );
+  }
+  try {
+    await sandbox.setTimeout(SERVE_EXTENSION_MS);
+  } catch {
+    /* older SDK / transient — initial budget usually suffices */
+  }
+  console.log(`[build] python dev server reachable: ${url}`);
+  return {
+    url,
+    sandboxId: sandbox.sandboxId,
+    repoFiles,
+    close: async () => {
+      await sandbox.kill().catch(() => {});
+    },
+  };
+}
+
 // Serve a static directory (no build step) on the same public port the recorder
 // hits. Uses a dependency-free Node http server written into the sandbox — no
 // `npx` download, works offline. index.html is the directory default.
@@ -280,13 +451,18 @@ export async function buildAndServe(
       .catch(() => ({ devScript: null, isNext: false }));
 
     if (!scriptCheck.devScript) {
+      // Python web app? Checked before the static fallback — see detectPythonApp.
+      const pythonApp = await detectPythonApp(sandbox, repoPath);
+      if (pythonApp) {
+        return await servePython(sandbox, repoPath, pythonApp, repoFiles);
+      }
       // Find the shallowest index.html (root, or dist/build/public/ from a checked-in build).
       const found = await sandbox.commands.run(
         `find ${repoPath} -maxdepth 3 -name index.html -not -path '*/node_modules/*' -printf '%d %p\\n' 2>/dev/null | sort -n | head -1 | cut -d' ' -f2-`,
       );
       const indexPath = found.stdout.trim();
       if (!indexPath) {
-        throw new NotAWebappError("no dev script and no index.html — nothing to serve");
+        throw new NotAWebappError("no dev script, no Python web app, and no index.html — nothing to serve");
       }
       const serveDir = indexPath.replace(/\/index\.html$/, "");
       console.log(`[build] static site (no dev script) → serving ${serveDir}`);

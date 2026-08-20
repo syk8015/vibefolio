@@ -42,7 +42,9 @@
   - `application/json` — `{ title, description?, builderNote?, demoHighlights?, demoScript?, tags?, contentType?, deployUrl?, appUrl?, demoAccess? }`
     (`appUrl` = 랜딩과 앱이 나뉜 제품의 실제 앱 화면 URL — 있으면 deployUrl보다 우선해 임베드·촬영 대상이 된다. 검증은 deployUrl과 동일)
     (`deployUrl`/`appUrl`은 `detectDemoSource`가 github 저장소 URL도 인식한다 — 미배포+서버/DB 필요 앱의
-    최후수단으로 08-14부터 프롬프트·MCP·CLI가 안내. 공개 저장소·`dev`/`start` 스크립트 필수, 원격 DB
+    최후수단으로 08-14부터 프롬프트·MCP·CLI가 안내. 공개 저장소 필수. JS는 `dev`/`start` 스크립트로,
+    파이썬 웹앱(Streamlit·Gradio·Flask·FastAPI·Dash import 감지)은 pip install 후 프레임워크별
+    명령으로 자동 실행(08-20, `servePython`) — 둘 다 아니면 정적 index.html→not-a-webapp 순. 원격 DB
     감지 시 읽기전용 데모로 격하, best-effort(`local-runner/build.ts`). 같은 날 발견한 버그
     — `next dev`는 `--host`가 아니라 `-H`만 지원해 Next.js 프로젝트가 이 경로에서 죽던 것 — 도 같이 수정)
     (`deployUrl`·`appUrl`을 **둘 다** 주면 고르지 않은 쪽을 버리지 않고 `demo_access.altUrl`에 남긴다
