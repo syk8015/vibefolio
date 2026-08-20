@@ -263,16 +263,23 @@ export async function buildAndServe(
           `const d=Object.assign({},p.dependencies,p.devDependencies);` +
           `const dv=s.dev||s.start||'';` +
           `const isNext=Boolean(d.next)||/\\bnext\\b/.test(dv);` +
-          `console.log((s.dev||s.start?1:0)+' '+(isNext?1:0));` +
+          `console.log((s.dev?'dev':s.start?'start':'-')+' '+(isNext?1:0));` +
           `"`,
       )
       .then((r) => {
-        const [dev, next] = r.stdout.trim().split(" ");
-        return { hasDevScript: dev === "1", isNext: next === "1" };
+        const [script, next] = r.stdout.trim().split(" ");
+        return {
+          // Which script to actually launch. Detection accepts dev OR start, so the
+          // launch must run the one that exists — `npm run dev` on a start-only repo
+          // (CRA's `react-scripts start` is the archetype) dies "Missing script" and
+          // burned the whole install before failing (2026-08-20 audit ①).
+          devScript: script === "dev" || script === "start" ? script : null,
+          isNext: next === "1",
+        };
       })
-      .catch(() => ({ hasDevScript: false, isNext: false }));
+      .catch(() => ({ devScript: null, isNext: false }));
 
-    if (!scriptCheck.hasDevScript) {
+    if (!scriptCheck.devScript) {
       // Find the shallowest index.html (root, or dist/build/public/ from a checked-in build).
       const found = await sandbox.commands.run(
         `find ${repoPath} -maxdepth 3 -name index.html -not -path '*/node_modules/*' -printf '%d %p\\n' 2>/dev/null | sort -n | head -1 | cut -d' ' -f2-`,
@@ -309,7 +316,7 @@ export async function buildAndServe(
     await sandbox.commands.run(
       `${NODE_PATH_PREFIX}cd ${repoPath} && ` +
         `__VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS=${shQuote(host)} ` +
-        `npm run dev -- ${hostFlag} --port ${DEV_PORT} > /tmp/dev.log 2>&1`,
+        `npm run ${scriptCheck.devScript} -- ${hostFlag} --port ${DEV_PORT} > /tmp/dev.log 2>&1`,
       { background: true },
     );
 
