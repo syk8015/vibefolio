@@ -11,15 +11,18 @@ const subscribeTheme = (notify: () => void) => onThemeChange(() => notify());
 const getServerTheme = (): Theme => "dark";
 
 // 모바일 nav 정리용 — 테마·언어·링크 복사·로그인을 점 세 개 버튼 하나로 접는다.
-// 방문자가 처음 보는 건 로고와 작품뿐이어야 한다는 판단(2026-08-19 사용자 피드백:
-// "맨 위에 버튼이 너무 많다"). 데스크탑(md+)은 기존 필 버튼 줄을 그대로 쓰므로
+// 방문자가 처음 보는 건 로고와 내용뿐이어야 한다는 판단(2026-08-19 사용자 피드백:
+// "맨 위에 버튼이 너무 많다"). 데스크탑(md+)은 기존 버튼 줄을 그대로 쓰므로
 // 이 컴포넌트를 렌더하지 않는다 — PC 레이아웃 불변.
+//
+// username을 주면 "링크 복사" 줄이 생긴다(명함 페이지). 랜딩처럼 복사할 대상이
+// 없는 화면은 생략한다.
 export default function MobileNavMenu({
   username,
-  showLogin,
+  showLogin = false,
 }: {
-  username: string;
-  showLogin: boolean;
+  username?: string;
+  showLogin?: boolean;
 }) {
   const { t, locale, setLocale, ready } = useT();
   const [open, setOpen] = useState(false);
@@ -113,6 +116,7 @@ export default function MobileNavMenu({
             zIndex: 60,
           }}
         >
+          {username && (
           <MenuRow
             onClick={copyLink}
             label={copied ? t.share.copiedFlash : t.theater.copyLink}
@@ -127,6 +131,7 @@ export default function MobileNavMenu({
               )
             }
           />
+          )}
           <MenuRow
             onClick={() => {
               setStoredTheme(theme === "dark" ? "light" : "dark");

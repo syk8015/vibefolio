@@ -6,6 +6,7 @@ import HomeProfileMenu from "@/components/HomeProfileMenu";
 import PortfolioPipSection from "@/components/PortfolioPipSection";
 import ThemeToggle from "@/components/ThemeToggle";
 import LanguageToggle from "@/components/LanguageToggle";
+import MobileNavMenu from "@/components/MobileNavMenu";
 import LoggedInHeadline from "@/components/LoggedInHeadline";
 import FaqRepliesSection from "@/components/FaqRepliesSection";
 import TypingTagline from "@/components/TypingTagline";
@@ -120,9 +121,15 @@ export default async function LandingPage() {
         <nav className="flex items-center justify-between px-4 md:px-8 py-4 md:py-5">
           <Logo />
           <div className="flex items-center gap-3">
-            <LanguageToggle />
-            <ThemeToggle />
+            {/* 모바일에서는 언어·테마가 아래 ⋯ 메뉴 안으로 들어간다. */}
+            <div className="hidden md:flex items-center gap-3">
+              <LanguageToggle />
+              <ThemeToggle />
+            </div>
             <HomeProfileMenu username={username} name={name} avatarUrl={avatarUrl} locale={locale} />
+            <div className="md:hidden">
+              <MobileNavMenu />
+            </div>
           </div>
         </nav>
 
@@ -166,17 +173,26 @@ export default async function LandingPage() {
         {/* Nav — absolute over hero so layout center = viewport center */}
         <nav className="absolute top-0 left-0 right-0 flex items-center justify-between px-4 md:px-8 py-4 md:py-5 z-10">
           <Logo />
-          <div className="flex items-center gap-5">
-            <LanguageToggle />
-            <ThemeToggle />
-            <Link href="/login"
-              style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", fontSize: "0.875rem", fontWeight: 500, textDecoration: "none" }}>
-              {t.landing.login}
-            </Link>
+          <div className="flex items-center gap-3 md:gap-5">
+            {/* 모바일에서는 언어·테마·로그인이 ⋯ 메뉴 안으로 들어간다.
+                "시작하기"만 밖에 남긴다 — 폰 랜딩에서 가입으로 가는 길이
+                이 링크 하나뿐이라(히어로에 별도 CTA 없음) 같이 감추면
+                방문자가 가입할 방법이 사라진다. */}
+            <div className="hidden md:flex items-center gap-5">
+              <LanguageToggle />
+              <ThemeToggle />
+              <Link href="/login"
+                style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", fontSize: "0.875rem", fontWeight: 500, textDecoration: "none" }}>
+                {t.landing.login}
+              </Link>
+            </div>
             <Link href="/signup"
               style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontSize: "0.875rem", fontWeight: 600, textDecoration: "none" }}>
               {t.landing.getStarted}
             </Link>
+            <div className="md:hidden">
+              <MobileNavMenu showLogin />
+            </div>
           </div>
         </nav>
 
