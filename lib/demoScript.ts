@@ -24,6 +24,9 @@ export const DEMO_SCRIPT_ACTIONS = [
   "scroll",
   "hover",
   "draw",
+  // 카메라 강조(2026-08-20): 그 영역을 조작하지 않고 "자세히 보여주기"만 원할 때.
+  // 레코더가 커서를 얹는 게 아니라 최종 필름의 카메라가 그 영역을 확대(크롭)한다.
+  "focus",
 ] as const;
 export type DemoScriptAction = (typeof DEMO_SCRIPT_ACTIONS)[number];
 

@@ -33,13 +33,50 @@ type ScriptActionBase =
   // start→end vector, so explore emits this from its draw_path tool instead. Same
   // re-anchor policy as drag: resolve the live element via the selector and shift
   // EVERY point by however far it moved — the stroke's shape is what matters.
-  | { kind: "path"; selector: string; points: [number, number][]; label?: string };
+  | { kind: "path"; selector: string; points: [number, number][]; label?: string }
+  // Camera-only emphasis beat (2026-08-20): magnify a REGION of the page for the
+  // hold duration — no cursor move, no page interaction. The creator's script says
+  // "여길 자세히" and the film answers with a crop, not a barely-visible cursor
+  // parked on top of a video. x/y = region CENTER, w/h = region size (logical px);
+  // the selector re-anchors the live rect on the reset page, w/h re-measure from
+  // its boundingBox when it resolves (recorded w/h are the coordinate fallback).
+  | { kind: "focus"; selector: string; x: number; y: number; w: number; h: number; label?: string };
 
 export type Script = {
   actions: ScriptAction[];
   loginGated: boolean;
   notes?: string;
 };
+
+// Collapse the explore pass's scroll fumbling (down 300 → up 100 → down 800 while
+// hunting for a section) into ONE smooth net scroll, so the film never shows the
+// search. Rules:
+//   - Only CONSECUTIVE scroll actions merge (any other action breaks the run).
+//   - A scroll carrying holdMs starts a NEW group: holdMs marks a shot-list
+//     step's first action, and merging across it would erase that beat's framing
+//     pause. Trailing hold-less scrolls merge INTO the group before them.
+//   - A group whose net travel is a wash (|dy| and |dx| < 80) is dropped entirely
+//     — unless it holds a beat (holdMs), in which case it stays as a pause.
+// Pure and record-time only: replay sees the already-coalesced script.
+export function coalesceScrolls(actions: ScriptAction[]): ScriptAction[] {
+  const out: ScriptAction[] = [];
+  const isWash = (a: { dy: number; dx?: number }) =>
+    Math.abs(a.dy) < 80 && Math.abs(a.dx ?? 0) < 80;
+  for (const act of actions) {
+    const prev = out[out.length - 1];
+    if (
+      act.kind === "scroll" &&
+      prev?.kind === "scroll" &&
+      act.holdMs === undefined
+    ) {
+      prev.dy += act.dy;
+      if (act.dx) prev.dx = (prev.dx ?? 0) + act.dx;
+      continue;
+    }
+    out.push({ ...act });
+  }
+  return out.filter((a) => a.kind !== "scroll" || a.holdMs !== undefined || !isWash(a));
+}
 
 // M0 target — TodoMVC React (no login, no server/DB, deterministic, rich client
 // interactions). Exercises: type+submit (same input reused), a long jump that

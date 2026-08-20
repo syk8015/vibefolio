@@ -337,12 +337,36 @@ export class CameraTrack {
     this.focal = { ...target };
   }
 
-  // End of take: settle back to 1× so the final hold frames the whole window.
-  // Call after the last action, before the tail hold (which gives it frames).
-  finish(): void {
+  // Deliberate reframe onto a REGION (script `focus` beat, 2026-08-20): fit the
+  // w×h box into the frame and ease zoom+focal there in ONE blended move — no
+  // pull-out theatrics, this is "look here", not travel. The zoom is whatever
+  // magnifies the region to fill ~85% of the frame (breathing margin), capped by
+  // the same range as cursor zooms so post-crop sharpness rules still hold.
+  // Cursor position is irrelevant — emphasis comes from the crop.
+  focusRegion(center: Pt, w: number, h: number, moveMs: number): void {
+    const fit = Math.min(
+      this.viewW / Math.max(1, w),
+      this.viewH / Math.max(1, h),
+    ) * 0.85;
+    const Z = clamp(fit, ZOOM_FLOOR, ZOOM_MAX);
+    const from = this.isZoomed() ? this.focal : this.center;
+    this.emit(Date.now(), Math.max(1, moveMs), this.z, Z, from, center);
+    this.z = Z;
+    this.focal = { ...center };
+  }
+
+  // Settle back to 1× (whole window). Used before a scroll (a zoomed crop over a
+  // scrolling page reads as content sliding under a keyhole) and at take end.
+  settleWide(): void {
     if (!this.isZoomed()) return;
     this.emit(Date.now(), ZOOM_OUT_MS, this.z, 1, this.focal, this.center);
     this.z = 1;
     this.focal = { ...this.center };
+  }
+
+  // End of take: settle back to 1× so the final hold frames the whole window.
+  // Call after the last action, before the tail hold (which gives it frames).
+  finish(): void {
+    this.settleWide();
   }
 }

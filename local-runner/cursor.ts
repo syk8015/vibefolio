@@ -81,11 +81,13 @@ const OVERLAY_SRC = `(() => {
       }
       ctx.save();
       ctx.translate(cx, cy); ctx.scale(scale, scale);
-      ctx.beginPath(); ctx.arc(0, 0, 15.5, 0, Math.PI*2);
-      ctx.strokeStyle = "rgba(255,255,255,0.14)"; ctx.lineWidth = 5; ctx.stroke();
+      // 대비 강화(2026-08-20 사용자 판정 "회색이라 잘 안 보임"): 반투명 회색
+      // 0.30 → 잉크 0.62 + 흰 헤일로를 키워 밝은/어두운 배경 어디서든 읽히게.
+      ctx.beginPath(); ctx.arc(0, 0, 16, 0, Math.PI*2);
+      ctx.strokeStyle = "rgba(255,255,255,0.55)"; ctx.lineWidth = 6; ctx.stroke();
       ctx.shadowColor = "rgba(0,0,0,0.45)"; ctx.shadowBlur = 16; ctx.shadowOffsetY = 4;
       ctx.beginPath(); ctx.arc(0, 0, 12, 0, Math.PI*2);
-      ctx.fillStyle = "rgba(20,20,28,0.30)"; ctx.fill();
+      ctx.fillStyle = "rgba(20,20,28,0.62)"; ctx.fill();
       ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
       ctx.lineWidth = 2; ctx.strokeStyle = "rgba(255,255,255,0.96)"; ctx.stroke();
       ctx.restore();

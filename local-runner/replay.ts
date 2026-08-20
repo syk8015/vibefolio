@@ -7,7 +7,7 @@ import type { Page } from "playwright-core";
 import { CameraTrack, glideMsFor } from "./camera";
 import type { Script, ScriptAction } from "./script";
 import { cursorDown, cursorMoveTo, cursorPos, cursorPress, cursorUp } from "./cursor";
-import { VIEW_W, VIEW_H } from "./config";
+import { VIEW_W, VIEW_H, ZOOM_OUT_MS } from "./config";
 import { sleep } from "./util";
 
 // Cinematic timing (tune by eyeball in PoC).
@@ -26,6 +26,8 @@ const DRAG_STEP_MS = 25; // real-mouse update cadence along the drag ease
 // flowing gesture, not a deliberate slider pull. A 10-point smiley lands ~2s.
 const PATH_SEG_MIN_MS = 160;
 const PATH_SEG_MAX_MS = 650;
+// Camera reframe duration for a script `focus` beat (region magnify, no cursor).
+const FOCUS_MOVE_MS = 700;
 
 // Same cubic in-out the cursor overlay and camera use — the real mouse steps this
 // exact curve during a drag so the app's thumb tracks the visible ring.
@@ -170,6 +172,12 @@ async function runAction(
   // "이 비트는 천천히"를 지정하는 유일한 페이싱 채널. 없으면 기본 HOLD_MS.
   const hold = act.holdMs ?? HOLD_MS;
   if (act.kind === "scroll") {
+    // 줌인 상태로 스크롤하면 확대창 밑으로 콘텐츠가 미끄러진다(키홀 효과) —
+    // 스크롤은 항상 와이드에서. focus/클릭 줌이 남아 있으면 먼저 풀고 이동.
+    if (cam.isZoomed()) {
+      cam.settleWide();
+      await sleep(ZOOM_OUT_MS);
+    }
     await smoothScroll(page, act.dy, act.dx ?? 0);
     if (act.holdMs) await sleep(act.holdMs);
     return;
@@ -184,6 +192,33 @@ async function runAction(
     await approach(page, cam, to);
     await page.mouse.move(to.x, to.y);
     await sleep(hold);
+    return;
+  }
+  if (act.kind === "focus") {
+    // Camera-only emphasis (script focus beat): magnify the recorded region for
+    // the hold — the cursor does not move; the crop IS the emphasis. The selector
+    // re-anchors position drift, but only when its live box is plausibly the same
+    // region the model framed (a derived selector can balloon to a page-sized
+    // container — trusting that would zoom out to nothing).
+    let { x, y, w, h } = act;
+    if (act.selector) {
+      try {
+        const loc = page.locator(act.selector).first();
+        await loc.waitFor({ state: "visible", timeout: 2500 });
+        const box = await loc.boundingBox();
+        const ratio = box ? (box.width * box.height) / Math.max(1, w * h) : 0;
+        if (box && ratio > 0.25 && ratio < 4) {
+          x = box.x + box.width / 2;
+          y = box.y + box.height / 2;
+          w = box.width;
+          h = box.height;
+        }
+      } catch {
+        fell.out.push({ kind: act.kind, selector: act.selector, label: act.label, x: act.x, y: act.y });
+      }
+    }
+    cam.focusRegion({ x, y }, w, h, FOCUS_MOVE_MS);
+    await sleep(FOCUS_MOVE_MS + hold);
     return;
   }
   if (act.kind === "dismiss") {
@@ -315,8 +350,12 @@ async function strokePath(page: Page, cam: CameraTrack, pts: Pt[]): Promise<void
 }
 
 // Smooth wheel scroll in small steps (TodoMVC M0 doesn't use it; here for parity).
+// Step count scales with travel: coalesced scroll groups (script.ts
+// coalesceScrolls) can be 1500px+ in one action, and 24 fixed steps would fling
+// them — longer travel gets more steps so the glide stays unhurried.
 async function smoothScroll(page: Page, dy: number, dx = 0): Promise<void> {
-  const steps = 24;
+  const travel = Math.max(Math.abs(dy), Math.abs(dx));
+  const steps = Math.max(24, Math.min(64, Math.round(travel / 30)));
   for (let i = 0; i < steps; i++) {
     await page.mouse.wheel(dx / steps, dy / steps);
     await sleep(16);

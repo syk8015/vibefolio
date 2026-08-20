@@ -60,7 +60,8 @@ export async function runMcp() {
                 properties: {
                   goal: { type: "string", description: "이 비트가 증명하는 것 (120자 이내)" },
                   where: { type: "string", description: "화면에서 그 컨트롤을 찾는 법 — CSS 셀렉터가 아니라 보이는 라벨·위치 (120자 이내)" },
-                  action: { type: "string", enum: ["click", "type", "drag", "scroll", "hover", "draw"] },
+                  // "focus" = 강조 비트: 조작 없이 필름 카메라가 그 영역을 확대(2026-08-20).
+                  action: { type: "string", enum: ["click", "type", "drag", "scroll", "hover", "draw", "focus"] },
                   text: { type: "string", description: "action=type일 때 입력할 내용 (60자 이내)" },
                   expect: { type: "string", description: "하고 나면 화면에 나타나야 하는 것 (120자 이내)" },
                   hold: { type: "number", description: "이 스텝의 결과를 몇 초 보여줄지 (0.5~4). 천천히 봐야 하는 비트에만" },

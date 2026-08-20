@@ -31,6 +31,7 @@ import {
   EXPLORE_NOOP_SSIM_LOCAL,
   OUT_DIR,
 } from "./config";
+import { coalesceScrolls } from "./script";
 import type { Script, ScriptAction } from "./script";
 import type { DemoScript } from "../lib/demoScript";
 import { sleep, run } from "./util";
@@ -103,6 +104,10 @@ const SYSTEM_PROMPT = [
   "  face, a star, a little house, a wave) in a clear empty area — that stroke IS the hero demo of a drawing",
   "  app. Picking a brush color/size first, then drawing, makes a great two-beat story. Draw at most TWO",
   "  things total (a multi-stroke drawing like a smiley counts as ONE thing), then move on or finish.",
+  "- To EMPHASIZE something the viewer should study without operating it (a playing video, a chart, a",
+  "  result panel, a card), use the focus_region tool: the final film's camera will magnify exactly that",
+  "  box for the beat. That is the ONLY emphasis device — never park the cursor on top of something to",
+  "  'point at' it (the cursor is small and reads as nothing). At most three focus beats per film.",
   "- Show STRUCTURE before filters: if a list/board is reorderable, do its drag while the list is FULL —",
   "  BEFORE typing into its search or filter box. Once you have searched/filtered a list, do NOT drag its",
   "  items (the set on screen just changed under you — you may grab an empty slot). Searching is a closing",
@@ -551,6 +556,34 @@ async function callClaude(messages: Msg[], apiKey: string): Promise<{ content: B
           required: ["points"],
         },
       },
+      // Camera emphasis (2026-08-20): the model frames a region; the FILM magnifies
+      // it for that beat. Metadata-only on the live page (no interaction) — the
+      // recorded `focus` action drives the replay camera. Born from the user
+      // verdict that "hover the video to emphasize it" reads as nothing: the
+      // cursor is small and gray, a crop is an actual emphasis.
+      {
+        name: "focus_region",
+        description:
+          "Ask the film camera to MAGNIFY one region of the screen for this beat — the emphasis device. " +
+          "Use it when the viewer should study an area (a playing video, a chart, a result panel) without " +
+          "operating it. Nothing is clicked and the cursor does not move; the final film zooms onto " +
+          "exactly this box.",
+        input_schema: {
+          type: "object",
+          properties: {
+            region: {
+              type: "array",
+              description:
+                "[x0, y0, x1, y1] — the region's bounding box in this screenshot's coordinates.",
+              items: { type: "number" },
+              minItems: 4,
+              maxItems: 4,
+            },
+            label: { type: "string", description: "What the region shows, 2-4 words." },
+          },
+          required: ["region"],
+        },
+      },
       // Shot-list progress report (demoScript): the ONLY way code can know which
       // script step the model is on — coverage drives the end-of-turn gate and the
       // take report. Metadata-only: no action is performed, no screenshot returned.
@@ -811,7 +844,11 @@ export function buildScriptBrief(script: DemoScript): string {
   script.steps.forEach((s, i) => {
     lines.push(`  STEP ${i + 1} — ${s.goal}`);
     if (s.where) lines.push(`    find: ${s.where}`);
-    if (s.action) lines.push(`    do: ${s.action}${s.text ? ` — "${s.text}"` : ""}`);
+    if (s.action === "focus")
+      lines.push(
+        "    do: focus — call the focus_region tool on that area (the film magnifies it; do NOT click it or park the cursor on it)",
+      );
+    else if (s.action) lines.push(`    do: ${s.action}${s.text ? ` — "${s.text}"` : ""}`);
     else if (s.text) lines.push(`    do: type "${s.text}"`);
     if (s.expect) lines.push(`    expect: ${s.expect}`);
     if (s.hold) lines.push(`    hold: keep the result on screen ~${s.hold}s (the replay paces this — just do the step once, no stalling)`);
@@ -1278,6 +1315,49 @@ export async function explore(page: Page, opts: ExploreOptions = {}): Promise<Ex
         results.push({ type: "tool_result", tool_use_id: tu.id, content: [{ type: "text", text: ack }] });
         continue;
       }
+      // Camera emphasis beat: record a `focus` action (replay magnifies the region)
+      // — nothing happens on the live page, so no screenshot in the result.
+      if (tu.name === "focus_region") {
+        const inp = (tu.input ?? {}) as { region?: unknown; label?: unknown };
+        let note =
+          "focus_region failed — pass region: [x0, y0, x1, y1] in this screenshot's coordinates.";
+        const raw =
+          Array.isArray(inp.region) && inp.region.length === 4 ? inp.region.map(Number) : null;
+        if (raw && raw.every((n) => Number.isFinite(n))) {
+          const x0 = clampX(Math.min(raw[0], raw[2]));
+          const x1 = clampX(Math.max(raw[0], raw[2]));
+          const y0 = clampY(Math.min(raw[1], raw[3]));
+          const y1 = clampY(Math.max(raw[1], raw[3]));
+          const w = x1 - x0;
+          const h = y1 - y0;
+          if (w >= 60 && h >= 40) {
+            const cx = Math.round(x0 + w / 2);
+            const cy = Math.round(y0 + h / 2);
+            // Selector at the region's center re-anchors the replay crop; a miss
+            // just means the recorded box is used verbatim (deterministic page).
+            const res = await evalCall<Resolved>(page, SELECTOR_SRC, cx, cy).catch(
+              () => ({ selector: null, label: "" }) as Resolved,
+            );
+            const label = typeof inp.label === "string" ? inp.label.slice(0, 40) : undefined;
+            actions.push({
+              kind: "focus", selector: res.selector ?? "", x: cx, y: cy, w, h,
+              ...(label ? { label } : {}),
+            });
+            if (pendingHoldMs !== null) {
+              actions[actions.length - 1].holdMs = pendingHoldMs;
+              pendingHoldMs = null;
+            }
+            note = "Region noted — the film's camera will magnify it for this beat. Continue.";
+          } else {
+            note = "Region too small — frame the full area to magnify (at least 60×40 px).";
+          }
+        }
+        // A focus is never a click-to-type prelude nor a type: reset both guards.
+        mergeableClick = false;
+        lastWasType = false;
+        results.push({ type: "tool_result", tool_use_id: tu.id, content: [{ type: "text", text: note }] });
+        continue;
+      }
       // Non-computer tool: the freehand-stroke escape hatch.
       if (tu.name === "draw_path") {
         let out: { recorded: boolean; note?: string } = {
@@ -1474,7 +1554,9 @@ export async function explore(page: Page, opts: ExploreOptions = {}): Promise<Ex
       (markedSteps.size ? ` (reached ${Math.max(...markedSteps)})` : "")
     : "";
   return {
-    actions,
+    // 스크롤 더듬기(섹션을 찾느라 내렸다 올렸다)는 필름에 실을 이유가 없다 —
+    // 같은 그룹의 연속 스크롤을 순수 후처리로 합쳐 한 번의 매끈한 이동으로.
+    actions: coalesceScrolls(actions),
     loginGated: false,
     notes: `explore: ${steps} steps, ${interactions} interactions, ${pruned} pruned, ${reprompts} reprompts${shotlist} | cost: ${cost}`,
     steps,
