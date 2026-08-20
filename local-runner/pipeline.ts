@@ -26,6 +26,7 @@ import { replay, type ReplayFallback } from "./replay";
 import { postprocess } from "./postprocess";
 import { explore, isLoginGated } from "./explore";
 import { installSafety, type BlockedWrite, type SafetyPolicy } from "./safety";
+import type { TerminalInfo } from "./build";
 import { assertFinalUrlPublic, watchLanBreach } from "./netguard";
 import { assertFocusShortcuts, enableFocus } from "./focus";
 import { extractModerationFrames, moderateDemo, type DemoCoverage } from "./moderate";
@@ -80,6 +81,9 @@ export type RecordDemoOptions = {
   // Project title, shown to the moderation classifier as extra (untrusted)
   // context — a phishing page often names its target brand in the title.
   projectTitle?: string;
+  // The take is a live ttyd terminal (CLI project, build.ts serveTerminal) —
+  // switches explore to the terminal briefing. Content is untrusted repo data.
+  terminal?: TerminalInfo;
   // CLI-only (see job.ts): operator recording their own fixtures/dev servers.
   // Disables netguard (private-address blocking) — queue jobs never set this.
   allowPrivateHost?: boolean;
@@ -293,6 +297,7 @@ export async function recordDemo(opts: RecordDemoOptions): Promise<RecordDemoRes
       demoScript: opts.demoScript,
       accessNote: opts.accessNote,
       accessImpossible: opts.accessImpossible,
+      terminal: opts.terminal,
     });
     await exploreCtx.close();
     await browser.close(); // explore done — no stray window at (0,0) during capture

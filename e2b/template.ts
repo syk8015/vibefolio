@@ -31,6 +31,12 @@ export const template = Template()
     PATH: "/opt/node/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
     PLAYWRIGHT_BROWSERS_PATH: "/opt/playwright",
   })
+  // ttyd: terminal-as-a-webpage for the CLI demo path (build.ts serveTerminal) —
+  // pinned static binary; the Debian/Ubuntu package availability varies by base.
+  .runCmd(
+    "curl -fsSL https://github.com/tsl0922/ttyd/releases/download/1.7.7/ttyd.x86_64 " +
+      "-o /usr/local/bin/ttyd && chmod +x /usr/local/bin/ttyd && /usr/local/bin/ttyd --version",
+  )
   .runCmd("node -v && npm -v && git --version")
   .runCmd("npm i -g playwright@1.50.0")
   .runCmd("playwright install --with-deps chromium")

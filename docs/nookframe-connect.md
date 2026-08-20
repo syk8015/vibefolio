@@ -44,7 +44,9 @@
     (`deployUrl`/`appUrl`은 `detectDemoSource`가 github 저장소 URL도 인식한다 — 미배포+서버/DB 필요 앱의
     최후수단으로 08-14부터 프롬프트·MCP·CLI가 안내. 공개 저장소 필수. JS는 `dev`/`start` 스크립트로,
     파이썬 웹앱(Streamlit·Gradio·Flask·FastAPI·Dash import 감지)은 pip install 후 프레임워크별
-    명령으로 자동 실행(08-20, `servePython`) — 둘 다 아니면 정적 index.html→not-a-webapp 순. 원격 DB
+    명령으로 자동 실행(08-20, `servePython`) — 둘 다 아니면 정적 index.html, 그것도 없는 러너블 코드
+    (package.json 또는 *.py)는 ttyd 라이브 터미널 촬영(08-20, `serveTerminal` — .env* 삭제 후 기동,
+    policy=full, 브리핑=`buildTerminalBrief`)→최후에 not-a-webapp. 원격 DB
     감지 시 읽기전용 데모로 격하, best-effort(`local-runner/build.ts`). 같은 날 발견한 버그
     — `next dev`는 `--host`가 아니라 `-H`만 지원해 Next.js 프로젝트가 이 경로에서 죽던 것 — 도 같이 수정)
     (`deployUrl`·`appUrl`을 **둘 다** 주면 고르지 않은 쪽을 버리지 않고 `demo_access.altUrl`에 남긴다

@@ -34,10 +34,23 @@ const READY_TIMEOUT_MS = 90_000;
 const DEV_PORT = 3000;
 const NODE_PATH_PREFIX = "export PATH=/opt/node/bin:$PATH && ";
 
+// Terminal (CLI) demo path: what the ttyd take needs to brief the robot with.
+// commands = invocable entry points (package.json bin names / python entry),
+// readme = usage excerpt. Both UNTRUSTED repo data — explore frames them as data.
+export type TerminalInfo = {
+  runtime: "node" | "python";
+  commands: string[];
+  readme: string;
+};
+
 export type BuiltApp = {
   url: string; // public https URL of the sandbox dev server
   sandboxId: string;
   repoFiles: Record<string, string>; // env/schema/config contents for decidePolicy
+  // Present when the take is a live terminal (ttyd), not a web app — job.ts
+  // forces policy "full" (everything runs inside the disposable sandbox) and
+  // pipeline/explore switch to the terminal briefing.
+  terminal?: TerminalInfo;
   close: () => Promise<void>;
 };
 
@@ -270,6 +283,165 @@ export async function servePython(
   };
 }
 
+// ── Terminal (CLI) demos (2026-08-20, type-coverage roadmap ②) ────────────────
+// A repo that is runnable code but has NO web face at all (Node CLI, Python
+// script/bot, backend-only) used to die not-a-webapp. Instead: launch ttyd — a
+// live shell rendered as a webpage — inside the sandbox, and let the existing
+// browser robot film it by typing commands. Everything the robot runs executes
+// in the disposable sandbox; .env* files are deleted first so a command can
+// never reach the creator's real remote services with real credentials.
+
+// Last resort by design: only reached when JS scripts, Python web frameworks and
+// static HTML all failed to match. package.json wins over stray .py files.
+export async function detectTerminalApp(
+  sandbox: Sandbox,
+  repoPath: string,
+  repoFiles: Record<string, string>,
+): Promise<TerminalInfo | null> {
+  const readme = await sandbox.commands
+    .run(
+      `cd ${shQuote(repoPath)} && for f in README.md README.MD readme.md README README.rst README.txt; do ` +
+        `if [ -f "$f" ]; then head -c 1500 "$f"; break; fi; done`,
+    )
+    .then((r) => r.stdout.trim())
+    .catch(() => "");
+
+  const rawPkg = repoFiles["package.json"];
+  if (rawPkg) {
+    let commands: string[] = [];
+    try {
+      const pkg = JSON.parse(rawPkg) as {
+        name?: string;
+        main?: string;
+        bin?: string | Record<string, string>;
+      };
+      if (typeof pkg.bin === "string") commands = [pkg.name ?? "node ."];
+      else if (pkg.bin && typeof pkg.bin === "object") commands = Object.keys(pkg.bin);
+      else if (pkg.main) commands = [`node ${pkg.main}`];
+      else commands = ["node ."];
+    } catch {
+      commands = ["node ."];
+    }
+    return { runtime: "node", commands: commands.slice(0, 5), readme };
+  }
+
+  const pyFiles = await sandbox.commands
+    .run(
+      `cd ${shQuote(repoPath)} && find . -maxdepth 3 -name '*.py' -not -path './node_modules/*' ` +
+        `-not -path './.venv/*' -not -path './venv/*' -not -path './.git/*' | head -20`,
+    )
+    .then((r) => r.stdout.split("\n").map((l) => l.trim().replace(/^\.\//, "")).filter(Boolean))
+    .catch(() => [] as string[]);
+  if (pyFiles.length) {
+    pyFiles.sort((a, b) => pyEntryScore(a) - pyEntryScore(b));
+    return { runtime: "python", commands: [`python ${pyFiles[0]}`], readme };
+  }
+
+  return null;
+}
+
+export async function serveTerminal(
+  sandbox: Sandbox,
+  repoPath: string,
+  term: TerminalInfo,
+  repoFiles: Record<string, string>,
+): Promise<BuiltApp> {
+  // Dependencies, best-effort — a terminal take still films something useful
+  // (README, the error itself) when install fails, so nothing here throws.
+  if (term.runtime === "node") {
+    let hasDeps = false;
+    try {
+      const pkg = JSON.parse(repoFiles["package.json"] ?? "{}") as {
+        dependencies?: object; devDependencies?: object; bin?: unknown;
+      };
+      hasDeps = !!(pkg.dependencies && Object.keys(pkg.dependencies).length) ||
+        !!(pkg.devDependencies && Object.keys(pkg.devDependencies).length);
+    } catch { /* unparseable — skip install */ }
+    if (hasDeps) {
+      const install = await sandbox.commands.run(
+        `${NODE_PATH_PREFIX}cd ${repoPath} && npm install --no-audit --no-fund --prefer-offline`,
+        { timeoutMs: INSTALL_TIMEOUT_MS },
+      ).catch(() => null);
+      console.log(`[build] terminal npm install exit ${install?.exitCode ?? "skipped"}`);
+    }
+    // Make the CLI's bin name invocable by name (npx-style) without root: a
+    // user-writable global prefix that the ttyd shell's PATH includes.
+    await sandbox.commands.run(
+      `${NODE_PATH_PREFIX}cd ${repoPath} && npm install -g --prefix /tmp/npmg --no-audit --no-fund . || true`,
+      { timeoutMs: 120_000 },
+    ).catch(() => {});
+  } else {
+    await sandbox.commands.run(`python3 -m venv /tmp/pyvenv`, { timeoutMs: 120_000 }).catch(() => {});
+    await sandbox.commands.run(
+      `cd ${shQuote(repoPath)} && if [ -f requirements.txt ]; then /tmp/pyvenv/bin/pip install -q --no-input -r requirements.txt; fi`,
+      { timeoutMs: INSTALL_TIMEOUT_MS },
+    ).catch(() => {});
+  }
+
+  // Secret strip — the ONE hard guard of this path: the robot's commands run
+  // for real inside the sandbox, and unlike the web paths there is no
+  // browser-hop to mock, so a CLI configured with the creator's remote DB/API
+  // creds could mutate real data. No .env, no creds, no reach. (decidePolicy
+  // already captured these files for its scan; the job forces policy "full".)
+  await sandbox.commands.run(
+    `find ${shQuote(repoPath)} -maxdepth 5 -name '.env*' -type f -delete`,
+  ).catch(() => {});
+
+  // Light theme (라이트 데모 폴리시) + big font: reads well on film and keeps
+  // the blank-capture luminance guard meaningful.
+  const theme = JSON.stringify({
+    background: "#FDFDFB", foreground: "#1F1F1F", cursor: "#1F1F1F",
+    selectionBackground: "#BFDBFE",
+  });
+  await sandbox.files.write(
+    "/tmp/ttyrc",
+    `export PATH=/tmp/npmg/bin:/tmp/pyvenv/bin:/opt/node/bin:$PATH\ncd ${shQuote(repoPath)}\nexport PS1='$ '\n`,
+  );
+  await sandbox.commands.run(
+    `ttyd -p ${DEV_PORT} -W -t fontSize=22 -t ${shQuote(`theme=${theme}`)} ` +
+      `bash --rcfile /tmp/ttyrc > /tmp/dev.log 2>&1`,
+    { background: true },
+  );
+
+  const host = sandbox.getHost(DEV_PORT);
+  const url = `https://${host}`;
+  const deadline = Date.now() + READY_TIMEOUT_MS;
+  let ready = false;
+  while (Date.now() < deadline) {
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+      if (res.status < 500) {
+        ready = true;
+        break;
+      }
+    } catch {
+      /* not up yet */
+    }
+    await new Promise((r) => setTimeout(r, 1000));
+  }
+  if (!ready) {
+    const tail = await sandbox.commands.run("tail -40 /tmp/dev.log");
+    throw new BuildFailedError(
+      `ttyd terminal did not become reachable within ${READY_TIMEOUT_MS / 1000}s.\n--- dev.log tail ---\n${tail.stdout}`,
+    );
+  }
+  try {
+    await sandbox.setTimeout(SERVE_EXTENSION_MS);
+  } catch {
+    /* older SDK / transient — initial budget usually suffices */
+  }
+  console.log(`[build] terminal (ttyd, ${term.runtime}) reachable: ${url}`);
+  return {
+    url,
+    sandboxId: sandbox.sandboxId,
+    repoFiles,
+    terminal: term,
+    close: async () => {
+      await sandbox.kill().catch(() => {});
+    },
+  };
+}
+
 // Serve a static directory (no build step) on the same public port the recorder
 // hits. Uses a dependency-free Node http server written into the sandbox — no
 // `npx` download, works offline. index.html is the directory default.
@@ -461,12 +633,21 @@ export async function buildAndServe(
         `find ${repoPath} -maxdepth 3 -name index.html -not -path '*/node_modules/*' -printf '%d %p\\n' 2>/dev/null | sort -n | head -1 | cut -d' ' -f2-`,
       );
       const indexPath = found.stdout.trim();
-      if (!indexPath) {
-        throw new NotAWebappError("no dev script, no Python web app, and no index.html — nothing to serve");
+      if (indexPath) {
+        const serveDir = indexPath.replace(/\/index\.html$/, "");
+        console.log(`[build] static site (no dev script) → serving ${serveDir}`);
+        return await serveStatic(sandbox, serveDir, repoFiles);
       }
-      const serveDir = indexPath.replace(/\/index\.html$/, "");
-      console.log(`[build] static site (no dev script) → serving ${serveDir}`);
-      return await serveStatic(sandbox, serveDir, repoFiles);
+      // No web face at all — if it's still runnable code, film it as a live
+      // terminal instead of failing not-a-webapp (type-coverage roadmap ②).
+      const term = await detectTerminalApp(sandbox, repoPath, repoFiles);
+      if (term) {
+        console.log(`[build] no web app → terminal demo (${term.runtime}: ${term.commands.join(", ")})`);
+        return await serveTerminal(sandbox, repoPath, term, repoFiles);
+      }
+      throw new NotAWebappError(
+        "no dev script, no Python web app, no index.html, and no runnable CLI — nothing to serve",
+      );
     }
 
     const install = await sandbox.commands.run(

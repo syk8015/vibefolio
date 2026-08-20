@@ -198,7 +198,11 @@ export async function runJob(job: JobInput): Promise<JobOutcome> {
     } else {
       await job.onPhase?.("building");
       built = await buildAndServe(job.sourceType, job.sourceValue, job.ownerId);
-      policy = job.policyOverride ?? decidePolicy(job.sourceType, built.repoFiles);
+      // Terminal takes run everything inside the disposable sandbox (build.ts
+      // stripped .env* before ttyd came up, so remote-creds reach is gone) —
+      // read-only's browser-hop write-mocking has nothing to protect there.
+      policy = job.policyOverride ??
+        (built.terminal ? "full" : decidePolicy(job.sourceType, built.repoFiles));
       url = built.url;
     }
 
@@ -213,6 +217,7 @@ export async function runJob(job: JobInput): Promise<JobOutcome> {
       altUrl,
       projectId: job.projectId,
       policy,
+      terminal: built?.terminal,
       upload: job.upload,
       userHint: job.userHint,
       demoScript: job.demoScript,
