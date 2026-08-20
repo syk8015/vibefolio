@@ -364,17 +364,17 @@ export default function PortfolioPipSection({ profiles, locale }: Props) {
           </p>
         )}
         <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontFamily: "var(--font-nunito)", margin: 0 }}>
+          {/* 같은 탭 이동(2026-08-20 사용자 확정): 내부 페이지라 새 탭이 오히려
+              어색했고, 시연 촬영 로봇도 이 링크로 명함에 진입한다(새 탭은 추적 불가). */}
           <a
             href={`/${encodeURIComponent(profile.username)}`}
-            target="_blank"
-            rel="noopener noreferrer"
             style={{ color: "var(--blue)", textDecoration: "none", fontWeight: 600 }}
           >
             @{profile.username}
           </a>
           {locale === "en"
-            ? <>{"'s frame · full view in a new tab →"}</>
-            : <>&nbsp;의 프레임 · 새 탭에서 전체 보기 →</>}
+            ? <>{"'s frame · full view →"}</>
+            : <>&nbsp;의 프레임 · 전체 보기 →</>}
         </p>
       </div>
     </div>

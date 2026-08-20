@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { PREVIEW_ORIGIN, APP_ORIGIN } from "@/lib/previewOrigin";
+import { LOCALE_COOKIE, isLocale } from "@/lib/i18n/config";
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -25,6 +26,24 @@ export async function middleware(request: NextRequest) {
       new URL(pathname + request.nextUrl.search, APP_ORIGIN),
       307,
     );
+  }
+
+  // ?lang=ko|en — 언어 쿠키 토글(B안)의 URL 오버라이드. Accept-Language를 못
+  // 바꾸는 쪽(공유 링크, 시연 촬영 로봇)이 언어를 지정하는 유일한 통로다.
+  // 같은 요청 렌더에 주입하는 대신 쿠키를 심고 lang만 뗀 같은 주소로 307 —
+  // 이후 모든 페이지 이동에 쿠키가 따라간다. 쿠키 옵션은 LanguageToggle의
+  // document.cookie 쓰기와 동일하게 유지할 것.
+  const langParam = request.nextUrl.searchParams.get("lang");
+  if (isLocale(langParam)) {
+    const clean = request.nextUrl.clone();
+    clean.searchParams.delete("lang");
+    const langResponse = NextResponse.redirect(clean, 307);
+    langResponse.cookies.set(LOCALE_COOKIE, langParam, {
+      path: "/",
+      maxAge: 31536000,
+      sameSite: "lax",
+    });
+    return langResponse;
   }
 
   let supabaseResponse = NextResponse.next({ request });
