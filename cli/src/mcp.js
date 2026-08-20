@@ -59,7 +59,10 @@ export async function runMcp() {
                 type: "object",
                 properties: {
                   goal: { type: "string", description: "이 비트가 증명하는 것 (120자 이내)" },
-                  where: { type: "string", description: "화면에서 그 컨트롤을 찾는 법 — CSS 셀렉터가 아니라 보이는 라벨·위치 (120자 이내)" },
+                  // 전 스텝에 selector가 있으면 로봇이 비전 없이 DOM에서 직접 조립(더 빠르고 정확, 2026-08-20).
+                  selector: { type: "string", description: "그 컨트롤의 CSS 셀렉터 — 코드를 아는 네가 정확한 걸 줘라 (250자 이내)" },
+                  toSelector: { type: "string", description: "action=drag일 때 놓을 곳의 CSS 셀렉터" },
+                  where: { type: "string", description: "눈으로 찾는 법(보이는 라벨·위치) — 셀렉터가 빗나갔을 때의 폴백 (120자 이내)" },
                   // "focus" = 강조 비트: 조작 없이 필름 카메라가 그 영역을 확대(2026-08-20).
                   action: { type: "string", enum: ["click", "type", "drag", "scroll", "hover", "draw", "focus"] },
                   text: { type: "string", description: "action=type일 때 입력할 내용 (60자 이내)" },

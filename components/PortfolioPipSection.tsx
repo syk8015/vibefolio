@@ -285,8 +285,12 @@ export default function PortfolioPipSection({ profiles, locale }: Props) {
           }}
         />
 
+        {/* data-pip-card: 시연 촬영 대본의 안정 앵커(2026-08-20 직배선 트랙).
+            iframe은 클로즈업 transform 탓에 boundingBox가 보이는 카드보다 커서
+            프레이밍 앵커로 못 쓴다 — overflow hidden인 이 래퍼가 실측 기준. */}
         <div
           ref={mockupRef}
+          data-pip-card
           style={{
             position: "relative",
             width: frameW,

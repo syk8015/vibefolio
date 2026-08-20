@@ -25,6 +25,8 @@ import { CameraTrack } from "./camera";
 import { replay, type ReplayFallback } from "./replay";
 import { postprocess } from "./postprocess";
 import { explore, isLoginGated } from "./explore";
+import { assembleScript, isFullyWired } from "./assemble";
+import type { Script } from "./script";
 import { installSafety, type BlockedWrite, type SafetyPolicy } from "./safety";
 import type { TerminalInfo } from "./build";
 import { assertFinalUrlPublic, watchLanBreach } from "./netguard";
@@ -292,13 +294,34 @@ export async function recordDemo(opts: RecordDemoOptions): Promise<RecordDemoRes
     // too, for a different reason — explore needs it for input, not cleanliness.
     await parkCursorOffPage(explorePage);
     const storage0 = await exploreCtx.storageState(); // shared footing for the take
-    const script = await explore(explorePage, {
-      userHint: opts.userHint,
-      demoScript: opts.demoScript,
-      accessNote: opts.accessNote,
-      accessImpossible: opts.accessImpossible,
-      terminal: opts.terminal,
-    });
+    // ── 직배선(2026-08-20): 대본의 전 스텝이 셀렉터를 달고 오면 비전 탐색을
+    // 통째로 건너뛰고 DOM 측정으로 조립한다(비용 ~0·프레이밍=측정값). 조립이
+    // 걸어보다 셀렉터를 못 잡으면(코드 채점 게이트) 페이지를 되감고 기존 비전
+    // 경로로 폴백 — 우리 토큰이 비상장치다. 터미널 테이크는 대상 아님.
+    let script: Script & { interactions?: number };
+    let wired = false;
+    if (opts.demoScript && !opts.terminal && isFullyWired(opts.demoScript)) {
+      console.log("[assemble] all steps carry selectors — direct-wire assembly (no vision pass)");
+      const asm = await assembleScript(explorePage, opts.demoScript);
+      if (asm.ok) {
+        script = asm.script;
+        wired = true;
+      } else {
+        console.log(`[assemble] ${asm.reason} → falling back to vision explore`);
+        // 조립 워크가 페이지 상태를 진행시켰다 — 비전 탐색은 첫 화면에서 시작.
+        await gotoSettled(explorePage, url);
+        await parkCursorOffPage(explorePage);
+      }
+    }
+    if (!wired) {
+      script = await explore(explorePage, {
+        userHint: opts.userHint,
+        demoScript: opts.demoScript,
+        accessNote: opts.accessNote,
+        accessImpossible: opts.accessImpossible,
+        terminal: opts.terminal,
+      });
+    }
     await exploreCtx.close();
     await browser.close(); // explore done — no stray window at (0,0) during capture
     console.log(`[explore] ${script.notes}`);

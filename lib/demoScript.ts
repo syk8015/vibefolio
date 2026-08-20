@@ -36,6 +36,13 @@ export type DemoScriptStep = {
   // 화면에서 그 컨트롤을 찾는 법. CSS 셀렉터가 아니라 사람이 보고 찾는 말
   // (보이는 라벨·위치) — 레코더는 스크린샷을 보는 비전 모델이다.
   where?: string;
+  // 그 컨트롤의 CSS 셀렉터(2026-08-20, 직배선 트랙). 만든 AI는 코드를 아니까
+  // 정확한 주소를 줄 수 있다 — 전 스텝에 selector가 있으면 레코더는 비전 모델
+  // 없이 DOM을 재면서 대본을 그대로 조립한다(비용 ~0, 프레이밍=측정값).
+  // 하나라도 빠지면 기존 비전 탐색으로 폴백. where는 폴백·리포트용으로 공존.
+  selector?: string;
+  // drag 전용: 놓을 곳의 셀렉터(직배선 드래그는 출발·도착 둘 다 필요).
+  toSelector?: string;
   action?: DemoScriptAction;
   // action=type일 때 입력할 내용(검색어 등).
   text?: string;
@@ -60,6 +67,7 @@ export type DemoScript = {
 // 필름이 34초라 10스텝 이상은 어차피 못 싣는다.
 export const DEMO_SCRIPT_MAX_STEPS = 10;
 export const DEMO_SCRIPT_GOAL_MAX = 120;
+export const DEMO_SCRIPT_SELECTOR_MAX = 250;
 export const DEMO_SCRIPT_WHERE_MAX = 120;
 export const DEMO_SCRIPT_TEXT_MAX = 60;
 export const DEMO_SCRIPT_EXPECT_MAX = 120;
@@ -93,6 +101,12 @@ function normStep(raw: unknown): DemoScriptStep | null {
   const step: DemoScriptStep = { goal };
   const where = clean(r.where ?? r.target, DEMO_SCRIPT_WHERE_MAX);
   if (where) step.where = where;
+  // 셀렉터는 대소문자·공백이 의미를 갖는 값이라 clean()의 공백 축약만 태우고
+  // 원형 유지(제어문자 제거·상한). 문법 검증은 조립 시점 locator가 한다.
+  const selector = clean(r.selector, DEMO_SCRIPT_SELECTOR_MAX);
+  if (selector) step.selector = selector;
+  const toSelector = clean(r.toSelector ?? r.to, DEMO_SCRIPT_SELECTOR_MAX);
+  if (toSelector) step.toSelector = toSelector;
   const action = clean(r.action, 20).toLowerCase();
   if ((DEMO_SCRIPT_ACTIONS as readonly string[]).includes(action)) {
     step.action = action as DemoScriptAction;

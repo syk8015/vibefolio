@@ -217,7 +217,10 @@ async function runAction(
         fell.out.push({ kind: act.kind, selector: act.selector, label: act.label, x: act.x, y: act.y });
       }
     }
-    cam.focusRegion({ x, y }, w, h, FOCUS_MOVE_MS);
+    // 15% 여유폭: 타이핑처럼 hold 동안 자라는 콘텐츠가 확대 박스 밖으로 삐져
+    // 나가던 것(2026-08-20 v3 육안 — 문구 양끝 잘림)의 수리. fit 자체의 0.85
+    // 마진과 합쳐 실측 박스보다 넉넉히 잡는다.
+    cam.focusRegion({ x, y }, w * 1.15, h * 1.15, FOCUS_MOVE_MS);
     await sleep(FOCUS_MOVE_MS + hold);
     return;
   }
