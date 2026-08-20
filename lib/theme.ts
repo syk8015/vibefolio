@@ -25,7 +25,13 @@ export function getInitialTheme(): Theme {
 // data-theme 속성만 바꾸고, 같은 화면의 다른 테마 컨트롤이 따라올 수 있게
 // 이벤트를 쏜다. 저장은 하지 않는다(시스템 변경 추종 경로가 있어서).
 export function applyTheme(theme: Theme) {
-  document.documentElement.setAttribute("data-theme", theme);
+  const root = document.documentElement;
+  root.setAttribute("data-theme", theme);
+  // UA 캔버스·스크롤바·폼 컨트롤 톤. layout의 부트 스크립트와 같은 처리를
+  // 토글 시점에도 해줘야 테마를 바꾼 뒤 새로고침 전까지 어긋나지 않는다.
+  root.style.colorScheme = theme;
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute("content", theme === "dark" ? "#1a1612" : "#fdfaf3");
   document.dispatchEvent(new CustomEvent(THEME_EVENT, { detail: { theme } }));
 }
 

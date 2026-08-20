@@ -7,6 +7,10 @@
 /* Light theme — near-white paper (default) */
 :root,
 [data-theme="light"] {
+  /* 브라우저가 CSS를 다 읽기 전에도(그리고 스크롤바·폼 컨트롤에도) 이 톤을
+     쓰게 알려준다. 없으면 UA 기본 캔버스가 흰색이라 다크 테마에서 새로고침할
+     때마다 흰 화면이 번쩍인다. */
+  color-scheme: light;
   --bg: #fdfaf3;
   --surface: #ffffff;
   --surface-soft: #f3ecd9;
@@ -46,6 +50,7 @@
 
 /* Dark theme — deep ink */
 [data-theme="dark"] {
+  color-scheme: dark;
   --bg: #1a1612;
   --surface: #221d18;
   --surface-soft: #2a221d;
@@ -78,6 +83,11 @@
 }
 
 * { box-sizing: border-box; }
+
+html {
+  /* 루트 캔버스. body에만 칠하면 로드 초반·스크롤 바운스 구간에서 흰색이 비친다. */
+  background-color: var(--bg);
+}
 
 body {
   background-color: var(--bg);

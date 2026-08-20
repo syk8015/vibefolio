@@ -46,11 +46,17 @@ export default function RootLayout({
   return (
     <html lang="ko" className={`${inter.variable} ${hahmlet.variable} ${mono.variable}`} suppressHydrationWarning>
       <head>
+        {/* CSS가 도착하기 전에도 브라우저가 캔버스를 어둡게 칠하도록 알려준다
+            (없으면 다크 테마에서 새로고침할 때마다 흰 화면이 번쩍인다).
+            OS 설정을 따르는 기본값이고, 저장된 테마가 다르면 아래 스크립트가 덮어쓴다. */}
+        <meta name="color-scheme" content="dark light" />
+        {/* 모바일 브라우저 상·하단 바 색. 스크립트가 실제 테마로 맞춰준다. */}
+        <meta name="theme-color" content="#1a1612" />
         {/* Runs before paint to prevent flash of wrong theme. Mirrors ThemeToggle's
             getInitialTheme(): stored choice wins, else follow the OS. Hard-coding 'light'
             here made OS-dark users flash light→dark once ThemeToggle mounted. */}
         <script dangerouslySetInnerHTML={{ __html: `
-(function(){try{var s=localStorage.getItem('vf-theme');var t=(s==='dark'||s==='light')?s:(window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark');document.documentElement.setAttribute('data-theme',t);}catch(e){}})();
+(function(){try{var s=localStorage.getItem('vf-theme');var t=(s==='dark'||s==='light')?s:(window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark');var r=document.documentElement;r.setAttribute('data-theme',t);r.style.colorScheme=t;var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content',t==='dark'?'#1a1612':'#fdfaf3');}catch(e){}})();
 (function(){try{var m=document.cookie.match(/(?:^|;\\s*)NEXT_LOCALE=(ko|en)/);var l=m?m[1]:(String(navigator.language||'').toLowerCase().indexOf('en')===0?'en':null);if(l)document.documentElement.lang=l;}catch(e){}})();
         `.trim() }} />
       </head>
