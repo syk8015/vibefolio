@@ -21,8 +21,10 @@ export function DraftReviewModal({ draft, onClose, onPublish, onEdit, onDelete }
   const { t } = useT();
   const isFile = draft.demo_url.startsWith("/api/preview/");
   // 파일 업로드는 샌드박스 오리진으로, 외부 URL은 그대로 임베드 시도.
+  // 실행형 코드 zip(비HTML 앵커, 2026-08-20)은 미리보기가 소스 원문이라 임베드 안 함.
+  const isEmbeddableFile = isFile && /\.html?$/i.test(draft.demo_url.split(/[?#]/)[0]);
   const previewSrc = isFile
-    ? toPreviewUrl(draft.demo_url)
+    ? (isEmbeddableFile ? toPreviewUrl(draft.demo_url) : undefined)
     : /^https?:\/\//.test(draft.demo_url) ? draft.demo_url : undefined;
   // 인제스트 수동 영상은 스토리지 직링크(mp4/webm) — <video>로 바로 튼다.
   // youtube 등 페이지 URL이면 video 태그가 못 여니 iframe 미리보기로 폴백.

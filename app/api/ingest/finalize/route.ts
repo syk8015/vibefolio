@@ -107,9 +107,13 @@ export async function POST(req: NextRequest) {
         if (bundleBuf.byteLength > MAX_UPLOAD_BYTES) {
           throw new UploadError(t.api.uploadTooLarge, "too-large");
         }
-        const { indexPath } = await storeZipBundle(admin, userId, projectId, bundleBuf.buffer as ArrayBuffer);
-        updates.demo_url = `/api/preview/${userId}/${projectId}/${indexPath}`;
-        updates.thumbnail = screenshotUrl(`${req.nextUrl.origin}${updates.demo_url}`);
+        const { entryPath, runnable } = await storeZipBundle(admin, userId, projectId, bundleBuf.buffer as ArrayBuffer);
+        updates.demo_url = `/api/preview/${userId}/${projectId}/${entryPath}`;
+        // runnable 앵커(소스 zip)는 미리보기 화면이 없다 — 인라인 경로와 동일하게
+        // thum.io 썸네일을 만들지 않는다(소스 원문 스크린샷 방지).
+        if (!runnable) {
+          updates.thumbnail = screenshotUrl(`${req.nextUrl.origin}${updates.demo_url}`);
+        }
       }
       const media = await uploadMedia(admin, userId, projectId, shotBuf, videoBuf, sniffed);
       Object.assign(updates, media); // screenshot thumbnail이 thum.io보다 우선

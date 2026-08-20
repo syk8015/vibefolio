@@ -9,7 +9,7 @@
 
 import {
   MAX_UPLOAD_BYTES, MAX_MEDIA_IMAGE_BYTES, MAX_MEDIA_VIDEO_BYTES,
-  expandZipBundle, findIndexHtml, sniffImage, sniffVideo, UploadError,
+  expandZipBundle, pickZipAnchor, sniffImage, sniffVideo, UploadError,
 } from "./upload-safety";
 
 // 서비스롤 admin 클라이언트 중 여기서 쓰는 표면만 (demoPayload.ts의 선례).
@@ -96,22 +96,24 @@ export async function uploadMedia(
   return updates;
 }
 
-// zip 번들을 확장(폭탄/엔트리 캡 내장)해 행 폴더에 올리고 index.html 상대경로를
-// 돌려준다. 최종 demo_url/thumbnail 세팅은 호출부 몫.
+// zip 번들을 확장(폭탄/엔트리 캡 내장)해 행 폴더에 올리고 demo_url이 가리킬
+// 앵커 파일의 상대경로를 돌려준다. 앵커=index.html(정적 사이트) 또는, 그게
+// 없으면 실행 가능한 코드의 표식(package.json / *.py — E2B 빌드 모드로 촬영,
+// 2026-08-20 zip 입구 완화). 최종 demo_url/thumbnail 세팅은 호출부 몫.
 export async function storeZipBundle(
   admin: AdminClient,
   userId: string,
   projectId: string,
   buf: ArrayBuffer,
-): Promise<{ indexPath: string }> {
+): Promise<{ entryPath: string; runnable: boolean }> {
   if (buf.byteLength > MAX_UPLOAD_BYTES) {
     throw new UploadError("업로드가 너무 커요.", "too-large");
   }
   const prefix = `${userId}/${projectId}/`;
   const entries = await expandZipBundle(buf); // 엔트리 수·압축해제 크기 캡 내장
-  const indexPath = findIndexHtml(entries);
-  if (!indexPath) {
-    throw new UploadError("index.html이 없어요.", "index-html-missing");
+  const anchor = pickZipAnchor(entries);
+  if (!anchor) {
+    throw new UploadError("index.html도 실행 가능한 코드도 없어요.", "index-html-missing");
   }
   // supabase-js는 최종 키를 인코딩 없이 URL에 끼워 넣고, fetch의 WHATWG 파서가
   // %2e%2e·raw CR/LF 등을 `..`로 정규화한다. 문자열 startsWith만으로는
@@ -139,5 +141,5 @@ export async function storeZipBundle(
       .upload(storagePath, e.data, { upsert: true, contentType: e.contentType });
     if (upErr) throw new UploadError(`파일 업로드 실패: ${upErr.message}`, "upload-failed");
   }
-  return { indexPath };
+  return { entryPath: anchor.path, runnable: anchor.kind === "runnable" };
 }

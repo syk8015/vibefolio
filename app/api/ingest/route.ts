@@ -335,11 +335,16 @@ export async function POST(req: NextRequest) {
         if (bundle.size > MAX_UPLOAD_BYTES) {
           throw new UploadError(t.api.uploadTooLarge, "too-large");
         }
-        const { indexPath } = await storeZipBundle(admin, userId, projectId, await bundle.arrayBuffer());
-        demoUrl = `/api/preview/${userId}/${projectId}/${indexPath}`;
+        const { entryPath, runnable } = await storeZipBundle(admin, userId, projectId, await bundle.arrayBuffer());
+        demoUrl = `/api/preview/${userId}/${projectId}/${entryPath}`;
+        // runnable 앵커(파이썬·CLI 소스 zip)는 미리보기가 없어 thum.io 스크린샷이
+        // 소스 코드 원문을 찍는다 — 썸네일 없이 두고 촬영본/제작자 스크린샷이 채운다.
         const { error: updErr } = await admin
           .from("projects")
-          .update({ demo_url: demoUrl, thumbnail: screenshotUrl(`${req.nextUrl.origin}${demoUrl}`) })
+          .update({
+            demo_url: demoUrl,
+            ...(runnable ? {} : { thumbnail: screenshotUrl(`${req.nextUrl.origin}${demoUrl}`) }),
+          })
           .eq("id", projectId);
         if (updErr) throw new UploadError(t.api.demoUrlSaveFailed);
       } catch (e) {

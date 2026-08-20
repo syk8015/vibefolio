@@ -13,6 +13,15 @@ function isFileUpload(url: string | undefined): boolean {
   return !!url && url.startsWith("/api/preview/");
 }
 
+// 파일 업로드 중 iframe에 띄울 수 있는 것 — HTML 앵커만. 실행형 코드 zip
+// (파이썬·CLI, 2026-08-20 입구 완화)은 demo_url이 package.json/*.py를 가리켜
+// 임베드하면 소스 원문이 그대로 뜬다 → 영상/썸네일로만 보여준다.
+function isEmbeddableUpload(url: string | undefined): boolean {
+  if (!isFileUpload(url)) return false;
+  const path = (url ?? "").split(/[?#]/)[0];
+  return /\.html?$/i.test(path);
+}
+
 // Site-kind labels live in the i18n dictionary (t.contentTypes), mirroring
 // CONTENT_TYPES ids in lib/projectTaxonomy.ts (the optional "무슨 사이트인지" field).
 
@@ -20,7 +29,8 @@ function safeHref(url: string | undefined): string | undefined {
   if (!url) return undefined;
   if (url.startsWith("https://") || url.startsWith("http://")) return url;
   // Uploaded previews open on the sandbox origin, never under the app origin.
-  if (url.startsWith("/api/preview/")) return toPreviewUrl(url);
+  // Runnable-code anchors (non-HTML) would open raw source — no link for those.
+  if (url.startsWith("/api/preview/")) return isEmbeddableUpload(url) ? toPreviewUrl(url) : undefined;
   return undefined;
 }
 
@@ -73,7 +83,7 @@ function LivePreview({ project, variant }: { project: Project; variant: "mobile"
   if (project.demoVideoUrl) {
     return <VideoBackground url={project.demoVideoUrl} kind="direct" poster={posterSrc} title={project.title} fit={videoFit} />;
   }
-  if (isFile && project.demoUrl) {
+  if (isEmbeddableUpload(project.demoUrl) && project.demoUrl) {
     return (
       <iframe
         src={toPreviewUrl(project.demoUrl)}
@@ -751,7 +761,7 @@ function MobileHeroMedia({ project }: { project: Project }) {
     ) : null;
   } else if (directUrl) {
     sharp = <MobileVideo url={directUrl} poster={posterSrc} layer="sharp" />;
-  } else if (isFile && project.demoUrl) {
+  } else if (isEmbeddableUpload(project.demoUrl) && project.demoUrl) {
     sharp = (
       <iframe
         src={toPreviewUrl(project.demoUrl)}

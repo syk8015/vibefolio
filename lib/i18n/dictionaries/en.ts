@@ -522,7 +522,7 @@ export const en: Dictionary = {
     draftNoFields: "No fields to update.",
     draftUrlImmutable: "To change the URL or files, run publish again — pushing the same URL updates the existing draft.",
     projectCreateFailed: "Couldn't create the project.",
-    indexHtmlMissing: "No index.html found. Auto demos film what shows up in a browser — include index.html in your static site bundle.",
+    indexHtmlMissing: "This bundle has no web page (index.html) and no runnable code (package.json / *.py). Include index.html for a static site, or the source files for a Python/CLI project.",
     badFilePath: "An invalid file path was detected.",
     fileUploadFailed: (detail: string) => `File upload failed: ${detail}`,
     demoUrlSaveFailed: "Couldn't save the demo URL.",

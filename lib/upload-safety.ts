@@ -216,6 +216,39 @@ export async function expandZipBundle(
   return out;
 }
 
+// zip이 가리킬 "앵커 파일"을 고른다 (2026-08-20, 유형 커버리지 — zip 입구 완화).
+// html = 정적 웹페이지(기존 경로: 미리보기 임베드+정적 촬영). runnable = 웹
+// 얼굴은 없지만 실행 가능한 코드(package.json 또는 *.py) — E2B 빌드 모드로
+// 보내면 워커의 파이썬/터미널 감지가 처리한다(local-runner/build.ts와 같은
+// 신호·엔트리 랭킹을 쓰는 짝 — 목록 바꾸면 양쪽 같이). demo_url은 이 앵커
+// 파일을 가리키고, .html이 아닌 앵커는 명함에서 임베드하지 않는다(영상+썸네일).
+export type ZipAnchor = { path: string; kind: "html" | "runnable" };
+
+const PY_ANCHOR_RANK = [
+  "streamlit_app.py", "app.py", "main.py", "home.py", "server.py", "run.py", "cli.py", "index.py",
+];
+
+export function pickZipAnchor(entries: { relativePath: string }[]): ZipAnchor | null {
+  const html = findIndexHtml(entries);
+  if (html) return { path: html, kind: "html" };
+  const paths = entries.map((e) => e.relativePath);
+  const depth = (p: string) => p.split("/").length;
+  const pkgs = paths
+    .filter((p) => p.toLowerCase() === "package.json" || p.toLowerCase().endsWith("/package.json"))
+    .sort((a, b) => depth(a) - depth(b));
+  if (pkgs.length) return { path: pkgs[0], kind: "runnable" };
+  const pyScore = (p: string) => {
+    const base = p.split("/").pop() ?? p;
+    const rank = PY_ANCHOR_RANK.indexOf(base.toLowerCase());
+    return (rank === -1 ? PY_ANCHOR_RANK.length : rank) * 100 + depth(p);
+  };
+  const pys = paths
+    .filter((p) => p.toLowerCase().endsWith(".py"))
+    .sort((a, b) => pyScore(a) - pyScore(b));
+  if (pys.length) return { path: pys[0], kind: "runnable" };
+  return null;
+}
+
 /** 번들에서 index.html을 찾아 그 상대경로를 돌려준다(가장 얕은 것). 없으면 null. */
 export function findIndexHtml(entries: { relativePath: string }[]): string | null {
   const indexes = entries

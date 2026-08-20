@@ -9,7 +9,7 @@ const HELP = `nookframe — 바이브코딩 작품을 한 줄로 Nookframe에 �
     --url <url>        배포된 공개 URL (없으면 dist/out/build/public 자동 탐색)
                         서버·DB 필요해 그걸로 안 되면 공개 GitHub 저장소 URL도 가능(최후 수단, JS·파이썬 웹앱 자동 실행 / CLI·봇은 라이브 터미널 촬영)
     --app-url <url>    실제 앱 화면 URL (랜딩과 다를 때 — 시연은 이 주소를 촬영)
-    --dir <path>       올릴 정적 빌드 디렉터리 (지정 시 zip 업로드)
+    --dir <path>       올릴 디렉터리 (정적 빌드 또는 파이썬·CLI 소스, 지정 시 zip 업로드)
     --title <t>        제목
     --description <t>  한 문단 설명
     --note <text>      공개 카드 말풍선에 뜨는 짧은 한마디 (builderNote)

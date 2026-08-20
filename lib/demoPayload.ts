@@ -46,6 +46,14 @@ export async function resolveBuildPayload(
     if (prefix.split("/")[0] !== ownerId) {
       throw new DemoSourceError("preview source does not belong to the project owner");
     }
+    // Runnable-code zips (2026-08-20 입구 완화): the anchor demo_url points at a
+    // non-HTML file (package.json / *.py) because the bundle has no web page to
+    // serve — nothing to record statically, so it always goes to the E2B build,
+    // where the worker's JS/Python/terminal detection chain takes over.
+    const anchorFile = source.value.split("/").pop() ?? "";
+    if (!/\.html?$/i.test(anchorFile)) {
+      return { projectId, sourceType: "zip", sourceValue: prefix };
+    }
     const { data: rootFiles } = await client.storage
       .from("project-files")
       .list(prefix, { limit: 1000 });
