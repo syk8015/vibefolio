@@ -70,16 +70,3 @@ export type ProjectForm = Omit<
   | "demo_status_changed_at"
 >;
 
-export const EMPTY_FORM: ProjectForm = {
-  title: "",
-  description: "",
-  type: "image",
-  content_type: null,
-  thumbnail: "",
-  year: new Date().getFullYear().toString(),
-  tags: [],
-  demo_url: "",
-  comment: "",
-  video_url: "",
-  demo_user_hint: null,
-};

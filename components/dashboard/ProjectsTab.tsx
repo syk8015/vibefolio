@@ -161,52 +161,6 @@ export default function ProjectsTab({ user, username, reviewProjectId }: { user:
     }
   }
 
-  async function handleAdd(form: ProjectForm) {
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from("projects")
-      .insert({
-        ...form,
-        demo_user_hint: form.demo_user_hint?.trim() || null,
-        user_id: user.id,
-        sort_order: projects.length,
-      })
-      .select().single();
-    if (error) throw new Error(error.message);
-    if (data) {
-      const inserted = data as DBProject;
-      // 수동 시연 영상이 있으면 자동 촬영 생략: 노출 순위에서 video_url이 항상
-      // 이겨 촬영본이 보일 일이 없으므로 비용·워커 시간만 쓴다(Connect 요청1 합의).
-      const source = form.video_url ? null : detectDemoSource(form.demo_url);
-      // 자동 시연 영상이 가능한 소스(github URL · 파일 업로드 · 외부 URL)는 잡 트리거 + 옵티미스틱 pending 배지
-      const optimistic: DBProject = source
-        ? { ...inserted, demo_build_status: "pending", demo_source_type: source.type, demo_source_value: source.value }
-        : inserted;
-      setProjects(prev => [...prev, optimistic]);
-      trackClientEvent(AnalyticsEvent.ProjectCreated, {
-        projectId: inserted.id,
-        demoSource: source?.type ?? null,
-      });
-      if (source) {
-        // Fire-and-forget on the happy path (realtime moves pending→done). But a
-        // trigger that fails emits no realtime row, so the optimistic "pending" badge
-        // would spin forever. On any non-OK or network error, revert to the saved row
-        // and tell them the project saved but the demo didn't start (retry from card).
-        fetch(`/api/projects/${inserted.id}/trigger-demo`, { method: "POST" })
-          .then(async (res) => {
-            if (res.ok) return;
-            const body = await res.json().catch(() => ({}));
-            setProjects(prev => prev.map(p => p.id === inserted.id ? inserted : p));
-            setNotice(body.message || t.projects.demoStartFailed);
-          })
-          .catch(() => {
-            setProjects(prev => prev.map(p => p.id === inserted.id ? inserted : p));
-            setNotice(t.projects.demoRequestFailed);
-          });
-      }
-    }
-    setShowAddModal(false);
-  }
 
   async function handleRerecord(id: string) {
     const project = projects.find(p => p.id === id);
@@ -434,15 +388,10 @@ export default function ProjectsTab({ user, username, reviewProjectId }: { user:
         )}
       </div>
 
-      {/* 추가 = 오버레이 모달, 기본 화면은 AI 연결(수동 위저드는 우상단 버튼으로).
-          옛 접이식 연결 카드(리디자인 결정 2)는 모달이 그 역할을 흡수하며 제거. */}
-      {showAddModal && (
-        <AddProjectModal
-          userId={user.id}
-          onClose={() => setShowAddModal(false)}
-          onSubmit={handleAdd}
-        />
-      )}
+      {/* 추가 = AI 연결 모달 하나. 수동 위저드는 2026-08-25 폐기(새로 올리는 길은
+          AI 경로로 통일 — 만든 AI가 촬영 대본까지 써 줘야 시연 영상이 제대로 나온다).
+          여기서 프로젝트 행을 만들지 않으므로 삽입·촬영 트리거는 /api/ingest가 맡는다. */}
+      {showAddModal && <AddProjectModal onClose={() => setShowAddModal(false)} />}
 
       {/* 초안 검토 — 행 클릭/메일 딥링크로 진입, AI가 쓴 전체 내용+미리보기 확인. */}
       {reviewDraft && (
