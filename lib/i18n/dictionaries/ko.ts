@@ -508,6 +508,10 @@ export const ko = {
     artifactRequired: "deployUrl(또는 appUrl) 또는 파일 번들(bundle)이 필요해요.",
     badUrl: "임베드·시연할 수 있는 URL이 아니에요.",
     demoAccessBadUrl: "demoAccess.url은 http(s) 주소이거나 /로 시작하는 경로여야 해요.",
+    scriptRequired:
+      "demoScript(촬영 대본)가 필요해요 — 이 대본이 곧 시연 영상입니다. 없으면 로봇이 화면을 픽셀로 더듬어 추측 촬영하게 되고, 느리고 비싸고 품질도 낮아요. { \"steps\": [ { \"goal\": …, \"selector\": …, \"where\": …, \"action\": \"click|type|drag|scroll|hover|draw|focus\", \"text\": …, \"expect\": …, \"hold\": … } ] } 형태로 5~8스텝(최소 3, 최대 10)을 중요한 순서대로 주세요. 이 앱을 만든 당신은 각 컨트롤의 정확한 CSS 셀렉터를 알고 있습니다(화면만 아는 경우엔 `where`에 눈으로 찾는 법을 적으면 폴백으로 씁니다). 유일한 예외: 직접 만든 시연 영상을 `video`로 첨부하면 자동 촬영을 건너뛰므로 대본이 필요 없어요.",
+    scriptTooThin: (n: number) =>
+      `demoScript가 ${n}스텝뿐이라 영상이 되기엔 부실해요. 최소 3스텝(권장 5~8, 최대 10)을 중요한 순서대로 주세요 — 1번은 이 작품에서 절대 빠지면 안 되는 기능이어야 합니다.`,
     mediaImageTooLarge: (maxMb: number) => `스크린샷 이미지가 너무 커요 (최대 ${maxMb}MB).`,
     mediaVideoTooLarge: (maxMb: number) => `시연 영상이 너무 커요 (최대 ${maxMb}MB).`,
     mediaImageBadType: "screenshot은 png/jpg/webp/gif 이미지 파일이어야 해요.",

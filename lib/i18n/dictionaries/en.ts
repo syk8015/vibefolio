@@ -491,6 +491,10 @@ export const en: Dictionary = {
     artifactRequired: "Either deployUrl (or appUrl) or a file bundle is required.",
     badUrl: "This URL can't be embedded or filmed for a demo.",
     demoAccessBadUrl: "demoAccess.url must be an http(s) URL or a path starting with /.",
+    scriptRequired:
+      "demoScript is required — it IS the demo film. Without it the robot has to guess from pixels, which is slower, pricier and worse. Send { \"steps\": [ { \"goal\": …, \"selector\": …, \"where\": …, \"action\": \"click|type|drag|scroll|hover|draw|focus\", \"text\": …, \"expect\": …, \"hold\": … } ] } with 5–8 steps (min 3, max 10), most important first: you built this app, so give the exact CSS selector for each control (a `where` label is the fallback when you only know the UI). Only exception: attach your own demo `video`, which skips auto-recording entirely.",
+    scriptTooThin: (n: number) =>
+      `demoScript has only ${n} step(s) — too thin to be a film. Send at least 3 (5–8 is the sweet spot, max 10), ordered by importance: step 1 must be the feature this project cannot be shown without.`,
     mediaImageTooLarge: (maxMb: number) => `The screenshot image is too large (max ${maxMb}MB).`,
     mediaVideoTooLarge: (maxMb: number) => `The demo video is too large (max ${maxMb}MB).`,
     mediaImageBadType: "screenshot must be a png/jpg/webp/gif image file.",

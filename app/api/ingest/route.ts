@@ -13,7 +13,7 @@ import {
 } from "./shared";
 import { normalizeTags, normalizeContentType } from "@/lib/projectTaxonomy";
 import { normalizeDemoAccess, type DemoAccess } from "@/lib/demoAccess";
-import { normalizeDemoScript } from "@/lib/demoScript";
+import { normalizeDemoScript, DEMO_SCRIPT_MIN_STEPS } from "@/lib/demoScript";
 import {
   MAX_UPLOAD_BYTES, MAX_MEDIA_IMAGE_BYTES, MAX_MEDIA_VIDEO_BYTES, UploadError,
 } from "@/lib/upload-safety";
@@ -179,6 +179,23 @@ export async function POST(req: NextRequest) {
           ),
         )].filter((k) => (k === "bundle" ? !bundle : k === "screenshot" ? !screenshot : !video))
       : [];
+
+    // 촬영 대본 게이트(2026-08-25 사용자 확정). 대본이 없으면 로봇은 화면을
+    // 픽셀로 더듬어 추측 촬영한다 — 품질도 비용도 나쁜 옛 경로다(편당 $0.19 vs
+    // 셀렉터 직배선 $0.02). 수동 업로드를 폐기해 대본이 **유일한 품질 손잡이**가
+    // 된 이상, 부실하면 저장하지 말고 발행 AI에게 되돌려보낸다 — AI는 에러를
+    // 보면 고쳐서 다시 보내므로, 이 거절이 곧 품질을 끌어올리는 유일한 순간이다.
+    // 면제: 직접 만든 시연 영상을 준 경우(자동 촬영 자체를 건너뛴다).
+    const hasOwnVideo = !!video || declared.includes("video");
+    if (!hasOwnVideo) {
+      const steps = demoScript?.steps.length ?? 0;
+      if (steps === 0) {
+        return apiError({ status: 400, message: t.api.scriptRequired, code: "SCRIPT_REQUIRED" });
+      }
+      if (steps < DEMO_SCRIPT_MIN_STEPS) {
+        return apiError({ status: 400, message: t.api.scriptTooThin(steps), code: "SCRIPT_TOO_THIN" });
+      }
+    }
 
     const admin = createAdminClient();
 

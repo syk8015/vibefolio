@@ -7,7 +7,7 @@ import { rateLimit } from "@/lib/rate-limit";
 import { bearerFromHeader } from "@/lib/apiToken";
 import { normalizeTags, normalizeContentType } from "@/lib/projectTaxonomy";
 import { normalizeDemoAccess } from "@/lib/demoAccess";
-import { normalizeDemoScript, type DemoScript } from "@/lib/demoScript";
+import { normalizeDemoScript, DEMO_SCRIPT_MIN_STEPS, type DemoScript } from "@/lib/demoScript";
 import { logger } from "@/lib/logger";
 import {
   ingestAuth, publicUrlGate, strOrNull, type IngestDict, buildAccepted,
@@ -27,10 +27,12 @@ async function loadDraft(
   id: string,
   userId: string,
   t: IngestDict,
-): Promise<{ id: string } | NextResponse> {
+): Promise<{ id: string; hasOwnVideo: boolean } | NextResponse> {
   const { data: row, error } = await admin
     .from("projects")
-    .select("id, user_id, is_draft")
+    // video_url = 제작자가 직접 준 시연 영상(있으면 자동 촬영을 안 한다) —
+    // 대본 게이트의 면제 근거라 여기서 같이 읽는다.
+    .select("id, user_id, is_draft, video_url")
     .eq("id", id)
     .maybeSingle();
   if (error || !row) {
@@ -42,7 +44,7 @@ async function loadDraft(
   if (!row.is_draft) {
     return apiError({ status: 409, message: t.api.finalizeNotDraft, code: "NOT_DRAFT" });
   }
-  return { id: row.id as string };
+  return { id: row.id as string, hasOwnVideo: !!(row.video_url as string | null) };
 }
 
 export async function PATCH(
@@ -80,6 +82,7 @@ export async function PATCH(
     if (draft instanceof NextResponse) return draft;
 
     // 보낸 키만 갱신 — 검증은 /api/ingest 생성 경로와 같은 규칙.
+    const { hasOwnVideo } = draft;
     const upd: Record<string, unknown> = {};
     if ("title" in payload) {
       const title = strOrNull(payload.title);
@@ -103,7 +106,20 @@ export async function PATCH(
         ? payload.demoHighlights.trim().slice(0, 500) || null
         : null;
     }
-    if ("demoScript" in payload) upd.demo_script = normalizeDemoScript(payload.demoScript);
+    if ("demoScript" in payload) {
+      // 생성 경로의 대본 게이트를 수정에서도 지킨다 — 여기로 대본을 비우면
+      // "게이트를 통과한 뒤 도로 부실해지는" 우회가 된다(초안은 아직 촬영 전이라
+      // 이 값이 그대로 필름이 된다). 영상 동봉분은 애초에 자동 촬영을 안 하므로 면제.
+      const next = normalizeDemoScript(payload.demoScript);
+      const steps = next?.steps.length ?? 0;
+      if (!hasOwnVideo && steps === 0) {
+        return apiError({ status: 400, message: t.api.scriptRequired, code: "SCRIPT_REQUIRED" });
+      }
+      if (!hasOwnVideo && steps < DEMO_SCRIPT_MIN_STEPS) {
+        return apiError({ status: 400, message: t.api.scriptTooThin(steps), code: "SCRIPT_TOO_THIN" });
+      }
+      upd.demo_script = next;
+    }
     if ("tags" in payload) upd.tags = normalizeTags(payload.tags);
     if ("contentType" in payload) upd.content_type = normalizeContentType(payload.contentType);
     if ("demoAccess" in payload) {

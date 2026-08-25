@@ -66,6 +66,11 @@ export type DemoScript = {
 // 상한: 캡을 다 채워도 jsonb가 DB shape check(16KB)에 여유 있게 들어가는 크기.
 // 필름이 34초라 10스텝 이상은 어차피 못 싣는다.
 export const DEMO_SCRIPT_MAX_STEPS = 10;
+// 발행 게이트의 하한(2026-08-25 사용자 확정 "부실하면 되돌려보내기"). 대본은
+// 자동 시연 영상의 품질을 결정하는 유일한 손잡이인데, 없어도 발행이 통과되던
+// 탓에 실제 초안 3개 중 2개가 대본 0스텝으로 올라와 옛 방식(로봇이 픽셀만 보고
+// 추측)으로 촬영되고 있었다. 3은 "성의 있는 최소치" — 프롬프트 권장은 5~8이다.
+export const DEMO_SCRIPT_MIN_STEPS = 3;
 export const DEMO_SCRIPT_GOAL_MAX = 120;
 export const DEMO_SCRIPT_SELECTOR_MAX = 250;
 export const DEMO_SCRIPT_WHERE_MAX = 120;

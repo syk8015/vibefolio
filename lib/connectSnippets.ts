@@ -44,7 +44,7 @@ You're the AI that built this project, so read the repo yourself and describe it
        a live portfolio you can actually touch
      Keep each line short (~20 CJK / ~40 Latin characters) so it doesn't wrap on a phone. Only 3 lines show on the card; over 200 characters is rejected
    • builderNote — (optional) a short one-liner shown as a speech bubble on the public card. One line, not a paragraph — e.g. "This is my first side project!"
-   • demoScript — the filming script the auto-demo robot follows. You BUILT this app, so you know which screen shows what and which control proves the core value — don't make the robot guess from pixels. Shape:
+   • demoScript — **REQUIRED** (the one exception: attaching your own demo "video", which skips auto-recording). A publish without it is rejected with an error telling you to write one. The filming script the auto-demo robot follows. You BUILT this app, so you know which screen shows what and which control proves the core value — don't make the robot guess from pixels. Shape:
        { "steps": [ { "goal": "what this beat proves", "selector": "the control's CSS selector — you know the code, give the exact one", "where": "how to FIND it by eye (visible label/position) — the fallback when a selector misses", "action": "click|type|drag|scroll|hover|draw|focus", "toSelector": "(drag only) CSS selector of the drop target", "text": "what to type (type only)", "expect": "what the screen should show right after", "hold": 2 } ],
          "skip": ["things NOT worth a beat because every app has them — e.g. a dark-mode or language toggle"],
          "prep": "one optional setup line before the tour" }
@@ -73,7 +73,7 @@ You're the AI that built this project, so read the repo yourself and describe it
        직접 보고 느끼는 라이브 포트폴리오
      각 줄은 20자 안팎으로 짧게(폰에서 줄이 접히면 마지막 줄이 잘려). 명함에는 3줄까지만 보이고, 200자를 넘으면 아예 안 받아
    • builderNote — (선택) 공개 카드에 말풍선으로 뜨는 짧은 한마디. 문단이 아니라 한 줄, 예: "이게 제 첫 사이드프로젝트예요!"
-   • demoScript — 자동 시연 로봇이 따라 찍는 촬영 대본. 이 앱은 네가 만들었으니 어떤 화면에서 뭘 눌러야 핵심이 보이는지 안다 — 로봇이 픽셀만 보고 추측하게 두지 마. 형식:
+   • demoScript — **필수** (유일한 예외: 직접 만든 시연 영상 "video"를 첨부하면 자동 촬영을 건너뛰므로 면제). 없이 발행하면 "대본을 써서 다시 보내라"는 에러로 거절된다. 자동 시연 로봇이 따라 찍는 촬영 대본. 이 앱은 네가 만들었으니 어떤 화면에서 뭘 눌러야 핵심이 보이는지 안다 — 로봇이 픽셀만 보고 추측하게 두지 마. 형식:
        { "steps": [ { "goal": "이 비트가 증명하는 것", "selector": "그 컨트롤의 CSS 셀렉터 — 코드를 아는 네가 정확한 걸 줄 수 있다", "where": "눈으로 찾는 법(보이는 라벨·위치) — 셀렉터가 빗나갔을 때의 폴백", "action": "click|type|drag|scroll|hover|draw|focus", "toSelector": "(drag 전용) 놓을 곳의 CSS 셀렉터", "text": "type일 때 입력할 내용", "expect": "하고 나면 화면에 나타나야 하는 것", "hold": 2 } ],
          "skip": ["모든 앱에 다 있어서 비트가 아까운 것들 — 예: 다크 모드·언어 토글"],
          "prep": "(선택) 투어 전 준비 한 줄" }
