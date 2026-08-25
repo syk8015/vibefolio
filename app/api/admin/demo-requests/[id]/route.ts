@@ -71,7 +71,8 @@ export async function POST(
     // approve → resolve source and enqueue.
     const { data: project, error: projErr } = await admin
       .from("projects")
-      .select("id, user_id, demo_url")
+      // pending_demo_script = 재촬영 루프에서 AI가 제출해 승인을 기다리는 새 대본.
+      .select("id, user_id, demo_url, pending_demo_script")
       .eq("id", request.project_id)
       .single();
     if (projErr || !project) {
@@ -123,9 +124,22 @@ export async function POST(
       throw e;
     }
 
+    // 대기 중인 새 대본이 있으면 승인과 동시에 승격한다 — 재촬영 루프(2026-08-25)의
+    // 2회차 경로: AI가 제출한 대본은 승인 전까지 pending에 머물고, 공개 데이터는
+    // 그대로다. 여기서 갈아끼워야 승인된 촬영이 "새 대본으로" 찍힌다.
+    const promote = project.pending_demo_script
+      ? {
+          demo_script: project.pending_demo_script,
+          pending_demo_script: null,
+          pending_script_at: null,
+          pending_script_note: null,
+        }
+      : {};
+
     const { error: updErr } = await admin
       .from("projects")
       .update({
+        ...promote,
         demo_source_type: payload.sourceType,
         demo_source_value: payload.sourceValue,
         demo_build_status: "pending",

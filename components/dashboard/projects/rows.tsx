@@ -411,6 +411,8 @@ export function ProjectRow({ project, username, demoPaused, nowMs, onDelete, onE
   const rerecordLabel =
     !project.demo_source_value || demoInFlight || status === "held"
       ? null
+      : project.pending_demo_script
+        ? t.projects.reviewPendingScript
       : project.demo_video_url || status === "done"
         ? t.projects.rerecordRequest
         : status === "failed"
@@ -473,6 +475,21 @@ export function ProjectRow({ project, username, demoPaused, nowMs, onDelete, onE
                 style={{ background: "var(--text-primary)", color: "var(--bg)", fontSize: "0.58rem", letterSpacing: "0.08em", textTransform: "uppercase" }}>
                 upload
               </span>
+            )}
+            {/* 재촬영 루프: AI가 새 대본을 제출해 두면 여기서 알린다. 누르면
+                재촬영 모달이 검토 화면으로 열려 대본을 보고 실행할 수 있다. */}
+            {project.pending_demo_script && (
+              <button
+                type="button"
+                onClick={onRerecord}
+                className="px-2 py-0.5 rounded-full text-xs shrink-0"
+                style={{
+                  background: "var(--surface-soft)", color: "var(--text-primary)",
+                  fontFamily: "var(--font-nunito)", fontWeight: 600, cursor: "pointer",
+                }}
+              >
+                {t.projects.pendingScriptBadge}
+              </button>
             )}
             <DemoBuildBadge
               status={project.demo_build_status}

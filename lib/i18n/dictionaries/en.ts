@@ -164,6 +164,8 @@ export const en: Dictionary = {
     errorBody: "Something went wrong while displaying the dashboard. Please retry or go back home.",
   },
   projects: {
+    pendingScriptBadge: "New script",
+    reviewPendingScript: "Review new script",
     scriptLabel: "Demo script",
     scriptSteps: (n: number) => `${n} steps`,
     scriptPrecise: "Pixel-exact",
@@ -402,6 +404,23 @@ export const en: Dictionary = {
     downloadMp4: "Download mp4",
   },
   rerecord: {
+    // Re-record loop (2026-08-25): the human complains in words, the AI rewrites the script.
+    bodyV2: "Tell us what you didn't like about the film — timestamps help. We'll build a re-record prompt that carries your notes plus the current script, and your building AI rewrites it.",
+    placeholderV2: "e.g. At 0:16 don't click the settings button. Show the search instead. And the result screen goes by too fast.",
+    copyPrompt: "Copy re-record prompt",
+    copying: "Building…",
+    copied: "Copied — paste it into your AI",
+    afterCopy: "Once the AI submits a new script, come back here to review it and press re-record.",
+    pendingTitle: "A new script arrived",
+    pendingBody: "Your AI rewrote the script. Review it and start the re-record if it looks right.",
+    aiNote: "AI note",
+    apply: "Re-record with this script",
+    applying: "Starting…",
+    queued: "Re-record started. We'll email you when the film lands.",
+    awaitingApproval: "Request filed. This project already used its one self-serve re-record, so an admin approves this one.",
+    askAgain: "Write new notes",
+    selfFreeHint: "This project can start one re-record right away.",
+    approvalHint: "The one self-serve re-record is used — this take needs admin approval.",
     title: "Request a re-record",
     body: "Each project gets one demo video. Tell us what you'd like changed and an admin will review and re-shoot it.",
     emptyReason: "Please describe what you'd like changed.",
@@ -506,6 +525,10 @@ export const en: Dictionary = {
     artifactRequired: "Either deployUrl (or appUrl) or a file bundle is required.",
     badUrl: "This URL can't be embedded or filmed for a demo.",
     demoAccessBadUrl: "demoAccess.url must be an http(s) URL or a path starting with /.",
+    rerecordPendingNext: "New script received. It starts nothing yet — the owner reviews it in their dashboard and presses re-record.",
+    rerecordNoPendingScript: "No new script is waiting. Hand the re-record prompt to your AI first — press this once it has submitted a new script.",
+    rerecordAlreadyUsed: "This project already used its one self-serve re-record. Further takes need admin approval.",
+    rerecordDefaultReason: "The owner asked for a re-record with a new script.",
     scriptRequired:
       "demoScript is required — it IS the demo film. Without it the robot has to guess from pixels, which is slower, pricier and worse. Send { \"steps\": [ { \"goal\": …, \"selector\": …, \"where\": …, \"action\": \"click|type|drag|scroll|hover|draw|focus\", \"text\": …, \"expect\": …, \"hold\": … } ] } with 5–8 steps (min 3, max 10), most important first: you built this app, so give the exact CSS selector for each control (a `where` label is the fallback when you only know the UI). Only exception: attach your own demo `video`, which skips auto-recording entirely.",
     scriptTooThin: (n: number) =>

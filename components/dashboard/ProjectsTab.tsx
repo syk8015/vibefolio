@@ -32,7 +32,7 @@ export default function ProjectsTab({ user, username, reviewProjectId }: { user:
   const reviewLinkConsumed = useRef(false);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
-  const [rerecordModal, setRerecordModal] = useState<{ id: string; title: string } | null>(null);
+  const [rerecordModal, setRerecordModal] = useState<DBProject | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   // 촬영 상태 배지의 realtime 구독 + 폴백 폴링 (projects/useDemoStatusSync.ts).
   const { demoPaused, nowMs } = useDemoStatusSync(user.id, projects, drafts, setProjects, setDrafts);
@@ -167,7 +167,7 @@ export default function ProjectsTab({ user, username, reviewProjectId }: { user:
     // A landed video is locked to one take — collect a change request for an admin
     // instead of silently re-shooting (and re-spending).
     if (project && (project.demo_video_url || project.demo_build_status === "done")) {
-      setRerecordModal({ id, title: project.title });
+      setRerecordModal(project);
       return;
     }
 
@@ -186,7 +186,7 @@ export default function ProjectsTab({ user, username, reviewProjectId }: { user:
           setProjects(prev => prev.map(p => p.id === id
             ? { ...p, demo_build_status: prevStatus }
             : p));
-          setRerecordModal({ id, title: project?.title ?? "" });
+          if (project) setRerecordModal(project);
           return;
         }
         throw new Error(body.error || `HTTP ${res.status}`);
@@ -422,12 +422,13 @@ export default function ProjectsTab({ user, username, reviewProjectId }: { user:
 
       {rerecordModal && (
         <RerecordRequestModal
-          projectId={rerecordModal.id}
-          projectTitle={rerecordModal.title}
+          project={rerecordModal}
           onClose={() => setRerecordModal(null)}
-          onSubmitted={() => {
+          onDone={(message) => {
             setRerecordModal(null);
-            setNotice(t.projects.rerecordSent);
+            setNotice(message);
+            // 촬영이 시작되면 상태 배지·대기 대본이 바뀐다 — 서버 상태를 다시 읽는다.
+            void loadProjects();
           }}
         />
       )}

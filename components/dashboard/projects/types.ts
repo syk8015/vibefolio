@@ -57,6 +57,13 @@ export interface DBProject {
   // 만든 AI가 써 준 촬영 대본. 발행 게이트가 최소 3스텝을 강제하므로 AI 경로로
   // 들어온 초안엔 사실상 항상 있다(예외=제작자가 시연 영상을 직접 준 경우).
   demo_script: DemoScript | null;
+  // 재촬영 루프: AI가 다시 써서 제출한 대본이 소유자 확인을 기다리는 자리.
+  // 승격(=demo_script 교체)은 [이 대본으로 재촬영]을 눌렀을 때 서버가 한다.
+  pending_demo_script: DemoScript | null;
+  pending_script_note: string | null;
+  pending_script_at: string | null;
+  // 작품당 셀프 재촬영 1회 소진 여부(서버 전용 — 가드 트리거가 유저 쓰기를 막는다).
+  rerecord_self_used: boolean;
 }
 
 export type ProjectForm = Omit<
@@ -75,5 +82,9 @@ export type ProjectForm = Omit<
   // 촬영 대본은 수정 폼이 다루지 않는다(읽기는 초안 검토 화면에서). 폼에 실리면
   // 저장 때마다 통째로 덮어쓰게 되고, 서버의 대본 게이트와 규칙이 갈린다.
   | "demo_script"
+  | "pending_demo_script"
+  | "pending_script_note"
+  | "pending_script_at"
+  | "rerecord_self_used"
 >;
 
