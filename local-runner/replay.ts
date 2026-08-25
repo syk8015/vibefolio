@@ -6,8 +6,11 @@
 import type { Page } from "playwright-core";
 import { CameraTrack, glideMsFor } from "./camera";
 import type { Script, ScriptAction } from "./script";
-import { cursorDown, cursorMoveTo, cursorPos, cursorPress, cursorUp } from "./cursor";
-import { VIEW_W, VIEW_H, ZOOM_OUT_MS } from "./config";
+import {
+  cursorDown, cursorHide, cursorMoveTo, cursorPos, cursorPress,
+  cursorSetPos, cursorShow, cursorUp, cursorVisible,
+} from "./cursor";
+import { VIEW_W, VIEW_H, ZOOM_OUT_MS, CURSOR_FADE_MS } from "./config";
 import { sleep } from "./util";
 
 // Cinematic timing (tune by eyeball in PoC).
@@ -99,10 +102,23 @@ async function resolveTarget(
   throw new Error("action has neither a resolvable selector nor a coordinate fallback");
 }
 
+// 커서는 "조작하는 비트"에서만 화면에 있다(2026-08-25 v4 육안 수리). 숨어 있었다면
+// 목표 근처의 **지금 보이는 프레임 안** 한 점에서 페이드인시킨 뒤 글라이드한다.
+// 이전 구조: 커서를 창 중앙에 두고 늘 그리기만 해서, 카메라가 딴 데를 확대하면
+// 커서는 크롭 밖에 있었고 글라이드도 화면 밖에서 끝나 "이미 그 자리에 있던 커서가
+// 갑자기 클릭"으로 보였다(사용자 지적: "클릭은 됐는데 커서가 미동도 안 해").
+async function appear(page: Page, cam: CameraTrack, to: Pt): Promise<void> {
+  if (await cursorVisible(page)) return;
+  const from = cam.entryPointFor(to);
+  await cursorSetPos(page, from.x, from.y);
+  await cursorShow(page, CURSOR_FADE_MS);
+}
+
 // Glide the synthetic cursor to `to`; the camera rides the same glide (push in on
 // region entry, pan while held, pull out on a far jump). Skips entirely when the
 // target is essentially where we already are.
 async function approach(page: Page, cam: CameraTrack, to: Pt): Promise<void> {
+  await appear(page, cam, to);
   const cur = (await cursorPos(page)) as Pt;
   const dist = Math.hypot(to.x - cur.x, to.y - cur.y);
   if (dist < SAME_PLACE_PX) return; // already here
@@ -158,6 +174,7 @@ export async function replay(
     done++;
   }
   cam.finish(); // settle to 1× so the tail hold frames the whole window
+  await cursorHide(page, CURSOR_FADE_MS); // 마지막 홀드·엔드캡엔 커서를 남기지 않는다
   return { actionsDone: done, actionsTotal: script.actions.length, fallbacks };
 }
 
@@ -172,6 +189,8 @@ async function runAction(
   // "이 비트는 천천히"를 지정하는 유일한 페이싱 채널. 없으면 기본 HOLD_MS.
   const hold = act.holdMs ?? HOLD_MS;
   if (act.kind === "scroll") {
+    // 스크롤은 손이 하는 일이 아니다(우리 필름에선 커서가 관여 안 함) → 숨긴다.
+    await cursorHide(page, CURSOR_FADE_MS);
     // 줌인 상태로 스크롤하면 확대창 밑으로 콘텐츠가 미끄러진다(키홀 효과) —
     // 스크롤은 항상 와이드에서. focus/클릭 줌이 남아 있으면 먼저 풀고 이동.
     if (cam.isZoomed()) {
@@ -183,6 +202,7 @@ async function runAction(
     return;
   }
   if (act.kind === "key") {
+    await cursorHide(page, CURSOR_FADE_MS); // 키 입력 비트엔 커서가 할 일이 없다
     await page.keyboard.press(act.key).catch(() => {});
     await sleep(hold / 2);
     return;
@@ -196,8 +216,10 @@ async function runAction(
   }
   if (act.kind === "focus") {
     // Camera-only emphasis (script focus beat): magnify the recorded region for
-    // the hold — the cursor does not move; the crop IS the emphasis. The selector
-    // re-anchors position drift, but only when its live box is plausibly the same
+    // the hold — 커서는 아예 화면에서 뺀다(크롭이 곧 강조이고, 조작이 없는데 점이
+    // 떠 있으면 "왜 저기 멈춰 있지"가 된다).
+    await cursorHide(page, CURSOR_FADE_MS);
+    // The selector re-anchors position drift, but only when its live box is plausibly the same
     // region the model framed (a derived selector can balloon to a page-sized
     // container — trusting that would zoom out to nothing).
     let { x, y, w, h } = act;
@@ -225,6 +247,7 @@ async function runAction(
     return;
   }
   if (act.kind === "dismiss") {
+    await cursorHide(page, CURSOR_FADE_MS); // 정리 동작 — 손을 보여줄 비트가 아니다
     // Best-effort, no camera move. viaKey / empty selector = the explore pass
     // closed this surface with Escape — mirror that (audit A-C1).
     if (act.viaKey || !act.selector) {

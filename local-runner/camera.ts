@@ -22,6 +22,8 @@ import {
   EDGE_SAFE_PX,
   EDGE_MIN_FACTOR,
   ZOOM_FLOOR,
+  CENTER_BIAS,
+  CURSOR_ENTRY_PX,
 } from "./config";
 
 // ── CameraEvent + buildZoomFilter ─────────────────────────────────────────────
@@ -256,6 +258,56 @@ export class CameraTrack {
 
   isZoomed(): boolean {
     return this.z > 1.001;
+  }
+
+  // 지금 필름에 실제로 보이는 영역(논리 px). buildZoomFilter의 크롭 수식과 같은
+  // 규칙(CENTER_BIAS 블렌드 + 프레임 클램프)을 그대로 계산한다 — 커서가 "화면
+  // 안인가"를 판단하는 유일한 근거라, 후처리 크롭과 어긋나면 의미가 없다.
+  visibleRect(): { x: number; y: number; w: number; h: number } {
+    const w = this.viewW / this.z;
+    const h = this.viewH / this.z;
+    const B = CENTER_BIAS;
+    const rawX = this.focal.x * (1 - 1 / this.z) * (1 - B) + (this.focal.x - w / 2) * B;
+    const rawY = this.focal.y * (1 - 1 / this.z) * (1 - B) + (this.focal.y - h / 2) * B;
+    return {
+      x: clamp(rawX, 0, this.viewW - w),
+      y: clamp(rawY, 0, this.viewH - h),
+      w,
+      h,
+    };
+  }
+
+  contains(p: Pt, margin = 0): boolean {
+    const r = this.visibleRect();
+    return (
+      p.x >= r.x + margin && p.x <= r.x + r.w - margin &&
+      p.y >= r.y + margin && p.y <= r.y + r.h - margin
+    );
+  }
+
+  // 커서가 숨어 있다가 등장할 지점: `target`에서 조금 떨어졌지만 **반드시 지금
+  // 보이는 프레임 안**. 여기서 페이드인해 target으로 글라이드해야 "손이 왔다"가
+  // 필름에 남는다(밖에서 등장하면 텔레포트로 보인다 — v4 육안 지적).
+  entryPointFor(target: Pt): Pt {
+    const r = this.visibleRect();
+    const pad = Math.min(40, r.w / 6, r.h / 6);
+    const rcx = r.x + r.w / 2;
+    const rcy = r.y + r.h / 2;
+    // 프레임 중심 쪽에서 다가오게 — 가장자리에서 튀어나오면 잘려 보인다.
+    let vx = rcx - target.x;
+    let vy = rcy - target.y;
+    const len = Math.hypot(vx, vy);
+    if (len < 1) {
+      // target이 곧 프레임 중심이면 대각선 아래쪽에서 들어온다.
+      vx = 0.7; vy = 0.7;
+    } else {
+      vx /= len; vy /= len;
+    }
+    const dist = Math.min(CURSOR_ENTRY_PX, r.w / 3, r.h / 3);
+    return {
+      x: clamp(target.x + vx * dist, r.x + pad, r.x + r.w - pad),
+      y: clamp(target.y + vy * dist, r.y + pad, r.y + r.h - pad),
+    };
   }
 
   // Dynamic zoom magnitude for a jump of `dist` landing on `target`: scales with

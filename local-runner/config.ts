@@ -121,6 +121,16 @@ export const ZOOM_FLOOR = 1.12;
 // User 2026-06-07: pin to center. This is the single knob to dial the feel if full
 // centering reads as too "sliding" (try 0.6–0.85).
 export const CENTER_BIAS = 1.0;
+
+// ── 커서 가시성 (2026-08-25, v4 육안 판정 수리) ────────────────────────────────
+// 합성 커서는 "조작하는 비트"에서만 화면에 있다. 스크롤·focus 비트나 페이지 이동
+// 직후엔 숨어 있고, 조작 액션이 시작될 때 프레임 안에서 페이드인한다.
+// 증상이었던 것: 33초 필름에서 커서가 12초만 보이고, 그나마 카메라 크롭 밖에서
+// 글라이드가 끝나 "텔레포트해 있는 커서가 갑자기 클릭"으로 보였다.
+export const CURSOR_FADE_MS = 220;
+// 등장 지점을 목표에서 얼마나 떨어뜨릴지(논리 px). 짧으면 등장이 안 읽히고,
+// 길면 프레임 밖으로 나가려 해서 entryPointFor가 어차피 클램프한다.
+export const CURSOR_ENTRY_PX = 220;
 // Solid margin composited around the flat capture (fraction of the window, each
 // side) so a cursor-centered crop near an edge can pan into the margin instead of
 // clamping to the frame. f=0.25 → padded canvas = 1.5× window (1280×720 → exactly

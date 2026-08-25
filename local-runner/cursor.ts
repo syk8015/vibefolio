@@ -24,6 +24,11 @@ export type NfCursor = {
   press(): void;
   down(): void; // grab: ripple + ring eases to pressed scale and HOLDS (drag)
   up(): void; // release: ring eases back to rest
+  // 가시성(2026-08-25): 커서는 "조작하는 비트"에서만 화면에 있다. 설치 직후는
+  // 숨김이고, 조작 액션이 프레임 안에서 페이드인시킨 뒤 목표로 글라이드한다.
+  show(dur: number): void;
+  hide(dur: number): void;
+  visible(): boolean;
   reset(): void;
 };
 
@@ -58,11 +63,18 @@ const OVERLAY_SRC = `(() => {
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     };
     sizeCanvas();
-    window.addEventListener("resize", sizeCanvas);
+    // 리사이즈는 캔버스 백킹스토어를 새로 잡으면서 그림을 통째로 지운다. 애니메이션
+    // 루프는 할 일이 없으면 멈춰 있으므로(raf=0) 아무도 다시 그리지 않았다 →
+    // **창 크기가 한 번 바뀌면 커서가 화면에서 증발**(2026-08-25 프로브로 실증:
+    // 리사이즈 직후 그려진 픽셀 1302 → 0). 크기를 다시 잡은 뒤엔 반드시 kick().
+    window.addEventListener("resize", () => { sizeCanvas(); kick(); });
     document.documentElement.appendChild(canvas);
 
     var easeInOut = (p) => p < 0.5 ? 4*p*p*p : 1 - Math.pow(-2*p+2, 3)/2;
     var cx = window.innerWidth/2, cy = window.innerHeight/2, scale = 1;
+    // alpha=0 으로 설치된다: 아무 조작도 없는 구간(스크롤·focus 비트·페이지 이동
+    // 직후)에 커서가 화면 한복판에 붙박이로 떠 있던 것의 수리. 조작 액션만 show().
+    var alpha = 0, fadeFrom = 0, fadeTo = 0, fadeT0 = -1, fadeDur = 200;
     var glide = null, pressT0 = -1, raf = 0;
     var holdT0 = -1, releaseT0 = -1;
     var PRESS_MS = 260, RIPPLE_MS = 520, HOLD_EASE_MS = 140, HOLD_SCALE = 0.82;
@@ -71,6 +83,8 @@ const OVERLAY_SRC = `(() => {
     var draw = () => {
       var w = window.innerWidth, h = window.innerHeight, now = performance.now();
       ctx.clearRect(0, 0, w, h);
+      if (alpha <= 0.01) return; // 숨김: 캔버스를 비운 채로 끝낸다
+      ctx.globalAlpha = alpha;
       for (var i = ripples.length - 1; i >= 0; i--) {
         var rp = Math.min(1, (now - ripples[i].t0) / RIPPLE_MS);
         ctx.beginPath();
@@ -91,10 +105,16 @@ const OVERLAY_SRC = `(() => {
       ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
       ctx.lineWidth = 2; ctx.strokeStyle = "rgba(255,255,255,0.96)"; ctx.stroke();
       ctx.restore();
+      ctx.globalAlpha = 1;
     };
 
     var frame = () => {
       var now = performance.now(), busy = false;
+      if (fadeT0 >= 0) {
+        var fp = Math.min(1, (now - fadeT0) / fadeDur);
+        alpha = fadeFrom + (fadeTo - fadeFrom)*easeInOut(fp);
+        if (fp >= 1) { fadeT0 = -1; alpha = fadeTo; } else busy = true;
+      }
       if (glide) {
         var p = Math.min(1, (now - glide.t0) / glide.dur), e = easeInOut(p);
         cx = glide.x0 + (glide.xT - glide.x0)*e;
@@ -142,9 +162,20 @@ const OVERLAY_SRC = `(() => {
         if (holdT0 < 0) return;
         holdT0 = -1; releaseT0 = performance.now(); kick();
       },
+      show: (dur) => {
+        fadeFrom = alpha; fadeTo = 1;
+        fadeT0 = performance.now(); fadeDur = Math.max(1, dur || 200); kick();
+      },
+      hide: (dur) => {
+        fadeFrom = alpha; fadeTo = 0;
+        fadeT0 = performance.now(); fadeDur = Math.max(1, dur || 200); kick();
+      },
+      // "지금 필름에 있나" — 페이드 중이면 도착점 기준(등장 중=있다고 본다).
+      visible: () => fadeT0 >= 0 ? fadeTo > 0.5 : alpha > 0.5,
       reset: () => {
         glide = null; pressT0 = -1; holdT0 = -1; releaseT0 = -1;
         ripples.length = 0; scale = 1;
+        alpha = 0; fadeTo = 0; fadeT0 = -1;
         cx = window.innerWidth/2; cy = window.innerHeight/2; kick();
       },
     };
@@ -174,6 +205,23 @@ export const cursorSetPos = (page: Page, x: number, y: number) =>
 
 export const cursorPos = (page: Page) =>
   page.evaluate(() => window.__nfCursor!.pos());
+
+// 가시성 드라이버(2026-08-25). show/hide는 페이드가 끝날 때까지 Node 쪽에서
+// 기다려 준다 — 페이드 도중에 글라이드가 시작되면 "반쯤 투명한 커서가 이미
+// 움직이는" 어정쩡한 등장이 되기 때문.
+export const cursorShow = async (page: Page, dur: number) => {
+  await page.evaluate((d) => window.__nfCursor!.show(d), dur);
+  await new Promise((r) => setTimeout(r, dur));
+};
+
+export const cursorHide = async (page: Page, dur: number) => {
+  if (!(await cursorVisible(page))) return; // 이미 숨김 = 할 일 없음
+  await page.evaluate((d) => window.__nfCursor!.hide(d), dur);
+  await new Promise((r) => setTimeout(r, dur));
+};
+
+export const cursorVisible = (page: Page) =>
+  page.evaluate(() => !!window.__nfCursor?.visible()).catch(() => false);
 
 export const cursorMoveTo = (page: Page, x: number, y: number, dur: number) =>
   page.evaluate(
