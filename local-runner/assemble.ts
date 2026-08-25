@@ -15,21 +15,14 @@
 // 비전 탐색으로 폴백(우리 토큰이 비상장치).
 import type { Page } from "playwright-core";
 import type { DemoScript, DemoScriptStep } from "../lib/demoScript";
+import { isFullyWired } from "../lib/demoScript";
 import type { Script, ScriptAction } from "./script";
 import { VIEW_H } from "./config";
 import { sleep } from "./util";
 
-// 스텝이 직배선 가능하려면: 셀렉터 + 명시적 action. draw(캔버스 궤적)는 좌표
-// 창작이 필요해 비전 전용. drag는 도착지 셀렉터까지 있어야 결정론이 된다.
-export function isFullyWired(script: DemoScript): boolean {
-  return script.steps.every((st) => {
-    if (!st.selector || !st.action) return false;
-    if (st.action === "draw") return false;
-    if (st.action === "drag" && !st.toSelector) return false;
-    if (st.action === "type" && !st.text) return false;
-    return true;
-  });
-}
+// 직배선 판정은 lib/demoScript.ts가 단일 소스 — 대시보드 초안 검토 화면이 같은
+// 규칙으로 "정밀 촬영 가능" 배지를 그리기 때문(둘이 갈리면 배지가 거짓말한다).
+export { isFullyWired } from "../lib/demoScript";
 
 export type AssembleOutcome =
   | { ok: true; script: Script & { interactions: number } }

@@ -1,3 +1,4 @@
+import type { DemoScript } from "@/lib/demoScript";
 // Shared types + constants for the dashboard Projects tab. Extracted verbatim from
 // ProjectsTab.tsx (no behavior change) so the row components, hooks, and form modal
 // can share one definition instead of re-declaring it.
@@ -53,6 +54,9 @@ export interface DBProject {
   // 사용자 유도형 데모 변형①: 제작자가 쓴 "핵심 기능" 설명. 녹화 워커가 explore
   // 브리핑에 주입한다. 가드 트리거의 파이프라인 컬럼이 아니라 유저가 직접 수정 가능.
   demo_user_hint: string | null;
+  // 만든 AI가 써 준 촬영 대본. 발행 게이트가 최소 3스텝을 강제하므로 AI 경로로
+  // 들어온 초안엔 사실상 항상 있다(예외=제작자가 시연 영상을 직접 준 경우).
+  demo_script: DemoScript | null;
 }
 
 export type ProjectForm = Omit<
@@ -68,5 +72,8 @@ export type ProjectForm = Omit<
   | "demo_video_url"
   | "demo_generated_at"
   | "demo_status_changed_at"
+  // 촬영 대본은 수정 폼이 다루지 않는다(읽기는 초안 검토 화면에서). 폼에 실리면
+  // 저장 때마다 통째로 덮어쓰게 되고, 서버의 대본 게이트와 규칙이 갈린다.
+  | "demo_script"
 >;
 

@@ -164,6 +164,21 @@ export const en: Dictionary = {
     errorBody: "Something went wrong while displaying the dashboard. Please retry or go back home.",
   },
   projects: {
+    scriptLabel: "Demo script",
+    scriptSteps: (n: number) => `${n} steps`,
+    scriptPrecise: "Pixel-exact",
+    scriptPartial: (a: number, b: number) => `selectors ${a}/${b}`,
+    scriptPartialHelp:
+      "Steps without a selector make the robot hunt for the control by eye — it skips what it can't find, and the close-up framing is less precise.",
+    scriptNone: "No script — this project ships the creator's own demo video (no auto-recording).",
+    scriptSkip: "Skipping",
+    scriptPrep: "Setup",
+    scriptByEye: "by eye",
+    scriptHold: (s: number) => `holds ${s}s`,
+    scriptActions: {
+      click: "click", type: "type", drag: "drag", scroll: "scroll",
+      hover: "hover", draw: "draw", focus: "magnify",
+    },
     pendingReview: (n: number) => `${n} awaiting review`,
     addProject: "Add project",
     emptyTitle: "No projects yet",

@@ -71,6 +71,23 @@ export const DEMO_SCRIPT_MAX_STEPS = 10;
 // 탓에 실제 초안 3개 중 2개가 대본 0스텝으로 올라와 옛 방식(로봇이 픽셀만 보고
 // 추측)으로 촬영되고 있었다. 3은 "성의 있는 최소치" — 프롬프트 권장은 5~8이다.
 export const DEMO_SCRIPT_MIN_STEPS = 3;
+
+// 스텝이 "직배선"이려면: 셀렉터 + 명시적 action. draw(캔버스 궤적)는 좌표 창작이
+// 필요해 비전 전용이고, drag는 도착지 셀렉터까지, type은 입력값까지 있어야
+// 결정론이 된다. 전 스텝이 이 조건이면 러너가 비전 탐색을 통째로 건너뛴다.
+// 러너(assemble.ts)와 대시보드 초안 검토 화면이 **같은 규칙**을 써야 배지가
+// 거짓말을 하지 않는다 — 그래서 여기(양쪽이 import 가능한 곳)에 둔다.
+export function isStepWired(st: DemoScriptStep): boolean {
+  if (!st.selector || !st.action) return false;
+  if (st.action === "draw") return false;
+  if (st.action === "drag" && !st.toSelector) return false;
+  if (st.action === "type" && !st.text) return false;
+  return true;
+}
+
+export function isFullyWired(script: DemoScript): boolean {
+  return script.steps.every(isStepWired);
+}
 export const DEMO_SCRIPT_GOAL_MAX = 120;
 export const DEMO_SCRIPT_SELECTOR_MAX = 250;
 export const DEMO_SCRIPT_WHERE_MAX = 120;

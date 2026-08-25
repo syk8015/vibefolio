@@ -4,6 +4,7 @@ import Image from "next/image";
 import { toPreviewUrl } from "@/lib/previewOrigin";
 import { CONTENT_TYPES } from "@/lib/projectTaxonomy";
 import { AiToolLogo } from "./helpers";
+import { DemoScriptPanel } from "./DemoScriptPanel";
 import { type DBProject } from "./types";
 import { useT } from "@/lib/i18n/client";
 
@@ -144,6 +145,9 @@ export function DraftReviewModal({ draft, onClose, onPublish, onEdit, onDelete }
               <p style={fieldLabelStyle}>{t.projectForm.hintLabel}</p>
               <p style={fieldValueStyle}>{draft.demo_user_hint || emptyValue}</p>
             </div>
+            {/* 촬영 대본 — 공개하면 이대로 찍힌다. 수동 업로드 폐기 후 이 화면이
+                사람이 품질을 확인하는 유일한 지점이라 설명 다음 자리에 둔다. */}
+            <DemoScriptPanel script={draft.demo_script} />
             <div>
               <p style={fieldLabelStyle}>{t.projectForm.commentLabel}</p>
               <p style={fieldValueStyle}>{draft.comment || emptyValue}</p>

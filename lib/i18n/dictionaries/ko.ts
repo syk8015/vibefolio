@@ -169,6 +169,21 @@ export const ko = {
     errorBody: "대시보드를 표시하는 중 문제가 생겼어요. 다시 시도하거나 홈으로 돌아가 주세요.",
   },
   projects: {
+    scriptLabel: "촬영 대본",
+    scriptSteps: (n: number) => `${n}스텝`,
+    scriptPrecise: "정밀 촬영",
+    scriptPartial: (a: number, b: number) => `셀렉터 ${a}/${b}`,
+    scriptPartialHelp:
+      "셀렉터가 없는 스텝은 로봇이 화면을 눈으로 뒤져 찾아요 — 못 찾으면 건너뛰고, 확대 프레이밍도 덜 정확해요.",
+    scriptNone: "대본 없음 — 제작자가 시연 영상을 직접 준 작품이에요(자동 촬영 안 함).",
+    scriptSkip: "건너뛸 것",
+    scriptPrep: "사전 준비",
+    scriptByEye: "눈으로 찾기",
+    scriptHold: (s: number) => `${s}초 머무름`,
+    scriptActions: {
+      click: "클릭", type: "입력", drag: "드래그", scroll: "스크롤",
+      hover: "가리키기", draw: "그리기", focus: "확대 강조",
+    },
     pendingReview: (n: number) => `검토 대기 ${n}`,
     addProject: "프로젝트 추가",
     emptyTitle: "아직 프로젝트가 없어요",
