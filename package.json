@@ -14,7 +14,8 @@
     "demo:fixtures": "python3 -m http.server 5050 --directory local-runner/fixtures",
     "promo:batch": "npx -y tsx local-runner/promo-worker.ts",
     "font:subset": "node scripts/build-font-subset.mjs",
-    "font:check": "node scripts/build-font-subset.mjs --check"
+    "font:check": "node scripts/build-font-subset.mjs --check",
+    "prebuild": "node scripts/build-font-subset.mjs --check"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1079.0",

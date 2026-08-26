@@ -21,6 +21,9 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const OUT = join(ROOT, "public/fonts/hahmlet-ko-subset.woff2");
+// 서브셋이 실제로 담은 코드포인트 목록(생성 시 폰트에서 읽어 기록). --check가 이걸
+// 읽으므로 **파이썬 없이** 어디서든 검사할 수 있다 — 그래야 빌드에 물려도 안전하다.
+const MANIFEST = join(ROOT, "public/fonts/hahmlet-ko-subset.codepoints.json");
 const CACHE = join(ROOT, "node_modules/.cache/nookframe-fonts");
 const SRC_TTF = join(CACHE, "Hahmlet[wght].ttf");
 // 축을 잘라낸 중간 산출물. Hahmlet의 wght는 100~900인데 화면에서 실제로 쓰는 건
@@ -93,32 +96,16 @@ const { files, glyphs } = collectGlyphs();
 console.log(`[font] 정적 카피 ${files}개 파일에서 한글 ${glyphs.length}자 수집`);
 
 if (process.argv.includes("--check")) {
-  if (!existsSync(OUT)) {
-    console.error(`✗ ${OUT} 가 없어요 — \`node scripts/build-font-subset.mjs\` 로 먼저 만드세요.`);
+  if (!existsSync(OUT) || !existsSync(MANIFEST)) {
+    console.error("✗ 서브셋 폰트/목록이 없어요 — `npm run font:subset` 으로 먼저 만드세요.");
     process.exit(1);
   }
-  ensureTools();
-  // 만들어진 woff2가 실제로 담고 있는 코드포인트를 읽어 대조한다.
-  const py = `
-import sys
-from fontTools.ttLib import TTFont
-f = TTFont(${JSON.stringify(OUT)})
-have = set()
-for t in f['cmap'].tables:
-    have |= set(t.cmap.keys())
-print(",".join(str(c) for c in sorted(have)))
-`;
-  const have = new Set(
-    execFileSync(join(VENV, "bin/python"), ["-c", py], { encoding: "utf8" })
-      .trim()
-      .split(",")
-      .filter(Boolean)
-      .map(Number),
-  );
+  const have = new Set(JSON.parse(readFileSync(MANIFEST, "utf8")).codepoints);
   const missing = glyphs.filter((g) => !have.has(g.codePointAt(0)));
   if (missing.length) {
-    console.error(`✗ 서브셋에 없는 글자 ${missing.length}자: ${missing.slice(0, 40).join("")}`);
-    console.error("  → node scripts/build-font-subset.mjs 로 다시 만드세요.");
+    console.error(`✗ 한글 ${missing.length}자가 서브셋에 없어요: ${missing.slice(0, 40).join("")}`);
+    console.error("  → `npm run font:subset` 으로 다시 만드세요.");
+    console.error("  (안 만들어도 화면은 안 깨져요 — 그 글자만 구글 조각을 더 받습니다.)");
     process.exit(1);
   }
   console.log(`✓ 정적 카피의 한글 ${glyphs.length}자가 모두 서브셋에 있어요 (${(statSync(OUT).size / 1024).toFixed(0)}KB).`);
@@ -155,6 +142,17 @@ execFileSync(
   ],
   { stdio: "inherit" },
 );
+
+// 담긴 코드포인트를 폰트에서 직접 읽어 기록한다(입력 목록이 아니라 **결과물** 기준).
+const cps = JSON.parse(
+  execFileSync(join(VENV, "bin/python"), [
+    "-c",
+    `import json;from fontTools.ttLib import TTFont;f=TTFont(${JSON.stringify(OUT)});` +
+      `s=set();\n` +
+      `[s.update(t.cmap.keys()) for t in f['cmap'].tables];print(json.dumps(sorted(s)))`,
+  ], { encoding: "utf8" }),
+);
+writeFileSync(MANIFEST, `${JSON.stringify({ note: "scripts/build-font-subset.mjs가 생성. 손으로 고치지 말 것.", count: cps.length, codepoints: cps }, null, 0)}\n`);
 
 const kb = (statSync(OUT).size / 1024).toFixed(0);
 console.log(`[font] ✓ ${OUT.replace(ROOT + "/", "")} · ${kb}KB · ${glyphs.length}자`);
