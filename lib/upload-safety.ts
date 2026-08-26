@@ -229,10 +229,18 @@ const PY_ANCHOR_RANK = [
 ];
 
 export function pickZipAnchor(entries: { relativePath: string }[]): ZipAnchor | null {
-  const html = findIndexHtml(entries);
-  if (html) return { path: html, kind: "html" };
   const paths = entries.map((e) => e.relativePath);
   const depth = (p: string) => p.split("/").length;
+  // Flutter는 index.html보다 먼저 본다(2026-08-26, 유형 커버리지 ②): 소스 트리에
+  // 딸려오는 web/index.html은 빌드 전 껍데기라 그대로 띄우면 흰 화면이다. pubspec이
+  // 있으면 E2B에서 `flutter build web`으로 진짜 앱을 만든다(local-runner/build.ts
+  // detectWebBuild와 짝 — 신호 바꾸면 양쪽 같이).
+  const pubspecs = paths
+    .filter((p) => p.toLowerCase() === "pubspec.yaml" || p.toLowerCase().endsWith("/pubspec.yaml"))
+    .sort((a, b) => depth(a) - depth(b));
+  if (pubspecs.length) return { path: pubspecs[0], kind: "runnable" };
+  const html = findIndexHtml(entries);
+  if (html) return { path: html, kind: "html" };
   const pkgs = paths
     .filter((p) => p.toLowerCase() === "package.json" || p.toLowerCase().endsWith("/package.json"))
     .sort((a, b) => depth(a) - depth(b));

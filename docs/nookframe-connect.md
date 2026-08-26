@@ -44,7 +44,15 @@
     (`deployUrl`/`appUrl`은 `detectDemoSource`가 github 저장소 URL도 인식한다 — 미배포+서버/DB 필요 앱의
     최후수단으로 08-14부터 프롬프트·MCP·CLI가 안내. 공개 저장소 필수. JS는 `dev`/`start` 스크립트로,
     파이썬 웹앱(Streamlit·Gradio·Flask·FastAPI·Dash import 감지)은 pip install 후 프레임워크별
-    명령으로 자동 실행(08-20, `servePython`) — 둘 다 아니면 정적 index.html, 그것도 없는 러너블 코드
+    명령으로 자동 실행(08-20, `servePython`). **폰 앱은 웹 타깃을 대신 빌드한다**(08-26, `detectWebBuild`
+    → `serveFlutterWeb`/`serveExpoWeb`): pubspec.yaml=Flutter → `flutter build web`(SDK는 E2B 템플릿에
+    프리베이크), package.json에 expo/react-native → `expo export --platform web`(웹 의존성 3종 자동 추가,
+    실패 시 구 SDK `export:web` 재시도). 이 검사는 **JS dev 스크립트 분기보다 먼저** 돈다 — Expo
+    package.json에는 항상 `start`가 있어 그냥 두면 Metro를 90초 기다리다 죽는다. zip도 같은 짝:
+    `pickZipAnchor`가 pubspec.yaml을 index.html보다 **먼저** 본다(소스 트리의 web/index.html은 빌드 전
+    껍데기 → 그대로 띄우면 흰 화면). 웹 타깃이 없는 네이티브(Swift·Kotlin·Electron·Unity)는 여전히 불가
+    — 프롬프트가 `video` 첨부로 안내한다. 검증=`local-runner/probe-webbuild.ts`.
+    — 셋 다 아니면 정적 index.html, 그것도 없는 러너블 코드
     (package.json 또는 *.py)는 ttyd 라이브 터미널 촬영(08-20, `serveTerminal` — .env* 삭제 후 기동,
     policy=full, 브리핑=`buildTerminalBrief`)→최후에 not-a-webapp. 원격 DB
     감지 시 읽기전용 데모로 격하, best-effort(`local-runner/build.ts`). 같은 날 발견한 버그

@@ -24,6 +24,32 @@ function shQuote(value: string): string {
   return `'${String(value).replace(/'/g, `'\\''`)}'`;
 }
 
+// e2b v2의 `commands.run`은 종료코드가 0이 아니면 CommandExitError를 **던진다**.
+// 아래 곳곳의 `if (exitCode !== 0)`는 그 사실을 모른 채 쓰여 실제로는 닿지 않았고
+// (2026-08-26 폰 앱 프로브에서 발각), 그래서 clone/install 실패가 분류된
+// BuildFailedError("[build-failed] 진짜 이유") 대신 raw 예외로 새어 나가 대시보드에
+// "error"로 찍혔다. 결과를 그대로 받아 판단하고 싶은 자리는 전부 이걸 쓴다.
+// (`test -f x && echo ok` 같은 판정용 명령도 여기 해당 — 파일이 없으면 exit 1이다.)
+async function runSoft(
+  sandbox: Sandbox,
+  cmd: string,
+  opts?: { timeoutMs?: number },
+): Promise<{ exitCode: number; stdout: string; stderr: string }> {
+  try {
+    const r = await sandbox.commands.run(cmd, opts);
+    return { exitCode: r.exitCode, stdout: r.stdout ?? "", stderr: r.stderr ?? "" };
+  } catch (e) {
+    // CommandExitError는 CommandResult를 구현하지만, SDK 버전에 따라 result에 싸여
+    // 오기도 한다 — 둘 다 받아준다. 그 외(네트워크·타임아웃)는 그대로 올린다.
+    const err = e as { exitCode?: number; stdout?: string; stderr?: string; result?: { exitCode?: number; stdout?: string; stderr?: string } };
+    const r = typeof err?.exitCode === "number" ? err : err?.result;
+    if (r && typeof r.exitCode === "number") {
+      return { exitCode: r.exitCode, stdout: r.stdout ?? "", stderr: r.stderr ?? "" };
+    }
+    throw e;
+  }
+}
+
 const SANDBOX_TIMEOUT_MS = 900_000;
 // After the dev server is ready we re-arm the sandbox lifetime so a slow install
 // can't eat the recording window (explore alone may take up to 4 minutes).
@@ -112,6 +138,161 @@ async function collectRepoFiles(
   return files;
 }
 
+// ── 폰 앱 → 웹 빌드 (2026-08-26, 유형 커버리지 ②) ────────────────────────────
+// A phone app has no browser face, so it used to leave with no film at all:
+// Flutter shipped its shell `web/index.html` and recorded as a blank cream page,
+// Expo/RN coasted into `npm run start` and died when Metro never answered on the
+// dev port. Both frameworks, though, have a first-party web target — Flutter's
+// `build web` and Expo's `export --platform web` — so the source we already have
+// is enough to produce the real, interactive app in a browser. That is what we
+// film. What this does NOT reach: Swift/Kotlin native (no web target exists).
+//
+// Detection is pure over repoFiles (probe-webbuild.ts asserts it) and runs BEFORE
+// the JS dev-script branch, because an Expo package.json always has a `start`.
+export type WebBuildKind = "flutter" | "expo" | "react-native";
+
+export type WebBuildTarget = {
+  kind: WebBuildKind;
+  dir: string; // repo-relative app dir ("" = repo root) — monorepos nest the app
+};
+
+// `flutter:`(assets/uses-material-design block) or `sdk: flutter`(the dependency
+// form) — a plain Dart package's pubspec has neither and is not a phone app.
+const FLUTTER_PUBSPEC_RE = /(^|\n)\s*(flutter:|sdk:\s*flutter\b)/;
+
+export function detectWebBuild(repoFiles: Record<string, string>): WebBuildTarget | null {
+  const depth = (p: string) => p.split("/").length;
+  const dirOf = (manifest: string, name: string) =>
+    manifest === name ? "" : manifest.slice(0, -(name.length + 1));
+
+  const pubspecs = Object.keys(repoFiles)
+    .filter((p) => p === "pubspec.yaml" || p.endsWith("/pubspec.yaml"))
+    .filter((p) => FLUTTER_PUBSPEC_RE.test(repoFiles[p] ?? ""))
+    .sort((a, b) => depth(a) - depth(b));
+  if (pubspecs.length) return { kind: "flutter", dir: dirOf(pubspecs[0], "pubspec.yaml") };
+
+  const pkgs = Object.keys(repoFiles)
+    .filter((p) => p === "package.json" || p.endsWith("/package.json"))
+    .sort((a, b) => depth(a) - depth(b));
+  for (const p of pkgs) {
+    let deps: Record<string, string> = {};
+    try {
+      const j = JSON.parse(repoFiles[p] ?? "") as {
+        dependencies?: Record<string, string>;
+        devDependencies?: Record<string, string>;
+      };
+      deps = { ...j.dependencies, ...j.devDependencies };
+    } catch {
+      continue; // unparsable manifest — the JS branch will fail it loudly enough
+    }
+    const dir = dirOf(p, "package.json");
+    if (deps.expo || deps["expo-router"]) return { kind: "expo", dir };
+    // Bare React Native (no Expo). The web export still often works — Expo's CLI
+    // bundles any RN tree through react-native-web — and the alternative is a
+    // guaranteed failure, so it is worth the two minutes.
+    if (deps["react-native"]) return { kind: "react-native", dir };
+  }
+  return null;
+}
+
+const FLUTTER_BUILD_TIMEOUT_MS = 600_000;
+const WEB_EXPORT_TIMEOUT_MS = 600_000;
+const FLUTTER_PATH_PREFIX = "export PATH=/opt/flutter/bin:$PATH && ";
+
+export async function serveFlutterWeb(
+  sandbox: Sandbox,
+  repoPath: string,
+  target: WebBuildTarget,
+  repoFiles: Record<string, string>,
+): Promise<BuiltApp> {
+  const appDir = target.dir ? `${repoPath}/${target.dir}` : repoPath;
+  // `flutter build web` runs `pub get` itself. --no-tree-shake-icons skips the
+  // icon-subsetting pass, which is the step most likely to fail on a repo using
+  // custom icon fonts and buys nothing at demo scale.
+  const build = await runSoft(
+    sandbox,
+    `${FLUTTER_PATH_PREFIX}cd ${shQuote(appDir)} && ` +
+      `flutter build web --release --no-tree-shake-icons > /tmp/build.log 2>&1`,
+    { timeoutMs: FLUTTER_BUILD_TIMEOUT_MS },
+  );
+  console.log(`[build] flutter build web exit ${build.exitCode}`);
+  if (build.exitCode !== 0) {
+    const tail = await sandbox.commands.run("tail -40 /tmp/build.log");
+    throw new BuildFailedError(`flutter build web failed (exit ${build.exitCode}): ${tail.stdout.slice(-600)}`);
+  }
+  const out = `${appDir}/build/web`;
+  const exists = await runSoft(sandbox, `test -f ${shQuote(`${out}/index.html`)} && echo ok`);
+  if (exists.stdout.trim() !== "ok") {
+    throw new BuildFailedError("flutter build web reported success but produced no build/web/index.html");
+  }
+  console.log(`[build] flutter web build → serving ${out}`);
+  return await serveStatic(sandbox, out, repoFiles);
+}
+
+export async function serveExpoWeb(
+  sandbox: Sandbox,
+  repoPath: string,
+  target: WebBuildTarget,
+  repoFiles: Record<string, string>,
+): Promise<BuiltApp> {
+  const appDir = target.dir ? `${repoPath}/${target.dir}` : repoPath;
+  const install = await runSoft(
+    sandbox,
+    `${NODE_PATH_PREFIX}cd ${shQuote(appDir)} && npm install --no-audit --no-fund --prefer-offline`,
+    { timeoutMs: INSTALL_TIMEOUT_MS },
+  );
+  console.log(`[build] npm install (expo) exit ${install.exitCode}`);
+  if (install.exitCode !== 0) {
+    throw new BuildFailedError(`npm install failed (exit ${install.exitCode}): ${(install.stderr || install.stdout || "").slice(-300)}`);
+  }
+  // The three packages the web target needs. Phone-only projects legitimately
+  // ship without them, so add them here rather than failing the export — and for
+  // bare React Native, `expo` itself is what provides the exporter.
+  const webDeps =
+    "react-dom react-native-web @expo/metro-runtime" + (target.kind === "react-native" ? " expo" : "");
+  const add = await runSoft(
+    sandbox,
+    `${NODE_PATH_PREFIX}cd ${shQuote(appDir)} && npx --yes expo install ${webDeps} > /tmp/webdeps.log 2>&1`,
+    { timeoutMs: INSTALL_TIMEOUT_MS },
+  );
+  // Best effort: `expo install` refuses on some bare trees, but the export below
+  // still succeeds when the deps were already present. Only the export decides.
+  console.log(`[build] expo install web deps exit ${add.exitCode}`);
+
+  const outDir = `${appDir}/dist`;
+  const exp = await runSoft(
+    sandbox,
+    `${NODE_PATH_PREFIX}cd ${shQuote(appDir)} && ` +
+      `npx --yes expo export --platform web --output-dir dist > /tmp/build.log 2>&1`,
+    { timeoutMs: WEB_EXPORT_TIMEOUT_MS },
+  );
+  console.log(`[build] expo export --platform web exit ${exp.exitCode}`);
+  let serveDir = outDir;
+  if (exp.exitCode !== 0) {
+    // SDK ≤48 spelled it `export:web` and wrote to web-build/. Cheap second try
+    // before giving up on the whole project.
+    const legacy = await runSoft(
+      sandbox,
+      `${NODE_PATH_PREFIX}cd ${shQuote(appDir)} && npx --yes expo export:web >> /tmp/build.log 2>&1`,
+      { timeoutMs: WEB_EXPORT_TIMEOUT_MS },
+    );
+    console.log(`[build] expo export:web (legacy) exit ${legacy.exitCode}`);
+    if (legacy.exitCode !== 0) {
+      const tail = await sandbox.commands.run("tail -40 /tmp/build.log");
+      throw new BuildFailedError(
+        `expo web export failed (exit ${exp.exitCode}): ${tail.stdout.slice(-600)}`,
+      );
+    }
+    serveDir = `${appDir}/web-build`;
+  }
+  const exists = await runSoft(sandbox, `test -f ${shQuote(`${serveDir}/index.html`)} && echo ok`);
+  if (exists.stdout.trim() !== "ok") {
+    throw new BuildFailedError(`expo web export produced no index.html under ${serveDir}`);
+  }
+  console.log(`[build] expo web export → serving ${serveDir}`);
+  return await serveStatic(sandbox, serveDir, repoFiles);
+}
+
 // ── Python web apps (2026-08-20, type-coverage audit ①→확장) ─────────────────
 // A repo with no JS dev/start script may still be a Python web app — the most
 // common AI-built shape after JS (Streamlit/Gradio especially). Detection keys on
@@ -185,7 +366,7 @@ export async function servePython(
   const venv = "/tmp/pyvenv";
   const py = `${venv}/bin/python`;
   const pip = `${venv}/bin/pip`;
-  const mk = await sandbox.commands.run(`python3 -m venv ${venv}`, { timeoutMs: 120_000 });
+  const mk = await runSoft(sandbox, `python3 -m venv ${venv}`, { timeoutMs: 120_000 });
   if (mk.exitCode !== 0) {
     throw new BuildFailedError(`python venv creation failed (exit ${mk.exitCode}): ${(mk.stderr || mk.stdout || "").slice(-300)}`);
   }
@@ -200,7 +381,8 @@ export async function servePython(
   const extra = app.framework === "fastapi" ? " uvicorn" : "";
   const installArgs =
     mode === "req" ? `-r requirements.txt${extra}` : mode === "proj" ? `.${extra}` : `${app.framework}${extra}`;
-  const install = await sandbox.commands.run(
+  const install = await runSoft(
+    sandbox,
     `cd ${shQuote(repoPath)} && ${pip} install -q --no-input ${installArgs}`,
     { timeoutMs: INSTALL_TIMEOUT_MS },
   );
@@ -522,7 +704,8 @@ export async function buildAndServe(
     if (sourceType === "github") {
       // sourceValue is a reconstructed clean github URL (lib/demoSource), but
       // shell-quote at the sink too so the command can never be broken out of.
-      const clone = await sandbox.commands.run(
+      const clone = await runSoft(
+        sandbox,
         `git clone --depth 1 ${shQuote(sourceValue)} ${shQuote(repoPath)}`,
         { timeoutMs: CLONE_TIMEOUT_MS },
       );
@@ -585,6 +768,17 @@ export async function buildAndServe(
     // Scan for the policy decision BEFORE install (node_modules would only add noise).
     const repoFiles = await collectRepoFiles(sandbox, repoPath);
     console.log(`[build] policy scan: ${Object.keys(repoFiles).length} env/config files`);
+
+    // Phone app? Checked FIRST: an Expo package.json always carries a `start`
+    // script, so the JS branch below would grab it and wait 90s for a Metro dev
+    // server that never serves a web page (유형 커버리지 ②).
+    const webBuild = detectWebBuild(repoFiles);
+    if (webBuild) {
+      console.log(`[build] cross-platform app detected: ${webBuild.kind}${webBuild.dir ? ` @ ${webBuild.dir}` : ""} → web build`);
+      return webBuild.kind === "flutter"
+        ? await serveFlutterWeb(sandbox, repoPath, webBuild, repoFiles)
+        : await serveExpoWeb(sandbox, repoPath, webBuild, repoFiles);
+    }
 
     // Static-vs-build decision (2026-07-19, input matrix gap #1). zip already gets
     // this on the web side via package.json, but github ALWAYS reached here and
@@ -650,7 +844,8 @@ export async function buildAndServe(
       );
     }
 
-    const install = await sandbox.commands.run(
+    const install = await runSoft(
+      sandbox,
       `${NODE_PATH_PREFIX}cd ${repoPath} && npm install --no-audit --no-fund --prefer-offline`,
       { timeoutMs: INSTALL_TIMEOUT_MS },
     );
