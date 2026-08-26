@@ -561,6 +561,9 @@ export const ko = {
     draftUrlImmutable: "URL이나 파일 교체는 publish를 다시 실행하세요 — 같은 URL이면 기존 초안이 갱신돼요.",
     projectCreateFailed: "프로젝트를 만들지 못했어요.",
     indexHtmlMissing: "이 파일 묶음에는 웹페이지(index.html)도 실행 가능한 코드(package.json·*.py)도 없어요. 정적 사이트라면 index.html을, 파이썬·CLI 프로젝트라면 소스 파일을 포함해 주세요.",
+    nativePlatforms: { ios: "iOS(Swift·Xcode)", android: "안드로이드(Kotlin·Gradle)", unity: "Unity" } as Record<string, string>,
+    nativeAppUnsupported: (platform: string) =>
+      `${platform} 앱은 브라우저에서 열 수 없어서 자동 촬영을 못 해요. Flutter·Expo·React Native로 만든 앱이라면 소스를 그대로 올려 주세요(웹 버전을 대신 빌드해 촬영해요). 그 외 네이티브 앱은 직접 만든 시연 영상(video)을 첨부해 주세요.`,
     badFilePath: "잘못된 파일 경로가 감지됐어요.",
     fileUploadFailed: (detail: string) => `파일 업로드 실패: ${detail}`,
     demoUrlSaveFailed: "데모 URL 저장에 실패했어요.",

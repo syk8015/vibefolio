@@ -53,6 +53,7 @@ export type UploadErrorCode =
   | "zip-no-valid"
   | "too-large"
   | "index-html-missing"
+  | "native-app"
   | "bad-file-path"
   | "upload-failed"
   | "media-image-large"
@@ -62,9 +63,12 @@ export type UploadErrorCode =
 
 export class UploadError extends Error {
   code?: UploadErrorCode;
-  constructor(message: string, code?: UploadErrorCode) {
+  /** 코드만으로 부족한 판별값(현재: native-app의 플랫폼). 응답 카피와 계측이 쓴다. */
+  detail?: string;
+  constructor(message: string, code?: UploadErrorCode, detail?: string) {
     super(message);
     this.code = code;
+    this.detail = detail;
   }
 }
 

@@ -12,7 +12,15 @@ export class CreditExhaustedError extends Error {}
 // a demo_build_error code so the dashboard shows a cause-specific message instead
 // of the generic "error".
 export class BuildFailedError extends Error {} // clone/install/dev-server broke
-export class NotAWebappError extends Error {} // nothing serveable (no html / backend-only)
+export class NotAWebappError extends Error {
+  // 웹 타깃 없는 네이티브 앱(ios|android|unity)으로 보이면 그 플랫폼. 해결이 아니라
+  // 수요 계측용 — worker.ts가 native_app_rejected로 남긴다(lib/nativeApp.ts).
+  platform?: string;
+  constructor(message: string, platform?: string) {
+    super(message);
+    this.platform = platform;
+  }
+} // nothing serveable (no html / backend-only)
 export class BlankCaptureError extends Error {} // page rendered nothing
 
 // Sustained-but-temporary API outage (429/529/5xx that survived all in-call

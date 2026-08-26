@@ -11,6 +11,7 @@ import {
   MAX_UPLOAD_BYTES, MAX_MEDIA_IMAGE_BYTES, MAX_MEDIA_VIDEO_BYTES,
   expandZipBundle, pickZipAnchor, sniffImage, sniffVideo, UploadError,
 } from "./upload-safety";
+import { detectNativeApp } from "./nativeApp";
 
 // 서비스롤 admin 클라이언트 중 여기서 쓰는 표면만 (demoPayload.ts의 선례).
 type AdminClient = {
@@ -113,6 +114,13 @@ export async function storeZipBundle(
   const entries = await expandZipBundle(buf); // 엔트리 수·압축해제 크기 캡 내장
   const anchor = pickZipAnchor(entries);
   if (!anchor) {
+    // 앵커가 없는 zip 중 상당수는 "웹으로 띄울 수 없는" 네이티브 앱이다. 거절은
+    // 그대로 하되 이유를 정확히 말해주고, /admin이 수요를 셀 수 있게 표시를 남긴다
+    // (lib/nativeApp.ts).
+    const native = detectNativeApp(entries.map((e) => e.relativePath));
+    if (native) {
+      throw new UploadError("웹으로 띄울 수 없는 네이티브 앱이에요.", "native-app", native);
+    }
     throw new UploadError("index.html도 실행 가능한 코드도 없어요.", "index-html-missing");
   }
   // supabase-js는 최종 키를 인코딩 없이 URL에 끼워 넣고, fetch의 WHATWG 파서가

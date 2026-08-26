@@ -16,6 +16,10 @@ export const AnalyticsEvent = {
   DemoHeld: "demo_held", // over-cap -> held for admin review (no spend)
   DemoSucceeded: "demo_succeeded", // worker produced a video
   DemoFailed: "demo_failed", // worker failed (props.reason: login-gated | error)
+  // 웹으로 띄울 수 없는 네이티브 앱이 거절됐다 (props.platform: ios|android|unity,
+  // props.source: zip|github). 해결이 아니라 수요 계측 — 클라우드 폰(Appetize)에
+  // 월 구독을 쓸 만큼 요청이 있는지 /admin에서 본다. 2026-08-26.
+  NativeAppRejected: "native_app_rejected",
   // ── client-reported ─────────────────────────────────────────────────────
   SignupCompleted: "signup_completed",
   ProjectCreated: "project_created",

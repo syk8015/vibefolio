@@ -163,7 +163,7 @@ export async function POST(req: NextRequest) {
       if (video) videoBuf = new Uint8Array(await video.arrayBuffer());
       sniffed = validateMedia(shotBuf, videoBuf);
     } catch (e) {
-      if (e instanceof UploadError) return uploadErrorResponse(e, t);
+      if (e instanceof UploadError) return await uploadErrorResponse(e, t, userId);
       throw e;
     }
 
@@ -366,7 +366,7 @@ export async function POST(req: NextRequest) {
         if (updErr) throw new UploadError(t.api.demoUrlSaveFailed);
       } catch (e) {
         await admin.from("projects").delete().eq("id", projectId);
-        if (e instanceof UploadError) return uploadErrorResponse(e, t);
+        if (e instanceof UploadError) return await uploadErrorResponse(e, t, userId);
         logger.error("ingest: file upload failed", { error: e, projectId });
         return apiError({ status: 500, message: t.api.uploadProcessingError, code: "UPLOAD_ERROR", cause: e });
       }

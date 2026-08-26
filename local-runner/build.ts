@@ -16,6 +16,7 @@ import { Sandbox } from "e2b";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { DEMO_BUCKET } from "./config";
 import { BuildFailedError, NotAWebappError } from "./errors";
+import { detectNativeApp } from "../lib/nativeApp";
 
 // Single-quote a value so it is always exactly ONE shell argument, regardless of
 // metacharacters (same sink-hardening as the cloud task: a repo URL like
@@ -839,8 +840,23 @@ export async function buildAndServe(
         console.log(`[build] no web app → terminal demo (${term.runtime}: ${term.commands.join(", ")})`);
         return await serveTerminal(sandbox, repoPath, term, repoFiles);
       }
+      // 마지막으로, 이게 "웹 타깃이 없는 네이티브 앱"인지만 확인한다. 고칠 수는
+      // 없지만(브라우저에 띄울 게 없다) 어떤 플랫폼 요청이 오는지는 세야 한다 —
+      // 클라우드 폰(Appetize)에 월 구독을 쓸지 판단할 유일한 근거다.
+      const listed = await runSoft(
+        sandbox,
+        `cd ${shQuote(repoPath)} && find . -maxdepth 6 -type f -not -path './node_modules/*' ` +
+          `-not -path './.git/*' | head -600`,
+      );
+      const native = detectNativeApp(
+        listed.stdout.split("\n").map((l) => l.trim().replace(/^\.\//, "")).filter(Boolean),
+      );
+      if (native) console.log(`[build] native app detected (${native}) — no web target to serve`);
       throw new NotAWebappError(
-        "no dev script, no Python web app, no index.html, and no runnable CLI — nothing to serve",
+        native
+          ? `native ${native} app — no web target to build or serve`
+          : "no dev script, no Python web app, no index.html, and no runnable CLI — nothing to serve",
+        native ?? undefined,
       );
     }
 

@@ -15,6 +15,7 @@
 import { Sandbox } from "e2b";
 import { detectWebBuild, serveFlutterWeb, serveExpoWeb } from "./build";
 import { pickZipAnchor } from "../lib/upload-safety";
+import { detectNativeApp } from "../lib/nativeApp";
 
 // e2b의 commands.run은 non-zero에서 던진다 — 프로브는 종료코드를 보고 싶다.
 async function run(sandbox: Sandbox, cmd: string, timeoutMs?: number) {
@@ -126,6 +127,32 @@ function partOne() {
 
   const staticZip = pickZipAnchor([{ relativePath: "index.html" }, { relativePath: "style.css" }]);
   assert("plain static zip unchanged", staticZip?.kind === "html", JSON.stringify(staticZip));
+
+  // 못 찍는 네이티브 — 고칠 수는 없고 "어떤 요청이 오는지" 세기 위한 판정.
+  // 전제: 다른 판정이 모두 실패한 뒤에만 불린다(앵커 null / not-a-webapp 직전).
+  const iosPaths = ["MyApp.xcodeproj/project.pbxproj", "MyApp/ContentView.swift", "MyApp/Info.plist"];
+  assert("ios: 앵커 없음", pickZipAnchor(iosPaths.map((relativePath) => ({ relativePath }))) === null);
+  assert("ios 감지", detectNativeApp(iosPaths) === "ios", String(detectNativeApp(iosPaths)));
+
+  const androidPaths = ["app/src/main/AndroidManifest.xml", "build.gradle.kts", "app/src/main/java/MainActivity.kt"];
+  assert("android: 앵커 없음", pickZipAnchor(androidPaths.map((relativePath) => ({ relativePath }))) === null);
+  assert("android 감지", detectNativeApp(androidPaths) === "android", String(detectNativeApp(androidPaths)));
+
+  const unityPaths = ["ProjectSettings/ProjectVersion.txt", "Assets/Scenes/Main.unity", "build.gradle"];
+  assert("unity가 android보다 우선", detectNativeApp(unityPaths) === "unity", String(detectNativeApp(unityPaths)));
+
+  // bare RN zip은 ios/·android/를 품지만 package.json이 먼저 앵커를 잡으므로
+  // 네이티브 판정에 **닿지 않는다** — 닿으면 웹빌드 경로를 통째로 잃는다.
+  const rnZip = pickZipAnchor(
+    ["package.json", "ios/App.xcodeproj/project.pbxproj", "android/build.gradle", "App.js"].map(
+      (relativePath) => ({ relativePath }),
+    ),
+  );
+  assert("bare RN zip은 package.json 앵커(네이티브 판정에 안 닿음)", rnZip?.path === "package.json", JSON.stringify(rnZip));
+
+  assert("정적 사이트는 네이티브 아님", detectNativeApp(["index.html", "style.css"]) === null);
+  assert("문서만 있는 묶음도 네이티브 아님", detectNativeApp(["README.md", "docs/guide.md"]) === null);
+  assert("파이썬 프로젝트도 네이티브 아님", detectNativeApp(["app.py", "requirements.txt"]) === null);
 }
 
 async function partTwoFlutter(sandbox: Sandbox) {

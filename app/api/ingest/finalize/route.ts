@@ -124,7 +124,7 @@ export async function POST(req: NextRequest) {
     } catch (e) {
       await admin.from("projects").delete().eq("id", projectId);
       await cleanupTemp();
-      if (e instanceof UploadError) return uploadErrorResponse(e, t);
+      if (e instanceof UploadError) return await uploadErrorResponse(e, t, userId);
       logger.error("ingest finalize: processing failed", { error: e, projectId });
       return apiError({ status: 500, message: t.api.uploadProcessingError, code: "UPLOAD_ERROR", cause: e });
     }

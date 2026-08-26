@@ -544,6 +544,9 @@ export const en: Dictionary = {
     draftUrlImmutable: "To change the URL or files, run publish again — pushing the same URL updates the existing draft.",
     projectCreateFailed: "Couldn't create the project.",
     indexHtmlMissing: "This bundle has no web page (index.html) and no runnable code (package.json / *.py). Include index.html for a static site, or the source files for a Python/CLI project.",
+    nativePlatforms: { ios: "iOS (Swift/Xcode)", android: "Android (Kotlin/Gradle)", unity: "Unity" } as Record<string, string>,
+    nativeAppUnsupported: (platform: string) =>
+      `A ${platform} app can't be opened in a browser, so it can't be auto-recorded. If it was built with Flutter, Expo or React Native, upload the source as-is — we build its web target and film that. For any other native app, attach your own demo video instead.`,
     badFilePath: "An invalid file path was detected.",
     fileUploadFailed: (detail: string) => `File upload failed: ${detail}`,
     demoUrlSaveFailed: "Couldn't save the demo URL.",

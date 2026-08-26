@@ -317,6 +317,19 @@ export default async function AdminPage() {
   const funnelMax = Math.max(1, ...funnelSteps.map((f) => f.value));
   const allEvents = Object.entries(counts).sort((a, b) => b[1] - a[1]);
 
+  // 못 찍는 네이티브 앱 수요 (2026-08-26). 클라우드 폰(Appetize)은 월 구독이라
+  // "실제로 올리려는 사람이 있나"를 먼저 센다 — 이 숫자가 붙기 전엔 착수 안 함.
+  // 인제스트 zip 거절과 워커의 not-a-webapp이 같은 이벤트로 모인다.
+  const nativeCounts: Record<string, number> = {};
+  let nativeTotal = 0;
+  for (const r of rows) {
+    if (r.event !== AnalyticsEvent.NativeAppRejected) continue;
+    nativeTotal++;
+    const platform = typeof r.props?.platform === "string" ? r.props.platform : "unknown";
+    const source = typeof r.props?.source === "string" ? r.props.source : "?";
+    bump(nativeCounts, `${platform} · ${source}`);
+  }
+
   // ── 유입 · 확산 (T7 — 실사용 소스 분해) ─────────────────────────────────────
   const views = viewsRes.data ?? [];
   const viewChannelCounts: Record<string, number> = {};
@@ -729,6 +742,15 @@ export default async function AdminPage() {
           </Panel>
           <Panel title="조회 국가">
             <RankList rows={topCounts(viewCountryCounts, 8)} empty="아직 조회가 없어요." />
+          </Panel>
+          <Panel
+            title="못 찍는 네이티브 앱 요청"
+            aside={<MonoAside>{nativeTotal}건 / {WINDOW_DAYS}일</MonoAside>}
+          >
+            <RankList
+              rows={topCounts(nativeCounts, 8)}
+              empty="아직 없어요 — 요청이 쌓이면 그때 클라우드 폰(Appetize) 도입을 판단."
+            />
           </Panel>
           <Panel title="가입 유입 소스">
             <RankList

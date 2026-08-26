@@ -625,6 +625,15 @@ async function processOne(row: PendingRow) {
       reason: code,
       message,
     });
+    // 웹 타깃 없는 네이티브 앱이면 수요를 따로 센다 — 인제스트 zip 거절과 같은
+    // 이벤트로 모아 /admin에서 플랫폼별로 본다(lib/nativeApp.ts).
+    if (err instanceof NotAWebappError && err.platform) {
+      await trackAnalytics(AnalyticsEvent.NativeAppRejected, row.user_id, {
+        platform: err.platform,
+        source: row.demo_source_type ?? "github",
+        projectId: row.id,
+      });
+    }
     await markFailed(row.id, formatDemoFailure(code, message));
     await notifyDemoFailed(row, code);
     if (timedOut) {
