@@ -10,7 +10,12 @@ const inter = Inter({
 });
 
 const hahmlet = Hahmlet({
-  variable: "--font-serif",
+  // ⚠️ 변수명이 `--font-serif`가 아니다. 화면이 쓰는 `--font-serif`는 globals.css가
+  // 만든다: 우리가 잘라 만든 한글 서브셋(HahmletKR)을 **맨 앞**에 두고, 그 뒤에
+  // 이 구글 Hahmlet(=여기)을 폴백으로 둔 스택이다. 서브셋에 없는 글자(유저가 올린
+  // 작품 제목 등)는 여기로 넘어가 구글 조각을 그때만 받는다.
+  // 서브셋 재생성: `node scripts/build-font-subset.mjs` (누락 검사는 --check).
+  variable: "--font-serif-full",
   preload: false,
 });
 

@@ -1,6 +1,35 @@
 @import "tailwindcss";
 
 /* =============================================================
+   한글 세리프 서브셋 (2026-08-26)
+   -------------------------------------------------------------
+   구글은 한글 Hahmlet을 92개 unicode-range 조각으로 배달한다. 랜딩이 세리프로
+   그리는 한글은 58자뿐인데 그 58자가 조각 7개에 흩어져 있어 45KB짜리 조각을
+   7개(≈320KB) 통째로 받았다. 우리가 쓰는 글자만 담은 파일 하나(129KB)로 대신 준다.
+
+   ⚠️ unicode-range를 **한글로만** 한정하는 게 핵심이다. 라틴·숫자·기호는 이 face를
+   건너뛰고 뒤의 구글 Hahmlet이 그린다 — 서브셋 라틴과 구글 라틴의 메트릭이 섞여
+   자간이 어긋나는 일을 원천 차단한다.
+   ⚠️ 여기 없는 한글(유저가 올린 작품 제목 등)도 뒤의 --font-serif-full로 넘어가
+   정상 렌더된다. 커버리지가 빠져도 깨지지 않고 조각 하나를 더 받을 뿐이다.
+   재생성: `node scripts/build-font-subset.mjs` · 누락 검사: 같은 스크립트 --check
+   ============================================================= */
+@font-face {
+  font-family: "HahmletKR";
+  src: url("/fonts/hahmlet-ko-subset.woff2") format("woff2");
+  font-weight: 400 900; /* 가변 축을 400~900으로 잘라 담았다 */
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+1100-11FF, U+3130-318F, U+A960-A97F, U+AC00-D7A3, U+D7B0-D7FF;
+}
+
+:root {
+  /* 화면이 쓰는 세리프 스택. --font-serif-full 은 next/font가 붙이는 구글 Hahmlet
+     (app/layout.tsx) — 서브셋에 없는 글자와 라틴을 담당한다. */
+  --font-serif: "HahmletKR", var(--font-serif-full);
+}
+
+/* =============================================================
    Nookframe — Paper & Ink design system
    ============================================================= */
 
