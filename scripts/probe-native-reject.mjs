@@ -60,7 +60,14 @@ const SCRIPT = {
   ],
 };
 
-const { data: prof } = await svc.from("profiles").select("id").limit(1).maybeSingle();
+// 소유자를 "첫 번째 프로필"로 집으면 계정이 늘거나 사라질 때 대상이 조용히 바뀐다
+// (08-26에 계정 하나를 지우면서 실제로 바뀔 뻔했다). 관리자 계정으로 못 박는다.
+const OWNER_EMAIL = process.env.PROBE_OWNER_EMAIL || "vivestarter@gmail.com";
+const { data: owner } = await svc.auth.admin.listUsers({ perPage: 200 });
+const ownerUser = owner?.users?.find((u) => u.email === OWNER_EMAIL);
+const { data: prof } = ownerUser
+  ? await svc.from("profiles").select("id").eq("id", ownerUser.id).maybeSingle()
+  : { data: null };
 const raw = `nf_live_${randomBytes(32).toString("base64url")}`;
 const { data: tok } = await svc
   .from("api_tokens")
@@ -85,10 +92,29 @@ const postZip = async (name, title) => {
   return { status: res.status, body: await res.json().catch(() => ({})) };
 };
 
+// 스토리지는 **BFS로** 훑는다: list()는 한 단계만 보여줘서 평면 목록만 지우면
+// ios/App.xcodeproj/… 같은 하위 폴더가 그대로 남는다(2026-08-26에 실제로 남겼다 —
+// 계정 탈퇴 경로가 대신 치워줬다). app/api/account의 listUserObjects와 같은 방식.
+const listAll = async (bucket, root) => {
+  const out = [];
+  const queue = [root];
+  while (queue.length) {
+    const dir = queue.shift();
+    const { data } = await svc.storage.from(bucket).list(dir, { limit: 1000 });
+    for (const e of data ?? []) {
+      const full = `${dir}/${e.name}`;
+      if (e.id === null) queue.push(full); // 디렉터리 자리표시자 → 내려간다
+      else out.push(full);
+    }
+  }
+  return out;
+};
+
 const wipeProject = async (pid) => {
-  const { data } = await svc.storage.from("project-files").list(`${prof.id}/${pid}`, { limit: 100 });
-  const keys = (data ?? []).filter((f) => f.id).map((f) => `${prof.id}/${pid}/${f.name}`);
-  if (keys.length) await svc.storage.from("project-files").remove(keys);
+  const keys = await listAll("project-files", `${prof.id}/${pid}`);
+  for (let i = 0; i < keys.length; i += 100) {
+    await svc.storage.from("project-files").remove(keys.slice(i, i + 100));
+  }
   await svc.from("projects").delete().eq("id", pid);
 };
 

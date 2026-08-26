@@ -54,9 +54,16 @@ const script = (n, tag) => ({
 
 const ORIGINAL = script(4, "원본");
 
-const { data: prof } = await svc.from("profiles").select("id").limit(1).maybeSingle();
+// "첫 번째 프로필"이 아니라 관리자 계정으로 못 박는다 — 계정이 늘거나 사라지면
+// 대상이 조용히 바뀐다(08-26 계정 정리 때 실제로 바뀔 뻔했다).
+const OWNER_EMAIL = process.env.PROBE_OWNER_EMAIL || "vivestarter@gmail.com";
+const { data: users } = await svc.auth.admin.listUsers({ perPage: 200 });
+const ownerUser = users?.users?.find((u) => u.email === OWNER_EMAIL);
+const { data: prof } = ownerUser
+  ? await svc.from("profiles").select("id").eq("id", ownerUser.id).maybeSingle()
+  : { data: null };
 if (!prof) {
-  console.error("profiles 행이 없어요 — 프로브를 돌릴 소유자가 필요합니다.");
+  console.error(`${OWNER_EMAIL}의 프로필을 찾지 못했어요 — 프로브를 돌릴 소유자가 필요합니다.`);
   process.exit(1);
 }
 const raw = `nf_live_${randomBytes(32).toString("base64url")}`;
