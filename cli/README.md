@@ -32,6 +32,10 @@ nookframe publish            현재 폴더 작품을 초안으로 올림
   --video <p>               직접 만든 시연 영상 (mp4/webm ≤20MB — 주면 자동 촬영 생략)
   --json '<payload>'        AI가 만든 전체 payload JSON
   --origin <url>            API origin (기본 https://nookframe.com)
+nookframe rerecord <id>      영상이 마음에 안 들 때 — 다시 쓴 촬영 대본 제출 (대기 상태)
+  --json '<json>'            { "steps": [...] } 또는 { "demoScript": {...}, "note": "..." }
+  --file <path>              같은 JSON을 파일에서
+  --note <text>              무엇을 왜 바꿨는지 한 줄
 nookframe drafts             내 초안 목록
 nookframe drafts update <id>  초안 메타데이터 수정 (--title/--description/--note/--hint/--json)
 nookframe drafts delete <id>  초안 삭제 (공개된 프로젝트는 못 지움)
@@ -67,6 +71,23 @@ nookframe mcp                MCP stdio 서버 실행
 올린 작품은 **초안**으로 들어가며, 대시보드에서 확인·수정 후 공개하면 자동 시연 영상이 촬영됩니다.
 같은 URL로 `publish`를 다시 실행하면 새 초안이 생기지 않고 **기존 초안이 갱신**됩니다.
 
+## 재촬영 (rerecord)
+
+영상이 마음에 안 들면 **사람은 말로 적고, 대본은 AI가 다시 씁니다.** CSS 셀렉터를 손으로 고칠 일은 없습니다.
+
+1. 주인이 Nookframe 대시보드에서 `⋯ → 재촬영 요청`을 눌러 불만을 적습니다 — *"16초에서 그거 클릭하지 마"*, *"이 기능이 빠졌어"*.
+2. 사이트가 **프롬프트 하나**를 만들어 줍니다. 원본 대본 전문·작품 정보·프로젝트 id·토큰이 다 들어 있어서,
+   레포 기억이 없는 새 세션의 AI에게 붙여넣어도 바로 일할 수 있습니다.
+3. 그 AI가 새 대본을 제출합니다:
+   ```bash
+   npx nookframe rerecord <프로젝트 id> --json '{"demoScript": {...}, "note": "무엇을 왜 바꿨는지"}'
+   ```
+4. 주인이 대시보드에서 새 대본을 확인하고 **[재촬영]**을 눌러야 촬영이 시작됩니다.
+
+> 제출만으로는 아무것도 바뀌지 않습니다. 공개된 대본(`demo_script`)은 그대로 두고 **대기 칸**에만 저장되므로,
+> 토큰이 공개 콘텐츠를 갈아치울 수 없고 촬영비가 나가기 전에 사람 눈이 한 번 들어갑니다.
+> AI는 사람에게 보고할 때 "아직 촬영이 시작된 게 아니다"를 반드시 함께 말해야 합니다.
+
 ## MCP (클로드 데스크탑 · 커서)
 
 ```json
@@ -81,5 +102,6 @@ nookframe mcp                MCP stdio 서버 실행
 }
 ```
 
-툴 `publish_to_nookframe` · `list_nookframe_drafts` · `update_nookframe_draft` · `delete_nookframe_draft` 가 노출됩니다.
-`publish_to_nookframe`·`update_nookframe_draft` 둘 다 위 `demoScript` 스키마를 그대로 받습니다.
+툴 `publish_to_nookframe` · `rerecord_nookframe_demo` · `list_nookframe_drafts` · `update_nookframe_draft` · `delete_nookframe_draft` 가 노출됩니다.
+셋 다(`publish_to_nookframe`·`rerecord_nookframe_demo`·`update_nookframe_draft`) 위 `demoScript` 스키마를 그대로 받습니다.
+`rerecord_nookframe_demo`는 **이미 공개된** 작품에 쓰는 유일한 툴이지만, 새 대본은 대기 상태로만 저장됩니다(위 참조).

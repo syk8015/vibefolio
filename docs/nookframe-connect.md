@@ -133,6 +133,32 @@
 - 한계: `/api/preview`는 경로만으로 서빙 → 초안 업로드 **바이트는 URL 아는 자에게 열림**(rowId=추측불가 uuid라
   발견 불가). 메타데이터는 숨겨지나 바이트는 URL기밀(발행 업로드와 동일 포스처).
 
+## 재촬영 API — `POST /api/ingest/rerecord/[id]` (2026-08-25 루프, 08-26 클라이언트)
+
+영상이 마음에 안 들 때 **사람은 말로 적고, 대본은 AI가 다시 쓴다**(사용자 확정 설계 — 사람이 CSS
+셀렉터를 손으로 고치는 제품은 만들지 않는다). 루프 3칸:
+
+1. `POST /api/projects/[id]/rerecord-prompt` (쿠키) — 사람의 불만 + 원본 대본 전문 + 작품 정보 +
+   프로젝트 id + 형식 규칙 + 제출 방법 + 자동발급 토큰을 **프롬프트 하나로**(`lib/rerecordPrompt.ts`,
+   ko/en). 설계 제약: 재촬영은 **레포 기억이 없는 새 세션의 AI**가 맡을 수 있다 → 맥락을 통째로 싣는다.
+2. `POST /api/ingest/rerecord/[id]` (PAT) — 새 대본을 **`pending_demo_script`로만** 받는다. 공개
+   데이터(`demo_script`)는 안 건드린다: PAT가 공개 콘텐츠를 갈아치우는 길을 만들지 않기 위해서, 그리고
+   촬영비가 나가기 전에 사람 눈을 한 번 넣기 위해서. 대본 게이트(최소 3스텝)는 **생성 경로와 동일** —
+   재촬영이 품질을 낮추는 길이 되면 안 된다. 레이트리밋 `rerecord` 20/h. 에코 = `{ accepted:
+   { demoScriptSteps, demoScriptDropped, note }, next }`.
+3. `POST /api/projects/[id]/apply-rerecord` (쿠키) — 소유자가 확인하고 실행. 1회차는 즉시 큐잉(대본
+   승격), 2회차부터 `demo_requests(kind=rerecord)`로 관리자 승인.
+
+**클라이언트 표면(08-26)** — 08-25엔 curl뿐이었다. 프롬프트가 셋을 나란히 안내한다:
+- MCP 툴 `rerecord_nookframe_demo` `{ id, demoScript, note }` — 공개된 작품에 쓰는 유일한 툴이지만
+  대기 상태로만 저장된다. 대본 스키마는 `publish_to_nookframe`과 **같은 상수**(mcp.js `DEMO_SCRIPT_SCHEMA`).
+- CLI `nookframe rerecord <id> --json '<json>' | --file <path> [--note …]` (≥0.1.9). `--json`은 봉투
+  `{demoScript, note}`와 대본 자체 `{steps:[…]}` 둘 다 받는다(프롬프트가 대본만 주는 경우가 흔하다).
+- curl (폴백).
+- ⚠️PAT 경로 응답은 **영어 고정**(`shared.ts`: bearer→`getDictionary("en")`, 쿠키=사용자 locale) — AI가
+  읽는 표면이라 의도된 것. 한국어로 보인다면 그건 쿠키 경로다.
+- 검증: `scripts/probe-rerecord-cli.mjs` 16단언(CLI 3형태·MCP stdio 실물 왕복·게이트·공개 대본 불변).
+
 ## 저장 결과 에코 — `accepted` (도그푸딩 C-1)
 
 인제스트는 **틀린 값을 에러 대신 조용히 버린다**: AI 툴 태그는 철자가 `AI_TOOLS`와

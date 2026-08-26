@@ -23,6 +23,11 @@ const HELP = `nookframe — 바이브코딩 작품을 한 줄로 Nookframe에 �
     --video <p>        직접 만든 시연 영상 (mp4/webm, ≤20MB — 주면 자동 촬영 생략)
     --json '<payload>' AI가 만든 전체 payload JSON (다른 플래그와 병합, JSON 우선)
     --origin <url>     API origin (기본 ${getOrigin()})
+  rerecord <id>      영상이 마음에 안 들 때 — 다시 쓴 촬영 대본을 제출한다
+                     (제출하면 대기 상태로 들어가고, 주인이 대시보드에서 확인하고 [재촬영]을 눌러야 반영됨)
+    --json '<json>'    새 대본 JSON — { "steps": [...] } 또는 { "demoScript": {...}, "note": "..." }
+    --file <path>      같은 JSON을 파일에서 읽기
+    --note <text>      무엇을 왜 바꿨는지 한 줄
   drafts             내 초안 목록 (같은 URL로 publish를 다시 실행하면 새 초안 대신 기존 초안이 갱신됨)
     update <id>        초안 메타데이터 수정 (--title/--description/--note/--hint/--json — URL·파일 교체는 publish 재실행)
     delete <id>        초안 삭제 (공개된 프로젝트는 이 명령으로 못 지움)
@@ -71,6 +76,11 @@ try {
     case "publish":
       await publishCommand(args);
       break;
+    case "rerecord": {
+      const { rerecordCommand } = await import("../src/rerecord.js");
+      await rerecordCommand(args);
+      break;
+    }
     case "drafts": {
       const { draftsCommand } = await import("../src/drafts.js");
       await draftsCommand(args);

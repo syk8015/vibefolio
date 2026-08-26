@@ -2,6 +2,7 @@ import { getToken, getOrigin } from "./config.js";
 import { runPublish } from "./publish.js";
 import { formatAccepted } from "./echo.js";
 import { listDrafts, updateDraft, deleteDraft } from "./drafts.js";
+import { submitRerecord, formatRerecord } from "./rerecord.js";
 
 // `nookframe mcp` — MCP stdio 서버. 클로드 데스크탑·커서 등 MCP 호스트가
 // `npx -y nookframe mcp` 로 띄우고, 그 안의 AI가 publish_to_nookframe 툴을 호출한다.
@@ -36,6 +37,43 @@ export async function runMcp() {
     "Pika", "Suno", "ElevenLabs",
   ];
 
+  // 촬영 대본 스키마 — publish와 rerecord가 **같은 형식**을 쓴다(재촬영이 품질을
+  // 낮추는 길이 되면 안 되므로 서버 게이트도 동일). 한 곳에서 정의해 갈라지지 않게.
+  const DEMO_SCRIPT_SCHEMA = {
+    type: "object",
+    description:
+      "자동 시연 로봇이 따라 찍는 촬영 대본. 네가 이 앱을 만들었으니 어떤 화면에서 뭘 눌러야 핵심이 보이는지 안다 — 로봇이 픽셀만 보고 추측하게 두지 마. 이 대본이 곧 영상 전체다(로봇은 딱 이 스텝들만 찍고 끝냄): 보여줄 가치가 있는 기능을 빠짐없이, 5~8스텝 적정(최대 10, 최소 3), 중요한 순서대로(필름 ~30초, 뒤부터 잘림 — 1번이 절대 빠지면 안 되는 기능). hold(초, 0.5~4)를 주면 그 스텝 결과를 오래 보여준다. 로봇은 각 스텝을 실제 화면에서 확인하고 못 찾으면 건너뛰며, 대본에 있어도 로그인/제출/삭제/파일선택은 절대 안 누른다.",
+    properties: {
+      steps: {
+        type: "array",
+        maxItems: 10,
+        items: {
+          type: "object",
+          properties: {
+            goal: { type: "string", description: "이 비트가 증명하는 것 (120자 이내)" },
+            // 전 스텝에 selector가 있으면 로봇이 비전 없이 DOM에서 직접 조립(더 빠르고 정확, 2026-08-20).
+            selector: { type: "string", description: "그 컨트롤의 CSS 셀렉터 — 코드를 아는 네가 정확한 걸 줘라 (250자 이내)" },
+            toSelector: { type: "string", description: "action=drag일 때 놓을 곳의 CSS 셀렉터" },
+            where: { type: "string", description: "눈으로 찾는 법(보이는 라벨·위치) — 셀렉터가 빗나갔을 때의 폴백 (120자 이내)" },
+            // "focus" = 강조 비트: 조작 없이 필름 카메라가 그 영역을 확대(2026-08-20).
+            action: { type: "string", enum: ["click", "type", "drag", "scroll", "hover", "draw", "focus"] },
+            text: { type: "string", description: "action=type일 때 입력할 내용 (60자 이내)" },
+            expect: { type: "string", description: "하고 나면 화면에 나타나야 하는 것 (120자 이내)" },
+            hold: { type: "number", description: "이 스텝의 결과를 몇 초 보여줄지 (0.5~4). 천천히 봐야 하는 비트에만" },
+          },
+          required: ["goal"],
+        },
+      },
+      skip: {
+        type: "array",
+        items: { type: "string" },
+        description: "모든 앱에 다 있어서 비트가 아까운 것들 (예: 다크 모드·언어 토글)",
+      },
+      prep: { type: "string", description: "(선택) 투어 전 준비 한 줄" },
+    },
+    required: ["steps"],
+  };
+
   const TOOL = {
     name: "publish_to_nookframe",
     description:
@@ -47,40 +85,7 @@ export async function runMcp() {
         description: { type: "string", description: "한 문단 설명 (미완성이면 지향점까지)" },
         builderNote: { type: "string", description: "(선택) 공개 카드에 말풍선으로 뜨는 짧은 한마디. 문단이 아니라 한 줄, 예: '이게 제 첫 사이드프로젝트예요!'" },
         demoHighlights: { type: "string", description: "(구식 — demoScript가 있으면 생략 가능) 시연 핵심 서술형 3~5가지, 500자 이내" },
-        demoScript: {
-          type: "object",
-          description:
-            "자동 시연 로봇이 따라 찍는 촬영 대본. 네가 이 앱을 만들었으니 어떤 화면에서 뭘 눌러야 핵심이 보이는지 안다 — 로봇이 픽셀만 보고 추측하게 두지 마. 이 대본이 곧 영상 전체다(로봇은 딱 이 스텝들만 찍고 끝냄): 보여줄 가치가 있는 기능을 빠짐없이, 5~8스텝 적정(최대 10), 중요한 순서대로(필름 ~30초, 뒤부터 잘림 — 1번이 절대 빠지면 안 되는 기능). hold(초, 0.5~4)를 주면 그 스텝 결과를 오래 보여준다. 로봇은 각 스텝을 실제 화면에서 확인하고 못 찾으면 건너뛰며, 대본에 있어도 로그인/제출/삭제/파일선택은 절대 안 누른다.",
-          properties: {
-            steps: {
-              type: "array",
-              maxItems: 10,
-              items: {
-                type: "object",
-                properties: {
-                  goal: { type: "string", description: "이 비트가 증명하는 것 (120자 이내)" },
-                  // 전 스텝에 selector가 있으면 로봇이 비전 없이 DOM에서 직접 조립(더 빠르고 정확, 2026-08-20).
-                  selector: { type: "string", description: "그 컨트롤의 CSS 셀렉터 — 코드를 아는 네가 정확한 걸 줘라 (250자 이내)" },
-                  toSelector: { type: "string", description: "action=drag일 때 놓을 곳의 CSS 셀렉터" },
-                  where: { type: "string", description: "눈으로 찾는 법(보이는 라벨·위치) — 셀렉터가 빗나갔을 때의 폴백 (120자 이내)" },
-                  // "focus" = 강조 비트: 조작 없이 필름 카메라가 그 영역을 확대(2026-08-20).
-                  action: { type: "string", enum: ["click", "type", "drag", "scroll", "hover", "draw", "focus"] },
-                  text: { type: "string", description: "action=type일 때 입력할 내용 (60자 이내)" },
-                  expect: { type: "string", description: "하고 나면 화면에 나타나야 하는 것 (120자 이내)" },
-                  hold: { type: "number", description: "이 스텝의 결과를 몇 초 보여줄지 (0.5~4). 천천히 봐야 하는 비트에만" },
-                },
-                required: ["goal"],
-              },
-            },
-            skip: {
-              type: "array",
-              items: { type: "string" },
-              description: "모든 앱에 다 있어서 비트가 아까운 것들 (예: 다크 모드·언어 토글)",
-            },
-            prep: { type: "string", description: "(선택) 투어 전 준비 한 줄" },
-          },
-          required: ["steps"],
-        },
+        demoScript: DEMO_SCRIPT_SCHEMA,
         tags: {
           type: "array",
           items: { type: "string", enum: AI_TOOL_IDS },
@@ -170,7 +175,26 @@ export async function runMcp() {
     },
   ];
 
-  server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: [TOOL, ...DRAFT_TOOLS] }));
+  // 재촬영(2026-08-26) — 공개된 작품에도 쓸 수 있는 유일한 툴이다. 그래도 공개
+  // 데이터는 안 바뀐다: 새 대본은 대기 상태로 들어가고 주인이 눌러야 승격된다.
+  const RERECORD_TOOL = {
+    name: "rerecord_nookframe_demo",
+    description:
+      "이미 공개된 Nookframe 작품의 시연 영상이 마음에 안 들 때, 다시 쓴 촬영 대본을 제출한다. 주인이 Nookframe에서 [재촬영 요청]을 눌러 만든 프롬프트를 받았을 때 쓰는 툴이다 — 그 프롬프트에 프로젝트 id·지금 걸려 있는 대본 전문·주인이 직접 쓴 불만이 들어 있으니, 멀쩡한 스텝은 두고 지적된 것만 고쳐라. 중요: 제출해도 영상은 바로 바뀌지 않는다. 새 대본은 **대기 상태**로 저장되고, 주인이 대시보드에서 확인하고 [재촬영]을 눌러야 촬영이 시작된다 — 사람에게 보고할 때 이 사실을 반드시 함께 말해라. 대본 게이트는 발행과 동일(최소 3스텝).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string", description: "프로젝트 id — 주인이 준 재촬영 프롬프트에 적혀 있다" },
+        demoScript: DEMO_SCRIPT_SCHEMA,
+        note: { type: "string", description: "무엇을 왜 바꿨는지 한 줄 (주인이 대시보드에서 이걸 보고 판단한다, 1000자 이내)" },
+      },
+      required: ["id", "demoScript"],
+    },
+  };
+
+  server.setRequestHandler(ListToolsRequestSchema, async () => ({
+    tools: [TOOL, RERECORD_TOOL, ...DRAFT_TOOLS],
+  }));
 
   server.setRequestHandler(CallToolRequestSchema, async (req) => {
     const a = req.params.arguments || {};
@@ -206,6 +230,11 @@ export async function runMcp() {
           const echo2 = formatAccepted(body.accepted);
           return { content: [{ type: "text", text:
             `초안을 수정했어요. 확인: ${body.reviewUrl}${echo2.length ? `\n${echo2.join("\n")}` : ""}` }] };
+        }
+        case "rerecord_nookframe_demo": {
+          const { id, ...body } = a;
+          const res = await submitRerecord(id, body, conn);
+          return { content: [{ type: "text", text: formatRerecord(res).join("\n") }] };
         }
         case "delete_nookframe_draft": {
           await deleteDraft(a.id, conn);

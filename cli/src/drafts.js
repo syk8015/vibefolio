@@ -1,25 +1,10 @@
 import { getToken, getOrigin } from "./config.js";
 import { formatAccepted } from "./echo.js";
+import { api } from "./api.js";
 
 // CLI와 MCP가 공유하는 초안 관리 코어(요청4). 서버가 is_draft=true 행만 다루게
 // 강제하므로 여기서 지울 수 있는 건 "아직 공개 안 한 초안"뿐이다. URL·파일 교체는
 // update로 안 되고, 같은 URL로 publish를 다시 실행하면 초안이 갱신된다(upsert).
-
-async function api(method, path, { token, origin, body } = {}) {
-  if (!token) {
-    throw new Error(
-      "토큰이 없어요. nookframe.com/dashboard → 연결 탭에서 발급 후 `NOOKFRAME_TOKEN` 환경변수에 넣거나 `npx nookframe login <token>` 하세요.",
-    );
-  }
-  const res = await fetch(`${origin.replace(/\/$/, "")}${path}`, {
-    method,
-    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || `요청 실패 (HTTP ${res.status})`);
-  return data;
-}
 
 export function listDrafts({ token, origin }) {
   return api("GET", "/api/ingest/drafts", { token, origin });

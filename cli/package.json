@@ -1,6 +1,6 @@
 {
   "name": "nookframe",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "Publish your vibe-coded project to Nookframe with one command — your building AI writes the description, intent, and demo script for you.",
   "type": "module",
   "bin": {

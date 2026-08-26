@@ -58,9 +58,10 @@ const SHAPE_EN = SHAPE
 function facts(c: RerecordContext, locale: "ko" | "en"): string {
   const none = locale === "en" ? "(none)" : "(없음)";
   const L = locale === "en"
-    ? { title: "Title", desc: "Description", url: "URL the robot opens", kind: "Category", tools: "Built with", access: "How to view without logging in (demoAccess)" }
-    : { title: "제목", desc: "설명", url: "로봇이 여는 주소", kind: "분류", tools: "만든 도구", access: "로그인 없이 보는 법(demoAccess)" };
+    ? { id: "Project id (you need it to submit)", title: "Title", desc: "Description", url: "URL the robot opens", kind: "Category", tools: "Built with", access: "How to view without logging in (demoAccess)" }
+    : { id: "프로젝트 id (제출할 때 필요)", title: "제목", desc: "설명", url: "로봇이 여는 주소", kind: "분류", tools: "만든 도구", access: "로그인 없이 보는 법(demoAccess)" };
   const lines = [
+    `- ${L.id}: ${c.projectId}`,
     `- ${L.title}: ${c.title || none}`,
     `- ${L.desc}: ${c.description || none}`,
     `- ${L.url}: ${c.demoUrl || none}`,
@@ -110,15 +111,18 @@ RULES (the robot follows the script literally)
 - The robot never logs in, submits, deletes, or opens file pickers — don't ask it to.
 - Re-check the live page if you can: selectors that no longer exist are the most common reason a beat goes missing.
 
-HOW TO SUBMIT (one shot — this replaces nothing until the owner approves it in their dashboard)
-1) Save the connect token once (skip if you have no shell):
+HOW TO SUBMIT — pick whichever fits you (this replaces nothing until the owner approves it in their dashboard)
+- If you have the Nookframe MCP server: call the "rerecord_nookframe_demo" tool with
+  { "id": "${c.projectId}", "demoScript": <your script>, "note": "one line on what you changed and why" }
+- If you have a shell: save the token once, then submit —
    ${loginCommand(tokenArg)}
-2) Submit the new script:
+   npx nookframe@latest rerecord ${c.projectId} --json '{"demoScript": <your script>, "note": "what you changed and why"}'
+- Neither? Plain HTTP works too:
    curl -X POST ${submitUrl} \\
      -H "Authorization: Bearer ${tokenArg}" \\
      -H "Content-Type: application/json" \\
      -d '{"demoScript": <your script>, "note": "one line on what you changed and why"}'
-Then tell the owner what you changed. They review it in Nookframe and press re-record.
+Then tell the owner what you changed AND that nothing is re-recorded yet — they have to open Nookframe and press re-record.
 
 Script shape:
 \`\`\`json
@@ -149,15 +153,18 @@ ${current}
 - 로봇은 로그인·제출·삭제·파일선택을 절대 하지 않는다 — 시키지 마라.
 - 가능하면 실제 페이지를 다시 확인해라. 사라진 셀렉터가 비트가 통째로 빠지는 가장 흔한 이유다.
 
-제출 방법 (제출한다고 바로 바뀌지 않는다 — 주인이 대시보드에서 확인하고 재촬영을 눌러야 반영된다)
-1) 연결 토큰을 한 번 저장해라(셸이 없으면 건너뛰어라):
+제출 방법 — 셋 중 편한 걸로 (제출한다고 바로 바뀌지 않는다: 주인이 대시보드에서 확인하고 재촬영을 눌러야 반영된다)
+- Nookframe MCP 서버가 있으면: "rerecord_nookframe_demo" 툴을 이렇게 호출해라 —
+  { "id": "${c.projectId}", "demoScript": <네가 쓴 대본>, "note": "무엇을 왜 바꿨는지 한 줄" }
+- 셸이 있으면: 토큰을 한 번 저장하고 제출해라 —
    ${loginCommand(tokenArg)}
-2) 새 대본을 제출해라:
+   npx nookframe@latest rerecord ${c.projectId} --json '{"demoScript": <네가 쓴 대본>, "note": "무엇을 왜 바꿨는지"}'
+- 둘 다 없으면 HTTP로 직접:
    curl -X POST ${submitUrl} \\
      -H "Authorization: Bearer ${tokenArg}" \\
      -H "Content-Type: application/json" \\
      -d '{"demoScript": <네가 쓴 대본>, "note": "무엇을 왜 바꿨는지 한 줄"}'
-제출 후에는 무엇을 바꿨는지 주인에게 말해라. 주인이 Nookframe에서 확인하고 재촬영을 누른다.
+제출한 뒤에는 무엇을 바꿨는지, 그리고 **아직 재촬영이 시작된 게 아니라는 것**을 주인에게 말해라 — 주인이 Nookframe에서 확인하고 재촬영을 눌러야 시작된다.
 
 대본 형식:
 \`\`\`json
