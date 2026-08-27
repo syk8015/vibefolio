@@ -8,7 +8,7 @@ import { Panel, SectionTitle, MonoAside, Ledger, type LedgerEntry } from "../pan
 import TaglinePicker, { type TaglineShots } from "./TaglinePicker";
 import ClipGallery, { type ClipData } from "./ClipGallery";
 import PerfRank, { type PerfRow } from "./PerfRank";
-import type { PostRowData } from "./PostRow";
+import type { ClipPost } from "./ClipCard";
 
 // 홍보 클립 관리 — 관제탑(/admin)과 워크플로우 성격이 달라(운영 모니터링 vs
 // 콘텐츠 제작·배포) 별도 페이지로 분리했다. /admin 헤더 링크로 연결됨.
@@ -25,11 +25,13 @@ export default async function PromoPage() {
   const [clipsRes, postsRes, eventsRes] = await Promise.all([
     admin
       .from("promo_clips")
-      .select("id, status, tagline_text, tagline_reply, format, opening, video_url, poster_url, error, created_at")
+      .select(
+        "id, status, tagline_text, tagline_reply, caption, format, opening, video_url, poster_url, error, created_at",
+      )
       .order("created_at", { ascending: false }),
     admin
       .from("promo_posts")
-      .select("id, clip_id, channel, caption, status, post_url, created_at")
+      .select("id, clip_id, channel, status, created_at")
       .order("created_at", { ascending: false }),
     // /admin/page.tsx와 같은 정책: 서버에서 event만 좁히고 나머지(campaign 매칭·
     // 그루핑)는 JS에서 처리한다 — JSON 연산자 필터 문법 실수 위험을 피한다.
@@ -54,7 +56,7 @@ export default async function PromoPage() {
     statsByPostId.set(postId, bucket);
   }
 
-  const postsByClipId = new Map<string, PostRowData[]>();
+  const postsByClipId = new Map<string, ClipPost[]>();
   // 클립 단위 합계 — "어떤 태그라인이 먹혔나"를 보려면 채널이 아니라 클립으로
   // 묶어야 한다(한 클립을 여러 채널에 올리면 포스트가 여러 개로 쪼개진다).
   const clipStats = new Map<string, { visits: number; signups: number }>();
@@ -76,12 +78,9 @@ export default async function PromoPage() {
     cl.signups += stats.signups;
     clipStats.set(p.clip_id, cl);
 
-    const row: PostRowData = {
+    const row: ClipPost = {
       id: p.id,
       channel: p.channel,
-      caption: p.caption,
-      status: p.status as "draft" | "posted",
-      postUrl: p.post_url,
       trackingUrl: promoTrackingUrl({ channel: p.channel, postId: p.id }),
       visits: stats.visits,
       signups: stats.signups,
@@ -95,6 +94,7 @@ export default async function PromoPage() {
     id: c.id,
     taglineText: c.tagline_text,
     taglineReply: c.tagline_reply,
+    caption: c.caption,
     status: c.status as ClipData["status"],
     format: c.format as ClipData["format"],
     opening: (c.opening ?? "hook") as ClipData["opening"],
@@ -140,7 +140,7 @@ export default async function PromoPage() {
 
   const ledger: LedgerEntry[] = [
     { label: "클립", value: clips.length, sub: `완료 ${doneCount} · 대기 ${pendingCount}`, state: "plain" },
-    { label: "포스트", value: posts.length, sub: `게시완료 ${postedCount}`, state: "plain" },
+    { label: "올린 채널", value: posts.length, sub: `게시완료 ${postedCount}`, state: "plain" },
     { label: "유입", value: totalVisits, sub: "추적 링크 첫 방문 (30일 제한 없음)", state: "plain" },
     {
       label: "가입",

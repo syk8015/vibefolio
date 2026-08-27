@@ -75,23 +75,24 @@ export function promoTrackingUrl({ channel, postId }: { channel: string; postId:
 }
 
 // ── 채널 ────────────────────────────────────────────────────────────────
-// 자유 텍스트 입력(디시·기타 커뮤니티 등 고정 enum이 아님) — 아래는 UI
-// datalist 자동완성 힌트 + 알려진 채널의 업로드 페이지 바로가기일 뿐, 목록에
-// 없는 채널명도 그대로 쓸 수 있다(CHANNEL_UPLOAD_LINKS에 없으면 바로가기만 생략).
-export const PROMO_CHANNEL_HINTS = [
-  "인스타 릴스",
-  "유튜브 쇼츠",
-  "틱톡",
-  "X",
-  "스레드",
-  "디시인사이드",
+// 고정 4채널만 둔다(2026-08-27 사용자 확정) — 자유 텍스트 입력·채널 추가 폼은
+// 폐기했다. 클립 카드에서 로고 버튼 한 번 = "이 채널에 올린다"이므로 목록이
+// 길면 그 동작이 흐려진다. 디시인사이드 등 커뮤니티는 제외(추후 필요해지면
+// 여기 배열에만 추가하면 UI가 따라온다).
+//   label     — promo_posts.channel에 그대로 저장되는 값. 채널별 성적 집계
+//               (app/admin/promo/page.tsx)의 키이므로 **바꾸면 옛 기록과 갈라진다**.
+//   host      — components/SocialBadge.tsx의 브랜드(로고·색) 조회 키. 로고 SVG를
+//               여기 복제하지 않고 명함에 쓰는 것과 같은 것을 그대로 쓴다.
+//   uploadUrl — 버튼을 눌렀을 때 새 탭으로 여는 업로드 화면.
+export const PROMO_CHANNELS = [
+  { label: "인스타", host: "instagram.com", uploadUrl: "https://www.instagram.com/" },
+  { label: "스레드", host: "threads.net", uploadUrl: "https://www.threads.net/" },
+  { label: "유튜브", host: "youtube.com", uploadUrl: "https://studio.youtube.com/" },
+  { label: "X", host: "x.com", uploadUrl: "https://x.com/compose/post" },
 ] as const;
 
-export const CHANNEL_UPLOAD_LINKS: Record<string, string> = {
-  "인스타 릴스": "https://www.instagram.com/",
-  "유튜브 쇼츠": "https://studio.youtube.com/",
-  "틱톡": "https://www.tiktok.com/upload",
-  "X": "https://x.com/compose/post",
-  "스레드": "https://www.threads.net/",
-  "디시인사이드": "https://www.dcinside.com/",
-};
+export type PromoChannel = (typeof PROMO_CHANNELS)[number];
+
+export function findPromoChannel(label: string): PromoChannel | undefined {
+  return PROMO_CHANNELS.find((c) => c.label === label);
+}

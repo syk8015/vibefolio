@@ -74,6 +74,15 @@ const PLATFORM_MAP: Record<string, PlatformConfig> = {
   },
 };
 
+// 홍보 클립 관리(/admin/promo)의 채널 버튼이 쓰는 조회구 — 로고 SVG와 브랜드
+// 색을 그쪽에 복제하지 않고 명함이 쓰는 것과 같은 것을 그대로 빌려 쓴다.
+// host는 PLATFORM_MAP의 키(예: "instagram.com").
+export function getSocialBrand(host: string): { name: string; color: string; icon: React.ReactNode } | null {
+  const config = PLATFORM_MAP[host];
+  if (!config) return null;
+  return { name: config.name, color: config.color, icon: config.icon };
+}
+
 // Exposed so the Meishi card can render compact "dot" versions of the
 // same links the badge component would render in its full pill form.
 export function getSocialMeta(url: string): {

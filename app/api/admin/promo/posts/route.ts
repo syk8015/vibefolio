@@ -5,9 +5,12 @@ import { apiError } from "@/lib/apiError";
 import { isAdminEmail } from "@/lib/demoQuota";
 import { promoTrackingUrl } from "@/lib/promo";
 
-// 클립을 특정 채널에 "올릴 예정"으로 등록(초안). 실제 업로드는 사람이 채널에
-// 직접 하고(반자동), 이 포스트 row가 발급하는 트래킹 링크(promoTrackingUrl)로
-// 유입·가입이 자동 집계된다.
+// 클립을 특정 채널에 올린 기록. 실제 업로드는 사람이 채널에 직접 하고(반자동),
+// 이 포스트 row가 발급하는 트래킹 링크(promoTrackingUrl)로 유입·가입이 자동
+// 집계된다 — 즉 **행을 만들어야 링크가 생긴다**(campaign=promo-{postId}).
+//
+// 같은 클립+채널로 다시 들어오면 새로 만들지 않고 있는 걸 돌려준다. 채널 버튼을
+// 두 번 눌렀다고 추적 링크가 둘로 갈라지면 그 채널 성적이 반토막 난다.
 export async function POST(req: NextRequest) {
   try {
     const supabase = await createClient();
@@ -19,11 +22,13 @@ export async function POST(req: NextRequest) {
     let clipId = "";
     let channel = "";
     let caption = "";
+    let status: "draft" | "posted" = "draft";
     try {
       const body = await req.json();
       clipId = typeof body?.clipId === "string" ? body.clipId : "";
       channel = typeof body?.channel === "string" ? body.channel.trim() : "";
       caption = typeof body?.caption === "string" ? body.caption : "";
+      if (body?.status === "posted") status = "posted";
     } catch {
       // falls through to validation below
     }
@@ -44,9 +49,30 @@ export async function POST(req: NextRequest) {
       return apiError({ status: 404, message: "클립을 찾을 수 없어요.", code: "NOT_FOUND" });
     }
 
+    const { data: existing } = await admin
+      .from("promo_posts")
+      .select("id")
+      .eq("clip_id", clipId)
+      .eq("channel", channel)
+      .maybeSingle();
+    if (existing) {
+      return NextResponse.json({
+        ok: true,
+        postId: existing.id,
+        trackingUrl: promoTrackingUrl({ channel, postId: existing.id }),
+        reused: true,
+      });
+    }
+
     const { data: post, error } = await admin
       .from("promo_posts")
-      .insert({ clip_id: clipId, channel, caption: caption || null, status: "draft" })
+      .insert({
+        clip_id: clipId,
+        channel,
+        caption: caption || null,
+        status,
+        posted_at: status === "posted" ? new Date().toISOString() : null,
+      })
       .select("id")
       .single();
     if (error || !post) {
