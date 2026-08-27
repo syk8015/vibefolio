@@ -542,6 +542,8 @@ export const ko = {
     artifactRequired: "deployUrl(또는 appUrl) 또는 파일 번들(bundle)이 필요해요.",
     badUrl: "임베드·시연할 수 있는 URL이 아니에요.",
     demoAccessBadUrl: "demoAccess.url은 http(s) 주소이거나 /로 시작하는 경로여야 해요.",
+    demoAccessRequired:
+      "demoAccess가 필요해요 — 로그인 질문에 반드시 답해야 발행됩니다. 시연 로봇은 절대 로그인하지 않아요. 그래서 로그인해야 화면이 보이거나, **로그인한 뒤에야 기능이 도는** 앱을 그냥 올리면 로그인 화면이나 텅 빈 화면만 찍힙니다. 아래 셋 중 하나를 반드시 주세요. ①로그인 없이 들어갈 길이 있으면: { \"url\": \"/demo\", \"params\": {\"guest\":\"1\"}, \"note\": \"거기서 데모 모드를 보는 법\" } — 데모/게스트 모드가 없다면 지금 하나 만드는 게 가장 좋은 투자입니다. ②로그인이 정말 아예 필요 없고 첫 화면부터 전 기능이 눌리면: { \"noLogin\": true }. ③게스트 경로가 원천 불가능하면(E2E 암호화·기기 페어링 등): { \"impossible\": true, \"note\": \"이유\" } — 이 경우 랜딩만 찍히니 직접 만든 영상(video) 첨부를 강하게 권해요. 계정 아이디·비밀번호는 절대 넣지 마세요 — 받지 않습니다.",
     rerecordPendingNext: "새 대본을 접수했어요. 작품 주인이 대시보드에서 확인하고 [이 대본으로 재촬영]을 눌러야 촬영이 시작돼요.",
     rerecordNoPendingScript: "대기 중인 새 대본이 없어요. 재촬영 프롬프트를 AI에게 주고, AI가 새 대본을 제출한 뒤에 눌러 주세요.",
     rerecordAlreadyUsed: "이 작품의 셀프 재촬영 1회는 이미 썼어요. 다음부터는 관리자 승인이 필요해요.",

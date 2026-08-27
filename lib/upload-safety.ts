@@ -229,7 +229,10 @@ export async function expandZipBundle(
 export type ZipAnchor = { path: string; kind: "html" | "runnable" };
 
 const PY_ANCHOR_RANK = [
-  "streamlit_app.py", "app.py", "main.py", "home.py", "server.py", "run.py", "cli.py", "index.py",
+  // manage.py sits high because it is Django's one true entry point: a Django zip
+  // also carries app.py-shaped files (views.py, urls.py…), and anchoring on one of
+  // those would point the build at a module instead of the project root.
+  "streamlit_app.py", "manage.py", "app.py", "main.py", "home.py", "server.py", "run.py", "cli.py", "index.py",
 ];
 
 export function pickZipAnchor(entries: { relativePath: string }[]): ZipAnchor | null {

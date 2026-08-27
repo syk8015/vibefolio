@@ -20,7 +20,7 @@
 ```
 nookframe publish            현재 폴더 작품을 초안으로 올림
   --url <url>                배포된 공개 URL (없으면 dist/out/build/public 자동 탐색)
-                             공개 GitHub 저장소 URL도 가능 — JS·파이썬 웹앱은 자동 실행, CLI·봇은 라이브 터미널 촬영
+                             공개 GitHub 저장소 URL도 가능 — JS·파이썬 웹앱(Streamlit·Gradio·Dash·Django·Flask·FastAPI)은 자동 실행, CLI·봇은 라이브 터미널 촬영
   --app-url <url>            실제 앱 화면 URL (랜딩과 다를 때 — 시연은 이 주소를 촬영)
   --dir <path>              올릴 디렉터리 (정적 빌드 또는 파이썬·CLI 소스, zip 업로드)
   --title <t>               제목
@@ -28,6 +28,11 @@ nookframe publish            현재 폴더 작품을 초안으로 올림
   --access-url <u>          로그인 필요 앱의 데모/게스트 진입 URL·경로 (예 /demo)
   --access-params <q>       진입 URL에 붙일 쿼리 (예 "guest=1&lang=ko")
   --access-note <t>         데모 모드 보는 법 한두 문장 (계정 정보는 안 받음)
+  --access-no-login         로그인이 아예 필요 없고 첫 화면부터 전 기능이 눌림
+  --access-impossible       게스트 경로가 원천 불가능 (E2E 암호화·기기 페어링 등)
+                            ↑ demoAccess는 필수다 — 위 셋 중 하나가 없으면 서버가 400으로 거절한다.
+                              시연 로봇은 절대 로그인하지 않으므로, "화면이 보이나"가 아니라
+                              "로그인 전에 뭐가 실제로 작동하나"로 판단할 것
   --screenshot <p>          썸네일용 스크린샷 (png/jpg/webp/gif ≤5MB)
   --video <p>               직접 만든 시연 영상 (mp4/webm ≤20MB — 주면 자동 촬영 생략)
   --json '<payload>'        AI가 만든 전체 payload JSON

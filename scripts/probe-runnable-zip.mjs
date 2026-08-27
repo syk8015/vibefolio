@@ -45,9 +45,22 @@ const { data: tok } = await svc.from("api_tokens").insert({
   name: "__probe_rzip_delete_me__",
 }).select("id").single();
 
+// 인제스트는 zip을 보기 전에 두 게이트를 먼저 통과시킨다: 대본(2026-08-25)과
+// 로그인 답변(2026-08-27). 둘 다 없으면 앵커 판정에 닿지도 못하고 400이 난다.
+const GATE = {
+  demoScript: {
+    steps: [
+      { goal: "첫 화면 확인", where: "본문", action: "scroll", expect: "내용이 보인다" },
+      { goal: "주요 버튼", where: "첫 버튼", action: "click", expect: "반응한다" },
+      { goal: "결과 확인", where: "결과 영역", action: "focus", expect: "결과가 보인다" },
+    ],
+  },
+  demoAccess: { noLogin: true },
+};
+
 const postZip = async (zipPath, title) => {
   const form = new FormData();
-  form.set("payload", JSON.stringify({ title }));
+  form.set("payload", JSON.stringify({ title, ...GATE }));
   form.set("bundle", new Blob([readFileSync(zipPath)], { type: "application/zip" }), "bundle.zip");
   const res = await fetch(`${ORIGIN}/api/ingest`, {
     method: "POST", headers: { Authorization: `Bearer ${raw}` }, body: form,

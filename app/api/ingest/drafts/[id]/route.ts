@@ -6,7 +6,7 @@ import { getDictionary } from "@/lib/i18n/dictionaries";
 import { rateLimit } from "@/lib/rate-limit";
 import { bearerFromHeader } from "@/lib/apiToken";
 import { normalizeTags, normalizeContentType } from "@/lib/projectTaxonomy";
-import { normalizeDemoAccess } from "@/lib/demoAccess";
+import { normalizeDemoAccess, demoAccessAnswered } from "@/lib/demoAccess";
 import { normalizeDemoScript, DEMO_SCRIPT_MIN_STEPS, type DemoScript } from "@/lib/demoScript";
 import { logger } from "@/lib/logger";
 import {
@@ -133,6 +133,16 @@ export async function PATCH(
         if (!u || u.startsWith("/")) continue;
         const gate = await publicUrlGate(u, t);
         if (gate) return gate;
+      }
+      // 대본 게이트와 같은 이유로 수정 경로도 막는다: 여기로 demoAccess를 비우면
+      // 생성 게이트를 통과한 뒤 도로 "로그인 화면만 찍히는 초안"이 되는 우회가 된다.
+      // 초안은 아직 촬영 전이라 이 값이 그대로 촬영 조건이 된다.
+      if (!hasOwnVideo && !demoAccessAnswered(norm.access)) {
+        return apiError({
+          status: 400,
+          message: t.api.demoAccessRequired,
+          code: "DEMO_ACCESS_REQUIRED",
+        });
       }
       upd.demo_access = norm.access;
     }

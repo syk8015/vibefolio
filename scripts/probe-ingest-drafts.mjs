@@ -19,6 +19,19 @@ const ok = (name, pass, detail = "") => {
   if (!pass) failed++;
 };
 
+// 인제스트 생성 게이트 2종(대본 2026-08-25 · 로그인 답변 2026-08-27)을 통과시키는
+// 최소 페이로드. 이 프로브의 관심사는 upsert·PATCH·DELETE라 게이트는 상수로 둔다.
+const GATE = {
+  demoScript: {
+    steps: [
+      { goal: "첫 화면 확인", where: "본문", action: "scroll", expect: "내용이 보인다" },
+      { goal: "주요 버튼", where: "첫 버튼", action: "click", expect: "반응한다" },
+      { goal: "결과 확인", where: "결과 영역", action: "focus", expect: "결과가 보인다" },
+    ],
+  },
+  demoAccess: { noLogin: true },
+};
+
 const { data: prof } = await svc.from("profiles").select("id").limit(1).maybeSingle();
 const raw = `nf_live_${randomBytes(32).toString("base64url")}`;
 const { data: tok } = await svc.from("api_tokens").insert({
@@ -65,15 +78,15 @@ try {
   if (!live) throw new Error("deploy timeout");
 
   // (1) 생성 → 같은 URL 재푸시 = upsert.
-  const c1 = await (await call("POST", "/api/ingest", { title: "__probe_up_A__", deployUrl: U1, demoHighlights: "first" })).json();
+  const c1 = await (await call("POST", "/api/ingest", { title: "__probe_up_A__", deployUrl: U1, demoHighlights: "first", ...GATE })).json();
   ok("초안 생성", !!c1.projectId && !c1.upserted, c1.projectId);
-  const c2 = await (await call("POST", "/api/ingest", { title: "__probe_up_B__", deployUrl: U1 })).json();
+  const c2 = await (await call("POST", "/api/ingest", { title: "__probe_up_B__", deployUrl: U1, ...GATE })).json();
   ok("같은 URL 재푸시 → upserted=true·같은 행", c2.upserted === true && c2.projectId === c1.projectId, JSON.stringify(c2).slice(0, 120));
   const { data: row1 } = await svc.from("projects").select("title, demo_user_hint, is_draft").eq("id", c1.projectId).single();
   ok("upsert가 필드 갱신(title B·hint 최신화)", row1?.title === "__probe_up_B__" && row1?.demo_user_hint === null && row1?.is_draft === true, JSON.stringify(row1));
 
   // (2) 다른 URL은 새 행.
-  const c3 = await (await call("POST", "/api/ingest", { title: "__probe_up_C__", deployUrl: U2 })).json();
+  const c3 = await (await call("POST", "/api/ingest", { title: "__probe_up_C__", deployUrl: U2, ...GATE })).json();
   ok("다른 URL → 새 초안", !!c3.projectId && c3.projectId !== c1.projectId && !c3.upserted);
 
   // (3) 목록.

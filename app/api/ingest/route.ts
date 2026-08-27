@@ -12,7 +12,7 @@ import {
   missingScriptColumn,
 } from "./shared";
 import { normalizeTags, normalizeContentType } from "@/lib/projectTaxonomy";
-import { normalizeDemoAccess, type DemoAccess } from "@/lib/demoAccess";
+import { normalizeDemoAccess, demoAccessAnswered, type DemoAccess } from "@/lib/demoAccess";
 import { normalizeDemoScript, DEMO_SCRIPT_MIN_STEPS } from "@/lib/demoScript";
 import {
   MAX_UPLOAD_BYTES, MAX_MEDIA_IMAGE_BYTES, MAX_MEDIA_VIDEO_BYTES, UploadError,
@@ -194,6 +194,19 @@ export async function POST(req: NextRequest) {
       }
       if (steps < DEMO_SCRIPT_MIN_STEPS) {
         return apiError({ status: 400, message: t.api.scriptTooThin(steps), code: "SCRIPT_TOO_THIN" });
+      }
+      // 로그인 게이트(2026-08-27 사용자 확정). 대본 게이트와 같은 자리, 같은 이유다.
+      // 로봇은 절대 로그인하지 않으므로 "로그인 뒤에야 기능이 도는 앱"은 demoAccess
+      // 없이는 로그인 화면·빈 껍데기만 찍힌다 — 그리고 이건 실패로 잡히지도 않는다
+      // (화면이 있으니 blank 가드도 통과한다). 선택 항목이던 동안 AI는 이 칸을
+      // 그냥 비웠다. 이제 셋 중 하나로 **답해야** 저장한다(url·noLogin·impossible).
+      // 면제는 대본 게이트와 동일: 직접 만든 영상은 자동 촬영 자체를 건너뛴다.
+      if (!demoAccessAnswered(demoAccess)) {
+        return apiError({
+          status: 400,
+          message: t.api.demoAccessRequired,
+          code: "DEMO_ACCESS_REQUIRED",
+        });
       }
     }
 

@@ -525,6 +525,8 @@ export const en: Dictionary = {
     artifactRequired: "Either deployUrl (or appUrl) or a file bundle is required.",
     badUrl: "This URL can't be embedded or filmed for a demo.",
     demoAccessBadUrl: "demoAccess.url must be an http(s) URL or a path starting with /.",
+    demoAccessRequired:
+      "demoAccess is required — you must answer the login question to publish. The demo robot never logs in, so an app that hides its screen behind a login, or that **only comes alive after you log in**, gets filmed as a login form or an empty shell. Send exactly one of these. (1) There is a way in without logging in: { \"url\": \"/demo\", \"params\": {\"guest\":\"1\"}, \"note\": \"how to reach demo mode from there\" } — if no demo/guest mode exists yet, building one is the single best thing you can do for this film. (2) Login genuinely isn't needed and every feature works from the first screen: { \"noLogin\": true }. (3) A guest path is fundamentally impossible (E2E encryption, device pairing…): { \"impossible\": true, \"note\": \"why\" } — only the landing page gets filmed, so attaching your own video is strongly recommended. Never send account IDs or passwords; they are not accepted.",
     rerecordPendingNext: "New script received. It starts nothing yet — the owner reviews it in their dashboard and presses re-record.",
     rerecordNoPendingScript: "No new script is waiting. Hand the re-record prompt to your AI first — press this once it has submitted a new script.",
     rerecordAlreadyUsed: "This project already used its one self-serve re-record. Further takes need admin approval.",

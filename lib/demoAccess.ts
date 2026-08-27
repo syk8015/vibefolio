@@ -23,6 +23,13 @@ export type DemoAccess = {
   // 데모/게스트 진입이 "원천 불가능"하다는 명시 선언. true면 랜딩만 촬영되고
   // 커버리지가 리포트에 표기된다. 이유는 note에 적는다(reason 별칭도 note로 수렴).
   impossible?: boolean;
+  // "이 앱은 로그인 없이도 전 기능이 보인다"는 명시 선언(2026-08-27). 값 자체는
+  // 워커가 쓰지 않는다 — 존재 이유는 오직 하나, 발행 AI가 로그인 문제를 **건너뛰지
+  // 못하게** 만드는 것이다. 실제로 가장 흔한 실패는 "로그인 뒤에야 기능이 도는 앱"을
+  // 그냥 올려서 로그인 화면만 찍히는 것인데, demoAccess가 선택이던 동안엔 AI가
+  // 이 칸을 그냥 비우고 지나갔다. 이제 셋 중 하나(url·impossible·noLogin)를
+  // 반드시 답해야 인제스트가 받는다.
+  noLogin?: boolean;
 };
 
 export const DEMO_ACCESS_URL_MAX = 500;
@@ -63,10 +70,15 @@ export function normalizeDemoAccess(
     note?: unknown;
     impossible?: unknown;
     reason?: unknown;
+    noLogin?: unknown;
+    loginRequired?: unknown;
   };
   const access: DemoAccess = {};
 
   if (raw.impossible === true) access.impossible = true;
+  // noLogin이 정본. loginRequired: false는 같은 뜻을 다르게 쓰는 AI를 위한 관용
+  // 별칭이다 — 뜻이 통하는데 400으로 튕기면 AI는 이유를 모른 채 맴돈다.
+  if (raw.noLogin === true || raw.loginRequired === false) access.noLogin = true;
 
   const url = normEntryUrl(raw.url);
   if (url === "bad") return { access: null, issue: "bad-url" };
@@ -105,4 +117,12 @@ export function normalizeDemoAccess(
   }
 
   return { access: Object.keys(access).length ? access : null };
+}
+
+// 인제스트 게이트(2026-08-27): 로그인 질문에 **답을 했는가**. 세 가지 중 하나면
+// 통과 — 게스트 진입 경로를 줬거나(url), 그런 경로가 원천 불가능하다고 선언했거나
+// (impossible), 로그인이 아예 필요 없다고 선언했거나(noLogin). 셋 다 없으면
+// "생각 안 하고 비워둔 것"과 구별할 방법이 없으므로 되돌려보낸다.
+export function demoAccessAnswered(access: DemoAccess | null | undefined): boolean {
+  return !!(access?.url || access?.impossible || access?.noLogin);
 }

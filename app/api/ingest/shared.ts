@@ -152,7 +152,7 @@ export function buildAccepted(
     demoScript: DemoScript | null;
     tags: string[];
     contentTypeId: string | null;
-    demoAccess: { url?: string; params?: Record<string, string>; impossible?: boolean; altUrl?: string } | null;
+    demoAccess: { url?: string; params?: Record<string, string>; impossible?: boolean; noLogin?: boolean; altUrl?: string } | null;
     entryUrl: string | null;
   },
   normalizeTags: (v: unknown) => string[],
@@ -178,7 +178,11 @@ export function buildAccepted(
     droppedContentType: rawType && !stored.contentTypeId ? rawType : null,
     entryUrl: stored.entryUrl || null,
     scoutAltUrl: access?.altUrl ?? null,
-    demoAccess: access?.impossible ? "impossible" : (access?.url ?? null),
+    // 에코는 "무엇이 실제로 저장됐나"를 보여주는 자리다(C-1). 로그인 답변 3종이
+    // 모두 구별돼 보여야 AI가 자기가 무슨 답을 했는지 확인할 수 있다.
+    demoAccess: access?.impossible
+      ? "impossible"
+      : (access?.url ?? (access?.noLogin ? "no-login" : null)),
     // altUrl은 서버가 스스로 채우는 값이라 "유저가 준 demoAccess가 살아남았나"의 근거가 못 된다.
     demoAccessDropped: !!raw?.demoAccess && !access?.url && !access?.impossible,
   };

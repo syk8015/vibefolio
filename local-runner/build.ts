@@ -301,17 +301,26 @@ export async function serveExpoWeb(
 // (utility scripts), and a stray docs/index.html must not shadow the real app,
 // which is why this check runs BEFORE the static-HTML fallback.
 
-type PythonFramework = "streamlit" | "gradio" | "dash" | "fastapi" | "flask";
+type PythonFramework = "streamlit" | "gradio" | "dash" | "django" | "fastapi" | "flask";
 
 type PythonApp = {
   framework: PythonFramework;
-  entry: string; // repo-relative path of the file importing the framework
+  entry: string; // repo-relative path of the file importing the framework (django: manage.py)
   ports: number[]; // candidate ports to probe, in order
+  // django only — the DJANGO_SETTINGS_MODULE string read out of manage.py. We
+  // never edit the creator's settings file; we write a wrapper module next to
+  // manage.py that does `from <this> import *` and then opens ALLOWED_HOSTS.
+  settingsModule?: string;
 };
 
 // Priority: visual app frameworks first — a repo with both a FastAPI backend and
-// a Streamlit UI should film the UI.
-const PY_FRAMEWORKS: PythonFramework[] = ["streamlit", "gradio", "dash", "fastapi", "flask"];
+// a Streamlit UI should film the UI. Django sits above FastAPI/Flask because a
+// Django project almost always renders real pages, while those two are usually
+// JSON APIs in a repo that also has a UI somewhere.
+const PY_FRAMEWORKS: PythonFramework[] = ["streamlit", "gradio", "dash", "django", "fastapi", "flask"];
+
+// Django's wrapper settings module (written into the manage.py directory).
+const DJANGO_WRAPPER = "nf_demo_settings";
 
 // Entry-file name preference when several files import the same framework.
 const PY_ENTRY_RANK = [
@@ -326,6 +335,37 @@ function pyEntryScore(path: string): number {
   return (nameRank === -1 ? PY_ENTRY_RANK.length : nameRank) * 100 + depth;
 }
 
+// Django never shows up in the import scan below: manage.py's `from django...`
+// lives INSIDE main(), indented, so the ^(import|from) anchor can't see it — and
+// settings.py imports nothing named django either. The reliable fingerprint is
+// manage.py + the DJANGO_SETTINGS_MODULE string it sets. We need that string
+// anyway (it names the settings module our wrapper extends), so no string = no
+// django claim: better to fall through honestly than to serve DisallowedHost.
+async function detectDjango(
+  sandbox: Sandbox,
+  repoPath: string,
+): Promise<{ entry: string; settingsModule: string } | null> {
+  const found = await runSoft(
+    sandbox,
+    `cd ${shQuote(repoPath)} && find . -maxdepth 4 -name manage.py ` +
+      `-not -path '*/node_modules/*' -not -path '*/.venv/*' -not -path '*/venv/*' ` +
+      `-not -path '*/.git/*' 2>/dev/null | head -10`,
+  ).catch(() => null);
+  if (!found) return null;
+  const paths = found.stdout
+    .split("\n")
+    .map((l) => l.trim().replace(/^\.\//, ""))
+    .filter(Boolean)
+    .sort((a, b) => a.split("/").length - b.split("/").length);
+  for (const rel of paths) {
+    const txt = await sandbox.files.read(`${repoPath}/${rel}`).catch(() => null);
+    if (typeof txt !== "string") continue;
+    const m = txt.match(/DJANGO_SETTINGS_MODULE["'\s,]+["']([\w.]+)["']/);
+    if (m) return { entry: rel, settingsModule: m[1] };
+  }
+  return null;
+}
+
 export async function detectPythonApp(sandbox: Sandbox, repoPath: string): Promise<PythonApp | null> {
   const scan = await sandbox.commands
     .run(
@@ -338,9 +378,12 @@ export async function detectPythonApp(sandbox: Sandbox, repoPath: string): Promi
         `done; done`,
     )
     .catch(() => null);
-  if (!scan) return null;
-  const candidates: { framework: PythonFramework; entry: string }[] = [];
-  for (const line of scan.stdout.split("\n")) {
+  const candidates: { framework: PythonFramework; entry: string; settingsModule?: string }[] = [];
+  // Django is scanned even when the import grep dies — the two look for different
+  // things, and losing a whole framework to an unrelated shell hiccup is not ok.
+  const dj = await detectDjango(sandbox, repoPath);
+  if (dj) candidates.push({ framework: "django", entry: dj.entry, settingsModule: dj.settingsModule });
+  for (const line of (scan?.stdout ?? "").split("\n")) {
     const m = line.trim().match(/^(streamlit|gradio|dash|fastapi|flask) (.+)$/);
     if (!m) continue;
     candidates.push({ framework: m[1] as PythonFramework, entry: m[2].replace(/^\.\//, "") });
@@ -393,6 +436,34 @@ export async function servePython(
   }
 
   const entryQ = shQuote(app.entry);
+  // Django prep — two things stand between `manage.py` and a filmable page:
+  //   1. ALLOWED_HOSTS. runserver only trusts localhost, but the robot reaches the
+  //      app through the sandbox's public host, so stock settings answer 400
+  //      DisallowedHost — and the ready-wait below accepts <500, so we would film
+  //      the error page. We open it in a WRAPPER module (never by editing the
+  //      creator's settings.py): `from <their module> import *`, then override.
+  //   2. migrate. A fresh checkout has no sqlite file, so every page 500s on the
+  //      first query. Best-effort: an app that needs no migrations is fine too,
+  //      and failing hard here would lose screens we could have filmed.
+  const djangoDir = app.entry.includes("/") ? app.entry.slice(0, app.entry.lastIndexOf("/")) : ".";
+  if (app.framework === "django" && app.settingsModule) {
+    await sandbox.files.write(
+      `${repoPath}/${djangoDir === "." ? "" : `${djangoDir}/`}${DJANGO_WRAPPER}.py`,
+      `from ${app.settingsModule} import *  # noqa: F401,F403
+` +
+        `ALLOWED_HOSTS = ["*"]
+` +
+        `DEBUG = True
+`,
+    );
+    const mig = await runSoft(
+      sandbox,
+      `cd ${shQuote(`${repoPath}/${djangoDir}`)} && ${py} manage.py migrate --noinput ` +
+        `--settings ${DJANGO_WRAPPER}`,
+      { timeoutMs: 180_000 },
+    );
+    console.log(`[build] django migrate exit ${mig.exitCode}`);
+  }
   let launch: string;
   switch (app.framework) {
     case "streamlit":
@@ -414,6 +485,14 @@ export async function servePython(
       launch = `${py} -m uvicorn ${shQuote(`${mod}:app`)} --host 0.0.0.0 --port ${DEV_PORT}`;
       break;
     }
+    case "django":
+      // --noreload: the autoreloader forks a second process the sandbox never
+      // reaps. --settings: our wrapper from above (absent only if manage.py had
+      // no DJANGO_SETTINGS_MODULE, which detectDjango refuses to claim).
+      launch =
+        `cd ${shQuote(djangoDir)} && ${py} manage.py runserver 0.0.0.0:${DEV_PORT} --noreload` +
+        (app.settingsModule ? ` --settings ${DJANGO_WRAPPER}` : "");
+      break;
     case "flask":
       // flask ≥2.2 accepts a file path for --app.
       launch = `${py} -m flask --app ${entryQ} run --host 0.0.0.0 --port ${DEV_PORT}`;
@@ -433,7 +512,11 @@ export async function servePython(
       const candidate = `https://${sandbox.getHost(port)}`;
       try {
         const res = await fetch(candidate, { signal: AbortSignal.timeout(5000) });
-        if (res.status < 500) {
+        // django: a 400 here is DisallowedHost (the ALLOWED_HOSTS wrapper didn't
+        // take) — treat it as "not up" so we keep waiting and then fail loudly
+        // with dev.log, instead of handing the robot an error page to film.
+        const usable = res.status < 500 && !(app.framework === "django" && res.status === 400);
+        if (usable) {
           url = candidate;
           break;
         }

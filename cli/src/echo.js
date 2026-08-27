@@ -42,7 +42,11 @@ export function formatAccepted(accepted) {
   if (accepted.entryUrl) lines.push(ROW("촬영·임베드", accepted.entryUrl));
   if (accepted.scoutAltUrl) lines.push(ROW("촬영 후보", `${accepted.scoutAltUrl}  (촬영 직전 둘 중 하나를 고름)`));
   if (accepted.demoAccess) {
-    lines.push(ROW("데모 진입", accepted.demoAccess === "impossible" ? "불가 선언(랜딩만 촬영)" : accepted.demoAccess));
+    lines.push(ROW("데모 진입", accepted.demoAccess === "impossible"
+      ? "불가 선언(랜딩만 촬영)"
+      : accepted.demoAccess === "no-login"
+        ? "로그인 불필요 선언"
+        : accepted.demoAccess));
   }
 
   // 경고는 조용한 폐기에만 붙인다 — 사용자가 준 값이 사라진 경우.
@@ -68,7 +72,7 @@ export function formatAccepted(accepted) {
     warn.push("⚠ 시연 핵심이 500자에서 잘렸어요.");
   }
   if (accepted.demoAccessDropped) {
-    warn.push("⚠ demoAccess가 저장되지 않았어요 — url·params·note 또는 impossible 형태인지 확인하세요.");
+    warn.push("⚠ demoAccess가 저장되지 않았어요 — url·params·note / noLogin / impossible 형태인지 확인하세요.");
   }
   for (const w of warn) lines.push(`  ${w}`);
   return lines;

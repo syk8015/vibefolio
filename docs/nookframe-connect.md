@@ -40,10 +40,11 @@
 - 인증: `Authorization: Bearer nf_live_…` (우선) 또는 쿠키 세션(`/publish` 경로).
 - 본문:
   - `application/json` — `{ title, description?, builderNote?, demoHighlights?, demoScript?, tags?, contentType?, deployUrl?, appUrl?, demoAccess? }`
+    (`demoScript`·`demoAccess`는 **둘 다 필수 게이트** — 자세한 건 아래 "발행 게이트 2종")
     (`appUrl` = 랜딩과 앱이 나뉜 제품의 실제 앱 화면 URL — 있으면 deployUrl보다 우선해 임베드·촬영 대상이 된다. 검증은 deployUrl과 동일)
     (`deployUrl`/`appUrl`은 `detectDemoSource`가 github 저장소 URL도 인식한다 — 미배포+서버/DB 필요 앱의
     최후수단으로 08-14부터 프롬프트·MCP·CLI가 안내. 공개 저장소 필수. JS는 `dev`/`start` 스크립트로,
-    파이썬 웹앱(Streamlit·Gradio·Flask·FastAPI·Dash import 감지)은 pip install 후 프레임워크별
+    파이썬 웹앱(Streamlit·Gradio·Dash·Django·Flask·FastAPI import 감지)은 pip install 후 프레임워크별
     명령으로 자동 실행(08-20, `servePython`). **폰 앱은 웹 타깃을 대신 빌드한다**(08-26, `detectWebBuild`
     → `serveFlutterWeb`/`serveExpoWeb`): pubspec.yaml=Flutter → `flutter build web`(SDK는 E2B 템플릿에
     프리베이크), package.json에 expo/react-native → `expo export --platform web`(웹 의존성 3종 자동 추가,
@@ -68,7 +69,7 @@
     강제한다(후보 **전부** 게이트면 login-gated로 스킵, 일부면 열린 쪽으로 덮어씀). `impossible: true`면
     정찰을 아예 돌리지 않는다. 검증은 `url`과 동일 게이트 3중(인제스트 → trigger-demo → 워커 sink-side).
     CLI dry-run `--alt-url`, 무과금 훅 `NF_FAKE_SCOUT=0|1`, 프로브 `local-runner/probe-scout.ts`)
-    (`demoAccess` = 로그인 필요 앱의 데모 모드 진입 정보 `{ url?, altUrl?, params?, note?, impossible? }` — url은 데모/게스트 진입 URL 또는 `/`경로(≤500자, 절대 URL은 deployUrl과 같은 콘텐츠호스트·사설망·SSRF 게이트), params는 진입 URL에 붙일 쿼리(≤12개, 키·값 ≤120자), note는 데모 모드 보는 법(≤500자, 레코더 브리핑에 데이터로 주입), impossible은 게스트 경로가 **원천 불가능**한 앱 선언(08-14 피드백 B-3: E2E 암호화·기기 페어링 필수 등 — true면 워커가 랜딩을 피사체로 브리핑하고 RUN REPORT에 `coverage: landing-only`를 찍는다. 이유는 note에, `reason` 키는 note로 수렴하는 관용 별칭. CLI `--access-impossible`). **계정 아이디/비번은 받지 않는다.** 인제스트는 `projects.demo_access` jsonb에 저장만 하고, 사용은 발행 시점 trigger-demo(절대 URL 재검증) → 로컬 워커(진입 URL 조립+브리핑)가 유일 경로 — demo_* 파이프라인 불변식과 무관한 유저 콘텐츠 컬럼이다. 마이그레이션: `supabase/migration_demo_access.sql`)
+    (`demoAccess` = 로그인 필요 앱의 데모 모드 진입 정보 `{ url?, altUrl?, params?, note?, impossible?, noLogin? }` — **2026-08-27부터 필수** — url은 데모/게스트 진입 URL 또는 `/`경로(≤500자, 절대 URL은 deployUrl과 같은 콘텐츠호스트·사설망·SSRF 게이트), params는 진입 URL에 붙일 쿼리(≤12개, 키·값 ≤120자), note는 데모 모드 보는 법(≤500자, 레코더 브리핑에 데이터로 주입), noLogin은 "로그인이 아예 필요 없고 첫 화면부터 전 기능이 눌린다"는 명시 선언(2026-08-27 — 워커는 이 값을 쓰지 않는다. 존재 이유는 발행 AI가 로그인 문제를 **건너뛰지 못하게** 하는 것뿐이다. `loginRequired: false`는 관용 별칭). impossible은 게스트 경로가 **원천 불가능**한 앱 선언(08-14 피드백 B-3: E2E 암호화·기기 페어링 필수 등 — true면 워커가 랜딩을 피사체로 브리핑하고 RUN REPORT에 `coverage: landing-only`를 찍는다. 이유는 note에, `reason` 키는 note로 수렴하는 관용 별칭. CLI `--access-impossible`). **계정 아이디/비번은 받지 않는다.** 인제스트는 `projects.demo_access` jsonb에 저장만 하고, 사용은 발행 시점 trigger-demo(절대 URL 재검증) → 로컬 워커(진입 URL 조립+브리핑)가 유일 경로 — demo_* 파이프라인 불변식과 무관한 유저 콘텐츠 컬럼이다. 마이그레이션: `supabase/migration_demo_access.sql`)
   - `multipart/form-data` — `payload`(위 JSON 문자열) + `bundle`(정적 사이트 zip, `index.html` 필수)
     + 선택 미디어 파트(요청1): `screenshot`(이미지 1장 → `thumbnail`, png/jpg/webp/gif ≤5MB) ·
     `video`(제작자 시연 영상 1개 → `video_url`=노출 1순위, mp4/webm ≤20MB). 형식은 서버가
@@ -189,3 +190,25 @@
 - UI: `components/dashboard/SettingsTab.tsx`(연결 탭) · `ProjectsTab.tsx`(초안 검토·발행) · `app/publish/*`
 - CLI/MCP: `cli/` (배포명 `nookframe`)
 - 검증: `scripts/probe-api-ingest.mjs`
+
+
+## 발행 게이트 2종 (인제스트가 저장 전에 되돌려보내는 것)
+
+`/api/ingest` POST와 `PATCH /api/ingest/drafts/:id`는 zip·URL 처리보다 **먼저** 두 가지를
+검사한다. 둘 다 면제 조건은 하나뿐 — 직접 만든 시연 영상(`video` 파트 또는
+`uploads: ["video"]`)을 준 경우다(자동 촬영 자체를 건너뛴다).
+
+| 게이트 | 코드 | 통과 조건 |
+|---|---|---|
+| 촬영 대본 (2026-08-25) | `SCRIPT_REQUIRED` · `SCRIPT_TOO_THIN` | `demoScript.steps` ≥ 3 |
+| 로그인 답변 (2026-08-27) | `DEMO_ACCESS_REQUIRED` | `demoAccess`가 `url` · `noLogin` · `impossible` 중 하나 |
+
+로그인 게이트를 만든 이유는 실패가 **실패로 보이지 않기 때문**이다. 로그인해야 기능이
+도는 앱을 그냥 올리면 로봇은 로그인 화면이나 빈 껍데기를 찍는데, 화면은 떴으므로
+blank 가드도 통과하고 워커도 성공으로 마킹한다. demoAccess가 선택 항목이던 동안
+발행 AI는 이 칸을 그냥 비웠다. 이제 셋 중 하나로 **답을 해야** 저장한다.
+
+판정 함수는 `lib/demoAccess.ts`의 `demoAccessAnswered()` 하나뿐이고, 생성·수정 두
+라우트가 같은 함수를 쓴다(수정 경로를 막지 않으면 "게이트를 통과한 뒤 도로 비우는"
+우회가 된다). 에코(`accepted.demoAccess`)는 세 답을 각각 `"/demo"` · `"no-login"` ·
+`"impossible"`로 구별해 돌려준다. 검증: `node scripts/probe-demo-access-gate.mjs`(prod E2E 18단언).

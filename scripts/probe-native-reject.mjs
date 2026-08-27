@@ -82,7 +82,9 @@ const { data: tok } = await svc
 
 const postZip = async (name, title) => {
   const form = new FormData();
-  form.set("payload", JSON.stringify({ title, demoScript: SCRIPT }));
+  // 대본 게이트 다음에 로그인 게이트(2026-08-27)가 있다 — 둘 다 통과해야
+  // zip 처리까지 내려가 네이티브 거절 카피를 볼 수 있다.
+  form.set("payload", JSON.stringify({ title, demoScript: SCRIPT, demoAccess: { noLogin: true } }));
   form.set("bundle", new Blob([readFileSync(join(S, `${name}.zip`))], { type: "application/zip" }), "bundle.zip");
   const res = await fetch(`${ORIGIN}/api/ingest`, {
     method: "POST",

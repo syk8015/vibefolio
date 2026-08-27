@@ -77,7 +77,7 @@ export async function runMcp() {
   const TOOL = {
     name: "publish_to_nookframe",
     description:
-      "이 프로젝트를 Nookframe(바이브코딩 포트폴리오)에 초안으로 올린다. 당신이 이 프로젝트를 만든 AI로서 레포(README·라우트·git log)를 근거로 title/description/demoScript(촬영 대본)를 직접 작성해 전달하라. deployUrl(배포된 공개 URL) 또는 dir(로컬 폴더 절대경로 — 웹앱은 정적 빌드 산출물, 파이썬·CLI 프로젝트는 소스 폴더 그대로) 중 하나를 준다. 미배포+서버·DB가 필요해 dir로 안 되면 deployUrl에 공개 GitHub 저장소 URL을 대신 줘도 된다(clone 후 자동 실행하는 최후 수단 — JS 리포는 npm run dev/start, 파이썬 웹앱은 Streamlit·Gradio·Flask·FastAPI·Dash 감지 후 pip install+실행, 웹 화면이 없는 프로젝트(CLI 도구·봇·백엔드)는 라이브 터미널에서 로봇이 명령어를 쳐 보는 영상으로 촬영(demoScript에 정확한 명령어를 적으면 훨씬 좋아짐). 비공개 저장소는 실패, 원격 DB 앱은 읽기전용 데모). 랜딩과 실제 앱 화면 주소가 다르면 appUrl에 앱 URL을 함께 줘라(시연·임베드는 appUrl을 연다). 로그인해야 화면이 보이는 앱이면 demoAccess에 로그인 없이 들어가는 데모/게스트 진입 정보를 줘라(계정 아이디/비번은 받지 않는다). 게스트 경로 자체가 원천 불가능한 앱(E2E 암호화·기기 페어링 필수 등)이면 demoAccess를 { impossible: true, note: \"이유\" }로 줘라 — 그 경우 자동 촬영은 랜딩만 담으니 video 동봉을 강하게 권장한다. 직접 찍은 스크린샷·시연 영상 파일이 있으면 screenshot/video에 절대경로로 줘라(영상을 주면 자동 촬영은 생략된다). demoScript.steps는 중요한 순서대로 — 1번이 절대 빠지면 안 되는 핵심 기능이다. 같은 URL로 다시 올리면 새 초안이 생기지 않고 기존 초안이 갱신된다(내용 수정에 이 방법을 써라).",
+      "이 프로젝트를 Nookframe(바이브코딩 포트폴리오)에 초안으로 올린다. 당신이 이 프로젝트를 만든 AI로서 레포(README·라우트·git log)를 근거로 title/description/demoScript(촬영 대본)를 직접 작성해 전달하라. deployUrl(배포된 공개 URL) 또는 dir(로컬 폴더 절대경로 — 웹앱은 정적 빌드 산출물, 파이썬·CLI 프로젝트는 소스 폴더 그대로) 중 하나를 준다. 미배포+서버·DB가 필요해 dir로 안 되면 deployUrl에 공개 GitHub 저장소 URL을 대신 줘도 된다(clone 후 자동 실행하는 최후 수단 — JS 리포는 npm run dev/start, 파이썬 웹앱은 Streamlit·Gradio·Dash·Django·Flask·FastAPI 감지 후 pip install+실행(Django는 migrate도 대신 실행), 웹 화면이 없는 프로젝트(CLI 도구·봇·백엔드)는 라이브 터미널에서 로봇이 명령어를 쳐 보는 영상으로 촬영(demoScript에 정확한 명령어를 적으면 훨씬 좋아짐). 비공개 저장소는 실패, 원격 DB 앱은 읽기전용 데모). 랜딩과 실제 앱 화면 주소가 다르면 appUrl에 앱 URL을 함께 줘라(시연·임베드는 appUrl을 연다). demoAccess는 필수다 — 시연 로봇은 절대 로그인하지 않으므로 '로그인 전에 뭐가 실제로 작동하는가'를 판단해 셋 중 하나로 답하라: 로그인 없이 들어갈 길이 있으면 { url, params, note }, 로그인이 아예 필요 없고 첫 화면부터 전 기능이 눌리면 { noLogin: true }, 게스트 경로가 원천 불가능하면(E2E 암호화·기기 페어링 필수 등) { impossible: true, note: \"이유\" }(이 경우 랜딩만 찍히니 video 동봉 강력 권장). 셋 다 없으면 서버가 400으로 거절한다. 계정 아이디/비번은 받지 않는다. 직접 찍은 스크린샷·시연 영상 파일이 있으면 screenshot/video에 절대경로로 줘라(영상을 주면 자동 촬영은 생략된다). demoScript.steps는 중요한 순서대로 — 1번이 절대 빠지면 안 되는 핵심 기능이다. 같은 URL로 다시 올리면 새 초안이 생기지 않고 기존 초안이 갱신된다(내용 수정에 이 방법을 써라).",
     inputSchema: {
       type: "object",
       properties: {
@@ -100,7 +100,7 @@ export async function runMcp() {
         demoAccess: {
           type: "object",
           description:
-            "로그인해야 보이는 앱의 데모 모드 진입 정보. 시연 로봇이 로그인 없이 볼 수 있는 길만 준다 — 계정 아이디/비번은 절대 넣지 말 것(받지 않음).",
+            "필수. 시연 로봇은 절대 로그인하지 않는다 — 화면이 보이느냐가 아니라 '로그인 전에 뭐가 실제로 작동하느냐'를 판단하고, url·noLogin·impossible 중 딱 하나로 답하라. 로그아웃 상태에서 멀쩡해 보이지만 목록이 비어 있고 저장이 로그인으로 튕기는 앱이 가장 흔한 실패다(화면은 떴으니 실패로 잡히지도 않는다). 셋 다 없으면 서버가 400으로 거절한다. 계정 아이디/비번은 절대 넣지 말 것(받지 않음).",
           properties: {
             url: { type: "string", description: "데모/게스트 진입 URL 또는 경로 (예 \"/demo\")" },
             params: {
@@ -113,6 +113,11 @@ export async function runMcp() {
               type: "boolean",
               description:
                 "게스트 경로가 원천 불가능한 앱 선언 (E2E 암호화·기기 페어링 필수 등). true면 자동 촬영은 랜딩만 담고 리포트에 표기된다 — video 동봉 권장.",
+            },
+            noLogin: {
+              type: "boolean",
+              description:
+                "로그인이 아예 필요 없고 첫 화면부터 전 기능이 눌린다는 선언. 랜딩이 멀쩡해 보인다고 쓰지 말고 실제 라우트·가드를 확인한 뒤에만 true로 줄 것.",
             },
           },
         },

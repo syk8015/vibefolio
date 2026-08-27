@@ -113,7 +113,7 @@ export async function publishCommand(args) {
   // 정보는 서버가 안 받음). impossible=게스트 경로가 원천 불가능한 앱 선언(B-3).
   if (
     args["access-url"] || args["access-params"] || args["access-note"] ||
-    args["access-impossible"]
+    args["access-impossible"] || args["access-no-login"]
   ) {
     const access = { ...(payload.demoAccess || {}) };
     if (args["access-url"]) access.url = args["access-url"];
@@ -122,6 +122,9 @@ export async function publishCommand(args) {
     }
     if (args["access-note"]) access.note = args["access-note"];
     if (args["access-impossible"]) access.impossible = true;
+    // 로그인이 아예 필요 없다는 선언. 서버는 셋 중 하나(url·impossible·noLogin)를
+    // 요구하므로, 공개 앱이라도 이 플래그로 "확인했다"를 남겨야 발행된다.
+    if (args["access-no-login"]) access.noLogin = true;
     payload.demoAccess = access;
   }
 
