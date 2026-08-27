@@ -483,7 +483,9 @@ export default async function AdminPage() {
 
       {/* Header */}
       <div className="flex flex-wrap items-baseline justify-between gap-3 mb-6">
-        <div className="flex items-baseline gap-4">
+        {/* 폰에서는 제목과 시각을 세로로 — 한 줄에 붙이면 제목이 두 동강 나고
+            그 사이로 타임스탬프가 끼어든다(2026-08-27 실기기 확인). */}
+        <div className="flex flex-col sm:flex-row sm:items-baseline gap-0.5 sm:gap-4">
           <h1 className="vf-serif-display" style={{ fontSize: "1.9rem" }}>관제탑</h1>
           <span className="vf-mono" style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>
             {new Date(now).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })} KST · 새로고침하면 갱신

@@ -68,7 +68,7 @@ export default function ClipCard({ clip }: { clip: ClipData }) {
   const [error, setError] = useState<string | null>(null);
 
   const w = PREVIEW_W[clip.format];
-  const h = clip.format === "vertical" ? Math.round((w * 16) / 9) : Math.round((w * 9) / 16);
+  const ratio = clip.format === "vertical" ? "9 / 16" : "16 / 9";
   const openingLabel = PROMO_OPENINGS[clip.opening]?.label ?? clip.opening;
 
   async function saveCaption(next: string) {
@@ -150,23 +150,25 @@ export default function ClipCard({ clip }: { clip: ClipData }) {
   const extraPosts = clip.posts.filter((p) => !PROMO_CHANNELS.some((c) => c.label === p.channel));
 
   return (
-    <div className="vf-card p-3 flex gap-4 items-start">
-      {/* 왼쪽: 미리보기 — 상태와 무관하게 같은 자리를 차지해 목록 줄이 흔들리지 않는다. */}
-      <div className="shrink-0" style={{ width: w }}>
+    // 폰에서는 세로로 쌓는다 — 옆에 붙이면 오른쪽 칸이 100px로 찌그러져 문구가
+    // 한 글자씩 끊기고 캡션 칸이 실오라기가 된다(2026-08-27 실기기 확인).
+    <div className="vf-card p-3 flex flex-col sm:flex-row gap-3 sm:gap-4 items-start">
+      {/* 미리보기 — 상태와 무관하게 같은 자리를 차지해 목록 줄이 흔들리지 않는다. */}
+      <div className="shrink-0 mx-auto sm:mx-0" style={{ width: w, maxWidth: "100%" }}>
         {clip.status === "done" && clip.videoUrl ? (
           <video
             controls
             preload="none"
             poster={clip.posterUrl ?? undefined}
             src={clip.videoUrl}
-            style={{ width: w, height: h, borderRadius: 12, background: "#000", objectFit: "cover" }}
+            style={{ width: "100%", aspectRatio: ratio, borderRadius: 12, background: "#000", objectFit: "cover" }}
           />
         ) : (
           <div
             className="flex items-center justify-center text-center"
             style={{
-              width: w,
-              height: h,
+              width: "100%",
+              aspectRatio: ratio,
               borderRadius: 12,
               background: "var(--surface-soft)",
               color: "var(--text-muted)",
@@ -178,8 +180,8 @@ export default function ClipCard({ clip }: { clip: ClipData }) {
         )}
       </div>
 
-      {/* 오른쪽: 문구 → 캡션 → 채널 버튼 */}
-      <div className="min-w-0 flex-1 flex flex-col gap-2">
+      {/* 문구 → 캡션 → 채널 버튼 */}
+      <div className="min-w-0 w-full flex-1 flex flex-col gap-2">
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>

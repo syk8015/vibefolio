@@ -159,7 +159,8 @@ export default async function PromoPage() {
       className="mx-auto px-5 lg:px-10 py-10"
       style={{ maxWidth: "1680px", fontFamily: "var(--font-nunito)", color: "var(--text-primary)" }}
     >
-      <div className="flex items-baseline gap-4 mb-6">
+      {/* 폰에서는 제목과 시각을 세로로 — [[app/admin/page.tsx]] 헤더와 같은 이유. */}
+      <div className="flex flex-col sm:flex-row sm:items-baseline gap-0.5 sm:gap-4 mb-6">
         <h1 className="vf-serif-display" style={{ fontSize: "1.9rem" }}>홍보 클립 관리</h1>
         <span className="vf-mono" style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>
           {new Date(now).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })} KST · 새로고침하면 갱신
