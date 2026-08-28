@@ -63,7 +63,7 @@ export default function UploadAnythingSection({ locale }: { locale: Locale }) {
       <div className="vf-ua-pair" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 28 }}>
 
         {/* 왼쪽: 입력. 여섯 장이 겹쳐 있고 차례로 나타난다. */}
-        <div className="vf-ua-band" style={{ position: "relative", width: 400, height: 236, maxWidth: "100%", background: "var(--surface-soft)", borderRadius: 16 }}>
+        <div className="vf-ua-band" style={{ position: "relative", width: 400, maxWidth: "100%", borderRadius: 16 }}>
 
           <div className={`vf-ua-slide ${DELAY[0]}`}>
             <SlideLabel>{t.types[0]}</SlideLabel>
@@ -133,7 +133,7 @@ export default function UploadAnythingSection({ locale }: { locale: Locale }) {
         </span>
 
         {/* 오른쪽: 결과. 무엇을 넣든 이건 안 바뀐다 — 대신 안에서 시연이 돈다. */}
-        <div className="vf-ua-band vf-ua-band-film" style={{ width: 400, height: 236, maxWidth: "100%", background: "var(--surface-soft)", borderRadius: 16, padding: "22px 24px", boxSizing: "border-box", display: "flex", flexDirection: "column", gap: 12 }}>
+        <div className="vf-ua-band vf-ua-band-film" style={{ width: 400, maxWidth: "100%", borderRadius: 16, padding: "22px 24px", boxSizing: "border-box", display: "flex", flexDirection: "column", gap: 12 }}>
           <p style={{ ...mono(11), margin: 0, letterSpacing: "0.06em", color: "var(--text-muted)" }}>{t.filmLabel}</p>
           <div className="vf-ua-filmbox"><Film t={t} /></div>
         </div>
@@ -164,8 +164,13 @@ function Film({ t }: { t: ReturnType<typeof getDictionary>["uploadAnything"] }) 
 
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <div className="vf-ua-anim" style={{ flex: 1, height: 22, borderRadius: 6, display: "flex", alignItems: "center", padding: "0 8px", boxSizing: "border-box", animationName: "vf-ua-field" }}>
-            <span className="vf-ua-anim vf-ua-typed" style={{ display: "inline-block", overflow: "hidden", whiteSpace: "nowrap", maxWidth: 0, animationName: "vf-ua-typing", animationTimingFunction: "steps(6)" }}>
-              <span style={{ ...ui(11.5), color: "var(--vf-ua-ink)" }}>{t.demo.typed}</span>
+            {/* 글자 하나씩 열린다 — 글상자 폭을 steps()로 자르면 한 칸이 글자 폭과
+                안 맞아 글자가 반쯤 잘려 보인다(한글·영문 둘 다 겪음). 12글자까지만
+                제 차례가 있고, 넘치면 마지막 차례를 같이 쓴다. */}
+            <span style={{ ...ui(11.5), color: "var(--vf-ua-ink)" }}>
+              {Array.from(t.demo.typed).map((ch, i) => (
+                <span key={i} className={`vf-ua-ch vf-ua-ch${Math.min(i + 1, 12)}`}>{ch}</span>
+              ))}
             </span>
             <span className="vf-ua-anim vf-ua-caret" style={{ display: "inline-block", width: 1.5, height: 12, background: "var(--vf-ua-ink)", marginLeft: 1.5, animationName: "vf-ua-caret" }} />
           </div>

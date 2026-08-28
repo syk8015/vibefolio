@@ -401,6 +401,7 @@ export const en: Dictionary = {
       title: "Today",
       date: "Mar 14",
       add: "Add",
+      // typed one character at a time — max 12 characters
       typed: "Grocery run",
       row1: "Buy milk",
       row2: "Pay gas bill",

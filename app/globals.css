@@ -932,12 +932,45 @@ body::before {
   14%, 40%  { box-shadow: inset 0 0 0 1.5px var(--vf-ua-line-on); background: var(--vf-ua-paper); }
   42%, 100% { box-shadow: inset 0 0 0 1px var(--vf-ua-line); background: var(--vf-ua-field); }
 }
-@keyframes vf-ua-typing {
-  0%, 15%   { max-width: 0; }
-  31%       { max-width: 68px; }
-  40%       { max-width: 68px; }
-  41%, 100% { max-width: 0; }
+/* 타이핑은 **글자 하나씩** 연다. 예전엔 글상자 폭을 steps()로 잘라 열었는데,
+   한 칸의 폭이 글자 폭과 안 맞아 글자가 반쯤 잘려 보였다(한글·영문 둘 다).
+   글자마다 제 차례에 열리면 어떤 언어든 정확하다. 한 글자당 1.3%(0.195초),
+   최대 12글자까지 — 마지막 글자가 [추가] 클릭(40%)보다 먼저 끝난다. */
+.vf-ua-ch {
+  display: inline-block;
+  overflow: hidden;
+  max-width: 0;
+  white-space: pre;
+  vertical-align: bottom;
+  animation-duration: 15s;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
 }
+.vf-ua-ch1 { animation-name: vf-ua-ch1; }
+.vf-ua-ch2 { animation-name: vf-ua-ch2; }
+.vf-ua-ch3 { animation-name: vf-ua-ch3; }
+.vf-ua-ch4 { animation-name: vf-ua-ch4; }
+.vf-ua-ch5 { animation-name: vf-ua-ch5; }
+.vf-ua-ch6 { animation-name: vf-ua-ch6; }
+.vf-ua-ch7 { animation-name: vf-ua-ch7; }
+.vf-ua-ch8 { animation-name: vf-ua-ch8; }
+.vf-ua-ch9 { animation-name: vf-ua-ch9; }
+.vf-ua-ch10 { animation-name: vf-ua-ch10; }
+.vf-ua-ch11 { animation-name: vf-ua-ch11; }
+.vf-ua-ch12 { animation-name: vf-ua-ch12; }
+
+@keyframes vf-ua-ch1 { 0%, 16.2% { max-width: 0; } 16.3%, 40.9% { max-width: 3em; } 41%, 100% { max-width: 0; } }
+@keyframes vf-ua-ch2 { 0%, 17.5% { max-width: 0; } 17.6%, 40.9% { max-width: 3em; } 41%, 100% { max-width: 0; } }
+@keyframes vf-ua-ch3 { 0%, 18.8% { max-width: 0; } 18.9%, 40.9% { max-width: 3em; } 41%, 100% { max-width: 0; } }
+@keyframes vf-ua-ch4 { 0%, 20.1% { max-width: 0; } 20.2%, 40.9% { max-width: 3em; } 41%, 100% { max-width: 0; } }
+@keyframes vf-ua-ch5 { 0%, 21.4% { max-width: 0; } 21.5%, 40.9% { max-width: 3em; } 41%, 100% { max-width: 0; } }
+@keyframes vf-ua-ch6 { 0%, 22.7% { max-width: 0; } 22.8%, 40.9% { max-width: 3em; } 41%, 100% { max-width: 0; } }
+@keyframes vf-ua-ch7 { 0%, 24.0% { max-width: 0; } 24.1%, 40.9% { max-width: 3em; } 41%, 100% { max-width: 0; } }
+@keyframes vf-ua-ch8 { 0%, 25.3% { max-width: 0; } 25.4%, 40.9% { max-width: 3em; } 41%, 100% { max-width: 0; } }
+@keyframes vf-ua-ch9 { 0%, 26.6% { max-width: 0; } 26.7%, 40.9% { max-width: 3em; } 41%, 100% { max-width: 0; } }
+@keyframes vf-ua-ch10 { 0%, 27.9% { max-width: 0; } 28.0%, 40.9% { max-width: 3em; } 41%, 100% { max-width: 0; } }
+@keyframes vf-ua-ch11 { 0%, 29.2% { max-width: 0; } 29.3%, 40.9% { max-width: 3em; } 41%, 100% { max-width: 0; } }
+@keyframes vf-ua-ch12 { 0%, 30.5% { max-width: 0; } 30.6%, 40.9% { max-width: 3em; } 41%, 100% { max-width: 0; } }
 @keyframes vf-ua-caret {
   0%, 13%   { opacity: 0; }
   14%, 40%  { opacity: 1; }
@@ -981,6 +1014,9 @@ body::before {
   /* svh를 모르는 브라우저는 앞 줄로 떨어진다(폰 주소창만큼 넘칠 뿐 안 깨진다). */
   min-height: 100vh;
   min-height: 100svh;
+  /* 필름 축소율. 두 밴드의 높이가 여기서 같이 나온다 — 따로 두면 폰에서 왼쪽과
+     오른쪽 크기가 어긋난다(2026-08-29 사용자 지적). */
+  --vf-ua-s: 1;
   --vf-ua-paper: #ffffff;
   --vf-ua-field: #fbf8f1;
   --vf-ua-line: #e6ddc9;
@@ -1044,7 +1080,6 @@ body::before {
    축소하되, transform은 레이아웃 크기를 안 바꾸므로 바깥 상자가 줄어든 크기를
    직접 갖게 한다 — 안 그러면 폰에서 밴드 밖으로 삐져나와 가로 스크롤이 생긴다. */
 .vf-ua-filmbox {
-  --vf-ua-s: 1;
   position: relative;
   width: calc(352px * var(--vf-ua-s));
   height: calc(166px * var(--vf-ua-s));
@@ -1064,14 +1099,25 @@ body::before {
 @media (max-width: 767px) {
   .vf-ua-pair { flex-direction: column; gap: 16px; }
   .vf-ua-arrow { transform: rotate(90deg); }
-  /* 필름이 줄면 오른쪽 밴드도 같이 줄어야 빈 바닥이 안 생긴다. */
-  .vf-ua-band-film { height: auto !important; }
 }
 /* 밴드 안쪽 폭 = min(400, 100vw-32) - 48. 그게 352 밑으로 떨어지는 지점부터 줄인다. */
-@media (max-width: 447px) { .vf-ua-filmbox { --vf-ua-s: 0.86; } }
-@media (max-width: 400px) { .vf-ua-filmbox { --vf-ua-s: 0.78; } }
-@media (max-width: 360px) { .vf-ua-filmbox { --vf-ua-s: 0.70; } }
-@media (max-width: 330px) { .vf-ua-filmbox { --vf-ua-s: 0.62; } }
+@media (max-width: 447px) { .vf-ua { --vf-ua-s: 0.86; } }
+@media (max-width: 400px) { .vf-ua { --vf-ua-s: 0.78; } }
+@media (max-width: 360px) { .vf-ua { --vf-ua-s: 0.70; } }
+@media (max-width: 330px) { .vf-ua { --vf-ua-s: 0.62; } }
+
+/* 두 밴드는 언제나 같은 크기다: 라벨 14 + 간격 12 + 필름 + 위아래 여백 44.
+   s=1이면 236px(데스크탑 원래 값)이 그대로 나온다.
+   ⚠️ 배경·높이는 여기서만 정한다 — 컴포넌트에 인라인으로 두면 인라인이 이겨서
+   다크 밝기도, 폰 축소도 통째로 안 먹는다(2026-08-29에 실제로 그랬다). */
+.vf-ua-band {
+  height: calc(70px + 166px * var(--vf-ua-s));
+  background: var(--surface-soft);
+}
+
+/* 다크에서 밴드가 배경과 너무 붙어 안 보인다는 지적(2026-08-29) — 이 섹션에서만
+   한 단계 밝은 면을 쓴다. 토큰 자체를 올리면 대시보드·명함까지 다 따라 밝아진다. */
+[data-theme="dark"] .vf-ua-band { background: var(--surface-soft-hover); }
 
 /* 동작 줄이기를 켠 사람에게는 멈춘 한 장면을 보여준다 — 두 번째 유형(폴더)과
    할 일이 하나 체크된 상태. 움직임 없이도 섹션이 하는 말은 그대로 남는다. */
@@ -1087,7 +1133,7 @@ body::before {
   .vf-ua-rip,
   .vf-ua-ptr,
   .vf-ua-caret { display: none !important; }
-  .vf-ua-typed { max-width: 68px !important; }
+  .vf-ua-ch { max-width: 3em !important; animation: none !important; }
   .vf-ua-prog-fill { width: 62% !important; }
   .vf-ua-tickbox { background: var(--vf-ua-ink) !important; }
   .vf-ua-tick { opacity: 1 !important; transform: none !important; }
