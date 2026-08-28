@@ -456,7 +456,13 @@ export const ko = {
       invalidJson: "JSON을 읽을 수 없어요. AI가 준 { ... } 형식 그대로 붙여넣어 주세요.",
       submitFailed: "올리지 못했어요. 잠시 후 다시 시도해 주세요.",
       network: "네트워크 오류로 올리지 못했어요.",
+      copyFailed: "복사에 실패했어요. 한 번 더 눌러주세요.",
     },
+    // 되돌려보내기 루프(2026-08-28): JSON을 쓴 건 AI인데 고치라는 말은 사람이
+    // 받는다 — 사람은 버튼 하나, 고치는 건 AI(재촬영 루프와 같은 설계).
+    fixWithAi: "이 사유를 AI에게 전달하기",
+    fixCopied: "복사했어요 — AI에게 붙여넣으세요",
+    fixHint: "AI가 고친 JSON을 주면 위에 다시 붙여넣고 올리면 돼요.",
   },
   // /[username] 명함(Theater) 퍼블릭 페이지
   theater: {

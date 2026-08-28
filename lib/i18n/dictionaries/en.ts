@@ -447,7 +447,11 @@ export const en: Dictionary = {
       invalidJson: "Couldn't read that JSON. Paste the { ... } exactly as your AI gave it.",
       submitFailed: "Couldn't upload. Please try again shortly.",
       network: "A network error kept it from uploading.",
+      copyFailed: "Copy failed — press it once more.",
     },
+    fixWithAi: "Hand this reason to your AI",
+    fixCopied: "Copied — paste it to your AI",
+    fixHint: "Paste the corrected JSON back above and publish again.",
   },
   theater: {
     editFrame: "Edit frame",
