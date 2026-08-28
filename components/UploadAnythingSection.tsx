@@ -138,12 +138,6 @@ export default function UploadAnythingSection({ locale }: { locale: Locale }) {
           <div className="vf-ua-filmbox"><Film t={t} /></div>
         </div>
       </div>
-
-      <div style={{ position: "relative", width: "100%", height: 18 }}>
-        {t.captions.map((c, i) => (
-          <p key={c} className={`vf-ua-cap ${DELAY[i]}`}>{`/  ${c}  */`.replace("/ ", "/* ")}</p>
-        ))}
-      </div>
     </section>
   );
 }

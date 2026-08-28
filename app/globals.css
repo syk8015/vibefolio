@@ -1047,20 +1047,6 @@ body::before {
   opacity: 0;
   animation: vf-ua-swap 15s linear infinite;
 }
-.vf-ua-cap {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  margin: 0;
-  opacity: 0;
-  animation: vf-ua-swap 15s linear infinite;
-  font-family: var(--font-mono), monospace;
-  font-size: 0.75rem;
-  letter-spacing: 0.08em;
-  color: var(--text-muted);
-  text-align: center;
-}
 .vf-ua-rip {
   position: absolute;
   width: 26px;
@@ -1124,10 +1110,8 @@ body::before {
 @media (prefers-reduced-motion: reduce) {
   .vf-ua-anim,
   .vf-ua-pill,
-  .vf-ua-slide,
-  .vf-ua-cap { animation: none !important; }
-  .vf-ua-slide,
-  .vf-ua-cap { opacity: 0; }
+  .vf-ua-slide { animation: none !important; }
+  .vf-ua-slide { opacity: 0; }
   .vf-ua-d1 { opacity: 1; }
   .vf-ua-pill.vf-ua-d1 { background: var(--surface-soft); color: var(--text-primary); }
   .vf-ua-rip,

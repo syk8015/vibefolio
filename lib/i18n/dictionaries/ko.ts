@@ -389,14 +389,6 @@ export const ko = {
     headline: "무엇을 올리든",
     // 알약 라벨과 슬라이드 제목이 같은 순서로 물린다(둘 다 6개, 인덱스로 맞춤)
     types: ["배포한 URL", "배포 안 한 폴더", "깃허브 저장소", "파이썬 · CLI", "Flutter · Expo", "만들다 만 것"],
-    captions: [
-      "주소 하나면 충분",
-      "배포 안 해도, 폴더째",
-      "저장소 주소만 있으면",
-      "웹 화면이 없어도",
-      "폰 앱은 웹으로 빌드해서",
-      "만들다 만 것도 그대로",
-    ],
     urlSample: "my-app.vercel.app",
     folderRoot: "my-app/",
     folderFiles: ["index.html", "style.css", "app.js"],

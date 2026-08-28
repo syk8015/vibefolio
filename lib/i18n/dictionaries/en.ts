@@ -380,14 +380,6 @@ export const en: Dictionary = {
   uploadAnything: {
     headline: "Whatever you upload",
     types: ["A deployed URL", "An undeployed folder", "A GitHub repo", "Python · CLI", "Flutter · Expo", "A half-built thing"],
-    captions: [
-      "one address is enough",
-      "not deployed? send the folder",
-      "just the repo address",
-      "even with no web screen",
-      "phone apps build to web",
-      "half-built stays half-built",
-    ],
     urlSample: "my-app.vercel.app",
     folderRoot: "my-app/",
     folderFiles: ["index.html", "style.css", "app.js"],
