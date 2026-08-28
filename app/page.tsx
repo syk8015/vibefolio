@@ -8,7 +8,7 @@ import ThemeToggle from "@/components/ThemeToggle";
 import LanguageToggle from "@/components/LanguageToggle";
 import MobileNavMenu from "@/components/MobileNavMenu";
 import LoggedInHeadline from "@/components/LoggedInHeadline";
-import FaqRepliesSection from "@/components/FaqRepliesSection";
+import UploadAnythingSection from "@/components/UploadAnythingSection";
 import TypingTagline from "@/components/TypingTagline";
 import ScrollHint from "@/components/ScrollHint";
 import Logo from "@/components/Logo";
@@ -206,8 +206,10 @@ export default async function LandingPage() {
         <ScrollHint />
       </section>
 
-      {/* FAQ — ↳ replies, typed on first scroll-into-view */}
-      <FaqRepliesSection locale={locale} />
+      {/* "무엇을 올리든" — 배포 안 한 폴더도 받는다는 걸 목록으로 증명한다.
+          화면 한 판을 통째로 차지해서, 아래 라이브 쇼케이스가 스크롤 조금에
+          같이 삐져나오지 않게 한다(2026-08-29 사용자 지시). */}
+      <UploadAnythingSection locale={locale} />
 
       {/* PiP portfolio preview — scroll-synced, cycles through profiles */}
       {profiles.length > 0 && (

@@ -384,6 +384,38 @@ export const ko = {
       "직접/알 수 없음": "직접/알 수 없음",
     },
   },
+  // "무엇을 올리든" 섹션 (2026-08-29, 랜딩 FAQ 자리 대체)
+  uploadAnything: {
+    headline: "무엇을 올리든",
+    // 알약 라벨과 슬라이드 제목이 같은 순서로 물린다(둘 다 6개, 인덱스로 맞춤)
+    types: ["배포한 URL", "배포 안 한 폴더", "깃허브 저장소", "파이썬 · CLI", "Flutter · Expo", "만들다 만 것"],
+    captions: [
+      "주소 하나면 충분",
+      "배포 안 해도, 폴더째",
+      "저장소 주소만 있으면",
+      "웹 화면이 없어도",
+      "폰 앱은 웹으로 빌드해서",
+      "만들다 만 것도 그대로",
+    ],
+    urlSample: "my-app.vercel.app",
+    folderRoot: "my-app/",
+    folderFiles: ["index.html", "style.css", "app.js"],
+    repoSample: "github.com/you/my-app",
+    pyFile: "app.py",
+    pyLines: ["import streamlit as st", "st.title(\"내 앱\")"],
+    phoneFiles: ["pubspec.yaml", "lib/main.dart", "web/index.html"],
+    wipNote: "(여기까지 만듦)",
+    filmLabel: "자동 시연 영상",
+    // 필름 안 예시 앱 — 누구나 아는 할 일 목록. 특정 제품이 아니라 견본이다.
+    demo: {
+      title: "오늘 할 일",
+      date: "3월 14일",
+      add: "추가",
+      typed: "저녁 장보기",
+      row1: "우유 사기",
+      row2: "가스비 내기",
+    },
+  },
   connect: {
     steps: "프롬프트 복사 → 내 AI 대화창에 붙여넣기 → 초안이 여기 도착 → 확인 후 공개",
     copyPrompt: "프롬프트 복사",

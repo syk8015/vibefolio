@@ -211,13 +211,10 @@ body::before {
    • .vf-input → 16px stops iOS Safari from force-zooming on focus (any input
      font < 16px triggers the zoom). Same single-class specificity, later in
      source, so it wins under 768px with no !important.
-   • .vf-faq-* → keep the FAQ replies subordinate to the hero headline (which is
-     ~17.6px at its mobile min); the inline desktop sizes need !important to beat
-     the element's inline style. */
+   (.vf-faq-* 규칙은 FAQ 섹션과 함께 2026-08-29에 제거 — "무엇을 올리든"이 그
+   자리를 대신하고, 그쪽 크기는 clamp로 처리한다.) */
 @media (max-width: 767px) {
   .vf-input { font-size: 16px; }
-  .vf-faq-a { font-size: 1rem !important; }
-  .vf-faq-q { font-size: 0.85rem !important; }
 }
 
 /* Speech bubble */
@@ -862,4 +859,239 @@ body::before {
     line-clamp: var(--vf-clamp-lines, 8);
     overflow: hidden;
   }
+}
+
+/* =============================================================
+   "무엇을 올리든" 섹션 (2026-08-29) — 랜딩 FAQ 자리를 대체
+   왼쪽 밴드(입력)만 15초에 6번 바뀌고 오른쪽 밴드(결과 영상)는 안 바뀐다.
+   그게 이 섹션이 하는 말 전부다 — "무엇을 올리든 영상이 된다".
+
+   ⚠️ 영상 파일을 쓰지 않는다. 오른쪽 필름도 전부 CSS 모션이라 전송 바이트가
+   0이다(랜딩 두 번째 섹션이라 무게가 곧 이탈이다 — [[project_perf]]).
+   ⚠️ 필름 안 커서 좌표는 352×166 상자 기준 **실측 픽셀**이다. 상자 크기나
+   내부 여백을 바꾸면 커서가 엉뚱한 데를 누른다 — 둘은 같이 고쳐야 한다.
+   ============================================================= */
+
+/* 6개 유형이 15초에 한 바퀴. 각 2.5초 = 전체의 16.66%. */
+@keyframes vf-ua-swap {
+  0%     { opacity: 0; transform: translateY(7px); }
+  1.6%   { opacity: 1; transform: translateY(0); }
+  14.6%  { opacity: 1; transform: translateY(0); }
+  16.6%  { opacity: 0; transform: translateY(-7px); }
+  100%   { opacity: 0; transform: translateY(-7px); }
+}
+@keyframes vf-ua-pill {
+  0%     { background: transparent; color: var(--text-muted); }
+  1.6%   { background: var(--surface-soft); color: var(--text-primary); }
+  14.6%  { background: var(--surface-soft); color: var(--text-primary); }
+  16.6%  { background: transparent; color: var(--text-muted); }
+  100%   { background: transparent; color: var(--text-muted); }
+}
+
+/* 필름 대본: 입력칸 클릭 → "저녁 장보기" 타이핑 → [추가] → 새 줄 → 1번 줄 체크.
+   좌표는 필름 상자(352×166) 안 요소 중심에서 커서 촉(1,1)만큼 뺀 값이다:
+     입력칸 (147,46) · [추가] (314,46) · 1번 줄 체크칸 (19,71.5) */
+@keyframes vf-ua-ptr {
+  0%   { transform: translate(300px, 18px); animation-timing-function: linear; }
+  6%   { transform: translate(300px, 18px); animation-timing-function: cubic-bezier(.45,.05,.2,1); }
+  12%  { transform: translate(145px, 44px); animation-timing-function: linear; }
+  32%  { transform: translate(145px, 44px); animation-timing-function: cubic-bezier(.45,.05,.2,1); }
+  38%  { transform: translate(312px, 44px); animation-timing-function: linear; }
+  44%  { transform: translate(312px, 44px); animation-timing-function: cubic-bezier(.45,.05,.2,1); }
+  52%  { transform: translate(17px, 69px);  animation-timing-function: linear; }
+  58%  { transform: translate(17px, 69px);  animation-timing-function: cubic-bezier(.45,.05,.2,1); }
+  76%  { transform: translate(300px, 18px); animation-timing-function: linear; }
+  100% { transform: translate(300px, 18px); }
+}
+@keyframes vf-ua-dip {
+  0%, 12%   { transform: scale(1); }
+  13%       { transform: scale(0.84); }
+  15%, 39%  { transform: scale(1); }
+  40%       { transform: scale(0.84); }
+  42%, 53%  { transform: scale(1); }
+  54%       { transform: scale(0.84); }
+  56%, 100% { transform: scale(1); }
+}
+@keyframes vf-ua-rip1 {
+  0%, 12.5% { opacity: 0; transform: scale(0.25); }
+  13.5%     { opacity: 0.45; transform: scale(0.25); }
+  18%, 100% { opacity: 0; transform: scale(1.7); }
+}
+@keyframes vf-ua-rip2 {
+  0%, 39.5% { opacity: 0; transform: scale(0.25); }
+  40.5%     { opacity: 0.45; transform: scale(0.25); }
+  45%, 100% { opacity: 0; transform: scale(1.7); }
+}
+@keyframes vf-ua-rip3 {
+  0%, 53.5% { opacity: 0; transform: scale(0.25); }
+  54.5%     { opacity: 0.45; transform: scale(0.25); }
+  59%, 100% { opacity: 0; transform: scale(1.7); }
+}
+@keyframes vf-ua-field {
+  0%, 12%   { box-shadow: inset 0 0 0 1px var(--vf-ua-line); background: var(--vf-ua-field); }
+  14%, 40%  { box-shadow: inset 0 0 0 1.5px var(--vf-ua-line-on); background: var(--vf-ua-paper); }
+  42%, 100% { box-shadow: inset 0 0 0 1px var(--vf-ua-line); background: var(--vf-ua-field); }
+}
+@keyframes vf-ua-typing {
+  0%, 15%   { max-width: 0; }
+  31%       { max-width: 68px; }
+  40%       { max-width: 68px; }
+  41%, 100% { max-width: 0; }
+}
+@keyframes vf-ua-caret {
+  0%, 13%   { opacity: 0; }
+  14%, 40%  { opacity: 1; }
+  41%, 100% { opacity: 0; }
+}
+@keyframes vf-ua-press {
+  0%, 39%   { transform: scale(1); }
+  40%       { transform: scale(0.92); }
+  44%, 100% { transform: scale(1); }
+}
+@keyframes vf-ua-added {
+  0%, 40%   { opacity: 0; transform: translateY(-5px); }
+  44%, 96%  { opacity: 1; transform: translateY(0); }
+  99%, 100% { opacity: 0; transform: translateY(-5px); }
+}
+@keyframes vf-ua-tick {
+  0%, 53%   { opacity: 0; transform: scale(0.5); }
+  56%, 96%  { opacity: 1; transform: scale(1); }
+  99%, 100% { opacity: 0; transform: scale(0.5); }
+}
+@keyframes vf-ua-box {
+  0%, 53%   { background: var(--vf-ua-box); }
+  56%, 96%  { background: var(--vf-ua-ink); }
+  99%, 100% { background: var(--vf-ua-box); }
+}
+@keyframes vf-ua-strike {
+  0%, 54%   { width: 0; }
+  59%, 96%  { width: 100%; }
+  99%, 100% { width: 0; }
+}
+@keyframes vf-ua-faded {
+  0%, 54%   { opacity: 1; }
+  59%, 96%  { opacity: 0.42; }
+  99%, 100% { opacity: 1; }
+}
+@keyframes vf-ua-prog { 0% { width: 0; } 95%, 100% { width: 100%; } }
+
+/* 필름 안쪽은 "남이 만든 앱"이라 우리 테마를 따라가지 않는다 — 라이트/다크
+   모두에서 같은 종이색이어야 녹화물처럼 읽힌다. 그래서 여기만 고정색. */
+.vf-ua {
+  /* svh를 모르는 브라우저는 앞 줄로 떨어진다(폰 주소창만큼 넘칠 뿐 안 깨진다). */
+  min-height: 100vh;
+  min-height: 100svh;
+  --vf-ua-paper: #ffffff;
+  --vf-ua-field: #fbf8f1;
+  --vf-ua-line: #e6ddc9;
+  --vf-ua-line-on: #b9a98c;
+  --vf-ua-box: #f0ece2;
+  --vf-ua-ink: #1a1612;
+  --vf-ua-head: #faf7f2;
+  --vf-ua-head-line: #efe7d9;
+}
+
+.vf-ua-anim {
+  animation-duration: 15s;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+.vf-ua-pill {
+  font-family: var(--font-nunito), sans-serif;
+  font-size: 0.875rem;
+  letter-spacing: -0.005em;
+  padding: 7px 14px;
+  border-radius: 999px;
+  white-space: nowrap;
+  animation: vf-ua-pill 15s linear infinite;
+}
+.vf-ua-slide {
+  position: absolute;
+  inset: 22px 24px;
+  opacity: 0;
+  animation: vf-ua-swap 15s linear infinite;
+}
+.vf-ua-cap {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  margin: 0;
+  opacity: 0;
+  animation: vf-ua-swap 15s linear infinite;
+  font-family: var(--font-mono), monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  text-align: center;
+}
+.vf-ua-rip {
+  position: absolute;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(26, 22, 18, 0.45);
+  pointer-events: none;
+}
+.vf-ua-d0 { animation-delay: 0s; }
+.vf-ua-d1 { animation-delay: 2.5s; }
+.vf-ua-d2 { animation-delay: 5s; }
+.vf-ua-d3 { animation-delay: 7.5s; }
+.vf-ua-d4 { animation-delay: 10s; }
+.vf-ua-d5 { animation-delay: 12.5s; }
+
+/* 필름 안 좌표가 352×166에 픽셀로 박혀 있어 상자를 줄일 수 없다. 대신 통째로
+   축소하되, transform은 레이아웃 크기를 안 바꾸므로 바깥 상자가 줄어든 크기를
+   직접 갖게 한다 — 안 그러면 폰에서 밴드 밖으로 삐져나와 가로 스크롤이 생긴다. */
+.vf-ua-filmbox {
+  --vf-ua-s: 1;
+  position: relative;
+  width: calc(352px * var(--vf-ua-s));
+  height: calc(166px * var(--vf-ua-s));
+  margin: 0 auto;
+}
+.vf-ua-film {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 352px;
+  height: 166px;
+  transform: scale(var(--vf-ua-s));
+  transform-origin: top left;
+}
+
+/* 폰: 밴드 두 개가 세로로 쌓이고 화살표가 아래를 본다. */
+@media (max-width: 767px) {
+  .vf-ua-pair { flex-direction: column; gap: 16px; }
+  .vf-ua-arrow { transform: rotate(90deg); }
+  /* 필름이 줄면 오른쪽 밴드도 같이 줄어야 빈 바닥이 안 생긴다. */
+  .vf-ua-band-film { height: auto !important; }
+}
+/* 밴드 안쪽 폭 = min(400, 100vw-32) - 48. 그게 352 밑으로 떨어지는 지점부터 줄인다. */
+@media (max-width: 447px) { .vf-ua-filmbox { --vf-ua-s: 0.86; } }
+@media (max-width: 400px) { .vf-ua-filmbox { --vf-ua-s: 0.78; } }
+@media (max-width: 360px) { .vf-ua-filmbox { --vf-ua-s: 0.70; } }
+@media (max-width: 330px) { .vf-ua-filmbox { --vf-ua-s: 0.62; } }
+
+/* 동작 줄이기를 켠 사람에게는 멈춘 한 장면을 보여준다 — 두 번째 유형(폴더)과
+   할 일이 하나 체크된 상태. 움직임 없이도 섹션이 하는 말은 그대로 남는다. */
+@media (prefers-reduced-motion: reduce) {
+  .vf-ua-anim,
+  .vf-ua-pill,
+  .vf-ua-slide,
+  .vf-ua-cap { animation: none !important; }
+  .vf-ua-slide,
+  .vf-ua-cap { opacity: 0; }
+  .vf-ua-d1 { opacity: 1; }
+  .vf-ua-pill.vf-ua-d1 { background: var(--surface-soft); color: var(--text-primary); }
+  .vf-ua-rip,
+  .vf-ua-ptr,
+  .vf-ua-caret { display: none !important; }
+  .vf-ua-typed { max-width: 68px !important; }
+  .vf-ua-prog-fill { width: 62% !important; }
+  .vf-ua-tickbox { background: var(--vf-ua-ink) !important; }
+  .vf-ua-tick { opacity: 1 !important; transform: none !important; }
+  .vf-ua-strike { width: 100% !important; }
+  .vf-ua-row1 { opacity: 0.42 !important; }
+  .vf-ua-added { opacity: 1 !important; transform: none !important; }
 }
