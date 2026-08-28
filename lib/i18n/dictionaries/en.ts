@@ -396,9 +396,14 @@ export const en: Dictionary = {
     pyLines: ["import streamlit as st", "st.title(\"My app\")"],
     phoneFiles: ["pubspec.yaml", "lib/main.dart", "web/index.html"],
     wipNote: "(got this far)",
-    filmLabel: "auto-recorded demo",
+    // 이 라벨은 위젯의 재생 동작이 아니라 **결과물이 무엇인지**를 이름 붙인다 —
+    // "무엇을 올리든 → 이것"의 오른쪽 자리다. "auto-recorded"가 어색하다는 검수
+    // 지적을 받아 풀어 썼다(2026-08-29). 재생 얘기로 바꾸면 "우리가 대신 찍어준다"는
+    // 이 섹션의 주장이 통째로 사라진다.
+    filmLabel: "recorded automatically",
     demo: {
-      title: "Today",
+      // "Today"만 두면 옆 날짜(Mar 14)와 뜻이 겹치고 to-do가 사라진다(검수 지적)
+      title: "Today\u2019s tasks",
       date: "Mar 14",
       add: "Add",
       // typed one character at a time — max 12 characters
