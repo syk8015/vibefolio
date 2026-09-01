@@ -30,7 +30,7 @@ export default async function PrivacyPage() {
           {en ? "Privacy Policy" : "개인정보처리방침"}
         </h1>
         <p className="text-sm mb-12" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
-          {en ? "Effective date: July 26, 2026" : "시행일: 2026년 7월 26일"}
+          {en ? "Effective date: September 1, 2026" : "시행일: 2026년 9월 1일"}
         </p>
 
         <div className="flex flex-col gap-10" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", fontSize: "0.9rem", lineHeight: 1.9 }}>
@@ -65,6 +65,11 @@ function KoBody() {
         <p className="mt-3">
           서비스는 만 14세 이상만 가입할 수 있으며, 만 14세 미만 아동의 개인정보는 수집하지 않습니다.
         </p>
+        <p className="mt-3">
+          이용자가 업로드한 작품 파일은 개인정보 수집 항목이 아니지만, <strong>공개 주소로 제공되어 주소를 아는
+          사람이 내려받을 수 있습니다</strong>. 파일 안에 본인이나 타인의 개인정보를 담지 말아 주세요. 자세한 내용은{" "}
+          <Link href="/terms" style={{ color: "var(--blue)" }}>이용약관 제6조</Link>에 있습니다.
+        </p>
       </Section>
 
       <Section title="제2조 (개인정보의 수집 및 이용 목적)">
@@ -79,7 +84,9 @@ function KoBody() {
 
       <Section title="제3조 (개인정보의 보유 및 이용 기간)">
         <ul className="list-disc pl-5 flex flex-col gap-1">
-          <li>수집된 개인정보는 회원 탈퇴 시까지 보유하며, 탈퇴 즉시 파기합니다.</li>
+          <li>수집된 개인정보와 이용자가 업로드한 파일은 <strong>계정이 유지되는 동안</strong> 보관하며, 별도의 만료 기간을 두지 않습니다.</li>
+          <li>회원 탈퇴 시 즉시 파기합니다. 저장소의 작품 파일·프로필 사진·촬영본까지 함께 삭제한 뒤 계정을 삭제합니다.</li>
+          <li>개별 프로젝트를 삭제하면 그 프로젝트의 파일과 촬영본도 함께 삭제됩니다.</li>
           <li>단, 서비스 이용 통계(조회수·기능 사용 기록 등)는 개인을 알아볼 수 없도록 계정 식별자를 제거한 형태로 전환하여 보관합니다. 이 기록만으로는 특정 개인을 식별할 수 없습니다.</li>
           <li>단, 관련 법령에 따라 일정 기간 보존이 필요한 경우 해당 기간 동안 보관 후 파기합니다.</li>
         </ul>
@@ -102,6 +109,8 @@ function KoBody() {
           <li><strong>Cloudflare, Inc.</strong> — 데모 영상 저장(R2) 및 봇 차단(Turnstile) (미국)</li>
           <li><strong>Resend, Inc.</strong> — 인증·안내 이메일 발송 (미국)</li>
           <li><strong>Anthropic PBC</strong> — 자동 시연 촬영 시 화면 분석 및 콘텐츠 검토 (미국)</li>
+          <li><strong>E2B, Inc.</strong> — 자동 시연을 위한 업로드 코드의 격리 실행 샌드박스 (미국)</li>
+          <li><strong>thum.io</strong> — 공개된 작품 페이지의 미리보기 이미지 생성 (미국)</li>
           <li><strong>Functional Software, Inc. (Sentry)</strong> — 오류 모니터링 (미국)</li>
         </ul>
       </Section>
@@ -113,7 +122,10 @@ function KoBody() {
           <li>개인정보 처리 정지 요청</li>
           <li>회원 탈퇴를 통한 개인정보 삭제</li>
         </ul>
-        위 권리 행사는 아래 개인정보 보호책임자에게 이메일로 문의해 주세요.
+        열람·수정·삭제는 대부분 직접 하실 수 있습니다. 대시보드에서 프로필과 작품을 수정·삭제할 수 있고,
+        대시보드 &quot;명함&quot; 탭 아래 <strong>회원 탈퇴</strong>를 누르면 저장소의 작품 파일·프로필 사진·촬영본까지
+        함께 지운 뒤 계정이 삭제됩니다. 직접 처리하기 어렵거나 그 밖의 요청은 아래 개인정보 보호책임자에게
+        이메일로 문의해 주세요.
       </Section>
 
       <Section title="제7조 (쿠키 사용)">
@@ -158,6 +170,12 @@ function EnBody() {
           The Service is only available to users aged 14 or older. We do not collect personal information from
           children under 14.
         </p>
+        <p className="mt-3">
+          The project files you upload are not collected as personal information, but they are <strong>served from
+          public addresses and can be downloaded by anyone who knows the address</strong>. Please do not put your own
+          or anyone else&apos;s personal information inside them. See{" "}
+          <Link href="/terms" style={{ color: "var(--blue)" }}>Article 6 of the Terms</Link> for details.
+        </p>
       </Section>
 
       <Section title="Article 2 (Purpose of Collection and Use)">
@@ -172,7 +190,9 @@ function EnBody() {
 
       <Section title="Article 3 (Retention and Use Period)">
         <ul className="list-disc pl-5 flex flex-col gap-1">
-          <li>Personal information is retained until you delete your account, and is destroyed immediately upon deletion.</li>
+          <li>Personal information and the files you upload are kept <strong>for as long as your account exists</strong>; there is no separate expiry period.</li>
+          <li>When you delete your account, everything is destroyed immediately: stored project files, profile photo, and recordings are deleted first, then the account itself.</li>
+          <li>Deleting an individual project also deletes that project&apos;s files and recordings.</li>
           <li>However, service usage statistics (view counts, feature usage records, etc.) are converted into a de-identified form with account identifiers removed, and retained in that form. These records alone cannot identify any individual.</li>
           <li>Where retention is required by applicable law, the information is kept for the legally required period and then destroyed.</li>
         </ul>
@@ -196,6 +216,8 @@ function EnBody() {
           <li><strong>Cloudflare, Inc.</strong> — demo video storage (R2) and bot protection (Turnstile) (US)</li>
           <li><strong>Resend, Inc.</strong> — authentication and notification emails (US)</li>
           <li><strong>Anthropic PBC</strong> — screen analysis and content review during automated demo recording (US)</li>
+          <li><strong>E2B, Inc.</strong> — isolated sandbox that runs uploaded code for the automated demo (US)</li>
+          <li><strong>thum.io</strong> — preview image generation for published project pages (US)</li>
           <li><strong>Functional Software, Inc. (Sentry)</strong> — error monitoring (US)</li>
         </ul>
       </Section>
@@ -207,7 +229,10 @@ function EnBody() {
           <li>Request suspension of processing of your personal information</li>
           <li>Delete your personal information by deleting your account</li>
         </ul>
-        To exercise these rights, contact the privacy officer listed below by email.
+        You can do most of this yourself: edit or delete your profile and works from the dashboard, and use
+        <strong>Delete account</strong> at the bottom of the dashboard&apos;s &quot;Card&quot; tab — it removes your
+        stored project files, profile photo, and recordings first, then the account. For anything you cannot do
+        yourself, email the privacy officer listed below.
       </Section>
 
       <Section title="Article 7 (Cookies)">
