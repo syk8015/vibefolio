@@ -148,8 +148,9 @@ try {
   const only = await postZip(join(S, "onlysecret.zip"), "__probe_secret_only__");
   if (only.body?.projectId) made.push(only.body.projectId);
   ok("(D) 비밀만 든 zip은 400", only.status === 400, `status ${only.status} ${JSON.stringify(only.body).slice(0, 160)}`);
+  // PAT 경로 응답은 영어 고정(의도) — 한국어로 찾으면 안 걸린다.
   ok("(D) 400 사유가 '안전상 제외'임을 밝힘",
-    typeof only.body?.error === "string" && only.body.error.includes("안전"),
+    typeof only.body?.error === "string" && /for safety/i.test(only.body.error),
     JSON.stringify(only.body).slice(0, 200));
 } finally {
   for (const pid of made) await wipeProject(pid);
