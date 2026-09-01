@@ -39,16 +39,9 @@ export function isCreditExhaustion(status: number, bodyText: string): boolean {
   );
 }
 
-// Stored in demo_build_error while a job is credit-held — the release sweep keys
-// on the '[credit]' prefix. Not a DemoFailureCode: the row is held, not failed.
-export const CREDIT_HOLD_MARKER =
-  "[credit] 크레딧 소진으로 촬영이 잠시 중단됐어요. 충전 후 다시 촬영돼요.";
+// Hold markers now live in lib/demo-failure.ts — the server performs every hold
+// write (lib/workerOps.ts) and must use the identical string, so a single shared
+// definition is the only safe home. Re-exported here so existing importers of
+// ./errors keep working.
+export { CREDIT_HOLD_MARKER, MODERATION_HOLD_MARKER } from "../lib/demo-failure";
 
-// Stored in demo_build_error while a take is quarantined for content review
-// (moderation pipeline, 2026-07-19). MUST NOT start with '[credit]' — the credit
-// release sweep (local-runner/README.md) keys on that prefix and would wrongly
-// requeue a moderation hold. The dashboard badge branches on '[moderation]' to
-// show review copy instead of the quota-hold copy. Not a DemoFailureCode: the
-// row is held, not failed (reject converts it to failed + the 'policy' code).
-export const MODERATION_HOLD_MARKER =
-  "[moderation] 게시 전 확인이 필요해 잠시 보류 중이에요. 검토가 끝나면 자동으로 게시돼요.";

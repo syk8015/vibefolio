@@ -54,3 +54,20 @@ export function demoFailureCopy(
 ): { title: string; body: string } {
   return getDictionary(locale).demoFailure[code ?? "error"];
 }
+
+// ── Hold markers ────────────────────────────────────────────────────────────
+// Stored in demo_build_error while a job is HELD (not failed). They live here,
+// not in local-runner/errors.ts, because both the recording worker and the server
+// (lib/workerOps.ts, which now performs every hold write) must use the identical
+// string — the dashboard badge and the credit release sweep match on the prefix.
+
+// Credit-held. The release sweep keys on the '[credit]' prefix.
+export const CREDIT_HOLD_MARKER =
+  "[credit] 크레딧 소진으로 촬영이 잠시 중단됐어요. 충전 후 다시 촬영돼요.";
+
+// Quarantined for content review (moderation pipeline, 2026-07-19). MUST NOT
+// start with '[credit]' — the credit release sweep would wrongly requeue it. The
+// dashboard badge branches on '[moderation]' to show review copy instead of the
+// quota-hold copy. Reject converts the row to failed + the 'policy' code.
+export const MODERATION_HOLD_MARKER =
+  "[moderation] 게시 전 확인이 필요해 잠시 보류 중이에요. 검토가 끝나면 자동으로 게시돼요.";

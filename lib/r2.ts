@@ -166,3 +166,40 @@ export async function pruneR2PrefixExcept(
     token = list.IsTruncated ? list.NextContinuationToken : undefined;
   } while (token);
 }
+
+// ── Presigned uploads (worker relay) ────────────────────────────────────────
+// The recording worker no longer holds R2 credentials (lib/workerAuth.ts), so it
+// cannot call uploadToR2 itself. The server signs a short-lived PUT URL and the
+// worker streams the finished mp4 straight to R2 with it — bytes never pass
+// through a serverless function (Vercel caps request bodies at 4.5MB; a take is
+// tens of MB).
+//
+// The signature covers Key, ContentType and CacheControl, so a leaked URL can
+// only write THAT key with THOSE headers, and only until it expires.
+export async function presignR2Put(
+  key: string,
+  contentType: string,
+  expiresInSeconds = 900,
+): Promise<{ url: string; publicUrl: string; headers: Record<string, string> }> {
+  // Imported lazily: only the server signs, and the worker/Trigger.dev bundles
+  // that share this module should not pull the presigner in.
+  const { getSignedUrl } = await import("@aws-sdk/s3-request-presigner");
+  const cacheControl = "public, max-age=31536000, immutable";
+  const url = await getSignedUrl(
+    client(),
+    new PutObjectCommand({
+      Bucket: env().bucket,
+      Key: key,
+      ContentType: contentType,
+      CacheControl: cacheControl,
+    }),
+    { expiresIn: expiresInSeconds },
+  );
+  // The worker MUST send these back verbatim — a signed PUT whose headers differ
+  // from the signature is rejected by R2 with 403 SignatureDoesNotMatch.
+  return {
+    url,
+    publicUrl: r2PublicUrl(key),
+    headers: { "content-type": contentType, "cache-control": cacheControl },
+  };
+}
