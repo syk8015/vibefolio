@@ -23,6 +23,7 @@ import {
 } from "./config";
 import { run, ffprobeValue } from "./util";
 import { appendEndcap } from "./endcap";
+import { renderWatermark } from "./watermark";
 
 export type PostInput = {
   rawPath: string;
@@ -124,11 +125,35 @@ export async function postprocess(input: PostInput): Promise<{
   // masquerading as an endcap failure.
   const handle = "@" + username;
   const bodyPath = `${outDir}/body.mp4`;
+
+  // 워터마크(2026-09-01, 도난 방지): 프레임 전체 크기의 투명 PNG를 구워 body에
+  // 얹는다. body 패스에 얹는 이유 — 엔드캡 성패와 무관하게 무조건 돌고, 포스터도
+  // 여기서 뽑으므로 썸네일에도 같은 표식이 남는다. 굽기 실패는 촬영을 죽이지
+  // 않는다(표식 없이 진행하고 로그에 남긴다).
+  let wmPath: string | null = null;
+  try {
+    wmPath = await renderWatermark({ handle, width: outW, height: outH, outDir });
+  } catch (e) {
+    console.error("[postprocess] watermark render failed (non-fatal):", (e as Error).message);
+  }
+
+  // 워터마크가 있으면 filter_complex로 합성한다. -vf 한 줄로는 두 번째 입력을
+  // 못 받는다. baseChain은 카메라 이벤트에 따라 길어질 수 있으나(CAMERA_VF_MAX_CHARS
+  // 가드) filter_complex 쪽 길이 제약은 없다.
+  const bodyFilterArgs = wmPath
+    ? [
+        "-i", wmPath,
+        "-filter_complex",
+        `[0:v]${baseChain},format=yuv420p[bd];[bd][1:v]overlay=0:0:format=auto,format=yuv420p[v]`,
+        "-map", "[v]",
+      ]
+    : ["-vf", `${baseChain},format=yuv420p`];
+
   await ff(
     [
       "-y",
       "-i", rawPath,
-      "-vf", `${baseChain},format=yuv420p`,
+      ...bodyFilterArgs,
       "-t", clipLen.toFixed(2),
       ...ENCODE_ARGS,
       "-movflags", "+faststart",
