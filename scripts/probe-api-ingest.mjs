@@ -4,9 +4,9 @@
 // 단언: (1) api_tokens 존재 (2) projects.is_draft 존재 (3) 초안 RLS 에어타이트
 //       — 서비스롤로 넣은 초안을 anon 키로는 못 읽고, 서비스롤로는 읽힌다.
 
+// 서비스롤 키는 macOS 키체인에서 온다(파일 폴백) — scripts/_secrets.mjs 참조.
+import "./_secrets.mjs";
 import { createClient } from "@supabase/supabase-js";
-
-try { process.loadEnvFile(".env.local"); } catch { try { process.loadEnvFile(".env"); } catch { /* env already present */ } }
 
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY;

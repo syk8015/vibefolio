@@ -11,10 +11,11 @@
 //
 // 사용: 레포 루트에서 `node scripts/probe-demo-access-gate.mjs`
 // 주의: ingest 발행 버킷(20/h)을 판당 ~7회, 관리 버킷을 ~2회 소비한다.
+// 서비스롤 키는 macOS 키체인에서 온다(파일 폴백) — scripts/_secrets.mjs 참조.
+import "./_secrets.mjs";
 import { createClient } from "@supabase/supabase-js";
 import { createHash, randomBytes } from "node:crypto";
 
-process.loadEnvFile(".env.local");
 const ORIGIN = process.env.PROBE_ORIGIN ?? "https://nookframe.com";
 const svc = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, {
   auth: { persistSession: false },

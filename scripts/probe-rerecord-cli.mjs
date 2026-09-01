@@ -13,6 +13,8 @@
 // 끝나면 throwaway 프로젝트·토큰 정리.
 //
 // 사용: node scripts/probe-rerecord-cli.mjs
+// 서비스롤 키는 macOS 키체인에서 온다(파일 폴백) — scripts/_secrets.mjs 참조.
+import "./_secrets.mjs";
 import { createClient } from "@supabase/supabase-js";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { execFileSync, spawn } from "node:child_process";
@@ -20,7 +22,6 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-process.loadEnvFile(".env.local");
 const ORIGIN = process.env.NOOKFRAME_ORIGIN || "https://nookframe.com";
 const CLI = "cli/bin/nookframe.js";
 const svc = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, {

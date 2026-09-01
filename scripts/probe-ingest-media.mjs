@@ -5,6 +5,8 @@
 // 사용: 레포 루트에서 `node scripts/probe-ingest-media.mjs` (픽스처는 ffmpeg로
 // 자동 생성, 워커 호스트엔 항상 있음). 주의: ingest 레이트리밋(유저 20/h)을
 // 판당 ~6회 소비 — 연속 실행 시 429가 나면 한 시간 뒤에.
+// 서비스롤 키는 macOS 키체인에서 온다(파일 폴백) — scripts/_secrets.mjs 참조.
+import "./_secrets.mjs";
 import { createClient } from "@supabase/supabase-js";
 import { createHash, randomBytes } from "node:crypto";
 import { execFileSync } from "node:child_process";
@@ -13,7 +15,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runPublish } from "../cli/src/publish.js";
 
-process.loadEnvFile(".env.local");
 // 픽스처 생성 — tiny.png(스크린샷)·big.mp4(tiny.mp4+제로패딩 10MB)·zipproj/(6MB).
 const S = mkdtempSync(join(tmpdir(), "nf-probe-media-"));
 execFileSync("ffmpeg", ["-y", "-loglevel", "error", "-f", "lavfi", "-i", "testsrc=duration=1:size=64x64:rate=1", "-frames:v", "1", `${S}/tiny.png`]);

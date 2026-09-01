@@ -139,6 +139,24 @@ Focus를 직접 제어하는 CLI가 없어서 **단축어(Shortcuts) 2개가 이
 - R2 키 = 데모 버킷 임의 쓰기·삭제
 - RESEND 키 = `nookframe.com` 이름으로 메일 발송(피싱)
 
+### 운영 스크립트의 서비스롤 키 = 키체인 (2026-09-01)
+
+`scripts/probe-*.mjs`·`storage-audit.mjs`·`list-demos.mjs`·`verify-upload.mjs` 12개는
+아직 서비스롤이 필요하다(사람이 손으로 돌리는 도구). 값은 `.env.local`이 아니라
+**macOS 키체인**에 있고, `scripts/_secrets.mjs`가 키체인 우선·파일 폴백으로 주입한다.
+각 스크립트 맨 위 `import "./_secrets.mjs";` 한 줄이 전부. `npm run dev`·`npm run
+trigger:dev`도 같은 러너를 앞에 두고 돈다(`node scripts/_secrets.mjs <명령>`).
+
+- 확인: `security find-generic-password -s nookframe-supabase-service-role -w`
+- 다시 심기: `printf 'add-generic-password -U -a %s -s %s -w %s\n' "$USER" \
+  nookframe-supabase-service-role "$KEY" | security -i`
+  (⚠️ `-w`를 인자 없이 두고 stdin으로 흘리면 **128바이트에서 잘린다** — JWT는 219자)
+- 실행 때 `[secrets] … ← 키체인` 한 줄이 stderr에 뜬다. `NF_SECRETS_QUIET=1`로 끌 수 있다.
+
+한계: 키체인도 **같은 사용자로 도는 프로세스면 무엇이든** 읽는다(로그인 중엔 잠금 해제
+상태). 막아지는 건 평문 파일이 통째로 새는 경로(백업·실수 커밋·디스크 이미지)뿐이고,
+이 맥에서 이미 도는 악성 코드는 못 막는다. 완전한 격리가 아니다.
+
 완성/실패 메일과 크레딧 소진 경보는 이제 서버가 보낸다(`lib/workerOps.ts`).
 `RESEND_API_KEY`는 Vercel 쪽에만 있으면 된다 — 절차는 `docs/resend-setup.md`.
 

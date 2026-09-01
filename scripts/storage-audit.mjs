@@ -1,4 +1,6 @@
 // One-off storage audit: walk every bucket, sum object sizes by bucket + extension.
+// 서비스롤 키는 macOS 키체인에서 온다(파일 폴백) — scripts/_secrets.mjs 참조.
+import "./_secrets.mjs";
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(

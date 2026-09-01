@@ -17,12 +17,13 @@
 // 사용: node scripts/probe-attribution.mjs
 // (일회성 .verify-*.mjs로 만들었다가 남겼다 — 홍보 트랙이 계속 바뀌는데 이 사슬을
 //  지키는 가드가 이거 하나뿐이다. 실 auth 유저·클립·포스트를 만들고 끝나면 지운다.)
+// 서비스롤 키는 macOS 키체인에서 온다(파일 폴백) — scripts/_secrets.mjs 참조.
+import "./_secrets.mjs";
 import { createClient } from "@supabase/supabase-js";
 import { createChunks, stringToBase64URL } from "@supabase/ssr";
 import { chromium } from "playwright-core";
 import { randomUUID } from "node:crypto";
 
-process.loadEnvFile(".env.local");
 const ORIGIN = "https://nookframe.com";
 const SUPA_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const REF = new URL(SUPA_URL).hostname.split(".")[0];

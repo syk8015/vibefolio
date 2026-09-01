@@ -4,9 +4,9 @@
 // 단언: (1) projects.demo_access 컬럼 존재 (2) object insert 왕복
 //       (3) 2KB 초과 거부 (4) array 거부 (5) 스칼라 거부 — 전부 23514(check).
 
+// 서비스롤 키는 macOS 키체인에서 온다(파일 폴백) — scripts/_secrets.mjs 참조.
+import "./_secrets.mjs";
 import { createClient } from "@supabase/supabase-js";
-
-try { process.loadEnvFile(".env.local"); } catch { try { process.loadEnvFile(".env"); } catch { /* env already present */ } }
 
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY;

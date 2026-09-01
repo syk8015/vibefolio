@@ -3,11 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "node scripts/_secrets.mjs next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "trigger:dev": "trigger dev",
+    "trigger:dev": "node scripts/_secrets.mjs trigger dev",
     "trigger:deploy": "trigger deploy",
     "demo:worker": "npx -y tsx local-runner/worker.ts",
     "demo:batch": "npx -y tsx local-runner/worker.ts --batch",

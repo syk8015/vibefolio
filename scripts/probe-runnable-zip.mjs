@@ -5,6 +5,8 @@
 //   (4) 잡동사니 zip(코드 없음) → 400 거절
 //   끝나면 throwaway 행·스토리지·토큰 정리.
 // 사용: node scripts/probe-runnable-zip.mjs  (ingest 레이트리밋 20/h — 폴링 포함 ~10회 소비)
+// 서비스롤 키는 macOS 키체인에서 온다(파일 폴백) — scripts/_secrets.mjs 참조.
+import "./_secrets.mjs";
 import { createClient } from "@supabase/supabase-js";
 import { createHash, randomBytes } from "node:crypto";
 import { execFileSync } from "node:child_process";
@@ -12,7 +14,6 @@ import { mkdtempSync, writeFileSync, mkdirSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-process.loadEnvFile(".env.local");
 const ORIGIN = "https://nookframe.com";
 const svc = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 
