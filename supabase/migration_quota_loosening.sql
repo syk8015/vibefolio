@@ -1,26 +1,24 @@
 -- ---------------------------------------------------------------------------
--- request_demo(): 소스 인가 추가 (레드팀 F2/F3/F5).
+-- 쿼터 완화 (2026-09-01) — 사용자 유치 국면의 의도적 한도 상향.
 --
--- 배경(취약점): 이 함수는 p_project_id 소유권과 쿼터는 검증했지만
--- p_source_type/p_source_value는 검증 없이 그대로 demo_source_* 에 썼다.
--- 이 함수는 `authenticated`에 grant돼 있어 PostgREST로 직접 호출 가능 →
---   rpc/request_demo {p_source_type:'zip', p_source_value:'<victim>/<pid>'}
--- 로 남의 storage prefix를 심으면, 워커가 그 prefix를 **서비스롤**로 통째
--- 다운로드(RLS 우회)해 타인의 비공개 업로드를 촬영·발행한다.
--- p_source_value:'' 이면 버킷 전체가 열린다.
+-- 결정: "한 편당 비용이 얼마 안 되니 1인당 제한을 풀자. 빠른 사용자 유치가
+-- 필요한 시점 — 나중에 다시 조이더라도 지금은 푸는 게 맞다."
 --
--- 수리: zip 소스의 prefix 첫 세그먼트가 반드시 소유자(=호출자)여야 한다.
--- zip의 source_value는 항상 우리 `{uid}/{pid}` 형태라 오탐이 없다.
--- (참고: /api/preview live_url 직접-RPC 벡터는 SQL에서 우리 origin을 구분할 수
---  없어 오탐 위험이 있으므로 여기서 막지 않는다 — 라우트의 resolveBuildPayload와
---  워커 job.ts의 origin-aware 검사가 담당. github/외부 live_url은 detectDemoSource
---  형태검증 + assertSafePublicUrl가 담당.)
+--   v_per_user_daily   2 →  10   (1인 24h 자동시연 편수)
+--   v_global_daily    40 → 100   (전체 24h 입장 상한. 10편으로 풀어도 이 값이
+--                                 40이면 하루 4명에 문이 닫혀 완화가 무의미해짐)
+--   v_per_project_max  2 (유지)  — "프로젝트당 영상 1편" 제품 규칙 그대로.
+--                                 첫 테이크 실패 시 재시도 1회분이고, 재촬영은
+--                                 별도 승인 루프가 담당한다.
+--   TS 미러(lib/demoQuota.ts)의 GLOBAL_DRAIN_DAILY도 40 → 100 으로 같이 올림.
 --
--- 나머지 본문은 migration_demo_quota.sql의 request_demo와 동일 — 인가 블록만 추가.
+-- 지갑 천장: 편당 $0.035(직배선 대본)~$0.17(옛길·비전) → 월 $105 ~ $510.
+--
+-- ⚠️ 이 함수의 직전 정의는 migration_demo_quota.sql이 아니라
+--    **migration_demo_source_guard.sql**(레드팀 F2 zip prefix 인가 수리)이다.
+--    아래 본문은 그 버전을 그대로 옮기고 상수 두 줄만 바꾼 것 — 옛 quota 파일을
+--    베끼면 보안 수리가 조용히 되돌아간다. 다음에 또 바꿀 때도 최신 정의를 찾을 것.
 -- ---------------------------------------------------------------------------
--- ⚠️ 상수는 이제 여기가 최신이 아니다 — migration_quota_loosening.sql (2026-09-01)이
---    per_user 10 / global 100 으로 재정의했다. 이 파일을 다시 실행하면 쿼터가
---    조용히 옛 값으로 되돌아간다.
 create or replace function request_demo(
   p_project_id   uuid,
   p_source_type  text,
@@ -32,8 +30,8 @@ set search_path = public, pg_temp
 as $$
 declare
   v_per_project_max constant int := 2;
-  v_per_user_daily  constant int := 2;
-  v_global_daily    constant int := 40;
+  v_per_user_daily  constant int := 10;
+  v_global_daily    constant int := 100;
   v_window_hours    constant int := 24;
   v_uid      uuid := auth.uid();
   v_owner    uuid;

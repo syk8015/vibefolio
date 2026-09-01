@@ -126,6 +126,9 @@ create trigger projects_guard_demo
 --    limits and bypass every guard. Keep these in sync with lib/demoQuota.ts
 --    (PER_PROJECT_MAX_ATTEMPTS / PER_USER_DAILY / GLOBAL_DAILY / WINDOW_HOURS).
 -- ---------------------------------------------------------------------------
+-- ⚠️ 상수는 이제 여기가 최신이 아니다 — migration_quota_loosening.sql (2026-09-01)이
+--    per_user 10 / global 100 으로 재정의했다. 이 파일을 다시 실행하면 쿼터가
+--    조용히 옛 값으로 되돌아간다.
 create or replace function request_demo(
   p_project_id   uuid,
   p_source_type  text,

@@ -9,9 +9,9 @@
 --
 -- Caps enforced by request_demo() (keep in sync with lib/demoQuota.ts):
 --   * 1 video per project (2 admitted attempts, then locked)
---   * 2 auto demos / user / 24h  (3rd upload -> held)
---   * 40 admitted / 24h globally (-> held, reason 'global')
---   * 40 drains / 24h at the worker (wallet backstop)
+--   * 10 auto demos / user / 24h (11th upload -> held)
+--   * 100 admitted / 24h globally (-> held, reason 'global')
+--   * 100 drains / 24h at the worker (wallet backstop)
 --
 -- Typical run: RESET -> pick a CASE -> do its UI action -> INSPECT -> TEARDOWN.
 -- Set your test username once: replace YOUR_USERNAME where it appears (cases B).
@@ -43,21 +43,20 @@ from demo_requests order by created_at desc limit 8;
 
 
 -- === CASE B — per-user daily cap -> held (reason: user) ======================
--- Seed 2 'auto' events for your user so your very next add hits the cap.
+-- Seed 10 'auto' events for your user so your very next add hits the cap.
 -- insert into demo_events (user_id, project_id, kind)
--- select id, null, 'auto' from profiles where username = 'YOUR_USERNAME'
--- union all
--- select id, null, 'auto' from profiles where username = 'YOUR_USERNAME';
+-- select p.id, null, 'auto' from profiles p, generate_series(1, 10)
+--  where p.username = 'YOUR_USERNAME';
 --   Then add ONE project in the dashboard.
 --   EXPECT: badge "승인 대기 · 이미지 표시" (held);
 --           demo_requests -> over_cap / pending / 'Daily per-user upload limit reached'.
 
 
 -- === CASE F — global daily cap -> held (reason: global) =====================
--- Seed 40 global 'auto' events (user_id null so they don't affect any per-user count).
+-- Seed 100 global 'auto' events (user_id null so they don't affect any per-user count).
 -- insert into demo_events (user_id, project_id, kind)
--- select null, null, 'auto' from generate_series(1, 40);
---   Then add ONE project (as a user under their own 2/day cap).
+-- select null, null, 'auto' from generate_series(1, 100);
+--   Then add ONE project (as a user under their own 10/day cap).
 --   EXPECT: held; demo_requests reason 'Daily global capacity reached'.
 -- Cleanup this case only:
 -- delete from demo_events where user_id is null and project_id is null and kind = 'auto';
@@ -96,11 +95,11 @@ rollback;
 
 
 -- === CASE G — worker drain ceiling (optional; needs the worker) =============
--- Seed 40 'drain' events, then start the worker with a pending row present.
+-- Seed 100 'drain' events, then start the worker with a pending row present.
 -- SAFE: at the ceiling the worker refuses to record — it just logs and idles.
 -- insert into demo_events (user_id, project_id, kind)
--- select null, null, 'drain' from generate_series(1, 40);
---   Run `npm run demo:worker`; EXPECT log: "daily drain ceiling (40) reached".
+-- select null, null, 'drain' from generate_series(1, 100);
+--   Run `npm run demo:worker`; EXPECT log: "daily drain ceiling (100) reached".
 -- Cleanup:
 -- delete from demo_events where user_id is null and project_id is null and kind = 'drain';
 
