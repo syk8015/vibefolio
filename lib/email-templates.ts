@@ -170,6 +170,33 @@ export function demoFailedEmail(input: {
   };
 }
 
+// ── 신고 처리로 작품을 내렸을 때 (소유자 수신, 2026-09-01) ────────────────────
+// 삭제가 아니라 비공개(초안) 전환이라, 되돌릴 수 있다는 것과 이의 제기 경로를
+// 반드시 같이 알린다 — 약관 제7조가 재검토 요청을 보장한다.
+export function takedownEmail(input: {
+  projectTitle: string;
+  reasonLabel: string;
+  locale?: Locale;
+}): RenderedEmail {
+  const locale = input.locale ?? DEFAULT_LOCALE;
+  const t = getDictionary(locale).email;
+  const title = t.takedownSubject(clampSubject(input.projectTitle));
+  return {
+    subject: title,
+    html: shell(
+      title,
+      [
+        heading(title),
+        paragraph(t.takedownBody(`<strong>${escapeHtml(input.projectTitle)}</strong>`)),
+        paragraph(escapeHtml(t.takedownReason(input.reasonLabel))),
+        button(t.takedownCta, `${SITE_URL}/dashboard`),
+        mutedLine(escapeHtml(t.takedownAppeal)),
+      ].join("\n"),
+      locale,
+    ),
+  };
+}
+
 // ── 운영 경보 (관리자 수신) — 크레딧 소진·워치독·승인 대기 공용 ─────────────────
 export function adminAlertEmail(input: {
   title: string;

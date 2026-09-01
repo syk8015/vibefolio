@@ -694,6 +694,13 @@ export const ko = {
     failedBody: (titleHtml: string) => `${titleHtml}의 자동 시연 촬영이 완료되지 못했어요.`,
     failedCta: "대시보드에서 다시 시도",
     failedTechLine: "자세한 기술 정보는 대시보드의 실패 배지를 누르면 볼 수 있어요.",
+    // 신고 처리로 작품을 비공개로 내렸을 때 소유자에게 (2026-09-01).
+    // 조용히 사라지면 "내 작품이 왜 없어졌지"가 된다 — 이유와 다음 수단을 같이 준다.
+    takedownSubject: (title: string) => `작품을 비공개로 전환했어요 — ${title}`,
+    takedownBody: (titleHtml: string) => `신고가 접수되어 검토한 결과, ${titleHtml}을(를) 비공개(초안)로 되돌렸어요. 작품과 파일은 그대로 남아 있고 대시보드에서 볼 수 있어요.`,
+    takedownReason: (reason: string) => `신고 사유: ${reason}`,
+    takedownAppeal: "판단에 이의가 있으면 이 메일에 답장하거나 vivestarter@gmail.com 으로 알려주세요. 다시 검토할게요.",
+    takedownCta: "대시보드에서 보기",
   },
 };
 

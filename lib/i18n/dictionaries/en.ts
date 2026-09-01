@@ -666,5 +666,10 @@ export const en: Dictionary = {
     failedBody: (titleHtml: string) => `The auto demo shoot for ${titleHtml} couldn't be completed.`,
     failedCta: "Try again from the dashboard",
     failedTechLine: "For technical details, click the failure badge on your dashboard.",
+    takedownSubject: (title: string) => `Your work was made private — ${title}`,
+    takedownBody: (titleHtml: string) => `We received a report and, after review, moved ${titleHtml} back to private (draft). The work and its files are untouched and still in your dashboard.`,
+    takedownReason: (reason: string) => `Reported for: ${reason}`,
+    takedownAppeal: "If you disagree with this, reply to this email or write to vivestarter@gmail.com and we will take another look.",
+    takedownCta: "Open dashboard",
   },
 };
