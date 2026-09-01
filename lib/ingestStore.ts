@@ -10,6 +10,7 @@
 import {
   MAX_UPLOAD_BYTES, MAX_MEDIA_IMAGE_BYTES, MAX_MEDIA_VIDEO_BYTES,
   expandZipBundle, pickZipAnchor, sniffImage, sniffVideo, UploadError,
+  type DroppedFile,
 } from "./upload-safety";
 import { detectNativeApp } from "./nativeApp";
 
@@ -106,12 +107,14 @@ export async function storeZipBundle(
   userId: string,
   projectId: string,
   buf: ArrayBuffer,
-): Promise<{ entryPath: string; runnable: boolean }> {
+): Promise<{ entryPath: string; runnable: boolean; dropped: DroppedFile[] }> {
   if (buf.byteLength > MAX_UPLOAD_BYTES) {
     throw new UploadError("업로드가 너무 커요.", "too-large");
   }
   const prefix = `${userId}/${projectId}/`;
-  const entries = await expandZipBundle(buf); // 엔트리 수·압축해제 크기 캡 내장
+  // 엔트리 수·압축해제 크기 캡 내장. dropped = 안전상 저장하지 않은 비밀 파일
+  // (.env·.git/ 등) — 호출부가 발행자에게 그대로 되돌려준다.
+  const { entries, dropped } = await expandZipBundle(buf);
   const anchor = pickZipAnchor(entries);
   if (!anchor) {
     // 앵커가 없는 zip 중 상당수는 "웹으로 띄울 수 없는" 네이티브 앱이다. 거절은
@@ -149,5 +152,9 @@ export async function storeZipBundle(
       .upload(storagePath, e.data, { upsert: true, contentType: e.contentType });
     if (upErr) throw new UploadError(`파일 업로드 실패: ${upErr.message}`, "upload-failed");
   }
-  return { entryPath: anchor.path, runnable: anchor.kind === "runnable" };
+  return {
+    entryPath: anchor.path,
+    runnable: anchor.kind === "runnable",
+    dropped, // 언어별 라벨은 라우트가 사전으로 붙인다(PAT 응답은 영어 고정).
+  };
 }

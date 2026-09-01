@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PREVIEW_ORIGIN, APP_ORIGIN } from "@/lib/previewOrigin";
+import { secretFileKind } from "@/lib/upload-safety";
 import { logger } from "@/lib/logger";
 
 // Preview isolation is a security control, not a nicety: without a distinct sandbox
@@ -56,6 +57,19 @@ export async function GET(
     return new NextResponse("Bad request", { status: 400 });
   }
   const filePath = path.join("/");
+
+  // 비밀 파일은 저장돼 있더라도 서빙하지 않는다 (2026-09-01). 이 라우트는 공개
+  // 버킷을 그대로 중계하는 무인증 프록시이고, 공개 작품의 demo_url이
+  // `/api/preview/{uid}/{rowId}/index.html`이라 방문자는 `{uid}/{rowId}`를 이미
+  // 안다 — 뒤만 `.env`로 바꾸면 한 번에 맞힌다. 업로드 단계 필터(upload-safety)가
+  // 1차 방어고, 여기는 그걸 우회해 들어온 것(브라우저 직행 업로드는 서버를 안
+  // 거친다)과 필터 이전에 이미 올라간 것을 위한 마지막 그물이다.
+  // ⚠️ 완전한 봉쇄는 아니다 — 버킷 public=true라 Supabase 공개 URL 직격은 이
+  //    라우트를 통과하지 않는다(의도된 상태·서명 URL 전환은 별도 트랙).
+  //    그래서 진짜 방어는 여전히 "애초에 저장하지 않는 것"이다.
+  if (secretFileKind(filePath)) {
+    return new NextResponse("Not found", { status: 404 });
+  }
 
   // Untrusted uploaded content must execute only on the sandbox origin so its JS
   // can never touch nookframe.com cookies/localStorage (session theft). If this

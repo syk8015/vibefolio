@@ -16,6 +16,7 @@ import { normalizeDemoAccess, demoAccessAnswered, type DemoAccess } from "@/lib/
 import { normalizeDemoScript, DEMO_SCRIPT_MIN_STEPS } from "@/lib/demoScript";
 import {
   MAX_UPLOAD_BYTES, MAX_MEDIA_IMAGE_BYTES, MAX_MEDIA_VIDEO_BYTES, UploadError,
+  summarizeDropped,
 } from "@/lib/upload-safety";
 import {
   validateMedia, uploadMedia, storeZipBundle,
@@ -360,12 +361,16 @@ export async function POST(req: NextRequest) {
     // 행을 지운다. (스토리지에 일부 올라간 객체는 추측 불가한 uuid 폴더 아래 남을
     // 수 있으나 DB 행이 없어 발견 불가 — storage-audit 스윕이 회수. remove()는
     // 오브젝트 키 목록이 필요해 폴더 경로 전달은 no-op이므로 하지 않는다.)
+    // 안전상 저장하지 않은 비밀 파일 요약(.env·.git/ 등) — 9번 응답에서 에코한다.
+    let droppedFiles: string[] = [];
     if (bundle) {
       try {
         if (bundle.size > MAX_UPLOAD_BYTES) {
           throw new UploadError(t.api.uploadTooLarge, "too-large");
         }
-        const { entryPath, runnable } = await storeZipBundle(admin, userId, projectId, await bundle.arrayBuffer());
+        const stored = await storeZipBundle(admin, userId, projectId, await bundle.arrayBuffer());
+        const { entryPath, runnable } = stored;
+        droppedFiles = summarizeDropped(stored.dropped, t.api.secretFileKinds);
         demoUrl = `/api/preview/${userId}/${projectId}/${entryPath}`;
         // runnable 앵커(파이썬·CLI 소스 zip)는 미리보기가 없어 thum.io 스크린샷이
         // 소스 코드 원문을 찍는다 — 썸네일 없이 두고 촬영본/제작자 스크린샷이 채운다.
@@ -434,6 +439,9 @@ export async function POST(req: NextRequest) {
         contentTypeId, demoAccess, entryUrl: demoUrl,
       }, normalizeTags),
       ...(upserted ? { upserted: true } : {}),
+      // 안전상 빼고 저장한 파일(.env·.git/ 등). accepted가 "무엇이 들어갔나"라면
+      // 이건 "무엇이 빠졌나" — 조용히 버리면 "왜 내 앱이 안 도나"가 된다.
+      ...(droppedFiles.length ? { droppedFiles } : {}),
       // 랜딩·앱을 둘 다 준 경우 뭘 찍을지는 촬영 직전에 고른다(피드백 B-4) — 발행
       // AI가 "내가 고른 게 최종"으로 오해하지 않게 후보를 돌려준다.
       ...(demoAccess?.altUrl ? { entryUrl: demoUrl, scoutAltUrl: demoAccess.altUrl } : {}),

@@ -7,6 +7,7 @@ import {
   AiToolLogo,
   isUploadedProject,
   expandUploadEntries,
+  summarizeDropped,
 } from "./helpers";
 import { type ProjectForm, AI_TOOLS_INITIAL } from "./types";
 import { useT } from "@/lib/i18n/client";
@@ -41,6 +42,9 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadError, setUploadError] = useState("");
   const [uploadDone, setUploadDone] = useState(false);
+  // 안전상 저장하지 않은 비밀 파일 요약(.env·.git/ 등). 조용히 버리면 "왜 내
+  // 앱이 안 도나"가 되므로 업로드 결과 옆에 그대로 보여준다.
+  const [droppedFiles, setDroppedFiles] = useState<string[]>([]);
   const [videoMode, setVideoMode] = useState<"file" | "url">("file");
   const [videoUploading, setVideoUploading] = useState(false);
   const [videoError, setVideoError] = useState("");
@@ -113,6 +117,7 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
   async function handleFilesUpload(fileList: FileList) {
     setUploadError("");
     setUploadDone(false);
+    setDroppedFiles([]);
     const rawFiles = Array.from(fileList);
     if (!rawFiles.length) return;
 
@@ -122,7 +127,14 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
     // zip은 브라우저에서 풀어서 일반 파일처럼 취급.
     let entries: { relativePath: string; data: Blob }[];
     try {
-      entries = await expandUploadEntries(rawFiles);
+      const expanded = await expandUploadEntries(rawFiles);
+      entries = expanded.entries;
+      setDroppedFiles(summarizeDropped(expanded.dropped, t.api.secretFileKinds));
+      if (entries.length === 0 && expanded.dropped.length > 0) {
+        setUploadError(t.projectForm.onlySecretFiles);
+        setUploading(false);
+        return;
+      }
     } catch (err) {
       setUploadError(err instanceof Error ? t.projectForm.zipFailed(err.message) : t.projectForm.zipUnreadable);
       setUploading(false);
@@ -370,6 +382,24 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
                 <p className="text-sm" style={{ color: "#b34747", fontFamily: "var(--font-nunito)" }}>
                   {uploadError}
                 </p>
+              )}
+              {droppedFiles.length > 0 && !uploading && (
+                <div
+                  className="text-sm rounded-lg px-3 py-2.5"
+                  style={{
+                    background: "var(--blue-tint)",
+                    color: "var(--text-secondary)",
+                    fontFamily: "var(--font-nunito)",
+                  }}
+                >
+                  <p style={{ color: "var(--text-primary)" }}>{t.projectForm.secretFilesSkipped}</p>
+                  <ul className="mt-1 space-y-0.5">
+                    {droppedFiles.map((line) => (
+                      <li key={line}>· {line}</li>
+                    ))}
+                  </ul>
+                  <p className="mt-1.5">{t.projectForm.secretFilesWhy}</p>
+                </div>
               )}
             </div>
           )}

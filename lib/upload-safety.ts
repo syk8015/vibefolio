@@ -51,6 +51,7 @@ export type UploadErrorCode =
   | "zip-empty"
   | "zip-too-many"
   | "zip-no-valid"
+  | "zip-only-secrets"
   | "too-large"
   | "index-html-missing"
   | "native-app"
@@ -112,6 +113,80 @@ export function sniffVideo(buf: Uint8Array): { ext: string; mime: string } | nul
     return { ext: "webm", mime: "video/webm" };
   }
   return null;
+}
+
+// ── 비밀 파일 차단 (2026-09-01, "업로드 파일 안전 보장" 1축)
+//
+// 왜 "저장 안 함"이 유일한 방어인가: `project-files` 버킷은 public=true이고
+// (프리뷰·OG·임베드·아바타를 살리려는 의도된 상태), `/api/preview/[...path]`는
+// 그 버킷을 그대로 중계하는 무인증 프록시다. 공개된 작품의 demo_url이
+// `/api/preview/{uid}/{rowId}/index.html`이라 방문자는 `{uid}/{rowId}`를 이미
+// 안다 — 뒤를 `.env`로 바꾸면 그대로 200이 나온다. 즉 현재 보장은 "경로를 모르면
+// 못 찾는다"조차 아니다. 서명 URL 전환은 별도 트랙으로 보류된 결정이므로, 지금
+// 확실한 방어는 애초에 스토리지에 올리지 않는 것뿐이다.
+//
+// 거절이 아니라 폐기인 이유: 발행 경로 상당수가 AI 대행(Connect/PAT)이라 400으로
+// 되돌리면 사람이 개입해야 끝난다. 대신 무엇을 뺐는지 응답·UI로 반드시 알린다
+// (모르고 넘어가면 "왜 내 앱이 안 도나"가 된다).
+//
+// ⚠️ 비밀을 보관해 데모에 주입하지 않는다 — 남의 API 키를 우리가 맡는 순간
+// 약관·3자 전달(E2B 샌드박스) 약속이 통째로 달라진다(2026-09-01 사용자 확정).
+/** 비밀 파일 종류 — 언어별 라벨은 사전(t.api.secretFileKinds)이 붙인다.
+ * PAT 인제스트 응답은 영어 고정이라 라벨을 코드에 박으면 어긋난다. */
+export type SecretKind =
+  | "env" | "envrc" | "git" | "sshDir" | "sshKey" | "cert"
+  | "npmrc" | "pypirc" | "netrc" | "aws" | "htpasswd" | "serviceAccount";
+
+const SECRET_FILE_RULES: ReadonlyArray<readonly [RegExp, SecretKind]> = [
+  // `.env` `.env.local` `.env.production` … 그리고 `.env/` 디렉터리까지.
+  [/(^|\/)\.env($|[./])/i, "env"],
+  [/(^|\/)\.envrc$/i, "envrc"],
+  // `.gitignore`·`.github/`는 걸리지 않는다(뒤에 `/`나 끝이어야 매치).
+  [/(^|\/)\.git(\/|$)/i, "git"],
+  [/(^|\/)\.ssh(\/|$)/i, "sshDir"],
+  [/(^|\/)id_(rsa|dsa|ecdsa|ed25519)($|\.)/i, "sshKey"],
+  [/\.(pem|p12|pfx|keystore|jks)$/i, "cert"],
+  [/(^|\/)\.npmrc$/i, "npmrc"],
+  [/(^|\/)\.pypirc$/i, "pypirc"],
+  [/(^|\/)\.netrc$/i, "netrc"],
+  [/(^|\/)\.aws(\/|$)/i, "aws"],
+  [/(^|\/)\.htpasswd$/i, "htpasswd"],
+  [/(^|\/)[^/]*(service[-_]?account|adminsdk)[^/]*\.json$/i, "serviceAccount"],
+  [/(^|\/)credentials\.json$/i, "serviceAccount"],
+];
+
+/** 비밀/내부 파일이면 종류, 아니면 null.
+ * 인자는 safeRelativePath를 통과한 상대경로(선행 슬래시 없음). */
+export function secretFileKind(relativePath: string): SecretKind | null {
+  const p = `/${relativePath}`;
+  for (const [re, kind] of SECRET_FILE_RULES) {
+    if (re.test(p)) return kind;
+  }
+  return null;
+}
+
+export interface DroppedFile {
+  path: string;
+  kind: SecretKind;
+}
+
+/** 발행자에게 보여줄 한 줄씩의 요약. 같은 종류끼리 묶는다 — `.git/`은 파일이
+ * 수백 개라 경로를 나열하면 읽히지 않는다. 예: "git 기록 — .git/config 외 242개". */
+export function summarizeDropped(
+  dropped: DroppedFile[],
+  labels: Record<SecretKind, string>,
+): string[] {
+  const byKind = new Map<SecretKind, string[]>();
+  for (const d of dropped) {
+    const list = byKind.get(d.kind) ?? [];
+    list.push(d.path);
+    byKind.set(d.kind, list);
+  }
+  return [...byKind.entries()].map(([kind, paths]) => {
+    const shown = paths.slice(0, 3).join(", ");
+    const rest = paths.length - 3;
+    return `${labels[kind]} — ${shown}${rest > 0 ? ` (+${rest})` : ""}`;
+  });
 }
 
 export interface ExpandedEntry {
@@ -187,7 +262,7 @@ function readEntryCapped(
 export async function expandZipBundle(
   zipData: ArrayBuffer | Uint8Array,
   opts?: { maxEntries?: number; maxTotalBytes?: number },
-): Promise<ExpandedEntry[]> {
+): Promise<{ entries: ExpandedEntry[]; dropped: DroppedFile[] }> {
   const maxEntries = opts?.maxEntries ?? MAX_ZIP_ENTRIES;
   const maxTotalBytes = opts?.maxTotalBytes ?? MAX_UPLOAD_BYTES;
 
@@ -208,16 +283,31 @@ export async function expandZipBundle(
 
   const budget = { remaining: maxTotalBytes };
   const out: ExpandedEntry[] = [];
+  const dropped: DroppedFile[] = [];
   for (const entry of fileEntries) {
     const parts = entry.name.split("/");
     if (stripTop) parts.shift();
     const relativePath = safeRelativePath(parts.join("/"));
     if (!relativePath) continue;
+    // 비밀 파일은 해제조차 하지 않는다 — 바이트 예산도 안 먹고, 이후 어느 코드도
+    // (pickZipAnchor 포함) 이 경로를 보지 못한다.
+    const kind = secretFileKind(relativePath);
+    if (kind) {
+      dropped.push({ path: relativePath, kind });
+      continue;
+    }
     const data = await readEntryCapped(entry, budget);
     out.push({ relativePath, data, contentType: getMimeType(relativePath) });
   }
-  if (out.length === 0) throw new UploadError("업로드할 유효한 파일이 없어요.", "zip-no-valid");
-  return out;
+  if (out.length === 0) {
+    // 남은 게 하나도 없는데 버린 건 있다 = zip이 통째로 비밀·내부 파일이었다.
+    // "유효한 파일 없음"으로 뭉뚱그리면 발행자가 이유를 영영 모른다.
+    if (dropped.length > 0) {
+      throw new UploadError("안전상 제외한 파일뿐이라 올릴 게 없어요.", "zip-only-secrets");
+    }
+    throw new UploadError("업로드할 유효한 파일이 없어요.", "zip-no-valid");
+  }
+  return { entries: out, dropped };
 }
 
 // zip이 가리킬 "앵커 파일"을 고른다 (2026-08-20, 유형 커버리지 — zip 입구 완화).

@@ -253,6 +253,11 @@ export const ko = {
     zipFailed: (msg: string) => `zip 압축해제 실패: ${msg}`,
     zipUnreadable: "zip 파일을 읽을 수 없어요.",
     tooLarge: (mb: string) => `총 파일 크기가 25MB를 초과해요. (현재 ${mb}MB)`,
+    // 비밀 파일 폐기 안내(2026-09-01) — 왜 뺐는지까지 말한다. 앱이 .env 없이는
+    // 안 도는 경우가 있어, 이유를 모르면 "왜 내 앱이 흰 화면이지"로 끝난다.
+    secretFilesSkipped: "안전을 위해 아래 파일은 올리지 않았어요.",
+    secretFilesWhy: "올린 파일은 웹에 공개되기 때문에, API 키가 든 .env나 git 기록(.git)은 그대로 두면 누구나 받아갈 수 있어요.",
+    onlySecretFiles: "올릴 수 있는 파일이 없어요 — 고른 게 전부 안전상 제외되는 파일이었어요.",
     noHtml: "웹페이지(HTML) 파일이 없어요. 자동 시연은 브라우저에 뜨는 화면을 촬영해요 — index.html이 포함됐는지 확인해 주세요.",
     saveFailed: "저장 중 오류가 발생했어요.",
     urlOptionTitle: "URL 링크",
@@ -606,6 +611,14 @@ export const ko = {
     zipEmpty: "빈 zip이에요.",
     zipTooManyFiles: (max: number) => `파일이 너무 많아요 (최대 ${max}개).`,
     zipNoValidFiles: "업로드할 유효한 파일이 없어요.",
+    zipOnlySecrets: "안전상 제외되는 파일(.env·.git 등)뿐이라 올릴 게 없어요. 실제 앱 파일을 담아 다시 보내주세요.",
+    // 저장하지 않은 비밀 파일의 종류 이름(lib/upload-safety.ts의 SecretKind).
+    secretFileKinds: {
+      env: "환경변수 파일", envrc: "direnv 설정", git: "git 기록",
+      sshDir: "SSH 폴더", sshKey: "SSH 개인키", cert: "인증서·키스토어",
+      npmrc: "npm 인증 설정", pypirc: "PyPI 인증 설정", netrc: "netrc 인증 정보",
+      aws: "AWS 자격증명", htpasswd: "htpasswd 비밀번호", serviceAccount: "서비스 계정 키",
+    },
     // 신고 (report)
     badReport: "잘못된 신고 요청이에요.",
     reportRateLimited: "신고가 너무 잦아요. 잠시 후 다시 시도해 주세요.",

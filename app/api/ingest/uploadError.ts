@@ -27,6 +27,8 @@ export async function uploadErrorResponse(
       return apiError({ status: 400, message: t.api.zipTooManyFiles(MAX_ZIP_ENTRIES), code: "UPLOAD_FAILED" });
     case "zip-no-valid":
       return apiError({ status: 400, message: t.api.zipNoValidFiles, code: "UPLOAD_FAILED" });
+    case "zip-only-secrets":
+      return apiError({ status: 400, message: t.api.zipOnlySecrets, code: "UPLOAD_FAILED" });
     case "too-large":
       return apiError({ status: 413, message: t.api.uploadTooLarge, code: "TOO_LARGE" });
     case "index-html-missing":

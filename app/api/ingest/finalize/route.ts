@@ -7,7 +7,7 @@ import { rateLimit } from "@/lib/rate-limit";
 import { bearerFromHeader } from "@/lib/apiToken";
 import { ingestAuth } from "../shared";
 import { screenshotUrl } from "@/lib/thumbnail";
-import { MAX_UPLOAD_BYTES, UploadError } from "@/lib/upload-safety";
+import { MAX_UPLOAD_BYTES, UploadError, summarizeDropped } from "@/lib/upload-safety";
 import {
   validateMedia, uploadMedia, storeZipBundle, UPLOAD_TEMP_KEYS,
 } from "@/lib/ingestStore";
@@ -100,6 +100,10 @@ export async function POST(req: NextRequest) {
     }
 
     // 6. 검증 + 연결 — 인라인 경로와 동일 코어. 실패 시 행 삭제(동일 정책).
+    // droppedFiles = 안전상 저장하지 않은 비밀 파일 요약(.env·.git/ 등). 응답 밖으로
+    // 새어나가야 하므로 try 밖에 선언한다 — 알려주지 않으면 발행자는 자기 앱이 왜
+    // 안 도는지 모른다.
+    let droppedFiles: string[] = [];
     try {
       const updates: Record<string, string> = {};
       const sniffed = validateMedia(shotBuf, videoBuf);
@@ -107,7 +111,9 @@ export async function POST(req: NextRequest) {
         if (bundleBuf.byteLength > MAX_UPLOAD_BYTES) {
           throw new UploadError(t.api.uploadTooLarge, "too-large");
         }
-        const { entryPath, runnable } = await storeZipBundle(admin, userId, projectId, bundleBuf.buffer as ArrayBuffer);
+        const stored = await storeZipBundle(admin, userId, projectId, bundleBuf.buffer as ArrayBuffer);
+        const { entryPath, runnable } = stored;
+        droppedFiles = summarizeDropped(stored.dropped, t.api.secretFileKinds);
         updates.demo_url = `/api/preview/${userId}/${projectId}/${entryPath}`;
         // runnable 앵커(소스 zip)는 미리보기 화면이 없다 — 인라인 경로와 동일하게
         // thum.io 썸네일을 만들지 않는다(소스 원문 스크린샷 방지).
@@ -130,7 +136,10 @@ export async function POST(req: NextRequest) {
     }
 
     const reviewUrl = `${req.nextUrl.origin}/dashboard?review=${projectId}`;
-    return NextResponse.json({ ok: true, projectId, reviewUrl });
+    return NextResponse.json({
+      ok: true, projectId, reviewUrl,
+      ...(droppedFiles.length ? { droppedFiles } : {}),
+    });
   } catch (err) {
     const tc = bearerFromHeader(req.headers.get("authorization")) ? getDictionary("en") : (await getT()).t;
     return apiError({ status: 500, message: tc.api.retryLater, code: "INTERNAL", cause: err });

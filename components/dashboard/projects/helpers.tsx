@@ -1,6 +1,6 @@
 import { memo } from "react";
 import { AI_TOOL_DOMAINS } from "@/lib/projectTaxonomy";
-import { safeRelativePath } from "@/lib/upload-safety";
+import { safeRelativePath, secretFileKind, summarizeDropped, type DroppedFile } from "@/lib/upload-safety";
 import type { DBProject } from "./types";
 
 // Shared helpers for the Projects tab. Extracted verbatim from ProjectsTab.tsx —
@@ -40,10 +40,22 @@ export function isValidHttpUrl(s: string) {
 // zip → 압축해제, 일반 파일 → 그대로. 결과는 {relativePath, blob} 배열.
 // (zip-slip 가드 safeRelativePath는 서버 인제스트와 공유하려고 @/lib/upload-safety로 이전.)
 // zip 안에 단일 최상위 폴더가 있으면 strip해서 index.html이 root에 오게 한다.
+//
+// `.env`·`.git/` 같은 비밀 파일은 여기서 걸러 스토리지에 올리지 않는다(2026-09-01).
+// ⚠️ 이 경로는 브라우저가 스토리지로 직행 업로드하므로(서버를 안 거친다) 이 필터는
+// 강제가 아니라 사고 방지다 — 우회하는 사람은 자기 비밀을 스스로 공개하는 소유자다.
+// 서버 인제스트(expandZipBundle)는 서비스롤이라 그쪽이 진짜 강제 지점이고,
+// 이미 저장된 것에 대한 마지막 그물은 /api/preview의 서빙 차단이다.
 export async function expandUploadEntries(
   rawFiles: File[],
-): Promise<{ relativePath: string; data: Blob }[]> {
+): Promise<{ entries: { relativePath: string; data: Blob }[]; dropped: DroppedFile[] }> {
   const out: { relativePath: string; data: Blob }[] = [];
+  const dropped: DroppedFile[] = [];
+  const keep = (relativePath: string, data: Blob) => {
+    const kind = secretFileKind(relativePath);
+    if (kind) dropped.push({ path: relativePath, kind });
+    else out.push({ relativePath, data });
+  };
   for (const file of rawFiles) {
     if (/\.zip$/i.test(file.name)) {
       const { default: JSZip } = await import("jszip");
@@ -57,8 +69,13 @@ export async function expandUploadEntries(
         if (stripTop) parts.shift();
         const relativePath = safeRelativePath(parts.join("/"));
         if (!relativePath) continue;
-        const data = await entry.async("blob");
-        out.push({ relativePath, data });
+        // 비밀 파일은 압축을 풀지도 않는다(`.git` 수백 개를 blob으로 만들 이유 없음).
+        const kind = secretFileKind(relativePath);
+        if (kind) {
+          dropped.push({ path: relativePath, kind });
+          continue;
+        }
+        out.push({ relativePath, data: await entry.async("blob") });
       }
     } else {
       let rawPath: string;
@@ -71,11 +88,13 @@ export async function expandUploadEntries(
       }
       const relativePath = safeRelativePath(rawPath);
       if (!relativePath) continue;
-      out.push({ relativePath, data: file });
+      keep(relativePath, file);
     }
   }
-  return out;
+  return { entries: out, dropped };
 }
+
+export { summarizeDropped };
 
 // 수정 저장 후, 교체·제거된 이전 업로드 영상/썸네일 객체를 청소한다.
 // DB 업데이트가 커밋된 뒤 old↔new를 비교하므로(업로드 시점 X) 저장 안 하고
