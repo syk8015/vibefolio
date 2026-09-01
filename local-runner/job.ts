@@ -197,7 +197,7 @@ export async function runJob(job: JobInput): Promise<JobOutcome> {
       policy = job.policyOverride ?? "read-only";
     } else {
       await job.onPhase?.("building");
-      built = await buildAndServe(job.sourceType, job.sourceValue, job.ownerId);
+      built = await buildAndServe(job.sourceType, job.sourceValue, job.ownerId, job.projectId);
       // Terminal takes run everything inside the disposable sandbox (build.ts
       // stripped .env* before ttyd came up, so remote-creds reach is gone) —
       // read-only's browser-hop write-mocking has nothing to protect there.

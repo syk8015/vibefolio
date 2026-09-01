@@ -7,22 +7,14 @@
 // 스크립트는 "큐 소진하면 종료" 단일 동작만 한다(--batch 플래그 분기 자체가
 // worker.ts와 달리 없음). 로그인 불필요(2026-08-15 재설계로 세션 관리 계층이
 // 사라짐 — app/promo-record/page.tsx가 로그인 없는 전용 녹화 페이지).
-import { createClient } from "@supabase/supabase-js";
+//
+// DB 접근은 전부 /api/worker/promo 경유다 — 이 기기엔 서비스롤 키가 없다
+// (local-runner/api.ts).
 import "./config"; // side-effect: .env.local 로드
+import { apiPost, apiPostQuiet } from "./api";
 import { recordPromoClip } from "./promo-record";
 import type { PromoFormat } from "./config";
 import type { PromoOpening } from "../lib/promo";
-
-function db() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) {
-    throw new Error("NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY not set (.env.local)");
-  }
-  return createClient(url, key);
-}
-
-type Supabase = ReturnType<typeof db>;
 
 type PendingClip = {
   id: string;
@@ -36,51 +28,21 @@ type PendingClip = {
 // recording 상태로 남은 행 = 이전 실행이 중간에 죽은 흔적(worker.ts와 동일한
 // 논리 — building/recording/editing은 워커만 쓰는 상태라 시작 시점에 남아있다면
 // 전부 죽은 이전 작업이다).
-async function recoverStuckClips(supabase: Supabase) {
-  const { data, error } = await supabase.from("promo_clips").select("id").eq("status", "recording");
-  if (error) {
-    console.error(`[promo-worker] recovery scan failed: ${error.message}`);
-    return;
-  }
-  for (const row of data ?? []) {
-    console.log(`[promo-worker] recovering stuck clip ${row.id} → failed`);
-    await supabase
-      .from("promo_clips")
-      .update({ status: "failed", error: "이전 실행이 중단됐어요(워커 재시작). 촬영 큐에 다시 추가해 주세요." })
-      .eq("id", row.id);
+async function recoverStuckClips() {
+  const res = await apiPostQuiet<{ recovered: string[] }>("/api/worker/promo", { op: "recover" });
+  for (const id of res?.recovered ?? []) {
+    console.log(`[promo-worker] recovering stuck clip ${id} → failed`);
   }
 }
 
-async function claimNext(supabase: Supabase): Promise<PendingClip | null> {
-  const { data, error } = await supabase
-    .from("promo_clips")
-    .select("id, tagline_text, tagline_reply, tagline_locale, format, opening")
-    .eq("status", "pending")
-    .order("created_at", { ascending: true })
-    .limit(5);
-  if (error) {
-    console.error(`[promo-worker] poll failed: ${error.message}`);
-    return null;
-  }
-  for (const row of (data ?? []) as PendingClip[]) {
-    // 조건부 UPDATE(row가 여전히 pending일 때만) — 만에 하나 워커가 두 번
-    // 떠도 같은 클립을 이중 촬영하지 않는다.
-    const { data: claimed, error: claimErr } = await supabase
-      .from("promo_clips")
-      .update({ status: "recording" })
-      .eq("id", row.id)
-      .eq("status", "pending")
-      .select("id");
-    if (claimErr) {
-      console.error(`[promo-worker] claim failed for ${row.id}: ${claimErr.message}`);
-      continue;
-    }
-    if (claimed && claimed.length === 1) return row;
-  }
-  return null;
+// 조건부 UPDATE(row가 여전히 pending일 때만)는 서버가 한다 — 만에 하나 워커가
+// 두 번 떠도 같은 클립을 이중 촬영하지 않는다.
+async function claimNext(): Promise<PendingClip | null> {
+  const res = await apiPostQuiet<{ clip: PendingClip | null }>("/api/worker/promo", { op: "claim" });
+  return res?.clip ?? null;
 }
 
-async function processOne(supabase: Supabase, row: PendingClip) {
+async function processOne(row: PendingClip) {
   console.log(`\n[promo-worker] clip ${row.id} (${row.format} · ${row.opening})  "${row.tagline_text.slice(0, 40)}..."`);
   try {
     const result = await recordPromoClip({
@@ -91,38 +53,30 @@ async function processOne(supabase: Supabase, row: PendingClip) {
       format: row.format,
       opening: row.opening,
     });
-    const { error } = await supabase
-      .from("promo_clips")
-      .update({
-        status: "done",
-        video_url: result.videoUrl,
-        video_key: result.videoKey,
-        poster_url: result.posterUrl ?? null,
-        duration_sec: result.durationSec,
-        recorded_at: new Date().toISOString(),
-      })
-      .eq("id", row.id);
-    if (error) console.error(`[promo-worker] done-status write failed for ${row.id}: ${error.message}`);
-    else console.log(`[promo-worker] clip ${row.id} done → ${result.videoUrl}`);
+    await apiPost(`/api/worker/promo/${encodeURIComponent(row.id)}`, {
+      op: "done",
+      videoUrl: result.videoUrl,
+      videoKey: result.videoKey,
+      posterUrl: result.posterUrl ?? null,
+      durationSec: result.durationSec,
+    });
+    console.log(`[promo-worker] clip ${row.id} done → ${result.videoUrl}`);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(`[promo-worker] clip ${row.id} failed: ${message}`);
-    const truncated = message.length > 1000 ? message.slice(0, 1000) + "…" : message;
-    const { error } = await supabase.from("promo_clips").update({ status: "failed", error: truncated }).eq("id", row.id);
-    if (error) console.error(`[promo-worker] failed-status write failed for ${row.id}: ${error.message}`);
+    await apiPostQuiet(`/api/worker/promo/${encodeURIComponent(row.id)}`, { op: "failed", message });
   }
 }
 
 async function main() {
-  const supabase = db();
   console.log("[promo-worker] nookframe 홍보 클립 배치 촬영");
-  await recoverStuckClips(supabase);
+  await recoverStuckClips();
 
   let processed = 0;
   for (;;) {
-    const row = await claimNext(supabase);
+    const row = await claimNext();
     if (!row) break; // 큐 비면 종료 — 상시 워커가 아니므로 폴링하며 기다리지 않는다.
-    await processOne(supabase, row);
+    await processOne(row);
     processed++;
   }
   console.log(`[promo-worker] 큐 소진 — ${processed}개 처리, 종료`);

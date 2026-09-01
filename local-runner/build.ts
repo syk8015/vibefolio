@@ -13,8 +13,7 @@
 // module namespace object, not the Sandbox class (the cloud task's `import
 // Sandbox from "e2b"` only works because Trigger.dev bundles it as CJS interop).
 import { Sandbox } from "e2b";
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { DEMO_BUCKET } from "./config";
+import { apiPost, fetchSigned } from "./api";
 import { BuildFailedError, NotAWebappError } from "./errors";
 import { detectNativeApp } from "../lib/nativeApp";
 
@@ -81,36 +80,17 @@ export type BuiltApp = {
   close: () => Promise<void>;
 };
 
-function serviceClient(): SupabaseClient {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) {
-    throw new Error("NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY not set (.env.local)");
-  }
-  return createClient(url, key);
-}
+// Storage reads used to happen here with the service-role key. They are now a
+// signed-URL fetch: the server lists the project's own zip prefix, checks it
+// belongs to the owner, and hands back time-limited download URLs (see
+// app/api/worker/assets, op "source-list").
+type SourceFile = { path: string; url: string };
 
-// supabase storage list는 한 단계만 본다. zip 업로드는 중첩 디렉터리(src/,
-// public/, ...)를 가질 수 있어서 BFS로 모든 파일 경로를 모은다.
-async function listStorageFilesRecursive(
-  supabase: SupabaseClient,
-  bucket: string,
-  prefix: string,
-): Promise<string[]> {
-  const out: string[] = [];
-  const queue: string[] = [prefix];
-  while (queue.length) {
-    const dir = queue.shift()!;
-    const { data, error } = await supabase.storage.from(bucket).list(dir, { limit: 1000 });
-    if (error) throw new Error(`storage list failed at ${dir}: ${error.message}`);
-    for (const entry of data ?? []) {
-      const full = `${dir}/${entry.name}`;
-      // supabase는 디렉터리 placeholder를 id=null로 돌려준다.
-      if (entry.id === null) queue.push(full);
-      else out.push(full);
-    }
-  }
-  return out;
+async function listSourceFiles(projectId: string): Promise<{ prefix: string; files: SourceFile[] }> {
+  return apiPost<{ prefix: string; files: SourceFile[] }>("/api/worker/assets", {
+    op: "source-list",
+    projectId,
+  });
 }
 
 // Collect the files decidePolicy scans (env/prisma/config), bounded so a huge
@@ -771,12 +751,14 @@ http.createServer((req,res)=>{
 export async function buildAndServe(
   sourceType: "github" | "zip",
   sourceValue: string,
-  // Project owner uid. For zip, the storage prefix is read with the SERVICE ROLE
-  // (RLS bypassed), so this is the last-line assert that the prefix belongs to the
-  // owner — a foreign/empty prefix that slipped past the route + SQL guards would
-  // otherwise exfiltrate another user's upload (F2 defense-in-depth). Omitted only
-  // by trusted operator/CLI paths (like allowPrivateHost/policyOverride).
+  // Project owner uid. The AUTHORITATIVE zip-prefix owner assert now lives on the
+  // server, which reads the prefix off the project row instead of trusting
+  // anything this machine sends. This stays as the third layer of the F2 defence
+  // (SQL guard → server route → here): if the server ever handed back a prefix
+  // outside the owner, we refuse to write those files into the sandbox.
   ownerId?: string,
+  // Required for zip sources: the server resolves the storage prefix from this.
+  projectId?: string,
 ): Promise<BuiltApp> {
   const sandbox = await Sandbox.create("nookframe-builder", {
     timeoutMs: SANDBOX_TIMEOUT_MS,
@@ -800,28 +782,29 @@ export async function buildAndServe(
         throw new BuildFailedError(`git clone failed (exit ${clone.exitCode}): ${(clone.stderr || clone.stdout || "").slice(-300)}`);
       }
     } else {
-      // zip: supabase storage prefix 아래 모든 파일을 받아 샌드박스에 펼친다.
-      // 서비스롤 읽기(RLS 우회) 직전 최종 방어: prefix 첫 세그먼트가 소유자여야
-      // 하고, 빈 값/traversal 형태를 거부한다(빈 값이면 버킷 전체가 열린다).
-      const firstSeg = sourceValue.split("/")[0];
+      // zip: 서버가 서명해 준 URL로 소스 파일을 전부 받아 샌드박스에 펼친다.
+      // 프리픽스 소유자 검증은 서버가 프로젝트 행에서 직접 읽어 수행한다 —
+      // 이 기기가 보내는 값으로는 남의 업로드를 가리킬 수 없다.
+      if (!projectId) {
+        throw new BuildFailedError("zip source requires a projectId (server resolves the prefix)");
+      }
+      const { prefix: sourcePrefix, files } = await listSourceFiles(projectId);
       if (
-        !sourceValue ||
-        sourceValue.includes("..") ||
-        (ownerId !== undefined && firstSeg !== ownerId)
+        !sourcePrefix ||
+        sourcePrefix.includes("..") ||
+        (ownerId !== undefined && sourcePrefix.split("/")[0] !== ownerId)
       ) {
         throw new BuildFailedError(
-          `zip source prefix not authorized for owner (prefix='${sourceValue.slice(0, 80)}')`,
+          `zip source prefix not authorized for owner (prefix='${sourcePrefix.slice(0, 80)}')`,
         );
       }
-      const supabase = serviceClient();
-      const filePaths = await listStorageFilesRecursive(supabase, DEMO_BUCKET, sourceValue);
-      console.log(`[build] storage list: ${filePaths.length} files under ${sourceValue}`);
-      if (!filePaths.length) {
-        throw new Error(`No files found under storage prefix '${sourceValue}'`);
+      console.log(`[build] storage list: ${files.length} files under ${sourcePrefix}`);
+      if (!files.length) {
+        throw new Error(`No files found under storage prefix '${sourcePrefix}'`);
       }
       await sandbox.commands.run(`mkdir -p ${shQuote(repoPath)}`);
-      for (const storagePath of filePaths) {
-        const relative = storagePath.slice(sourceValue.length + 1); // strip "{prefix}/"
+      for (const file of files) {
+        const relative = file.path.slice(sourcePrefix.length + 1); // strip "{prefix}/"
         // zip-slip guard: a crafted upload could carry object keys like
         // `../../etc/x`. Keep every written file strictly inside repoPath.
         const segs = relative.split("/");
@@ -835,10 +818,7 @@ export async function buildAndServe(
           console.log(`[build] skipping unsafe zip path: ${relative}`);
           continue;
         }
-        const { data, error } = await supabase.storage.from(DEMO_BUCKET).download(storagePath);
-        if (error || !data) {
-          throw new Error(`storage download failed at ${storagePath}: ${error?.message ?? "no data"}`);
-        }
+        const data = await fetchSigned(file.url, file.path);
         const targetPath = `${repoPath}/${relative}`;
         const targetDir = targetPath.substring(0, targetPath.lastIndexOf("/"));
         if (targetDir && targetDir !== repoPath) {

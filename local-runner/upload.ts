@@ -1,17 +1,14 @@
-// Upload the finished demo.mp4 (+ poster) to storage and mark the project done.
+// Upload the finished demo.mp4 (+ poster) and mark the project done.
 //
-// Storage backend: Cloudflare R2 when configured (versioned keys demo-{ts}.mp4 /
-// poster-{ts}.jpg so each re-record gets a fresh immutable URL + free egress for
-// og:video unfurls), otherwise a Supabase Storage fallback on the fixed keys
-// (byte-identical to the pre-R2 behaviour) so the pipeline keeps working before
-// R2 is provisioned.
+// The Mac holds no storage credentials any more (see local-runner/api.ts): it asks
+// the server for a short-lived, single-key signed URL and streams the bytes
+// straight to the bucket. Key naming, the R2-vs-Supabase choice and the prune are
+// all decided server-side (app/api/worker/assets) — this file only moves bytes.
 //
-// service-role key bypasses RLS for the DB write. manual-* projectIds are dry-runs:
-// upload under _test/ and DON'T touch the DB.
+// manual-* projectIds are dry-runs: they upload under _test/ and DON'T touch a
+// project row.
 import { readFile } from "node:fs/promises";
-import { createClient } from "@supabase/supabase-js";
-import { DEMO_BUCKET } from "./config";
-import { isR2Configured, uploadToR2, pruneR2PrefixExcept } from "../lib/r2";
+import { apiGet, apiPost, apiPostQuiet, putSigned, type SignedTarget } from "./api";
 
 export type UploadResult = { storagePath: string; publicUrl: string; posterUrl?: string };
 
@@ -27,98 +24,76 @@ export type QuarantineUpload = {
   storage: "r2" | "supabase";
 };
 
-function serviceClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !serviceKey) {
-    throw new Error("NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY not set (.env.local)");
-  }
-  return createClient(url, serviceKey);
-}
+type SignResponse = {
+  backend: "r2" | "supabase";
+  ts: number;
+  prefix: string;
+  video: SignedTarget;
+  poster: SignedTarget | null;
+};
 
-// The @handle burned into the endcap. profiles.username via the project's owner.
-// null for dry-runs / missing config (caller falls back to a placeholder).
+// The @handle burned into the endcap (profiles.username via the project's owner).
+// null for dry-runs / any lookup failure — the caller falls back to a placeholder,
+// and an endcap without a handle beats a failed take.
 export async function fetchUsername(projectId: string): Promise<string | null> {
   if (projectId.startsWith("manual-")) return null;
   try {
-    const supabase = serviceClient();
-    const { data: proj } = await supabase
-      .from("projects")
-      .select("user_id")
-      .eq("id", projectId)
-      .single();
-    if (!proj?.user_id) return null;
-    const { data: prof } = await supabase
-      .from("profiles")
-      .select("username")
-      .eq("id", proj.user_id)
-      .single();
-    return prof?.username ?? null;
+    const res = await apiGet<{ handle: string | null }>(
+      `/api/worker/jobs/${encodeURIComponent(projectId)}`,
+    );
+    return res.handle ?? null;
   } catch {
     return null;
   }
 }
 
+// The poster is optional decoration. Its upload is non-fatal on BOTH backends:
+// the video is already in the bucket by this point, and losing a whole take over
+// a thumbnail would be absurd. (The pre-relay Supabase path already tolerated
+// this; the R2 path threw. This is the deliberate direction to unify on.)
+async function putPoster(
+  target: SignedTarget | null,
+  buf: Buffer | null,
+): Promise<{ key: string | null; url: string | null }> {
+  if (!target || !buf) return { key: null, url: null };
+  try {
+    await putSigned(target, buf);
+    return { key: target.key, url: target.publicUrl };
+  } catch (err) {
+    console.error(`[upload] poster upload failed (non-fatal): ${err instanceof Error ? err.message : err}`);
+    return { key: null, url: null };
+  }
+}
+
 // Upload a moderation-flagged take WITHOUT touching the DB pointer (that's the
-// worker's job: held + demo_moderation row). Keys use the NORMAL versioned
-// naming (demo-{ts}.mp4 / poster-{ts}.jpg) on purpose: on admin approve the
-// quarantined URL becomes demo_video_url as-is, and posterFromDemo[Url]'s
-// `/demo(-\d+)?\.mp4` derivation must keep working for watch/og/email posters.
-// "Quarantine" is purely the absence of the DB link — the key is unguessable
-// (ms timestamp) and nothing public ever lists the bucket.
-// Unlike uploadAndMarkDone there is NO R2 prune: the project's previous GOOD
-// take may still be live at this prefix — pruning here would kill the video
-// users are watching. (The next published take's prune sweeps stale ones.)
+// worker's job: held + demo_moderation row). Keys use the NORMAL versioned naming
+// on purpose: on admin approve the quarantined URL becomes demo_video_url as-is,
+// and posterFromDemoUrl's `/demo(-\d+)?\.mp4` derivation must keep working.
+// "Quarantine" is purely the absence of the DB link.
+// Unlike uploadAndMarkDone there is NO prune: the project's previous GOOD take may
+// still be live at this prefix.
 export async function uploadQuarantined(
   projectId: string,
   videoPath: string,
   posterPath?: string,
 ): Promise<QuarantineUpload> {
-  const supabase = serviceClient();
   const buf = await readFile(videoPath);
   const posterBuf = posterPath ? await readFile(posterPath) : null;
-  const { data, error } = await supabase
-    .from("projects")
-    .select("user_id")
-    .eq("id", projectId)
-    .single();
-  if (error) throw new Error(`projects select failed: ${error.message}`);
-  const prefix = `${data.user_id}/${projectId}/`;
-  const ts = Date.now();
-  const videoKey = `${prefix}demo-${ts}.mp4`;
-  const posterKeyWanted = `${prefix}poster-${ts}.jpg`;
-
-  if (isR2Configured()) {
-    const videoUrl = await uploadToR2(videoKey, buf, "video/mp4");
-    let posterKey: string | null = null;
-    let posterUrl: string | null = null;
-    if (posterBuf) {
-      posterKey = posterKeyWanted;
-      posterUrl = await uploadToR2(posterKey, posterBuf, "image/jpeg");
-    }
-    return { videoUrl, posterUrl, videoKey, posterKey, storage: "r2" };
-  }
-
-  // Supabase fallback: versioned keys here too (the fixed demo.mp4 key would
-  // overwrite the live good demo in place). Rejected keys are deleted by the
-  // admin route; approved ones become the live URL.
-  const { error: uploadErr } = await supabase.storage
-    .from(DEMO_BUCKET)
-    .upload(videoKey, buf, { contentType: "video/mp4", upsert: true });
-  if (uploadErr) throw new Error(`quarantine upload failed: ${uploadErr.message}`);
-  const videoUrl = supabase.storage.from(DEMO_BUCKET).getPublicUrl(videoKey).data.publicUrl;
-  let posterKey: string | null = null;
-  let posterUrl: string | null = null;
-  if (posterBuf) {
-    const { error: pErr } = await supabase.storage
-      .from(DEMO_BUCKET)
-      .upload(posterKeyWanted, posterBuf, { contentType: "image/jpeg", upsert: true });
-    if (!pErr) {
-      posterKey = posterKeyWanted;
-      posterUrl = supabase.storage.from(DEMO_BUCKET).getPublicUrl(posterKeyWanted).data.publicUrl;
-    }
-  }
-  return { videoUrl, posterUrl, videoKey, posterKey, storage: "supabase" };
+  const sign = await apiPost<SignResponse>("/api/worker/assets", {
+    op: "sign-upload",
+    projectId,
+    quarantine: true,
+    withPoster: !!posterBuf,
+  });
+  await putSigned(sign.video, buf);
+  const poster = await putPoster(sign.poster, posterBuf);
+  return {
+    videoUrl: sign.video.publicUrl,
+    posterUrl: poster.url,
+    videoKey: sign.video.key,
+    posterKey: poster.key,
+    storage: sign.backend,
+  };
 }
 
 export async function uploadAndMarkDone(
@@ -126,78 +101,32 @@ export async function uploadAndMarkDone(
   videoPath: string,
   posterPath?: string,
 ): Promise<UploadResult> {
-  const supabase = serviceClient();
   const buf = await readFile(videoPath);
   const posterBuf = posterPath ? await readFile(posterPath) : null;
   const isRealProject = !projectId.startsWith("manual-");
 
-  let userId: string | null = null;
-  if (isRealProject) {
-    const { data, error } = await supabase
-      .from("projects")
-      .select("user_id")
-      .eq("id", projectId)
-      .single();
-    if (error) throw new Error(`projects select failed: ${error.message}`);
-    userId = data.user_id;
-  }
+  const sign = await apiPost<SignResponse>("/api/worker/assets", {
+    op: "sign-upload",
+    projectId,
+    withPoster: !!posterBuf,
+  });
+  await putSigned(sign.video, buf);
+  const poster = await putPoster(sign.poster, posterBuf);
 
-  const prefix = isRealProject ? `${userId}/${projectId}/` : `_test/${projectId}/`;
-
-  let storagePath: string;
-  let publicUrl: string;
-  let posterUrl: string | undefined;
-  if (isR2Configured()) {
-    // Versioned keys (shared ts so the prune keeps both) → immutable URLs.
-    const ts = Date.now();
-    storagePath = `${prefix}demo-${ts}.mp4`;
-    publicUrl = await uploadToR2(storagePath, buf, "video/mp4");
-    if (posterBuf) {
-      posterUrl = await uploadToR2(`${prefix}poster-${ts}.jpg`, posterBuf, "image/jpeg");
-    }
-    await pruneR2PrefixExcept(prefix, String(ts)).catch((e) =>
-      console.error("[upload] R2 prune failed (non-fatal):", (e as Error).message),
-    );
-  } else {
-    // Supabase fallback: fixed keys + upsert (no orphans), same as before R2.
-    storagePath = `${prefix}demo.mp4`;
-    const { error: uploadErr } = await supabase.storage
-      .from(DEMO_BUCKET)
-      .upload(storagePath, buf, { contentType: "video/mp4", upsert: true });
-    if (uploadErr) throw new Error(`storage upload failed: ${uploadErr.message}`);
-    publicUrl = supabase.storage.from(DEMO_BUCKET).getPublicUrl(storagePath).data.publicUrl;
-    if (posterBuf) {
-      const posterKey = `${prefix}poster.jpg`;
-      const { error: pErr } = await supabase.storage
-        .from(DEMO_BUCKET)
-        .upload(posterKey, posterBuf, { contentType: "image/jpeg", upsert: true });
-      if (!pErr) {
-        posterUrl = supabase.storage.from(DEMO_BUCKET).getPublicUrl(posterKey).data.publicUrl;
-      }
-    }
+  // Drop older takes at this prefix, keeping the one just published. Non-fatal:
+  // stale objects cost a little storage, a thrown prune would strand a good film.
+  if (sign.backend === "r2") {
+    await apiPostQuiet("/api/worker/assets", { op: "prune", projectId, keepTs: sign.ts });
   }
 
   if (isRealProject) {
-    // The video is already uploaded — a transient DB blip here must not strand a
-    // finished film as "failed" (audit C-D1). Retry briefly before giving up.
-    let updErr: { message: string } | null = null;
-    for (let i = 0; i < 3; i++) {
-      ({ error: updErr } = await supabase
-        .from("projects")
-        .update({
-          demo_video_url: publicUrl,
-          demo_build_status: "done",
-          demo_generated_at: new Date().toISOString(),
-        })
-        .eq("id", projectId));
-      if (!updErr) break;
-      console.error(`[upload] projects update failed (try ${i + 1}/3): ${updErr.message}`);
-      await new Promise((r) => setTimeout(r, 1500 * (i + 1)));
-    }
-    if (updErr) {
-      throw new Error(`projects update failed after retries: ${updErr.message} (video already at ${publicUrl})`);
-    }
+    // Server-side this retries a transient DB blip before giving up — the video is
+    // already uploaded and must not be stranded as "failed" (audit C-D1).
+    await apiPost(`/api/worker/jobs/${encodeURIComponent(projectId)}`, {
+      op: "done",
+      videoUrl: sign.video.publicUrl,
+    });
   }
 
-  return { storagePath, publicUrl, posterUrl };
+  return { storagePath: sign.video.key, publicUrl: sign.video.publicUrl, posterUrl: poster.url ?? undefined };
 }

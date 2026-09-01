@@ -20,7 +20,7 @@ import { mkdirSync, readFileSync } from "node:fs";
 import { chromium } from "playwright-core";
 import { promoPostprocess } from "./promo-postprocess";
 import { estimateTaglineRecordMs, type PromoOpening } from "../lib/promo";
-import { uploadToR2 } from "../lib/r2";
+import { apiPost, putSigned, type SignedTarget } from "./api";
 import { PROMO_APP_URL, PROMO_FORMATS, PROMO_OUT_DIR, type PromoFormat } from "./config";
 import { run, ffprobeValue } from "./util";
 
@@ -307,15 +307,25 @@ export async function recordPromoClip(input: PromoRecordInput): Promise<PromoRec
       fadeInSec: opening === "full" ? 0.25 : 0,
     });
 
-    const ts = Date.now();
-    const videoKey = `promo/${clipId}/clip-${ts}.mp4`;
-    const videoUrl = await uploadToR2(videoKey, readFileSync(clipPath), "video/mp4");
+    // 이 기기엔 R2 쓰기 키가 없다 — 서버가 promo/{clipId}/ 아래 키를 정하고
+    // 짧게 사는 서명 URL을 내주면 바이트만 곧장 버킷으로 올린다.
+    const sign = await apiPost<{
+      ts: number;
+      video: SignedTarget;
+      poster: SignedTarget | null;
+    }>("/api/worker/assets", {
+      op: "sign-promo-upload",
+      clipId,
+      withPoster: !!posterPath,
+    });
+    await putSigned(sign.video, readFileSync(clipPath));
     let posterUrl: string | undefined;
-    if (posterPath) {
-      posterUrl = await uploadToR2(`promo/${clipId}/poster-${ts}.jpg`, readFileSync(posterPath), "image/jpeg");
+    if (posterPath && sign.poster) {
+      await putSigned(sign.poster, readFileSync(posterPath));
+      posterUrl = sign.poster.publicUrl;
     }
 
-    return { videoUrl, videoKey, posterUrl, durationSec };
+    return { videoUrl: sign.video.publicUrl, videoKey: sign.video.key, posterUrl, durationSec };
   } finally {
     await context?.close().catch(() => {});
     await browser.close().catch(() => {});

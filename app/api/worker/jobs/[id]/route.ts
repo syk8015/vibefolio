@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireWorker } from "@/lib/workerAuth";
 import { apiError } from "@/lib/apiError";
-import { trackServerEvent } from "@/lib/analytics";
-import { AnalyticsEvent } from "@/lib/analytics-events";
 import {
   DEMO_FAILURE_CODES, formatDemoFailure, type DemoFailureCode,
 } from "@/lib/demo-failure";
@@ -43,7 +41,6 @@ export async function POST(
     const { id } = await params;
     const body = await req.json().catch(() => ({}));
     const op = body?.op;
-    const props = body?.props && typeof body.props === "object" ? body.props : {};
 
     switch (op) {
       case "phase": {
@@ -61,19 +58,22 @@ export async function POST(
         return NextResponse.json({ ok: true });
       }
 
+      // Status write only. Analytics and the completion mail are separate ops so
+      // the worker keeps the exact ordering it had: upload → mark done → track →
+      // notify. A mail outage must never roll back a published film.
       case "done": {
         const videoUrl = body?.videoUrl;
         if (typeof videoUrl !== "string" || !videoUrl) {
           return apiError({ status: 400, message: "videoUrl required", code: "BAD_REQUEST" });
         }
+        await markDone(id, videoUrl);
+        return NextResponse.json({ ok: true });
+      }
+
+      case "notify-ready": {
         const job = await getJobBrief(id);
         if (!job) return apiError({ status: 404, message: "job not found", code: "NOT_FOUND" });
-        await markDone(id, videoUrl);
-        await trackServerEvent(AnalyticsEvent.DemoSucceeded, {
-          userId: job.user_id,
-          props: { projectId: id, ...props },
-        });
-        await notifyDemoReady(job, videoUrl);
+        await notifyDemoReady(job, typeof body?.videoUrl === "string" ? body.videoUrl : undefined);
         return NextResponse.json({ ok: true });
       }
 
@@ -84,10 +84,6 @@ export async function POST(
         const message = typeof body?.message === "string" ? body.message : "";
         const job = await getJobBrief(id);
         await markFailed(id, formatDemoFailure(code, message));
-        await trackServerEvent(AnalyticsEvent.DemoFailed, {
-          userId: job?.user_id ?? null,
-          props: { projectId: id, reason: code, ...props },
-        });
         if (job) await notifyDemoFailed(job, code);
         return NextResponse.json({ ok: true });
       }

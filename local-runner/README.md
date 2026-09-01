@@ -122,11 +122,31 @@ Focus를 직접 제어하는 CLI가 없어서 **단축어(Shortcuts) 2개가 이
 
 ## 필요 환경 (.env.local, 레포 루트)
 
-`ANTHROPIC_API_KEY`, `E2B_API_KEY`, `NEXT_PUBLIC_SUPABASE_URL`,
-`SUPABASE_SERVICE_ROLE_KEY` — config.ts가 `process.loadEnvFile`로 로드.
+`ANTHROPIC_API_KEY`, `E2B_API_KEY`, `WORKER_SECRET` — config.ts가
+`process.loadEnvFile`로 로드.
 
-선택: `RESEND_API_KEY`가 있으면 완성/실패 메일(소유자)과 크레딧 소진 경보(관리자)를
-보낸다. 없으면 전부 무동작 — 절차는 `docs/resend-setup.md`.
+선택: `WORKER_API_ORIGIN`(기본 `https://nookframe.com`) — 프리뷰 배포를 상대로
+워커를 돌릴 때만 지정.
+
+### ⚠️ 이 기기에 있으면 안 되는 것
+
+`SUPABASE_SERVICE_ROLE_KEY`, `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY`,
+`RESEND_API_KEY`는 **더 이상 워커에 필요 없다**(2026-09-01). 전부 서버로 옮겼고,
+워커는 `WORKER_SECRET` 하나로 `/api/worker/*`에만 말을 건다. 옛 `.env.local`에
+남아 있다면 지울 것 — 남겨두면 없애려던 유출 경로가 그대로다.
+
+- 서비스롤 키 = RLS 전면 우회 + `auth.admin`으로 전 유저 이메일 조회·계정 삭제
+- R2 키 = 데모 버킷 임의 쓰기·삭제
+- RESEND 키 = `nookframe.com` 이름으로 메일 발송(피싱)
+
+완성/실패 메일과 크레딧 소진 경보는 이제 서버가 보낸다(`lib/workerOps.ts`).
+`RESEND_API_KEY`는 Vercel 쪽에만 있으면 된다 — 절차는 `docs/resend-setup.md`.
+
+### 폐기 / 교체
+
+`WORKER_SECRET`이 새면 Vercel에서 값만 바꾸면 된다. 다음 배포의 콜드스타트부터
+옛 값은 401이 되고, 맥의 `.env.local`도 같은 값으로 맞춰주면 끝. 서비스롤 키
+로테이션처럼 앱 전체를 재배포할 필요가 없다.
 
 ## CLI (큐 없이 단발 실행/드라이런)
 
