@@ -126,3 +126,24 @@ export function normalizeDemoAccess(
 export function demoAccessAnswered(access: DemoAccess | null | undefined): boolean {
   return !!(access?.url || access?.impossible || access?.noLogin);
 }
+
+// 근거 게이트(2026-09-03). demoAccessAnswered는 "답을 했는가"만 본다 — 그런데 셋 중
+// noLogin·impossible은 **한 줄 선언**이라 AI가 코드를 안 보고도 찍을 수 있다. 실제로
+// 가장 흔한 사고가 "랜딩이 멀쩡해 보여서 noLogin으로 찍었는데 실은 로그인 뒤에야
+// 목록이 차는 앱"이고, 그러면 로봇이 빈 껍데기를 찍고도 성공으로 끝난다.
+//
+// 그래서 이 두 선언에는 note(무엇을 확인했는지)를 요구한다. note를 쓰려면 AI는
+// 라우트·가드를 실제로 열어봐야 한다 — 게이트의 목적은 문장을 받는 게 아니라
+// **확인이라는 행동을 강제하는 것**이다. url 답변은 이미 구체적 경로라 면제.
+export const DEMO_ACCESS_NOTE_MIN = 12;
+
+export function demoAccessEvidenceMissing(
+  access: DemoAccess | null | undefined,
+): "noLogin" | "impossible" | null {
+  if (!access || access.url) return null;
+  const note = (access.note ?? "").trim();
+  const thin = [...note].length < DEMO_ACCESS_NOTE_MIN;
+  if (access.impossible && thin) return "impossible";
+  if (access.noLogin && thin) return "noLogin";
+  return null;
+}

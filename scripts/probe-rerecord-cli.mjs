@@ -155,7 +155,7 @@ try {
     "rerecord",
     projectId,
     "--json",
-    JSON.stringify({ demoScript: script(3, "봉투"), note: "16초 클릭 제거" }),
+    JSON.stringify({ demoScript: script(4, "봉투"), note: "16초 클릭 제거" }),
   ]);
   ok("(1) CLI 봉투 형태 성공", r1.code === 0 && /3스텝 대기/.test(r1.out), r1.out.trim().slice(0, 160));
   const p1 = await pending();
@@ -204,7 +204,7 @@ try {
   const p5 = await pending();
   ok("(5) 거절이면 pending 안 남음", !p5.pending_demo_script, JSON.stringify(p5.pending_demo_script)?.slice(0, 60));
 
-  const foreign = runCli(["rerecord", randomUUID(), "--json", JSON.stringify(script(3, "남의것"))]);
+  const foreign = runCli(["rerecord", randomUUID(), "--json", JSON.stringify(script(4, "남의것"))]);
   ok("(5) 없는 프로젝트는 실패", foreign.code !== 0, foreign.out.trim().slice(0, 120));
 
   const noScript = runCli(["rerecord", projectId, "--json", JSON.stringify({ note: "대본 없음" })]);

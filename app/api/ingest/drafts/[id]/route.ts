@@ -6,12 +6,16 @@ import { getDictionary } from "@/lib/i18n/dictionaries";
 import { rateLimit } from "@/lib/rate-limit";
 import { bearerFromHeader } from "@/lib/apiToken";
 import { normalizeTags, normalizeContentType } from "@/lib/projectTaxonomy";
-import { normalizeDemoAccess, demoAccessAnswered } from "@/lib/demoAccess";
-import { normalizeDemoScript, DEMO_SCRIPT_MIN_STEPS, type DemoScript } from "@/lib/demoScript";
+import { normalizeDemoAccess, demoAccessAnswered, demoAccessEvidenceMissing } from "@/lib/demoAccess";
+import {
+  normalizeDemoScript, substantialStepCount,
+  DEMO_SCRIPT_MIN_STEPS, DEMO_SCRIPT_MIN_SUBSTANTIAL, type DemoScript,
+} from "@/lib/demoScript";
 import { logger } from "@/lib/logger";
 import {
   ingestAuth, publicUrlGate, strOrNull, type IngestDict, buildAccepted,
   descriptionTooLong, DESCRIPTION_MAX, missingScriptColumn,
+  descriptionShapeIssue, descriptionShapeMessage,
 } from "../../shared";
 
 // PATCH·DELETE /api/ingest/drafts/[id] — Nookframe Connect 초안 수정·삭제(요청4).
@@ -98,6 +102,14 @@ export async function PATCH(
           status: 400, message: t.api.descriptionTooLong(DESCRIPTION_MAX), code: "DESCRIPTION_TOO_LONG",
         });
       }
+      const descIssue = descriptionShapeIssue(desc);
+      if (descIssue) {
+        return apiError({
+          status: 400,
+          message: descriptionShapeMessage(descIssue, t),
+          code: "DESCRIPTION_SHAPE",
+        });
+      }
       upd.description = desc;
     }
     if ("builderNote" in payload) upd.comment = strOrNull(payload.builderNote) ?? "";
@@ -117,6 +129,14 @@ export async function PATCH(
       }
       if (!hasOwnVideo && steps < DEMO_SCRIPT_MIN_STEPS) {
         return apiError({ status: 400, message: t.api.scriptTooThin(steps), code: "SCRIPT_TOO_THIN" });
+      }
+      const solid = next ? substantialStepCount(next) : 0;
+      if (!hasOwnVideo && solid < DEMO_SCRIPT_MIN_SUBSTANTIAL) {
+        return apiError({
+          status: 400,
+          message: t.api.scriptStepsVague(solid, steps),
+          code: "SCRIPT_STEPS_VAGUE",
+        });
       }
       upd.demo_script = next;
     }
@@ -142,6 +162,14 @@ export async function PATCH(
           status: 400,
           message: t.api.demoAccessRequired,
           code: "DEMO_ACCESS_REQUIRED",
+        });
+      }
+      const missing = hasOwnVideo ? null : demoAccessEvidenceMissing(norm.access);
+      if (missing) {
+        return apiError({
+          status: 400,
+          message: t.api.demoAccessEvidence(missing),
+          code: "DEMO_ACCESS_EVIDENCE",
         });
       }
       upd.demo_access = norm.access;

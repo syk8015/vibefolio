@@ -54,9 +54,11 @@ const GATE = {
       { goal: "첫 화면 확인", where: "본문", action: "scroll", expect: "내용이 보인다" },
       { goal: "주요 버튼", where: "첫 버튼", action: "click", expect: "반응한다" },
       { goal: "결과 확인", where: "결과 영역", action: "focus", expect: "결과가 보인다" },
+      { goal: "상단 힌트", where: "상단 제목", action: "hover", expect: "설명이 뜬다" },
     ],
   },
-  demoAccess: { noLogin: true },
+  demoAccess: { noLogin: true, note: "프로브 픽스처 — 인증 가드 없는 정적 페이지" },
+  description: "프로브가 만든 임시 행\n곧 지워집니다",
 };
 
 const postZip = async (zipPath, title) => {

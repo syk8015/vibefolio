@@ -562,14 +562,31 @@ export const en: Dictionary = {
     demoAccessBadUrl: "demoAccess.url must be an http(s) URL or a path starting with /.",
     demoAccessRequired:
       "demoAccess is required — you must answer the login question to publish. The demo robot never logs in, so an app that hides its screen behind a login, or that **only comes alive after you log in**, gets filmed as a login form or an empty shell. Send exactly one of these. (1) There is a way in without logging in: { \"url\": \"/demo\", \"params\": {\"guest\":\"1\"}, \"note\": \"how to reach demo mode from there\" } — if no demo/guest mode exists yet, building one is the single best thing you can do for this film. (2) Login genuinely isn't needed and every feature works from the first screen: { \"noLogin\": true }. (3) A guest path is fundamentally impossible (E2E encryption, device pairing…): { \"impossible\": true, \"note\": \"why\" } — only the landing page gets filmed, so attaching your own video is strongly recommended. Never send account IDs or passwords; they are not accepted.",
+    demoAccessEvidence: (which: "noLogin" | "impossible"): string =>
+      which === "noLogin"
+        ? 'A bare { "noLogin": true } is not accepted — add a note saying what you actually checked (12+ characters). e.g. { "noLogin": true, "note": "no auth guard in middleware or app/page.tsx; the list renders from seed data" }. A landing page looking fine is NOT the same as features working before login. Open the real routes and guards; if you cannot confirm it, send a demo path instead ({ "url": "/demo" }) — and if none exists, building one is the single best investment you can make for this film.'
+        : 'A bare { "impossible": true } is not accepted — add a note explaining why a guest path is fundamentally impossible (12+ characters). e.g. { "impossible": true, "note": "end-to-end encrypted; without a key the screen renders empty" }. Only the landing page gets filmed in that case, so attaching your own demo video is strongly recommended.',
     rerecordPendingNext: "New script received. It starts nothing yet — the owner reviews it in their dashboard and presses re-record.",
     rerecordNoPendingScript: "No new script is waiting. Hand the re-record prompt to your AI first — press this once it has submitted a new script.",
     rerecordAlreadyUsed: "This project already used its one self-serve re-record. Further takes need admin approval.",
     rerecordDefaultReason: "The owner asked for a re-record with a new script.",
     scriptRequired:
-      "demoScript is required — it IS the demo film. Without it the robot has to guess from pixels, which is slower, pricier and worse. Send { \"steps\": [ { \"goal\": …, \"selector\": …, \"where\": …, \"action\": \"click|type|drag|scroll|hover|draw|focus\", \"text\": …, \"expect\": …, \"hold\": … } ] } with 5–8 steps (min 3, max 10), most important first: you built this app, so give the exact CSS selector for each control (a `where` label is the fallback when you only know the UI). Only exception: attach your own demo `video`, which skips auto-recording entirely.",
+      "demoScript is required — it IS the demo film. Without it the robot has to guess from pixels, which is slower, pricier and worse. Send { \"steps\": [ { \"goal\": …, \"selector\": …, \"where\": …, \"action\": \"click|type|drag|scroll|hover|draw|focus\", \"text\": …, \"expect\": …, \"hold\": … } ] } with 5–8 steps (min 4, max 10), most important first: you built this app, so give the exact CSS selector for each control (a `where` label is the fallback when you only know the UI). Only exception: attach your own demo `video`, which skips auto-recording entirely.",
     scriptTooThin: (n: number) =>
-      `demoScript has only ${n} step(s) — too thin to be a film. Send at least 3 (5–8 is the sweet spot, max 10), ordered by importance: step 1 must be the feature this project cannot be shown without.`,
+      `demoScript has only ${n} step(s) — too thin to be a film. Send at least 4 (5–8 is the sweet spot, max 10), ordered by importance: step 1 must be the feature this project cannot be shown without.`,
+    scriptStepsVague: (solid: number, total: number) =>
+      `Only ${solid} of the ${total} demoScript steps can actually be filmed. Every step needs BOTH what to do (action: click|type|drag|scroll|hover|draw|focus) and where to do it (selector — you built this app, so give the exact CSS selector; if you only know the UI, put how to find it by eye in where). A step with just a goal is a table of contents, not a script: the robot falls back to guessing from pixels, which is the most common way a demo comes out broken. At least 3 steps must meet this bar.`,
+    descriptionShape: (kind: "empty" | "lines" | "long-line", n: number, maxCols: number) => {
+      const example =
+        'e.g. "For people who create with AI\\nwith demo videos recorded automatically\\na live portfolio you can actually touch" — the first lines modify, the last one names what it is, and each line stays short (~20 CJK / ~40 Latin characters).';
+      const head =
+        kind === "empty"
+          ? "description is required."
+          : kind === "lines"
+            ? `description has ${n} line(s). Only 3 lines show on the card.`
+            : `Line ${n} of description is too long (max ${maxCols} columns — one CJK character counts as 2). On a phone that line wraps and the last line gets cut off.`;
+      return `${head} The description sits ON TOP of the work on your public card, so write it as 2–3 short lines separated by newlines (\\n), not as a paragraph. ${example}`;
+    },
     mediaImageTooLarge: (maxMb: number) => `The screenshot image is too large (max ${maxMb}MB).`,
     mediaVideoTooLarge: (maxMb: number) => `The demo video is too large (max ${maxMb}MB).`,
     mediaImageBadType: "screenshot must be a png/jpg/webp/gif image file.",

@@ -105,7 +105,8 @@ ${current}
 
 RULES (the robot follows the script literally)
 - Your script IS the film: the robot shoots exactly these steps, in order, then stops.
-- 3 steps minimum, 5–8 is the sweet spot, 10 max. Order = importance; the film is ~30s and gets cut from the END.
+- 4 steps minimum, 5–8 is the sweet spot, 10 max. Order = importance; the film is ~30s and gets cut from the END.
+- Every step needs BOTH an "action" and a "selector" (or "where") — a step with only a goal is rejected, and at least 3 steps must clear this bar.
 - Give a real CSS "selector" for EVERY step — when all steps carry one (and drags carry toSelector, types carry text), the robot skips its vision pass and frames straight from the DOM: faster, cheaper, pixel-exact. "where" is only the fallback.
 - "hold" (0.5–4s) keeps that step's result on screen; "focus" magnifies an area without touching it.
 - The robot never logs in, submits, deletes, or opens file pickers — don't ask it to.
@@ -147,7 +148,8 @@ ${current}
 
 규칙 (로봇은 대본을 글자 그대로 따른다)
 - 이 대본이 곧 영상이다: 로봇은 딱 이 스텝들만, 이 순서로 찍고 끝낸다.
-- 최소 3스텝, 5~8스텝이 적정, 최대 10. 순서=중요도이고 필름은 ~30초라 뒤부터 잘린다.
+- 최소 4스텝, 5~8스텝이 적정, 최대 10. 순서=중요도이고 필름은 ~30초라 뒤부터 잘린다.
+- 스텝마다 "action"과 "selector"(모르면 "where")를 반드시 같이 넣어라 — goal만 있는 스텝은 거절되고, 최소 3스텝이 이 조건을 채워야 한다.
 - 모든 스텝에 진짜 CSS "selector"를 줘라 — 전 스텝에 있으면(드래그는 toSelector, 입력은 text까지) 로봇이 화면을 읽는 비전 단계를 건너뛰고 DOM에서 직접 조립한다: 더 빠르고, 더 싸고, 프레이밍이 정확하다. "where"는 폴백일 뿐이다.
 - "hold"(0.5~4초)는 그 스텝 결과를 오래 보여주고, "focus"는 조작 없이 그 영역을 확대한다.
 - 로봇은 로그인·제출·삭제·파일선택을 절대 하지 않는다 — 시키지 마라.

@@ -67,7 +67,7 @@ try {
   // (1) 배포 대기 — uploads 선언 응답에 서명 URL이 실리면 신코드.
   let live = false, probe;
   for (let i = 0; i < 30; i++) {
-    const res = await jsonPost("/api/ingest", { title: "__probe_deploy2__", uploads: ["video"], deployUrl: "https://example.com" });
+    const res = await jsonPost("/api/ingest", { title: "__probe_deploy2__", description: "프로브가 만든 임시 행\n곧 지워집니다", uploads: ["video"], deployUrl: "https://example.com" });
     probe = await res.json().catch(() => ({}));
     if (probe.projectId) {
       if (probe.uploads?.video) { live = true; break; }
@@ -82,7 +82,7 @@ try {
 
   // (2) 10MB 영상 + 스크린샷 — CLI 2단계 경로 그대로.
   const r2 = await runPublish({
-    payload: { title: "__probe_2step_media__", deployUrl: "https://example.com" },
+    payload: { title: "__probe_2step_media__", description: "프로브가 만든 임시 행\n곧 지워집니다", deployUrl: "https://example.com" },
     screenshotPath: `${S}/tiny.png`,
     videoPath: `${S}/big.mp4`,
     token: raw,
@@ -111,7 +111,7 @@ try {
 
   // (3) 6MB zip 2단계 — 인라인로는 불가능했던 크기.
   const r3 = await runPublish({
-    payload: { title: "__probe_2step_zip__" },
+    payload: { title: "__probe_2step_zip__", description: "프로브가 만든 임시 행\n곧 지워집니다" },
     dir: `${S}/zipproj`,
     token: raw,
     origin: ORIGIN,
@@ -125,7 +125,7 @@ try {
   }
 
   // (4) 불량 영상(가짜 바이트) → finalize 400 BAD_MEDIA + 행 삭제.
-  const d = await (await jsonPost("/api/ingest", { title: "__probe_badfinal__", deployUrl: "https://example.com", uploads: ["video"] })).json();
+  const d = await (await jsonPost("/api/ingest", { title: "__probe_badfinal__", description: "프로브가 만든 임시 행\n곧 지워집니다", deployUrl: "https://example.com", uploads: ["video"] })).json();
   await fetch(d.uploads.video, { method: "PUT", headers: { "Content-Type": "application/octet-stream" }, body: new TextEncoder().encode("definitely not a video") });
   const fin = await jsonPost("/api/ingest/finalize", { projectId: d.projectId });
   const finBody = await fin.json().catch(() => ({}));

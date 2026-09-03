@@ -70,7 +70,12 @@ export const DEMO_SCRIPT_MAX_STEPS = 10;
 // 자동 시연 영상의 품질을 결정하는 유일한 손잡이인데, 없어도 발행이 통과되던
 // 탓에 실제 초안 3개 중 2개가 대본 0스텝으로 올라와 옛 방식(로봇이 픽셀만 보고
 // 추측)으로 촬영되고 있었다. 3은 "성의 있는 최소치" — 프롬프트 권장은 5~8이다.
-export const DEMO_SCRIPT_MIN_STEPS = 3;
+export const DEMO_SCRIPT_MIN_STEPS = 4;
+// 스텝 수만으로는 "부실"을 다 못 잡는다(2026-09-03). goal만 적힌 스텝은 로봇에게
+// "뭘 눌러야 하는지"를 하나도 안 알려주므로 대본이 아니라 목차다 — normStep이
+// 문자열 스텝까지 받아주는 탓에 그런 목차 4줄로도 게이트를 통과할 수 있었다.
+// 그래서 "실속 스텝"(action + 찾는 법)을 따로 세고 최소치를 건다.
+export const DEMO_SCRIPT_MIN_SUBSTANTIAL = 3;
 
 // 스텝이 "직배선"이려면: 셀렉터 + 명시적 action. draw(캔버스 궤적)는 좌표 창작이
 // 필요해 비전 전용이고, drag는 도착지 셀렉터까지, type은 입력값까지 있어야
@@ -87,6 +92,17 @@ export function isStepWired(st: DemoScriptStep): boolean {
 
 export function isFullyWired(script: DemoScript): boolean {
   return script.steps.every(isStepWired);
+}
+
+// "이 비트를 실제로 찍을 수 있는가"의 최소 조건: 무엇을 하고(action) 어디서 하는지
+// (selector 또는 where)가 둘 다 있어야 한다. isStepWired(비전 생략의 조건)보다 느슨한
+// 기준이다 — 셀렉터 없이 where만 준 대본도 (비전 폴백으로) 찍히기는 하므로 실속으로 센다.
+export function isStepSubstantial(st: DemoScriptStep): boolean {
+  return !!st.action && !!(st.selector || st.where);
+}
+
+export function substantialStepCount(script: DemoScript): number {
+  return script.steps.filter(isStepSubstantial).length;
 }
 export const DEMO_SCRIPT_GOAL_MAX = 120;
 export const DEMO_SCRIPT_SELECTOR_MAX = 250;

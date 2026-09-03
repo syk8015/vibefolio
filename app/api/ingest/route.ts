@@ -9,11 +9,17 @@ import { detectDemoSource } from "@/lib/demoSource";
 import { screenshotUrl } from "@/lib/thumbnail";
 import {
   ingestAuth, publicUrlGate, strOrNull, buildAccepted, descriptionTooLong, DESCRIPTION_MAX,
+  descriptionShapeIssue, descriptionShapeMessage,
   missingScriptColumn,
 } from "./shared";
 import { normalizeTags, normalizeContentType } from "@/lib/projectTaxonomy";
-import { normalizeDemoAccess, demoAccessAnswered, type DemoAccess } from "@/lib/demoAccess";
-import { normalizeDemoScript, DEMO_SCRIPT_MIN_STEPS } from "@/lib/demoScript";
+import {
+  normalizeDemoAccess, demoAccessAnswered, demoAccessEvidenceMissing, type DemoAccess,
+} from "@/lib/demoAccess";
+import {
+  normalizeDemoScript, substantialStepCount,
+  DEMO_SCRIPT_MIN_STEPS, DEMO_SCRIPT_MIN_SUBSTANTIAL,
+} from "@/lib/demoScript";
 import {
   MAX_UPLOAD_BYTES, MAX_MEDIA_IMAGE_BYTES, MAX_MEDIA_VIDEO_BYTES, UploadError,
   summarizeDropped,
@@ -126,6 +132,16 @@ export async function POST(req: NextRequest) {
         status: 400, message: t.api.descriptionTooLong(DESCRIPTION_MAX), code: "DESCRIPTION_TOO_LONG",
       });
     }
+    // 소개글 3줄 규격(2026-09-03). 길이 상한 바로 뒤에 오는 이유: 둘 다 "명함에서
+    // 어떻게 보이나"를 지키는 검사이고, 긴 글은 상한에서 먼저 걸러야 사유가 정확해진다.
+    const descIssue = descriptionShapeIssue(description);
+    if (descIssue) {
+      return apiError({
+        status: 400,
+        message: descriptionShapeMessage(descIssue, t),
+        code: "DESCRIPTION_SHAPE",
+      });
+    }
     const comment = strOrNull(payload?.builderNote) ?? "";
     const demoHint = typeof payload?.demoHighlights === "string"
       ? payload.demoHighlights.trim().slice(0, 500) || null
@@ -196,6 +212,16 @@ export async function POST(req: NextRequest) {
       if (steps < DEMO_SCRIPT_MIN_STEPS) {
         return apiError({ status: 400, message: t.api.scriptTooThin(steps), code: "SCRIPT_TOO_THIN" });
       }
+      // 스텝 수는 채웠지만 내용이 목차뿐인 대본(2026-09-03). goal만 있는 줄은 로봇에게
+      // 아무것도 알려주지 않아서, 픽셀 추측 촬영이라는 옛 경로로 그대로 되돌아간다.
+      const solid = demoScript ? substantialStepCount(demoScript) : 0;
+      if (solid < DEMO_SCRIPT_MIN_SUBSTANTIAL) {
+        return apiError({
+          status: 400,
+          message: t.api.scriptStepsVague(solid, steps),
+          code: "SCRIPT_STEPS_VAGUE",
+        });
+      }
       // 로그인 게이트(2026-08-27 사용자 확정). 대본 게이트와 같은 자리, 같은 이유다.
       // 로봇은 절대 로그인하지 않으므로 "로그인 뒤에야 기능이 도는 앱"은 demoAccess
       // 없이는 로그인 화면·빈 껍데기만 찍힌다 — 그리고 이건 실패로 잡히지도 않는다
@@ -207,6 +233,16 @@ export async function POST(req: NextRequest) {
           status: 400,
           message: t.api.demoAccessRequired,
           code: "DEMO_ACCESS_REQUIRED",
+        });
+      }
+      // 답은 했는데 근거가 없는 경우(2026-09-03). noLogin·impossible은 한 줄 선언이라
+      // 코드를 안 열고도 찍을 수 있다 — note를 요구해 확인이라는 행동을 강제한다.
+      const missing = demoAccessEvidenceMissing(demoAccess);
+      if (missing) {
+        return apiError({
+          status: 400,
+          message: t.api.demoAccessEvidence(missing),
+          code: "DEMO_ACCESS_EVIDENCE",
         });
       }
     }

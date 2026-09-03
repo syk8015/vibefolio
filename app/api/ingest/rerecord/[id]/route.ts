@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { apiError } from "@/lib/apiError";
 import { ingestAuth } from "@/app/api/ingest/shared";
-import { normalizeDemoScript, DEMO_SCRIPT_MIN_STEPS } from "@/lib/demoScript";
+import {
+  normalizeDemoScript, substantialStepCount,
+  DEMO_SCRIPT_MIN_STEPS, DEMO_SCRIPT_MIN_SUBSTANTIAL,
+} from "@/lib/demoScript";
 import { rateLimit } from "@/lib/rate-limit";
 
 // POST /api/ingest/rerecord/[id] — AI가 다시 쓴 촬영 대본을 **대기 상태로** 받는다.
@@ -50,6 +53,16 @@ export async function POST(
     }
     if (steps < DEMO_SCRIPT_MIN_STEPS) {
       return apiError({ status: 400, message: t.api.scriptTooThin(steps), code: "SCRIPT_TOO_THIN" });
+    }
+    // 재촬영 대본도 발행 대본과 같은 바를 넘어야 한다 — 여기가 느슨하면 "한 번
+    // 거절당한 대본을 재촬영 입구로 우회 제출"하는 길이 열린다.
+    const solid = script ? substantialStepCount(script) : 0;
+    if (solid < DEMO_SCRIPT_MIN_SUBSTANTIAL) {
+      return apiError({
+        status: 400,
+        message: t.api.scriptStepsVague(solid, steps),
+        code: "SCRIPT_STEPS_VAGUE",
+      });
     }
 
     const admin = createAdminClient();

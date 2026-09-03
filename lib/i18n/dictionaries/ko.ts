@@ -580,14 +580,31 @@ export const ko = {
     demoAccessBadUrl: "demoAccess.url은 http(s) 주소이거나 /로 시작하는 경로여야 해요.",
     demoAccessRequired:
       "demoAccess가 필요해요 — 로그인 질문에 반드시 답해야 발행됩니다. 시연 로봇은 절대 로그인하지 않아요. 그래서 로그인해야 화면이 보이거나, **로그인한 뒤에야 기능이 도는** 앱을 그냥 올리면 로그인 화면이나 텅 빈 화면만 찍힙니다. 아래 셋 중 하나를 반드시 주세요. ①로그인 없이 들어갈 길이 있으면: { \"url\": \"/demo\", \"params\": {\"guest\":\"1\"}, \"note\": \"거기서 데모 모드를 보는 법\" } — 데모/게스트 모드가 없다면 지금 하나 만드는 게 가장 좋은 투자입니다. ②로그인이 정말 아예 필요 없고 첫 화면부터 전 기능이 눌리면: { \"noLogin\": true }. ③게스트 경로가 원천 불가능하면(E2E 암호화·기기 페어링 등): { \"impossible\": true, \"note\": \"이유\" } — 이 경우 랜딩만 찍히니 직접 만든 영상(video) 첨부를 강하게 권해요. 계정 아이디·비밀번호는 절대 넣지 마세요 — 받지 않습니다.",
+    demoAccessEvidence: (which: "noLogin" | "impossible"): string =>
+      which === "noLogin"
+        ? 'demoAccess를 { "noLogin": true } 한 줄로만 주면 받지 않아요 — 무엇을 확인했는지 note에 적어 주세요(12자 이상). 예: { "noLogin": true, "note": "middleware·app/page.tsx에 인증 가드 없음, 목록은 시드 데이터로 채워짐" }. 랜딩이 멀쩡해 보이는 것과 **로그인 전에 기능이 실제로 도는 것**은 다릅니다. 라우트와 가드를 직접 열어 확인하고, 확인이 안 되면 noLogin 대신 데모 경로({ "url": "/demo" })를 주세요 — 없다면 지금 하나 만드는 게 이 영상을 위한 가장 값진 투자입니다.'
+        : 'demoAccess를 { "impossible": true } 한 줄로만 주면 받지 않아요 — 게스트 경로가 왜 원천 불가능한지 note에 적어 주세요(12자 이상). 예: { "impossible": true, "note": "E2E 암호화라 키 없이는 화면이 빈 채로 뜬다" }. 이 경우 랜딩만 촬영되니 직접 만든 시연 영상(video) 첨부를 강하게 권해요.',
     rerecordPendingNext: "새 대본을 접수했어요. 작품 주인이 대시보드에서 확인하고 [이 대본으로 재촬영]을 눌러야 촬영이 시작돼요.",
     rerecordNoPendingScript: "대기 중인 새 대본이 없어요. 재촬영 프롬프트를 AI에게 주고, AI가 새 대본을 제출한 뒤에 눌러 주세요.",
     rerecordAlreadyUsed: "이 작품의 셀프 재촬영 1회는 이미 썼어요. 다음부터는 관리자 승인이 필요해요.",
     rerecordDefaultReason: "영상이 마음에 들지 않아 새 대본으로 재촬영을 요청했어요.",
     scriptRequired:
-      "demoScript(촬영 대본)가 필요해요 — 이 대본이 곧 시연 영상입니다. 없으면 로봇이 화면을 픽셀로 더듬어 추측 촬영하게 되고, 느리고 비싸고 품질도 낮아요. { \"steps\": [ { \"goal\": …, \"selector\": …, \"where\": …, \"action\": \"click|type|drag|scroll|hover|draw|focus\", \"text\": …, \"expect\": …, \"hold\": … } ] } 형태로 5~8스텝(최소 3, 최대 10)을 중요한 순서대로 주세요. 이 앱을 만든 당신은 각 컨트롤의 정확한 CSS 셀렉터를 알고 있습니다(화면만 아는 경우엔 `where`에 눈으로 찾는 법을 적으면 폴백으로 씁니다). 유일한 예외: 직접 만든 시연 영상을 `video`로 첨부하면 자동 촬영을 건너뛰므로 대본이 필요 없어요.",
+      "demoScript(촬영 대본)가 필요해요 — 이 대본이 곧 시연 영상입니다. 없으면 로봇이 화면을 픽셀로 더듬어 추측 촬영하게 되고, 느리고 비싸고 품질도 낮아요. { \"steps\": [ { \"goal\": …, \"selector\": …, \"where\": …, \"action\": \"click|type|drag|scroll|hover|draw|focus\", \"text\": …, \"expect\": …, \"hold\": … } ] } 형태로 5~8스텝(최소 4, 최대 10)을 중요한 순서대로 주세요. 이 앱을 만든 당신은 각 컨트롤의 정확한 CSS 셀렉터를 알고 있습니다(화면만 아는 경우엔 `where`에 눈으로 찾는 법을 적으면 폴백으로 씁니다). 유일한 예외: 직접 만든 시연 영상을 `video`로 첨부하면 자동 촬영을 건너뛰므로 대본이 필요 없어요.",
     scriptTooThin: (n: number) =>
-      `demoScript가 ${n}스텝뿐이라 영상이 되기엔 부실해요. 최소 3스텝(권장 5~8, 최대 10)을 중요한 순서대로 주세요 — 1번은 이 작품에서 절대 빠지면 안 되는 기능이어야 합니다.`,
+      `demoScript가 ${n}스텝뿐이라 영상이 되기엔 부실해요. 최소 4스텝(권장 5~8, 최대 10)을 중요한 순서대로 주세요 — 1번은 이 작품에서 절대 빠지면 안 되는 기능이어야 합니다.`,
+    scriptStepsVague: (solid: number, total: number) =>
+      `demoScript의 스텝 ${total}개 중 실제로 찍을 수 있는 건 ${solid}개뿐이에요. 스텝마다 **무엇을 하는지**(action: click|type|drag|scroll|hover|draw|focus)와 **어디서 하는지**(selector — 이 앱을 만든 당신은 정확한 CSS 셀렉터를 알고 있습니다. 화면만 안다면 where에 눈으로 찾는 법)를 둘 다 넣어 주세요. goal만 적힌 줄은 대본이 아니라 목차라서, 로봇이 결국 화면을 픽셀로 더듬어 추측하게 됩니다 — 영상이 망가지는 가장 흔한 경로예요. 최소 3개 스텝이 이 조건을 채워야 저장합니다.`,
+    descriptionShape: (kind: "empty" | "lines" | "long-line", n: number, maxCols: number) => {
+      const example =
+        '예: "AI로 창작하는 사람들을 위한\\n자동으로 시연 영상까지 만들어주는\\n직접 보고 느끼는 라이브 포트폴리오" — 앞 줄들이 수식하고 마지막 줄이 정체를 밝히는 구조로, 각 줄은 한글 20자·영문 40자 안팎으로 짧게.';
+      const head =
+        kind === "empty"
+          ? "description(소개글)이 필요해요."
+          : kind === "lines"
+            ? `description이 ${n}줄이에요. 명함에는 3줄까지만 보입니다.`
+            : `description의 ${n}번째 줄이 너무 길어요(최대 ${maxCols}칸 — 한글 한 글자가 2칸). 폰에서 그 줄이 접히면서 마지막 줄이 잘려요.`;
+      return `${head} 소개글은 명함에서 작품 위에 겹쳐 뜨는 첫인상 글이라, 한 문단이 아니라 줄바꿈(\\n)으로 끊은 2~3줄로 써야 합니다. ${example}`;
+    },
     mediaImageTooLarge: (maxMb: number) => `스크린샷 이미지가 너무 커요 (최대 ${maxMb}MB).`,
     mediaVideoTooLarge: (maxMb: number) => `시연 영상이 너무 커요 (최대 ${maxMb}MB).`,
     mediaImageBadType: "screenshot은 png/jpg/webp/gif 이미지 파일이어야 해요.",

@@ -144,7 +144,7 @@
    ko/en). 설계 제약: 재촬영은 **레포 기억이 없는 새 세션의 AI**가 맡을 수 있다 → 맥락을 통째로 싣는다.
 2. `POST /api/ingest/rerecord/[id]` (PAT) — 새 대본을 **`pending_demo_script`로만** 받는다. 공개
    데이터(`demo_script`)는 안 건드린다: PAT가 공개 콘텐츠를 갈아치우는 길을 만들지 않기 위해서, 그리고
-   촬영비가 나가기 전에 사람 눈을 한 번 넣기 위해서. 대본 게이트(최소 3스텝)는 **생성 경로와 동일** —
+   촬영비가 나가기 전에 사람 눈을 한 번 넣기 위해서. 대본 게이트(최소 4스텝·실속 3스텝)는 **생성 경로와 동일** —
    재촬영이 품질을 낮추는 길이 되면 안 된다. 레이트리밋 `rerecord` 20/h. 에코 = `{ accepted:
    { demoScriptSteps, demoScriptDropped, note }, next }`.
 3. `POST /api/projects/[id]/apply-rerecord` (쿠키) — 소유자가 확인하고 실행. 1회차는 즉시 큐잉(대본

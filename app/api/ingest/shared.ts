@@ -127,6 +127,43 @@ function lineCols(line: string): number {
 export const DESCRIPTION_MAX = 200;
 export const descriptionTooLong = (v: string) => [...v].length > DESCRIPTION_MAX;
 
+// 소개글 "모양" 게이트(2026-09-03). 길이만 재던 위 상한과 달리, 이건 **3줄 카피인가**를
+// 본다. 프롬프트는 처음부터 "줄바꿈으로 끊은 3줄"을 요구했는데 게이트가 없어서 AI가
+// 한 문단을 통째로 보내는 일이 잦았고, 그러면 명함에서 문장 중간이 잘린다 — 첫인상이
+// 거기서 끝난다. 조용히 고치지 않고 400으로 되돌려보내는 이유는 대본 게이트와 같다:
+// AI는 에러를 보면 다시 써서 보내고, 그 순간이 카피 품질을 올리는 유일한 지점이다.
+//
+// 칸(cols) 기준인 이유는 lineCols 주석 참조 — 폰 명함 한 줄이 약 46칸이라 52칸을
+// 넘는 줄은 무조건 접힌다. 명함은 3줄까지만 그리므로 4줄 이상은 안 보이는 줄을 쓰는 것.
+export const DESCRIPTION_MIN_LINES = 2;
+export const DESCRIPTION_MAX_LINES = 3;
+export const DESCRIPTION_LINE_COLS_MAX = 52;
+
+export type DescriptionIssue =
+  | { kind: "empty" }
+  | { kind: "lines"; lines: number }
+  | { kind: "long-line"; cols: number; line: number };
+
+/** 3줄 카피 규격 위반이면 사유를, 통과면 null. 길이 상한(DESCRIPTION_MAX)과는 별개 검사. */
+export function descriptionShapeIssue(v: string): DescriptionIssue | null {
+  const lines = v.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  if (!lines.length) return { kind: "empty" };
+  if (lines.length < DESCRIPTION_MIN_LINES || lines.length > DESCRIPTION_MAX_LINES) {
+    return { kind: "lines", lines: lines.length };
+  }
+  for (let i = 0; i < lines.length; i++) {
+    const cols = lineCols(lines[i]);
+    if (cols > DESCRIPTION_LINE_COLS_MAX) return { kind: "long-line", cols, line: i + 1 };
+  }
+  return null;
+}
+
+/** 사유 → locale 카피. 라우트 두 곳이 같은 문구를 쓰도록 여기서 한 번만 분기한다. */
+export function descriptionShapeMessage(issue: DescriptionIssue, t: IngestDict): string {
+  const n = issue.kind === "lines" ? issue.lines : issue.kind === "long-line" ? issue.cols : 0;
+  return t.api.descriptionShape(issue.kind, n, DESCRIPTION_LINE_COLS_MAX);
+}
+
 /** 원문 태그 중 저장되지 못한 것들. 철자 불일치·중복·개수 상한(10) 초과를 모두 잡는다. */
 function droppedTagsOf(raw: unknown, kept: string[], normalize: (v: unknown) => string[]): string[] {
   if (!Array.isArray(raw)) return [];

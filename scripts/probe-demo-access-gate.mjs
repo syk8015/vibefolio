@@ -55,6 +55,7 @@ const SCRIPT = {
     { goal: "첫 화면", selector: "#a", action: "click", expect: "열린다" },
     { goal: "두 번째", selector: "#b", action: "click", expect: "반응한다" },
     { goal: "결과", selector: "#c", action: "focus", expect: "결과가 보인다" },
+    { goal: "되돌아오기", selector: "#d", action: "click", expect: "첫 화면으로 돌아온다" },
   ],
 };
 
@@ -65,6 +66,7 @@ const post = async (extra) => {
     headers: { Authorization: `Bearer ${raw}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       title: `__probe_access_${++n}__`,
+      description: "프로브가 만든 임시 행\n곧 지워집니다",
       deployUrl: `https://example.com/probe-access-${n}`,
       demoScript: SCRIPT,
       ...extra,
@@ -102,7 +104,7 @@ try {
   ok("note만 있는 demoAccess → 400", empty.status === 400, `status ${empty.status}`);
 
   // (2)~(5) 세 가지 답 + 별칭은 모두 통과한다.
-  const noLogin = keep(await post({ demoAccess: { noLogin: true } }));
+  const noLogin = keep(await post({ demoAccess: { noLogin: true, note: "미들웨어·첫 화면에 인증 가드 없음" } }));
   ok("noLogin: true → 수락", noLogin.status === 200, `status ${noLogin.status}`);
   ok("에코가 no-login으로 구별해 보여준다", noLogin.body?.accepted?.demoAccess === "no-login", JSON.stringify(noLogin.body?.accepted?.demoAccess));
 
@@ -114,7 +116,7 @@ try {
   ok("url 경로 → 수락", url.status === 200, `status ${url.status}`);
   ok("에코 = /demo", url.body?.accepted?.demoAccess === "/demo", JSON.stringify(url.body?.accepted?.demoAccess));
 
-  const alias = keep(await post({ demoAccess: { loginRequired: false } }));
+  const alias = keep(await post({ demoAccess: { loginRequired: false, note: "미들웨어·첫 화면에 인증 가드 없음" } }));
   ok("loginRequired: false 별칭 → 수락", alias.status === 200, `status ${alias.status}`);
   ok("별칭도 no-login으로 저장", alias.body?.accepted?.demoAccess === "no-login", JSON.stringify(alias.body?.accepted?.demoAccess));
 
