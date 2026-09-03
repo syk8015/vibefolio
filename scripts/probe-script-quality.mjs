@@ -122,8 +122,8 @@ try {
   });
   ok("한 줄이 너무 김 → 400", longLine.status === 400 && longLine.body?.code === "DESCRIPTION_SHAPE", `status ${longLine.status} ${longLine.body?.code}`);
   ok(
-    "거절 카피가 몇 번째 줄인지 짚는다",
-    typeof longLine.body?.error === "string" && /Line \d+ of description/.test(longLine.body.error),
+    "거절 카피가 몇 번째 줄인지 정확히 짚는다 (긴 줄은 2번째)",
+    typeof longLine.body?.error === "string" && longLine.body.error.startsWith("Line 2 of description"),
     (longLine.body?.error ?? "").slice(0, 120),
   );
 

@@ -160,7 +160,9 @@ export function descriptionShapeIssue(v: string): DescriptionIssue | null {
 
 /** 사유 → locale 카피. 라우트 두 곳이 같은 문구를 쓰도록 여기서 한 번만 분기한다. */
 export function descriptionShapeMessage(issue: DescriptionIssue, t: IngestDict): string {
-  const n = issue.kind === "lines" ? issue.lines : issue.kind === "long-line" ? issue.cols : 0;
+  // long-line은 칸 수가 아니라 **몇 번째 줄인지**를 넘긴다 — 고칠 곳을 짚어주는 게
+  // "66칸이다"보다 훨씬 쓸모 있다(상한은 maxCols로 따로 알려준다).
+  const n = issue.kind === "lines" ? issue.lines : issue.kind === "long-line" ? issue.line : 0;
   return t.api.descriptionShape(issue.kind, n, DESCRIPTION_LINE_COLS_MAX);
 }
 
