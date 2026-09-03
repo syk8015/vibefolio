@@ -30,7 +30,7 @@ function DemoBuildBadge({
   nowMs: number;
   onRetry?: () => void;
 }) {
-  const { t } = useT();
+  const { t, locale } = useT();
   // 팝오버는 fixed + 버튼 rect 앵커 — 리스트 카드(vf-card overflow-hidden)가
   // absolute 팝오버를 클리핑하는 것을 실측으로 확인(2026-07-13), fixed로 탈출.
   const [anchor, setAnchor] = useState<{ top: number; left: number } | null>(null);
@@ -176,47 +176,91 @@ function DemoBuildBadge({
   const isSlow =
     !!statusChangedAt && nowMs > 0 && nowMs - new Date(statusChangedAt).getTime() > DEMO_SLOW_MS;
 
-  if (paused || isSlow) {
-    return (
-      <span
-        className="px-2 py-0.5 rounded-full text-xs shrink-0"
+  // 공개 뒤가 깜깜하다(2026-09-04, 인터뷰 ⑤). 배지 한 단어로는 "언제 되나·어디까지
+  // 갔나·내가 뭘 해야 하나"에 답이 안 된다. 그래서 배지를 누르면 단계 트랙(대기→앱
+  // 준비→촬영→편집)·요청 시각·다음에 일어날 일이 뜬다. 일시정지(배치 모드=정상 운영)
+  // 땐 스피너를 걷어내고 "순서대로 몰아서 진행"이라고 정직하게 말한다.
+  const phaseIndex = status === "pending" ? 0 : status === "building" ? 1 : status === "recording" ? 2 : 3;
+  const phases = t.projects.progressPhases as readonly string[];
+  const stamp = statusChangedAt
+    ? new Date(statusChangedAt).toLocaleTimeString(locale === "ko" ? "ko-KR" : "en-US", { hour: "2-digit", minute: "2-digit" })
+    : null;
+  const label = paused ? t.projects.pausedLabel : isSlow ? t.projects.slowLabel : `${DEMO_PHASE_LABEL[status]} · ${t.projects.usualTime}`;
+  const body = paused ? t.projects.progressPausedBody : isSlow ? t.projects.slowTip : t.projects.progressRunningBody;
+
+  return (
+    <div className="shrink-0" style={{ position: "relative", display: "inline-flex" }}>
+      <button
+        type="button"
+        onClick={e => {
+          const r = e.currentTarget.getBoundingClientRect();
+          setAnchor(a => (a ? null : {
+            top: r.bottom + 6,
+            left: Math.max(8, Math.min(r.left, window.innerWidth - 264 - 8)),
+          }));
+        }}
+        className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs shrink-0"
         style={{
           background: "var(--surface-soft)",
           color: "var(--text-secondary)",
           fontFamily: "var(--font-nunito)",
           fontSize: "0.6rem",
           fontWeight: 600,
-          cursor: "help",
+          border: "none",
+          cursor: "pointer",
         }}
-        title={paused ? t.projects.pausedTip : t.projects.slowTip}
+        title={t.projects.progressTitle}
       >
-        {paused ? t.projects.pausedLabel : t.projects.slowLabel}
-      </span>
-    );
-  }
-
-  return (
-    <span
-      className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs shrink-0"
-      style={{
-        background: "var(--surface-soft)",
-        color: "var(--text-secondary)",
-        fontFamily: "var(--font-nunito)",
-        fontSize: "0.6rem",
-        fontWeight: 600,
-      }}
-    >
-      <span
-        className="rounded-full border-2 animate-spin"
-        style={{
-          width: 8,
-          height: 8,
-          borderColor: "var(--text-secondary)",
-          borderTopColor: "transparent",
-        }}
-      />
-      {DEMO_PHASE_LABEL[status]} · {t.projects.usualTime}
-    </span>
+        {!paused && !isSlow && (
+          <span
+            className="rounded-full border-2 animate-spin"
+            style={{ width: 8, height: 8, borderColor: "var(--text-secondary)", borderTopColor: "transparent" }}
+          />
+        )}
+        {label}
+      </button>
+      {anchor && (
+        <>
+          <div style={{ position: "fixed", inset: 0, zIndex: 40 }} onClick={() => setAnchor(null)} />
+          <div
+            className="rounded-2xl"
+            style={{
+              position: "fixed", top: anchor.top, left: anchor.left, zIndex: 50, width: 264,
+              padding: "0.9rem 1rem", background: "var(--surface)",
+              boxShadow: "0 12px 32px rgba(0, 0, 0, 0.16)", textAlign: "left",
+            }}
+          >
+            <p style={{ fontSize: "0.78rem", fontWeight: 700, color: "var(--text-primary)", fontFamily: "var(--font-nunito)", margin: 0 }}>
+              {t.projects.progressTitle}
+            </p>
+            {/* 단계 트랙 — 지난 단계는 채움, 현재는 잉크, 남은 단계는 옅게 */}
+            <ol style={{ listStyle: "none", padding: 0, margin: "0.7rem 0 0", display: "flex", flexDirection: "column", gap: 6 }}>
+              {phases.map((name, i) => {
+                const done = i < phaseIndex;
+                const now = i === phaseIndex;
+                return (
+                  <li key={name} style={{ display: "flex", alignItems: "center", gap: 8, fontFamily: "var(--font-nunito)", fontSize: "0.72rem", color: now ? "var(--text-primary)" : done ? "var(--text-secondary)" : "var(--text-muted)", fontWeight: now ? 700 : 500 }}>
+                    <span style={{
+                      width: 8, height: 8, borderRadius: 999, flexShrink: 0,
+                      background: now || done ? "var(--text-primary)" : "transparent",
+                      boxShadow: now || done ? "none" : "inset 0 0 0 1.5px var(--text-muted)",
+                      opacity: done ? 0.45 : 1,
+                    }} />
+                    {name}
+                    {now && stamp && status === "pending" && (
+                      <span style={{ marginLeft: "auto", color: "var(--text-muted)", fontWeight: 500 }}>{t.projects.progressRequestedAt(stamp)}</span>
+                    )}
+                  </li>
+                );
+              })}
+            </ol>
+            <p style={{ fontSize: "0.7rem", color: "var(--text-secondary)", lineHeight: 1.6, fontFamily: "var(--font-nunito)", margin: "0.7rem 0 0" }}>
+              {body}
+            </p>
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 

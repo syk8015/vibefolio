@@ -13,7 +13,7 @@ import { type DBProject, type ProjectForm } from "./projects/types";
 import { DraftRow, ProjectRow } from "./projects/rows";
 import { ProjectFormModal } from "./projects/ProjectFormModal";
 import { AddProjectModal } from "./projects/AddProjectModal";
-import { DraftReviewModal } from "./projects/DraftReviewModal";
+import { DraftReviewModal, type DraftPatch } from "./projects/DraftReviewModal";
 import { useDemoStatusSync } from "./projects/useDemoStatusSync";
 
 // username comes from DashboardClient's profiles row (the handle public links
@@ -227,6 +227,18 @@ export default function ProjectsTab({ user, username, reviewProjectId }: { user:
     setEditProject(null);
   }
 
+  // 초안 검토 모달의 "살짝 고치기"(제목·소개글·한마디·대본 순서). 초안은 아직
+  // 촬영 전이라 이 값이 그대로 명함·필름이 된다. 실패는 모달이 받아서 표시한다.
+  async function handleSaveDraft(id: string, patch: DraftPatch) {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("projects").update(patch).eq("id", id).select().single();
+    if (error) throw new Error(error.message);
+    const updated = data as DBProject;
+    setDrafts(prev => prev.map(p => (p.id === id ? updated : p)));
+    setReviewDraft(prev => (prev && prev.id === id ? updated : prev));
+  }
+
   function handleMoveUp(index: number) {
     if (index <= 0) return;
     const next = [...projects];
@@ -288,6 +300,11 @@ export default function ProjectsTab({ user, username, reviewProjectId }: { user:
       return;
     }
     trackClientEvent(AnalyticsEvent.ProjectCreated, { projectId: project.id, demoSource: source?.type ?? null });
+    // 공개 직후 "다음에 무슨 일이 일어나는지"를 바로 말해준다(2026-09-04, 인터뷰 ⑤).
+    // 전엔 실패할 때만 알림이 떴고, 성공하면 모달이 닫히며 행이 목록으로 옮겨질 뿐이었다.
+    setNotice(!source
+      ? t.projects.publishedNoticeNoDemo
+      : demoPaused ? t.projects.publishedNoticePaused : t.projects.publishedNotice);
     if (source) {
       fetch(`/api/projects/${project.id}/trigger-demo`, { method: "POST" })
         .then(async (res) => {
@@ -401,6 +418,7 @@ export default function ProjectsTab({ user, username, reviewProjectId }: { user:
           onPublish={() => { const d = reviewDraft; setReviewDraft(null); handlePublishDraft(d); }}
           onEdit={() => { setEditProject(reviewDraft); setReviewDraft(null); }}
           onDelete={() => { const d = reviewDraft; setReviewDraft(null); handleDelete(d.id); }}
+          onSave={(patch) => handleSaveDraft(reviewDraft.id, patch)}
         />
       )}
 

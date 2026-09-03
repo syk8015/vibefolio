@@ -664,3 +664,7 @@ SNS/검색 로봇은 JS를 안 돌려 OG·크롤러 노출 문구(루트 descrip
 | /forgot-password | 비밀번호 찾기 \| Nookframe | Forgot password \| Nookframe | LocalizedTitle |
 | /reset-password | 비밀번호 재설정 \| Nookframe | Reset password \| Nookframe | LocalizedTitle |
 | /publish | AI 초안 붙여넣기 · Nookframe | Paste your AI draft · Nookframe | 동적 페이지라 generateMetadata 서버 분기 |
+
+## 초안 검토 화면 재편 (2026-09-04, 인터뷰 ④⑤⑥)
+
+`projects.review*`·`projects.script(Remove|MoveUp|MoveDown|Floor*)`·`projects.published*`·`projects.progress*` 키 추가. 명함 렌더(제목·소개글·한마디 인라인 편집)·판정 칩 3개(대본/로그인/여는 곳)·AI에게 고쳐달라기·공개 뒤 알림·촬영 진행 팝오버. `progressPhases`는 배열(단계 이름 4개, 순서 고정).

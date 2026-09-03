@@ -1,6 +1,10 @@
 "use client";
 
-import { isStepWired, type DemoScript, type DemoScriptStep } from "@/lib/demoScript";
+import {
+  isStepWired, isStepSubstantial,
+  DEMO_SCRIPT_MIN_STEPS, DEMO_SCRIPT_MIN_SUBSTANTIAL,
+  type DemoScript, type DemoScriptStep,
+} from "@/lib/demoScript";
 import { useT } from "@/lib/i18n/client";
 
 // 초안 검토 화면의 "촬영 대본" 패널 (2026-08-25).
@@ -12,10 +16,20 @@ import { useT } from "@/lib/i18n/client";
 //
 // 배지의 "정밀 촬영" 판정은 러너의 직배선 게이트와 **같은 함수**(lib/demoScript의
 // isStepWired)를 쓴다. 둘이 갈리면 배지가 거짓말을 한다.
-export function DemoScriptPanel({ script }: { script: DemoScript | null }) {
+//
+// 살짝 고치기(2026-09-04, 인터뷰 ⑥): onChange를 주면 스텝을 빼거나 순서를 바꿀 수
+// 있다. 셀렉터·문구를 손으로 만지는 건 여전히 AI 몫(08-25 결정) — 사람이 할 수
+// 있는 건 "이 비트는 필요 없다 / 이게 먼저다"까지다. 발행 게이트가 지키는 바닥
+// (최소 스텝·실속 스텝)은 여기서도 같은 상수로 지킨다 — 화면이 서버가 거절할
+// 대본을 저장하게 두면 안 되니까.
+export function DemoScriptPanel({ script, onChange }: {
+  script: DemoScript | null;
+  onChange?: (next: DemoScript) => void;
+}) {
   const { t } = useT();
   const steps = script?.steps ?? [];
   const wired = steps.filter(isStepWired).length;
+  const solid = steps.filter(isStepSubstantial).length;
   const fully = steps.length > 0 && wired === steps.length;
 
   const labelStyle: React.CSSProperties = {
@@ -36,6 +50,27 @@ export function DemoScriptPanel({ script }: { script: DemoScript | null }) {
   }
 
   const actionLabels = t.projects.scriptActions as Record<string, string>;
+
+  const commit = (nextSteps: DemoScriptStep[]) => {
+    if (!script || !onChange) return;
+    onChange({ ...script, steps: nextSteps });
+  };
+  const move = (i: number, dir: -1 | 1) => {
+    const j = i + dir;
+    if (j < 0 || j >= steps.length) return;
+    const next = [...steps];
+    [next[i], next[j]] = [next[j], next[i]];
+    commit(next);
+  };
+  const remove = (i: number) => commit(steps.filter((_, k) => k !== i));
+  // 왜 못 빼는지를 버튼이 말해준다 — 그냥 회색이면 "고장났나"가 된다.
+  const removeBlock = (st: DemoScriptStep): string | null => {
+    if (steps.length <= DEMO_SCRIPT_MIN_STEPS) return t.projects.scriptFloorTip(DEMO_SCRIPT_MIN_STEPS);
+    if (isStepSubstantial(st) && solid <= DEMO_SCRIPT_MIN_SUBSTANTIAL) {
+      return t.projects.scriptFloorSolidTip(DEMO_SCRIPT_MIN_SUBSTANTIAL);
+    }
+    return null;
+  };
 
   return (
     <div>
@@ -71,7 +106,18 @@ export function DemoScriptPanel({ script }: { script: DemoScript | null }) {
 
       <ol className="flex flex-col gap-1.5 mt-2.5" style={{ listStyle: "none", padding: 0, margin: "10px 0 0" }}>
         {steps.map((st, i) => (
-          <StepRow key={i} step={st} index={i} actionLabels={actionLabels} />
+          <StepRow
+            key={`${i}-${st.goal}`}
+            step={st}
+            index={i}
+            actionLabels={actionLabels}
+            controls={onChange ? {
+              up: i > 0 ? () => move(i, -1) : null,
+              down: i < steps.length - 1 ? () => move(i, 1) : null,
+              remove: () => remove(i),
+              removeBlock: removeBlock(st),
+            } : null}
+          />
         ))}
       </ol>
 
@@ -84,16 +130,30 @@ export function DemoScriptPanel({ script }: { script: DemoScript | null }) {
   );
 }
 
-function StepRow({ step, index, actionLabels }: {
+type StepControls = {
+  up: (() => void) | null;
+  down: (() => void) | null;
+  remove: () => void;
+  removeBlock: string | null;
+};
+
+function StepRow({ step, index, actionLabels, controls }: {
   step: DemoScriptStep;
   index: number;
   actionLabels: Record<string, string>;
+  controls: StepControls | null;
 }) {
   const { t } = useT();
   const wired = isStepWired(step);
   // 셀렉터가 없으면 로봇은 where(눈으로 찾는 법)로 화면을 뒤진다 — 그 사실을
   // 감추지 않고 그대로 보여준다. 여기가 사람이 "아 이건 못 찾겠는데"를 아는 지점.
   const locator = step.selector ?? step.where ?? null;
+
+  const iconBtn: React.CSSProperties = {
+    width: 24, height: 24, borderRadius: 8, border: "none", background: "transparent",
+    color: "var(--text-muted)", cursor: "pointer", display: "inline-flex",
+    alignItems: "center", justifyContent: "center", padding: 0,
+  };
 
   return (
     <li
@@ -142,6 +202,26 @@ function StepRow({ step, index, actionLabels }: {
           </p>
         )}
       </div>
+      {controls && (
+        <div className="flex items-center shrink-0" style={{ gap: 2, marginTop: 2 }}>
+          <button type="button" style={{ ...iconBtn, opacity: controls.up ? 1 : 0.25, cursor: controls.up ? "pointer" : "default" }}
+            onClick={controls.up ?? undefined} disabled={!controls.up} title={t.projects.scriptMoveUp} aria-label={t.projects.scriptMoveUp}>
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 10V2M2.5 5.5L6 2l3.5 3.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          </button>
+          <button type="button" style={{ ...iconBtn, opacity: controls.down ? 1 : 0.25, cursor: controls.down ? "pointer" : "default" }}
+            onClick={controls.down ?? undefined} disabled={!controls.down} title={t.projects.scriptMoveDown} aria-label={t.projects.scriptMoveDown}>
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 2v8M2.5 6.5L6 10l3.5-3.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          </button>
+          <button type="button"
+            style={{ ...iconBtn, opacity: controls.removeBlock ? 0.25 : 1, cursor: controls.removeBlock ? "not-allowed" : "pointer" }}
+            onClick={controls.removeBlock ? undefined : controls.remove}
+            disabled={!!controls.removeBlock}
+            title={controls.removeBlock ?? t.projects.scriptRemove}
+            aria-label={t.projects.scriptRemove}>
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>
+          </button>
+        </div>
+      )}
     </li>
   );
 }
