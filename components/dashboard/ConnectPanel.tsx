@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { copyText } from "@/lib/clipboard";
-import { pastePrompt, AUTO_TOKEN_NAME } from "@/lib/connectSnippets";
+import { pastePrompt, AUTO_TOKEN_NAME, MCP_TOKEN_NAME, mcpClaudeCodeCommand, mcpConfigJson } from "@/lib/connectSnippets";
 import { useT } from "@/lib/i18n/client";
 
 interface TokenRow {
@@ -33,6 +33,10 @@ export default function ConnectPanel() {
   const [error, setError] = useState<string | null>(null);
   const [showPrompt, setShowPrompt] = useState(false);
   const [showTokens, setShowTokens] = useState(false);
+  // MCP 연결(2026-09-04, 인터뷰 ⑦): 토큰을 채운 명령/설정을 복사한다.
+  const [showMcp, setShowMcp] = useState(false);
+  const [mcpBusy, setMcpBusy] = useState(false);
+  const [mcpCopied, setMcpCopied] = useState<"claude-code" | "json" | null>(null);
   const origin = typeof window !== "undefined" ? window.location.origin : "https://nookframe.com";
 
   async function load() {
@@ -51,6 +55,36 @@ export default function ConnectPanel() {
 
   // 발급+복사 원자 흐름. 발급은 됐는데 클립보드가 실패하면 그 토큰은 버려진 상태로
   // 남지만, 다음 시도가 자동 폐기하므로 따로 청소하지 않는다.
+  async function copyMcp(kind: "claude-code" | "json") {
+    setMcpBusy(true);
+    setError(null);
+    setMcpCopied(null);
+    try {
+      const res = await fetch("/api/tokens", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mcp: true }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(body.error || t.connect.issueFailed);
+        return;
+      }
+      const text = kind === "claude-code" ? mcpClaudeCodeCommand(body.token as string) : mcpConfigJson(body.token as string);
+      const ok = await copyText(text);
+      if (!ok) {
+        setError(t.connect.copyFailed);
+        return;
+      }
+      setMcpCopied(kind);
+      await load();
+    } catch {
+      setError(t.connect.networkFailed);
+    } finally {
+      setMcpBusy(false);
+    }
+  }
+
   async function copyPromptWithToken() {
     setCopying(true);
     setError(null);
@@ -149,6 +183,42 @@ export default function ConnectPanel() {
         )}
       </div>
 
+      {/* 접힘: MCP 연결 — 터미널 AI는 붙여넣기 자체가 없어진다(인터뷰 ⑦) */}
+      <div className="w-full mt-3 text-left">
+        <button type="button" onClick={() => setShowMcp(v => !v)} aria-expanded={showMcp} style={toggleStyle}>
+          {chevron(showMcp)}{t.connect.mcpToggle}
+        </button>
+        {showMcp && (
+          <div className="mt-2 flex flex-col gap-3">
+            <p className="text-xs" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", lineHeight: 1.7, margin: 0 }}>
+              {t.connect.mcpLead}
+            </p>
+            {([
+              { kind: "claude-code" as const, label: t.connect.mcpClaudeCode, text: mcpClaudeCodeCommand() },
+              { kind: "json" as const, label: t.connect.mcpJson, text: mcpConfigJson() },
+            ]).map(({ kind, label, text }) => (
+              <div key={kind}>
+                <p className="text-xs" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontWeight: 600, margin: "0 0 6px" }}>{label}</p>
+                <pre
+                  className="text-xs p-3 rounded-lg"
+                  style={{ background: "var(--surface-soft)", color: "var(--text-secondary)", fontFamily: "var(--font-mono), monospace", whiteSpace: "pre-wrap", lineHeight: 1.6, margin: 0, wordBreak: "break-all" }}
+                >
+                  {text}
+                </pre>
+                <div className="flex items-center gap-3 flex-wrap mt-2">
+                  <button type="button" onClick={() => void copyMcp(kind)} disabled={mcpBusy} className="vf-button-ghost" style={{ fontSize: "0.75rem", padding: "0.35rem 0.8rem", opacity: mcpBusy ? 0.6 : 1 }}>
+                    {mcpBusy ? t.connect.mcpCopying : t.connect.mcpCopy}
+                  </button>
+                  {mcpCopied === kind && (
+                    <span className="text-xs" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>{t.connect.mcpCopied}</span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* 접힘: 발급된 토큰 — 없으면 아예 안 그린다 */}
       {tokens.length > 0 && (
         <div className="w-full mt-3 text-left">
@@ -161,7 +231,7 @@ export default function ConnectPanel() {
                 <div key={row.id} className="flex items-center justify-between gap-3 py-2" style={{ borderBottom: "1px solid var(--border)" }}>
                   <div className="min-w-0">
                     <p className="text-sm" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontWeight: 500 }}>
-                      {row.name === AUTO_TOKEN_NAME ? t.connect.autoTokenName : row.name || t.connect.unnamed}
+                      {row.name === AUTO_TOKEN_NAME ? t.connect.autoTokenName : row.name === MCP_TOKEN_NAME ? t.connect.mcpTokenName : row.name || t.connect.unnamed}
                     </p>
                     <p className="text-xs" style={{ color: "var(--text-muted)", fontFamily: "var(--font-mono), monospace" }}>
                       {row.token_prefix} · {row.last_used_at ? t.connect.lastUsed(new Date(row.last_used_at).toLocaleDateString(locale === "ko" ? "ko-KR" : "en-US")) : t.connect.neverUsed}

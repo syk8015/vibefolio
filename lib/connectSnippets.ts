@@ -18,6 +18,23 @@ export function loginCommand(token: string): string {
   return `npx nookframe@latest login ${token}`;
 }
 
+// MCP 연결(2026-09-04, 인터뷰 ⑦ 터미널 쪽). 프롬프트 붙여넣기·JSON 옮기기가 통째로
+// 사라지는 길이라 연결 탭에 같이 둔다. 토큰 이름은 자동 토큰처럼 센티널 —
+// 서버가 재복사 때 이전 것을 폐기해 토큰 상한(MAX_TOKENS_PER_USER)에 안 걸린다.
+export const MCP_TOKEN_NAME = "mcp-auto";
+export const MCP_TOKEN_PLACEHOLDER = "<복사 버튼을 누르면 새 토큰이 여기 자동으로 채워져요>";
+
+export function mcpClaudeCodeCommand(token: string = MCP_TOKEN_PLACEHOLDER): string {
+  return `claude mcp add nookframe -e NOOKFRAME_TOKEN=${token} -- npx -y nookframe mcp`;
+}
+
+export function mcpConfigJson(token: string = MCP_TOKEN_PLACEHOLDER): string {
+  return JSON.stringify(
+    { mcpServers: { nookframe: { command: "npx", args: ["-y", "nookframe", "mcp"], env: { NOOKFRAME_TOKEN: token } } } },
+    null, 2,
+  );
+}
+
 export function pastePrompt(
   origin: string,
   locale: "ko" | "en" = "ko",
@@ -60,7 +77,7 @@ You're the AI that built this project, so read the repo yourself and describe it
      NEVER include account IDs or passwords — they are not accepted, and publishing is rejected without one of the three answers above
 4) If you have a shell: run ${NPX_PUBLISH} --json '<the JSON above>' (the token was saved in step 1).
    If you have a screenshot or a demo video you made, add --screenshot <path> / --video <path> (image png/jpg/webp/gif ≤5MB; video mp4/webm ≤20MB — providing a video replaces the auto-recorded demo).
-   If you don't have a shell: just print the JSON — I'll paste it into ${origin}/publish.
+   If you don't have a shell: print the JSON in one \`\`\`json code block, then put this link on its own line right after it so I can click straight through: ${origin}/publish — I'll paste the JSON there.
    To revise something already pushed, publish again with the same URL — the existing draft is updated in place, no duplicates.`;
   }
   return `이 프로젝트를 Nookframe(바이브코딩 포트폴리오)에 올려줘.
@@ -93,6 +110,6 @@ You're the AI that built this project, so read the repo yourself and describe it
      계정 아이디·비번은 절대 넣지 마 — 받지 않아. 위 셋 중 하나가 없으면 발행 자체가 거절돼
 4) 셸을 쓸 수 있으면: ${NPX_PUBLISH} --json '<위 JSON>' 을 실행해 (토큰은 1)에서 저장했어).
    직접 찍은 스크린샷·시연 영상 파일이 있으면 --screenshot <경로> / --video <경로> 를 붙여 (이미지 png/jpg/webp/gif ≤5MB, 영상 mp4/webm ≤20MB — 영상을 주면 자동 촬영 대신 그 영상이 쓰여).
-   셸이 없으면: 위 JSON만 출력해 — 내가 ${origin}/publish 에 붙여넣을게.
+   셸이 없으면: 위 JSON을 \`\`\`json 코드블록 하나로 출력하고, 바로 다음 줄에 이 링크를 그대로 적어줘(내가 눌러서 바로 가게): ${origin}/publish — 거기에 붙여넣을게.
    이미 올린 걸 고치고 싶으면 같은 URL로 publish를 다시 실행해 — 새 초안이 생기지 않고 기존 초안이 갱신돼.`;
 }

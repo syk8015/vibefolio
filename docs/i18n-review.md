@@ -668,3 +668,7 @@ SNS/검색 로봇은 JS를 안 돌려 OG·크롤러 노출 문구(루트 descrip
 ## 초안 검토 화면 재편 (2026-09-04, 인터뷰 ④⑤⑥)
 
 `projects.review*`·`projects.script(Remove|MoveUp|MoveDown|Floor*)`·`projects.published*`·`projects.progress*` 키 추가. 명함 렌더(제목·소개글·한마디 인라인 편집)·판정 칩 3개(대본/로그인/여는 곳)·AI에게 고쳐달라기·공개 뒤 알림·촬영 진행 팝오버. `progressPhases`는 배열(단계 이름 4개, 순서 고정).
+
+## JSON 옮기기 축소 (2026-09-04, 인터뷰 ⑦)
+
+`publish.clipboard*`·`publish.pasteHint`·`publish.errors.noJson`(클립보드 버튼·붙여넣기=제출·펜스 섞인 답 허용), `connect.mcp*`(MCP 연결 섹션·토큰 채워 복사·토큰 목록 라벨 "MCP 연결"). 붙여넣기 프롬프트의 셸 없음 줄은 "```json 코드블록 + 다음 줄에 /publish 링크"로 변경(ko·en 동일).
