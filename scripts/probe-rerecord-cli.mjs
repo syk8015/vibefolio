@@ -157,9 +157,9 @@ try {
     "--json",
     JSON.stringify({ demoScript: script(4, "봉투"), note: "16초 클릭 제거" }),
   ]);
-  ok("(1) CLI 봉투 형태 성공", r1.code === 0 && /3스텝 대기/.test(r1.out), r1.out.trim().slice(0, 160));
+  ok("(1) CLI 봉투 형태 성공", r1.code === 0 && /4스텝 대기/.test(r1.out), r1.out.trim().slice(0, 160));
   const p1 = await pending();
-  ok("(1) pending 대본 3스텝", p1.pending_demo_script?.steps?.length === 3, JSON.stringify(p1.pending_demo_script)?.slice(0, 80));
+  ok("(1) pending 대본 4스텝", p1.pending_demo_script?.steps?.length === 4, JSON.stringify(p1.pending_demo_script)?.slice(0, 80));
   ok("(1) note 저장", p1.pending_script_note === "16초 클릭 제거", p1.pending_script_note);
   ok("(6) 공개 대본은 그대로", deepEqual(p1.demo_script, ORIGINAL), JSON.stringify(p1.demo_script)?.slice(0, 120));
   await clearPending();

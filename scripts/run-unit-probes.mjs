@@ -12,6 +12,15 @@ const PROBES = [
 ];
 
 let failed = 0;
+// cli/는 ESM 평문 JS라 타입검사가 없다 — 문법만이라도 실행 문맥(ESM)에서 확인한다.
+// (0.1.10 MCP 서버가 따옴표 하나로 죽은 채 발행됐던 사고의 재발 방지.)
+{
+  const r = spawnSync("node", ["--check", "cli/src/mcp.js", "cli/src/publish.js", "cli/src/rerecord.js", "cli/src/drafts.js", "cli/src/echo.js", "cli/src/api.js", "cli/src/config.js", "cli/src/zip.js", "cli/bin/nookframe.js"], { encoding: "utf8" });
+  const ok = r.status === 0;
+  if (!ok) failed++;
+  console.log(`${ok ? "✓" : "✗"} node --check cli/**/*.js`);
+  if (!ok) console.log(r.stderr.split("\n").slice(0, 8).join("\n"));
+}
 for (const file of PROBES) {
   const t0 = Date.now();
   const r = spawnSync("npx", ["-y", "tsx", file], { stdio: ["ignore", "pipe", "pipe"], encoding: "utf8" });
