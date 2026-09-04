@@ -671,3 +671,22 @@ SNS/검색 로봇은 JS를 안 돌려 OG·크롤러 노출 문구(루트 descrip
 ## JSON 옮기기 축소 (2026-09-04, 인터뷰 ⑦)
 
 `publish.clipboard*`·`publish.pasteHint`·`publish.errors.noJson`(클립보드 버튼·붙여넣기=제출·펜스 섞인 답 허용), `connect.mcp*`(MCP 연결 섹션·토큰 채워 복사·토큰 목록 라벨 "MCP 연결"). 붙여넣기 프롬프트의 셸 없음 줄은 "```json 코드블록 + 다음 줄에 /publish 링크"로 변경(ko·en 동일).
+
+## 자잘한 수리 묶음 (2026-09-05)
+
+**AI에게 주는 프롬프트는 이제 언어와 무관하게 영어 하나**가 됐다(`pastePrompt`·`buildDraftFixPrompt`·
+`rerecordPrompt`·`buildPublishFixPrompt`의 한국어판 삭제). 대신 프롬프트 첫 줄의
+`outputLanguageLine(locale)`이 **AI가 만들어 낼 카피의 언어**를 지정한다 — 화면 언어가 ko면
+"제목·소개글·한마디·메모를 한국어로 쓰라"고 명령한다. 사람이 읽는 UI 문구는 그대로 아래 사전을 쓴다.
+
+| 키 | 한국어 | English | 비고 |
+|---|---|---|---|
+| connect.copiedButton | 복사했어요 ✓ | Copied ✓ | 복사 성공을 버튼 라벨이 직접 말한다 |
+| connect.waitingTitle | AI가 올려주기를 기다리는 중 | Waiting for your AI to publish | 복사 직후 대기 카드 제목 |
+| connect.waitingBody | 복사한 프롬프트를 AI 대화창에 붙여넣으세요. 작품이 도착하면 이 창이 저절로 닫히고 확인 화면이 열려요. | Paste the copied prompt into your AI chat. The moment the draft lands, this window closes itself and the review screen opens. | ⚠️ 초안 도착 시 자동 이동을 예고 |
+| connect.copiedNote | 이 버튼을 다시 누르면 이전 토큰은 자동 폐기돼요. | Pressing this button again auto-revokes the previous token. | 대기 카드의 부가 안내로 축소(앞부분은 waitingBody가 대체) |
+| projects.draftArrived | "○○" 초안이 도착했어요 | Draft "○○" just landed | 모달이 닫힌 채 초안이 도착했을 때 토스트 |
+| projects.reviewEmbedChecking | 미리보기를 확인하는 중… | Checking the preview… | 외부 URL 임베드 가능 여부 확인 중 |
+| projects.reviewEmbedBlocked | 이 사이트는 다른 화면 안에 넣는 걸 막아 뒀어요 — 여기선 못 보여줘요. 위 [작품 열기]로 새 탭에서 확인하세요. 시연 영상은 진짜 브라우저로 찍으니 촬영에는 아무 영향 없어요. | This site refuses to be shown inside another page, so we can't render it here. Use [Open work] above to see it in a new tab. The demo film is shot in a real browser, so recording is unaffected. | ⚠️ 촬영에는 영향 없다는 안심 문구가 핵심 |
+| projects.reviewEmbedUnreachable | 지금 이 주소에 연결하지 못했어요. 주소가 맞는지, 사이트가 살아 있는지 확인해 주세요. | Couldn't reach this URL right now. Check that the address is right and the site is up. | |
+| rerecord.currentScriptHint | 지금 영상은 아래 대본대로 찍혔어요. 몇 번째 스텝이 마음에 안 드는지 같이 적어 주면 훨씬 정확해져요. | This film was shot from the script below. Pointing at the step you didn't like makes the fix far more precise. | 재촬영 요청 화면에 현재 대본을 같이 보여주면서 |

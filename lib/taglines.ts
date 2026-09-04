@@ -3,6 +3,16 @@
  * {N} 토큰은 실제 사용자 수로 치환됨.
  */
 export const taglines: string[] = [
+  // 소개 — 처음 보는 사람에게 "여기가 뭘 해주는 곳인지"
+  "작품 주소만 주면 시연 영상까지 자동으로",
+  "스크린샷 대신 움직이는 화면을 보여주는 포트폴리오",
+  "방문자가 직접 만져보는 라이브 포트폴리오",
+  "AI에게 한 줄만 시키면 작품이 올라간다",
+  "GitHub 주소 대신 건네는 작품 링크",
+  "시연 영상은 자동으로, 자랑은 직접",
+  "코드를 열어보지 않아도 전해지는 작업",
+  "만든 걸 보여주는 데 필요한 건 링크 하나",
+
   // 기존 카피 (변주)
   "AI로 만든 결과물, 이제 보여줄 차례",
   "링크 하나로 바이브코딩을 전시",
@@ -96,6 +106,16 @@ export const taglines: string[] = [
  * 규칙은 한국어 풀과 동일: 종결부호 없음, {N}은 사용자 수 치환.
  */
 export const taglinesEn: string[] = [
+  // 소개 — 처음 보는 사람에게 "여기가 뭘 해주는 곳인지"
+  "Send the URL — the demo video records itself",
+  "A portfolio that moves, instead of screenshots",
+  "A live portfolio visitors can actually touch",
+  "Ask your AI once, and your work is up",
+  "The link you send instead of a GitHub URL",
+  "The demo films itself. The bragging is yours",
+  "Your work lands without anyone opening the code",
+  "All it takes to show your work is one link",
+
   // 기존 카피 (변주)
   "The AI built it. You take the credit",
   "Show off your vibe coding with a single link",

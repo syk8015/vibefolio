@@ -122,6 +122,17 @@ export function RerecordRequestModal({
                 {t.rerecord.afterCopy}
               </p>
             )}
+            {/* 지금 걸려 있는 대본 — 읽기 전용(onChange 없음). 불만을 적는 칸보다
+                아래에 둬서 "무엇을 적을지"가 먼저 보이게 한다(2026-09-05 요청 7).
+                어느 스텝이 문제였는지 짚어야 AI가 정확히 고친다. */}
+            {project.demo_script && (
+              <div>
+                <p className="text-xs" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", lineHeight: 1.6, margin: "0 0 8px" }}>
+                  {t.rerecord.currentScriptHint}
+                </p>
+                <DemoScriptPanel script={project.demo_script} />
+              </div>
+            )}
           </>
         )}
 

@@ -110,3 +110,52 @@ export async function deleteSwappedAssets(
     });
   } catch { /* 청소 실패가 저장 흐름을 막지는 않는다 — 서버 로그에 남는다 */ }
 }
+
+// ── 팝오버 위치 계산 (2026-09-05) ────────────────────────────────────────────
+// 행 팝오버(⋯ 메뉴·촬영 배지)는 fixed + 트리거 rect 앵커다. 전에는 무조건
+// `rect.bottom + 6`으로 아래에만 띄워서, 리스트 맨 아래 행에서는 메뉴가 화면
+// 밖으로 잘리고 fixed라 페이지 스크롤로도 따라가지 못해 항목을 못 눌렀다.
+// 아래 공간이 모자라고 위가 더 넓으면 위로 뒤집고, 어느 쪽이든 남은 공간에
+// 맞춰 최대 높이를 잘라 내부 스크롤로 넘긴다.
+export type PopoverAnchor = { top: number; left: number; maxHeight: number };
+
+export function popoverAnchor(
+  rect: DOMRect,
+  {
+    width,
+    estHeight,
+    align = "left",
+    gap = 6,
+    pad = 8,
+  }: { width: number; estHeight: number; align?: "left" | "right"; gap?: number; pad?: number },
+): PopoverAnchor {
+  const below = window.innerHeight - rect.bottom - gap - pad;
+  const above = rect.top - gap - pad;
+  const flip = estHeight > below && above > below;
+  const room = flip ? above : below;
+  // 최소 높이(120)는 보장한다 — 그보다 좁으면 내부 스크롤로 읽게 두는 편이
+  // 팝오버가 1~2줄만 보이는 것보다 낫다.
+  const maxHeight = Math.max(120, Math.min(estHeight, room));
+  const rawLeft = align === "right" ? rect.right - width : rect.left;
+  return {
+    top: flip ? Math.max(pad, rect.top - gap - maxHeight) : rect.bottom + gap,
+    left: Math.max(pad, Math.min(rawLeft, window.innerWidth - width - pad)),
+    maxHeight,
+  };
+}
+
+// 업로드 시각 — 같은 작품을 여러 번 올리면 제목만으로는 구분이 안 돼서
+// 행에 날짜+분까지 보여준다(2026-09-05 사용자 요청). title 속성엔 초까지.
+export function formatUploadedAt(iso: string | null | undefined, locale: "ko" | "en") {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const tag = locale === "ko" ? "ko-KR" : "en-US";
+  return {
+    // dateStyle:"short"는 연도를 2자리로 줄여 준다("26. 9. 5. 오후 9:17").
+    // 연도를 빼면 작년 업로드와 구분이 안 되고, 렌더 중 new Date()로 올해인지
+    // 판정하면 순수하지 않은 렌더가 된다.
+    short: d.toLocaleString(tag, { dateStyle: "short", timeStyle: "short" }),
+    full: d.toLocaleString(tag, { dateStyle: "full", timeStyle: "medium" }),
+  };
+}

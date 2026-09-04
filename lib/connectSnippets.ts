@@ -22,7 +22,7 @@ export function loginCommand(token: string): string {
 // 사라지는 길이라 연결 탭에 같이 둔다. 토큰 이름은 자동 토큰처럼 센티널 —
 // 서버가 재복사 때 이전 것을 폐기해 토큰 상한(MAX_TOKENS_PER_USER)에 안 걸린다.
 export const MCP_TOKEN_NAME = "mcp-auto";
-export const MCP_TOKEN_PLACEHOLDER = "<복사 버튼을 누르면 새 토큰이 여기 자동으로 채워져요>";
+export const MCP_TOKEN_PLACEHOLDER = "<a fresh token is filled in here when you press copy>";
 
 export function mcpClaudeCodeCommand(token: string = MCP_TOKEN_PLACEHOLDER): string {
   return `claude mcp add nookframe -e NOOKFRAME_TOKEN=${token} -- npx -y nookframe mcp`;
@@ -35,19 +35,27 @@ export function mcpConfigJson(token: string = MCP_TOKEN_PLACEHOLDER): string {
   );
 }
 
+// 프롬프트 본문은 언제나 영어다(2026-09-05 사용자 확정). 같은 내용을 영어로
+// 쓰면 토큰이 절반쯤 줄고, 모델이 지시를 더 곧이곧대로 따른다. 대신 **AI가
+// 만들어내는 카피**(제목·소개글·한마디)는 그 사람의 프레임에 그대로 나가므로
+// 화면 언어를 따라야 한다 — 그 언어를 프롬프트가 못박아 준다.
+export function outputLanguageLine(locale: "ko" | "en"): string {
+  if (locale === "en") {
+    return "LANGUAGE — write every human-readable string you produce (title, description, builderNote, notes) in English.";
+  }
+  return "LANGUAGE — this owner's page is Korean, so write every human-readable string you produce (title, description, builderNote, notes) in KOREAN. Do NOT translate JSON keys, enum values (contentType, action names) or tag spellings — those stay exactly as written below.";
+}
+
 export function pastePrompt(
   origin: string,
   locale: "ko" | "en" = "ko",
   token?: string,
 ): string {
-  const tokenArg =
-    token ??
-    (locale === "en"
-      ? "<a fresh token is filled in here when you press copy>"
-      : "<복사 버튼을 누르면 새 토큰이 여기 자동으로 채워져요>");
+  const tokenArg = token ?? MCP_TOKEN_PLACEHOLDER;
   const login = loginCommand(tokenArg);
-  if (locale === "en") {
-    return `Publish this project to Nookframe (a vibe-coding portfolio).
+  return `Publish this project to Nookframe (a vibe-coding portfolio).
+
+${outputLanguageLine(locale)}
 
 You're the AI that built this project, so read the repo yourself and describe it on my behalf:
 1) If you have a shell, first run this once to save my connect token (skip if you have no shell):
@@ -79,37 +87,4 @@ You're the AI that built this project, so read the repo yourself and describe it
    If you have a screenshot or a demo video you made, add --screenshot <path> / --video <path> (image png/jpg/webp/gif ≤5MB; video mp4/webm ≤20MB — providing a video replaces the auto-recorded demo).
    If you don't have a shell: print the JSON in one \`\`\`json code block, then put this link on its own line right after it so I can click straight through: ${origin}/publish — I'll paste the JSON there.
    To revise something already pushed, publish again with the same URL — the existing draft is updated in place, no duplicates.`;
-  }
-  return `이 프로젝트를 Nookframe(바이브코딩 포트폴리오)에 올려줘.
-
-너가 이 프로젝트를 만든 AI니까, 레포를 직접 읽고 나 대신 설명해줘:
-1) 셸을 쓸 수 있으면, 먼저 아래를 한 번 실행해 내 연결 토큰을 저장해 (셸이 없으면 건너뛰어):
-   ${login}
-2) README·package.json·실제 라우트/화면·git log를 근거로 조사해. 아직 만들다 만 거면 "무엇을 만들려던 건지"도 파악해.
-3) 아래 항목을 채운 publish 페이로드(JSON)를 만들어:
-   • title — 짧고 명확한 제품 이름
-   • description — 명함 화면에서 작품 위에 겹쳐 뜨는 소개글이라 첫인상이 여기서 갈려. 한 문단으로 쓰지 말고, 줄바꿈(\\n)으로 끊은 3줄로 써. 앞 두 줄이 수식하고 마지막 줄이 정체를 밝히는 구조:
-       AI로 창작하는 사람들을 위한
-       자동으로 시연 영상까지 만들어주는
-       직접 보고 느끼는 라이브 포트폴리오
-     각 줄은 20자 안팎으로 짧게(폰에서 줄이 접히면 마지막 줄이 잘려). 명함에는 3줄까지만 보여. 한 문단으로 붙여 쓰거나 한 줄이 너무 길면 발행이 거절되고(2~3줄이어야 함), 200자를 넘어도 안 받아
-   • builderNote — (선택) 공개 카드에 말풍선으로 뜨는 짧은 한마디. 문단이 아니라 한 줄, 예: "이게 제 첫 사이드프로젝트예요!"
-   • demoScript — **필수** (유일한 예외: 직접 만든 시연 영상 "video"를 첨부하면 자동 촬영을 건너뛰므로 면제). 없이 발행하면 "대본을 써서 다시 보내라"는 에러로 거절된다. 자동 시연 로봇이 따라 찍는 촬영 대본. 이 앱은 네가 만들었으니 어떤 화면에서 뭘 눌러야 핵심이 보이는지 안다 — 로봇이 픽셀만 보고 추측하게 두지 마. 형식:
-       { "steps": [ { "goal": "이 비트가 증명하는 것", "selector": "그 컨트롤의 CSS 셀렉터 — 코드를 아는 네가 정확한 걸 줄 수 있다", "where": "눈으로 찾는 법(보이는 라벨·위치) — 셀렉터가 빗나갔을 때의 폴백", "action": "click|type|drag|scroll|hover|draw|focus", "toSelector": "(drag 전용) 놓을 곳의 CSS 셀렉터", "text": "type일 때 입력할 내용", "expect": "하고 나면 화면에 나타나야 하는 것", "hold": 2 } ],
-         "skip": ["모든 앱에 다 있어서 비트가 아까운 것들 — 예: 다크 모드·언어 토글"],
-         "prep": "(선택) 투어 전 준비 한 줄" }
-     이 대본이 곧 영상 전체다 — 로봇은 딱 이 스텝들만 찍고 끝내니, 보여줄 가치가 있는 기능을 빠짐없이 담아라: 5~8스텝이 적정(최소 4, 최대 10). 순서=중요도이고 필름은 ~30초라 뒤부터 잘리니 1번이 "절대 빠지면 안 되는 기능". "hold"(초, 0.5~4)를 주면 그 스텝의 결과를 그만큼 오래 보여준다 — 천천히 봐야 하는 비트에 써라. 스텝마다 action과 selector(코드를 모르면 where)를 반드시 같이 넣어라 — goal만 적힌 줄은 대본이 아니라 목차라서, 그런 스텝뿐이면 발행이 거절돼(최소 3스텝이 이 조건을 채워야 함). 로봇은 각 스텝을 실제 화면에서 확인하고 못 찾으면 건너뛰며, 대본에 있어도 로그인/제출/삭제/파일선택은 절대 안 누른다. 가장 중요한 건 셀렉터다: 모든 스텝에 selector가 있으면(드래그는 toSelector까지) 로봇이 화면을 읽는 비전 단계를 통째로 건너뛰고 DOM에서 직접 조립한다 — 더 빠르고, 더 싸고, 프레이밍이 픽셀 단위로 정확해진다. 이 앱은 네가 만들었으니 전 스텝에 진짜 셀렉터를 줘라. 라이브 화면에서 셀렉터가 하나라도 빗나가면 로봇이 화면을 눈으로 읽는 방식으로 폴백한다. action "focus"는 강조 장치다: 그 영역을 조작하지 않고 필름 카메라가 확대해서 보여준다 — 재생 중인 영상·결과 패널처럼 "여길 자세히 봐야 한다"는 비트에 써라
-   • tags — 이 작업에 쓴 AI 툴. 아래 목록에서 철자 그대로 골라줘(다른 이름은 조용히 버려짐): ChatGPT, Claude Code, Cursor, GitHub Copilot, Gemini, v0, Bolt.new, Windsurf, Lovable, Replit AI, Devin, Aider, Continue.dev, Codeium, Amazon Q, Perplexity, Midjourney, DALL-E, Stable Diffusion, Ideogram, Flux, Runway, Kling, Pika, Suno, ElevenLabs
-   • contentType — web-app | saas | mobile | game | extension | ai-service | media | other 중 하나
-   • deployUrl — 배포된 공개 URL (vercel/netlify 등). 미배포면: 우선 파일 업로드를 써 — 웹앱은 정적 빌드 산출물, 파이썬·CLI 프로젝트는 소스 폴더 그대로 올리면 돼(코드를 공개하지 않아도 됨). 그걸로 안 되는 앱(서버·DB 필요)이면 공개 GitHub 저장소 URL을 대신 줘도 돼 — clone 후 자동 실행하는 최후 수단이야(JS 리포는 npm run dev/start, 파이썬 웹앱은 Streamlit·Gradio·Dash·Django·Flask·FastAPI를 감지해 pip install 후 실행(Django는 migrate도 대신 돌려줌). Flutter·Expo·React Native로 만든 폰 앱은 웹 타깃을 대신 빌드해(flutter build web / expo export --platform web) 브라우저에서 진짜로 도는 앱을 촬영해 — 스크린샷 말고 소스를 줘. 웹 화면이 아예 없는 프로젝트(CLI 도구·봇·백엔드)는 라이브 터미널을 띄워 로봇이 명령어를 쳐 보는 영상으로 촬영돼 — 이 경우 demoScript에 정확한 명령어를 적어주면 영상이 훨씬 좋아져. 비공개 저장소는 실패, 원격 DB 쓰는 앱은 읽기전용 데모로 나옴). 웹 타깃이 아예 없는 네이티브 앱(Swift·SwiftUI, Kotlin·Compose, Electron 전용, Unity)은 로봇이 못 찍어 — 이런 건 직접 만든 시연 영상(\"video\")을 첨부해(자동 촬영을 건너뜀)
-   • appUrl — 랜딩과 실제 앱 화면 주소가 다르면(예: / 는 소개, /app 이 진짜 앱), 시연·임베드가 열어야 할 앱 URL. 둘 중 뭘 찍어야 할지 확실하지 않으면 appUrl과 deployUrl을 둘 다 줘 — 촬영 직전에 로봇이 두 화면을 각각 열어보고 실제로 제품이 보이는 쪽을 고른다(로그인 전엔 비어 있는 앱 화면은 제대로 된 랜딩에 진다). 시연 촬영과 명함의 [작품 열기] 링크는 어느 쪽이든 appUrl을 쓴다
-   • demoAccess — 필수야. 이 답 하나가 영상에 뭐라도 담기는지를 결정해. 시연 로봇은 절대 로그인하지 않아. 그러니 "로그인 안 해도 화면이 보이나?"만 묻지 말고 "로그인 전에 뭐가 실제로 **작동하나**?"를 물어봐. 대부분의 앱은 로그아웃 상태에서 멀쩡해 보이지만 아무 일도 안 일어나: 목록이 비어 있고, 저장을 누르면 로그인 페이지로 튕기고, 대시보드는 껍데기야. 시연이 쓸모없어지는 가장 흔한 경로가 정확히 이거고, 화면은 떴으니 실패로 잡히지도 않아. 아래 셋 중 **딱 하나**로 답해:
-     – 로그인 없이 들어갈 길이 있으면 → { "url": "/demo", "params": {"guest":"1"}, "note": "거기서 데모 모드를 보는 법" }. 포기하기 전에 제대로 찾아봐: 데모·게스트·프리뷰 라우트, 매직링크 경로 뒤의 읽기전용 시드 계정, ?demo=1 플래그, 공개 샘플 프로젝트 URL. 정말 없으면 지금 하나 만드는 게 이 영상을 위해 할 수 있는 가장 값진 일이야 — 가짜 데이터를 심고 인증을 건너뛰는 작은 "/demo" 라우트는 보통 몇 줄이면 돼
-     – 로그인이 정말 아예 필요 없고 첫 화면부터 전 기능이 눌리면 → { "noLogin": true, "note": "확인한 근거 한 줄 — 예: middleware·첫 화면에 인증 가드 없음, 목록은 시드 데이터로 채워짐" }. 랜딩이 멀쩡해 보인다고 쓰지 말고 실제 라우트·가드를 열어 확인한 뒤에만 선언해 — note 없이 noLogin만 보내면 거절돼
-     – 게스트 경로가 원천 불가능하면(E2E 암호화·기기 페어링·실결제 등) → { "impossible": true, "note": "이유" }(note 없으면 거절). 이러면 랜딩만 찍히니 직접 만든 "video"도 같이 첨부해
-     계정 아이디·비번은 절대 넣지 마 — 받지 않아. 위 셋 중 하나가 없으면 발행 자체가 거절돼
-4) 셸을 쓸 수 있으면: ${NPX_PUBLISH} --json '<위 JSON>' 을 실행해 (토큰은 1)에서 저장했어).
-   직접 찍은 스크린샷·시연 영상 파일이 있으면 --screenshot <경로> / --video <경로> 를 붙여 (이미지 png/jpg/webp/gif ≤5MB, 영상 mp4/webm ≤20MB — 영상을 주면 자동 촬영 대신 그 영상이 쓰여).
-   셸이 없으면: 위 JSON을 \`\`\`json 코드블록 하나로 출력하고, 바로 다음 줄에 이 링크를 그대로 적어줘(내가 눌러서 바로 가게): ${origin}/publish — 거기에 붙여넣을게.
-   이미 올린 걸 고치고 싶으면 같은 URL로 publish를 다시 실행해 — 새 초안이 생기지 않고 기존 초안이 갱신돼.`;
 }

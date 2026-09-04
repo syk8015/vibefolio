@@ -1,3 +1,5 @@
+import { outputLanguageLine } from "@/lib/connectSnippets";
+
 // /publish 되돌려보내기 루프 (2026-08-28).
 //
 // 왜 필요한가: 인제스트는 저장 전에 여러 게이트로 되돌려보낸다(대본 3스텝·로그인
@@ -23,28 +25,20 @@ export function buildPublishFixPrompt(
 ): string {
   const json =
     submittedJson.length > PUBLISH_FIX_JSON_MAX
-      ? `${submittedJson.slice(0, PUBLISH_FIX_JSON_MAX)}\n… (너무 길어 잘림)`
+      ? `${submittedJson.slice(0, PUBLISH_FIX_JSON_MAX)}\n… (truncated — too long)`
       : submittedJson;
 
-  if (locale === "en") {
-    return `The JSON below was rejected when I tried to publish it to Nookframe. Read the reason, fix the JSON, and give me the corrected version.
+  // 본문은 영어 하나(2026-09-05). 거절 사유(reason)는 화면 언어 그대로 실린다 —
+  // AI가 그걸 읽고 고치는 데는 문제가 없고, 사람이 같은 문장을 화면에서 봤다.
+  return `The JSON below was rejected when I tried to publish it to Nookframe. Read the reason, fix the JSON, and give me the corrected version.
 
 Reply with the complete JSON object only — no explanation, no code fence, nothing else. Keep everything that was already fine; change only what the reason asks for.
+
+${outputLanguageLine(locale)}
 
 --- why it was rejected ---
 ${reason}
 
 --- the JSON I sent ---
-${json}`;
-  }
-
-  return `아래 JSON을 Nookframe에 올리려다 거절당했어. 거절 사유를 읽고 JSON을 고쳐서 다시 줘.
-
-고친 JSON 객체 **전체만** 답해줘 — 설명도, 코드펜스도 붙이지 마. 멀쩡한 항목은 그대로 두고, 사유가 지적한 것만 바꿔.
-
---- 거절 사유 ---
-${reason}
-
---- 내가 보낸 JSON ---
 ${json}`;
 }

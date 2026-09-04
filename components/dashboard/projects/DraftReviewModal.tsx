@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { toPreviewUrl } from "@/lib/previewOrigin";
+import { detectVideoKind, getYouTubeEmbedUrl, getVimeoEmbedUrl } from "@/lib/video";
 import { CONTENT_TYPES } from "@/lib/projectTaxonomy";
 import { isStepWired } from "@/lib/demoScript";
 import { descriptionShapeIssue, descriptionTooLong, lineCols, DESCRIPTION_LINE_COLS_MAX } from "@/lib/descriptionShape";
@@ -36,17 +37,57 @@ export function DraftReviewModal({ draft, onClose, onPublish, onEdit, onDelete, 
 }) {
   const { t, locale } = useT();
   const isFile = draft.demo_url.startsWith("/api/preview/");
-  // 파일 업로드는 샌드박스 오리진으로, 외부 URL은 그대로 임베드 시도.
+  // 파일 업로드는 샌드박스 오리진(우리가 frame-ancestors를 쥐고 있어 항상 뜬다).
   // 실행형 코드 zip(비HTML 앵커, 2026-08-20)은 미리보기가 소스 원문이라 임베드 안 함.
   const isEmbeddableFile = isFile && /\.html?$/i.test(draft.demo_url.split(/[?#]/)[0]);
-  const previewSrc = isFile
-    ? (isEmbeddableFile ? toPreviewUrl(draft.demo_url) : undefined)
-    : /^https?:\/\//.test(draft.demo_url) ? draft.demo_url : undefined;
-  // 인제스트 수동 영상은 스토리지 직링크(mp4/webm) — <video>로 바로 튼다.
-  // youtube 등 페이지 URL이면 video 태그가 못 여니 iframe 미리보기로 폴백.
-  const directVideo = /\.(mp4|webm|mov)(\?|$)/i.test(draft.video_url) ? draft.video_url : undefined;
+  const fileSrc = isEmbeddableFile ? toPreviewUrl(draft.demo_url) : undefined;
+  // 외부 URL은 **그 사이트가 허락해야** 임베드된다 — 아래 embed-check로 물어본다.
+  const externalSrc = !isFile && /^https?:\/\//.test(draft.demo_url) ? draft.demo_url : undefined;
+  // "작품 열기" 링크는 막혀 있어도 새 탭에서는 열린다 — 판정과 무관하게 준다.
+  const previewSrc = fileSrc ?? externalSrc;
+  // 제작자가 직접 준 시연 영상: 직링크(mp4/webm)는 <video>, 유튜브·비메오는
+  // 플레이어 임베드(전엔 watch 주소를 iframe에 그대로 꽂아 거부 화면이 떴다).
+  const videoKind = draft.video_url ? detectVideoKind(draft.video_url) : "unknown";
+  const directVideo = videoKind === "direct" ? draft.video_url : undefined;
+  const videoEmbed =
+    videoKind === "youtube" ? getYouTubeEmbedUrl(draft.video_url)
+    : videoKind === "vimeo" ? getVimeoEmbedUrl(draft.video_url)
+    : null;
   const ct = CONTENT_TYPES.find((c) => c.id === draft.content_type);
   const ctLabel = ct ? (t.contentTypes as Record<string, string>)[ct.id] ?? ct.label : null;
+
+  // ── 외부 URL 임베드 가능 여부 ───────────────────────────────────────────
+  // 남의 사이트는 X-Frame-Options·CSP frame-ancestors로 임베드를 막을 수 있고,
+  // 그걸 모르고 iframe을 꽂으면 화면엔 브라우저의 "연결을 거부했습니다"만 남는다
+  // (2026-09-05 사용자 접수). 그리기 전에 서버에 물어보고, 막혀 있으면 썸네일과
+  // 안내로 바꿔 그린다. 업로드 파일·영상 임베드는 물어볼 필요가 없다.
+  type EmbedState = "checking" | "ok" | "blocked" | "unreachable";
+  // 초기값을 렌더 시점에 계산한다 — effect 안에서 "checking"으로 되돌리면
+  // 캐스케이드 렌더가 된다. 모달은 초안마다 새 인스턴스로 열리므로(호출부의
+  // key={draft.id}) 이 초기값은 항상 그 초안 기준이다.
+  const needsEmbedCheck = !!externalSrc && !directVideo && !videoEmbed && !fileSrc;
+  const [embedState, setEmbedState] = useState<EmbedState>(needsEmbedCheck ? "checking" : "ok");
+
+  useEffect(() => {
+    if (!needsEmbedCheck) return;
+    let cancelled = false;
+    fetch("/api/embed-check", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url: externalSrc }),
+    })
+      .then((r) => r.json())
+      .then((body) => {
+        if (cancelled) return;
+        setEmbedState(body?.embeddable ? "ok" : body?.reason === "blocked" ? "blocked" : "unreachable");
+      })
+      .catch(() => {
+        // 확인 자체가 실패하면 일단 그려 본다 — 뜨면 다행이고, 안 뜨면 기존
+        // 힌트 문구가 남는다(확인 실패를 사이트 탓으로 몰지 않는다).
+        if (!cancelled) setEmbedState("ok");
+      });
+    return () => { cancelled = true; };
+  }, [needsEmbedCheck, externalSrc]);
 
   // ── 인라인 편집 ─────────────────────────────────────────────────────────
   type Field = "title" | "description" | "comment";
@@ -385,9 +426,33 @@ export function DraftReviewModal({ draft, onClose, onPublish, onEdit, onDelete, 
                 <video src={directVideo} controls playsInline
                   className="absolute inset-0 w-full h-full"
                   style={{ objectFit: "contain", background: "#000" }} />
-              ) : previewSrc ? (
+              ) : videoEmbed ? (
                 <iframe
-                  src={previewSrc}
+                  src={videoEmbed}
+                  title={draft.title || t.projects.untitled}
+                  className="absolute inset-0 w-full h-full"
+                  style={{ border: "none" }}
+                  allow="autoplay; encrypted-media; picture-in-picture"
+                  allowFullScreen
+                />
+              ) : fileSrc ? (
+                <iframe
+                  src={fileSrc}
+                  title={draft.title || t.projects.untitled}
+                  className="absolute inset-0 w-full h-full"
+                  style={{ border: "none" }}
+                  sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+                />
+              ) : externalSrc && embedState === "checking" ? (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
+                  <span className="vf-spinner" style={{ width: "1.1rem", height: "1.1rem" }} />
+                  <p className="text-xs" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
+                    {t.projects.reviewEmbedChecking}
+                  </p>
+                </div>
+              ) : externalSrc && embedState === "ok" ? (
+                <iframe
+                  src={externalSrc}
                   title={draft.title || t.projects.untitled}
                   className="absolute inset-0 w-full h-full"
                   style={{ border: "none" }}
@@ -404,9 +469,13 @@ export function DraftReviewModal({ draft, onClose, onPublish, onEdit, onDelete, 
                 </div>
               )}
             </div>
-            {previewSrc && !isFile && !directVideo && (
-              <p className="text-xs mt-1.5" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
-                {t.projects.reviewEmbedTip}
+            {externalSrc && !directVideo && !videoEmbed && embedState !== "checking" && (
+              <p className="text-xs mt-1.5" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", lineHeight: 1.6 }}>
+                {embedState === "blocked"
+                  ? t.projects.reviewEmbedBlocked
+                  : embedState === "unreachable"
+                    ? t.projects.reviewEmbedUnreachable
+                    : t.projects.reviewEmbedTip}
               </p>
             )}
           </div>

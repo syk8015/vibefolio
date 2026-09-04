@@ -149,15 +149,37 @@ export default function ConnectPanel() {
         onClick={copyPromptWithToken}
         disabled={copying}
         className="vf-button-primary"
-        style={{ fontSize: "0.95rem", padding: "0.85rem 2.2rem", opacity: copying ? 0.6 : 1 }}
+        style={{
+          fontSize: "0.95rem", padding: "0.85rem 2.2rem", opacity: copying ? 0.6 : 1,
+          // 복사됐다는 걸 버튼 스스로 말하게 한다(2026-09-05 사용자 지적) —
+          // 라벨이 ✓로 바뀌고 살짝 커진다. 아래 작은 문구만으로는 눌린 티가 안 났다.
+          transform: copiedOnce ? "scale(1.05)" : "scale(1)",
+          transition: "transform 0.22s cubic-bezier(0.34, 1.4, 0.64, 1)",
+        }}
       >
-        {copying ? t.connect.copying : t.connect.copyPrompt}
+        {copying ? t.connect.copying : copiedOnce ? t.connect.copiedButton : t.connect.copyPrompt}
       </button>
 
+      {/* 복사 후 = AI가 올려주기를 기다리는 시간. 초안이 도착하면 ProjectsTab이
+          이 모달을 닫고 검토 화면을 연다(useDraftArrival) — 그때까지의 안내. */}
       {copiedOnce && (
-        <p className="text-xs mt-3" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", lineHeight: 1.6 }}>
-          {t.connect.copiedNote}
-        </p>
+        <div
+          className="mt-4 w-full rounded-2xl px-4 py-3.5 flex items-start gap-3 text-left"
+          style={{ background: "var(--surface-soft)" }}
+        >
+          <span className="vf-spinner shrink-0" style={{ width: "0.9rem", height: "0.9rem", marginTop: 2 }} />
+          <div className="min-w-0">
+            <p className="text-xs" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontWeight: 600, margin: 0 }}>
+              {t.connect.waitingTitle}
+            </p>
+            <p className="text-xs" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", lineHeight: 1.6, margin: "4px 0 0" }}>
+              {t.connect.waitingBody}
+            </p>
+            <p className="text-xs" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", lineHeight: 1.6, margin: "4px 0 0" }}>
+              {t.connect.copiedNote}
+            </p>
+          </div>
+        </div>
       )}
       {error && (
         <p className="text-xs mt-3" style={{ color: "var(--danger)", fontFamily: "var(--font-nunito)" }}>{error}</p>

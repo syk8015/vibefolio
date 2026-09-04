@@ -6,6 +6,7 @@ import { spawnSync } from "node:child_process";
 
 const PROBES = [
   "scripts/probe-script-review-unit.mts",   // lib/demoScriptReview 대본 점검표
+  "scripts/probe-embeddable-unit.mts",      // lib/embeddable 임베드 헤더 판정
   "local-runner/probe-focus-coalesce.ts",   // 스크롤 병합·focus 카메라 산식
   "local-runner/probe-zoomexpr.ts",         // zoompan 식 가드
   "scripts/test-zoom-filter-local.mts",     // 로컬 카메라 ffmpeg 체인

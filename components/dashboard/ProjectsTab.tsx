@@ -15,6 +15,7 @@ import { ProjectFormModal } from "./projects/ProjectFormModal";
 import { AddProjectModal } from "./projects/AddProjectModal";
 import { DraftReviewModal, type DraftPatch } from "./projects/DraftReviewModal";
 import { useDemoStatusSync } from "./projects/useDemoStatusSync";
+import { useDraftArrival } from "./projects/useDraftArrival";
 
 // username comes from DashboardClient's profiles row (the handle public links
 // actually resolve) — deriving it here from auth metadata could hand ShareKit
@@ -36,6 +37,24 @@ export default function ProjectsTab({ user, username, reviewProjectId }: { user:
   const [notice, setNotice] = useState<string | null>(null);
   // 촬영 상태 배지의 realtime 구독 + 폴백 폴링 (projects/useDemoStatusSync.ts).
   const { demoPaused, nowMs } = useDemoStatusSync(user.id, projects, drafts, setProjects, setDrafts);
+
+  // AI가 초안을 올리는 순간(INSERT) 목록에 바로 꽂는다. 연결 모달이 열려 있었다면
+  // — 즉 사용자가 프롬프트를 복사하고 AI 응답을 기다리고 있었다면 — 모달을 닫고
+  // 그 초안의 검토 화면으로 데려간다(2026-09-05 요청 6: 수동 이동 + 새로고침 제거).
+  useDraftArrival(user.id, {
+    active: showAddModal,
+    onArrive: (draft) => {
+      if (drafts.some((d) => d.id === draft.id)) return;
+      setDrafts((prev) => (prev.some((d) => d.id === draft.id) ? prev : [draft, ...prev]));
+      if (showAddModal) {
+        setShowAddModal(false);
+        setReviewDraft(draft);
+      } else {
+        // 모달이 닫힌 채로 도착하면 화면을 가로채지 않고 토스트로만 알린다.
+        setNotice(t.projects.draftArrived(draft.title || t.projects.untitled));
+      }
+    },
+  });
 
   async function loadProjects() {
     const supabase = createClient();
@@ -413,6 +432,9 @@ export default function ProjectsTab({ user, username, reviewProjectId }: { user:
       {/* 초안 검토 — 행 클릭/메일 딥링크로 진입, AI가 쓴 전체 내용+미리보기 확인. */}
       {reviewDraft && (
         <DraftReviewModal
+          // 초안마다 새 인스턴스 — 미리보기 임베드 판정이 초안별 초기값이라,
+          // 인스턴스가 재사용되면 앞 초안의 판정이 잠깐 남는다.
+          key={reviewDraft.id}
           draft={reviewDraft}
           onClose={() => setReviewDraft(null)}
           onPublish={() => { const d = reviewDraft; setReviewDraft(null); handlePublishDraft(d); }}

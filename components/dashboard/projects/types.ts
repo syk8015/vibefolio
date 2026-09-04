@@ -31,6 +31,9 @@ export const AI_TOOLS_INITIAL = 5;
 
 export interface DBProject {
   id: string;
+  // 업로드 시각(DB default now()). 같은 작품을 여러 번 올리면 제목이 똑같아
+  // 행에서 구분이 안 된다 — 목록이 날짜+시:분으로 보여준다(2026-09-05).
+  created_at: string;
   title: string;
   description: string;
   type: "image" | "video";
@@ -73,6 +76,7 @@ export interface DBProject {
 export type ProjectForm = Omit<
   DBProject,
   | "id"
+  | "created_at"
   | "sort_order"
   | "is_featured"
   | "is_draft"

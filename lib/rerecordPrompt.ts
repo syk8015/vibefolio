@@ -1,5 +1,5 @@
 import type { DemoScript } from "@/lib/demoScript";
-import { loginCommand } from "@/lib/connectSnippets";
+import { loginCommand, outputLanguageLine } from "@/lib/connectSnippets";
 
 // 재촬영 프롬프트 (2026-08-25 사용자 확정 설계).
 //
@@ -31,35 +31,23 @@ export interface RerecordContext {
 const SHAPE = `{
   "steps": [
     {
-      "goal": "이 비트가 증명하는 것 (120자 이내)",
-      "selector": "그 컨트롤의 CSS 셀렉터 — 코드를 아는 네가 정확한 걸 줘라",
-      "toSelector": "(action=drag일 때) 놓을 곳의 CSS 셀렉터",
-      "where": "눈으로 찾는 법(보이는 라벨·위치) — 셀렉터가 빗나갔을 때의 폴백",
+      "goal": "what this beat proves (max 120 chars)",
+      "selector": "the control's CSS selector — you know the code, give the exact one",
+      "toSelector": "(action=drag) CSS selector of the drop target",
+      "where": "how to find it by eye (visible label/position) — the fallback when a selector misses",
       "action": "click | type | drag | scroll | hover | draw | focus",
-      "text": "(action=type) 입력할 내용",
-      "expect": "하고 나면 화면에 나타나야 하는 것",
+      "text": "(action=type) what to type",
+      "expect": "what the screen should show right after",
       "hold": 2
     }
   ],
-  "skip": ["모든 앱에 다 있어서 비트가 아까운 것들 — 예: 다크 모드 토글"],
-  "prep": "(선택) 투어 전 준비 한 줄"
+  "skip": ["things NOT worth a beat because every app has them — e.g. a dark-mode toggle"],
+  "prep": "(optional) one setup line before the tour"
 }`;
 
-const SHAPE_EN = SHAPE
-  .replace('"이 비트가 증명하는 것 (120자 이내)"', '"what this beat proves (max 120 chars)"')
-  .replace('"그 컨트롤의 CSS 셀렉터 — 코드를 아는 네가 정확한 걸 줘라"', '"the control\'s CSS selector — you know the code, give the exact one"')
-  .replace('"(action=drag일 때) 놓을 곳의 CSS 셀렉터"', '"(action=drag) CSS selector of the drop target"')
-  .replace('"눈으로 찾는 법(보이는 라벨·위치) — 셀렉터가 빗나갔을 때의 폴백"', '"how to find it by eye (visible label/position) — the fallback when a selector misses"')
-  .replace('"(action=type) 입력할 내용"', '"(action=type) what to type"')
-  .replace('"하고 나면 화면에 나타나야 하는 것"', '"what the screen should show right after"')
-  .replace('"모든 앱에 다 있어서 비트가 아까운 것들 — 예: 다크 모드 토글"', '"things NOT worth a beat because every app has them — e.g. a dark-mode toggle"')
-  .replace('"(선택) 투어 전 준비 한 줄"', '"(optional) one setup line before the tour"');
-
-function facts(c: RerecordContext, locale: "ko" | "en"): string {
-  const none = locale === "en" ? "(none)" : "(없음)";
-  const L = locale === "en"
-    ? { id: "Project id (you need it to submit)", title: "Title", desc: "Description", url: "URL the robot opens", kind: "Category", tools: "Built with", access: "How to view without logging in (demoAccess)" }
-    : { id: "프로젝트 id (제출할 때 필요)", title: "제목", desc: "설명", url: "로봇이 여는 주소", kind: "분류", tools: "만든 도구", access: "로그인 없이 보는 법(demoAccess)" };
+function facts(c: RerecordContext): string {
+  const none = "(none)";
+  const L = { id: "Project id (you need it to submit)", title: "Title", desc: "Description", url: "URL the robot opens", kind: "Category", tools: "Built with", access: "How to view without logging in (demoAccess)" };
   const lines = [
     `- ${L.id}: ${c.projectId}`,
     `- ${L.title}: ${c.title || none}`,
@@ -77,18 +65,17 @@ export function rerecordPrompt(
   locale: "ko" | "en" = "ko",
   token?: string,
 ): string {
-  const tokenArg =
-    token ??
-    (locale === "en"
-      ? "<a fresh token is filled in here when you press copy>"
-      : "<복사 버튼을 누르면 새 토큰이 여기 자동으로 채워져요>");
+  const tokenArg = token ?? "<a fresh token is filled in here when you press copy>";
   const current = c.currentScript
     ? JSON.stringify(c.currentScript, null, 2)
-    : (locale === "en" ? "(none — this film was shot without a script)" : "(없음 — 이 영상은 대본 없이 찍혔다)");
+    : "(none — this film was shot without a script)";
   const submitUrl = `${origin.replace(/\/$/, "")}/api/ingest/rerecord/${c.projectId}`;
 
-  if (locale === "en") {
-    return `Rewrite the filming script for a Nookframe auto-demo. You built this project; the owner watched the current film and told us what to fix.
+  // 본문은 영어 하나(2026-09-05). 대본의 goal/expect는 소유자가 검토 화면에서
+  // 눈으로 읽는 문장이라, 그 언어만 outputLanguageLine이 정해 준다.
+  return `Rewrite the filming script for a Nookframe auto-demo. You built this project; the owner watched the current film and told us what to fix.
+
+${outputLanguageLine(locale)}
 
 WHAT WENT WRONG (the owner's own words — this is the whole point of the job):
 """
@@ -96,7 +83,7 @@ ${c.note}
 """
 
 THE PROJECT
-${facts(c, "en")}
+${facts(c)}
 
 THE SCRIPT THAT PRODUCED THE CURRENT FILM (fix THIS — keep what works, change what the owner complained about):
 \`\`\`json
@@ -126,49 +113,6 @@ HOW TO SUBMIT — pick whichever fits you (this replaces nothing until the owner
 Then tell the owner what you changed AND that nothing is re-recorded yet — they have to open Nookframe and press re-record.
 
 Script shape:
-\`\`\`json
-${SHAPE_EN}
-\`\`\``;
-  }
-
-  return `Nookframe 자동 시연 영상의 촬영 대본을 다시 써라. 이 작품은 네가 만들었고, 주인이 지금 영상을 보고 고칠 점을 말했다.
-
-무엇이 마음에 안 드는지 (주인이 직접 쓴 말 — 이 일의 전부다):
-"""
-${c.note}
-"""
-
-작품 정보
-${facts(c, "ko")}
-
-지금 영상을 만든 대본 (이걸 고쳐라 — 멀쩡한 건 두고, 지적된 것만 바꿔라):
-\`\`\`json
-${current}
-\`\`\`
-
-규칙 (로봇은 대본을 글자 그대로 따른다)
-- 이 대본이 곧 영상이다: 로봇은 딱 이 스텝들만, 이 순서로 찍고 끝낸다.
-- 최소 4스텝, 5~8스텝이 적정, 최대 10. 순서=중요도이고 필름은 ~30초라 뒤부터 잘린다.
-- 스텝마다 "action"과 "selector"(모르면 "where")를 반드시 같이 넣어라 — goal만 있는 스텝은 거절되고, 최소 3스텝이 이 조건을 채워야 한다.
-- 모든 스텝에 진짜 CSS "selector"를 줘라 — 전 스텝에 있으면(드래그는 toSelector, 입력은 text까지) 로봇이 화면을 읽는 비전 단계를 건너뛰고 DOM에서 직접 조립한다: 더 빠르고, 더 싸고, 프레이밍이 정확하다. "where"는 폴백일 뿐이다.
-- "hold"(0.5~4초)는 그 스텝 결과를 오래 보여주고, "focus"는 조작 없이 그 영역을 확대한다.
-- 로봇은 로그인·제출·삭제·파일선택을 절대 하지 않는다 — 시키지 마라.
-- 가능하면 실제 페이지를 다시 확인해라. 사라진 셀렉터가 비트가 통째로 빠지는 가장 흔한 이유다.
-
-제출 방법 — 셋 중 편한 걸로 (제출한다고 바로 바뀌지 않는다: 주인이 대시보드에서 확인하고 재촬영을 눌러야 반영된다)
-- Nookframe MCP 서버가 있으면: "rerecord_nookframe_demo" 툴을 이렇게 호출해라 —
-  { "id": "${c.projectId}", "demoScript": <네가 쓴 대본>, "note": "무엇을 왜 바꿨는지 한 줄" }
-- 셸이 있으면: 토큰을 한 번 저장하고 제출해라 —
-   ${loginCommand(tokenArg)}
-   npx nookframe@latest rerecord ${c.projectId} --json '{"demoScript": <네가 쓴 대본>, "note": "무엇을 왜 바꿨는지"}'
-- 둘 다 없으면 HTTP로 직접:
-   curl -X POST ${submitUrl} \\
-     -H "Authorization: Bearer ${tokenArg}" \\
-     -H "Content-Type: application/json" \\
-     -d '{"demoScript": <네가 쓴 대본>, "note": "무엇을 왜 바꿨는지 한 줄"}'
-제출한 뒤에는 무엇을 바꿨는지, 그리고 **아직 재촬영이 시작된 게 아니라는 것**을 주인에게 말해라 — 주인이 Nookframe에서 확인하고 재촬영을 눌러야 시작된다.
-
-대본 형식:
 \`\`\`json
 ${SHAPE}
 \`\`\``;

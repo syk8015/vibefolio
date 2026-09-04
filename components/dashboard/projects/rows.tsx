@@ -4,7 +4,7 @@ import ShareKit from "@/components/dashboard/ShareKit";
 import { parseDemoFailure } from "@/lib/demo-failure";
 import { placeholderThumbnail } from "@/lib/placeholder";
 import { CONTENT_TYPES } from "@/lib/projectTaxonomy";
-import { AiToolLogo, isUploadedProject } from "./helpers";
+import { AiToolLogo, isUploadedProject, popoverAnchor, formatUploadedAt, type PopoverAnchor } from "./helpers";
 import { type DBProject, type DemoBuildStatus, DEMO_IN_FLIGHT, DEMO_SLOW_MS } from "./types";
 import { useT } from "@/lib/i18n/client";
 
@@ -33,7 +33,7 @@ function DemoBuildBadge({
   const { t, locale } = useT();
   // 팝오버는 fixed + 버튼 rect 앵커 — 리스트 카드(vf-card overflow-hidden)가
   // absolute 팝오버를 클리핑하는 것을 실측으로 확인(2026-07-13), fixed로 탈출.
-  const [anchor, setAnchor] = useState<{ top: number; left: number } | null>(null);
+  const [anchor, setAnchor] = useState<PopoverAnchor | null>(null);
   if (!status || status === "done") return null;
 
   const DEMO_PHASE_LABEL: Record<Exclude<DemoBuildStatus, "done" | "failed" | "held">, string> = {
@@ -51,10 +51,7 @@ function DemoBuildBadge({
         <button
           onClick={e => {
             const r = e.currentTarget.getBoundingClientRect();
-            setAnchor(a => (a ? null : {
-              top: r.bottom + 6,
-              left: Math.max(8, Math.min(r.left, window.innerWidth - 264 - 8)),
-            }));
+            setAnchor(a => (a ? null : popoverAnchor(r, { width: 264, estHeight: 260 })));
           }}
           className="px-2 py-0.5 rounded-full text-xs"
           style={{
@@ -80,11 +77,11 @@ function DemoBuildBadge({
                 left: anchor.left,
                 zIndex: 50,
                 width: 264,
-                maxHeight: `calc(100vh - ${anchor.top}px - 12px)`,
+                maxHeight: anchor.maxHeight,
                 overflowY: "auto",
                 padding: "0.9rem 1rem",
                 background: "var(--surface)",
-                boxShadow: "0 12px 32px rgba(0, 0, 0, 0.16)",
+                boxShadow: "var(--shadow-card-small)",
                 textAlign: "left",
               }}
             >
@@ -194,10 +191,7 @@ function DemoBuildBadge({
         type="button"
         onClick={e => {
           const r = e.currentTarget.getBoundingClientRect();
-          setAnchor(a => (a ? null : {
-            top: r.bottom + 6,
-            left: Math.max(8, Math.min(r.left, window.innerWidth - 264 - 8)),
-          }));
+          setAnchor(a => (a ? null : popoverAnchor(r, { width: 264, estHeight: 280 })));
         }}
         className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs shrink-0"
         style={{
@@ -226,8 +220,9 @@ function DemoBuildBadge({
             className="rounded-2xl"
             style={{
               position: "fixed", top: anchor.top, left: anchor.left, zIndex: 50, width: 264,
+              maxHeight: anchor.maxHeight, overflowY: "auto",
               padding: "0.9rem 1rem", background: "var(--surface)",
-              boxShadow: "0 12px 32px rgba(0, 0, 0, 0.16)", textAlign: "left",
+              boxShadow: "var(--shadow-card-small)", textAlign: "left",
             }}
           >
             <p style={{ fontSize: "0.78rem", fontWeight: 700, color: "var(--text-primary)", fontFamily: "var(--font-nunito)", margin: 0 }}>
@@ -271,8 +266,10 @@ type RowMenuItem = { label: string; onClick: () => void; danger?: boolean; disab
 
 function RowMenu({ items }: { items: RowMenuItem[] }) {
   const { t } = useT();
-  const [anchor, setAnchor] = useState<{ top: number; left: number } | null>(null);
+  const [anchor, setAnchor] = useState<PopoverAnchor | null>(null);
   const MENU_W = 152;
+  // 항목 하나 = 패딩 16 + 줄높이 ~17. 실측 대신 이 어림값으로 위/아래를 고른다.
+  const estHeight = items.length * 33 + 10;
   return (
     <div className="shrink-0" style={{ position: "relative", display: "inline-flex" }}>
       <button
@@ -281,10 +278,7 @@ function RowMenu({ items }: { items: RowMenuItem[] }) {
         aria-expanded={!!anchor}
         onClick={e => {
           const r = e.currentTarget.getBoundingClientRect();
-          setAnchor(a => (a ? null : {
-            top: r.bottom + 6,
-            left: Math.max(8, Math.min(r.right - MENU_W, window.innerWidth - MENU_W - 8)),
-          }));
+          setAnchor(a => (a ? null : popoverAnchor(r, { width: MENU_W, estHeight, align: "right" })));
         }}
         className="vf-icon-button"
         style={{ background: anchor ? "var(--surface-active)" : undefined }}
@@ -305,9 +299,14 @@ function RowMenu({ items }: { items: RowMenuItem[] }) {
               left: anchor.left,
               zIndex: 50,
               width: MENU_W,
+              maxHeight: anchor.maxHeight,
+              overflowY: "auto",
               padding: 5,
               background: "var(--surface)",
-              boxShadow: "0 12px 32px rgba(0, 0, 0, 0.16)",
+              // 아래 행 위에 떠서 "겹쳐 보인다"는 지적(2026-09-05) — 경계는
+              // 테두리 대신 그림자로(soft-fill 원칙). 하드코딩한 검정 그림자는
+              // 다크모드에서 사라지므로 토큰을 쓴다.
+              boxShadow: "var(--shadow-card-small)",
             }}
           >
             {items.map(it => (
@@ -351,9 +350,10 @@ export function DraftRow({ draft, highlight, isLast, onEdit, onDelete, onPublish
   onPublish: () => void;
   onReview: () => void;
 }) {
-  const { t } = useT();
+  const { t, locale } = useT();
   const [publishing, setPublishing] = useState(false);
   const thumbnail = draft.thumbnail || placeholderThumbnail(draft.id);
+  const uploadedAt = formatUploadedAt(draft.created_at, locale);
   const ct = CONTENT_TYPES.find((c) => c.id === draft.content_type);
   const ctLabel = ct ? (t.contentTypes as Record<string, string>)[ct.id] ?? ct.label : null;
 
@@ -388,6 +388,13 @@ export function DraftRow({ draft, highlight, isLast, onEdit, onDelete, onPublish
             {ct && (
               <span className="text-xs shrink-0" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.62rem" }}>
                 {ct.emoji} {ctLabel}
+              </span>
+            )}
+            {/* 업로드 시각 — 같은 작품이 여러 번 올라오면 제목만으로는 어느 게
+                방금 것인지 알 수 없다(2026-09-05 사용자 요청). */}
+            {uploadedAt && (
+              <span className="text-xs shrink-0 vf-mono" style={{ color: "var(--text-muted)", fontSize: "0.6rem" }} title={uploadedAt.full}>
+                {uploadedAt.short}
               </span>
             )}
           </div>
@@ -441,8 +448,9 @@ export function ProjectRow({ project, username, demoPaused, nowMs, onDelete, onE
   onDrop: () => void;
   onDragEnd: () => void;
 }) {
-  const { t } = useT();
+  const { t, locale } = useT();
   const thumbnail = project.thumbnail || placeholderThumbnail(project.id);
+  const uploadedAt = formatUploadedAt(project.created_at, locale);
   const contentType = CONTENT_TYPES.find(c => c.id === project.content_type);
   const contentTypeLabel = contentType
     ? (t.contentTypes as Record<string, string>)[contentType.id] ?? contentType.label
@@ -502,6 +510,12 @@ export function ProjectRow({ project, username, demoPaused, nowMs, onDelete, onE
               {project.title}
             </h3>
             <span className="text-xs shrink-0 vf-mono" style={{ color: "var(--text-muted)" }}>{project.year}</span>
+            {/* 작품 연도(year, 명함에 나가는 값) 옆의 실제 업로드 시각. */}
+            {uploadedAt && (
+              <span className="text-xs shrink-0 vf-mono" style={{ color: "var(--text-muted)", fontSize: "0.6rem" }} title={uploadedAt.full}>
+                {uploadedAt.short}
+              </span>
+            )}
             {project.is_featured && (
               <span className="px-2 py-0.5 rounded-full shrink-0"
                 style={{ background: "var(--text-primary)", color: "var(--bg)", fontFamily: "var(--font-nunito)", fontSize: "0.6rem", fontWeight: 700 }}>

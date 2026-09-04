@@ -7,7 +7,7 @@
 // 같은 해법: **사람은 불만 한 줄, 고치는 건 AI.** 지금 초안 전체와 사람의 요청을
 // 통째로 싣고, 같은 URL로 다시 올리면 초안이 갱신된다는 사실까지 넣는다 —
 // 새 세션의 AI가 이 프롬프트 하나로 일을 끝낼 수 있어야 한다.
-import { loginCommand, NPX_PUBLISH } from "@/lib/connectSnippets";
+import { loginCommand, NPX_PUBLISH, outputLanguageLine } from "@/lib/connectSnippets";
 import type { DemoScript } from "@/lib/demoScript";
 import type { DemoAccess } from "@/lib/demoAccess";
 
@@ -44,8 +44,12 @@ export function buildDraftFixPrompt(c: DraftFixContext, locale: "ko" | "en" = "k
   const json = JSON.stringify(payload, null, 2);
   const login = loginCommand(c.token);
 
-  if (locale === "en") {
-    return `Revise a Nookframe draft you published earlier. You built this project, so read the repo again if you need to. The owner looked at the draft and wants these changes:
+  // 프롬프트 본문은 영어 하나로 통일(2026-09-05) — 결과 카피 언어만 locale이 정한다.
+  return `Revise a Nookframe draft you published earlier. You built this project, so read the repo again if you need to.
+
+${outputLanguageLine(locale)}
+
+The owner looked at the draft and wants these changes:
 
 """
 ${c.note}
@@ -63,24 +67,4 @@ HOW TO RESUBMIT — re-publishing with the same URL updates this draft in place 
 - If you have the Nookframe MCP server: call "publish_to_nookframe" with the revised fields.
 - No shell? Print the revised JSON only and I'll paste it into ${c.origin}/publish.
 The server rejects thin work with an error that says exactly what to fix — read it and resubmit. Then tell the owner what you changed.`;
-  }
-
-  return `네가 전에 Nookframe에 올린 초안을 고쳐라. 이 프로젝트는 네가 만들었으니 필요하면 레포를 다시 읽어라. 주인이 초안을 보고 이렇게 고쳐 달라고 했다:
-
-"""
-${c.note}
-"""
-
-지금 초안 (주인이 말한 것만 바꾸고, 나머지는 그대로 둬라):
-\`\`\`json
-${json}
-\`\`\`
-
-다시 올리는 법 — 같은 URL로 publish를 다시 실행하면 새 초안이 생기지 않고 이 초안이 갱신된다:
-- 셸이 있으면: 토큰을 한 번 저장하고 다시 올려라 —
-   ${login}
-   ${NPX_PUBLISH} --json '<고친 JSON>'${c.deployUrl ? "" : "  (이 초안은 파일 업로드였다 — --dir <그 폴더>를 다시 붙여라)"}
-- Nookframe MCP 서버가 있으면: "publish_to_nookframe" 툴을 고친 항목으로 호출해라.
-- 셸이 없으면: 고친 JSON만 출력해라 — 내가 ${c.origin}/publish 에 붙여넣는다.
-부실하면 서버가 "무엇을 어떻게 고쳐라"는 에러로 되돌려보낸다 — 그걸 읽고 다시 보내라. 끝나면 무엇을 바꿨는지 주인에게 말해라.`;
 }
