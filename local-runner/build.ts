@@ -822,7 +822,8 @@ export async function buildAndServe(
         if (targetDir && targetDir !== repoPath) {
           await sandbox.commands.run(`mkdir -p ${shQuote(targetDir)}`);
         }
-        await sandbox.files.write(targetPath, data);
+        // e2b types want ArrayBuffer; a Node Buffer works at runtime (Uint8Array).
+        await sandbox.files.write(targetPath, data as unknown as ArrayBuffer);
       }
       console.log(`[build] zip files expanded into sandbox`);
     }

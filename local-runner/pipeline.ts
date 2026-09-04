@@ -298,7 +298,8 @@ export async function recordDemo(opts: RecordDemoOptions): Promise<RecordDemoRes
     // 통째로 건너뛰고 DOM 측정으로 조립한다(비용 ~0·프레이밍=측정값). 조립이
     // 걸어보다 셀렉터를 못 잡으면(코드 채점 게이트) 페이지를 되감고 기존 비전
     // 경로로 폴백 — 우리 토큰이 비상장치다. 터미널 테이크는 대상 아님.
-    let script: Script & { interactions?: number };
+    // Definite-assignment: exactly one of the two branches below assigns it.
+    let script!: Script & { interactions?: number };
     let wired = false;
     if (opts.demoScript && !opts.terminal && isFullyWired(opts.demoScript)) {
       console.log("[assemble] all steps carry selectors — direct-wire assembly (no vision pass)");

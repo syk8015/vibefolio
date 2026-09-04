@@ -7,6 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p local-runner/tsconfig.json",
+    "test": "node scripts/run-unit-probes.mjs",
     "demo:worker": "npx -y tsx local-runner/worker.ts",
     "demo:batch": "npx -y tsx local-runner/worker.ts --batch",
     "demo:fixtures": "python3 -m http.server 5050 --directory local-runner/fixtures",

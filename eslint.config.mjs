@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // 별도 패키지·보관 폴더
+    "cli/**",
+    "scripts/archive/**",
+    "local-runner/archive/**",
   ]),
 ]);
 
