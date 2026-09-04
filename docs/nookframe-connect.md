@@ -199,8 +199,7 @@
 - `hints[]`: 발화 조건 = 6스텝 미만 · 조작 2개 미만 · 셀렉터/expect 빠진 스텝 · skip 없음 ·
   못 찾은 셀렉터 · 확인 불가. PAT=영어, 세션=쿠키 언어.
 - CLI(`echo.js formatScriptReviewWarnings`)는 hints를 안 찍고 숫자로 한국어를 만든다 —
-  서버 hints는 원시 JSON을 읽는 AI용. ⚠️ npm의 CLI 0.1.9는 이 줄을 모르니 재발행 전엔
-  CLI 사용자에겐 안 보인다(서버 응답엔 이미 실려 있다).
+  서버 hints는 원시 JSON을 읽는 AI용. CLI `nookframe@0.1.10`(2026-09-04 npm 발행)부터 출력된다.
 - 검증: `node scripts/probe-script-review.mjs`(prod E2E) + `npx -y tsx scripts/probe-script-review-unit.mts`(순수 함수).
 
 ## 관련 파일
