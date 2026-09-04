@@ -1,4 +1,5 @@
-import { useState, type DragEvent } from "react";
+import { useState, type DragEvent, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import Image from "next/image";
 import ShareKit from "@/components/dashboard/ShareKit";
 import { parseDemoFailure } from "@/lib/demo-failure";
@@ -7,6 +8,15 @@ import { CONTENT_TYPES } from "@/lib/projectTaxonomy";
 import { AiToolLogo, isUploadedProject, popoverAnchor, formatUploadedAt, type PopoverAnchor } from "./helpers";
 import { type DBProject, type DemoBuildStatus, DEMO_IN_FLIGHT, DEMO_SLOW_MS } from "./types";
 import { useT } from "@/lib/i18n/client";
+
+// 팝오버는 body로 포털한다(2026-09-05). fixed + 높은 z-index만으로는 부족했다 —
+// 조상 중 하나라도 opacity/transform 같은 **쌓임 맥락**을 만들면 그 안에 갇혀서,
+// 아래 행의 배지·버튼이 메뉴 위에 그려진다(초안 행의 hover:opacity-85가 그랬다).
+// body 직속으로 옮기면 조상이 무엇을 하든 항상 맨 위다.
+function Popover({ children }: { children: ReactNode }) {
+  if (typeof document === "undefined") return null;
+  return createPortal(children, document.body);
+}
 
 // Row components for the dashboard Projects tab. Extracted verbatim from
 // ProjectsTab.tsx (no behavior change). DemoBuildBadge + RowMenu are internal to
@@ -67,7 +77,7 @@ function DemoBuildBadge({
           {t.projects.demoFailed}
         </button>
         {anchor && (
-          <>
+          <Popover>
             <div style={{ position: "fixed", inset: 0, zIndex: 40 }} onClick={() => setAnchor(null)} />
             <div
               className="rounded-2xl"
@@ -135,7 +145,7 @@ function DemoBuildBadge({
                 </details>
               )}
             </div>
-          </>
+          </Popover>
         )}
       </div>
     );
@@ -214,7 +224,7 @@ function DemoBuildBadge({
         {label}
       </button>
       {anchor && (
-        <>
+        <Popover>
           <div style={{ position: "fixed", inset: 0, zIndex: 40 }} onClick={() => setAnchor(null)} />
           <div
             className="rounded-2xl"
@@ -253,7 +263,7 @@ function DemoBuildBadge({
               {body}
             </p>
           </div>
-        </>
+        </Popover>
       )}
     </div>
   );
@@ -288,7 +298,7 @@ function RowMenu({ items }: { items: RowMenuItem[] }) {
         </svg>
       </button>
       {anchor && (
-        <>
+        <Popover>
           <div style={{ position: "fixed", inset: 0, zIndex: 40 }} onClick={() => setAnchor(null)} />
           <div
             role="menu"
@@ -332,7 +342,7 @@ function RowMenu({ items }: { items: RowMenuItem[] }) {
               </button>
             ))}
           </div>
-        </>
+        </Popover>
       )}
     </div>
   );
@@ -362,13 +372,15 @@ export function DraftRow({ draft, highlight, isLast, onEdit, onDelete, onPublish
       id={`draft-${draft.id}`}
       // 행 자체가 검토 모달 진입점 — "확인하고 공개"의 확인을 여기서 한다.
       onClick={onReview}
-      className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4 p-3 md:p-4 transition-opacity hover:opacity-85"
+      // hover를 opacity로 주면 행 안에 열려 있는 ⋯ 메뉴까지 같이 흐려지고,
+      // opacity가 만든 쌓임 맥락에 갇혀 아래 행 요소가 메뉴 위에 그려진다
+      // (2026-09-05 실측). 배경색 변화가 soft-fill 원칙에도 맞다.
+      className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4 p-3 md:p-4 bg-[var(--surface)] hover:bg-[var(--surface-soft)]"
       style={{
-        background: "var(--surface)",
         borderBottom: isLast ? "none" : "1px solid var(--border)",
         borderLeft: "3px solid var(--text-primary)",
         boxShadow: highlight ? "inset 0 0 0 2px var(--text-primary)" : undefined,
-        transition: "box-shadow 0.4s",
+        transition: "box-shadow 0.4s, background-color 0.18s ease",
         cursor: "pointer",
       }}
     >
