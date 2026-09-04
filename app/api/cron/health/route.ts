@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { apiError } from "@/lib/apiError";
 import { logger, hasErrorReporter } from "@/lib/logger";
 import { trackServerEvent } from "@/lib/analytics";
 import { AnalyticsEvent } from "@/lib/analytics-events";
@@ -52,10 +53,10 @@ function authorize(req: NextRequest): "ok" | "unconfigured" | "denied" {
 export async function GET(req: NextRequest) {
   const gate = authorize(req);
   if (gate === "unconfigured") {
-    return NextResponse.json({ ok: false, error: "CRON_SECRET not configured" }, { status: 503 });
+    return apiError({ status: 503, message: "CRON_SECRET not configured", code: "CRON_UNCONFIGURED" });
   }
   if (gate === "denied") {
-    return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+    return apiError({ status: 401, message: "unauthorized", code: "UNAUTHORIZED", log: false });
   }
 
   const admin = createAdminClient();

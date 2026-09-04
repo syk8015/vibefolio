@@ -1,11 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { apiError } from "@/lib/apiError";
-import { getT } from "@/lib/i18n/server";
-import { getDictionary } from "@/lib/i18n/dictionaries";
 import { rateLimit } from "@/lib/rate-limit";
-import { bearerFromHeader } from "@/lib/apiToken";
-import { ingestAuth, missingScriptColumn } from "../shared";
+import { ingestAuth, missingScriptColumn, pickApiT } from "../shared";
 
 // GET /api/ingest/drafts — Nookframe Connect 초안 목록(요청4). AI가 자기가 올린
 // 초안을 확인·정리할 수 있게 한다. is_draft=true 행만 보인다 — 공개된 프로젝트는
@@ -56,7 +53,7 @@ export async function GET(req: NextRequest) {
     }));
     return NextResponse.json({ ok: true, count: drafts.length, drafts });
   } catch (err) {
-    const tc = bearerFromHeader(req.headers.get("authorization")) ? getDictionary("en") : (await getT()).t;
+    const tc = await pickApiT(req);
     return apiError({ status: 500, message: tc.api.retryLater, code: "INTERNAL", cause: err });
   }
 }

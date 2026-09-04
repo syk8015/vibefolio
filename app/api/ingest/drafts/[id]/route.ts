@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { apiError } from "@/lib/apiError";
-import { getT } from "@/lib/i18n/server";
-import { getDictionary } from "@/lib/i18n/dictionaries";
 import { rateLimit } from "@/lib/rate-limit";
-import { bearerFromHeader } from "@/lib/apiToken";
 import { normalizeTags, normalizeContentType } from "@/lib/projectTaxonomy";
 import {
   normalizeDemoAccess, demoAccessAnswered, demoAccessEvidenceMissing, type DemoAccess,
@@ -19,6 +16,7 @@ import {
   ingestAuth, publicUrlGate, strOrNull, type IngestDict, buildAccepted, buildScriptReview,
   descriptionTooLong, DESCRIPTION_MAX, missingScriptColumn,
   descriptionShapeIssue, descriptionShapeMessage,
+  pickApiT,
 } from "../../shared";
 
 // PATCH·DELETE /api/ingest/drafts/[id] — Nookframe Connect 초안 수정·삭제(요청4).
@@ -245,7 +243,7 @@ export async function PATCH(
       }, normalizeTags, scriptReview),
     });
   } catch (err) {
-    const tc = bearerFromHeader(req.headers.get("authorization")) ? getDictionary("en") : (await getT()).t;
+    const tc = await pickApiT(req);
     return apiError({ status: 500, message: tc.api.retryLater, code: "INTERNAL", cause: err });
   }
 }
@@ -297,7 +295,7 @@ export async function DELETE(
     logger.info("ingest draft deleted", { projectId: draft.id, filesRemoved: files.length });
     return NextResponse.json({ ok: true, deleted: true, projectId: draft.id });
   } catch (err) {
-    const tc = bearerFromHeader(req.headers.get("authorization")) ? getDictionary("en") : (await getT()).t;
+    const tc = await pickApiT(req);
     return apiError({ status: 500, message: tc.api.retryLater, code: "INTERNAL", cause: err });
   }
 }

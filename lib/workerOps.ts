@@ -23,7 +23,7 @@ import {
 // crash-recovery and quota invariants depend on these exact semantics.
 export const IN_FLIGHT_STATUSES = ["building", "recording", "editing"] as const;
 
-export type JobRow = {
+type JobRow = {
   id: string;
   user_id: string;
   title: string | null;
@@ -87,7 +87,7 @@ async function drainedInWindow(): Promise<number> {
   return count ?? 0;
 }
 
-export type ClaimResult =
+type ClaimResult =
   | { job: JobRow; reason: "claimed" }
   | { job: null; reason: "empty" | "ceiling" };
 
@@ -199,7 +199,7 @@ export async function markDone(projectId: string, videoUrl: string): Promise<voi
 }
 
 // ── holds ───────────────────────────────────────────────────────────────────
-export type QuarantineInput = {
+type QuarantineInput = {
   videoUrl: string;
   posterUrl: string | null;
   videoKey: string;
@@ -413,7 +413,7 @@ export async function notifyDemoFailed(
 }
 
 // 운영 경보(관리자) — Sentry와 별개로 사람 눈에 바로 닿는 채널.
-export async function notifyAdmin(title: string, lines: string[]): Promise<void> {
+async function notifyAdmin(title: string, lines: string[]): Promise<void> {
   if (!isEmailConfigured()) return;
   try {
     const mail = adminAlertEmail({ title, lines, ctaLabel: "관리자 콘솔 열기", ctaUrl: `${SITE_URL}/admin` });

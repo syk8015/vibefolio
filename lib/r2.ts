@@ -57,27 +57,9 @@ function client(): S3Client {
 
 // Public URL for a stored object. R2_PUBLIC_URL_BASE is the bucket's public base
 // (r2.dev subdomain or a custom domain like https://cdn.nookframe.com).
-export function r2PublicUrl(key: string): string {
+function r2PublicUrl(key: string): string {
   const base = (env().publicBase || "").replace(/\/+$/, "");
   return `${base}/${key.replace(/^\/+/, "")}`;
-}
-
-export async function uploadToR2(
-  key: string,
-  body: Buffer,
-  contentType: string,
-): Promise<string> {
-  await client().send(
-    new PutObjectCommand({
-      Bucket: env().bucket,
-      Key: key,
-      Body: body,
-      ContentType: contentType,
-      // Keys are versioned (demo-{ts}.mp4), hence immutable — cache hard at the edge.
-      CacheControl: "public, max-age=31536000, immutable",
-    }),
-  );
-  return r2PublicUrl(key);
 }
 
 // Whole-bucket usage for the admin ops console. A full ListObjectsV2 walk —

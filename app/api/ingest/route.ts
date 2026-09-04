@@ -1,16 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { apiError } from "@/lib/apiError";
-import { getT } from "@/lib/i18n/server";
-import { getDictionary } from "@/lib/i18n/dictionaries";
 import { rateLimit } from "@/lib/rate-limit";
-import { bearerFromHeader } from "@/lib/apiToken";
 import { detectDemoSource } from "@/lib/demoSource";
 import { screenshotUrl } from "@/lib/thumbnail";
 import {
   ingestAuth, publicUrlGate, strOrNull, buildAccepted, descriptionTooLong, DESCRIPTION_MAX,
   descriptionShapeIssue, descriptionShapeMessage,
-  missingScriptColumn, buildScriptReview,
+  missingScriptColumn, buildScriptReview, pickApiT,
 } from "./shared";
 import { probeSelectors, selectorsOf, composeProbeUrl, type SelectorCheck } from "@/lib/demoScriptReview";
 import { normalizeTags, normalizeContentType } from "@/lib/projectTaxonomy";
@@ -498,7 +495,7 @@ export async function POST(req: NextRequest) {
       ...(uploads ? { uploads, finalizeUrl: `${req.nextUrl.origin}/api/ingest/finalize` } : {}),
     });
   } catch (err) {
-    const tc = bearerFromHeader(req.headers.get("authorization")) ? getDictionary("en") : (await getT()).t;
+    const tc = await pickApiT(req);
     return apiError({ status: 500, message: tc.api.retryLater, code: "INTERNAL", cause: err });
   }
 }

@@ -7,6 +7,7 @@ import { CONTENT_TYPES } from "@/lib/projectTaxonomy";
 import { isStepWired } from "@/lib/demoScript";
 import { descriptionShapeIssue, descriptionTooLong, lineCols, DESCRIPTION_LINE_COLS_MAX } from "@/lib/descriptionShape";
 import { buildDraftFixPrompt } from "@/lib/draftFixPrompt";
+import { copyText } from "@/lib/clipboard";
 import { AiToolLogo } from "./helpers";
 import { DemoScriptPanel } from "./DemoScriptPanel";
 import { type DBProject } from "./types";
@@ -153,7 +154,7 @@ export function DraftReviewModal({ draft, onClose, onPublish, onEdit, onDelete, 
         token: body.token,
         origin: window.location.origin,
       }, locale);
-      await navigator.clipboard.writeText(prompt);
+      if (!(await copyText(prompt))) throw new Error("copy failed");
       setFixState("copied");
     } catch {
       setFixState("failed");

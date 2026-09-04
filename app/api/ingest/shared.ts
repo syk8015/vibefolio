@@ -13,6 +13,12 @@ import {
 import { liveUrlIssue } from "@/lib/demoSource";
 import { assertSafePublicUrl, SsrfError } from "@/lib/ssrf";
 
+// PAT(외부 AI) 호출은 영어 고정, 쿠키 세션은 유저 로케일 — 인제스트 라우트 전부가
+// 같은 규칙을 쓴다(catch 블록 포함).
+export async function pickApiT(req: NextRequest) {
+  return bearerFromHeader(req.headers.get("authorization")) ? getDictionary("en") : (await getT()).t;
+}
+
 // 인제스트 계열 라우트(/api/ingest, finalize, drafts) 공용 헬퍼. 인증·URL 게이트가
 // 라우트마다 복사되면 안전 검사가 갈라지므로(lib/ingestStore.ts와 같은 이유) 여기만 수정.
 
@@ -29,7 +35,7 @@ export async function ingestAuth(req: NextRequest): Promise<
   | { userId?: undefined; t: IngestDict; fail: NextResponse }
 > {
   const bearer = bearerFromHeader(req.headers.get("authorization"));
-  const t = bearer ? getDictionary("en") : (await getT()).t;
+  const t = await pickApiT(req);
   if (bearer) {
     const tok = await verifyToken(bearer);
     if (!tok) {

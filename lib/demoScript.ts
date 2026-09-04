@@ -17,7 +17,7 @@
 
 // explore의 스크립트 액션 어휘와 1:1이 아니다 — 이건 "의도" 수준의 어휘고,
 // 실제 제스처(정확한 좌표·드래그 벡터)는 explore가 화면에서 확정한다.
-export const DEMO_SCRIPT_ACTIONS = [
+const DEMO_SCRIPT_ACTIONS = [
   "click",
   "type",
   "drag",
@@ -28,7 +28,7 @@ export const DEMO_SCRIPT_ACTIONS = [
   // 레코더가 커서를 얹는 게 아니라 최종 필름의 카메라가 그 영역을 확대(크롭)한다.
   "focus",
 ] as const;
-export type DemoScriptAction = (typeof DEMO_SCRIPT_ACTIONS)[number];
+type DemoScriptAction = (typeof DEMO_SCRIPT_ACTIONS)[number];
 
 export type DemoScriptStep = {
   // 이 비트가 "무엇을 보여주는가" — 유일한 필수 필드.
@@ -105,14 +105,14 @@ export function substantialStepCount(script: DemoScript): number {
   return script.steps.filter(isStepSubstantial).length;
 }
 export const DEMO_SCRIPT_GOAL_MAX = 120;
-export const DEMO_SCRIPT_SELECTOR_MAX = 250;
-export const DEMO_SCRIPT_WHERE_MAX = 120;
-export const DEMO_SCRIPT_TEXT_MAX = 60;
-export const DEMO_SCRIPT_EXPECT_MAX = 120;
-export const DEMO_SCRIPT_SKIP_MAX = 8;
-export const DEMO_SCRIPT_SKIP_ENTRY_MAX = 80;
-export const DEMO_SCRIPT_PREP_MAX = 300;
-export const DEMO_SCRIPT_HOLD_MIN = 0.5;
+const DEMO_SCRIPT_SELECTOR_MAX = 250;
+const DEMO_SCRIPT_WHERE_MAX = 120;
+const DEMO_SCRIPT_TEXT_MAX = 60;
+const DEMO_SCRIPT_EXPECT_MAX = 120;
+const DEMO_SCRIPT_SKIP_MAX = 8;
+const DEMO_SCRIPT_SKIP_ENTRY_MAX = 80;
+const DEMO_SCRIPT_PREP_MAX = 300;
+const DEMO_SCRIPT_HOLD_MIN = 0.5;
 export const DEMO_SCRIPT_HOLD_MAX = 4;
 
 // 제어문자 제거(개행 포함 — 스텝 필드는 전부 한 줄 값) + trim + 상한.

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useT } from "@/lib/i18n/client";
 import LanguageToggle from "@/components/LanguageToggle";
 import { buildPublishFixPrompt } from "@/lib/publishFixPrompt";
+import { copyText } from "@/lib/clipboard";
 import { extractPublishJson } from "@/lib/extractPublishJson";
 
 // 셸 없는 챗봇 경로의 마지막 구간 — 사람이 AI 답을 옮겨 오는 자리.
@@ -28,7 +29,7 @@ export default function PublishForm() {
   async function copyFix() {
     if (!bounce) return;
     try {
-      await navigator.clipboard.writeText(buildPublishFixPrompt(bounce, raw.trim(), locale));
+      if (!(await copyText(buildPublishFixPrompt(bounce, raw.trim(), locale)))) throw new Error("copy failed");
       setCopied(true);
       setTimeout(() => setCopied(false), 2500);
     } catch {

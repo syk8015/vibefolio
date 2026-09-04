@@ -24,7 +24,7 @@ import type { DemoAccess } from "./demoAccess";
 import { safeFetch, readResponseCapped } from "./ssrf";
 
 // "실제 조작"으로 치는 액션 — focus/hover/scroll만으로 된 대본은 슬라이드쇼가 된다.
-export const INTERACTIVE_ACTIONS = new Set<string>(["click", "type", "drag", "draw"]);
+const INTERACTIVE_ACTIONS = new Set<string>(["click", "type", "drag", "draw"]);
 // 이 미만이면 "조작이 적다"고 짚는다(소넷5 실측 1/6 → 발화, 오퍼스·페이블 2~3/8 → 무음).
 export const SCRIPT_REVIEW_MIN_INTERACTIVE = 2;
 // 게이트 하한(4)과 별개로 "영상 30초를 채우는" 권장 하한. 이 미만이면 짚는다.
@@ -95,7 +95,7 @@ function tokenizeCompound(compound: string): Token[] {
 }
 
 /** 쉼표 대안 × 조합자 분해. 검사 가능한 토큰이 하나도 없으면 null(=판정 불가). */
-export function parseSelector(selector: string): Token[][] | null {
+function parseSelector(selector: string): Token[][] | null {
   const alternatives: Token[][] = [];
   for (const alt of selector.split(",")) {
     const tokens: Token[] = [];
@@ -109,7 +109,7 @@ export function parseSelector(selector: string): Token[][] | null {
 
 // ── HTML 색인 ────────────────────────────────────────────────────────────────
 
-export type HtmlIndex = {
+type HtmlIndex = {
   ids: Set<string>;
   classes: Set<string>;
   tags: Set<string>;
@@ -181,7 +181,7 @@ function tokenFound(t: Token, idx: HtmlIndex): boolean {
   }
 }
 
-export type SelectorCheckReason = "no-selectors" | "fetch-failed" | "not-html" | "js-rendered";
+type SelectorCheckReason = "no-selectors" | "fetch-failed" | "not-html" | "js-rendered";
 
 export type SelectorCheck = {
   status: "checked" | "skipped";

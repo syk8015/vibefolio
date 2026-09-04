@@ -20,7 +20,7 @@ const READ_PAUSE_MS = 1600;
 const ERASE_HANDOFF_MS = 120; // reply 지우기 완료 → 본문 지우기 시작
 // local-runner/promo-record.ts도 쓴다 — 헤드리스 녹화는 "첫 글자가 찍힌 순간"부터
 // 남은 시간을 세므로 프리롤을 빼야 한다.
-export const PROMO_PREROLL_MS = 800;
+const PROMO_PREROLL_MS = 800;
 const SAFETY_MARGIN_MS = 700;
 const MIN_RECORD_MS = 3000; // 아주 짧은 문구도 클립 형태를 갖추도록
 
@@ -61,7 +61,7 @@ export function isPromoOpening(v: unknown): v is PromoOpening {
 // utm_campaign은 DB 컬럼에 저장하지 않고 항상 이 함수로 파생한다 — 포스트
 // id가 이미 전역 유일하므로 별도 slug 발급이 불필요하고, 링크 발급 쪽과 집계
 // 쪽(app/admin/promo/page.tsx)이 반드시 같은 값을 보게 된다.
-export function promoCampaignValue(postId: string): string {
+function promoCampaignValue(postId: string): string {
   return `promo-${postId}`;
 }
 
@@ -91,8 +91,3 @@ export const PROMO_CHANNELS = [
   { label: "X", host: "x.com", uploadUrl: "https://x.com/compose/post" },
 ] as const;
 
-export type PromoChannel = (typeof PROMO_CHANNELS)[number];
-
-export function findPromoChannel(label: string): PromoChannel | undefined {
-  return PROMO_CHANNELS.find((c) => c.label === label);
-}

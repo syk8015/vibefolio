@@ -7,7 +7,7 @@ export const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
 // 압축 폭탄/과다 엔트리 방어(서버 전용 확장기에서 사용).
 export const MAX_ZIP_ENTRIES = 2000;
 
-export const MIME_TYPES: Record<string, string> = {
+const MIME_TYPES: Record<string, string> = {
   html: "text/html", htm: "text/html", css: "text/css",
   js: "application/javascript", ts: "application/javascript",
   jsx: "application/javascript", tsx: "application/javascript",
@@ -45,7 +45,7 @@ export function safeRelativePath(raw: string): string | null {
 /** 인제스트에서 400으로 매핑되는, 유저 노출 가능한 업로드 검증 실패.
  * message는 한국어 기본 카피, code는 인제스트 라우트가 locale별 메시지로
  * 다시 그리기 위한 판별자(없으면 message 그대로 노출). */
-export type UploadErrorCode =
+type UploadErrorCode =
   | "zip-bomb"
   | "zip-read-error"
   | "zip-empty"
@@ -189,7 +189,7 @@ export function summarizeDropped(
   });
 }
 
-export interface ExpandedEntry {
+interface ExpandedEntry {
   relativePath: string;
   data: Uint8Array;
   contentType: string;
@@ -316,7 +316,7 @@ export async function expandZipBundle(
 // 보내면 워커의 파이썬/터미널 감지가 처리한다(local-runner/build.ts와 같은
 // 신호·엔트리 랭킹을 쓰는 짝 — 목록 바꾸면 양쪽 같이). demo_url은 이 앵커
 // 파일을 가리키고, .html이 아닌 앵커는 명함에서 임베드하지 않는다(영상+썸네일).
-export type ZipAnchor = { path: string; kind: "html" | "runnable" };
+type ZipAnchor = { path: string; kind: "html" | "runnable" };
 
 const PY_ANCHOR_RANK = [
   // manage.py sits high because it is Django's one true entry point: a Django zip
@@ -355,7 +355,7 @@ export function pickZipAnchor(entries: { relativePath: string }[]): ZipAnchor | 
 }
 
 /** 번들에서 index.html을 찾아 그 상대경로를 돌려준다(가장 얕은 것). 없으면 null. */
-export function findIndexHtml(entries: { relativePath: string }[]): string | null {
+function findIndexHtml(entries: { relativePath: string }[]): string | null {
   const indexes = entries
     .map((e) => e.relativePath)
     .filter((p) => p.toLowerCase().endsWith("/index.html") || p.toLowerCase() === "index.html");

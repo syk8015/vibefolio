@@ -27,15 +27,6 @@ export function isUploadedProject(demoUrl: string) {
   return demoUrl?.startsWith("/api/preview/");
 }
 
-export function isValidHttpUrl(s: string) {
-  if (!s) return false;
-  try {
-    const u = new URL(s);
-    return (u.protocol === "http:" || u.protocol === "https:") && !!u.hostname && u.hostname.includes(".");
-  } catch {
-    return false;
-  }
-}
 
 // zip → 압축해제, 일반 파일 → 그대로. 결과는 {relativePath, blob} 배열.
 // (zip-slip 가드 safeRelativePath는 서버 인제스트와 공유하려고 @/lib/upload-safety로 이전.)

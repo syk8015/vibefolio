@@ -16,9 +16,9 @@ import { apiError } from "./apiError";
 // Same Bearer shape as CRON_SECRET (app/api/cron/health), but compared in constant
 // time: unlike the cron secret this one is presented on every poll, so a timing
 // oracle would get plenty of samples.
-export type WorkerGate = "ok" | "unconfigured" | "denied";
+type WorkerGate = "ok" | "unconfigured" | "denied";
 
-export function authorizeWorker(req: NextRequest): WorkerGate {
+function authorizeWorker(req: NextRequest): WorkerGate {
   const secret = process.env.WORKER_SECRET;
   if (!secret) return "unconfigured";
   const header = req.headers.get("authorization");

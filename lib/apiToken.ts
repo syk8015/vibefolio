@@ -15,7 +15,7 @@ const TOKEN_SCHEME = "nf_live_";
 // 유저당 활성 토큰 상한 — 무한 발급으로 레이트리밋 버킷을 늘리는 걸 막는다.
 export const MAX_TOKENS_PER_USER = 10;
 
-export function hashToken(raw: string): string {
+function hashToken(raw: string): string {
   return createHash("sha256").update(raw).digest("hex");
 }
 
@@ -30,7 +30,7 @@ export function generateToken(): { raw: string; hash: string; prefix: string } {
   };
 }
 
-export type ResolvedToken = { userId: string; tokenId: string };
+type ResolvedToken = { userId: string; tokenId: string };
 
 /**
  * Bearer 토큰(raw) → 소유 user_id. 알 수 없거나 폐기된 토큰이면 null.

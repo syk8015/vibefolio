@@ -24,7 +24,7 @@ export const APP_ORIGIN = (
 ).replace(/\/+$/, "");
 
 /** True for our own uploaded-project preview paths (vs. external demo URLs). */
-export function isPreviewPath(url: string | null | undefined): url is string {
+function isPreviewPath(url: string | null | undefined): url is string {
   return !!url && url.startsWith("/api/preview/");
 }
 

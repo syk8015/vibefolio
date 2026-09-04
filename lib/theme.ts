@@ -6,9 +6,9 @@
 export type Theme = "dark" | "light";
 
 export const THEME_STORAGE_KEY = "vf-theme";
-export const THEME_EVENT = "vf-theme-change";
+const THEME_EVENT = "vf-theme-change";
 
-export function getSystemTheme(): Theme {
+function getSystemTheme(): Theme {
   if (typeof window === "undefined") return "dark";
   return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
 }

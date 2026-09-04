@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useT } from "@/lib/i18n/client";
+import { copyText } from "@/lib/clipboard";
 import { getInitialTheme, onThemeChange, setStoredTheme, type Theme } from "@/lib/theme";
 
 // 테마는 DOM(data-theme)이 원본이고 다른 컨트롤도 같은 값을 바꾼다 — React state로
@@ -51,16 +52,7 @@ export default function MobileNavMenu({
 
   async function copyLink() {
     const url = `${window.location.origin}/${username}`;
-    try {
-      await navigator.clipboard.writeText(url);
-    } catch {
-      const el = document.createElement("input");
-      el.value = url;
-      document.body.appendChild(el);
-      el.select();
-      document.execCommand("copy");
-      document.body.removeChild(el);
-    }
+    await copyText(url);
     setCopied(true);
     setTimeout(() => {
       setCopied(false);
