@@ -6,8 +6,8 @@
 // See project-viral-strategy / project-api-cost.
 //
 // This module is PURE TS (no next/* imports, no top-level side effects) so it can
-// be imported from all three runtimes: Next routes, the tsx local worker, and the
-// Trigger.dev task. Keep it that way.
+// be imported from both runtimes: Next routes and the tsx local worker. Keep it
+// that way.
 
 export const DEMO_QUOTA = {
   /**

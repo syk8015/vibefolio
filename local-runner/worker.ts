@@ -1,21 +1,17 @@
 // Queue worker — the DB wiring of M2 (plan §8: "큐/DB 결선").
 //
 // The queue IS the projects table: the trigger-demo route always writes
-// demo_build_status='pending' + demo_source_type/value, and when Vercel runs with
-// DEMO_RUNNER=local it does NOT fire the Trigger.dev cloud task — the pending row
-// just waits here. Re-record bursts collapse into the single row (natural
-// debounce, same effect as the cloud path's trailing debounce).
-//
-// ⚠️ Run this ONLY when the deployment has DEMO_RUNNER=local. In cloud mode the
-// same pending rows are consumed by the Trigger.dev task, and a second consumer
-// would double-record (and double-bill explore).
+// demo_build_status='pending' + demo_source_type/value and nothing else consumes
+// that row — it just waits here. Re-record bursts collapse into the single row
+// (natural debounce). This worker is the ONLY recorder (the cloud path was
+// removed 2026-09-04).
 //
 // Claiming is a conditional update (pending → building, checked row count), so
 // even a stray second worker can't grab the same job. Jobs run strictly one at a
 // time — recording owns this machine's actual screen.
 //
-// Crash recovery: building/recording/editing rows are written ONLY by this worker
-// (the cloud task goes straight from pending to done/failed), so anything found
+// Crash recovery: building/recording/editing rows are written ONLY by this worker,
+// so anything found
 // in those states at startup is a previous local run that died mid-job → mark
 // failed with a friendly message. Caught errors mark failed immediately; only a
 // hard process death leaves a row for startup recovery.
@@ -133,9 +129,6 @@ async function markFailed(projectId: string, code: DemoFailureCode, message: str
 // Product analytics — SEPARATE from demo_events (which counts quota).
 // Fire-and-forget: a failed write must never fail the job. The server validates
 // the event name against the known list before it reaches analytics_events.
-// NOTE: this is the LOCAL (DEMO_RUNNER=local) recorder — the live path. The cloud
-// Trigger.dev task (src/trigger/build-and-record.ts) does not yet emit these, so
-// build success rate is only accurate while jobs run locally.
 async function trackAnalytics(
   event: string,
   userId: string | null,
@@ -195,8 +188,8 @@ async function holdForModeration(
 
 // Startup recovery: repair rows a dead local worker left in-flight. Server-side,
 // because it also mails each owner. building/recording/editing are written ONLY by
-// this worker (the cloud task goes straight pending → done/failed), so anything
-// found in those states is a previous local run that died mid-job.
+// this worker, so anything found in those states is a previous run that died
+// mid-job.
 async function recoverStuckJobs() {
   const res = await apiPostQuiet<{ recovered: { id: string }[] }>("/api/worker/recover");
   for (const row of res?.recovered ?? []) {

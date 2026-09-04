@@ -8,7 +8,6 @@
 // at call time (a missing config never throws at import — callers gate on
 // isR2Configured()):
 //   - Next server / API routes         → import "@/lib/r2"
-//   - Trigger.dev cloud task (esbuild)  → import "../../lib/r2"
 //   - local-runner worker (tsx)         → import "../lib/r2"
 import {
   S3Client,
@@ -181,8 +180,8 @@ export async function presignR2Put(
   contentType: string,
   expiresInSeconds = 900,
 ): Promise<{ url: string; publicUrl: string; headers: Record<string, string> }> {
-  // Imported lazily: only the server signs, and the worker/Trigger.dev bundles
-  // that share this module should not pull the presigner in.
+  // Imported lazily: only the server signs, and the worker bundle that shares
+  // this module should not pull the presigner in.
   const { getSignedUrl } = await import("@aws-sdk/s3-request-presigner");
   const cacheControl = "public, max-age=31536000, immutable";
   const url = await getSignedUrl(

@@ -6,10 +6,9 @@ E2B가 빌드/서빙(공개 URL만 넘어옴), 이 맥북이 탐색·녹화·후
 
 ## 운영 모델 (2026-07-05 결정 · 2026-07-13 갱신)
 
-- Vercel prod에 `DEMO_RUNNER=local` 이 설정되어 있으면 사이트의 "시연 만들기"는
-  Trigger.dev 클라우드 태스크를 쏘지 않고 pending 행만 남긴다 → **큐에서 대기**.
-- **2026-07-13 확정: 녹화는 이 맥북 로컬 경로 온리.** 클라우드(E2B/Trigger) 녹화
-  폴백은 영구 미사용 — `src/trigger/*`는 휴면 방치(삭제·재배포 안 함). E2B는
+- 사이트의 "시연 만들기"는 pending 행만 남긴다 → **큐에서 대기**. 소비자는 이 워커 하나.
+- **녹화는 이 맥북 로컬 경로 온리.** 클라우드(E2B/Trigger) 녹화 경로는 2026-09-04에
+  코드째 삭제됐다(되살리지 말 것). E2B는
   github/zip **빌드·서빙** 역할로만 계속 쓴다.
 - 워커는 launchd 감시자가 상시 유지한다(`launchd/README.md`). 수동 기동은:
 
@@ -94,10 +93,6 @@ update projects set demo_build_status = 'pending', demo_build_error = null
 - **녹화 중 이 머신의 화면을 쓰지 말 것.** Chrome 창이 맨 앞에 떠야 하고(avfoundation
   화면 캡처), 알림/다른 창이 덮으면 영상에 박힌다. 방해금지는 파이프라인이 강제한다
   (아래 § Focus setup — 단축어 없으면 촬영 거부).
-- `DEMO_RUNNER=local`이 아닌 배포에서 워커를 돌리면 클라우드 태스크와 **이중 소비**
-  (이중 과금) — 반드시 배포 환경변수 상태와 짝 맞춰 운용.
-- 클라우드 경로로 되돌리기: Vercel에서 `DEMO_RUNNER` 삭제(또는 값 변경) 후 재배포.
-  `src/trigger/*`는 그대로 배포되어 있으므로 즉시 복귀된다.
 - 비용: explore(computer-use) ~$0.13/편이 Anthropic API로 과금. 크레딧 잔고 확인.
 
 ## Focus setup (방해금지 강제 — 1회 설정)
@@ -144,8 +139,8 @@ Focus를 직접 제어하는 CLI가 없어서 **단축어(Shortcuts) 2개가 이
 `scripts/probe-*.mjs`·`storage-audit.mjs`·`list-demos.mjs`·`verify-upload.mjs` 12개는
 아직 서비스롤이 필요하다(사람이 손으로 돌리는 도구). 값은 `.env.local`이 아니라
 **macOS 키체인**에 있고, `scripts/_secrets.mjs`가 키체인 우선·파일 폴백으로 주입한다.
-각 스크립트 맨 위 `import "./_secrets.mjs";` 한 줄이 전부. `npm run dev`·`npm run
-trigger:dev`도 같은 러너를 앞에 두고 돈다(`node scripts/_secrets.mjs <명령>`).
+각 스크립트 맨 위 `import "./_secrets.mjs";` 한 줄이 전부. `npm run dev`도 같은
+러너를 앞에 두고 돈다(`node scripts/_secrets.mjs <명령>`).
 
 - 확인: `security find-generic-password -s nookframe-supabase-service-role -w`
 - 다시 심기: `printf 'add-generic-password -U -a %s -s %s -w %s\n' "$USER" \

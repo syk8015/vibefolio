@@ -18,7 +18,7 @@ export function useDemoStatusSync(
   // 흔들림)이라 마운트 때 한 번 고정하고 이후 폴링 주기에 실어 갱신한다.
   const [nowMs, setNowMs] = useState(() => Date.now());
 
-  // Live-update the build-status badge as the trigger.dev job progresses.
+  // Live-update the build-status badge as the recording job progresses.
   // Requires realtime publication on the projects table; silent no-op otherwise.
   useEffect(() => {
     const supabase = createClient();

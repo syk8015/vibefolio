@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { tasks } from "@trigger.dev/sdk";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { detectDemoSource, liveUrlIssue } from "@/lib/demoSource";
@@ -7,7 +6,6 @@ import { resolveBuildPayload, DemoSourceError } from "@/lib/demoPayload";
 import { assertSafePublicUrl, SsrfError } from "@/lib/ssrf";
 import { apiError } from "@/lib/apiError";
 import { isAdminEmail } from "@/lib/demoQuota";
-import type { buildAndRecord } from "@/src/trigger/build-and-record";
 
 // Admin decision on a held / re-record request. Approving is the ONE privileged
 // path that enqueues a demo past the normal caps: it sets the project to pending
@@ -179,13 +177,7 @@ export async function POST(
       kind: "approved",
     });
 
-    // Local runner drains the pending row via the worker. In cloud mode, fire the
-    // task (mirrors the trigger-demo route).
-    if (process.env.DEMO_RUNNER !== "local") {
-      await tasks.trigger<typeof buildAndRecord>("build-and-record", payload, {
-        debounce: { key: `demo-${project.id}`, delay: "8s", mode: "trailing" },
-      });
-    }
+    // The pending row is the queue entry — the local recording worker drains it.
 
     return NextResponse.json({ ok: true, status: "approved" });
   } catch (err) {

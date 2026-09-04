@@ -4,7 +4,7 @@
 // for each meaningful action, in order. That trace IS the demo script; replay.ts
 // re-runs it on a clean reset page (no AI loop in the take = no dead-air).
 //
-// Adapted from src/trigger/record-helper-src.ts's computer-use loop, with the
+// Adapted from the (since-removed) cloud recorder's computer-use loop, with the
 // VIRTUAL-TIME core dropped entirely (trap A): no vt(), no frame grabbing, no
 // paint pump. Screenshots are plain page.screenshot() on a fixed 1280×720 DSF=1
 // context, so the image is 1:1 with the declared computer-use display and the

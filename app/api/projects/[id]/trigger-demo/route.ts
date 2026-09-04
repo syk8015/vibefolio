@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { tasks } from "@trigger.dev/sdk";
 import { createClient } from "@/lib/supabase/server";
 import { detectDemoSource, liveUrlIssue } from "@/lib/demoSource";
 import { normalizeDemoAccess } from "@/lib/demoAccess";
-import { resolveBuildPayload, DemoSourceError } from "@/lib/demoPayload";
+import { resolveBuildPayload, DemoSourceError, type BuildPayload } from "@/lib/demoPayload";
 import { assertSafePublicUrl, SsrfError } from "@/lib/ssrf";
 import { apiError } from "@/lib/apiError";
 import { getT } from "@/lib/i18n/server";
@@ -11,7 +10,6 @@ import { trackServerEvent } from "@/lib/analytics";
 import { AnalyticsEvent } from "@/lib/analytics-events";
 import { sendEmail, alertRecipients } from "@/lib/email";
 import { adminAlertEmail, SITE_URL } from "@/lib/email-templates";
-import type { buildAndRecord, BuildPayload } from "@/src/trigger/build-and-record";
 
 // Shape returned by the request_demo() SQL function (supabase/migration_demo_quota.sql).
 type QuotaResult = {
@@ -250,34 +248,17 @@ export async function POST(
         props: {
           projectId: id,
           sourceType: payload.sourceType,
-          runner: process.env.DEMO_RUNNER === "local" ? "local" : "cloud",
+          runner: "local",
         },
       });
     }
 
-    // DEMO_RUNNER=local routes jobs to the M5 recording worker instead of the
-    // E2B cloud task: the pending row written by request_demo IS the queue entry —
-    // local-runner/worker.ts polls it, claims it and records on real hardware.
-    if (process.env.DEMO_RUNNER === "local") {
-      return NextResponse.json({ ok: true, runId: "local-queue", queued: admitted, source: sourceMeta });
-    }
-
-    if (!admitted) {
-      // Already queued / in flight — don't fire a second cloud run.
-      return NextResponse.json({ ok: true, runId: null, deduped: true, source: sourceMeta });
-    }
-
-    // Trailing debounce is a second-line collapse for click bursts; the queue's
-    // concurrencyLimit caps how many ever run in parallel.
-    const handle = await tasks.trigger<typeof buildAndRecord>(
-      "build-and-record",
-      payload,
-      { debounce: { key: `demo-${id}`, delay: "8s", mode: "trailing" } },
-    );
-
-    return NextResponse.json({ ok: true, runId: handle.id, source: sourceMeta });
+    // The pending row written by request_demo IS the queue entry — the local
+    // recording worker (local-runner/worker.ts) polls it, claims it and records on
+    // real hardware. Nothing else consumes the queue.
+    return NextResponse.json({ ok: true, runId: "local-queue", queued: admitted, source: sourceMeta });
   } catch (err) {
-    // Last line of defence: any unexpected throw (Supabase/Trigger.dev/network)
+    // Last line of defence: any unexpected throw (Supabase/network)
     // returns the standard error shape instead of a raw 500 + stack trace.
     return apiError({
       status: 500,

@@ -87,6 +87,5 @@ Dashboard → Authentication → Email Templates:
 - [ ] 가입 테스트 → 발신자가 `Nookframe <no-reply@nookframe.com>`, Supabase 푸터 없음
 
 ## 미배선(의도적 잔여)
-- 클라우드 Trigger.dev 태스크(휴면 폴백)는 이메일 미발신 — 분석 이벤트와 같은 갭, 클라우드 전환 시 `docs/trigger-dev.md` 선독 후 배선.
 - 재촬영/held **거절** 시 유저 통보 없음 (후속 후보 — 거절 사유 입력 UI와 함께).
 - 워치독 경보 디듑은 `system_status.alerts_state` 컬럼 필요 — `supabase/migration_stuck_watchdog.sql` 적용 전엔 경보 메일을 보내지 않는다(Sentry만).

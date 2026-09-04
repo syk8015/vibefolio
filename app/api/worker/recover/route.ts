@@ -4,8 +4,7 @@ import { apiError } from "@/lib/apiError";
 import { recoverStuckJobs } from "@/lib/workerOps";
 
 // Startup recovery: rows left in building/recording/editing belong to a previous
-// local run that died mid-job (the cloud task goes straight pending → done/failed),
-// so mark them failed and mail the owners.
+// local run that died mid-job, so mark them failed and mail the owners.
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {

@@ -32,14 +32,10 @@ PLIST_DEST="$LA_DIR/$LABEL.plist"
 LOG_DIR="$HOME/Library/Logs"
 UID_NUM="$(id -u)"
 
-# --- Preflight: the worker only makes sense with a local .env.local (DEMO_RUNNER=local).
+# --- Preflight: the worker needs the local .env.local (public Supabase keys + worker secret).
 ENV_FILE="$PROJECT_DIR/.env.local"
 if [ ! -f "$ENV_FILE" ]; then
-  echo "✗ $ENV_FILE not found — the worker needs Supabase keys + DEMO_RUNNER=local."
-  exit 1
-fi
-if ! grep -q '^DEMO_RUNNER=local' "$ENV_FILE"; then
-  echo "✗ DEMO_RUNNER=local not set in .env.local — refusing to install (cloud mode would double-record)."
+  echo "✗ $ENV_FILE not found — the worker needs the Supabase URL/anon key + WORKER_SECRET."
   exit 1
 fi
 

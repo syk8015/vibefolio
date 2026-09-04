@@ -13,7 +13,7 @@
 // functions with a `__name(...)` helper for `.name` preservation, and when
 // Playwright serializes a passed function via toString() that helper is undefined
 // in the page → "__name is not defined". A string is injected verbatim, untouched
-// (the same reason src/trigger keeps RECORD_HELPER_SRC as a string). Keep this
+// (the same reason record helpers are kept as strings). Keep this
 // body plain JS, and NO backticks inside it.
 import type { Page } from "playwright-core";
 

@@ -40,8 +40,7 @@ Idempotent — re-run after pulling. Substitutes absolute paths, installs
 `supervisor.sh` outside the repo (`~/Library/Application Support/Nookframe`,
 launchd can't read ~/Desktop), writes the plist, (re)starts the agent, and
 removes the old broken `com.nookframe.demo-worker` agent if present. Refuses to
-install unless `.env.local` has `DEMO_RUNNER=local` (cloud mode would
-double-record).
+install without a `.env.local`.
 
 ## Stop / remove
 

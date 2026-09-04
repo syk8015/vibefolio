@@ -1,5 +1,11 @@
 import type { DemoSource } from "./demoSource";
-import type { BuildPayload } from "@/src/trigger/build-and-record";
+
+// The job payload the recording worker consumes (projects.demo_source_type/value).
+export type BuildPayload = {
+  projectId: string;
+  sourceType: "github" | "zip" | "live_url";
+  sourceValue: string;
+};
 
 // Minimal shape both the SSR user client and the service-role admin client
 // satisfy — we only ever call storage.list here.

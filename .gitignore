@@ -40,9 +40,6 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# trigger.dev
-.trigger
-
 # Playwright MCP browser-verify artifacts
 .playwright-mcp/
 

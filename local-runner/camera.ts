@@ -3,10 +3,9 @@
 // The zoom is applied in POST (ffmpeg zoompan on the flat capture), never in the
 // DOM — so page layout (fixed/sticky headers, modals) is never distorted and
 // clicks map 1:1. This module owns two things:
-//   1. CameraEvent + buildZoomFilter  — the zoompan expression builder. Forked
-//      from src/trigger/build-and-record.ts (trap E: importing it would drag the
-//      whole e2b/trigger graph into this lightweight worker). DIVERGED from the
-//      E2B copy: the x/y framing now supports CENTER_BIAS (cursor-centered crop +
+//   1. CameraEvent + buildZoomFilter  — the zoompan expression builder (forked
+//      from the since-removed cloud recorder; kept dependency-free on purpose).
+//      The x/y framing supports CENTER_BIAS (cursor-centered crop +
 //      pad margin), so do NOT re-sync it verbatim.
 //   2. CameraTrack — the "cursor-centered hold-zoom" policy (user 2026-06-07):
 //      push in once on region ENTRY, then hold the zoom and pan the focal so the

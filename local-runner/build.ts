@@ -1,24 +1,22 @@
 // E2B build/serve — the cloud half of the M2 split (plan §3): untrusted user code
 // (github clone / zip upload) is installed and dev-served ONLY inside an E2B
 // sandbox; the local M5 worker receives nothing but the sandbox's public URL and
-// records it with a real GPU. Ported from src/trigger/build-and-record.ts (which
-// stays untouched — it is the still-deployed all-cloud path), minus the recording:
-// the sandbox here builds and serves, nothing else.
+// records it with a real GPU. The sandbox here builds and serves, nothing else
+// (the all-cloud build+record path this was ported from was removed 2026-09-04).
 //
 // New for M2: while the source sits expanded in the sandbox we collect its
 // env/schema/config files so safety.ts's decidePolicy() can pick read-only vs
 // full interaction (plan §4.5 — remote DB detected → read-only, verified-local
 // only → full, ambiguous → read-only).
 // NOTE: named import — under real ESM (tsx) the package's default export is the
-// module namespace object, not the Sandbox class (the cloud task's `import
-// Sandbox from "e2b"` only works because Trigger.dev bundles it as CJS interop).
+// module namespace object, not the Sandbox class.
 import { Sandbox } from "e2b";
 import { apiPost, fetchSigned } from "./api";
 import { BuildFailedError, NotAWebappError } from "./errors";
 import { detectNativeApp } from "../lib/nativeApp";
 
 // Single-quote a value so it is always exactly ONE shell argument, regardless of
-// metacharacters (same sink-hardening as the cloud task: a repo URL like
+// metacharacters (sink-hardening: a repo URL like
 // `https://x/$(curl evil)` must never run inside the sandbox shell).
 function shQuote(value: string): string {
   return `'${String(value).replace(/'/g, `'\\''`)}'`;

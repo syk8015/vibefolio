@@ -9,7 +9,7 @@
 //     npx -y tsx local-runner/index.ts --type github --value https://github.com/o/r [--project manual-m2] [--upload]
 //     npx -y tsx local-runner/index.ts --type zip    --value <storage-prefix>      [--project manual-m2] [--upload]
 //
-//   Queue worker (Vercel must run with DEMO_RUNNER=local):
+//   Queue worker:
 //     npx -y tsx local-runner/worker.ts
 //
 // manual-* projectIds are dry-runs: upload lands under _test/ and the DB is never

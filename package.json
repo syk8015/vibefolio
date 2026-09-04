@@ -7,8 +7,6 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "trigger:dev": "node scripts/_secrets.mjs trigger dev",
-    "trigger:deploy": "trigger deploy",
     "demo:worker": "npx -y tsx local-runner/worker.ts",
     "demo:batch": "npx -y tsx local-runner/worker.ts --batch",
     "demo:fixtures": "python3 -m http.server 5050 --directory local-runner/fixtures",
@@ -24,7 +22,6 @@
     "@sentry/node": "^10.64.0",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.105.3",
-    "@trigger.dev/sdk": "^4.4.6",
     "e2b": "^2.24.0",
     "jszip": "^3.10.1",
     "next": "^16.2.12",
@@ -43,7 +40,6 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
     "tailwindcss": "^4",
-    "trigger.dev": "^4.4.6",
     "typescript": "^5"
   }
 }
