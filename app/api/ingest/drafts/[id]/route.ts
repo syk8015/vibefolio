@@ -6,14 +6,17 @@ import { getDictionary } from "@/lib/i18n/dictionaries";
 import { rateLimit } from "@/lib/rate-limit";
 import { bearerFromHeader } from "@/lib/apiToken";
 import { normalizeTags, normalizeContentType } from "@/lib/projectTaxonomy";
-import { normalizeDemoAccess, demoAccessAnswered, demoAccessEvidenceMissing } from "@/lib/demoAccess";
+import {
+  normalizeDemoAccess, demoAccessAnswered, demoAccessEvidenceMissing, type DemoAccess,
+} from "@/lib/demoAccess";
 import {
   normalizeDemoScript, substantialStepCount,
   DEMO_SCRIPT_MIN_STEPS, DEMO_SCRIPT_MIN_SUBSTANTIAL, type DemoScript,
 } from "@/lib/demoScript";
+import { probeSelectors, selectorsOf, composeProbeUrl, type SelectorCheck } from "@/lib/demoScriptReview";
 import { logger } from "@/lib/logger";
 import {
-  ingestAuth, publicUrlGate, strOrNull, type IngestDict, buildAccepted,
+  ingestAuth, publicUrlGate, strOrNull, type IngestDict, buildAccepted, buildScriptReview,
   descriptionTooLong, DESCRIPTION_MAX, missingScriptColumn,
   descriptionShapeIssue, descriptionShapeMessage,
 } from "../../shared";
@@ -31,12 +34,13 @@ async function loadDraft(
   id: string,
   userId: string,
   t: IngestDict,
-): Promise<{ id: string; hasOwnVideo: boolean } | NextResponse> {
+): Promise<{ id: string; hasOwnVideo: boolean; demoUrl: string; demoAccess: DemoAccess | null } | NextResponse> {
   const { data: row, error } = await admin
     .from("projects")
     // video_url = 제작자가 직접 준 시연 영상(있으면 자동 촬영을 안 한다) —
-    // 대본 게이트의 면제 근거라 여기서 같이 읽는다.
-    .select("id, user_id, is_draft, video_url")
+    // 대본 게이트의 면제 근거라 여기서 같이 읽는다. demo_url·demo_access는 대본이
+    // 바뀔 때 셀렉터 실재 확인(점검표)이 여는 주소.
+    .select("id, user_id, is_draft, video_url, demo_url, demo_access")
     .eq("id", id)
     .maybeSingle();
   if (error || !row) {
@@ -48,7 +52,12 @@ async function loadDraft(
   if (!row.is_draft) {
     return apiError({ status: 409, message: t.api.finalizeNotDraft, code: "NOT_DRAFT" });
   }
-  return { id: row.id as string, hasOwnVideo: !!(row.video_url as string | null) };
+  return {
+    id: row.id as string,
+    hasOwnVideo: !!(row.video_url as string | null),
+    demoUrl: (row.demo_url as string | null) ?? "",
+    demoAccess: normalizeDemoAccess(row.demo_access).access,
+  };
 }
 
 export async function PATCH(
@@ -178,6 +187,15 @@ export async function PATCH(
       return apiError({ status: 400, message: t.api.draftNoFields, code: "NO_FIELDS" });
     }
 
+    // 대본 점검표의 셀렉터 확인 — 대본이 바뀐 요청에서만, 생성 경로와 같은 규칙
+    // (DB 갱신과 겹쳐 돌리고 응답 직전에 받는다). demoAccess를 같이 바꿨으면 그걸로.
+    let selectorProbe: Promise<SelectorCheck> | null = null;
+    const nextScript = upd.demo_script as DemoScript | null | undefined;
+    if (!hasOwnVideo && nextScript && /^https?:\/\//i.test(draft.demoUrl)) {
+      const access = "demo_access" in upd ? (upd.demo_access as DemoAccess | null) : draft.demoAccess;
+      selectorProbe = probeSelectors(composeProbeUrl(draft.demoUrl, access), selectorsOf(nextScript));
+    }
+
     // 갱신된 행을 그대로 돌려받아 에코를 만든다(C-1) — 보낸 키만 바뀌므로
     // "요청 payload"로는 최종 상태를 알 수 없다. 저장된 행이 유일한 진실.
     const AFTER_COLS =
@@ -204,6 +222,12 @@ export async function PATCH(
     if (updErr) {
       return apiError({ status: 500, message: t.api.retryLater, code: "DB_UPDATE_FAILED", cause: updErr });
     }
+    const storedScript = ((after as { demo_script?: unknown } | null)?.demo_script ?? null) as DemoScript | null;
+    // 점검표는 저장된(=촬영될) 대본 기준. 대본을 안 바꾼 PATCH에도 숫자는 싣고,
+    // 셀렉터 확인은 대본이 바뀐 요청에서만 붙는다.
+    const scriptReview = !hasOwnVideo && storedScript
+      ? buildScriptReview(storedScript, selectorProbe ? await selectorProbe : null, t)
+      : undefined;
     return NextResponse.json({
       ok: true,
       projectId: draft.id,
@@ -213,12 +237,12 @@ export async function PATCH(
         description: after?.description ?? "",
         comment: after?.comment ?? "",
         demoHint: after?.demo_user_hint ?? null,
-        demoScript: ((after as { demo_script?: unknown } | null)?.demo_script ?? null) as DemoScript | null,
+        demoScript: storedScript,
         tags: after?.tags ?? [],
         contentTypeId: after?.content_type ?? null,
         demoAccess: after?.demo_access ?? null,
         entryUrl: after?.demo_url ?? null,
-      }, normalizeTags),
+      }, normalizeTags, scriptReview),
     });
   } catch (err) {
     const tc = bearerFromHeader(req.headers.get("authorization")) ? getDictionary("en") : (await getT()).t;

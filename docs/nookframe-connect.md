@@ -181,6 +181,28 @@
   폭을 계산해 열을 맞춘다. **구버전 서버는 `accepted`를 안 주므로 빈 배열로 조용히 물러난다.**
 - `drafts list`도 초안마다 태그·분류·시연 핵심 유무를 함께 출력한다(사후 확인 수단).
 
+### 대본 점검표 — `accepted.scriptReview` (2026-09-04)
+
+같은 프롬프트라도 AI마다 대본 품질이 다르다(09-03 실측: 소넷5=6스텝·조작 1·라이브 확인 0회,
+오퍼스5·페이블5.1=8스텝·셀렉터 실측). 약한 AI는 프롬프트의 부탁은 흘려듣지만 **기계가
+돌려주는 판정은 따른다**. 그래서 400으로 막을 만큼은 아닌 대본에도 "어디가 약한지"를
+응답에 실어 같은 턴에 고쳐 다시 올리게 한다(같은 URL 재푸시 = upsert). 저장은 막지 않는다.
+
+- 조립: `lib/demoScriptReview.ts`(순수 통계 + 셀렉터 확인) → `shared.ts` `buildScriptReview()`(문장).
+  발행·초안 PATCH·재촬영 세 입구 공통. 자동 촬영이 없는 경우(영상 동봉)엔 아예 없다.
+- 숫자: `steps` · `wired`(셀렉터+action) · `interactive`(click/type/drag/draw) · `withExpect` · `withHold` · `hasSkip` · `hasPrep`.
+- `selectors`: 서버가 진입 URL(demoAccess까지 합친 주소, `composeProbeUrl`)의 HTML을 **한 번**
+  받아 `#id`·`.class`·태그·`[attr=…]`가 있는지 센다 → `{status:"checked", found, missing[]}`.
+  JS 셸(본문 300자 미만·id/class 5개 미만·script 있음)은 `skipped/js-rendered`로 정직하게
+  답한다(못 찾았다고 하면 AI가 멀쩡한 셀렉터를 고친다). fetch는 `lib/ssrf.ts safeFetch`
+  경유·6초·1MB 캡, 실패는 `skipped/fetch-failed` — 절대 발행을 막지 않는다.
+- `hints[]`: 발화 조건 = 6스텝 미만 · 조작 2개 미만 · 셀렉터/expect 빠진 스텝 · skip 없음 ·
+  못 찾은 셀렉터 · 확인 불가. PAT=영어, 세션=쿠키 언어.
+- CLI(`echo.js formatScriptReviewWarnings`)는 hints를 안 찍고 숫자로 한국어를 만든다 —
+  서버 hints는 원시 JSON을 읽는 AI용. ⚠️ npm의 CLI 0.1.9는 이 줄을 모르니 재발행 전엔
+  CLI 사용자에겐 안 보인다(서버 응답엔 이미 실려 있다).
+- 검증: `node scripts/probe-script-review.mjs`(prod E2E) + `npx -y tsx scripts/probe-script-review-unit.mts`(순수 함수).
+
 ## 관련 파일
 
 - 마이그레이션: `supabase/migration_api_ingest.sql` (api_tokens · is_draft · RLS 정책 교체)

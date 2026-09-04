@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { api, conn } from "./api.js";
+import { formatScriptReviewWarnings } from "./echo.js";
 
 // 재촬영 — 다시 쓴 촬영 대본 제출 (2026-08-26).
 //
@@ -64,6 +65,9 @@ export function formatRerecord(res) {
       "  ⚠ 일부 스텝이 형식에 안 맞아 버려졌어요 — goal은 필수이고, action은 click·type·drag·scroll·hover·draw·focus 중 하나예요.",
     );
   }
+  // 대본 점검표 — 발행 에코와 같은 기준. 재촬영 대본은 "고쳐 쓴" 대본이라 여기서
+  // 셀렉터 오타를 잡아주는 값이 크다(주인이 [재촬영]을 누르기 전에 고칠 수 있다).
+  for (const w of formatScriptReviewWarnings(a.scriptReview)) lines.push(`  ${w}`);
   if (res?.next) lines.push(`\n  ${res.next}`);
   return lines;
 }

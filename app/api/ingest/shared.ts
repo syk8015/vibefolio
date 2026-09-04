@@ -6,6 +6,10 @@ import { lineCols, DESCRIPTION_LINE_COLS_MAX, type DescriptionIssue } from "@/li
 import { getDictionary } from "@/lib/i18n/dictionaries";
 import { verifyToken, bearerFromHeader } from "@/lib/apiToken";
 import type { DemoScript } from "@/lib/demoScript";
+import {
+  scriptStats, SCRIPT_REVIEW_IDEAL_STEPS, SCRIPT_REVIEW_MIN_INTERACTIVE,
+  type ScriptStats, type SelectorCheck,
+} from "@/lib/demoScriptReview";
 import { liveUrlIssue } from "@/lib/demoSource";
 import { assertSafePublicUrl, SsrfError } from "@/lib/ssrf";
 
@@ -90,7 +94,44 @@ export type AcceptedEcho = {
   scoutAltUrl: string | null;
   demoAccess: string | null;
   demoAccessDropped: boolean;
+  // 대본 점검표(2026-09-04) — 게이트는 통과했지만 약한 대본이 어디가 약한지.
+  // 자동 촬영이 없는 경우(영상 동봉·대본 없음)엔 아예 싣지 않는다.
+  scriptReview?: ScriptReviewEcho;
 };
+
+export type ScriptReviewEcho = ScriptStats & {
+  selectors: SelectorCheck | null;
+  // 사람이 읽는 문장(PAT=영어·세션=쿠키 언어). 위 숫자에서 파생 — CLI는 숫자로
+  // 한국어를 직접 만들고, 원시 JSON을 읽는 AI는 이 줄을 그대로 지시문으로 쓴다.
+  hints: string[];
+};
+
+/**
+ * 대본 숫자 + 셀렉터 확인 결과 → 에코. 게이트(400)와 달리 저장을 막지 않는다 —
+ * "어디가 약한지"를 응답에 실어, 약한 AI가 같은 턴에 고쳐 다시 올리게 하는 자리.
+ */
+export function buildScriptReview(
+  script: DemoScript,
+  selectors: SelectorCheck | null,
+  t: IngestDict,
+): ScriptReviewEcho {
+  const s = scriptStats(script);
+  const r = t.api.scriptReview;
+  const hints: string[] = [];
+  if (s.steps < SCRIPT_REVIEW_IDEAL_STEPS) hints.push(r.fewSteps(s.steps));
+  if (s.interactive < SCRIPT_REVIEW_MIN_INTERACTIVE) hints.push(r.lowInteraction(s.interactive, s.steps));
+  if (s.wired < s.steps) hints.push(r.unwired(s.steps - s.wired, s.steps));
+  if (s.withExpect < s.steps) hints.push(r.noExpect(s.steps - s.withExpect, s.steps));
+  if (!s.hasSkip) hints.push(r.noSkip);
+  if (selectors?.status === "checked" && selectors.missing.length) {
+    hints.push(r.selectorsMissing(selectors.missing, selectors.url));
+  } else if (selectors?.status === "skipped" && selectors.reason === "js-rendered") {
+    hints.push(r.selectorsUnverifiable(selectors.url));
+  } else if (selectors?.status === "skipped" && (selectors.reason === "fetch-failed" || selectors.reason === "not-html")) {
+    hints.push(r.selectorsFetchFailed(selectors.url));
+  }
+  return { ...s, selectors, hints };
+}
 
 const DEMO_HIGHLIGHTS_MAX = 500;
 
@@ -148,11 +189,13 @@ export function buildAccepted(
     entryUrl: string | null;
   },
   normalizeTags: (v: unknown) => string[],
+  scriptReview?: ScriptReviewEcho,
 ): AcceptedEcho {
   const rawHint = typeof raw?.demoHighlights === "string" ? raw.demoHighlights.trim() : "";
   const rawType = typeof raw?.contentType === "string" ? raw.contentType.trim() : "";
   const access = stored.demoAccess;
   return {
+    ...(scriptReview ? { scriptReview } : {}),
     title: stored.title,
     descriptionChars: [...stored.description].length,
     descriptionLines: stored.description ? stored.description.split("\n").length : 0,

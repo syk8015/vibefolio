@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { apiError } from "@/lib/apiError";
-import { ingestAuth } from "@/app/api/ingest/shared";
+import { ingestAuth, buildScriptReview } from "@/app/api/ingest/shared";
 import {
   normalizeDemoScript, substantialStepCount,
   DEMO_SCRIPT_MIN_STEPS, DEMO_SCRIPT_MIN_SUBSTANTIAL,
 } from "@/lib/demoScript";
+import { probeSelectors, selectorsOf, composeProbeUrl } from "@/lib/demoScriptReview";
+import { normalizeDemoAccess } from "@/lib/demoAccess";
 import { rateLimit } from "@/lib/rate-limit";
 
 // POST /api/ingest/rerecord/[id] — AI가 다시 쓴 촬영 대본을 **대기 상태로** 받는다.
@@ -68,7 +70,7 @@ export async function POST(
     const admin = createAdminClient();
     const { data: project, error: selErr } = await admin
       .from("projects")
-      .select("id, user_id, title")
+      .select("id, user_id, title, demo_url, demo_access")
       .eq("id", id)
       .maybeSingle();
     if (selErr || !project) {
@@ -78,6 +80,16 @@ export async function POST(
     if (project.user_id !== userId) {
       return apiError({ status: 403, message: t.api.projectForbidden, code: "FORBIDDEN" });
     }
+
+    // 대본 점검표(발행 경로와 같은 규칙) — 재촬영 대본이야말로 "고쳐 쓴" 대본이라
+    // 셀렉터 오타를 여기서 잡아주는 값이 크다. DB 갱신과 겹쳐 돌린다.
+    const demoUrl = (project.demo_url as string | null) ?? "";
+    const selectorProbe = script && /^https?:\/\//i.test(demoUrl)
+      ? probeSelectors(
+          composeProbeUrl(demoUrl, normalizeDemoAccess(project.demo_access).access),
+          selectorsOf(script),
+        )
+      : null;
 
     const note = typeof payload?.note === "string" ? payload.note.trim().slice(0, NOTE_MAX) : null;
 
@@ -108,6 +120,9 @@ export async function POST(
           Array.isArray((payload?.demoScript as { steps?: unknown[] })?.steps) &&
           ((payload?.demoScript as { steps?: unknown[] }).steps?.length ?? 0) > steps,
         note,
+        ...(script
+          ? { scriptReview: buildScriptReview(script, selectorProbe ? await selectorProbe : null, t) }
+          : {}),
       },
       // 다음에 무슨 일이 일어나는지 AI가 사람에게 전달할 수 있게 명시한다.
       next: t.api.rerecordPendingNext,

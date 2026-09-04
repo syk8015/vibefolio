@@ -49,8 +49,24 @@ export function formatAccepted(accepted) {
         : accepted.demoAccess));
   }
 
+  // 대본 점검표(2026-09-04) — 게이트는 통과했지만 어디가 약한지. 숫자로 한 줄,
+  // 고칠 것은 아래 경고에 합류한다(같은 URL로 다시 publish하면 이 초안이 갱신됨).
+  const review = accepted.scriptReview;
+  if (review && typeof review === "object") {
+    const parts = [
+      `${review.steps}스텝`,
+      `조작 ${review.interactive}`,
+      `셀렉터 ${review.wired}/${review.steps}`,
+      `기대값 ${review.withExpect}/${review.steps}`,
+    ];
+    const sel = review.selectors;
+    if (sel?.status === "checked") parts.push(`라이브 HTML에서 셀렉터 ${sel.found}/${sel.checked} 확인`);
+    lines.push(ROW("대본 점검", parts.join(" · ")));
+  }
+
   // 경고는 조용한 폐기에만 붙인다 — 사용자가 준 값이 사라진 경우.
   const warn = [];
+  for (const w of formatScriptReviewWarnings(review)) warn.push(w);
   if (accepted.droppedTags?.length) {
     warn.push(`⚠ 버려진 AI 툴: ${accepted.droppedTags.join(", ")} — 지원 목록의 철자와 달라 저장되지 않았어요.`);
   }
@@ -76,4 +92,37 @@ export function formatAccepted(accepted) {
   }
   for (const w of warn) lines.push(`  ${w}`);
   return lines;
+}
+
+// 서버의 scriptReview(숫자·셀렉터 확인 결과) → 한국어 경고. 서버 hints(영어)를 그대로
+// 찍지 않고 여기서 만드는 이유: 이 출력은 사람도 읽는 자리라 다른 줄과 같은 말투여야
+// 한다. 판정 기준(6스텝·조작 2개)은 서버 lib/demoScriptReview.ts와 같다.
+export function formatScriptReviewWarnings(review) {
+  if (!review || typeof review !== "object") return [];
+  const out = [];
+  const total = review.steps ?? 0;
+  if (total < 6) {
+    out.push(`⚠ 대본이 ${total}스텝이에요 — 영상 30초를 채우려면 6~8스텝이 알맞아요. 핵심 기능을 중요한 순서대로 더 넣고 같은 URL로 다시 publish하면 이 초안이 갱신돼요.`);
+  }
+  if ((review.interactive ?? 0) < 2) {
+    out.push(`⚠ 실제 조작(click·type·drag)이 ${review.interactive ?? 0}스텝뿐이에요 — 나머지가 focus·hover·scroll이면 슬라이드쇼처럼 보여요. 핵심 기능을 직접 눌러 결과가 바뀌는 스텝을 2개 이상 넣으세요.`);
+  }
+  if ((review.wired ?? 0) < total) {
+    out.push(`⚠ selector 없는 스텝 ${total - review.wired}개 — 그 스텝은 로봇이 화면을 보고 추측해요(느리고 비쌈). 코드에서 정확한 CSS 셀렉터를 찾아 넣으세요.`);
+  }
+  if ((review.withExpect ?? 0) < total) {
+    out.push(`⚠ expect 없는 스텝 ${total - review.withExpect}개 — "하고 나면 무엇이 보여야 하는지"가 없으면 로봇이 먹었는지 판정을 못 해요.`);
+  }
+  if (!review.hasSkip) {
+    out.push("· skip 목록이 없어요 — 다크모드 토글처럼 찍으면 안 되는 것을 적어두면 영상이 새지 않아요.");
+  }
+  const sel = review.selectors;
+  if (sel?.status === "checked" && sel.missing?.length) {
+    out.push(`⚠ 라이브 페이지 HTML에서 못 찾은 셀렉터: ${sel.missing.join(", ")} — 오타이거나 다른 화면의 요소예요. 실제 화면에서 확인하거나 where로 눈에 보이는 찾는 법을 함께 적으세요.`);
+  } else if (sel?.status === "skipped" && sel.reason === "js-rendered") {
+    out.push("· 페이지가 자바스크립트로 그려져 셀렉터를 서버가 확인하지 못했어요 — 발행 전에 브라우저로 직접 열어 각 selector가 실제로 있는지 확인하세요.");
+  } else if (sel?.status === "skipped" && (sel.reason === "fetch-failed" || sel.reason === "not-html")) {
+    out.push(`· 셀렉터 확인용으로 페이지를 열지 못했어요(${sel.url}) — 주소가 실제로 열리는지, 로그인 없이 보이는지 확인하세요.`);
+  }
+  return out;
 }

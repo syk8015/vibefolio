@@ -10,8 +10,9 @@ import { screenshotUrl } from "@/lib/thumbnail";
 import {
   ingestAuth, publicUrlGate, strOrNull, buildAccepted, descriptionTooLong, DESCRIPTION_MAX,
   descriptionShapeIssue, descriptionShapeMessage,
-  missingScriptColumn,
+  missingScriptColumn, buildScriptReview,
 } from "./shared";
+import { probeSelectors, selectorsOf, composeProbeUrl, type SelectorCheck } from "@/lib/demoScriptReview";
 import { normalizeTags, normalizeContentType } from "@/lib/projectTaxonomy";
 import {
   normalizeDemoAccess, demoAccessAnswered, demoAccessEvidenceMissing, type DemoAccess,
@@ -292,6 +293,15 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // 5.5. 대본 점검표의 셀렉터 확인(2026-09-04) — 진입 URL의 HTML을 한 번 받아
+    // 대본의 셀렉터가 실재하는지 센다. 게이트가 아니라 에코라 실패해도 발행은
+    // 그대로 간다. DB 작업과 겹치게 지금 시작하고 응답 직전에 받는다(응답 지연 최소).
+    // zip(미리보기) 경로는 아직 파일이 안 올라와 볼 HTML이 없어 건너뛴다.
+    let selectorProbe: Promise<SelectorCheck> | null = null;
+    if (!hasOwnVideo && demoScript && /^https?:\/\//i.test(demoUrl)) {
+      selectorProbe = probeSelectors(composeProbeUrl(demoUrl, demoAccess), selectorsOf(demoScript));
+    }
+
     // 6. upsert 판별(요청4) — 같은 진입 URL의 "초안"이 이미 있으면 새 행을 만들지
     // 않고 그 행을 갱신한다(재푸시=최신 페이로드가 진실). 초안 한정: 공개된 행은
     // 절대 건드리지 않아 PAT의 폭발반경(자기 초안뿐)이 유지된다. zip 경로는 비교할
@@ -465,6 +475,10 @@ export async function POST(req: NextRequest) {
 
     // 9. 응답 — reviewUrl은 하드코딩 SITE_URL이 아니라 요청 origin 기준.
     const reviewUrl = `${req.nextUrl.origin}/dashboard?review=${projectId}`;
+    // 대본 점검표 — 자동 촬영이 실제로 일어날 때만(영상 동봉·대본 미저장이면 없음).
+    const scriptReview = !hasOwnVideo && scriptStored && demoScript
+      ? buildScriptReview(demoScript, selectorProbe ? await selectorProbe : null, t)
+      : undefined;
     return NextResponse.json({
       ok: true, projectId, reviewUrl, isDraft: true,
       // 무엇이 실제로 저장됐는지 그대로 돌려준다(C-1) — 태그 철자 불일치·타입 오타·
@@ -473,7 +487,7 @@ export async function POST(req: NextRequest) {
         title, description, comment, demoHint, tags,
         demoScript: scriptStored ? demoScript : null,
         contentTypeId, demoAccess, entryUrl: demoUrl,
-      }, normalizeTags),
+      }, normalizeTags, scriptReview),
       ...(upserted ? { upserted: true } : {}),
       // 안전상 빼고 저장한 파일(.env·.git/ 등). accepted가 "무엇이 들어갔나"라면
       // 이건 "무엇이 빠졌나" — 조용히 버리면 "왜 내 앱이 안 도나"가 된다.

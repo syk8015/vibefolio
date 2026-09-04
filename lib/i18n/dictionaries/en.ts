@@ -631,6 +631,24 @@ export const en: Dictionary = {
       `demoScript has only ${n} step(s) — too thin to be a film. Send at least 4 (5–8 is the sweet spot, max 10), ordered by importance: step 1 must be the feature this project cannot be shown without.`,
     scriptStepsVague: (solid: number, total: number) =>
       `Only ${solid} of the ${total} demoScript steps can actually be filmed. Every step needs BOTH what to do (action: click|type|drag|scroll|hover|draw|focus) and where to do it (selector — you built this app, so give the exact CSS selector; if you only know the UI, put how to find it by eye in where). A step with just a goal is a table of contents, not a script: the robot falls back to guessing from pixels, which is the most common way a demo comes out broken. At least 3 steps must meet this bar.`,
+    scriptReview: {
+      fewSteps: (n: number) =>
+        `The script has ${n} steps — 6–8 fill the 30-second film best. Add this app's core features in order of importance and publish again with the same URL: the draft gets updated in place.`,
+      lowInteraction: (n: number, total: number) =>
+        `Only ${n} of ${total} steps actually interact (click/type/drag) — a film of focus/hover/scroll alone looks like a slideshow. Add at least 2 steps that press a core feature and change what's on screen.`,
+      unwired: (n: number, total: number) =>
+        `${n} of ${total} steps have no selector — the robot has to guess those from pixels (slower, pricier). Open this app's code and put the exact CSS selector on each.`,
+      noExpect: (n: number, total: number) =>
+        `${n} of ${total} steps have no expect — without "what should be visible afterwards" the robot cannot tell whether the action took. Write the actual text or number that appears on screen.`,
+      noSkip:
+        "No skip list — name the things that must not be filmed (dark-mode toggle, language switch…) so the film doesn't wander off.",
+      selectorsMissing: (missing: string[], url: string) =>
+        `Selectors NOT found in the HTML of ${url}: ${missing.join(", ")} — a typo, or an element from another screen. Open the real page to verify and fix them, or add a where label describing how to find each by eye.`,
+      selectorsUnverifiable: (url: string) =>
+        `${url} is rendered by JavaScript, so the server could not verify the selectors statically. Before publishing, open it in a real browser (Playwright etc.) and confirm every selector exists — a wrong selector throws that whole step away.`,
+      selectorsFetchFailed: (url: string) =>
+        `Could not open ${url} to verify the selectors — check that the address actually loads and is visible without logging in.`,
+    },
     descriptionShape: (kind: "empty" | "lines" | "long-line", n: number, maxCols: number) => {
       const example =
         'e.g. "For people who create with AI\\nwith demo videos recorded automatically\\na live portfolio you can actually touch" — the first lines modify, the last one names what it is, and each line stays short (~20 CJK / ~40 Latin characters).';

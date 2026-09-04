@@ -652,6 +652,26 @@ export const ko = {
       `demoScript가 ${n}스텝뿐이라 영상이 되기엔 부실해요. 최소 4스텝(권장 5~8, 최대 10)을 중요한 순서대로 주세요 — 1번은 이 작품에서 절대 빠지면 안 되는 기능이어야 합니다.`,
     scriptStepsVague: (solid: number, total: number) =>
       `demoScript의 스텝 ${total}개 중 실제로 찍을 수 있는 건 ${solid}개뿐이에요. 스텝마다 **무엇을 하는지**(action: click|type|drag|scroll|hover|draw|focus)와 **어디서 하는지**(selector — 이 앱을 만든 당신은 정확한 CSS 셀렉터를 알고 있습니다. 화면만 안다면 where에 눈으로 찾는 법)를 둘 다 넣어 주세요. goal만 적힌 줄은 대본이 아니라 목차라서, 로봇이 결국 화면을 픽셀로 더듬어 추측하게 됩니다 — 영상이 망가지는 가장 흔한 경로예요. 최소 3개 스텝이 이 조건을 채워야 저장합니다.`,
+    // 대본 점검표(2026-09-04) — 저장은 됐지만 더 좋아질 수 있는 곳. 거절이 아니라
+    // "같은 URL로 다시 publish하면 이 초안이 갱신된다"는 전제의 고쳐-다시-올리기 안내.
+    scriptReview: {
+      fewSteps: (n: number) =>
+        `대본이 ${n}스텝이에요 — 영상 30초를 채우려면 6~8스텝이 알맞아요. 이 앱의 핵심 기능을 중요한 순서대로 더 넣고 같은 URL로 다시 publish하면 이 초안이 갱신돼요.`,
+      lowInteraction: (n: number, total: number) =>
+        `${total}스텝 중 실제 조작(click·type·drag)은 ${n}개뿐이에요 — 나머지가 focus·hover·scroll이면 영상이 슬라이드쇼처럼 보여요. 핵심 기능을 직접 눌러서 결과가 바뀌는 스텝을 2개 이상 넣으세요.`,
+      unwired: (n: number, total: number) =>
+        `${total}스텝 중 ${n}개에 selector가 없어요 — 그 스텝은 로봇이 화면을 보고 추측해요(느리고 비쌈). 이 앱의 코드를 열어 정확한 CSS 셀렉터를 넣으세요.`,
+      noExpect: (n: number, total: number) =>
+        `${total}스텝 중 ${n}개에 expect가 없어요 — "하고 나면 무엇이 보여야 하는지"가 없으면 로봇이 먹었는지 판정을 못 해요. 화면에 실제로 나타나는 글자·숫자로 적으세요.`,
+      noSkip:
+        "skip 목록이 없어요 — 다크모드 토글·언어 전환처럼 찍으면 안 되는 것을 적어두면 영상이 엉뚱한 데로 새지 않아요.",
+      selectorsMissing: (missing: string[], url: string) =>
+        `${url} 의 HTML에서 못 찾은 셀렉터: ${missing.join(", ")} — 오타이거나 다른 화면의 요소예요. 실제 페이지를 열어 확인하고 고치거나, where에 눈으로 찾는 법을 함께 적으세요.`,
+      selectorsUnverifiable: (url: string) =>
+        `${url} 은 자바스크립트가 그리는 화면이라 셀렉터를 서버가 확인하지 못했어요. 발행 전에 브라우저(Playwright 등)로 직접 열어 각 selector가 실제로 있는지 확인하세요 — 없는 셀렉터는 그 스텝을 통째로 날려요.`,
+      selectorsFetchFailed: (url: string) =>
+        `셀렉터 확인용으로 ${url} 을 열지 못했어요 — 주소가 실제로 열리는지, 로그인 없이 보이는지 확인하세요.`,
+    },
     descriptionShape: (kind: "empty" | "lines" | "long-line", n: number, maxCols: number) => {
       const example =
         '예: "AI로 창작하는 사람들을 위한\\n자동으로 시연 영상까지 만들어주는\\n직접 보고 느끼는 라이브 포트폴리오" — 앞 줄들이 수식하고 마지막 줄이 정체를 밝히는 구조로, 각 줄은 한글 20자·영문 40자 안팎으로 짧게.';
