@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { createClient as createAdminClient } from "@supabase/supabase-js";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { detectDemoSource, liveUrlIssue } from "@/lib/demoSource";
 import { resolveBuildPayload, DemoSourceError } from "@/lib/demoPayload";
 import { assertSafePublicUrl, SsrfError } from "@/lib/ssrf";
 import { apiError } from "@/lib/apiError";
-import { isAdminEmail } from "@/lib/demoQuota";
+import { requireAdmin } from "@/lib/routeAuth";
 
 // Admin decision on a held / re-record request. Approving is the ONE privileged
 // path that enqueues a demo past the normal caps: it sets the project to pending
@@ -19,12 +18,8 @@ export async function POST(
   try {
     const { id: requestId } = await params;
 
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user || !isAdminEmail(user.email)) {
-      // Don't reveal the endpoint to non-admins.
-      return apiError({ status: 404, message: "찾을 수 없어요.", code: "NOT_FOUND" });
-    }
+    const auth = await requireAdmin();
+    if (auth instanceof NextResponse) return auth;
 
     let action = "";
     let note: string | null = null;
@@ -39,10 +34,7 @@ export async function POST(
       return apiError({ status: 400, message: "action은 approve 또는 reject여야 해요.", code: "BAD_ACTION" });
     }
 
-    const admin = createAdminClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    );
+    const admin = createAdminClient();
 
     const { data: request, error: reqErr } = await admin
       .from("demo_requests")

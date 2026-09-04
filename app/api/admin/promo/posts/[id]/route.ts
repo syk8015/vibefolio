@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { apiError } from "@/lib/apiError";
-import { isAdminEmail } from "@/lib/demoQuota";
+import { requireAdmin } from "@/lib/routeAuth";
 
 // "이 채널에 올렸다"는 기록을 취소한다(채널 버튼의 ×). 캡션 편집·게시완료 표시
 // PATCH는 폐기됐다(2026-08-27) — 캡션은 클립에 하나로 모였고, 채널 버튼을 누른
@@ -17,11 +16,8 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user || !isAdminEmail(user.email)) {
-      return apiError({ status: 404, message: "찾을 수 없어요.", code: "NOT_FOUND" });
-    }
+    const auth = await requireAdmin();
+    if (auth instanceof NextResponse) return auth;
 
     const admin = createAdminClient();
     const { data: post, error: findErr } = await admin

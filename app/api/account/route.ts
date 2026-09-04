@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { createClient as createAdminClient, type SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { apiError } from "@/lib/apiError";
+import { requireUser } from "@/lib/routeAuth";
 import { getT } from "@/lib/i18n/server";
 import { logger } from "@/lib/logger";
 import { isR2Configured, deleteR2Prefix } from "@/lib/r2";
@@ -52,17 +53,12 @@ async function removeAll(admin: SupabaseClient, bucket: string, paths: string[])
 export async function DELETE() {
   const { t } = await getT();
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return apiError({ status: 401, message: t.api.loginRequired, code: "UNAUTHORIZED" });
-    }
+    const auth = await requireUser(t.api.loginRequired);
+    if (auth instanceof NextResponse) return auth;
+    const { user } = auth;
     const uid = user.id;
 
-    const admin = createAdminClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    );
+    const admin = createAdminClient();
 
     // 1) Supabase Storage — everything under the user's prefix in both buckets.
     //    project-files/{uid}/…  and  avatars/{uid}/avatar.ext (+ legacy {uid}.ext at root).

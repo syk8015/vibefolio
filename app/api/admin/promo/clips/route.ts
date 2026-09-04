@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { apiError } from "@/lib/apiError";
-import { isAdminEmail } from "@/lib/demoQuota";
+import { requireAdmin } from "@/lib/routeAuth";
 import { loggedInTaglines, loggedInTaglinesEn } from "@/lib/loggedInTaglines";
 import { isPromoOpening } from "@/lib/promo";
 
@@ -11,12 +10,9 @@ import { isPromoOpening } from "@/lib/promo";
 // 로컬에서 수행 — 이 라우트는 큐잉만 담당한다.
 export async function POST(req: NextRequest) {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user || !isAdminEmail(user.email)) {
-      // Don't reveal the endpoint to non-admins.
-      return apiError({ status: 404, message: "찾을 수 없어요.", code: "NOT_FOUND" });
-    }
+    const auth = await requireAdmin();
+    if (auth instanceof NextResponse) return auth;
+    const { user } = auth;
 
     let locale = "";
     let text = "";

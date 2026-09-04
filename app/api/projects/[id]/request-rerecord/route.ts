@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { createClient as createAdminClient } from "@supabase/supabase-js";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { apiError } from "@/lib/apiError";
+import { requireUser } from "@/lib/routeAuth";
 import { getT } from "@/lib/i18n/server";
 import { sendEmail, alertRecipients } from "@/lib/email";
 import { adminAlertEmail, SITE_URL } from "@/lib/email-templates";
@@ -22,11 +22,9 @@ export async function POST(
   try {
     const { id } = await params;
 
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return apiError({ status: 401, message: t.api.loginRequired, code: "UNAUTHORIZED" });
-    }
+    const auth = await requireUser(t.api.loginRequired);
+    if (auth instanceof NextResponse) return auth;
+    const { user, supabase } = auth;
 
     let reason = "";
     try {
@@ -65,10 +63,7 @@ export async function POST(
 
     // Writes to the approval queue go through the service role (users have no
     // insert policy on demo_requests). Ownership was just verified above.
-    const admin = createAdminClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    );
+    const admin = createAdminClient();
 
     const { data: existing } = await admin
       .from("demo_requests")

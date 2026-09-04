@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { apiError } from "@/lib/apiError";
+import { requireUser } from "@/lib/routeAuth";
 import { getT } from "@/lib/i18n/server";
 import { generateToken, MAX_TOKENS_PER_USER } from "@/lib/apiToken";
 import { AUTO_TOKEN_NAME, MCP_TOKEN_NAME } from "@/lib/connectSnippets";
@@ -12,11 +12,9 @@ import { AUTO_TOKEN_NAME, MCP_TOKEN_NAME } from "@/lib/connectSnippets";
 export async function POST(req: NextRequest) {
   const { t } = await getT();
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return apiError({ status: 401, message: t.api.loginRequired, code: "UNAUTHORIZED" });
-    }
+    const auth = await requireUser(t.api.loginRequired);
+    if (auth instanceof NextResponse) return auth;
+    const { user } = auth;
 
     let name: string | null = null;
     // 센티널 이름 2종: 프롬프트 자동발급(auto) · MCP 설정 복사(mcp, 2026-09-04).

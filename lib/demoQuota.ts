@@ -53,14 +53,3 @@ export const DEMO_QUOTA = {
 //   'drain'    — the worker claimed a job to record (worker wallet backstop).
 export type DemoEventKind = "auto" | "approved" | "drain";
 
-// Who can reach /admin and act on the approval queue. Defaults to the founder's
-// account; override with a comma-separated ADMIN_EMAILS env var.
-const ADMIN_EMAILS: string[] = (process.env.ADMIN_EMAILS ?? "vivestarter@gmail.com")
-  .split(",")
-  .map((s) => s.trim().toLowerCase())
-  .filter(Boolean);
-
-export function isAdminEmail(email: string | null | undefined): boolean {
-  if (!email) return false;
-  return ADMIN_EMAILS.includes(email.trim().toLowerCase());
-}

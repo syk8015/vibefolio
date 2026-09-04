@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { apiError } from "@/lib/apiError";
+import { requireUser } from "@/lib/routeAuth";
 import { getT } from "@/lib/i18n/server";
 
 // DELETE /api/tokens/[id] — 토큰 소프트 폐기(revoked_at 스탬프). 소유 확인 후 서비스
@@ -15,11 +15,9 @@ export async function DELETE(
   try {
     const { id } = await params;
 
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return apiError({ status: 401, message: t.api.loginRequired, code: "UNAUTHORIZED" });
-    }
+    const auth = await requireUser(t.api.loginRequired);
+    if (auth instanceof NextResponse) return auth;
+    const { user } = auth;
 
     const admin = createAdminClient();
     const { data: tok } = await admin

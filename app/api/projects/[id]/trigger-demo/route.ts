@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { detectDemoSource, liveUrlIssue } from "@/lib/demoSource";
 import { normalizeDemoAccess } from "@/lib/demoAccess";
 import { resolveBuildPayload, DemoSourceError, type BuildPayload } from "@/lib/demoPayload";
 import { assertSafePublicUrl, SsrfError } from "@/lib/ssrf";
 import { apiError } from "@/lib/apiError";
+import { requireUser } from "@/lib/routeAuth";
 import { getT } from "@/lib/i18n/server";
 import { trackServerEvent } from "@/lib/analytics";
 import { AnalyticsEvent } from "@/lib/analytics-events";
@@ -28,11 +28,9 @@ export async function POST(
   try {
     const { id } = await params;
 
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return apiError({ status: 401, message: t.api.loginRequired, code: "UNAUTHORIZED" });
-    }
+    const auth = await requireUser(t.api.loginRequired);
+    if (auth instanceof NextResponse) return auth;
+    const { user, supabase } = auth;
 
     const { data: project, error: selErr } = await supabase
       .from("projects")

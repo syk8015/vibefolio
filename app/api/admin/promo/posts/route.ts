@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { apiError } from "@/lib/apiError";
-import { isAdminEmail } from "@/lib/demoQuota";
+import { requireAdmin } from "@/lib/routeAuth";
 import { promoTrackingUrl } from "@/lib/promo";
 
 // 클립을 특정 채널에 올린 기록. 실제 업로드는 사람이 채널에 직접 하고(반자동),
@@ -13,11 +12,8 @@ import { promoTrackingUrl } from "@/lib/promo";
 // 두 번 눌렀다고 추적 링크가 둘로 갈라지면 그 채널 성적이 반토막 난다.
 export async function POST(req: NextRequest) {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user || !isAdminEmail(user.email)) {
-      return apiError({ status: 404, message: "찾을 수 없어요.", code: "NOT_FOUND" });
-    }
+    const auth = await requireAdmin();
+    if (auth instanceof NextResponse) return auth;
 
     let clipId = "";
     let channel = "";

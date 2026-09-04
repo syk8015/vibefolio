@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { createClient as createAdminClient } from "@supabase/supabase-js";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { apiError } from "@/lib/apiError";
+import { requireUser } from "@/lib/routeAuth";
 import { getT } from "@/lib/i18n/server";
 import { logger } from "@/lib/logger";
 import { isR2Configured, deleteR2Prefix } from "@/lib/r2";
@@ -60,11 +60,9 @@ export async function DELETE(
   try {
     const { id } = await params;
 
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return apiError({ status: 401, message: t.api.loginRequired, code: "UNAUTHORIZED" });
-    }
+    const auth = await requireUser(t.api.loginRequired);
+    if (auth instanceof NextResponse) return auth;
+    const { user, supabase } = auth;
 
     const { data: project, error: selErr } = await supabase
       .from("projects")
@@ -78,10 +76,7 @@ export async function DELETE(
       return apiError({ status: 403, message: t.api.projectForbidden, code: "FORBIDDEN" });
     }
 
-    const admin = createAdminClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    );
+    const admin = createAdminClient();
 
     // list는 한 겹만 보므로 BFS. 디렉터리 플레이스홀더는 id === null로 돌아온다.
     const listFolderFiles = async (root: string): Promise<string[]> => {
@@ -168,11 +163,9 @@ export async function POST(
   try {
     const { id } = await params;
 
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return apiError({ status: 401, message: t.api.loginRequired, code: "UNAUTHORIZED" });
-    }
+    const auth = await requireUser(t.api.loginRequired);
+    if (auth instanceof NextResponse) return auth;
+    const { user, supabase } = auth;
 
     const body = await req.json().catch(() => null);
     const candidates = [body?.prevVideoUrl, body?.prevThumbnail]
@@ -201,10 +194,7 @@ export async function POST(
       .filter((p): p is string => !!p && p.startsWith(ownerPrefix) && !inUse.has(p));
     if (!stale.length) return NextResponse.json({ ok: true, removed: 0 });
 
-    const admin = createAdminClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    );
+    const admin = createAdminClient();
     const { error } = await admin.storage.from(BUCKET).remove(stale);
     if (error) throw new Error(`storage remove failed: ${error.message}`);
 

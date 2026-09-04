@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { apiError } from "@/lib/apiError";
-import { isAdminEmail } from "@/lib/demoQuota";
+import { requireAdmin } from "@/lib/routeAuth";
 import { isR2Configured, deleteR2Objects } from "@/lib/r2";
 import { formatDemoFailure, demoFailureCopy } from "@/lib/demo-failure";
 import { recipientLocale } from "@/lib/i18n/user-locale";
@@ -33,12 +32,8 @@ export async function POST(
   try {
     const { id } = await params;
 
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user || !isAdminEmail(user.email)) {
-      // Don't reveal the endpoint to non-admins.
-      return apiError({ status: 404, message: "찾을 수 없어요.", code: "NOT_FOUND" });
-    }
+    const auth = await requireAdmin();
+    if (auth instanceof NextResponse) return auth;
 
     let action = "";
     try {

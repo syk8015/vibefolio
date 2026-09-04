@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { createClient as createAdminClient } from "@supabase/supabase-js";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { apiError } from "@/lib/apiError";
+import { requireUser } from "@/lib/routeAuth";
 import { getT, getLocale } from "@/lib/i18n/server";
 import { generateToken } from "@/lib/apiToken";
 import { AUTO_TOKEN_NAME } from "@/lib/connectSnippets";
@@ -28,11 +28,9 @@ export async function POST(
   try {
     const { id } = await params;
 
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return apiError({ status: 401, message: t.api.loginRequired, code: "UNAUTHORIZED" });
-    }
+    const auth = await requireUser(t.api.loginRequired);
+    if (auth instanceof NextResponse) return auth;
+    const { user, supabase } = auth;
 
     let note = "";
     try {
@@ -60,10 +58,7 @@ export async function POST(
       return apiError({ status: 403, message: t.api.projectForbidden, code: "FORBIDDEN" });
     }
 
-    const admin = createAdminClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    );
+    const admin = createAdminClient();
 
     // 프롬프트에 심을 토큰은 ConnectPanel과 같은 규약: 자동발급분(prompt-auto)은
     // 항상 하나만 살아 있게 이전 것을 폐기하고 새로 발급한다. raw는 이 응답에만

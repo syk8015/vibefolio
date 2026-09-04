@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { isAdminEmail } from "@/lib/demoQuota";
+import { isAdminEmail } from "@/lib/routeAuth";
 import { AnalyticsEvent } from "@/lib/analytics-events";
 import { promoTrackingUrl } from "@/lib/promo";
 import { Panel, SectionTitle, MonoAside, Ledger, type LedgerEntry } from "../panels";

@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { isAdminEmail } from "@/lib/demoQuota";
+import { isAdminEmail } from "@/lib/routeAuth";
 import { hasErrorReporter } from "@/lib/logger";
 import { isR2Configured, r2Usage } from "@/lib/r2";
 import { parseDemoFailure } from "@/lib/demo-failure";

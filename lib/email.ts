@@ -12,6 +12,8 @@
 //   - Next server / API routes   → import "@/lib/email"
 //   - local-runner worker (tsx)  → import "../lib/email"
 
+import { ADMIN_EMAILS } from "./adminEmails";
+
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
 const SEND_TIMEOUT_MS = 10_000;
 
@@ -25,10 +27,10 @@ export function isEmailConfigured(): boolean {
 }
 
 // Operational alert recipients (credit exhaustion, watchdog, approval queue).
-// ALERT_EMAILS overrides; falls back to the ADMIN_EMAILS convention used by the
-// /admin gate (lib/demoQuota), then to the founder address.
+// ALERT_EMAILS overrides; otherwise the /admin gate's list (lib/adminEmails).
 export function alertRecipients(): string[] {
-  const raw = process.env.ALERT_EMAILS ?? process.env.ADMIN_EMAILS ?? "vivestarter@gmail.com";
+  const raw = process.env.ALERT_EMAILS;
+  if (!raw) return ADMIN_EMAILS;
   return raw
     .split(",")
     .map((e) => e.trim())

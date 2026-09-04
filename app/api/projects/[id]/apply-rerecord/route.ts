@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { createClient as createAdminClient } from "@supabase/supabase-js";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { detectDemoSource, liveUrlIssue } from "@/lib/demoSource";
 import { resolveBuildPayload, DemoSourceError } from "@/lib/demoPayload";
 import { assertSafePublicUrl, SsrfError } from "@/lib/ssrf";
 import { apiError } from "@/lib/apiError";
+import { requireUser } from "@/lib/routeAuth";
 import { getT } from "@/lib/i18n/server";
 import { sendEmail, alertRecipients } from "@/lib/email";
 import { adminAlertEmail, SITE_URL } from "@/lib/email-templates";
@@ -31,11 +31,9 @@ export async function POST(
   try {
     const { id } = await params;
 
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return apiError({ status: 401, message: t.api.loginRequired, code: "UNAUTHORIZED" });
-    }
+    const auth = await requireUser(t.api.loginRequired);
+    if (auth instanceof NextResponse) return auth;
+    const { user, supabase } = auth;
 
     const { data: project, error: selErr } = await supabase
       .from("projects")
@@ -55,10 +53,7 @@ export async function POST(
       return apiError({ status: 409, message: t.api.rerecordInFlight, code: "IN_FLIGHT" });
     }
 
-    const admin = createAdminClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    );
+    const admin = createAdminClient();
 
     // ── 2회차부터: 관리자 승인 대기열로. 대본은 pending에 그대로 두고, 승인
     //    라우트가 승격시킨다(그래야 승인 전엔 공개 데이터가 안 바뀐다).
