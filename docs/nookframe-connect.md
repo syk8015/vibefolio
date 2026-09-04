@@ -208,7 +208,7 @@
 - libs: `lib/apiToken.ts` · `lib/upload-safety.ts` · `lib/projectTaxonomy.ts` · `lib/connectSnippets.ts`
 - API: `app/api/ingest/route.ts` · `app/api/ingest/finalize/route.ts` · `app/api/ingest/drafts/*`
   (공용 인증·URL 게이트=`app/api/ingest/shared.ts`) · `app/api/tokens/route.ts` · `app/api/tokens/[id]/route.ts`
-- UI: `components/dashboard/SettingsTab.tsx`(연결 탭) · `ProjectsTab.tsx`(초안 검토·발행) · `app/publish/*`
+- UI: `components/dashboard/ConnectPanel.tsx`(연결 패널) · `ProjectsTab.tsx`(초안 검토·발행) · `app/publish/*`
 - CLI/MCP: `cli/` (배포명 `nookframe`)
 - 검증: `scripts/probe-api-ingest.mjs`
 

@@ -48,3 +48,7 @@ next-env.d.ts
 
 # 디자인 캔버스 작업 파일 (시안 .dc.html + 2MB 페이로드) — 산출물은 Artifact에 있다
 .design-landing/
+
+# 촬영 산출물·보안 스캔 결과(로컬 전용)
+*.mp4
+CLAUDE-SECURITY-*/

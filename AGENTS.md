@@ -1,18 +1,14 @@
-<!-- BEGIN:nextjs-agent-rules -->
 # This is NOT the Next.js you know
 
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
-<!-- END:nextjs-agent-rules -->
 
-# Trigger.dev (v4)
+# 레포 관례
 
-Hard rules (violating any of these breaks the app):
-
-- Import from `@trigger.dev/sdk` only. NEVER use v2 `client.defineJob`.
-- `triggerAndWait()` returns a Result object `{ ok, output, error }` — check `result.ok` before touching `result.output`.
-- Never wrap `wait.*`, `triggerAndWait`, or `batchTriggerAndWait` in `Promise.all` / `Promise.allSettled`.
-
-Before touching `src/trigger/*`, `trigger.config.ts`, or anything importing `@trigger.dev` (currently `app/api/projects/[id]/trigger-demo/route.ts` and `scripts/trigger-build.mjs`), read `docs/trigger-dev.md` — full v4 reference for tasks, queues/concurrency, debounce, retries, batch, waits, machines, idempotency, and metadata (plus the Realtime reference — unused in this repo).
+- **테스트 스위트 = 프로브 스크립트.** 단위 테스트 러너는 없다. `npm test`(순수 함수 프로브)·`npm run typecheck`·`npm run lint`를 커밋 전에 돌리고, API/DB 동작은 `scripts/probe-*.mjs`(prod E2E, 키체인 경유)로 검증한다. 새 API 게이트를 만들면 프로브를 하나 같이 만든다.
+- **`local-runner/`는 별도 tsconfig**(`local-runner/tsconfig.json`, 루트에서 exclude). 루트 `tsc`만 돌리면 러너는 검사되지 않는다 → `npm run typecheck`가 둘 다 돈다.
+- **촬영은 로컬 맥 워커 하나뿐**(`npm run demo:batch`, 상세 `local-runner/README.md`). 클라우드 녹화 경로는 2026-09-04에 삭제됐다 — 되살리지 말 것.
+- 한국어 UI 카피를 추가·수정하면 커밋 전 `npm run font:subset`(prebuild `font:check`가 막아준다).
+- API 실패 응답은 `lib/apiError.ts`의 `apiError()` 한 가지 모양. 인증 게이트는 `lib/routeAuth.ts`(`requireUser`/`requireAdmin`)·`lib/workerAuth.ts`(`requireWorker`).
 
 # Nookframe Connect (AI 인제스트 · 토큰)
 

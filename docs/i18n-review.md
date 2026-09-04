@@ -609,7 +609,6 @@
 ### 사전 밖 이중 카피 (랜딩 감성 카피 — 재창작, 사용자 1차 번역 2026-08-14 반영)
 - `lib/taglines.ts` → `taglinesEn` (69개): 비로그인 히어로 회전 풀. 종결부호 없음, {N} 유지, "sum = all" 원문 유지
 - `lib/loggedInTaglines.ts` → `loggedInTaglinesEn` (60개): 로그인 헤드라인 풀. 럭키비키→Task failed successfully, 영역전개→Domain Expansion, 썸녀/여친→situationship/commit to, 기도 메타→Thoughts & Prayers™
-- `components/FaqRepliesSection.tsx` → `FAQ_EN` (4쌍)
 - `components/PortfolioPipSection.tsx` → `TITLE_VARIANTS_EN` (5개) + 시연 힌트 2종 + 어트리뷰션
 - `lib/identityLine.ts` → `I mostly build {복수형 라벨}` (+`and` 결합), 라벨 복수형 별도 맵(CONTENT_TYPE_LABELS_EN)
 
