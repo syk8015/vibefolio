@@ -1,4 +1,4 @@
-import { useState, type DragEvent, type ReactNode } from "react";
+import { useState, useLayoutEffect, useRef, type DragEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
 import ShareKit from "@/components/dashboard/ShareKit";
@@ -277,9 +277,24 @@ type RowMenuItem = { label: string; onClick: () => void; danger?: boolean; disab
 function RowMenu({ items }: { items: RowMenuItem[] }) {
   const { t } = useT();
   const [anchor, setAnchor] = useState<PopoverAnchor | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const MENU_W = 152;
-  // 항목 하나 = 패딩 16 + 줄높이 ~17. 실측 대신 이 어림값으로 위/아래를 고른다.
+  // 항목 하나 = 패딩 16 + 줄높이 ~17. 이 어림값으로 위/아래를 먼저 고른다.
   const estHeight = items.length * 33 + 10;
+
+  // 그린 뒤 **실제 높이**로 위치만 보정한다(2026-09-05 사용자 요청: 메뉴 안에서
+  // 스크롤하지 말고 한 번에 다 보이게). setState 없이 style.top만 고쳐서
+  // 재렌더를 만들지 않는다 — 페인트 전에 끝나 깜빡임도 없다.
+  useLayoutEffect(() => {
+    const el = menuRef.current;
+    if (!anchor || !el) return;
+    const pad = 8;
+    const h = el.offsetHeight;
+    let top = anchor.top;
+    if (top + h > window.innerHeight - pad) top = window.innerHeight - h - pad;
+    if (top < pad) top = pad;
+    el.style.top = `${top}px`;
+  }, [anchor]);
   return (
     <div className="shrink-0" style={{ position: "relative", display: "inline-flex" }}>
       <button
@@ -301,6 +316,7 @@ function RowMenu({ items }: { items: RowMenuItem[] }) {
         <Popover>
           <div style={{ position: "fixed", inset: 0, zIndex: 40 }} onClick={() => setAnchor(null)} />
           <div
+            ref={menuRef}
             role="menu"
             className="rounded-2xl"
             style={{
@@ -309,8 +325,6 @@ function RowMenu({ items }: { items: RowMenuItem[] }) {
               left: anchor.left,
               zIndex: 50,
               width: MENU_W,
-              maxHeight: anchor.maxHeight,
-              overflowY: "auto",
               padding: 5,
               background: "var(--surface)",
               // 아래 행 위에 떠서 "겹쳐 보인다"는 지적(2026-09-05) — 경계는
