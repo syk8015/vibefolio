@@ -211,7 +211,9 @@ export const ko = {
     phaseRecording: "촬영 중",
     phaseEditing: "편집 중",
     usualTime: "보통 1–3분",
-    demoFailed: "시연 영상 실패",
+    demoFailed: "촬영 실패",
+    // 시안 1(조용한 한 줄, 2026-09-05 확정): 상태는 알약이 아니라 오른쪽 텍스트다.
+    statusDone: "영상 완료",
     retryBtn: "다시 시도",
     techInfo: "기술 정보",
     heldModerationTip: "게시 전에 확인이 필요하다고 표시돼 잠시 보류 중이에요. 검토가 끝나면 자동으로 게시되고, 보통 하루 안에 처리돼요.",

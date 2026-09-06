@@ -152,10 +152,12 @@ export function formatUploadedAt(iso: string | null | undefined, locale: "ko" | 
   if (Number.isNaN(d.getTime())) return null;
   const tag = locale === "ko" ? "ko-KR" : "en-US";
   return {
-    // dateStyle:"short"는 연도를 2자리로 줄여 준다("26. 9. 5. 오후 9:17").
-    // 연도를 빼면 작년 업로드와 구분이 안 되고, 렌더 중 new Date()로 올해인지
-    // 판정하면 순수하지 않은 렌더가 된다.
-    short: d.toLocaleString(tag, { dateStyle: "short", timeStyle: "short" }),
+    // 목록에는 "9월 3일 21:49"까지만 — 연도까지 적으면 회색 한 줄이 숫자로
+    // 붐빈다(시안 1 확정). 연도는 title(마우스 올림)이 책임진다.
+    short:
+      locale === "ko"
+        ? d.toLocaleString(tag, { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false })
+        : d.toLocaleString(tag, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }),
     full: d.toLocaleString(tag, { dateStyle: "full", timeStyle: "medium" }),
   };
 }

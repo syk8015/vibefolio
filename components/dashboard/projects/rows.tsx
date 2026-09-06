@@ -5,7 +5,7 @@ import ShareKit from "@/components/dashboard/ShareKit";
 import { parseDemoFailure } from "@/lib/demo-failure";
 import { placeholderThumbnail } from "@/lib/placeholder";
 import { CONTENT_TYPES } from "@/lib/projectTaxonomy";
-import { AiToolLogo, isUploadedProject, popoverAnchor, formatUploadedAt, type PopoverAnchor } from "./helpers";
+import { popoverAnchor, formatUploadedAt, type PopoverAnchor } from "./helpers";
 import { type DBProject, type DemoBuildStatus, DEMO_IN_FLIGHT, DEMO_SLOW_MS } from "./types";
 import { useT } from "@/lib/i18n/client";
 
@@ -44,7 +44,29 @@ function DemoBuildBadge({
   // 팝오버는 fixed + 버튼 rect 앵커 — 리스트 카드(vf-card overflow-hidden)가
   // absolute 팝오버를 클리핑하는 것을 실측으로 확인(2026-07-13), fixed로 탈출.
   const [anchor, setAnchor] = useState<PopoverAnchor | null>(null);
-  if (!status || status === "done") return null;
+  if (!status) return null;
+
+  // 상태는 오른쪽 끝의 조용한 한 줄이다(시안 1). 알약을 벗겨 낸 대신 색 점이
+  // 상태를 말한다 — 채운 점=진행 중, 붉은 점=실패, 빈 점=끝남.
+  const line: React.CSSProperties = {
+    display: "inline-flex", alignItems: "center", gap: 6,
+    background: "none", border: "none", padding: 0,
+    fontFamily: "var(--font-nunito)", fontSize: "0.72rem", fontWeight: 600,
+    whiteSpace: "nowrap",
+  };
+  const dot = (style: React.CSSProperties) => (
+    <span aria-hidden style={{ width: 7, height: 7, borderRadius: 999, flexShrink: 0, ...style }} />
+  );
+
+  // 촬영이 끝난 행도 한마디는 한다 — 목록에서 어느 게 완성됐는지 눈으로 세게.
+  if (status === "done") {
+    return (
+      <span className="shrink-0" style={{ ...line, color: "var(--text-muted)" }}>
+        {dot({ boxShadow: "inset 0 0 0 1.5px var(--text-muted)" })}
+        {t.projects.statusDone}
+      </span>
+    );
+  }
 
   const DEMO_PHASE_LABEL: Record<Exclude<DemoBuildStatus, "done" | "failed" | "held">, string> = {
     pending: t.projects.phasePending,
@@ -63,17 +85,9 @@ function DemoBuildBadge({
             const r = e.currentTarget.getBoundingClientRect();
             setAnchor(a => (a ? null : popoverAnchor(r, { width: 264, estHeight: 260 })));
           }}
-          className="px-2 py-0.5 rounded-full text-xs"
-          style={{
-            background: "rgba(179, 71, 71, 0.12)",
-            color: "#8e3535",
-            fontFamily: "var(--font-nunito)",
-            fontSize: "0.6rem",
-            fontWeight: 600,
-            border: "none",
-            cursor: "pointer",
-          }}
+          style={{ ...line, color: "var(--danger)", cursor: "pointer" }}
         >
+          {dot({ background: "var(--danger)" })}
           {t.projects.demoFailed}
         </button>
         {anchor && (
@@ -157,17 +171,11 @@ function DemoBuildBadge({
     const isModeration = !!error?.startsWith("[moderation]");
     return (
       <span
-        className="px-2 py-0.5 rounded-full text-xs shrink-0"
-        style={{
-          background: "var(--surface-soft)",
-          color: "var(--text-secondary)",
-          fontFamily: "var(--font-nunito)",
-          fontSize: "0.6rem",
-          fontWeight: 600,
-          cursor: "help",
-        }}
+        className="shrink-0"
+        style={{ ...line, color: "var(--text-secondary)", cursor: "help" }}
         title={isModeration ? t.projects.heldModerationTip : t.projects.heldQuotaTip}
       >
+        {dot({ boxShadow: "inset 0 0 0 1.5px var(--text-secondary)" })}
         {isModeration ? t.projects.heldModerationLabel : t.projects.heldQuotaLabel}
       </span>
     );
@@ -192,7 +200,7 @@ function DemoBuildBadge({
   const stamp = statusChangedAt
     ? new Date(statusChangedAt).toLocaleTimeString(locale === "ko" ? "ko-KR" : "en-US", { hour: "2-digit", minute: "2-digit" })
     : null;
-  const label = paused ? t.projects.pausedLabel : isSlow ? t.projects.slowLabel : `${DEMO_PHASE_LABEL[status]} · ${t.projects.usualTime}`;
+  const label = paused ? t.projects.pausedLabel : isSlow ? t.projects.slowLabel : DEMO_PHASE_LABEL[status];
   const body = paused ? t.projects.progressPausedBody : isSlow ? t.projects.slowTip : t.projects.progressRunningBody;
 
   return (
@@ -203,23 +211,17 @@ function DemoBuildBadge({
           const r = e.currentTarget.getBoundingClientRect();
           setAnchor(a => (a ? null : popoverAnchor(r, { width: 264, estHeight: 280 })));
         }}
-        className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs shrink-0"
-        style={{
-          background: "var(--surface-soft)",
-          color: "var(--text-secondary)",
-          fontFamily: "var(--font-nunito)",
-          fontSize: "0.6rem",
-          fontWeight: 600,
-          border: "none",
-          cursor: "pointer",
-        }}
+        className="shrink-0"
+        style={{ ...line, color: "var(--text-primary)", cursor: "pointer" }}
         title={t.projects.progressTitle}
       >
-        {!paused && !isSlow && (
+        {!paused && !isSlow ? (
           <span
             className="rounded-full border-2 animate-spin"
-            style={{ width: 8, height: 8, borderColor: "var(--text-secondary)", borderTopColor: "transparent" }}
+            style={{ width: 8, height: 8, borderColor: "var(--text-primary)", borderTopColor: "transparent", flexShrink: 0 }}
           />
+        ) : (
+          dot({ background: "var(--text-primary)" })
         )}
         {label}
       </button>
@@ -262,10 +264,40 @@ function DemoBuildBadge({
             <p style={{ fontSize: "0.7rem", color: "var(--text-secondary)", lineHeight: 1.6, fontFamily: "var(--font-nunito)", margin: "0.7rem 0 0" }}>
               {body}
             </p>
+            {!paused && !isSlow && (
+              <p style={{ fontSize: "0.68rem", color: "var(--text-muted)", fontFamily: "var(--font-nunito)", margin: "0.35rem 0 0" }}>
+                {t.projects.usualTime}
+              </p>
+            )}
           </div>
         </Popover>
       )}
     </div>
+  );
+}
+
+// 유형·도구·업로드 시각을 잇는 회색 한 줄. 알약 배지 네 개가 같은 무게로 늘어서
+// "무엇이 중요한지 눈이 못 고르던" 것을 대체한다(시안 1, 2026-09-05 확정).
+// 한 줄을 넘기면 자르고, 전체 날짜는 title로 넘긴다.
+function MetaLine({ parts, title }: { parts: (string | null | undefined)[]; title?: string }) {
+  const items = parts.filter((p): p is string => !!p && p.length > 0);
+  if (!items.length) return null;
+  return (
+    <p
+      className="truncate"
+      style={{
+        color: "var(--text-muted)", fontFamily: "var(--font-nunito)",
+        fontSize: "0.7rem", lineHeight: 1.5, margin: 0,
+      }}
+      title={title}
+    >
+      {items.map((text, i) => (
+        <span key={text}>
+          {i > 0 && <span aria-hidden style={{ opacity: 0.5, margin: "0 0.45em" }}>·</span>}
+          {text}
+        </span>
+      ))}
+    </p>
   );
 }
 
@@ -411,24 +443,10 @@ export function DraftRow({ draft, highlight, isLast, onEdit, onDelete, onPublish
               style={{ background: "var(--surface-soft)", color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", fontSize: "0.6rem", fontWeight: 600 }}>
               {t.projects.draftBadge}
             </span>
-            {ct && (
-              <span className="text-xs shrink-0" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.62rem" }}>
-                {ct.emoji} {ctLabel}
-              </span>
-            )}
-            {/* 업로드 시각 — 같은 작품이 여러 번 올라오면 제목만으로는 어느 게
-                방금 것인지 알 수 없다(2026-09-05 사용자 요청). */}
-            {uploadedAt && (
-              <span className="text-xs shrink-0 vf-mono" style={{ color: "var(--text-muted)", fontSize: "0.6rem" }} title={uploadedAt.full}>
-                {uploadedAt.short}
-              </span>
-            )}
           </div>
-          {draft.description && (
-            <p className="text-xs truncate" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", margin: 0 }}>
-              {draft.description}
-            </p>
-          )}
+          {/* AI가 쓴 소개글은 여기서 미리 보여주지 않는다 — 행을 누르면 검토
+              화면이 열려 전문이 나온다. 목록은 훑는 자리다(시안 1). */}
+          <MetaLine parts={[ctLabel, uploadedAt?.short]} title={uploadedAt?.full} />
         </div>
       </div>
 
@@ -535,82 +553,49 @@ export function ProjectRow({ project, username, demoPaused, nowMs, onDelete, onE
             >
               {project.title}
             </h3>
-            <span className="text-xs shrink-0 vf-mono" style={{ color: "var(--text-muted)" }}>{project.year}</span>
-            {/* 작품 연도(year, 명함에 나가는 값) 옆의 실제 업로드 시각. */}
-            {uploadedAt && (
-              <span className="text-xs shrink-0 vf-mono" style={{ color: "var(--text-muted)", fontSize: "0.6rem" }} title={uploadedAt.full}>
-                {uploadedAt.short}
-              </span>
-            )}
             {project.is_featured && (
               <span className="px-2 py-0.5 rounded-full shrink-0"
                 style={{ background: "var(--text-primary)", color: "var(--bg)", fontFamily: "var(--font-nunito)", fontSize: "0.6rem", fontWeight: 700 }}>
                 {t.projects.featuredBadge}
               </span>
             )}
-            {contentType && (
-              <span className="px-2 py-0.5 rounded-full text-xs shrink-0"
-                style={{ background: "var(--surface-soft)", color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", fontSize: "0.6rem", fontWeight: 500 }}>
-                {contentType.emoji} {contentTypeLabel}
-              </span>
-            )}
-            {isUploadedProject(project.demo_url) && (
-              <span className="px-2 py-0.5 rounded-full text-xs shrink-0 vf-mono"
-                style={{ background: "var(--text-primary)", color: "var(--bg)", fontSize: "0.58rem", letterSpacing: "0.08em", textTransform: "uppercase" }}>
-                upload
-              </span>
-            )}
-            {/* 재촬영 루프: AI가 새 대본을 제출해 두면 여기서 알린다. 누르면
-                재촬영 모달이 검토 화면으로 열려 대본을 보고 실행할 수 있다. */}
-            {project.pending_demo_script && (
-              <button
-                type="button"
-                onClick={onRerecord}
-                className="px-2 py-0.5 rounded-full text-xs shrink-0"
-                style={{
-                  background: "var(--surface-soft)", color: "var(--text-primary)",
-                  fontFamily: "var(--font-nunito)", fontWeight: 600, cursor: "pointer",
-                }}
-              >
-                {t.projects.pendingScriptBadge}
-              </button>
-            )}
-            <DemoBuildBadge
-              status={project.demo_build_status}
-              error={project.demo_build_error}
-              statusChangedAt={project.demo_status_changed_at}
-              paused={demoPaused}
-              nowMs={nowMs}
-              onRetry={project.demo_source_value ? onRerecord : undefined}
-            />
           </div>
-          <div className="flex flex-wrap gap-1.5">
-            {(project.tags ?? []).map(tag => (
-              <span key={tag} className="flex items-center gap-1 px-2 py-0.5 rounded-full"
-                style={{
-                  background: "var(--surface-soft)",
-                  color: "var(--text-secondary)", fontSize: "0.62rem", fontWeight: 500, fontFamily: "var(--font-nunito)",
-                }}>
-                <AiToolLogo id={tag} size={11} />
-                {tag}
-              </span>
-            ))}
-          </div>
+          {/* 유형·도구·업로드 시각을 한 줄로. 연도(year)는 명함에 나가는 값이라
+              여기선 뺐다 — 업로드 시각과 숫자가 겹쳐 읽혔다(시안 1). */}
+          <MetaLine
+            parts={[contentTypeLabel, (project.tags ?? []).join(", "), uploadedAt?.short]}
+            title={uploadedAt?.full}
+          />
         </div>
       </div>
 
       {/* Bottom section: type badge + actions. Full-width row on mobile, inline on desktop */}
-      <div className="flex items-center gap-2 justify-between md:justify-start shrink-0" onDragStart={e => e.stopPropagation()}>
-        <span className="px-2.5 py-1 rounded-full text-xs shrink-0 vf-mono"
-          style={{
-            background: "var(--surface-soft)",
-            color: "var(--text-secondary)",
-            letterSpacing: "0.08em",
-            textTransform: "uppercase",
-            fontSize: "0.58rem",
-          }}>
-          {project.type === "video" ? "video" : "image"}
-        </span>
+      {/* 오른쪽은 "지금 어떤가"만 — 상태 한 줄 + 액션. image/video 배지는
+          내부 구분값이라 만든 사람에게 알려 줄 게 없어 뺐다(시안 1). */}
+      <div className="flex items-center gap-2.5 justify-between md:justify-end shrink-0" onDragStart={e => e.stopPropagation()}>
+        {/* 재촬영 루프: AI가 새 대본을 제출해 두면 여기서 알린다. 누르면
+            재촬영 모달이 검토 화면으로 열려 대본을 보고 실행할 수 있다. */}
+        {project.pending_demo_script && (
+          <button
+            type="button"
+            onClick={onRerecord}
+            className="px-2 py-0.5 rounded-full text-xs shrink-0"
+            style={{
+              background: "var(--surface-soft)", color: "var(--text-primary)",
+              fontFamily: "var(--font-nunito)", fontWeight: 600, cursor: "pointer",
+            }}
+          >
+            {t.projects.pendingScriptBadge}
+          </button>
+        )}
+        <DemoBuildBadge
+          status={project.demo_build_status}
+          error={project.demo_build_error}
+          statusChangedAt={project.demo_status_changed_at}
+          paused={demoPaused}
+          nowMs={nowMs}
+          onRetry={project.demo_source_value ? onRerecord : undefined}
+        />
 
         <div className="flex items-center gap-1.5 md:gap-2">
           {/* 1차 액션은 공유뿐 — 나머지는 전부 ⋯ 메뉴로(시안 A).
