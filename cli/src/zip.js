@@ -39,7 +39,7 @@ export async function zipDir(dir) {
         const buf = await readFile(full);
         total += buf.length;
         if (total > MAX_BYTES) {
-          throw new Error("빌드 산출물이 25MB를 초과해요 — 더 작은 정적 번들을 올려주세요.");
+          throw new Error("Build output exceeds 25MB — upload a smaller static bundle.");
         }
         const rel = relative(dir, full).split(sep).join("/");
         zip.file(rel, buf);
@@ -49,7 +49,7 @@ export async function zipDir(dir) {
 
   await walk(dir);
   if (Object.keys(zip.files).length === 0) {
-    throw new Error("올릴 파일이 없어요 — 디렉터리가 비어 있어요.");
+    throw new Error("Nothing to upload — the directory is empty.");
   }
   return zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" });
 }

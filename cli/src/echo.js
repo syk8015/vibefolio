@@ -4,7 +4,8 @@
 // 서버가 돌려준 accepted(= 실제 저장된 값)를 사람·AI 둘 다 읽을 수 있게 편다.
 // 구버전 서버는 accepted를 안 주므로 그때는 빈 배열(출력 없음)로 조용히 물러난다.
 
-// 한글은 터미널에서 두 칸을 차지한다 — 문자 수로 padEnd 하면 열이 어긋난다.
+// 라벨은 영어(ASCII)지만 값에는 한글 제목이 섞인다 — 한글은 터미널에서 두 칸을
+// 차지하므로 문자 수로 padEnd 하면 열이 어긋난다.
 function displayWidth(str) {
   let w = 0;
   for (const ch of str) {
@@ -19,33 +20,33 @@ function displayWidth(str) {
   return w;
 }
 
-const LABEL_COLS = 12;
+const LABEL_COLS = 14;
 const ROW = (label, value) =>
   `    ${label}${" ".repeat(Math.max(1, LABEL_COLS - displayWidth(label)))}${value}`;
 
 export function formatAccepted(accepted) {
   if (!accepted || typeof accepted !== "object") return [];
-  const lines = ["  저장된 내용"];
+  const lines = ["  Saved"];
 
-  lines.push(ROW("제목", accepted.title || "(없음)"));
+  lines.push(ROW("title", accepted.title || "(none)"));
 
   const texts = [
-    `설명 ${accepted.descriptionLines ?? 0}줄·${accepted.descriptionChars ?? 0}자`,
+    `description ${accepted.descriptionLines ?? 0} lines / ${accepted.descriptionChars ?? 0} chars`,
   ];
-  if (accepted.builderNoteChars) texts.push(`말풍선 ${accepted.builderNoteChars}자`);
-  if (accepted.demoHighlightsChars) texts.push(`시연 핵심 ${accepted.demoHighlightsChars}자`);
-  if (accepted.demoScriptSteps) texts.push(`촬영 대본 ${accepted.demoScriptSteps}스텝`);
-  lines.push(ROW("글", texts.join(" · ")));
+  if (accepted.builderNoteChars) texts.push(`note ${accepted.builderNoteChars} chars`);
+  if (accepted.demoHighlightsChars) texts.push(`highlights ${accepted.demoHighlightsChars} chars`);
+  if (accepted.demoScriptSteps) texts.push(`demo script ${accepted.demoScriptSteps} steps`);
+  lines.push(ROW("text", texts.join(" · ")));
 
-  lines.push(ROW("AI 툴", accepted.tags?.length ? accepted.tags.join(", ") : "(없음)"));
-  lines.push(ROW("분류", accepted.contentType || "(없음 — 뱃지 미표시)"));
-  if (accepted.entryUrl) lines.push(ROW("촬영·임베드", accepted.entryUrl));
-  if (accepted.scoutAltUrl) lines.push(ROW("촬영 후보", `${accepted.scoutAltUrl}  (촬영 직전 둘 중 하나를 고름)`));
+  lines.push(ROW("AI tools", accepted.tags?.length ? accepted.tags.join(", ") : "(none)"));
+  lines.push(ROW("type", accepted.contentType || "(none — no badge shown)"));
+  if (accepted.entryUrl) lines.push(ROW("film/embed", accepted.entryUrl));
+  if (accepted.scoutAltUrl) lines.push(ROW("alt target", `${accepted.scoutAltUrl}  (one of the two is picked right before filming)`));
   if (accepted.demoAccess) {
-    lines.push(ROW("데모 진입", accepted.demoAccess === "impossible"
-      ? "불가 선언(랜딩만 촬영)"
+    lines.push(ROW("demo access", accepted.demoAccess === "impossible"
+      ? "declared impossible (landing page only)"
       : accepted.demoAccess === "no-login"
-        ? "로그인 불필요 선언"
+        ? "declared no login required"
         : accepted.demoAccess));
   }
 
@@ -54,75 +55,75 @@ export function formatAccepted(accepted) {
   const review = accepted.scriptReview;
   if (review && typeof review === "object") {
     const parts = [
-      `${review.steps}스텝`,
-      `조작 ${review.interactive}`,
-      `셀렉터 ${review.wired}/${review.steps}`,
-      `기대값 ${review.withExpect}/${review.steps}`,
+      `${review.steps} steps`,
+      `interactive ${review.interactive}`,
+      `selector ${review.wired}/${review.steps}`,
+      `expect ${review.withExpect}/${review.steps}`,
     ];
     const sel = review.selectors;
-    if (sel?.status === "checked") parts.push(`라이브 HTML에서 셀렉터 ${sel.found}/${sel.checked} 확인`);
-    lines.push(ROW("대본 점검", parts.join(" · ")));
+    if (sel?.status === "checked") parts.push(`${sel.found}/${sel.checked} selectors found in live HTML`);
+    lines.push(ROW("script check", parts.join(" · ")));
   }
 
   // 경고는 조용한 폐기에만 붙인다 — 사용자가 준 값이 사라진 경우.
   const warn = [];
   for (const w of formatScriptReviewWarnings(review)) warn.push(w);
   if (accepted.droppedTags?.length) {
-    warn.push(`⚠ 버려진 AI 툴: ${accepted.droppedTags.join(", ")} — 지원 목록의 철자와 달라 저장되지 않았어요.`);
+    warn.push(`⚠ Dropped AI tools: ${accepted.droppedTags.join(", ")} — the spelling does not match the supported list, so they were not saved.`);
   }
   if (accepted.demoScriptDropped) {
-    warn.push("⚠ 버려진 촬영 대본: demoScript 형식이 어긋나 저장되지 않았어요 — { steps: [{ goal, where?, action?, text?, expect? }] } 형태여야 해요.");
+    warn.push("⚠ Dropped demo script: the demoScript shape was invalid and was not saved — it must be { steps: [{ goal, where?, action?, text?, expect? }] }.");
   }
   if (accepted.droppedContentType) {
-    warn.push(`⚠ 버려진 분류: ${accepted.droppedContentType} — web-app·saas·mobile·game·extension·ai-service·media·other 중 하나여야 해요.`);
+    warn.push(`⚠ Dropped type: ${accepted.droppedContentType} — must be one of web-app, saas, mobile, game, extension, ai-service, media, other.`);
   }
   // 설명은 3줄 카피 — 글자 수보다 "줄 수"와 "한 줄 길이"가 화면을 결정한다.
   // 서버 상한(200자)에 걸리기 전에 이 두 가지가 먼저 화면을 망친다.
   if ((accepted.descriptionLines ?? 0) > 3) {
-    warn.push(`⚠ 설명이 ${accepted.descriptionLines}줄이에요 — 명함 화면은 3줄까지만 보여줘요(전문은 상세 페이지에서).`);
+    warn.push(`⚠ The description is ${accepted.descriptionLines} lines — the card shows at most 3 (the full text lives on the detail page).`);
   }
   if ((accepted.descriptionMaxLineCols ?? 0) > 46) {
-    warn.push("⚠ 설명의 한 줄이 너무 길어요 — 폰에서 줄이 접히면서 마지막 줄이 안 보일 수 있어요(한 줄 20자 안팎 권장).");
+    warn.push("⚠ One description line is too long — it wraps on phones and the last line gets cut off (aim for ~40 columns per line).");
   }
   if (accepted.demoHighlightsTruncated) {
-    warn.push("⚠ 시연 핵심이 500자에서 잘렸어요.");
+    warn.push("⚠ demoHighlights was truncated at 500 characters.");
   }
   if (accepted.demoAccessDropped) {
-    warn.push("⚠ demoAccess가 저장되지 않았어요 — url·params·note / noLogin / impossible 형태인지 확인하세요.");
+    warn.push("⚠ demoAccess was not saved — check that it is { url, params, note } or { noLogin: true, note } or { impossible: true, note }.");
   }
   for (const w of warn) lines.push(`  ${w}`);
   return lines;
 }
 
-// 서버의 scriptReview(숫자·셀렉터 확인 결과) → 한국어 경고. 서버 hints(영어)를 그대로
-// 찍지 않고 여기서 만드는 이유: 이 출력은 사람도 읽는 자리라 다른 줄과 같은 말투여야
+// 서버의 scriptReview(숫자·셀렉터 확인 결과) → 경고 문구. 서버 hints를 그대로 찍지
+// 않고 여기서 만드는 이유: 이 출력은 사람도 읽는 자리라 다른 줄과 같은 말투여야
 // 한다. 판정 기준(6스텝·조작 2개)은 서버 lib/demoScriptReview.ts와 같다.
 export function formatScriptReviewWarnings(review) {
   if (!review || typeof review !== "object") return [];
   const out = [];
   const total = review.steps ?? 0;
   if (total < 6) {
-    out.push(`⚠ 대본이 ${total}스텝이에요 — 영상 30초를 채우려면 6~8스텝이 알맞아요. 핵심 기능을 중요한 순서대로 더 넣고 같은 URL로 다시 publish하면 이 초안이 갱신돼요.`);
+    out.push(`⚠ The script has ${total} steps — 6 to 8 is right for a 30-second film. Add the key features in order of importance and publish again with the same URL to update this draft.`);
   }
   if ((review.interactive ?? 0) < 2) {
-    out.push(`⚠ 실제 조작(click·type·drag)이 ${review.interactive ?? 0}스텝뿐이에요 — 나머지가 focus·hover·scroll이면 슬라이드쇼처럼 보여요. 핵심 기능을 직접 눌러 결과가 바뀌는 스텝을 2개 이상 넣으세요.`);
+    out.push(`⚠ Only ${review.interactive ?? 0} step(s) actually operate the app (click/type/drag) — if the rest are focus/hover/scroll the film looks like a slideshow. Add at least 2 steps that press something and change the screen.`);
   }
   if ((review.wired ?? 0) < total) {
-    out.push(`⚠ selector 없는 스텝 ${total - review.wired}개 — 그 스텝은 로봇이 화면을 보고 추측해요(느리고 비쌈). 코드에서 정확한 CSS 셀렉터를 찾아 넣으세요.`);
+    out.push(`⚠ ${total - review.wired} step(s) have no selector — the robot has to look at the screen and guess for those (slow and expensive). Find the exact CSS selector in the code.`);
   }
   if ((review.withExpect ?? 0) < total) {
-    out.push(`⚠ expect 없는 스텝 ${total - review.withExpect}개 — "하고 나면 무엇이 보여야 하는지"가 없으면 로봇이 먹었는지 판정을 못 해요.`);
+    out.push(`⚠ ${total - review.withExpect} step(s) have no expect — without "what should appear afterwards" the robot cannot tell whether the step landed.`);
   }
   if (!review.hasSkip) {
-    out.push("· skip 목록이 없어요 — 다크모드 토글처럼 찍으면 안 되는 것을 적어두면 영상이 새지 않아요.");
+    out.push("· No skip list — listing things that must not be filmed (a dark-mode toggle, say) keeps the film on topic.");
   }
   const sel = review.selectors;
   if (sel?.status === "checked" && sel.missing?.length) {
-    out.push(`⚠ 라이브 페이지 HTML에서 못 찾은 셀렉터: ${sel.missing.join(", ")} — 오타이거나 다른 화면의 요소예요. 실제 화면에서 확인하거나 where로 눈에 보이는 찾는 법을 함께 적으세요.`);
+    out.push(`⚠ Selectors not found in the live page HTML: ${sel.missing.join(", ")} — either a typo or an element from a different screen. Check them on the real page, or add a "where" describing how to spot it by eye.`);
   } else if (sel?.status === "skipped" && sel.reason === "js-rendered") {
-    out.push("· 페이지가 자바스크립트로 그려져 셀렉터를 서버가 확인하지 못했어요 — 발행 전에 브라우저로 직접 열어 각 selector가 실제로 있는지 확인하세요.");
+    out.push("· The page is rendered by JavaScript, so the server could not verify the selectors — open it in a browser before publishing and confirm each selector really exists.");
   } else if (sel?.status === "skipped" && (sel.reason === "fetch-failed" || sel.reason === "not-html")) {
-    out.push(`· 셀렉터 확인용으로 페이지를 열지 못했어요(${sel.url}) — 주소가 실제로 열리는지, 로그인 없이 보이는지 확인하세요.`);
+    out.push(`· Could not fetch the page to verify selectors (${sel.url}) — check that the URL actually opens and is visible without logging in.`);
   }
   return out;
 }

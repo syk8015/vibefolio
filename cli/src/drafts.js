@@ -27,29 +27,29 @@ export async function draftsCommand(args) {
   if (sub === "list") {
     const { drafts } = await listDrafts({ token, origin });
     if (!drafts?.length) {
-      console.log("초안이 없어요. `npx nookframe publish` 로 올려보세요.");
+      console.log("No drafts yet. Upload one with `npx nookframe publish`.");
       return;
     }
     for (const d of drafts) {
       console.log(`${d.id}  ${d.title}${d.demo_url ? `  ${d.demo_url}` : ""}`);
       // 발행 때 조용히 버려지는 값들(AI 툴·분류)을 나중에도 확인할 수 있게 같이 출력.
       const meta = [
-        d.tags?.length ? d.tags.join(", ") : "AI 툴 없음",
-        d.content_type || "분류 없음",
-        d.demo_user_hint ? "시연 핵심 있음" : "시연 핵심 없음",
+        d.tags?.length ? d.tags.join(", ") : "no AI tools",
+        d.content_type || "no type",
+        d.demo_user_hint ? "has demo highlights" : "no demo highlights",
       ];
       console.log(`    ${meta.join(" · ")}`);
     }
-    console.log(`\n${drafts.length}개. 수정: drafts update <id> --title … · 삭제: drafts delete <id>`);
+    console.log(`\n${drafts.length} draft(s). Edit: drafts update <id> --title … · Delete: drafts delete <id>`);
     return;
   }
 
   const id = args._[1];
-  if (!id) throw new Error(`사용법: nookframe drafts ${sub} <id>  (id는 drafts list 로 확인)`);
+  if (!id) throw new Error(`Usage: nookframe drafts ${sub} <id>  (find the id with drafts list)`);
 
   if (sub === "delete") {
     await deleteDraft(id, { token, origin });
-    console.log("✓ 초안을 삭제했어요 (스토리지 파일 포함).");
+    console.log("✓ Draft deleted (uploaded files included).");
     return;
   }
 
@@ -59,7 +59,7 @@ export async function draftsCommand(args) {
       try {
         payload = JSON.parse(args.json);
       } catch {
-        throw new Error("--json 값을 JSON으로 읽을 수 없어요.");
+        throw new Error("Could not parse the --json value as JSON.");
       }
     }
     if (args.title) payload.title = args.title;
@@ -67,14 +67,14 @@ export async function draftsCommand(args) {
     if (args.note) payload.builderNote = args.note;
     if (args.hint) payload.demoHighlights = args.hint;
     if (!Object.keys(payload).length) {
-      throw new Error("수정할 항목이 없어요 — --title/--description/--note/--hint 또는 --json 을 주세요.");
+      throw new Error("Nothing to change — pass --title/--description/--note/--hint or --json.");
     }
     const body = await updateDraft(id, payload, { token, origin });
-    console.log("✓ 초안을 수정했어요.");
+    console.log("✓ Draft updated.");
     for (const line of formatAccepted(body.accepted)) console.log(line);
-    console.log(`\n  확인: ${body.reviewUrl}`);
+    console.log(`\n  Review: ${body.reviewUrl}`);
     return;
   }
 
-  throw new Error(`알 수 없는 하위 명령: drafts ${sub} (list·update·delete 중 하나)`);
+  throw new Error(`Unknown subcommand: drafts ${sub} (expected list, update or delete)`);
 }

@@ -23,7 +23,7 @@ export function toRerecordBody(parsed, note) {
   if (note) body.note = note;
   if (!body.demoScript || !Array.isArray(body.demoScript.steps)) {
     throw new Error(
-      '대본을 찾지 못했어요 — { "steps": [...] } 또는 { "demoScript": { "steps": [...] } } 형태여야 해요.',
+      'No demo script found — it must be { "steps": [...] } or { "demoScript": { "steps": [...] } }.',
     );
   }
   return body;
@@ -34,20 +34,20 @@ export async function rerecordCommand(args) {
   const id = args._[0] || (typeof args.id === "string" ? args.id : null);
   if (!id) {
     throw new Error(
-      "사용법: nookframe rerecord <프로젝트 id> --json '<대본 JSON>'  (id는 재촬영 프롬프트에 적혀 있어요)",
+      "Usage: nookframe rerecord <project id> --json '<script JSON>'  (the id is in the re-record prompt)",
     );
   }
 
   let raw = null;
   if (typeof args.file === "string") raw = readFileSync(args.file, "utf8");
   else if (typeof args.json === "string") raw = args.json;
-  if (!raw) throw new Error("대본을 주세요 — --json '<JSON>' 또는 --file <경로>.");
+  if (!raw) throw new Error("Pass a script — --json '<JSON>' or --file <path>.");
 
   let parsed;
   try {
     parsed = JSON.parse(raw);
   } catch {
-    throw new Error(`${args.file ? "--file" : "--json"} 값을 JSON으로 읽을 수 없어요.`);
+    throw new Error(`Could not parse the ${args.file ? "--file" : "--json"} value as JSON.`);
   }
 
   const body = toRerecordBody(parsed, typeof args.note === "string" ? args.note : null);
@@ -58,11 +58,11 @@ export async function rerecordCommand(args) {
 /** 제출 결과를 사람·AI 둘 다 읽을 수 있게. 조용한 폐기(스텝 드랍)는 경고로. */
 export function formatRerecord(res) {
   const a = res?.accepted ?? {};
-  const lines = [`✓ 새 대본을 제출했어요 — ${a.demoScriptSteps ?? 0}스텝 대기 중.`];
-  if (a.note) lines.push(`    바꾼 이유: ${a.note}`);
+  const lines = [`✓ New demo script submitted — ${a.demoScriptSteps ?? 0} steps, pending owner approval.`];
+  if (a.note) lines.push(`    Reason for the change: ${a.note}`);
   if (a.demoScriptDropped) {
     lines.push(
-      "  ⚠ 일부 스텝이 형식에 안 맞아 버려졌어요 — goal은 필수이고, action은 click·type·drag·scroll·hover·draw·focus 중 하나예요.",
+      "  ⚠ Some steps were dropped for the wrong shape — goal is required, and action must be one of click, type, drag, scroll, hover, draw, focus.",
     );
   }
   // 대본 점검표 — 발행 에코와 같은 기준. 재촬영 대본은 "고쳐 쓴" 대본이라 여기서

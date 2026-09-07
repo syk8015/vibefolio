@@ -6,7 +6,7 @@ import { getToken, getOrigin } from "./config.js";
 export async function api(method, path, { token, origin, body } = {}) {
   if (!token) {
     throw new Error(
-      "토큰이 없어요. nookframe.com/dashboard → 연결 탭에서 발급 후 `NOOKFRAME_TOKEN` 환경변수에 넣거나 `npx nookframe login <token>` 하세요.",
+      "No token. Create one at nookframe.com/dashboard -> Connect tab, then set the `NOOKFRAME_TOKEN` env var or run `npx nookframe login <token>`.",
     );
   }
   const res = await fetch(`${(origin || getOrigin()).replace(/\/$/, "")}${path}`, {
@@ -15,7 +15,7 @@ export async function api(method, path, { token, origin, body } = {}) {
     body: body ? JSON.stringify(body) : undefined,
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || `요청 실패 (HTTP ${res.status})`);
+  if (!res.ok) throw new Error(data.error || `Request failed (HTTP ${res.status})`);
   return data;
 }
 

@@ -14,18 +14,18 @@ const BUILD_DIRS = ["dist", "out", "build", "public"];
 export async function runPublish({ payload = {}, dir = null, screenshotPath = null, videoPath = null, token, origin }) {
   if (!token) {
     throw new Error(
-      "토큰이 없어요. nookframe.com/dashboard → 연결 탭에서 발급 후 `NOOKFRAME_TOKEN` 환경변수에 넣거나 `npx nookframe login <token>` 하세요.",
+      "No token. Create one at nookframe.com/dashboard -> Connect tab, then set the `NOOKFRAME_TOKEN` env var or run `npx nookframe login <token>`.",
     );
   }
   const endpoint = `${origin.replace(/\/$/, "")}/api/ingest`;
 
   const entryUrl = payload.appUrl || payload.deployUrl;
   if (!payload.title) {
-    payload.title = dir ? basename(dir) : entryUrl ? safeHost(entryUrl) : "제목 없음";
+    payload.title = dir ? basename(dir) : entryUrl ? safeHost(entryUrl) : "Untitled";
   }
 
   if (!dir && !entryUrl) {
-    throw new Error("올릴 대상이 없어요 — 배포 URL은 --url, 정적 빌드는 --dir 로 알려주세요.");
+    throw new Error("Nothing to upload — pass a deployed URL with --url, or a static build with --dir.");
   }
 
   const authJson = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
@@ -34,7 +34,7 @@ export async function runPublish({ payload = {}, dir = null, screenshotPath = nu
   if (!dir && !screenshotPath && !videoPath) {
     const res = await fetch(endpoint, { method: "POST", headers: authJson, body: JSON.stringify(payload) });
     const body = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(body.error || `업로드 실패 (HTTP ${res.status})`);
+    if (!res.ok) throw new Error(body.error || `Upload failed (HTTP ${res.status})`);
     return body;
   }
 
@@ -52,7 +52,7 @@ export async function runPublish({ payload = {}, dir = null, screenshotPath = nu
     body: JSON.stringify({ ...payload, uploads }),
   });
   const body1 = await step1.json().catch(() => ({}));
-  if (!step1.ok) throw new Error(body1.error || `업로드 준비 실패 (HTTP ${step1.status})`);
+  if (!step1.ok) throw new Error(body1.error || `Could not start the upload (HTTP ${step1.status})`);
 
   const files = {
     bundle: dir ? await zipDir(dir) : null,
@@ -61,13 +61,13 @@ export async function runPublish({ payload = {}, dir = null, screenshotPath = nu
   };
   for (const kind of uploads) {
     const url = body1.uploads?.[kind];
-    if (!url) throw new Error(`서버가 ${kind} 업로드 URL을 주지 않았어요.`);
+    if (!url) throw new Error(`The server did not return an upload URL for ${kind}.`);
     const put = await fetch(url, {
       method: "PUT",
       headers: { "Content-Type": "application/octet-stream" },
       body: files[kind],
     });
-    if (!put.ok) throw new Error(`${kind} 업로드 실패 (HTTP ${put.status})`);
+    if (!put.ok) throw new Error(`Failed to upload ${kind} (HTTP ${put.status})`);
   }
 
   const fin = await fetch(body1.finalizeUrl || `${origin.replace(/\/$/, "")}/api/ingest/finalize`, {
@@ -76,7 +76,7 @@ export async function runPublish({ payload = {}, dir = null, screenshotPath = nu
     body: JSON.stringify({ projectId: body1.projectId }),
   });
   const body2 = await fin.json().catch(() => ({}));
-  if (!fin.ok) throw new Error(body2.error || `업로드 마무리 실패 (HTTP ${fin.status})`);
+  if (!fin.ok) throw new Error(body2.error || `Could not finalize the upload (HTTP ${fin.status})`);
   // 저장 내용 에코(C-1)는 1단계(=메타데이터를 받은 쪽)가 만든다. finalize는 파일만
   // 연결하므로 그 결과에 없으면 1단계 것을 그대로 이어붙여야 사라지지 않는다.
   return { ...body2, accepted: body2.accepted ?? body1.accepted };
@@ -86,7 +86,7 @@ function safeHost(url) {
   try {
     return new URL(url).hostname;
   } catch {
-    return "제목 없음";
+    return "Untitled";
   }
 }
 
@@ -100,7 +100,7 @@ export async function publishCommand(args) {
     try {
       payload = JSON.parse(args.json);
     } catch {
-      throw new Error("--json 값을 JSON으로 읽을 수 없어요.");
+      throw new Error("Could not parse the --json value as JSON.");
     }
   }
   if (args.title) payload.title = args.title;
@@ -145,23 +145,23 @@ export async function publishCommand(args) {
   const screenshotPath = args.screenshot ? resolve(args.screenshot) : null;
   const videoPath = args.video ? resolve(args.video) : null;
   if (screenshotPath && !existsSync(screenshotPath)) {
-    throw new Error(`스크린샷 파일이 없어요: ${screenshotPath}`);
+    throw new Error(`Screenshot file not found: ${screenshotPath}`);
   }
   if (videoPath && !existsSync(videoPath)) {
-    throw new Error(`영상 파일이 없어요: ${videoPath}`);
+    throw new Error(`Video file not found: ${videoPath}`);
   }
 
   const shownUrl = payload.appUrl || payload.deployUrl;
-  if (dir) console.log(`📦 ${dir} 압축·업로드 중…`);
-  else if (shownUrl) console.log(`🔗 ${shownUrl} 등록 중…`);
+  if (dir) console.log(`📦 Zipping and uploading ${dir}…`);
+  else if (shownUrl) console.log(`🔗 Registering ${shownUrl}…`);
   if (screenshotPath || videoPath) {
-    console.log(`🖼️ 미디어 동봉: ${[screenshotPath, videoPath].filter(Boolean).map((p) => basename(p)).join(", ")}`);
+    console.log(`🖼️ Attaching media: ${[screenshotPath, videoPath].filter(Boolean).map((p) => basename(p)).join(", ")}`);
   }
 
   const body = await runPublish({ payload, dir, screenshotPath, videoPath, token, origin });
   console.log(body.upserted
-    ? "\n✓ 같은 URL의 기존 초안을 갱신했어요."
-    : "\n✓ Nookframe에 초안으로 올렸어요.");
+    ? "\n✓ Updated the existing draft with the same URL."
+    : "\n✓ Uploaded to Nookframe as a draft.");
   for (const line of formatAccepted(body.accepted)) console.log(line);
-  console.log(`\n  확인하고 공개: ${body.reviewUrl}`);
+  console.log(`\n  Review and publish: ${body.reviewUrl}`);
 }

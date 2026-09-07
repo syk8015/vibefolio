@@ -15,7 +15,7 @@ export async function runMcp() {
     ({ ListToolsRequestSchema, CallToolRequestSchema } = await import("@modelcontextprotocol/sdk/types.js"));
   } catch {
     console.error(
-      "MCP SDK를 불러오지 못했어요. `npm i @modelcontextprotocol/sdk` 로 설치하거나 `npx -y nookframe mcp` 로 다시 실행하세요.",
+      "Could not load the MCP SDK. Install it with `npm i @modelcontextprotocol/sdk`, or run `npx -y nookframe mcp` instead.",
     );
     process.exit(1);
     return;
@@ -42,7 +42,7 @@ export async function runMcp() {
   const DEMO_SCRIPT_SCHEMA = {
     type: "object",
     description:
-      "자동 시연 로봇이 따라 찍는 촬영 대본. 네가 이 앱을 만들었으니 어떤 화면에서 뭘 눌러야 핵심이 보이는지 안다 — 로봇이 픽셀만 보고 추측하게 두지 마. 이 대본이 곧 영상 전체다(로봇은 딱 이 스텝들만 찍고 끝냄): 보여줄 가치가 있는 기능을 빠짐없이, 5~8스텝 적정(최대 10, 최소 4), 중요한 순서대로(필름 ~30초, 뒤부터 잘림 — 1번이 절대 빠지면 안 되는 기능). 스텝마다 action과 selector(모르면 where)를 반드시 같이 넣어라 — goal만 있는 스텝은 대본이 아니라 목차라서, 그런 것뿐이면 서버가 거절한다(최소 3스텝이 이 조건을 채워야 함). hold(초, 0.5~4)를 주면 그 스텝 결과를 오래 보여준다. 로봇은 각 스텝을 실제 화면에서 확인하고 못 찾으면 건너뛰며, 대본에 있어도 로그인/제출/삭제/파일선택은 절대 안 누른다.",
+      "The demo script a filming robot follows. You built this app, so you know which screen to open and what to press for the good part to show — do not leave the robot guessing from pixels. This script IS the whole video (the robot films exactly these steps and stops): cover every feature worth showing, 5-8 steps is right (max 10, min 4), in order of importance (the film runs ~30s and is cut from the end — step 1 must be the feature that absolutely cannot be missing). Every step must carry both an action and a selector (or where, if you do not know the selector) — a step with only a goal is a table of contents, not a script, and the server rejects a script made only of those (at least 3 steps must meet this bar). Set hold (seconds, 0.5-4) to linger on a step's result. The robot verifies each step on the real screen and skips what it cannot find, and it never presses login, submit, delete or file-picker controls even if the script asks.",
     properties: {
       steps: {
         type: "array",
@@ -50,16 +50,16 @@ export async function runMcp() {
         items: {
           type: "object",
           properties: {
-            goal: { type: "string", description: "이 비트가 증명하는 것 (120자 이내)" },
+            goal: { type: "string", description: "What this beat proves (max 120 chars)" },
             // 전 스텝에 selector가 있으면 로봇이 비전 없이 DOM에서 직접 조립(더 빠르고 정확, 2026-08-20).
-            selector: { type: "string", description: "그 컨트롤의 CSS 셀렉터 — 코드를 아는 네가 정확한 걸 줘라 (250자 이내)" },
-            toSelector: { type: "string", description: "action=drag일 때 놓을 곳의 CSS 셀렉터" },
-            where: { type: "string", description: "눈으로 찾는 법(보이는 라벨·위치) — 셀렉터가 빗나갔을 때의 폴백 (120자 이내)" },
+            selector: { type: "string", description: "CSS selector for that control — you know the code, so give the exact one (max 250 chars)" },
+            toSelector: { type: "string", description: "CSS selector for the drop target when action=drag" },
+            where: { type: "string", description: "How to find it by eye (visible label, position) — the fallback when the selector misses (max 120 chars)" },
             // "focus" = 강조 비트: 조작 없이 필름 카메라가 그 영역을 확대(2026-08-20).
             action: { type: "string", enum: ["click", "type", "drag", "scroll", "hover", "draw", "focus"] },
-            text: { type: "string", description: "action=type일 때 입력할 내용 (60자 이내)" },
-            expect: { type: "string", description: "하고 나면 화면에 나타나야 하는 것 (120자 이내)" },
-            hold: { type: "number", description: "이 스텝의 결과를 몇 초 보여줄지 (0.5~4). 천천히 봐야 하는 비트에만" },
+            text: { type: "string", description: "What to type when action=type (max 60 chars)" },
+            expect: { type: "string", description: "What should appear on screen afterwards (max 120 chars)" },
+            hold: { type: "number", description: "How many seconds to hold on this step's result (0.5-4). Only for beats that need a slow look" },
           },
           required: ["goal"],
         },
@@ -67,9 +67,9 @@ export async function runMcp() {
       skip: {
         type: "array",
         items: { type: "string" },
-        description: "모든 앱에 다 있어서 비트가 아까운 것들 (예: 다크 모드·언어 토글)",
+        description: "Things every app has, so they waste a beat (e.g. dark mode or language toggles)",
       },
-      prep: { type: "string", description: "(선택) 투어 전 준비 한 줄" },
+      prep: { type: "string", description: "(optional) One line of setup before the tour" },
     },
     required: ["steps"],
   };
@@ -77,53 +77,53 @@ export async function runMcp() {
   const TOOL = {
     name: "publish_to_nookframe",
     description:
-      "이 프로젝트를 Nookframe(바이브코딩 포트폴리오)에 초안으로 올린다. 당신이 이 프로젝트를 만든 AI로서 레포(README·라우트·git log)를 근거로 title/description/demoScript(촬영 대본)를 직접 작성해 전달하라. description은 한 문단이 아니라 줄바꿈(\\n)으로 끊은 2~3줄이어야 한다 — 명함에서 작품 위에 겹쳐 뜨는 첫인상 글이고, 한 줄이 길면 폰에서 접혀 잘린다(어기면 거절). deployUrl(배포된 공개 URL) 또는 dir(로컬 폴더 절대경로 — 웹앱은 정적 빌드 산출물, 파이썬·CLI 프로젝트는 소스 폴더 그대로) 중 하나를 준다. 미배포+서버·DB가 필요해 dir로 안 되면 deployUrl에 공개 GitHub 저장소 URL을 대신 줘도 된다(clone 후 자동 실행하는 최후 수단 — JS 리포는 npm run dev/start, 파이썬 웹앱은 Streamlit·Gradio·Dash·Django·Flask·FastAPI 감지 후 pip install+실행(Django는 migrate도 대신 실행), 웹 화면이 없는 프로젝트(CLI 도구·봇·백엔드)는 라이브 터미널에서 로봇이 명령어를 쳐 보는 영상으로 촬영(demoScript에 정확한 명령어를 적으면 훨씬 좋아짐). 비공개 저장소는 실패, 원격 DB 앱은 읽기전용 데모). 랜딩과 실제 앱 화면 주소가 다르면 appUrl에 앱 URL을 함께 줘라(시연·임베드는 appUrl을 연다). demoAccess는 필수다 — 시연 로봇은 절대 로그인하지 않으므로 '로그인 전에 뭐가 실제로 작동하는가'를 판단해 셋 중 하나로 답하라: 로그인 없이 들어갈 길이 있으면 { url, params, note }, 로그인이 아예 필요 없고 첫 화면부터 전 기능이 눌리면 { noLogin: true, note: \"확인한 근거 한 줄\" }(note 없이 noLogin만 보내면 거절), 게스트 경로가 원천 불가능하면(E2E 암호화·기기 페어링 필수 등) { impossible: true, note: \"이유\" }(이 경우 랜딩만 찍히니 video 동봉 강력 권장). 셋 다 없으면 서버가 400으로 거절한다. 계정 아이디/비번은 받지 않는다. 직접 찍은 스크린샷·시연 영상 파일이 있으면 screenshot/video에 절대경로로 줘라(영상을 주면 자동 촬영은 생략된다). demoScript.steps는 중요한 순서대로 — 1번이 절대 빠지면 안 되는 핵심 기능이다. 같은 URL로 다시 올리면 새 초안이 생기지 않고 기존 초안이 갱신된다(내용 수정에 이 방법을 써라).",
+      "Upload this project to Nookframe (a portfolio for vibe-coded work) as a draft. You are the AI that built it, so write title/description/demoScript yourself from the repo (README, routes, git log) and pass them in. The description must NOT be one paragraph: it is 2-3 lines separated by newlines (\\n) — it is the first-impression copy laid over the work on the card, and a long line wraps and gets cut off on phones (violations are rejected). Give either deployUrl (a deployed public URL) or dir (absolute path to a local folder — static build output for web apps, the source folder itself for Python/CLI projects). If it is not deployed and needs a server or DB so dir will not do, you may pass a public GitHub repo URL as deployUrl instead (a last resort: the repo is cloned and run — JS repos via npm run dev/start, Python web apps by detecting Streamlit/Gradio/Dash/Django/Flask/FastAPI then pip install + run (Django also gets migrate run for it), and projects with no web screen (CLI tools, bots, backends) are filmed as a live terminal session where the robot types the commands (put the exact commands in demoScript and it gets much better). Private repos fail; apps needing a remote DB get a read-only demo). If the landing page and the actual app screen are different URLs, also pass appUrl (the demo and the embed open appUrl). demoAccess is REQUIRED — the filming robot never logs in, so decide 'what actually works before login' and answer with exactly one of: { url, params, note } if there is a way in without login; { noLogin: true, note: \"one line on what you checked\" } if no login is needed at all and every feature is usable from the first screen (noLogin without note is rejected); { impossible: true, note: \"why\" } if a guest path is fundamentally impossible (E2E encryption, mandatory device pairing). In that last case only the landing page gets filmed, so attaching a video is strongly recommended. Without one of the three the server rejects with 400. Account credentials are not accepted. If you have your own screenshot or demo video, pass absolute paths in screenshot/video (supplying a video skips automatic filming). Order demoScript.steps by importance — step 1 is the feature that absolutely cannot be missing. Uploading the same URL again does not create a new draft, it updates the existing one (use this to edit content).",
     inputSchema: {
       type: "object",
       properties: {
-        title: { type: "string", description: "짧고 명확한 제품 이름" },
-        description: { type: "string", description: "한 문단 설명 (미완성이면 지향점까지)" },
-        builderNote: { type: "string", description: "(선택) 공개 카드에 말풍선으로 뜨는 짧은 한마디. 문단이 아니라 한 줄, 예: '이게 제 첫 사이드프로젝트예요!'" },
-        demoHighlights: { type: "string", description: "(구식 — demoScript가 있으면 생략 가능) 시연 핵심 서술형 3~5가지, 500자 이내" },
+        title: { type: "string", description: "Short, clear product name" },
+        description: { type: "string", description: "2-3 lines separated by newlines (if unfinished, say where it is headed)" },
+        builderNote: { type: "string", description: "(optional) Short one-liner shown as a speech bubble on the public card. One line, not a paragraph — e.g. \"my first side project!\"" },
+        demoHighlights: { type: "string", description: "(legacy — can be omitted when demoScript is present) 3-5 highlights in prose, max 500 chars" },
         demoScript: DEMO_SCRIPT_SCHEMA,
         tags: {
           type: "array",
           items: { type: "string", enum: AI_TOOL_IDS },
-          description: "이 작업에 쓴 AI 툴. 목록 밖 철자는 서버가 조용히 버린다.",
+          description: "AI tools used for this work. Spellings outside the list are silently dropped by the server.",
         },
         contentType: {
           type: "string",
           enum: ["web-app", "saas", "mobile", "game", "extension", "ai-service", "media", "other"],
         },
-        deployUrl: { type: "string", description: "배포된 공개 URL" },
-        appUrl: { type: "string", description: "실제 앱 화면 URL (랜딩과 다를 때 — 시연·임베드는 이 주소를 연다)" },
+        deployUrl: { type: "string", description: "Deployed public URL" },
+        appUrl: { type: "string", description: "URL of the actual app screen (when it differs from the landing page — the demo and the embed open this one)" },
         demoAccess: {
           type: "object",
           description:
-            "필수. 시연 로봇은 절대 로그인하지 않는다 — 화면이 보이느냐가 아니라 '로그인 전에 뭐가 실제로 작동하느냐'를 판단하고, url·noLogin·impossible 중 딱 하나로 답하라. 로그아웃 상태에서 멀쩡해 보이지만 목록이 비어 있고 저장이 로그인으로 튕기는 앱이 가장 흔한 실패다(화면은 떴으니 실패로 잡히지도 않는다). 셋 다 없으면 서버가 400으로 거절한다. 계정 아이디/비번은 절대 넣지 말 것(받지 않음).",
+            "Required. The filming robot never logs in — judge not 'does a screen appear' but 'what actually works before login', and answer with exactly one of url, noLogin or impossible. The most common failure is an app that looks fine when logged out but has empty lists and bounces saves to a login screen (a screen did appear, so it is not even caught as a failure). Without one of the three the server rejects with 400. Never include account credentials (they are not accepted).",
           properties: {
-            url: { type: "string", description: "데모/게스트 진입 URL 또는 경로 (예 \"/demo\")" },
+            url: { type: "string", description: "Demo/guest entry URL or path (e.g. \"/demo\")" },
             params: {
               type: "object",
               additionalProperties: { type: "string" },
-              description: "진입 URL에 붙일 추가 쿼리 파라미터 (예 {\"guest\":\"1\"})",
+              description: "Extra query parameters to append to the entry URL (e.g. {\"guest\":\"1\"})",
             },
-            note: { type: "string", description: "거기서 데모 모드를 보는 법 한두 문장 (500자 이내). impossible이면 왜 불가능한지" },
+            note: { type: "string", description: "One or two sentences on how to reach demo mode there (max 500 chars). If impossible, why it is impossible" },
             impossible: {
               type: "boolean",
               description:
-                "게스트 경로가 원천 불가능한 앱 선언 (E2E 암호화·기기 페어링 필수 등). true면 자동 촬영은 랜딩만 담고 리포트에 표기된다 — video 동봉 권장.",
+                "Declares that a guest path is fundamentally impossible (E2E encryption, mandatory device pairing, etc.). If true, automatic filming captures only the landing page and says so in the report — attaching a video is recommended.",
             },
             noLogin: {
               type: "boolean",
               description:
-                "로그인이 아예 필요 없고 첫 화면부터 전 기능이 눌린다는 선언. 랜딩이 멀쩡해 보인다고 쓰지 말고 실제 라우트·가드를 확인한 뒤에만 true로 줄 것.",
+                "Declares that no login is needed at all and every feature is usable from the first screen. Do not set it just because the landing page looks fine — only after checking the actual routes and guards.",
             },
           },
         },
-        dir: { type: "string", description: "올릴 로컬 디렉터리 절대경로 (deployUrl이 없을 때 — 정적 빌드 산출물 또는 파이썬·CLI 소스 폴더)" },
-        screenshot: { type: "string", description: "썸네일로 쓸 스크린샷 이미지 절대경로 (png/jpg/webp/gif, ≤5MB)" },
-        video: { type: "string", description: "직접 만든 시연 영상 절대경로 (mp4/webm, ≤20MB — 있으면 자동 촬영 생략)" },
+        dir: { type: "string", description: "Absolute path of the local directory to upload (when there is no deployUrl — static build output, or a Python/CLI source folder)" },
+        screenshot: { type: "string", description: "Absolute path of a screenshot image to use as the thumbnail (png/jpg/webp/gif, <=5MB)" },
+        video: { type: "string", description: "Absolute path of your own demo video (mp4/webm, <=20MB — supplying one skips automatic filming)" },
       },
       required: ["title"],
     },
@@ -134,22 +134,22 @@ export async function runMcp() {
     {
       name: "list_nookframe_drafts",
       description:
-        "내가 Nookframe에 올린 초안(아직 공개 전) 목록을 본다. 공개된 프로젝트는 안 보인다.",
+        "List my Nookframe drafts (not yet published). Published projects do not appear.",
       inputSchema: { type: "object", properties: {} },
     },
     {
       name: "update_nookframe_draft",
       description:
-        "Nookframe 초안의 메타데이터(title/description/builderNote/demoHighlights/demoScript/tags/contentType/demoAccess)를 수정한다. 보낸 필드만 바뀐다. URL·파일 교체는 이 툴로 안 되고, 같은 URL로 publish_to_nookframe를 다시 호출하면 그 초안이 갱신된다. 공개된 프로젝트는 수정 불가.",
+        "Edit a Nookframe draft's metadata (title/description/builderNote/demoHighlights/demoScript/tags/contentType/demoAccess). Only the fields you send change. This tool cannot swap the URL or the files — call publish_to_nookframe again with the same URL and that draft is updated. Published projects cannot be edited.",
       inputSchema: {
         type: "object",
         properties: {
-          id: { type: "string", description: "초안 id (list_nookframe_drafts로 확인)" },
+          id: { type: "string", description: "Draft id (find it with list_nookframe_drafts)" },
           title: { type: "string" },
           description: { type: "string" },
           builderNote: { type: "string" },
           demoHighlights: { type: "string" },
-          demoScript: { type: "object", description: "촬영 대본 — publish_to_nookframe의 demoScript와 같은 형식 { steps, skip?, prep? }" },
+          demoScript: { type: "object", description: "Demo script — same shape as publish_to_nookframe's demoScript { steps, skip?, prep? }" },
           tags: { type: "array", items: { type: "string", enum: AI_TOOL_IDS } },
           contentType: {
             type: "string",
@@ -171,10 +171,10 @@ export async function runMcp() {
     {
       name: "delete_nookframe_draft",
       description:
-        "Nookframe 초안을 삭제한다(올라간 파일 포함). 공개된 프로젝트는 이 툴로 못 지운다. 유저가 지워달라고 했거나 잘못 올린 초안일 때만 써라.",
+        "Delete a Nookframe draft (uploaded files included). Published projects cannot be deleted with this tool. Use it only when the user asked for the deletion, or for a draft uploaded by mistake.",
       inputSchema: {
         type: "object",
-        properties: { id: { type: "string", description: "초안 id (list_nookframe_drafts로 확인)" } },
+        properties: { id: { type: "string", description: "Draft id (find it with list_nookframe_drafts)" } },
         required: ["id"],
       },
     },
@@ -185,13 +185,13 @@ export async function runMcp() {
   const RERECORD_TOOL = {
     name: "rerecord_nookframe_demo",
     description:
-      "이미 공개된 Nookframe 작품의 시연 영상이 마음에 안 들 때, 다시 쓴 촬영 대본을 제출한다. 주인이 Nookframe에서 [재촬영 요청]을 눌러 만든 프롬프트를 받았을 때 쓰는 툴이다 — 그 프롬프트에 프로젝트 id·지금 걸려 있는 대본 전문·주인이 직접 쓴 불만이 들어 있으니, 멀쩡한 스텝은 두고 지적된 것만 고쳐라. 중요: 제출해도 영상은 바로 바뀌지 않는다. 새 대본은 **대기 상태**로 저장되고, 주인이 대시보드에서 확인하고 [재촬영]을 눌러야 촬영이 시작된다 — 사람에게 보고할 때 이 사실을 반드시 함께 말해라. 대본 게이트는 발행과 동일(최소 4스텝, 그중 3스텝 이상은 action+selector를 갖춰야 함).",
+      "Submit a rewritten demo script when the owner is unhappy with an already-published Nookframe work's demo video. Use it when you were handed the prompt the owner generated by pressing [Request re-record] on Nookframe — that prompt contains the project id, the full script currently in place, and the owner's own complaint, so leave the steps that are fine and fix only what was called out. Important: submitting does NOT change the video. The new script is stored in a PENDING slot, and filming starts only after the owner reviews it in the dashboard and presses [Re-record] — you must say this when you report back to the human. The script gate is the same as publishing (at least 4 steps, of which 3 or more carry both an action and a selector).",
     inputSchema: {
       type: "object",
       properties: {
-        id: { type: "string", description: "프로젝트 id — 주인이 준 재촬영 프롬프트에 적혀 있다" },
+        id: { type: "string", description: "Project id — it is written in the re-record prompt the owner gave you" },
         demoScript: DEMO_SCRIPT_SCHEMA,
-        note: { type: "string", description: "무엇을 왜 바꿨는지 한 줄 (주인이 대시보드에서 이걸 보고 판단한다, 1000자 이내)" },
+        note: { type: "string", description: "One line on what changed and why (the owner reads this in the dashboard to decide, max 1000 chars)" },
       },
       required: ["id", "demoScript"],
     },
@@ -215,26 +215,26 @@ export async function runMcp() {
             videoPath: video || null,
             ...conn,
           });
-          const verb = body.upserted ? "기존 초안을 갱신했어요" : "초안으로 올렸어요";
+          const verb = body.upserted ? "Updated the existing draft" : "Uploaded as a draft";
           // 저장 에코를 툴 결과에 실어야 호출한 AI가 자기 payload가 어디까지
           // 살아남았는지(태그 철자·분류·500자 절단) 스스로 확인하고 고칠 수 있다.
           const echo = formatAccepted(body.accepted);
           return { content: [{ type: "text", text:
-            `Nookframe에 ${verb}. 확인하고 공개: ${body.reviewUrl}${echo.length ? `\n${echo.join("\n")}` : ""}` }] };
+            `${verb} on Nookframe. Review and publish: ${body.reviewUrl}${echo.length ? `\n${echo.join("\n")}` : ""}` }] };
         }
         case "list_nookframe_drafts": {
           const { drafts } = await listDrafts(conn);
-          if (!drafts?.length) return { content: [{ type: "text", text: "초안이 없어요." }] };
+          if (!drafts?.length) return { content: [{ type: "text", text: "No drafts." }] };
           const lines = drafts.map((d) => `- ${d.id} · ${d.title}${d.demo_url ? ` · ${d.demo_url}` : ""}`
-            + ` · [${d.tags?.length ? d.tags.join(", ") : "AI 툴 없음"} / ${d.content_type || "분류 없음"}]`);
-          return { content: [{ type: "text", text: `초안 ${drafts.length}개:\n${lines.join("\n")}` }] };
+            + ` · [${d.tags?.length ? d.tags.join(", ") : "no AI tools"} / ${d.content_type || "no type"}]`);
+          return { content: [{ type: "text", text: `${drafts.length} draft(s):\n${lines.join("\n")}` }] };
         }
         case "update_nookframe_draft": {
           const { id, ...payload } = a;
           const body = await updateDraft(id, payload, conn);
           const echo2 = formatAccepted(body.accepted);
           return { content: [{ type: "text", text:
-            `초안을 수정했어요. 확인: ${body.reviewUrl}${echo2.length ? `\n${echo2.join("\n")}` : ""}` }] };
+            `Draft updated. Review: ${body.reviewUrl}${echo2.length ? `\n${echo2.join("\n")}` : ""}` }] };
         }
         case "rerecord_nookframe_demo": {
           const { id, ...body } = a;
@@ -243,13 +243,13 @@ export async function runMcp() {
         }
         case "delete_nookframe_draft": {
           await deleteDraft(a.id, conn);
-          return { content: [{ type: "text", text: "초안을 삭제했어요 (올라간 파일 포함)." }] };
+          return { content: [{ type: "text", text: "Draft deleted (uploaded files included)." }] };
         }
         default:
-          return { isError: true, content: [{ type: "text", text: `알 수 없는 툴: ${req.params.name}` }] };
+          return { isError: true, content: [{ type: "text", text: `Unknown tool: ${req.params.name}` }] };
       }
     } catch (err) {
-      return { isError: true, content: [{ type: "text", text: `실패: ${err instanceof Error ? err.message : String(err)}` }] };
+      return { isError: true, content: [{ type: "text", text: `Failed: ${err instanceof Error ? err.message : String(err)}` }] };
     }
   });
 
