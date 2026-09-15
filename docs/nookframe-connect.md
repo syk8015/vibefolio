@@ -19,6 +19,10 @@
 ## 세 가지 클라이언트 표면
 
 1. **CLI** — `npx nookframe publish` (셸 있는 에이전트: 클로드코드·커서·클라인 등). `cli/` 참고.
+   payload JSON은 `--file <path>` · `--json -`(표준입력) · `--json '<json>'` 중 하나로 받는다(≥0.1.13 —
+   명령줄 인자는 셸이 먼저 읽어 작은따옴표·줄바꿈·한글에서 깨졌다). 셋 다 `cli/src/jsonInput.js` 한 곳이고
+   rerecord·drafts update도 같은 규칙. 필드 목록은 `nookframe schema`(JSON Schema) — MCP `publish_to_nookframe`
+   입력 스키마와 같은 출처 `cli/src/schema.js`라, JSON 안의 `dir`·`screenshot`·`video`도 CLI가 로컬 경로로 쓴다.
 2. **MCP 서버** — `npx nookframe mcp`, 툴 `publish_to_nookframe` (클로드 데스크탑·커서 MCP).
 3. **붙여넣기 프롬프트 + `/publish`** — 셸 없는 챗봇: AI가 JSON 출력 → 유저가 `/publish`에 붙여넣기.
 
@@ -29,7 +33,7 @@
 절반쯤 줄고 지시가 더 곧이곧대로 먹힌다. PAT 응답이 영어 고정인 것과 같은 이유(§인제스트 응답 언어):
 **AI가 읽는 표면은 영어**. 대신 프롬프트 첫머리에 `outputLanguageLine(locale)`이 들어가 AI가 만드는
 카피(title·description·builderNote·note)를 어느 언어로 쓸지 못박는다 — 그건 사람이 명함에서 읽는
-글이라 화면 언어를 따라야 한다. ⚠️`cli/`의 도움말·에러 메시지는 아직 한국어(재발행 필요, 백로그).
+글이라 화면 언어를 따라야 한다. `cli/`의 도움말·에러 메시지도 영어다(0.1.11부터).
 
 ## 인증 — 개인 액세스 토큰(PAT)
 

@@ -3,10 +3,12 @@
 // 그것들은 실제 API를 때리고 쿼터를 소비하므로 손으로 돌린다.
 // 조건: ffmpeg가 PATH에 있어야 한다(zoom 프로브 2개) — 러너 머신엔 원래 있다.
 import { spawnSync } from "node:child_process";
+import { readdirSync } from "node:fs";
 
 const PROBES = [
   "scripts/probe-script-review-unit.mts",   // lib/demoScriptReview 대본 점검표
   "scripts/probe-embeddable-unit.mts",      // lib/embeddable 임베드 헤더 판정
+  "scripts/probe-cli-input.mjs",            // CLI --file·표준입력·schema (127.0.0.1 가짜 서버, 네트워크 없음)
   "local-runner/probe-focus-coalesce.ts",   // 스크롤 병합·focus 카메라 산식
   "local-runner/probe-zoomexpr.ts",         // zoompan 식 가드
   "scripts/test-zoom-filter-local.mts",     // 로컬 카메라 ffmpeg 체인
@@ -15,12 +17,22 @@ const PROBES = [
 let failed = 0;
 // cli/는 ESM 평문 JS라 타입검사가 없다 — 문법만이라도 실행 문맥(ESM)에서 확인한다.
 // (0.1.10 MCP 서버가 따옴표 하나로 죽은 채 발행됐던 사고의 재발 방지.)
+// node --check는 첫 파일만 검사하고 뒤 파일은 스크립트 인자로 넘긴다 — 파일마다 따로 돌린다.
+// 목록은 폴더에서 읽는다(새 파일을 적어 넣는 걸 잊어도 빠지지 않게).
 {
-  const r = spawnSync("node", ["--check", "cli/src/mcp.js", "cli/src/publish.js", "cli/src/rerecord.js", "cli/src/drafts.js", "cli/src/echo.js", "cli/src/api.js", "cli/src/config.js", "cli/src/zip.js", "cli/bin/nookframe.js"], { encoding: "utf8" });
-  const ok = r.status === 0;
+  const files = [
+    ...readdirSync("cli/src").filter((f) => f.endsWith(".js")).map((f) => `cli/src/${f}`),
+    "cli/bin/nookframe.js",
+  ];
+  const bad = [];
+  for (const f of files) {
+    const r = spawnSync("node", ["--check", f], { encoding: "utf8" });
+    if (r.status !== 0) bad.push(`${f}\n${r.stderr.split("\n").slice(0, 6).join("\n")}`);
+  }
+  const ok = bad.length === 0;
   if (!ok) failed++;
-  console.log(`${ok ? "✓" : "✗"} node --check cli/**/*.js`);
-  if (!ok) console.log(r.stderr.split("\n").slice(0, 8).join("\n"));
+  console.log(`${ok ? "✓" : "✗"} node --check cli/**/*.js (${files.length} files)`);
+  if (!ok) console.log(bad.join("\n"));
 }
 for (const file of PROBES) {
   const t0 = Date.now();

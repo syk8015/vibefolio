@@ -1,6 +1,6 @@
-import { readFileSync } from "node:fs";
 import { api, conn } from "./api.js";
 import { formatScriptReviewWarnings } from "./echo.js";
+import { readJsonObject } from "./jsonInput.js";
 
 // 재촬영 — 다시 쓴 촬영 대본 제출 (2026-08-26).
 //
@@ -29,26 +29,18 @@ export function toRerecordBody(parsed, note) {
   return body;
 }
 
-/** `nookframe rerecord <id> --json '<json>' | --file <path> [--note "..."]` */
+/** `nookframe rerecord <id> --file <path> | --json - | --json '<json>' [--note "..."]` */
 export async function rerecordCommand(args) {
   const id = args._[0] || (typeof args.id === "string" ? args.id : null);
   if (!id) {
     throw new Error(
-      "Usage: nookframe rerecord <project id> --json '<script JSON>'  (the id is in the re-record prompt)",
+      "Usage: nookframe rerecord <project id> --file <script.json>  (the id is in the re-record prompt)",
     );
   }
 
-  let raw = null;
-  if (typeof args.file === "string") raw = readFileSync(args.file, "utf8");
-  else if (typeof args.json === "string") raw = args.json;
-  if (!raw) throw new Error("Pass a script — --json '<JSON>' or --file <path>.");
-
-  let parsed;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    throw new Error(`Could not parse the ${args.file ? "--file" : "--json"} value as JSON.`);
-  }
+  // --file·표준입력·--json 셋 다 같은 규칙(jsonInput.js) — publish·drafts update와 같다.
+  const parsed = await readJsonObject(args);
+  if (!parsed) throw new Error("Pass a script — --file <path>, --json - (standard input) or --json '<JSON>'.");
 
   const body = toRerecordBody(parsed, typeof args.note === "string" ? args.note : null);
   const res = await submitRerecord(id, body, conn(args));

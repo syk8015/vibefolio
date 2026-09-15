@@ -10,15 +10,23 @@ The **AI that built your project** reads the repo and writes the description, th
    export NOOKFRAME_TOKEN="nf_live_..."   # or: npx nookframe login <token>
    ```
 2. Tell the AI that built the project (Claude Code, Cursor, …): **"publish this to Nookframe"**
-   It writes the metadata and runs:
+   It writes the payload to a file and runs:
    ```bash
-   npx nookframe publish --json '<payload the AI wrote>'
+   npx nookframe publish --file payload.json
    ```
+   `npx nookframe schema` prints every field the payload takes, with its rules (a JSON Schema).
+
+Pass the payload as a file (`--file`) or through standard input (`--json -`). Inline `--json '<payload>'` still
+works, but the shell reads it first — an apostrophe, a newline or non-English text in the description can break it.
 
 ## Commands
 
 ```
 nookframe publish            Upload the current project as a draft
+  --file <path>              Payload JSON from a file — the safe way (quotes, newlines, non-English text survive any shell)
+  --json -                   Payload JSON from standard input (e.g. a heredoc: --json - <<'EOF' … EOF)
+  --json '<payload>'         Payload JSON inline (shell quoting breaks easily — prefer --file)
+                             The flags below override the same fields in the JSON
   --url <url>                Deployed public URL (falls back to auto-detecting dist/out/build/public)
                              A public GitHub repo URL also works — JS and Python web apps (Streamlit,
                              Gradio, Dash, Django, Flask, FastAPI) are run automatically; CLI tools and
@@ -26,7 +34,7 @@ nookframe publish            Upload the current project as a draft
   --app-url <url>            URL of the actual app screen (when it differs from the landing page — the demo films this one)
   --dir <path>               Directory to upload (static build output, or Python/CLI source — uploaded as a zip)
   --title <t>                Title
-  --hint <text>              What the demo video should show (demoHighlights) — the demo script goes in --json as demoScript
+  --hint <text>              What the demo video should show (demoHighlights) — the demo script goes in the payload as demoScript
   --access-url <u>           Demo/guest entry URL or path for login-gated apps (e.g. /demo)
   --access-params <q>        Query string to append to the entry URL (e.g. "guest=1&lang=ko")
   --access-note <t>          One or two sentences on how to reach demo mode (account credentials are not accepted)
@@ -37,23 +45,27 @@ nookframe publish            Upload the current project as a draft
                                "what actually works before login"
   --screenshot <p>           Screenshot for the thumbnail (png/jpg/webp/gif, <=5MB)
   --video <p>                Your own demo video (mp4/webm, <=20MB — supplying one skips automatic filming)
-  --json '<payload>'         Full payload JSON written by the AI
   --origin <url>             API origin (default https://nookframe.com)
+nookframe schema             Print the publish payload JSON Schema (every field, with its rules)
 nookframe rerecord <id>      Unhappy with the video — submit a rewritten demo script (goes into a pending slot)
-  --json '<json>'            { "steps": [...] } or { "demoScript": {...}, "note": "..." }
-  --file <path>              Same JSON, from a file
+  --file <path>              { "steps": [...] } or { "demoScript": {...}, "note": "..." }
+  --json -                   Same JSON from standard input
+  --json '<json>'            Same JSON inline
   --note <text>              One line on what changed and why
 nookframe drafts             List your drafts
-nookframe drafts update <id>  Edit draft metadata (--title/--description/--note/--hint/--json)
+nookframe drafts update <id>  Edit draft metadata (--title/--description/--note/--hint, or JSON via --file/--json)
 nookframe drafts delete <id>  Delete a draft (published projects cannot be deleted)
 nookframe login <token>      Save a token (~/.nookframe/config.json)
 nookframe mcp                Run the MCP stdio server
 ```
 
+The payload is the same object the MCP tool `publish_to_nookframe` takes — `dir`, `screenshot` and `video` in the
+JSON are read as local paths, just like the flags.
+
 ## The demo script (demoScript)
 
 Once you publish, a robot operates the app itself and films a demo video. **Do not leave it guessing from
-pixels** — have the AI that built the app put a `demoScript` in the `--json` payload. That script is the
+pixels** — have the AI that built the app put a `demoScript` in the payload. That script is the
 whole video.
 
 ```json
@@ -91,9 +103,9 @@ to hand-edit CSS selectors.
 
 1. The owner presses `⋯ → Request re-record` in the Nookframe dashboard and writes what is wrong — *"don't click that at 0:16"*, *"this feature is missing"*.
 2. The site builds **one prompt**. It contains the full original script, the project details, the project id, and the token, so it works even pasted into a fresh AI session with no memory of the repo.
-3. That AI submits the new script:
+3. That AI writes `{"demoScript": {...}, "note": "what changed and why"}` to a file and submits it:
    ```bash
-   npx nookframe rerecord <project id> --json '{"demoScript": {...}, "note": "what changed and why"}'
+   npx nookframe rerecord <project id> --file script.json
    ```
 4. Filming starts only after the owner reviews the new script in the dashboard and presses **[Re-record]**.
 

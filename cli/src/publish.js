@@ -4,6 +4,7 @@ import { join, basename, resolve } from "node:path";
 import { getToken, getOrigin } from "./config.js";
 import { zipDir } from "./zip.js";
 import { formatAccepted } from "./echo.js";
+import { readJsonObject } from "./jsonInput.js";
 
 const BUILD_DIRS = ["dist", "out", "build", "public"];
 
@@ -90,19 +91,29 @@ function safeHost(url) {
   }
 }
 
+const isObject = (v) => !!v && typeof v === "object" && !Array.isArray(v);
+
+// 로컬 경로: 플래그가 있으면 그것, 없으면 JSON의 값(MCP 스키마와 같은 dir·screenshot·video).
+// 플래그만 쓰고 경로를 빠뜨리면(--dir 다음이 비어 있음) 빌드 폴더 자동 탐색으로 조용히 새지 않게 막는다.
+function localPath(name, flag, fromJson) {
+  if (flag === true) throw new Error(`--${name} needs a path.`);
+  if (typeof flag === "string") return resolve(flag);
+  return typeof fromJson === "string" && fromJson.trim() ? resolve(fromJson) : null;
+}
+
 // `nookframe publish` CLI 명령. 플래그 → payload 조립 + 아티팩트 결정 + 진행 출력.
 export async function publishCommand(args) {
   const token = getToken();
   const origin = args.origin || getOrigin();
 
-  let payload = {};
-  if (args.json) {
-    try {
-      payload = JSON.parse(args.json);
-    } catch {
-      throw new Error("Could not parse the --json value as JSON.");
-    }
-  }
+  // payload JSON(--file·표준입력·--json) 위에 플래그를 덮는다 — 명령줄에 직접 쓴 값이 이긴다.
+  let payload = (await readJsonObject(args)) ?? {};
+  // 서버는 { "payload": {...} } 봉투도 받는다. 여기서도 풀어야 아래 플래그 병합·URL 확인이 맞는다.
+  if (Object.keys(payload).length === 1 && isObject(payload.payload)) payload = payload.payload;
+  // `nookframe schema`(= MCP publish_to_nookframe 입력)와 같은 JSON을 그대로 받는다 — 로컬 경로
+  // 필드는 서버로 보내지 않고 여기서 쓴다(MCP 핸들러와 같은 분리).
+  const { dir: jsonDir, screenshot: jsonScreenshot, video: jsonVideo, ...fields } = payload;
+  payload = fields;
   if (args.title) payload.title = args.title;
   if (args.description) payload.description = args.description;
   if (args.note) payload.builderNote = args.note;
@@ -128,8 +139,11 @@ export async function publishCommand(args) {
     payload.demoAccess = access;
   }
 
-  // 아티팩트: --dir 명시 > URL 있음 > 자동으로 빌드 디렉터리 탐색.
-  let dir = args.dir ? resolve(args.dir) : null;
+  // 아티팩트: --dir(또는 JSON의 dir) 명시 > URL 있음 > 자동으로 빌드 디렉터리 탐색.
+  let dir = localPath("dir", args.dir, jsonDir);
+  if (dir && !existsSync(dir)) {
+    throw new Error(`Directory not found: ${dir}`);
+  }
   if (!dir && !payload.deployUrl && !payload.appUrl) {
     for (const d of BUILD_DIRS) {
       const p = resolve(d);
@@ -142,8 +156,8 @@ export async function publishCommand(args) {
 
   // 제작자 미디어(요청1): 이미지≤5MB(png/jpg/webp/gif)·영상≤20MB(mp4/webm),
   // 검증은 서버(매직바이트)가 한다. 영상을 주면 발행 시 자동 촬영이 생략된다.
-  const screenshotPath = args.screenshot ? resolve(args.screenshot) : null;
-  const videoPath = args.video ? resolve(args.video) : null;
+  const screenshotPath = localPath("screenshot", args.screenshot, jsonScreenshot);
+  const videoPath = localPath("video", args.video, jsonVideo);
   if (screenshotPath && !existsSync(screenshotPath)) {
     throw new Error(`Screenshot file not found: ${screenshotPath}`);
   }
