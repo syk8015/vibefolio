@@ -88,8 +88,8 @@ You're the AI that built this project, so read the repo yourself and describe it
      – login genuinely isn't needed AND every feature works from the first screen → { "noLogin": true, "note": "one line of evidence — e.g. no auth guard in middleware or the first screen; the list renders from seed data" }. Only claim this after opening the actual routes/guards, not from the landing page looking nice — a bare noLogin with no note is rejected
      – a guest path is fundamentally impossible (E2E-encrypted, device pairing, real payments) → { "impossible": true, "note": "why" } (rejected without the note). Only the landing page gets filmed, so attach your own "video" as well
      NEVER include account IDs or passwords — they are not accepted, and publishing is rejected without one of the three answers above. The film and the card are PUBLIC, so every screen the robot opens must show fake or sample data — never real people's names, emails, messages, health or payment records
-4) If you have a shell: run ${NPX_PUBLISH} --json '<the JSON above>' (the token was saved in step 1). Then tell the owner it went up as a DRAFT — nothing is public until they open the review link it prints and press publish.
+4) If you have a shell: write the JSON above to a file and run ${NPX_PUBLISH} --file <that file> (the token was saved in step 1). Then tell the owner it went up as a DRAFT — nothing is public until they open the review link it prints and press publish.
    If you have a screenshot or a demo video you made, add --screenshot <path> / --video <path> (image png/jpg/webp/gif ≤5MB; video mp4/webm ≤20MB — providing a video replaces the auto-recorded demo).
    If you don't have a shell: print the JSON in one \`\`\`json code block, then put this link on its own line right after it so I can click straight through: ${origin}/publish — I'll paste the JSON there.
-   To revise something already pushed, publish again with the same URL — the existing draft is updated in place, no duplicates.`;
+   To revise something already pushed, publish again with --id <the draft id it printed> — that draft is updated in place, no duplicates.`;
 }

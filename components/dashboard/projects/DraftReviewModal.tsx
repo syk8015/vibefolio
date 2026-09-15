@@ -204,6 +204,7 @@ export function DraftReviewModal({ draft, onClose, onPublish, onEdit, onDelete, 
       const body = await res.json().catch(() => ({}));
       if (!res.ok || typeof body.token !== "string") throw new Error("token");
       const prompt = buildDraftFixPrompt({
+        projectId: draft.id,
         title: draft.title,
         description: draft.description,
         builderNote: draft.comment,

@@ -133,7 +133,10 @@
   2단계 업로드면 1단계가 `_upload/replace.marker`(**교체 표식**)를 남기고, finalize가 이를 **list로**
   확인해 검증이 실패해도 그 초안을 안 지운다(download는 CDN 캐시로 옛 값이 읽힐 수 있음). 서명 URL을
   발급하지 않는 키라 PAT로는 못 만든다. CLI `publish --id <id>`(≥0.1.13) · MCP `publish_to_nookframe`의
-  `draftId`. 옛 CLI·MCP도 JSON에 `draftId`를 넣으면 서버까지 그대로 간다.
+  `draftId`. 옛 CLI·MCP도 JSON에 `draftId`를 넣으면 서버까지 그대로 간다. 고쳐달라기 프롬프트
+  (`lib/draftFixPrompt.ts`)는 JSON에 `draftId`를 실어서 CLI·MCP·`/publish` 붙여넣기 어느 길로 와도 그 초안을
+  갱신한다. AI 프롬프트 3종의 셸 제출 줄은 `--file`이다(npm 0.1.13 발행 확인 뒤 교체 — 먼저 바꾸면 옛 CLI가
+  모르는 플래그를 조용히 무시한다).
 - 응답: `{ ok, projectId, reviewUrl, isDraft:true, upserted? }`. reviewUrl은 요청 origin 기준.
 
 ## 초안 관리 API (요청4) — `/api/ingest/drafts`

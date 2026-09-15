@@ -5,13 +5,15 @@
 // 셀렉터를 손보는 일 — 은 코드를 아는 AI 몫이다(사람이 CSS 셀렉터를 만지는
 // 제품은 만들지 않기로 했다, 08-25). 그래서 재촬영 루프·/publish 되돌려보내기와
 // 같은 해법: **사람은 불만 한 줄, 고치는 건 AI.** 지금 초안 전체와 사람의 요청을
-// 통째로 싣고, 같은 URL로 다시 올리면 초안이 갱신된다는 사실까지 넣는다 —
+// 통째로 싣고, JSON의 draftId로 다시 올리면 그 초안이 갱신된다는 사실까지 넣는다 —
 // 새 세션의 AI가 이 프롬프트 하나로 일을 끝낼 수 있어야 한다.
 import { loginCommand, NPX_PUBLISH, outputLanguageLine } from "@/lib/connectSnippets";
 import type { DemoScript } from "@/lib/demoScript";
 import type { DemoAccess } from "@/lib/demoAccess";
 
 export interface DraftFixContext {
+  /** 초안 id — JSON의 draftId로 실어야 다시 올릴 때 이 초안이 갱신된다(URL로 못 찾는 폴더 업로드 초안 포함, 09-15). */
+  projectId: string;
   title: string;
   description: string;
   builderNote: string;
@@ -33,6 +35,8 @@ export interface DraftFixContext {
 
 export function buildDraftFixPrompt(c: DraftFixContext, locale: "ko" | "en" = "ko"): string {
   const payload: Record<string, unknown> = {
+    // 서버가 URL 대신 이 id로 갱신할 초안을 찾는다 — CLI·MCP·/publish 붙여넣기 어느 길로 와도 같다.
+    draftId: c.projectId,
     title: c.title,
     description: c.description,
     ...(c.builderNote ? { builderNote: c.builderNote } : {}),
@@ -66,11 +70,11 @@ ${json}
 \`\`\`
 ${c.targetDevice ? "" : `\n"targetDevice" is still unanswered (null above) — set it to "mobile" or "desktop": the screen this app was mainly designed for (not the same as contentType). The server rejects the draft without it.\n`}
 
-HOW TO RESUBMIT — re-publishing with the same URL updates this draft in place (no duplicate):
-- If you have a shell: save the token once, then publish again —
+HOW TO RESUBMIT — keep "draftId" in the JSON: publishing it again updates this draft in place (no duplicate):
+- If you have a shell: save the token once, write the revised JSON to a file, then publish again —
    ${login}
-   ${NPX_PUBLISH} --json '<the revised JSON>'${c.deployUrl ? "" : "  (this draft was a file upload — add --dir <the folder> again)"}
-- If you have the Nookframe MCP server: call "publish_to_nookframe" with the revised fields.
+   ${NPX_PUBLISH} --file <that file>${c.deployUrl ? "" : "  (this draft was a file upload — add --dir <the folder> again)"}
+- If you have the Nookframe MCP server: call "publish_to_nookframe" with the revised fields, draftId included.
 - No shell? Print the revised JSON only and I'll paste it into ${c.origin}/publish.
 The server rejects thin work with an error that says exactly what to fix — read it and resubmit. Then tell the owner what you changed.`;
 }

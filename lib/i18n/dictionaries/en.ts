@@ -253,7 +253,7 @@ export const en: Dictionary = {
     reviewFixLead: "What should change, and how? This goes to your AI verbatim.",
     reviewFixPlaceholder: "e.g. The intro sounds stiff. Drop script step 2 and add the search feature",
     reviewFixCopy: "Copy prompt",
-    reviewFixCopied: "Copied — paste it into your AI. When it republishes with the same URL, this draft is updated in place.",
+    reviewFixCopied: "Copied — paste it into your AI. When it republishes, this draft is updated in place.",
     reviewFixFailed: "Couldn't build the prompt. Please try again in a moment.",
     scriptRemove: "Remove this step",
     scriptMoveUp: "Move up",

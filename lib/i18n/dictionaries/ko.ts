@@ -264,7 +264,7 @@ export const ko = {
     reviewFixLead: "무엇을 어떻게 고칠까요? 이 말이 AI에게 그대로 전달돼요.",
     reviewFixPlaceholder: "예: 소개글 톤이 딱딱해. 대본 2번은 빼고 검색 기능을 넣어줘",
     reviewFixCopy: "프롬프트 복사",
-    reviewFixCopied: "복사했어요 — AI에게 붙여넣으세요. AI가 같은 URL로 다시 올리면 이 초안이 갱신돼요.",
+    reviewFixCopied: "복사했어요 — AI에게 붙여넣으세요. AI가 다시 올리면 이 초안이 갱신돼요.",
     reviewFixFailed: "프롬프트를 만들지 못했어요. 잠시 후 다시 시도해 주세요.",
     scriptRemove: "이 스텝 빼기",
     scriptMoveUp: "위로",

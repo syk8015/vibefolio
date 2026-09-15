@@ -103,9 +103,9 @@ RULES (the robot follows the script literally)
 HOW TO SUBMIT — pick whichever fits you (this replaces nothing until the owner approves it in their dashboard)
 - If you have the Nookframe MCP server: call the "rerecord_nookframe_demo" tool with
   { "id": "${c.projectId}", "demoScript": <your script>, "note": "one line on what you changed and why" }
-- If you have a shell: save the token once, then submit —
+- If you have a shell: save the token once, write {"demoScript": <your script>, "note": "what you changed and why"} to a file, then submit it —
    ${loginCommand(tokenArg)}
-   npx nookframe@latest rerecord ${c.projectId} --json '{"demoScript": <your script>, "note": "what you changed and why"}'
+   npx nookframe@latest rerecord ${c.projectId} --file <that file>
 - Neither? Plain HTTP works too:
    curl -X POST ${submitUrl} \\
      -H "Authorization: Bearer ${tokenArg}" \\
