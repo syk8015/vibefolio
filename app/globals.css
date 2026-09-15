@@ -1125,3 +1125,261 @@ body::before {
   .vf-ua-row1 { opacity: 0.42 !important; }
   .vf-ua-added { opacity: 1 !important; transform: none !important; }
 }
+
+/* =============================================================
+   초안 검토 창 (2026-09-15) — 두 칸: 미리보기(AI가 답한 화면) · 판단
+   토스식 정보 표현: 질문 하나 → 명함 → 촬영 계획, 채운 버튼 하나.
+   구조 설명은 components/dashboard/projects/DraftReviewModal.tsx 머리 주석.
+   ============================================================= */
+.vf-review {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  /* 없으면 칸 높이가 내용만큼 풀려서 미리보기가 커지고 아래 버튼 줄이 잘린다 */
+  grid-template-rows: minmax(0, 1fr);
+  overflow: hidden;
+  border-radius: 22px;
+  background: var(--surface);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.04);
+  /* 한글이 줄 끝에서 "돼/요"처럼 음절 단위로 쪼개지지 않게 — 단어 단위로 접고, 긴 주소만 어디서든 끊는다 */
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+@media (min-width: 768px) {
+  .vf-review { grid-template-columns: var(--vf-review-pw, 40%) minmax(0, 1fr); }
+  /* 폰 틀은 좁은 칸이면 충분하고, PC 틀은 칸이 넓어야 글자가 읽힌다 */
+  .vf-review[data-device="mobile"] { --vf-review-pw: clamp(340px, 36%, 480px); }
+  .vf-review[data-device="desktop"] { --vf-review-pw: 58%; }
+}
+.vf-review-preview {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px 22px 16px;
+  background: var(--surface-sunken);
+}
+.vf-review-stage { position: relative; flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
+.vf-review-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 32px;
+  padding: 0 12px 0 10px;
+  border-radius: 999px;
+  background: var(--surface-soft);
+  color: var(--text-primary);
+  font-family: var(--font-nunito), sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.vf-review-badge small { font-size: 12px; font-weight: 500; color: var(--text-secondary); }
+.vf-review-link {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 10px;
+  color: var(--text-primary);
+  font-family: var(--font-nunito), sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.vf-review-link:hover { background: var(--surface-soft); }
+.vf-review-main { position: relative; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+.vf-review-head { position: relative; z-index: 2; padding: 16px 20px 10px; background: var(--surface); transition: box-shadow 0.2s ease; }
+.vf-review-head[data-scrolled="true"] { box-shadow: 0 1px 0 var(--border); }
+.vf-review-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 4px 20px 28px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--surface-active) transparent;
+}
+.vf-review-content { display: flex; flex-direction: column; gap: 28px; }
+.vf-review-foot {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px 12px;
+  padding: 12px 20px 16px;
+  background: var(--surface);
+  box-shadow: 0 -1px 0 var(--border);
+}
+/* 아래에 내용이 더 있으면 버튼 줄 위를 흐리게 — 스크롤할 게 남았다는 신호(TDS 메뉴와 같은 발상) */
+.vf-review-foot::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  height: 36px;
+  background: linear-gradient(to bottom, transparent, var(--surface));
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+.vf-review-foot[data-at-end="true"]::before { opacity: 0; }
+.vf-review-foot-note { flex: 1 1 220px; min-width: 0; margin: 0; font-family: var(--font-nunito), sans-serif; font-size: 13px; color: var(--text-secondary); }
+@media (min-width: 768px) {
+  .vf-review-head { padding: 22px 32px 14px; }
+  .vf-review-body { padding: 4px 32px 36px; }
+  .vf-review-content { gap: 32px; }
+  .vf-review-foot { flex-wrap: nowrap; padding: 16px 32px 20px; }
+}
+.vf-review-menu-item {
+  padding: 10px 12px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-primary);
+  font-family: var(--font-nunito), sans-serif;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+.vf-review-menu-item:hover { background: var(--surface-sunken); }
+.vf-review-menu-item[data-danger="true"] { color: #b34747; }
+/* 촬영 시작 한 줄 — 아이콘 · 주소 · 로그인 방법 */
+.vf-review-start {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding: 10px 16px 10px 10px;
+  border-radius: 16px;
+  background: var(--surface-sunken);
+}
+.vf-review-start-icon { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%; background: var(--surface-soft); color: var(--text-primary); }
+.vf-review-start[data-warn="true"] .vf-review-start-sub { color: #b34747; }
+.vf-review-more > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: var(--surface-sunken);
+  color: var(--text-primary);
+  font-family: var(--font-nunito), sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  list-style: none;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+.vf-review-more > summary::-webkit-details-marker { display: none; }
+.vf-review-more > summary::after {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-right: 1.8px solid var(--text-muted);
+  border-bottom: 1.8px solid var(--text-muted);
+  transform: translateY(-2px) rotate(45deg);
+  transition: transform 0.2s ease;
+}
+.vf-review-more[open] > summary::after { transform: translateY(2px) rotate(-135deg); }
+.vf-review-more > summary:hover { background: var(--surface-soft); }
+
+/* 필름 띠 — 칸 너비 = 머무는 시간, 칸 아래 막대가 차면 다음 장면으로 */
+.vf-strip-zone { container-type: inline-size; }
+.vf-strip { display: flex; height: 56px; overflow: hidden; border-radius: 14px; background: var(--surface-soft); }
+.vf-strip-cell {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 0 0 10px;
+  overflow: hidden;
+  border: none;
+  background: var(--surface-soft);
+  color: var(--text-secondary);
+  font-family: var(--font-nunito), sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  box-shadow: inset -2px 0 0 var(--surface);
+  cursor: pointer;
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+.vf-strip-cell:last-child { box-shadow: none; }
+.vf-strip-cell:hover { background: var(--surface-soft-hover); color: var(--text-primary); }
+/* --blue = 잉크 액센트. 다크에선 크림색이라 글자는 var(--bg) */
+.vf-strip-cell[aria-selected="true"] { background: var(--blue); color: var(--bg); }
+.vf-strip-cell:focus-visible { outline: 2px solid var(--text-primary); outline-offset: -3px; }
+.vf-strip-warn { flex-shrink: 0; width: 6px; height: 6px; border-radius: 50%; background: #b34747; }
+.vf-strip-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: currentColor;
+  opacity: 0.9;
+  transform: scaleX(0);
+  transform-origin: left center;
+  pointer-events: none;
+}
+.vf-strip-cell[aria-selected="true"] .vf-strip-bar { animation: vf-strip-grow var(--vf-dur, 3s) linear forwards; }
+.vf-strip-zone:hover .vf-strip-bar { animation-play-state: paused; }
+.vf-strip-zone[data-paused="true"] .vf-strip-bar { animation: none; }
+@keyframes vf-strip-grow { to { transform: scaleX(1); } }
+.vf-strip-ruler {
+  position: relative;
+  height: 16px;
+  margin-top: 8px;
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+.vf-strip-ruler span { position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap; }
+.vf-strip-ruler span:first-child { transform: none; }
+.vf-strip-ruler span:last-child { transform: translateX(-100%); }
+.vf-scene-card { margin-top: 12px; padding: 14px 20px 20px; overflow: hidden; border-radius: 18px; background: var(--surface-sunken); }
+.vf-scene-body { display: flex; flex-direction: column; gap: 10px; animation: vf-scene-in 0.34s cubic-bezier(0.2, 0.8, 0.2, 1); }
+@keyframes vf-scene-in {
+  from { opacity: 0; transform: translateX(var(--vf-dx, 12px)); }
+  to { opacity: 1; transform: none; }
+}
+.vf-scene-kv { margin: 0; display: flex; flex-direction: column; gap: 6px; }
+.vf-scene-kv > div { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 12px; align-items: baseline; }
+.vf-scene-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 34px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 10px;
+  background: var(--surface-soft);
+  color: var(--text-primary);
+  font-family: var(--font-nunito), sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+.vf-scene-btn:hover:not(:disabled) { background: var(--surface-soft-hover); }
+.vf-scene-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.vf-scene-btn[data-danger="true"] { background: transparent; color: #b34747; }
+.vf-scene-btn[data-danger="true"]:hover:not(:disabled) { background: rgba(179, 71, 71, 0.1); }
+@container (max-width: 520px) {
+  .vf-strip-cell { padding-left: 6px; }
+  .vf-strip-cell svg, .vf-strip-warn { display: none; }
+  .vf-scene-kv > div { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .vf-scene-body { animation: none; }
+  .vf-strip-cell[aria-selected="true"] .vf-strip-bar { animation: none; }
+}

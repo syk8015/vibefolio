@@ -1,31 +1,43 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import Image from "next/image";
 import { toPreviewUrl } from "@/lib/previewOrigin";
 import { detectVideoKind, getYouTubeEmbedUrl, getVimeoEmbedUrl } from "@/lib/video";
-import { CONTENT_TYPES } from "@/lib/projectTaxonomy";
+import { CONTENT_TYPES, previewDevice, normalizeTargetDevice } from "@/lib/projectTaxonomy";
 import { isStepWired } from "@/lib/demoScript";
 import { descriptionShapeIssue, descriptionTooLong, lineCols, DESCRIPTION_LINE_COLS_MAX } from "@/lib/descriptionShape";
 import { buildDraftFixPrompt } from "@/lib/draftFixPrompt";
 import { copyText } from "@/lib/clipboard";
+import { useMediaQuery } from "@/lib/useMediaQuery";
 import { AiToolLogo } from "./helpers";
 import { DemoScriptPanel } from "./DemoScriptPanel";
+import { PreviewDevice, PHONE_VIEW, DESKTOP_VIEW } from "./PreviewDevice";
 import { type DBProject } from "./types";
 import { useT } from "@/lib/i18n/client";
 
-// 초안 검토 모달 — [확인하고 공개]의 "확인"을 실제로 할 수 있는 화면.
+// 초안 검토 모달 — [공개하기]의 "확인"을 실제로 할 수 있는 화면.
 //
-// 2026-09-04 재편(인터뷰 ④⑥). 전에는 미리보기·설명·힌트·대본·한마디·유형… 이
-// 같은 무게로 한 줄씩 쌓여 있어 "공개해도 되나"를 판단하려면 끝까지 훑어야 했다.
-// 판단에 필요한 건 셋뿐이다 — ①명함에 어떻게 보이나 ②로봇이 뭘 찍나(대본·로그인)
-// ③뭘 여나. 그래서 위에 **명함 렌더 + 판정 칩 3개**를 두고, 앱 미리보기와 대본이
-// 그 다음, 나머지는 접는다.
+// 2026-09-15 재편(토스식 정보 표현, 사용자 확정 시안 2판 — 기억 reference-toss-ux):
+// - 창을 화면의 ~90%(최대 1360px)로 넓혀 두 칸으로 나눈다. 왼쪽=미리보기, 오른쪽=판단.
+//   두 칸이 따로 스크롤돼서 iframe 위에서 휠을 굴려도 판단 칸이 막히지 않는다.
+// - 미리보기 틀(폰 402×874 / PC 1280×800)은 업로드한 AI가 답한 targetDevice로만 정한다.
+//   사람이 바꾸는 스위치는 일부러 없다. 답이 없는 예전 초안은 분류로 짐작(previewDevice).
+// - 판단 칸은 질문 하나("…를 공개할까요?") 아래에 명함 → 촬영 계획(시작 주소 한 줄 + 필름 띠).
+//   촬영 주소를 명함 옆에 나란히 두지 않는다(어색하다는 사용자 판정).
+// - 채운 버튼은 [공개하기] 하나. 직접 고치기·삭제는 ⋯ 안으로(폰에서 버튼이 두 줄로 접히던 문제도 해소).
 //
 // 살짝 고치기: 명함 렌더의 제목·소개글·한마디는 글자를 누르면 그 자리에서 고쳐진다
 // (서버 게이트와 같은 규칙으로 막는다 — lib/descriptionShape). 대본은 빼기·순서만.
 // 그 이상은 [AI에게 고쳐달라기] — 사람은 불만 한 줄, 고치는 건 AI(재촬영 루프와 동일).
 export type DraftPatch = Partial<Pick<DBProject, "title" | "description" | "comment" | "demo_script">>;
+
+// 목적격 조사 — 제목 끝 글자의 받침으로 을/를을 고른다(한글이 아니면 병기).
+function objectParticle(word: string): string {
+  const c = word.trim().slice(-1).charCodeAt(0);
+  if (c >= 0xac00 && c <= 0xd7a3) return (c - 0xac00) % 28 ? "을" : "를";
+  return "을(를)";
+}
 
 export function DraftReviewModal({ draft, onClose, onPublish, onEdit, onDelete, onSave }: {
   draft: DBProject;
@@ -36,6 +48,9 @@ export function DraftReviewModal({ draft, onClose, onPublish, onEdit, onDelete, 
   onSave: (patch: DraftPatch) => Promise<void>;
 }) {
   const { t, locale } = useT();
+  const uid = useId();
+  // 넓은 화면에만 미리보기 칸을 둔다 — 폰에선 폰 자체가 미리보기라 새 탭 링크 한 줄로 충분하다.
+  const wide = useMediaQuery("(min-width: 768px)", true);
   const isFile = draft.demo_url.startsWith("/api/preview/");
   // 파일 업로드는 샌드박스 오리진(우리가 frame-ancestors를 쥐고 있어 항상 뜬다).
   // 실행형 코드 zip(비HTML 앵커, 2026-08-20)은 미리보기가 소스 원문이라 임베드 안 함.
@@ -55,6 +70,9 @@ export function DraftReviewModal({ draft, onClose, onPublish, onEdit, onDelete, 
     : null;
   const ct = CONTENT_TYPES.find((c) => c.id === draft.content_type);
   const ctLabel = ct ? (t.contentTypes as Record<string, string>)[ct.id] ?? ct.label : null;
+  // 미리보기 틀 — AI가 답한 대상 화면(2026-09-15). 스위치 없음.
+  const device = previewDevice(draft.target_device, draft.content_type);
+  const deviceAnswered = normalizeTargetDevice(draft.target_device) !== null;
 
   // ── 외부 URL 임베드 가능 여부 ───────────────────────────────────────────
   // 남의 사이트는 X-Frame-Options·CSP frame-ancestors로 임베드를 막을 수 있고,
@@ -169,6 +187,10 @@ export function DraftReviewModal({ draft, onClose, onPublish, onEdit, onDelete, 
   const [fixNote, setFixNote] = useState("");
   const [fixBusy, setFixBusy] = useState(false);
   const [fixState, setFixState] = useState<"idle" | "copied" | "failed">("idle");
+  // 패널이 열리는 순간 한 번만 보이는 곳으로 끌어온다(안정된 ref 콜백 = 마운트 때만 호출).
+  const revealFix = useCallback((el: HTMLDivElement | null) => {
+    el?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, []);
   const copyFix = async () => {
     if (!fixNote.trim() || fixBusy) return;
     setFixBusy(true);
@@ -205,39 +227,70 @@ export function DraftReviewModal({ draft, onClose, onPublish, onEdit, onDelete, 
     }
   };
 
-  // ── 판정 칩 ────────────────────────────────────────────────────────────
+  // ── ⋯ 메뉴(직접 고치기·삭제하기) ────────────────────────────────────────
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (!menuRef.current?.contains(e.target as Node)) setMenuOpen(false);
+    };
+    const onEsc = (e: KeyboardEvent) => { if (e.key === "Escape") setMenuOpen(false); };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onEsc);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onEsc);
+    };
+  }, [menuOpen]);
+
+  // ── 스크롤 가장자리 신호: 머리 아래 선 · 버튼 위 흐림(아래에 더 있음) ──────
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [edges, setEdges] = useState({ scrolled: false, atEnd: true });
+  const measureEdges = useCallback(() => {
+    const el = bodyRef.current;
+    if (!el) return;
+    const scrolled = el.scrollTop > 2;
+    const atEnd = el.scrollTop + el.clientHeight >= el.scrollHeight - 2;
+    setEdges((p) => (p.scrolled === scrolled && p.atEnd === atEnd ? p : { scrolled, atEnd }));
+  }, []);
+  useEffect(() => {
+    const ro = new ResizeObserver(measureEdges);
+    if (bodyRef.current) ro.observe(bodyRef.current);
+    if (contentRef.current) ro.observe(contentRef.current);
+    return () => ro.disconnect();
+  }, [measureEdges]);
+
+  // ── 촬영 계획 한 줄 ─────────────────────────────────────────────────────
   const steps = draft.demo_script?.steps ?? [];
   const wired = steps.filter(isStepWired).length;
   const hasOwnVideo = !!draft.video_url;
   const access = draft.demo_access;
-  const scriptChip = hasOwnVideo
-    ? { text: t.projects.reviewAccessVideo, warn: false }
-    : steps.length
-      ? { text: `${t.projects.scriptSteps(steps.length)} · ${wired === steps.length ? t.projects.scriptPrecise : t.projects.scriptPartial(wired, steps.length)}`, warn: wired !== steps.length }
-      : { text: t.projects.scriptNone, warn: true };
-  const accessChip = hasOwnVideo
-    ? null
-    : access?.url
-      ? { text: `${t.projects.reviewAccessUrl} · ${access.url}`, sub: access.note, warn: false }
-      : access?.noLogin
-        ? { text: t.projects.reviewAccessNoLogin, sub: access.note, warn: false }
-        : access?.impossible
-          ? { text: t.projects.reviewAccessImpossible, sub: access.note, warn: true }
-          : { text: t.projects.reviewAccessMissing, sub: undefined, warn: true };
-  const opensChip = isFile
+  const accessLine = access?.url
+    ? { text: `${t.projects.reviewAccessUrl} · ${access.url}`, note: access.note, warn: false }
+    : access?.noLogin
+      ? { text: t.projects.reviewAccessNoLogin, note: access.note, warn: false }
+      : access?.impossible
+        ? { text: t.projects.reviewAccessImpossible, note: access.note, warn: true }
+        : { text: t.projects.reviewAccessMissing, note: undefined, warn: true };
+  const opensKind: "file" | "repo" | "url" = isFile
+    ? "file"
+    : /github\.com\//i.test(draft.demo_url) ? "repo" : "url";
+  const opensLabel = opensKind === "file"
     ? t.projects.reviewOpensFile
-    : /github\.com\//i.test(draft.demo_url)
-      ? `${t.projects.reviewOpensRepo} · ${draft.demo_url.replace(/^https?:\/\/(www\.)?github\.com\//i, "")}`
+    : opensKind === "repo"
+      ? draft.demo_url.replace(/^https?:\/\/(www\.)?github\.com\//i, "")
       : draft.demo_url.replace(/^https?:\/\//, "").replace(/\/$/, "");
+  const title = draft.title || t.projects.untitled;
 
   // ── 스타일 ─────────────────────────────────────────────────────────────
   const fieldLabelStyle: React.CSSProperties = {
-    color: "var(--text-muted)", fontFamily: "var(--font-nunito)",
-    fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase",
+    color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", fontSize: "0.8rem", margin: "0 0 2px",
   };
   const fieldValueStyle: React.CSSProperties = {
     color: "var(--text-primary)", fontFamily: "var(--font-nunito)",
-    fontSize: "0.88rem", lineHeight: 1.7, whiteSpace: "pre-wrap", margin: 0,
+    fontSize: "0.92rem", lineHeight: 1.65, whiteSpace: "pre-wrap", margin: 0,
   };
   const emptyValue = <span style={{ color: "var(--text-muted)" }}>—</span>;
   // 명함 렌더는 실제 명함(TheaterStage)처럼 작품 위에 얹힌 흰 글씨다 — 테마와 무관하게
@@ -248,230 +301,81 @@ export function DraftReviewModal({ draft, onClose, onPublish, onEdit, onDelete, 
     width: "100%", background: "rgba(255,255,255,0.08)", color: "#fff", border: "none", outline: "none",
     borderRadius: 8, padding: "6px 8px", fontFamily: "var(--font-nunito)",
   };
-  const chipStyle = (warn: boolean): React.CSSProperties => ({
-    background: warn ? "rgba(179,71,71,0.10)" : "var(--surface-soft)",
-    color: warn ? "#b34747" : "var(--text-primary)",
-    fontFamily: "var(--font-nunito)", fontSize: "0.78rem", fontWeight: 500,
-    padding: "8px 12px", borderRadius: 12, minWidth: 0,
-  });
+  const smallText: React.CSSProperties = {
+    margin: 0, fontFamily: "var(--font-nunito)", fontSize: 13, lineHeight: 1.55, color: "var(--text-secondary)",
+  };
+  // 틀 안의 글자는 틀째 축소되므로(폰 ~0.8·PC ~0.6배) 크게 쓴다.
+  const frameText: React.CSSProperties = {
+    margin: 0, padding: "0 32px", textAlign: "center", fontFamily: "var(--font-nunito)",
+    fontSize: device === "mobile" ? 20 : 26, lineHeight: 1.5, color: "var(--text-muted)",
+  };
+
+  // ── 미리보기 틀 안 ──────────────────────────────────────────────────────
+  const frame = directVideo ? (
+    <video src={directVideo} controls playsInline className="absolute inset-0 w-full h-full"
+      style={{ objectFit: "contain", background: "#000" }} />
+  ) : videoEmbed ? (
+    <iframe src={videoEmbed} title={title} className="absolute inset-0 w-full h-full"
+      style={{ border: "none", background: "#000" }}
+      allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen />
+  ) : fileSrc ? (
+    <iframe src={fileSrc} title={title} className="absolute inset-0 w-full h-full"
+      style={{ border: "none", background: "#fff" }}
+      sandbox="allow-scripts allow-same-origin allow-forms allow-popups" />
+  ) : externalSrc && embedState === "checking" ? (
+    <div className="absolute inset-0 flex flex-col items-center justify-center gap-4">
+      <span className="vf-spinner" style={{ width: "2.4rem", height: "2.4rem" }} />
+      <p style={frameText}>{t.projects.reviewEmbedChecking}</p>
+    </div>
+  ) : externalSrc && embedState === "ok" ? (
+    <iframe src={externalSrc} title={title} className="absolute inset-0 w-full h-full"
+      style={{ border: "none", background: "#fff" }}
+      sandbox="allow-scripts allow-same-origin allow-forms allow-popups" />
+  ) : draft.thumbnail ? (
+    <Image src={draft.thumbnail} unoptimized alt={title} fill className="object-cover object-top" sizes="480px" />
+  ) : (
+    <div className="absolute inset-0 flex items-center justify-center">
+      <p style={frameText}>{t.projects.reviewNoPreview}</p>
+    </div>
+  );
+
+  const deviceGlyph = device === "mobile" ? <PhoneGlyph /> : <LaptopGlyph />;
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-6"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 md:p-6"
       style={{ background: "var(--overlay-strong)", backdropFilter: "blur(16px)" }}
-      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div
-        className="relative flex flex-col overflow-hidden"
-        style={{
-          width: "min(56rem, calc(100vw - 2rem))",
-          maxHeight: "92vh",
-          background: "var(--surface)",
-          borderRadius: 20,
-          boxShadow: "0 20px 60px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.04)",
-        }}
+        className="vf-review"
+        data-device={device}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={`${uid}-title`}
+        style={{ width: "min(1360px, 100%)", height: "min(880px, 100%)" }}
       >
-        {/* Header */}
-        <div className="flex items-start gap-3 px-6 pt-5 pb-4"
-          style={{ borderBottom: "1px solid var(--border)" }}>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="vf-serif-display" style={{ fontSize: "1.2rem", fontWeight: 500, margin: 0 }}>
-                {draft.title || t.projects.untitled}
-              </h2>
-              <span className="px-2 py-0.5 rounded-full shrink-0"
-                style={{ background: "var(--surface-soft)", color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", fontSize: "0.6rem", fontWeight: 600 }}>
-                {t.projects.draftBadge}
+        {/* ── 왼쪽: 미리보기(AI가 답한 화면) ── */}
+        {wide && (
+          <aside className="vf-review-preview" aria-label={t.projects.reviewPreviewLabel}>
+            <div className="flex items-center justify-between gap-3" style={{ minHeight: 34 }}>
+              <span className="vf-review-badge">
+                {deviceGlyph}
+                {device === "mobile" ? t.projects.reviewDeviceMobile : t.projects.reviewDeviceDesktop}
+                <small>· {deviceAnswered ? t.projects.reviewDeviceAnswered : t.projects.reviewDeviceGuessed}</small>
               </span>
-            </div>
-            <p className="text-xs mt-1" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", margin: 0 }}>
-              {t.projects.reviewIntro} {t.projects.reviewEditHint}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="vf-soft-fill flex items-center justify-center rounded-full shrink-0"
-            style={{ width: 32, height: 32, cursor: "pointer" }}
-            aria-label={t.projectForm.closeAria}
-          >
-            <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
-              <path d="M4 4l12 12M16 4L4 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-            </svg>
-          </button>
-        </div>
-
-        {/* Body */}
-        <div className="overflow-y-auto px-6 py-5 flex flex-col gap-5">
-          {/* ① 명함 렌더 — 글자를 누르면 그 자리에서 고친다 */}
-          <div>
-            <label className="vf-label" style={{ margin: "0 0 8px", display: "block" }}>{t.projects.reviewCardLabel}</label>
-            <div className="rounded-2xl" style={{ background: cardBg, padding: "22px 24px 20px" }}>
-              {editing === "title" ? (
-                <input ref={inputRef as React.RefObject<HTMLInputElement>} value={value} onChange={e => setValue(e.target.value)}
-                  onKeyDown={e => onKey(e, false)} disabled={saving}
-                  className="vf-serif-display" style={{ ...inputStyle, fontSize: "1.35rem", fontWeight: 500 }} />
-              ) : (
-                <h3 className="vf-serif-display" onClick={() => begin("title")} title={t.projects.reviewEditHint}
-                  style={{ ...editableStyle, fontSize: "1.35rem", fontWeight: 500, margin: 0, color: "#fff", textShadow: "0 2px 16px rgba(0,0,0,0.55)", padding: "2px 4px", marginLeft: -4 }}>
-                  {draft.title || t.projects.untitled}
-                </h3>
-              )}
-
-              {editing === "description" ? (
-                <div style={{ marginTop: 8 }}>
-                  <textarea ref={inputRef as React.RefObject<HTMLTextAreaElement>} value={value} onChange={e => setValue(e.target.value)}
-                    onKeyDown={e => onKey(e, true)} rows={3} disabled={saving}
-                    style={{ ...inputStyle, fontSize: 14, lineHeight: 1.55, resize: "vertical", maxWidth: 440 }} />
-                  <p className="text-xs" style={{ margin: "4px 0 0", fontFamily: "var(--font-nunito)", color: descIssue ? "#f0a3a3" : "rgba(255,255,255,0.6)" }}>
-                    {descIssue ?? t.projects.reviewDescMeter(descLines.length, descMaxCols, DESCRIPTION_LINE_COLS_MAX)}
-                  </p>
-                </div>
-              ) : (
-                <p onClick={() => begin("description")} title={t.projects.reviewEditHint}
-                  style={{
-                    ...editableStyle, fontSize: 14, color: draft.description ? "rgba(255,255,255,0.82)" : "rgba(255,255,255,0.4)",
-                    marginTop: 8, lineHeight: 1.55, maxWidth: 440, fontFamily: "var(--font-nunito)",
-                    textShadow: "0 1px 8px rgba(0,0,0,0.5)", whiteSpace: "pre-line",
-                    display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 3, overflow: "hidden",
-                    padding: "2px 4px", marginLeft: -4,
-                  }}>
-                  {draft.description || t.projects.reviewDescEmpty}
-                </p>
-              )}
-
-              {editing === "comment" ? (
-                <input ref={inputRef as React.RefObject<HTMLInputElement>} value={value} onChange={e => setValue(e.target.value)}
-                  onKeyDown={e => onKey(e, false)} disabled={saving} placeholder={t.projects.reviewNotePlaceholder}
-                  style={{ ...inputStyle, fontSize: 13, marginTop: 12, maxWidth: 440 }} />
-              ) : (
-                <div onClick={() => begin("comment")} title={t.projects.reviewEditHint}
-                  className="inline-block"
-                  style={{
-                    ...editableStyle, marginTop: 12, fontSize: 13, fontFamily: "var(--font-nunito)",
-                    background: "rgba(255,255,255,0.12)", color: draft.comment ? "#fff" : "rgba(255,255,255,0.45)",
-                    padding: "6px 12px", borderRadius: 14, maxWidth: 440,
-                  }}>
-                  {draft.comment || t.projects.reviewNotePlaceholder}
-                </div>
-              )}
-
-              {draft.tags.length > 0 && (
-                <div className="flex flex-wrap gap-1.5" style={{ marginTop: 14 }}>
-                  {draft.tags.map(tag => (
-                    <span key={tag} className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs"
-                      style={{ background: "rgba(255,255,255,0.10)", color: "rgba(255,255,255,0.85)", fontFamily: "var(--font-nunito)", fontSize: "0.62rem" }}>
-                      <AiToolLogo id={tag} size={11} />{tag}
-                    </span>
-                  ))}
-                </div>
-              )}
-
-              {editing && (
-                <div className="flex items-center gap-2" style={{ marginTop: 12 }}>
-                  <button type="button" onClick={() => void save()} disabled={saving || !!descIssue}
-                    className="rounded-full" style={{ background: "#fff", color: "#1a1612", border: "none", padding: "6px 14px", fontSize: "0.78rem", fontWeight: 600, fontFamily: "var(--font-nunito)", cursor: "pointer", opacity: saving || descIssue ? 0.5 : 1 }}>
-                    {t.projects.reviewEditSave}
-                  </button>
-                  <button type="button" onClick={cancel} disabled={saving}
-                    style={{ background: "transparent", color: "rgba(255,255,255,0.7)", border: "none", padding: "6px 10px", fontSize: "0.78rem", fontFamily: "var(--font-nunito)", cursor: "pointer" }}>
-                    {t.projects.reviewEditCancel}
-                  </button>
-                  {saveError && editing !== "description" && (
-                    <span className="text-xs" style={{ color: "#f0a3a3", fontFamily: "var(--font-nunito)" }}>{saveError}</span>
-                  )}
-                  {saveError && editing === "description" && !descIssue && (
-                    <span className="text-xs" style={{ color: "#f0a3a3", fontFamily: "var(--font-nunito)" }}>{saveError}</span>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* ② 판정 칩 3개 — 로봇이 뭘 찍고, 어떻게 들어가고, 뭘 여나 */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-            <div style={chipStyle(scriptChip.warn)}>
-              <p style={{ ...fieldLabelStyle, margin: "0 0 2px", color: "inherit", opacity: 0.7 }}>{t.projects.reviewVerdictScript}</p>
-              <p style={{ margin: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{scriptChip.text}</p>
-            </div>
-            {accessChip && (
-              <div style={chipStyle(accessChip.warn)}>
-                <p style={{ ...fieldLabelStyle, margin: "0 0 2px", color: "inherit", opacity: 0.7 }}>{t.projects.reviewVerdictAccess}</p>
-                <p style={{ margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={accessChip.text}>{accessChip.text}</p>
-                {accessChip.sub && (
-                  <p style={{ margin: "2px 0 0", fontSize: "0.7rem", opacity: 0.75, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={accessChip.sub}>{accessChip.sub}</p>
-                )}
-              </div>
-            )}
-            <div style={chipStyle(false)}>
-              <p style={{ ...fieldLabelStyle, margin: "0 0 2px", color: "inherit", opacity: 0.7 }}>{t.projects.reviewVerdictOpens}</p>
-              <p className="vf-mono" style={{ margin: 0, fontSize: "0.72rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={draft.demo_url}>{opensChip}</p>
-            </div>
-          </div>
-
-          {/* ③ 앱 미리보기 */}
-          <div>
-            <div className="flex items-center justify-between gap-3 mb-2">
-              <label className="vf-label" style={{ margin: 0 }}>{t.projects.reviewPreviewLabel}</label>
               {previewSrc && (
-                <a href={previewSrc} target="_blank" rel="noopener noreferrer"
-                  className="text-xs"
-                  style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontWeight: 600, textDecoration: "underline", whiteSpace: "nowrap" }}>
+                <a href={previewSrc} target="_blank" rel="noopener noreferrer" className="vf-review-link">
                   {t.projects.menuOpen}
                 </a>
               )}
             </div>
-            <div className="relative w-full rounded-xl overflow-hidden"
-              style={{ aspectRatio: "16 / 10", background: "var(--surface-soft)" }}>
-              {directVideo ? (
-                <video src={directVideo} controls playsInline
-                  className="absolute inset-0 w-full h-full"
-                  style={{ objectFit: "contain", background: "#000" }} />
-              ) : videoEmbed ? (
-                <iframe
-                  src={videoEmbed}
-                  title={draft.title || t.projects.untitled}
-                  className="absolute inset-0 w-full h-full"
-                  style={{ border: "none" }}
-                  allow="autoplay; encrypted-media; picture-in-picture"
-                  allowFullScreen
-                />
-              ) : fileSrc ? (
-                <iframe
-                  src={fileSrc}
-                  title={draft.title || t.projects.untitled}
-                  className="absolute inset-0 w-full h-full"
-                  style={{ border: "none" }}
-                  sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-                />
-              ) : externalSrc && embedState === "checking" ? (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
-                  <span className="vf-spinner" style={{ width: "1.1rem", height: "1.1rem" }} />
-                  <p className="text-xs" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
-                    {t.projects.reviewEmbedChecking}
-                  </p>
-                </div>
-              ) : externalSrc && embedState === "ok" ? (
-                <iframe
-                  src={externalSrc}
-                  title={draft.title || t.projects.untitled}
-                  className="absolute inset-0 w-full h-full"
-                  style={{ border: "none" }}
-                  sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-                />
-              ) : draft.thumbnail ? (
-                <Image src={draft.thumbnail} unoptimized alt={draft.title || t.projects.untitled}
-                  fill className="object-cover" sizes="(max-width: 896px) 100vw, 896px" />
-              ) : (
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <p className="text-xs" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
-                    {t.projects.reviewNoPreview}
-                  </p>
-                </div>
-              )}
-            </div>
+            <PreviewDevice device={device} address={opensLabel}>{frame}</PreviewDevice>
+            <p className="vf-mono" style={{ ...smallText, fontSize: 12, textAlign: "center", fontVariantNumeric: "tabular-nums" }}>
+              {device === "mobile" ? `${PHONE_VIEW.w} × ${PHONE_VIEW.h}` : `${DESKTOP_VIEW.w} × ${DESKTOP_VIEW.h}`}
+            </p>
             {externalSrc && !directVideo && !videoEmbed && embedState !== "checking" && (
-              <p className="text-xs mt-1.5" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", lineHeight: 1.6 }}>
+              <p style={{ ...smallText, fontSize: 12.5 }}>
                 {embedState === "blocked"
                   ? t.projects.reviewEmbedBlocked
                   : embedState === "unreachable"
@@ -479,98 +383,389 @@ export function DraftReviewModal({ draft, onClose, onPublish, onEdit, onDelete, 
                     : t.projects.reviewEmbedTip}
               </p>
             )}
-          </div>
+          </aside>
+        )}
 
-          {/* ④ 촬영 대본 — 공개하면 이대로 찍힌다. 빼기·순서는 여기서, 나머진 AI에게 */}
-          <div>
-            <DemoScriptPanel script={draft.demo_script} onChange={hasOwnVideo ? undefined : saveScript} />
-            {scriptError && (
-              <p className="text-xs mt-1.5" style={{ color: "#b34747", fontFamily: "var(--font-nunito)", margin: "6px 0 0" }}>{scriptError}</p>
-            )}
-          </div>
-
-          {/* ⑤ AI에게 고쳐달라기 */}
-          {fixOpen && (
-            <div className="rounded-2xl" style={{ background: "var(--surface-soft)", padding: "14px 16px" }}>
-              <p className="text-xs" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", margin: "0 0 8px" }}>
-                {t.projects.reviewFixLead}
-              </p>
-              <textarea value={fixNote} onChange={e => { setFixNote(e.target.value); setFixState("idle"); }}
-                rows={3} placeholder={t.projects.reviewFixPlaceholder} className="vf-input w-full"
-                style={{ fontSize: "0.85rem", lineHeight: 1.6, background: "var(--surface)" }} />
-              <div className="flex items-center gap-3 flex-wrap" style={{ marginTop: 8 }}>
-                <button type="button" onClick={() => void copyFix()} disabled={fixBusy || !fixNote.trim()}
-                  className="vf-button-primary" style={{ fontSize: "0.8rem", padding: "0.5rem 1rem", opacity: fixBusy || !fixNote.trim() ? 0.5 : 1 }}>
-                  {t.projects.reviewFixCopy}
+        {/* ── 오른쪽: 판단 ── */}
+        <section className="vf-review-main">
+          <header className="vf-review-head" data-scrolled={edges.scrolled ? "true" : "false"}>
+            <div className="flex items-center justify-between gap-3" style={{ minHeight: 34 }}>
+              <span
+                className="rounded-full"
+                style={{
+                  padding: "4px 10px", background: "var(--surface-soft)", color: "var(--text-secondary)",
+                  fontFamily: "var(--font-nunito)", fontSize: "0.72rem", fontWeight: 600,
+                }}
+              >
+                {t.projects.draftBadge}
+              </span>
+              <div ref={menuRef} className="relative flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setMenuOpen((v) => !v)}
+                  className="vf-icon-button"
+                  style={{
+                    width: 34, height: 34, color: "var(--text-primary)",
+                    background: menuOpen ? "var(--surface-soft-hover)" : undefined,
+                  }}
+                  aria-haspopup="menu"
+                  aria-expanded={menuOpen}
+                  aria-label={t.projects.more}
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden>
+                    <circle cx="3.5" cy="8" r="1.4" /><circle cx="8" cy="8" r="1.4" /><circle cx="12.5" cy="8" r="1.4" />
+                  </svg>
                 </button>
-                {fixState === "copied" && (
-                  <span className="text-xs" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>{t.projects.reviewFixCopied}</span>
-                )}
-                {fixState === "failed" && (
-                  <span className="text-xs" style={{ color: "#b34747", fontFamily: "var(--font-nunito)" }}>{t.projects.reviewFixFailed}</span>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="vf-icon-button"
+                  style={{ width: 34, height: 34, color: "var(--text-primary)" }}
+                  aria-label={t.projectForm.closeAria}
+                >
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
+                    <path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                  </svg>
+                </button>
+                {menuOpen && (
+                  <div
+                    role="menu"
+                    className="absolute right-0 flex flex-col"
+                    style={{
+                      top: 42, zIndex: 10, minWidth: 168, padding: 6, borderRadius: 14,
+                      background: "var(--surface)", boxShadow: "var(--shadow-card-small)",
+                    }}
+                  >
+                    <button type="button" role="menuitem" className="vf-review-menu-item"
+                      onClick={() => { setMenuOpen(false); onEdit(); }}>
+                      {t.projects.reviewMenuEdit}
+                    </button>
+                    <button type="button" role="menuitem" className="vf-review-menu-item" data-danger="true"
+                      onClick={() => { setMenuOpen(false); onDelete(); }}>
+                      {t.projects.reviewMenuDelete}
+                    </button>
+                  </div>
                 )}
               </div>
             </div>
-          )}
+            <h2
+              id={`${uid}-title`}
+              style={{
+                margin: "8px 0 0", fontFamily: "var(--font-nunito)", fontSize: "clamp(1.3rem, 2.1vw, 1.6rem)",
+                fontWeight: 700, lineHeight: 1.35, letterSpacing: "-0.02em", color: "var(--text-primary)",
+                wordBreak: "keep-all", overflowWrap: "anywhere",
+              }}
+            >
+              {t.projects.reviewAsk(title, objectParticle(title))}
+            </h2>
+            <p style={{ ...smallText, marginTop: 4, fontSize: "0.93rem" }}>{t.projects.reviewIntroShort}</p>
+          </header>
 
-          {/* ⑥ 그 밖에 — 판단에 안 쓰이는 것들은 접는다 */}
-          <details>
-            <summary className="text-xs" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", cursor: "pointer", fontWeight: 600 }}>
-              {t.projects.reviewMore}
-            </summary>
-            <div className="flex flex-col gap-4" style={{ marginTop: 12 }}>
-              <div>
-                <p style={fieldLabelStyle}>{t.projectForm.hintLabel}</p>
-                <p style={fieldValueStyle}>{draft.demo_user_hint || emptyValue}</p>
-              </div>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                <div>
-                  <p style={fieldLabelStyle}>{t.projectForm.contentTypeLabel}</p>
-                  <p style={fieldValueStyle}>{ct ? `${ct.emoji} ${ctLabel}` : emptyValue}</p>
+          <div ref={bodyRef} className="vf-review-body" onScroll={measureEdges}>
+            <div ref={contentRef} className="vf-review-content">
+              {!wide && previewSrc && (
+                <a
+                  href={previewSrc} target="_blank" rel="noopener noreferrer"
+                  className="vf-review-start" style={{ marginBottom: 0, color: "var(--text-primary)", textDecoration: "none" }}
+                >
+                  <span className="vf-review-start-icon" aria-hidden>{deviceGlyph}</span>
+                  <span style={{ fontFamily: "var(--font-nunito)", fontSize: "0.95rem", fontWeight: 600 }}>
+                    {t.projects.reviewOpenWork}
+                  </span>
+                </a>
+              )}
+
+              {/* ① 명함 렌더 — 글자를 누르면 그 자리에서 고친다 */}
+              <section aria-labelledby={`${uid}-card`}>
+                <SectionHead id={`${uid}-card`} title={t.projects.reviewCardLabel}
+                  right={<span style={smallText}>{t.projects.reviewEditHint}</span>} />
+                <div className="rounded-2xl" style={{ background: cardBg, padding: "20px 24px 18px" }}>
+                  {editing === "title" ? (
+                    <input ref={inputRef as React.RefObject<HTMLInputElement>} value={value} onChange={e => setValue(e.target.value)}
+                      onKeyDown={e => onKey(e, false)} disabled={saving}
+                      className="vf-serif-display" style={{ ...inputStyle, fontSize: "1.45rem", fontWeight: 500 }} />
+                  ) : (
+                    <h3 className="vf-serif-display" onClick={() => begin("title")} title={t.projects.reviewEditHint}
+                      style={{ ...editableStyle, fontSize: "1.45rem", fontWeight: 500, margin: 0, color: "#fff", textShadow: "0 2px 16px rgba(0,0,0,0.55)", padding: "2px 4px", marginLeft: -4 }}>
+                      {title}
+                    </h3>
+                  )}
+
+                  {editing === "description" ? (
+                    <div style={{ marginTop: 8 }}>
+                      <textarea ref={inputRef as React.RefObject<HTMLTextAreaElement>} value={value} onChange={e => setValue(e.target.value)}
+                        onKeyDown={e => onKey(e, true)} rows={3} disabled={saving}
+                        style={{ ...inputStyle, fontSize: 15, lineHeight: 1.55, resize: "vertical", maxWidth: 460 }} />
+                      <p className="text-xs" style={{ margin: "4px 0 0", fontFamily: "var(--font-nunito)", color: descIssue ? "#f0a3a3" : "rgba(255,255,255,0.6)" }}>
+                        {descIssue ?? t.projects.reviewDescMeter(descLines.length, descMaxCols, DESCRIPTION_LINE_COLS_MAX)}
+                      </p>
+                    </div>
+                  ) : (
+                    <p onClick={() => begin("description")} title={t.projects.reviewEditHint}
+                      style={{
+                        ...editableStyle, fontSize: 15, color: draft.description ? "rgba(255,255,255,0.84)" : "rgba(255,255,255,0.4)",
+                        marginTop: 8, lineHeight: 1.55, maxWidth: 460, fontFamily: "var(--font-nunito)",
+                        textShadow: "0 1px 8px rgba(0,0,0,0.5)", whiteSpace: "pre-line",
+                        display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 3, overflow: "hidden",
+                        padding: "2px 4px", marginLeft: -4,
+                      }}>
+                      {draft.description || t.projects.reviewDescEmpty}
+                    </p>
+                  )}
+
+                  {editing === "comment" ? (
+                    <input ref={inputRef as React.RefObject<HTMLInputElement>} value={value} onChange={e => setValue(e.target.value)}
+                      onKeyDown={e => onKey(e, false)} disabled={saving} placeholder={t.projects.reviewNotePlaceholder}
+                      style={{ ...inputStyle, fontSize: 14, marginTop: 12, maxWidth: 460 }} />
+                  ) : (
+                    <div onClick={() => begin("comment")} title={t.projects.reviewEditHint}
+                      className="inline-block"
+                      style={{
+                        ...editableStyle, marginTop: 12, fontSize: 14, fontFamily: "var(--font-nunito)",
+                        background: "rgba(255,255,255,0.12)", color: draft.comment ? "#fff" : "rgba(255,255,255,0.45)",
+                        padding: "7px 14px", borderRadius: 14, maxWidth: 460,
+                      }}>
+                      {draft.comment || t.projects.reviewNotePlaceholder}
+                    </div>
+                  )}
+
+                  {draft.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5" style={{ marginTop: 12 }}>
+                      {draft.tags.map(tag => (
+                        <span key={tag} className="flex items-center gap-1 px-2 py-0.5 rounded-full"
+                          style={{ background: "rgba(255,255,255,0.10)", color: "rgba(255,255,255,0.88)", fontFamily: "var(--font-nunito)", fontSize: "0.72rem" }}>
+                          <AiToolLogo id={tag} size={11} />{tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {editing && (
+                    <div className="flex items-center gap-2" style={{ marginTop: 12 }}>
+                      <button type="button" onClick={() => void save()} disabled={saving || !!descIssue}
+                        className="rounded-full" style={{ background: "#fff", color: "#1a1612", border: "none", padding: "6px 14px", fontSize: "0.8rem", fontWeight: 600, fontFamily: "var(--font-nunito)", cursor: "pointer", opacity: saving || descIssue ? 0.5 : 1 }}>
+                        {t.projects.reviewEditSave}
+                      </button>
+                      <button type="button" onClick={cancel} disabled={saving}
+                        style={{ background: "transparent", color: "rgba(255,255,255,0.7)", border: "none", padding: "6px 10px", fontSize: "0.8rem", fontFamily: "var(--font-nunito)", cursor: "pointer" }}>
+                        {t.projects.reviewEditCancel}
+                      </button>
+                      {saveError && editing !== "description" && (
+                        <span className="text-xs" style={{ color: "#f0a3a3", fontFamily: "var(--font-nunito)" }}>{saveError}</span>
+                      )}
+                      {saveError && editing === "description" && !descIssue && (
+                        <span className="text-xs" style={{ color: "#f0a3a3", fontFamily: "var(--font-nunito)" }}>{saveError}</span>
+                      )}
+                    </div>
+                  )}
                 </div>
-                <div>
-                  <p style={fieldLabelStyle}>{t.projectForm.yearLabel}</p>
-                  <p style={fieldValueStyle}>{draft.year || emptyValue}</p>
+              </section>
+
+              {/* ② 촬영 계획 — 어디서 시작해, 이 순서로 찍는다 */}
+              <section aria-labelledby={`${uid}-shoot`}>
+                <SectionHead
+                  id={`${uid}-shoot`}
+                  title={t.projects.reviewShootTitle}
+                  right={!hasOwnVideo && steps.length > 0 ? (
+                    <span className="inline-flex items-center gap-1.5"
+                      style={{
+                        fontFamily: "var(--font-nunito)", fontSize: "0.85rem", fontWeight: 600,
+                        color: wired === steps.length ? "var(--text-primary)" : "#b34747",
+                      }}>
+                      <StatusGlyph ok={wired === steps.length} />
+                      {wired === steps.length
+                        ? t.projects.reviewShootAllWired(steps.length)
+                        : t.projects.reviewShootPartWired(wired, steps.length)}
+                    </span>
+                  ) : null}
+                />
+                <div className="vf-review-start" data-warn={!hasOwnVideo && accessLine.warn ? "true" : "false"}>
+                  <span className="vf-review-start-icon" aria-hidden>{hasOwnVideo ? <FilmGlyph /> : <EnterGlyph />}</span>
+                  <div style={{ minWidth: 0 }}>
+                    <p style={{ margin: 0, fontFamily: "var(--font-nunito)", fontSize: "0.95rem", fontWeight: 600, lineHeight: 1.5, color: "var(--text-primary)" }}>
+                      {hasOwnVideo
+                        ? t.projects.reviewVideoOwn
+                        : opensKind === "url"
+                          ? (
+                            <>
+                              {t.projects.reviewStartsAtPrefix}
+                              <span className="vf-mono" style={{ fontSize: "0.86rem", fontWeight: 500, overflowWrap: "anywhere" }}>{opensLabel}</span>
+                              {t.projects.reviewStartsAtSuffix}
+                            </>
+                          )
+                          : opensKind === "file"
+                            ? t.projects.reviewStartFile
+                            : `${t.projects.reviewOpensRepo} · ${opensLabel}`}
+                    </p>
+                    <p className="vf-review-start-sub" style={{ ...smallText, marginTop: 2 }}>
+                      {hasOwnVideo
+                        ? t.projects.reviewVideoOwnSub
+                        : [accessLine.text, accessLine.note].filter(Boolean).join(" · ")}
+                    </p>
+                  </div>
                 </div>
-                <div className="col-span-2 md:col-span-1">
-                  <p style={fieldLabelStyle}>{t.projectForm.aiToolsLabel}</p>
-                  <p style={fieldValueStyle}>{draft.tags.length ? draft.tags.join(" · ") : emptyValue}</p>
+                {!hasOwnVideo && <DemoScriptPanel script={draft.demo_script} onChange={saveScript} />}
+                {scriptError && (
+                  <p style={{ ...smallText, marginTop: 8, color: "#b34747" }}>{scriptError}</p>
+                )}
+              </section>
+
+              {/* ③ AI에게 고쳐달라기 */}
+              {fixOpen && (
+                <div ref={revealFix} className="rounded-2xl" style={{ background: "var(--surface-sunken)", padding: "16px 18px" }}>
+                  <p style={{ margin: "0 0 8px", fontFamily: "var(--font-nunito)", fontSize: "0.95rem", fontWeight: 600, color: "var(--text-primary)" }}>
+                    {t.projects.reviewFixLead}
+                  </p>
+                  <textarea value={fixNote} onChange={e => { setFixNote(e.target.value); setFixState("idle"); }}
+                    rows={3} placeholder={t.projects.reviewFixPlaceholder} className="vf-input w-full"
+                    style={{ fontSize: "0.9rem", lineHeight: 1.6, background: "var(--surface)" }} />
+                  <div className="flex items-center gap-3 flex-wrap" style={{ marginTop: 8 }}>
+                    <button type="button" onClick={() => void copyFix()} disabled={fixBusy || !fixNote.trim()}
+                      className="vf-button-primary" style={{ fontSize: "0.85rem", padding: "0.55rem 1.1rem", opacity: fixBusy || !fixNote.trim() ? 0.5 : 1 }}>
+                      {t.projects.reviewFixCopy}
+                    </button>
+                    {fixState === "copied" && (
+                      <span style={smallText}>{t.projects.reviewFixCopied}</span>
+                    )}
+                    {fixState === "failed" && (
+                      <span style={{ ...smallText, color: "#b34747" }}>{t.projects.reviewFixFailed}</span>
+                    )}
+                  </div>
                 </div>
-              </div>
-              <div>
-                <p style={fieldLabelStyle}>{t.projectForm.demoUrlLabel}</p>
-                <p className="vf-mono" style={{ ...fieldValueStyle, fontSize: "0.75rem", wordBreak: "break-all" }}>
-                  {isFile ? t.projects.reviewFileUpload : (draft.demo_url || emptyValue)}
-                </p>
-              </div>
+              )}
+
+              {/* ④ 그 밖에 — 판단에 안 쓰이는 것들은 접는다 */}
+              <details className="vf-review-more">
+                <summary>{t.projects.reviewMoreRow}</summary>
+                <div className="flex flex-col gap-4" style={{ padding: "14px 16px 0" }}>
+                  <div>
+                    <p style={fieldLabelStyle}>{t.projectForm.hintLabel}</p>
+                    <p style={fieldValueStyle}>{draft.demo_user_hint || emptyValue}</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p style={fieldLabelStyle}>{t.projectForm.contentTypeLabel}</p>
+                      <p style={fieldValueStyle}>{ct ? `${ct.emoji} ${ctLabel}` : emptyValue}</p>
+                    </div>
+                    <div>
+                      <p style={fieldLabelStyle}>{t.projectForm.yearLabel}</p>
+                      <p style={fieldValueStyle}>{draft.year || emptyValue}</p>
+                    </div>
+                  </div>
+                  <div>
+                    <p style={fieldLabelStyle}>{t.projectForm.aiToolsLabel}</p>
+                    <p style={fieldValueStyle}>{draft.tags.length ? draft.tags.join(" · ") : emptyValue}</p>
+                  </div>
+                  <div>
+                    <p style={fieldLabelStyle}>{t.projectForm.demoUrlLabel}</p>
+                    <p className="vf-mono" style={{ ...fieldValueStyle, fontSize: "0.78rem", wordBreak: "break-all" }}>
+                      {isFile ? t.projects.reviewFileUpload : (draft.demo_url || emptyValue)}
+                    </p>
+                  </div>
+                </div>
+              </details>
             </div>
-          </details>
-        </div>
+          </div>
 
-        {/* Footer actions */}
-        <div className="flex items-center gap-2 px-6 py-4 flex-wrap"
-          style={{ borderTop: "1px solid var(--border)" }}>
-          <button type="button" onClick={onDelete} className="vf-button-ghost"
-            style={{ fontSize: "0.8rem", padding: "0.5rem 1rem", color: "#b34747" }}>
-            {t.projects.menuDelete}
-          </button>
-          <div className="flex-1" />
-          <button type="button" onClick={() => setFixOpen(v => !v)}
-            className="vf-button-ghost"
-            style={{ fontSize: "0.8rem", padding: "0.5rem 1rem", background: fixOpen ? "var(--surface-soft)" : undefined }}>
-            {t.projects.reviewFixWithAi}
-          </button>
-          <button type="button" onClick={onEdit}
-            className="vf-soft-fill rounded-full"
-            style={{ padding: "0.55rem 1.2rem", fontFamily: "var(--font-nunito)", fontSize: "0.85rem", fontWeight: 500, cursor: "pointer" }}>
-            {t.projects.menuEdit}
-          </button>
-          <button type="button" onClick={onPublish} className="vf-button-primary"
-            style={{ fontSize: "0.85rem", padding: "0.55rem 1.3rem" }}>
-            {t.projects.confirmPublish}
-          </button>
-        </div>
+          {/* 아래 버튼 줄 — 채운 버튼은 공개하기 하나 */}
+          <footer className="vf-review-foot" data-at-end={edges.atEnd ? "true" : "false"}>
+            <p className="vf-review-foot-note">
+              {hasOwnVideo ? t.projects.reviewPublishNoteVideo : t.projects.reviewPublishNote}
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setFixOpen((v) => !v)}
+                aria-expanded={fixOpen}
+                className="vf-button-ghost"
+                style={{
+                  fontSize: "0.92rem", padding: "0.72rem 1.15rem",
+                  background: fixOpen ? "var(--surface-soft-hover)" : undefined,
+                }}
+              >
+                {t.projects.reviewFixWithAi}
+              </button>
+              <button
+                type="button"
+                onClick={onPublish}
+                className="vf-button-primary"
+                style={{ fontSize: "0.92rem", padding: "0.72rem 1.4rem", minWidth: 120 }}
+              >
+                {t.projects.reviewPublishCta}
+              </button>
+            </div>
+          </footer>
+        </section>
       </div>
     </div>
+  );
+}
+
+function SectionHead({ id, title, right }: { id: string; title: string; right?: React.ReactNode }) {
+  return (
+    <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1" style={{ marginBottom: 12 }}>
+      <h3
+        id={id}
+        style={{
+          margin: 0, fontFamily: "var(--font-nunito)", fontSize: "1.15rem", fontWeight: 700,
+          letterSpacing: "-0.015em", color: "var(--text-primary)",
+        }}
+      >
+        {title}
+      </h3>
+      {right}
+    </div>
+  );
+}
+
+function StatusGlyph({ ok }: { ok: boolean }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden>
+      <circle cx="8" cy="8" r="8" fill="currentColor" />
+      {ok ? (
+        <path d="M4.7 8.2l2.1 2.1 4.5-4.7" fill="none" style={{ stroke: "var(--bg)" }} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      ) : (
+        <>
+          <path d="M8 4.2v4.6" style={{ stroke: "var(--bg)" }} strokeWidth="1.8" strokeLinecap="round" />
+          <circle cx="8" cy="11.4" r="1" style={{ fill: "var(--bg)" }} />
+        </>
+      )}
+    </svg>
+  );
+}
+
+function PhoneGlyph() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <rect x="4.25" y="1.75" width="7.5" height="12.5" rx="1.75" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M7 12h2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function LaptopGlyph() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <rect x="2.75" y="3" width="10.5" height="7.5" rx="1.25" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M1 13h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function EnterGlyph() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <path d="M2.5 8h7.5M7 4.5L10.5 8 7 11.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M10.5 2.5h2a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1h-2" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function FilmGlyph() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <rect x="2" y="3" width="12" height="10" rx="2" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M7 6.2v3.6L10 8 7 6.2z" fill="currentColor" />
+    </svg>
   );
 }
