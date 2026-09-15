@@ -7,10 +7,10 @@ import { screenshotUrl } from "@/lib/thumbnail";
 import {
   ingestAuth, publicUrlGate, strOrNull, buildAccepted, descriptionTooLong, DESCRIPTION_MAX,
   descriptionShapeIssue, descriptionShapeMessage,
-  missingScriptColumn, buildScriptReview, pickApiT,
+  missingOptionalColumn, OPTIONAL_COLUMN_MIGRATION, buildScriptReview, pickApiT,
 } from "./shared";
 import { probeSelectors, selectorsOf, composeProbeUrl, type SelectorCheck } from "@/lib/demoScriptReview";
-import { normalizeTags, normalizeContentType } from "@/lib/projectTaxonomy";
+import { normalizeTags, normalizeContentType, normalizeTargetDevice } from "@/lib/projectTaxonomy";
 import {
   normalizeDemoAccess, demoAccessAnswered, demoAccessEvidenceMissing, type DemoAccess,
 } from "@/lib/demoAccess";
@@ -51,6 +51,7 @@ interface IngestPayload {
   demoScript?: unknown;
   tags?: unknown;
   contentType?: unknown;
+  targetDevice?: unknown;
   deployUrl?: unknown;
   appUrl?: unknown;
   demoAccess?: unknown;
@@ -150,6 +151,8 @@ export async function POST(req: NextRequest) {
     let scriptStored = !!demoScript; // 컬럼 부재 디그레이드 시 false로 — 에코가 진실을 말하게
     const tags = normalizeTags(payload?.tags);
     const contentTypeId = normalizeContentType(payload?.contentType);
+    const targetDevice = normalizeTargetDevice(payload?.targetDevice);
+    let deviceStored = !!targetDevice; // 컬럼 부재 디그레이드 시 false로 — 에코가 진실을 말하게
 
     // demoAccess — 로그인 필요 앱의 데모 모드 진입 정보(url·params·note만, 계정
     // 정보는 설계상 범위 밖). 여기서는 "저장만": 사용(진입 URL 조립·로봇 브리핑
@@ -245,6 +248,14 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // 대상 화면 게이트(2026-09-15 사용자 확정). 초안 검토 창은 이 답으로만 미리보기
+    // 틀(폰/PC)을 고른다 — 사람이 바꾸는 스위치를 일부러 두지 않았으니, 답이 없으면
+    // 틀이 짐작이 된다. 촬영이 아니라 "어떻게 보여줄까"의 질문이라 영상 동봉도 면제가
+    // 아니다. 대본·로그인 게이트 뒤에 두는 이유: 큰 결함부터 되돌려보내고 이건 마지막 한 줄로.
+    if (!targetDevice) {
+      return apiError({ status: 400, message: t.api.targetDeviceRequired, code: "TARGET_DEVICE_REQUIRED" });
+    }
+
     const admin = createAdminClient();
 
     // 5. URL 경로면 여기서 demo_url·thumbnail 확정(파일 경로는 행 생성 후).
@@ -327,6 +338,7 @@ export async function POST(req: NextRequest) {
         demo_access: demoAccess,
         tags,
         content_type: contentTypeId,
+        target_device: targetDevice,
       };
       if (videoBuf) upd.type = "video";
       // 제작자 스크린샷(_media/) 썸네일은 보존 — thum.io 자동 썸네일로 덮지 않는다.
@@ -334,12 +346,13 @@ export async function POST(req: NextRequest) {
         upd.thumbnail = thumbnail;
       }
       let { error: updErr } = await admin.from("projects").update(upd).eq("id", existing.id);
-      // migration_demo_script.sql 적용 전 무중단 디그레이드(워커의 42703 정책과
-      // 동일): 컬럼이 없다고 발행 전체가 죽으면 안 된다 — 대본만 빼고 재시도.
-      if (missingScriptColumn(updErr)) {
-        logger.error("[ingest] projects.demo_script missing — apply migration_demo_script.sql (storing without the script)");
-        delete upd.demo_script;
-        scriptStored = false;
+      // 마이그레이션 적용 전 무중단 디그레이드(워커의 42703 정책과 동일): 컬럼이
+      // 없다고 발행 전체가 죽으면 안 된다 — 없는 선택 컬럼만 빼고 재시도한다.
+      for (let col = missingOptionalColumn(updErr); col && col in upd; col = missingOptionalColumn(updErr)) {
+        logger.error(`[ingest] projects.${col} missing — apply ${OPTIONAL_COLUMN_MIGRATION[col]} (storing without it)`);
+        delete upd[col];
+        if (col === "demo_script") scriptStored = false;
+        if (col === "target_device") deviceStored = false;
         ({ error: updErr } = await admin.from("projects").update(upd).eq("id", existing.id));
       }
       if (updErr) {
@@ -377,6 +390,7 @@ export async function POST(req: NextRequest) {
         demo_access: demoAccess,
         tags,
         content_type: contentTypeId,
+        target_device: targetDevice,
         type: videoBuf ? "video" : "image",
         year: new Date().getFullYear().toString(),
         demo_url: demoUrl,
@@ -386,10 +400,11 @@ export async function POST(req: NextRequest) {
       let { data: created, error: insErr } = await admin
         .from("projects").insert(row).select("id").single();
       // 위 update 브랜치와 같은 마이그레이션 전 디그레이드.
-      if (missingScriptColumn(insErr)) {
-        logger.error("[ingest] projects.demo_script missing — apply migration_demo_script.sql (storing without the script)");
-        delete row.demo_script;
-        scriptStored = false;
+      for (let col = missingOptionalColumn(insErr); col && col in row; col = missingOptionalColumn(insErr)) {
+        logger.error(`[ingest] projects.${col} missing — apply ${OPTIONAL_COLUMN_MIGRATION[col]} (storing without it)`);
+        delete row[col];
+        if (col === "demo_script") scriptStored = false;
+        if (col === "target_device") deviceStored = false;
         ({ data: created, error: insErr } = await admin
           .from("projects").insert(row).select("id").single());
       }
@@ -484,6 +499,7 @@ export async function POST(req: NextRequest) {
         title, description, comment, demoHint, tags,
         demoScript: scriptStored ? demoScript : null,
         contentTypeId, demoAccess, entryUrl: demoUrl,
+        targetDevice: deviceStored ? targetDevice : null,
       }, normalizeTags, scriptReview),
       ...(upserted ? { upserted: true } : {}),
       // 안전상 빼고 저장한 파일(.env·.git/ 등). accepted가 "무엇이 들어갔나"라면

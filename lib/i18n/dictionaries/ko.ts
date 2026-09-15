@@ -660,6 +660,8 @@ export const ko = {
       which === "noLogin"
         ? 'demoAccess를 { "noLogin": true } 한 줄로만 주면 받지 않아요 — 무엇을 확인했는지 note에 적어 주세요(12자 이상). 예: { "noLogin": true, "note": "middleware·app/page.tsx에 인증 가드 없음, 목록은 시드 데이터로 채워짐" }. 랜딩이 멀쩡해 보이는 것과 **로그인 전에 기능이 실제로 도는 것**은 다릅니다. 라우트와 가드를 직접 열어 확인하고, 확인이 안 되면 noLogin 대신 데모 경로({ "url": "/demo" })를 주세요 — 없다면 지금 하나 만드는 게 이 영상을 위한 가장 값진 투자입니다.'
         : 'demoAccess를 { "impossible": true } 한 줄로만 주면 받지 않아요 — 게스트 경로가 왜 원천 불가능한지 note에 적어 주세요(12자 이상). 예: { "impossible": true, "note": "E2E 암호화라 키 없이는 화면이 빈 채로 뜬다" }. 이 경우 랜딩만 촬영되니 직접 만든 시연 영상(video) 첨부를 강하게 권해요.',
+    targetDeviceRequired:
+      'targetDevice가 필요해요 — 이 앱을 주로 어떤 화면에 맞춰 만들었는지 답해 주세요. 폰 화면용(좁은 한 줄 레이아웃·아래 탭바·터치 위주)이면 "mobile", 컴퓨터 브라우저용(넓은 레이아웃·사이드바·마우스 위주)이면 "desktop"이에요. 둘 다 되면 처음에 맞춰 만든 쪽을 고르세요. contentType의 "mobile"(폰 앱 분류)과는 다른 질문이에요. 이 답으로 초안 미리보기를 폰 화면으로 보여줄지 PC 화면으로 보여줄지 정해요.',
     rerecordPendingNext: "새 대본을 접수했어요. 작품 주인이 대시보드에서 확인하고 [이 대본으로 재촬영]을 눌러야 촬영이 시작돼요.",
     rerecordNoPendingScript: "대기 중인 새 대본이 없어요. 재촬영 프롬프트를 AI에게 주고, AI가 새 대본을 제출한 뒤에 눌러 주세요.",
     rerecordAlreadyUsed: "이 작품의 셀프 재촬영 1회는 이미 썼어요. 다음부터는 관리자 승인이 필요해요.",

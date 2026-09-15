@@ -40,6 +40,12 @@ export function formatAccepted(accepted) {
 
   lines.push(ROW("AI tools", accepted.tags?.length ? accepted.tags.join(", ") : "(none)"));
   lines.push(ROW("type", accepted.contentType || "(none — no badge shown)"));
+  // 대상 화면(2026-09-15) — 초안 미리보기 틀. 구버전 서버는 키가 없어 줄도 안 찍힌다.
+  if (accepted.targetDevice) {
+    lines.push(ROW("screen", accepted.targetDevice === "mobile"
+      ? "mobile (preview framed as a phone)"
+      : "desktop (preview framed as a desktop)"));
+  }
   if (accepted.entryUrl) lines.push(ROW("film/embed", accepted.entryUrl));
   if (accepted.scoutAltUrl) lines.push(ROW("alt target", `${accepted.scoutAltUrl}  (one of the two is picked right before filming)`));
   if (accepted.demoAccess) {

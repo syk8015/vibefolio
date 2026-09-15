@@ -46,8 +46,12 @@
 
 - 인증: `Authorization: Bearer nf_live_…` (우선) 또는 쿠키 세션(`/publish` 경로).
 - 본문:
-  - `application/json` — `{ title, description?, builderNote?, demoHighlights?, demoScript?, tags?, contentType?, deployUrl?, appUrl?, demoAccess? }`
-    (`demoScript`·`demoAccess`는 **둘 다 필수 게이트** — 자세한 건 아래 "발행 게이트 2종")
+  - `application/json` — `{ title, description?, builderNote?, demoHighlights?, demoScript?, tags?, contentType?, targetDevice, deployUrl?, appUrl?, demoAccess? }`
+    (`demoScript`·`demoAccess`·`targetDevice`는 **필수 게이트** — 자세한 건 아래 "발행 게이트 3종")
+    (`targetDevice` = 작품이 주로 맞춘 화면 `"mobile"`|`"desktop"`(2026-09-15) → `projects.target_device`. 초안 검토 창이 이 답으로
+    미리보기 틀(폰 402×874 / PC 1280×800)을 고르고, 사람이 바꾸는 스위치는 없다. contentType의 `mobile`(분류)과 다른 질문 —
+    폰 우선 웹앱은 `web-app`+`mobile`. 답이 없는 예전 초안은 분류로 짐작(`lib/projectTaxonomy.ts previewDevice`).
+    마이그레이션: `supabase/migration_target_device.sql` — 컬럼이 없으면 세 라우트 모두 그 컬럼만 빼고 동작)
     (`appUrl` = 랜딩과 앱이 나뉜 제품의 실제 앱 화면 URL — 있으면 deployUrl보다 우선해 임베드·촬영 대상이 된다. 검증은 deployUrl과 동일)
     (`deployUrl`/`appUrl`은 `detectDemoSource`가 github 저장소 URL도 인식한다 — 미배포+서버/DB 필요 앱의
     최후수단으로 08-14부터 프롬프트·MCP·CLI가 안내. 공개 저장소 필수. JS는 `dev`/`start` 스크립트로,
@@ -122,7 +126,7 @@
 
 - `GET /api/ingest/drafts` — 내 초안 목록 `{ ok, count, drafts:[{ id, title, …, reviewUrl }] }`.
 - `PATCH /api/ingest/drafts/[id]` — 보낸 필드만 갱신(title/description/builderNote/demoHighlights/demoScript/
-  tags/contentType/demoAccess — 검증은 생성 경로와 동일 규칙·동일 게이트). `deployUrl`·`appUrl`·
+  tags/contentType/targetDevice/demoAccess — 검증은 생성 경로와 동일 규칙·동일 게이트). `deployUrl`·`appUrl`·
   `uploads`가 오면 400 `ARTIFACT_IMMUTABLE` — 아티팩트 교체는 같은 URL로 publish 재실행(upsert)이
   정규 경로(검증 경로 단일화).
 - `DELETE /api/ingest/drafts/[id]` — 행 + 스토리지(행 폴더 `{uid}/{id}/` BFS: zip 확장·`_media`·
@@ -181,7 +185,7 @@
 - 조립: `app/api/ingest/shared.ts` 의 `buildAccepted()` — 표시 전용, 저장 내용 불변.
 - 필드: `title` · `descriptionChars` · `builderNoteChars` · `demoHighlightsChars` · `demoScriptSteps` · `demoScriptDropped` ·
   `demoHighlightsTruncated` · `tags` · `droppedTags` · `contentType` ·
-  `droppedContentType` · `entryUrl` · `scoutAltUrl` · `demoAccess` · `demoAccessDropped`.
+  `droppedContentType` · `entryUrl` · `scoutAltUrl` · `demoAccess` · `demoAccessDropped` · `targetDevice`.
 - 파일 업로드(2단계) 경로는 `finalize` 응답에 `accepted`가 없으므로 CLI가 1단계 것을
   이어붙인다(`cli/src/publish.js`).
 - 출력: `cli/src/echo.js` `formatAccepted()` — CLI 콘솔·MCP 툴 결과 공용. 한글 2칸
@@ -220,16 +224,18 @@
 - 검증: `scripts/probe-api-ingest.mjs`
 
 
-## 발행 게이트 2종 (인제스트가 저장 전에 되돌려보내는 것)
+## 발행 게이트 3종 (인제스트가 저장 전에 되돌려보내는 것)
 
-`/api/ingest` POST와 `PATCH /api/ingest/drafts/:id`는 zip·URL 처리보다 **먼저** 두 가지를
-검사한다. 둘 다 면제 조건은 하나뿐 — 직접 만든 시연 영상(`video` 파트 또는
-`uploads: ["video"]`)을 준 경우다(자동 촬영 자체를 건너뛴다).
+`/api/ingest` POST와 `PATCH /api/ingest/drafts/:id`는 zip·URL 처리보다 **먼저** 세 가지를
+검사한다. 대본·로그인의 면제 조건은 하나뿐 — 직접 만든 시연 영상(`video` 파트 또는
+`uploads: ["video"]`)을 준 경우다(자동 촬영 자체를 건너뛴다). 대상 화면은 촬영이 아니라
+"어떻게 보여줄까"의 질문이라 **영상 동봉도 면제가 아니고**, 대본·로그인 게이트 뒤에 검사한다.
 
 | 게이트 | 코드 | 통과 조건 |
 |---|---|---|
 | 촬영 대본 (2026-08-25) | `SCRIPT_REQUIRED` · `SCRIPT_TOO_THIN` | `demoScript.steps` ≥ 3 |
 | 로그인 답변 (2026-08-27) | `DEMO_ACCESS_REQUIRED` | `demoAccess`가 `url` · `noLogin` · `impossible` 중 하나 |
+| 대상 화면 (2026-09-15) | `TARGET_DEVICE_REQUIRED` | `targetDevice`가 `mobile` · `desktop` 중 하나(대소문자 무시). 수정 경로로 비우기도 400. 검증: `node scripts/probe-target-device-gate.mjs` |
 
 로그인 게이트를 만든 이유는 실패가 **실패로 보이지 않기 때문**이다. 로그인해야 기능이
 도는 앱을 그냥 올리면 로봇은 로그인 화면이나 빈 껍데기를 찍는데, 화면은 떴으므로

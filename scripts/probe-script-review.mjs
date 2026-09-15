@@ -71,6 +71,7 @@ const SONNET_LIKE = {
 const BASE = {
   description: "프로브가 만든 임시 행\n곧 지워집니다",
   demoAccess: { noLogin: true, note: "프로브 픽스처 — 정적 페이지, 인증 가드 없음" },
+  targetDevice: "desktop",
 };
 
 try {

@@ -91,3 +91,25 @@ export function normalizeTags(tags: unknown, max = 10): string[] {
 export function normalizeContentType(v: unknown): string | null {
   return typeof v === "string" && CONTENT_TYPE_IDS.has(v) ? v : null;
 }
+
+// 대상 화면(2026-09-15 사용자 확정) — 작품이 주로 폰 화면용인지 PC 화면용인지.
+// 업로드 때 만든 AI가 답하고(인제스트 필수 게이트), 초안 검토 창이 이 답으로
+// 미리보기 틀(폰 402×874 / PC 1280×800)을 고른다. 사람이 바꾸는 스위치는 일부러
+// 없다. contentType의 "mobile"(작품 분류)과는 다른 질문이다 — 폰 우선 웹앱도 있다.
+export const TARGET_DEVICES = ["mobile", "desktop"] as const;
+export type TargetDevice = (typeof TARGET_DEVICES)[number];
+
+/** "mobile" | "desktop"만 통과(대소문자·앞뒤 공백 무시), 아니면 null. */
+export function normalizeTargetDevice(v: unknown): TargetDevice | null {
+  if (typeof v !== "string") return null;
+  const s = v.trim().toLowerCase();
+  return (TARGET_DEVICES as readonly string[]).includes(s) ? (s as TargetDevice) : null;
+}
+
+/**
+ * 미리보기 틀 결정. 답이 없는 예전 초안(게이트 이전 업로드)은 작품 분류로 짐작한다 —
+ * 모바일 앱이면 폰, 나머지는 PC(PC 틀은 어떤 사이트든 무난하게 보여준다).
+ */
+export function previewDevice(target: unknown, contentType: string | null | undefined): TargetDevice {
+  return normalizeTargetDevice(target) ?? (contentType === "mobile" ? "mobile" : "desktop");
+}

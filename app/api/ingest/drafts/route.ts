@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { apiError } from "@/lib/apiError";
 import { rateLimit } from "@/lib/rate-limit";
-import { ingestAuth, missingScriptColumn, pickApiT } from "../shared";
+import { ingestAuth, missingOptionalColumn, pickApiT } from "../shared";
 
 // GET /api/ingest/drafts — Nookframe Connect 초안 목록(요청4). AI가 자기가 올린
 // 초안을 확인·정리할 수 있게 한다. is_draft=true 행만 보인다 — 공개된 프로젝트는
@@ -23,20 +23,22 @@ export async function GET(req: NextRequest) {
 
     const admin = createAdminClient();
     const LIST_COLS =
-      "id, title, description, comment, demo_user_hint, demo_script, demo_access, tags, content_type, demo_url, thumbnail, video_url, created_at";
+      "id, title, description, comment, demo_user_hint, demo_script, demo_access, tags, content_type, target_device, demo_url, thumbnail, video_url, created_at";
     let { data, error } = await admin
       .from("projects")
       .select(LIST_COLS)
       .eq("user_id", userId)
       .eq("is_draft", true)
       .order("created_at", { ascending: false });
-    // migration_demo_script.sql 적용 전 디그레이드 — 목록이 컬럼 하나 때문에 죽지 않게.
+    // 마이그레이션 적용 전 디그레이드 — 목록이 컬럼 하나 때문에 죽지 않게.
     // (동적 select 문자열은 supabase-js의 리터럴 컬럼 파서를 깨뜨려 행 타입이
     // 에러 유니온이 되므로 — 워커의 double cast와 같은 이유로 — 결과만 캐스트.)
-    if (missingScriptColumn(error)) {
+    let cols: string = LIST_COLS;
+    for (let col = missingOptionalColumn(error); col && cols.includes(`, ${col}`); col = missingOptionalColumn(error)) {
+      cols = cols.replace(`, ${col}`, "");
       const retry = await admin
         .from("projects")
-        .select(LIST_COLS.replace(", demo_script", ""))
+        .select(cols)
         .eq("user_id", userId)
         .eq("is_draft", true)
         .order("created_at", { ascending: false });

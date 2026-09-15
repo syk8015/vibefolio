@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { apiError } from "@/lib/apiError";
 import { rateLimit } from "@/lib/rate-limit";
-import { normalizeTags, normalizeContentType } from "@/lib/projectTaxonomy";
+import { normalizeTags, normalizeContentType, normalizeTargetDevice } from "@/lib/projectTaxonomy";
 import {
   normalizeDemoAccess, demoAccessAnswered, demoAccessEvidenceMissing, type DemoAccess,
 } from "@/lib/demoAccess";
@@ -14,7 +14,7 @@ import { probeSelectors, selectorsOf, composeProbeUrl, type SelectorCheck } from
 import { logger } from "@/lib/logger";
 import {
   ingestAuth, publicUrlGate, strOrNull, type IngestDict, buildAccepted, buildScriptReview,
-  descriptionTooLong, DESCRIPTION_MAX, missingScriptColumn,
+  descriptionTooLong, DESCRIPTION_MAX, missingOptionalColumn,
   descriptionShapeIssue, descriptionShapeMessage,
   pickApiT,
 } from "../../shared";
@@ -149,6 +149,15 @@ export async function PATCH(
     }
     if ("tags" in payload) upd.tags = normalizeTags(payload.tags);
     if ("contentType" in payload) upd.content_type = normalizeContentType(payload.contentType);
+    if ("targetDevice" in payload) {
+      // 생성 게이트와 같은 규칙 — 수정 경로로 답을 비우거나 엉뚱한 값을 넣으면 미리보기
+      // 틀이 도로 짐작이 된다. 다른 답으로 바꾸는 건 되고, 없애는 건 안 된다.
+      const device = normalizeTargetDevice(payload.targetDevice);
+      if (!device) {
+        return apiError({ status: 400, message: t.api.targetDeviceRequired, code: "TARGET_DEVICE_REQUIRED" });
+      }
+      upd.target_device = device;
+    }
     if ("demoAccess" in payload) {
       const norm = normalizeDemoAccess(payload.demoAccess);
       if (norm.issue === "bad-url") {
@@ -197,16 +206,19 @@ export async function PATCH(
     // 갱신된 행을 그대로 돌려받아 에코를 만든다(C-1) — 보낸 키만 바뀌므로
     // "요청 payload"로는 최종 상태를 알 수 없다. 저장된 행이 유일한 진실.
     const AFTER_COLS =
-      "title, description, comment, demo_user_hint, demo_script, tags, content_type, demo_access, demo_url";
+      "title, description, comment, demo_user_hint, demo_script, tags, content_type, target_device, demo_access, demo_url";
     let { data: after, error: updErr } = await admin
       .from("projects")
       .update(upd)
       .eq("id", draft.id)
       .select(AFTER_COLS)
       .single();
-    // migration_demo_script.sql 적용 전 디그레이드(ingest 생성 경로와 동일 정책).
-    if (missingScriptColumn(updErr)) {
-      delete upd.demo_script;
+    // 마이그레이션 적용 전 디그레이드(ingest 생성 경로와 동일 정책) — 없는 선택
+    // 컬럼은 갱신에서도, 에코용 select에서도 뺀다.
+    let cols: string = AFTER_COLS;
+    for (let col = missingOptionalColumn(updErr); col && cols.includes(`, ${col}`); col = missingOptionalColumn(updErr)) {
+      delete upd[col];
+      cols = cols.replace(`, ${col}`, "");
       if (!Object.keys(upd).length) {
         return apiError({ status: 400, message: t.api.draftNoFields, code: "NO_FIELDS" });
       }
@@ -214,7 +226,7 @@ export async function PATCH(
         .from("projects")
         .update(upd)
         .eq("id", draft.id)
-        .select(AFTER_COLS.replace(", demo_script", ""))
+        .select(cols)
         .single());
     }
     if (updErr) {
@@ -240,6 +252,7 @@ export async function PATCH(
         contentTypeId: after?.content_type ?? null,
         demoAccess: after?.demo_access ?? null,
         entryUrl: after?.demo_url ?? null,
+        targetDevice: after?.target_device ?? null,
       }, normalizeTags, scriptReview),
     });
   } catch (err) {

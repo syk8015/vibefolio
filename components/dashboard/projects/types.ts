@@ -64,6 +64,9 @@ export interface DBProject {
   // 만든 AI가 답한 로그인 질문(url·noLogin·impossible + note). 초안 검토 화면이
   // "로봇이 뭘 보게 되나"를 판정 칩으로 보여주는 근거(2026-09-04).
   demo_access: DemoAccess | null;
+  // 만든 AI가 답한 대상 화면(2026-09-15) — 초안 검토 창의 미리보기 틀(폰/PC)을 정한다.
+  // 게이트 이전에 올라온 초안은 null(분류로 짐작 — lib/projectTaxonomy previewDevice).
+  target_device: "mobile" | "desktop" | null;
   // 재촬영 루프: AI가 다시 써서 제출한 대본이 소유자 확인을 기다리는 자리.
   // 승격(=demo_script 교체)은 [이 대본으로 재촬영]을 눌렀을 때 서버가 한다.
   pending_demo_script: DemoScript | null;
@@ -91,6 +94,7 @@ export type ProjectForm = Omit<
   // 저장 때마다 통째로 덮어쓰게 되고, 서버의 대본 게이트와 규칙이 갈린다.
   | "demo_script"
   | "demo_access"
+  | "target_device"
   | "pending_demo_script"
   | "pending_script_note"
   | "pending_script_at"

@@ -192,6 +192,14 @@ try {
   const names = (listRes?.result?.tools ?? []).map((t) => t.name);
   ok("(4) tools/list에 rerecord_nookframe_demo", names.includes("rerecord_nookframe_demo"), names.join(","));
   ok("(4) 기존 툴 4종 그대로", ["publish_to_nookframe", "list_nookframe_drafts", "update_nookframe_draft", "delete_nookframe_draft"].every((n) => names.includes(n)), names.join(","));
+  // 대상 화면(2026-09-15) — MCP로 올리는 AI는 스키마만 보고 필드를 안다. 서버 필수 게이트와 짝.
+  const publishSchema = (listRes?.result?.tools ?? []).find((t) => t.name === "publish_to_nookframe")?.inputSchema;
+  ok(
+    "(4) publish 스키마에 targetDevice(mobile|desktop, 필수)",
+    JSON.stringify(publishSchema?.properties?.targetDevice?.enum) === JSON.stringify(["mobile", "desktop"]) &&
+      (publishSchema?.required ?? []).includes("targetDevice"),
+    JSON.stringify(publishSchema?.properties?.targetDevice?.enum),
+  );
   const callText = callRes?.result?.content?.[0]?.text ?? "";
   ok("(4) tools/call 성공 + 대기 안내", /6스텝 대기/.test(callText) && !callRes?.result?.isError, callText.slice(0, 160));
   const p4 = await pending();

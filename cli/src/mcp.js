@@ -37,6 +37,15 @@ export async function runMcp() {
     "Pika", "Suno", "ElevenLabs",
   ];
 
+  // 대상 화면(2026-09-15) — publish·update 공용. 서버(lib/projectTaxonomy.ts TARGET_DEVICES)와
+  // 같은 두 값만 받는다. cli/는 레포 import 금지라(AGENTS.md) 사본을 둔다.
+  const TARGET_DEVICE_SCHEMA = {
+    type: "string",
+    enum: ["mobile", "desktop"],
+    description:
+      "Required. The screen this app was mainly designed for: \"mobile\" = phone screens (a narrow single column, a bottom tab bar, touch-first); \"desktop\" = computer browsers (wide layouts, sidebars, hover). If it works on both, pick the one it was designed for first. Not the same as contentType — a phone-first web app is contentType \"web-app\" with targetDevice \"mobile\". The owner's draft preview is framed as a phone or a desktop screen from this answer.",
+  };
+
   // 촬영 대본 스키마 — publish와 rerecord가 **같은 형식**을 쓴다(재촬영이 품질을
   // 낮추는 길이 되면 안 되므로 서버 게이트도 동일). 한 곳에서 정의해 갈라지지 않게.
   const DEMO_SCRIPT_SCHEMA = {
@@ -77,7 +86,7 @@ export async function runMcp() {
   const TOOL = {
     name: "publish_to_nookframe",
     description:
-      "Upload this project to Nookframe (a portfolio for vibe-coded work) as a draft. You are the AI that built it, so write title/description/demoScript yourself from the repo (README, routes, git log) and pass them in. The description must NOT be one paragraph: it is 2-3 lines separated by newlines (\\n) — it is the first-impression copy laid over the work on the card, and a long line wraps and gets cut off on phones (violations are rejected). Give either deployUrl (a deployed public URL) or dir (absolute path to a local folder — static build output for web apps, the source folder itself for Python/CLI projects). If it is not deployed and needs a server or DB so dir will not do, you may pass a public GitHub repo URL as deployUrl instead (a last resort: the repo is cloned and run — JS repos via npm run dev/start, Python web apps by detecting Streamlit/Gradio/Dash/Django/Flask/FastAPI then pip install + run (Django also gets migrate run for it), and projects with no web screen (CLI tools, bots, backends) are filmed as a live terminal session where the robot types the commands (put the exact commands in demoScript and it gets much better). Private repos fail; apps needing a remote DB get a read-only demo). If the landing page and the actual app screen are different URLs, also pass appUrl (the demo and the embed open appUrl). demoAccess is REQUIRED — the filming robot never logs in, so decide 'what actually works before login' and answer with exactly one of: { url, params, note } if there is a way in without login; { noLogin: true, note: \"one line on what you checked\" } if no login is needed at all and every feature is usable from the first screen (noLogin without note is rejected); { impossible: true, note: \"why\" } if a guest path is fundamentally impossible (E2E encryption, mandatory device pairing). In that last case only the landing page gets filmed, so attaching a video is strongly recommended. Without one of the three the server rejects with 400. Account credentials are not accepted. If you have your own screenshot or demo video, pass absolute paths in screenshot/video (supplying a video skips automatic filming). Order demoScript.steps by importance — step 1 is the feature that absolutely cannot be missing. Uploading the same URL again does not create a new draft, it updates the existing one (use this to edit content).",
+      "Upload this project to Nookframe (a portfolio for vibe-coded work) as a draft. You are the AI that built it, so write title/description/demoScript yourself from the repo (README, routes, git log) and pass them in. The description must NOT be one paragraph: it is 2-3 lines separated by newlines (\\n) — it is the first-impression copy laid over the work on the card, and a long line wraps and gets cut off on phones (violations are rejected). Give either deployUrl (a deployed public URL) or dir (absolute path to a local folder — static build output for web apps, the source folder itself for Python/CLI projects). If it is not deployed and needs a server or DB so dir will not do, you may pass a public GitHub repo URL as deployUrl instead (a last resort: the repo is cloned and run — JS repos via npm run dev/start, Python web apps by detecting Streamlit/Gradio/Dash/Django/Flask/FastAPI then pip install + run (Django also gets migrate run for it), and projects with no web screen (CLI tools, bots, backends) are filmed as a live terminal session where the robot types the commands (put the exact commands in demoScript and it gets much better). Private repos fail; apps needing a remote DB get a read-only demo). If the landing page and the actual app screen are different URLs, also pass appUrl (the demo and the embed open appUrl). demoAccess is REQUIRED — the filming robot never logs in, so decide 'what actually works before login' and answer with exactly one of: { url, params, note } if there is a way in without login; { noLogin: true, note: \"one line on what you checked\" } if no login is needed at all and every feature is usable from the first screen (noLogin without note is rejected); { impossible: true, note: \"why\" } if a guest path is fundamentally impossible (E2E encryption, mandatory device pairing). In that last case only the landing page gets filmed, so attaching a video is strongly recommended. Without one of the three the server rejects with 400. Account credentials are not accepted. targetDevice is REQUIRED too: \"mobile\" if the app was designed mainly for phone screens, \"desktop\" if for computer browsers (not the same as contentType) — the owner's draft preview is framed from it. If you have your own screenshot or demo video, pass absolute paths in screenshot/video (supplying a video skips automatic filming). Order demoScript.steps by importance — step 1 is the feature that absolutely cannot be missing. Uploading the same URL again does not create a new draft, it updates the existing one (use this to edit content).",
     inputSchema: {
       type: "object",
       properties: {
@@ -95,6 +104,7 @@ export async function runMcp() {
           type: "string",
           enum: ["web-app", "saas", "mobile", "game", "extension", "ai-service", "media", "other"],
         },
+        targetDevice: TARGET_DEVICE_SCHEMA,
         deployUrl: { type: "string", description: "Deployed public URL" },
         appUrl: { type: "string", description: "URL of the actual app screen (when it differs from the landing page — the demo and the embed open this one)" },
         demoAccess: {
@@ -125,7 +135,7 @@ export async function runMcp() {
         screenshot: { type: "string", description: "Absolute path of a screenshot image to use as the thumbnail (png/jpg/webp/gif, <=5MB)" },
         video: { type: "string", description: "Absolute path of your own demo video (mp4/webm, <=20MB — supplying one skips automatic filming)" },
       },
-      required: ["title"],
+      required: ["title", "targetDevice"],
     },
   };
 
@@ -140,7 +150,7 @@ export async function runMcp() {
     {
       name: "update_nookframe_draft",
       description:
-        "Edit a Nookframe draft's metadata (title/description/builderNote/demoHighlights/demoScript/tags/contentType/demoAccess). Only the fields you send change. This tool cannot swap the URL or the files — call publish_to_nookframe again with the same URL and that draft is updated. Published projects cannot be edited.",
+        "Edit a Nookframe draft's metadata (title/description/builderNote/demoHighlights/demoScript/tags/contentType/targetDevice/demoAccess). Only the fields you send change. This tool cannot swap the URL or the files — call publish_to_nookframe again with the same URL and that draft is updated. Published projects cannot be edited.",
       inputSchema: {
         type: "object",
         properties: {
@@ -155,6 +165,7 @@ export async function runMcp() {
             type: "string",
             enum: ["web-app", "saas", "mobile", "game", "extension", "ai-service", "media", "other"],
           },
+          targetDevice: TARGET_DEVICE_SCHEMA,
           demoAccess: {
             type: "object",
             properties: {
@@ -226,7 +237,7 @@ export async function runMcp() {
           const { drafts } = await listDrafts(conn);
           if (!drafts?.length) return { content: [{ type: "text", text: "No drafts." }] };
           const lines = drafts.map((d) => `- ${d.id} · ${d.title}${d.demo_url ? ` · ${d.demo_url}` : ""}`
-            + ` · [${d.tags?.length ? d.tags.join(", ") : "no AI tools"} / ${d.content_type || "no type"}]`);
+            + ` · [${d.tags?.length ? d.tags.join(", ") : "no AI tools"} / ${d.content_type || "no type"} / ${d.target_device || "screen not answered"}]`);
           return { content: [{ type: "text", text: `${drafts.length} draft(s):\n${lines.join("\n")}` }] };
         }
         case "update_nookframe_draft": {

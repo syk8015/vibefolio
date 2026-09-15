@@ -18,6 +18,8 @@ export interface DraftFixContext {
   demoHighlights: string | null;
   tags: string[];
   contentType: string | null;
+  /** 대상 화면 답("mobile"|"desktop"). 게이트 이전 초안은 null — 이번에 답을 채워야 다시 올라간다. */
+  targetDevice: string | null;
   /** 초안이 여는 주소. 파일 업로드(/api/preview/…)면 null — AI는 폴더를 다시 올려야 한다. */
   deployUrl: string | null;
   demoScript: DemoScript | null;
@@ -37,6 +39,9 @@ export function buildDraftFixPrompt(c: DraftFixContext, locale: "ko" | "en" = "k
     ...(c.demoHighlights ? { demoHighlights: c.demoHighlights } : {}),
     ...(c.tags.length ? { tags: c.tags } : {}),
     ...(c.contentType ? { contentType: c.contentType } : {}),
+    // 재발행(upsert)은 모든 필드를 덮어쓰고 이 값은 필수라, 빠지면 400이다 — 답이 없던
+    // 초안도 null로 보여 줘서 AI가 채우게 한다.
+    targetDevice: c.targetDevice ?? null,
     ...(c.deployUrl ? { deployUrl: c.deployUrl } : {}),
     demoScript: c.demoScript ?? { steps: [] },
     demoAccess: c.demoAccess ?? {},
@@ -59,6 +64,7 @@ THE DRAFT AS IT IS NOW (change what the owner asked for, keep the rest):
 \`\`\`json
 ${json}
 \`\`\`
+${c.targetDevice ? "" : `\n"targetDevice" is still unanswered (null above) — set it to "mobile" or "desktop": the screen this app was mainly designed for (not the same as contentType). The server rejects the draft without it.\n`}
 
 HOW TO RESUBMIT — re-publishing with the same URL updates this draft in place (no duplicate):
 - If you have a shell: save the token once, then publish again —

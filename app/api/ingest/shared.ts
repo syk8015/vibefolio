@@ -100,6 +100,9 @@ export type AcceptedEcho = {
   scoutAltUrl: string | null;
   demoAccess: string | null;
   demoAccessDropped: boolean;
+  // 대상 화면(2026-09-15) — 초안 미리보기를 폰 틀/PC 틀로 나누는 답. 필수 게이트라
+  // 조용한 폐기는 없다 — null은 "컬럼 마이그레이션 전이라 저장 못 함"뿐이다.
+  targetDevice: "mobile" | "desktop" | null;
   // 대본 점검표(2026-09-04) — 게이트는 통과했지만 약한 대본이 어디가 약한지.
   // 자동 촬영이 없는 경우(영상 동봉·대본 없음)엔 아예 싣지 않는다.
   scriptReview?: ScriptReviewEcho;
@@ -141,14 +144,28 @@ export function buildScriptReview(
 
 const DEMO_HIGHLIGHTS_MAX = 500;
 
-// migration_demo_script.sql 적용 전 디그레이드 판별(insert/update 공용) —
-// PostgREST는 스키마 캐시 기준 PGRST204("Could not find the '…' column"),
-// 직결 SQL은 42703을 낸다. 어느 쪽이든 대본만 빼고 재시도할 근거.
+// 마이그레이션 적용 전 디그레이드 판별(insert/update/select 공용) — 컬럼이 아직
+// 없어도 발행이 살아 있어야 하는 선택 컬럼과, 그 컬럼을 만드는 파일. PostgREST는
+// 스키마 캐시 기준 PGRST204("Could not find the '…' column"), 직결 SQL은 42703을
+// 낸다. 어느 쪽이든 그 컬럼만 빼고 재시도할 근거.
+export const OPTIONAL_COLUMN_MIGRATION = {
+  demo_script: "migration_demo_script.sql",
+  target_device: "migration_target_device.sql",
+} as const;
+export type OptionalColumn = keyof typeof OPTIONAL_COLUMN_MIGRATION;
+
+export function missingOptionalColumn(
+  e: { code?: string; message?: string } | null | undefined,
+): OptionalColumn | null {
+  if (!e || (e.code !== "PGRST204" && e.code !== "42703")) return null;
+  const msg = e.message ?? "";
+  return (Object.keys(OPTIONAL_COLUMN_MIGRATION) as OptionalColumn[]).find((c) => msg.includes(c)) ?? null;
+}
+
 export function missingScriptColumn(
   e: { code?: string; message?: string } | null | undefined,
 ): boolean {
-  return !!e && (e.code === "PGRST204" || e.code === "42703") &&
-    (e.message ?? "").includes("demo_script");
+  return missingOptionalColumn(e) === "demo_script";
 }
 
 // 소개글 규칙(길이·3줄 모양·칸 계산)은 lib/descriptionShape.ts로 옮겼다(2026-09-04) —
@@ -193,6 +210,7 @@ export function buildAccepted(
     contentTypeId: string | null;
     demoAccess: { url?: string; params?: Record<string, string>; impossible?: boolean; noLogin?: boolean; altUrl?: string } | null;
     entryUrl: string | null;
+    targetDevice: string | null;
   },
   normalizeTags: (v: unknown) => string[],
   scriptReview?: ScriptReviewEcho,
@@ -226,5 +244,6 @@ export function buildAccepted(
       : (access?.url ?? (access?.noLogin ? "no-login" : null)),
     // altUrl은 서버가 스스로 채우는 값이라 "유저가 준 demoAccess가 살아남았나"의 근거가 못 된다.
     demoAccessDropped: !!raw?.demoAccess && !access?.url && !access?.impossible,
+    targetDevice: stored.targetDevice === "mobile" || stored.targetDevice === "desktop" ? stored.targetDevice : null,
   };
 }

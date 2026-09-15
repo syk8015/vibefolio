@@ -73,6 +73,7 @@ const post = async (over = {}) => {
     description: GOOD_DESC,
     demoScript: GOOD_SCRIPT,
     demoAccess: GOOD_ACCESS,
+    targetDevice: "desktop",
     ...over,
   };
   for (const k of Object.keys(over)) if (over[k] === undefined) delete body[k];

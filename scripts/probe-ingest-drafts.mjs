@@ -32,6 +32,7 @@ const GATE = {
     ],
   },
   demoAccess: { noLogin: true, note: "프로브 픽스처 — 인증 가드 없는 정적 페이지" },
+  targetDevice: "desktop",
   description: "프로브가 만든 임시 행\n곧 지워집니다",
 };
 

@@ -69,6 +69,7 @@ const post = async (extra) => {
       description: "프로브가 만든 임시 행\n곧 지워집니다",
       deployUrl: `https://example.com/probe-access-${n}`,
       demoScript: SCRIPT,
+      targetDevice: "desktop",
       ...extra,
     }),
   });
