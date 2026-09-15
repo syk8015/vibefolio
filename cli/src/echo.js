@@ -67,7 +67,13 @@ export function formatAccepted(accepted) {
       `expect ${review.withExpect}/${review.steps}`,
     ];
     const sel = review.selectors;
-    if (sel?.status === "checked") parts.push(`${sel.found}/${sel.checked} selectors found in live HTML`);
+    if (sel?.status === "checked" && sel.checked > 0) {
+      // 서버는 첫 화면 셀렉터만 판정한다 — 첫 조작 뒤 스텝의 것은 later로만 온다(09-15).
+      parts.push(`first-screen selectors ${sel.found}/${sel.checked} in page HTML`);
+      if (sel.later?.length) parts.push(`${sel.later.length} later-screen not checked`);
+    } else if (sel?.status === "skipped" && (sel.reason === "js-rendered" || sel.reason === "no-match")) {
+      parts.push("selectors not checkable from page HTML");
+    }
     lines.push(ROW("script check", parts.join(" · ")));
   }
 
@@ -125,9 +131,11 @@ export function formatScriptReviewWarnings(review) {
   }
   const sel = review.selectors;
   if (sel?.status === "checked" && sel.missing?.length) {
-    out.push(`⚠ Selectors not found in the live page HTML: ${sel.missing.join(", ")} — either a typo or an element from a different screen. Check them on the real page, or add a "where" describing how to spot it by eye.`);
-  } else if (sel?.status === "skipped" && sel.reason === "js-rendered") {
-    out.push("· The page is rendered by JavaScript, so the server could not verify the selectors — open it in a browser before publishing and confirm each selector really exists.");
+    // "없음"은 첫 화면 셀렉터에만 온다. 그래도 JS가 뜬 뒤 그리는 요소면 정상이라
+    // 고치라고 몰지 않는다 — 틀린 경고가 멀쩡한 셀렉터를 고치게 만든 적이 있다(09-15).
+    out.push(`· First-screen selectors not in the page's first HTML: ${sel.missing.join(", ")} — normal if JavaScript draws them after the page loads (the robot waits for them). If they should already be in the HTML, compare the spelling with your code.`);
+  } else if (sel?.status === "skipped" && (sel.reason === "js-rendered" || sel.reason === "no-match")) {
+    out.push("· The page's first HTML does not show the screen the robot films (JavaScript draws it, or the page moves on to another screen), so the selectors could not be checked — this is not an error. If you have a browser tool, open the page and confirm them; do not change selectors because of this alone.");
   } else if (sel?.status === "skipped" && (sel.reason === "fetch-failed" || sel.reason === "not-html")) {
     out.push(`· Could not fetch the page to verify selectors (${sel.url}) — check that the URL actually opens and is visible without logging in.`);
   }

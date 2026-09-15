@@ -688,9 +688,9 @@ export const en: Dictionary = {
       noSkip:
         "No skip list — name the things that must not be filmed (dark-mode toggle, language switch…) so the film doesn't wander off.",
       selectorsMissing: (missing: string[], url: string) =>
-        `Selectors NOT found in the HTML of ${url}: ${missing.join(", ")} — a typo, or an element from another screen. Open the real page to verify and fix them, or add a where label describing how to find each by eye.`,
+        `These first-screen selectors are not in the HTML ${url} sends first: ${missing.join(", ")}. That is normal if JavaScript draws them after the page loads (lists fetched from an API, parts shown after a session check) — the robot waits for them. If they should already be in that HTML, compare the spelling with your code, or add a where label for each.`,
       selectorsUnverifiable: (url: string) =>
-        `${url} is rendered by JavaScript, so the server could not verify the selectors statically. Before publishing, open it in a real browser (Playwright etc.) and confirm every selector exists — a wrong selector throws that whole step away.`,
+        `The HTML ${url} sends first does not show the screen the robot films (JavaScript draws it, or the page moves on to another screen), so the selectors could not be checked from it — this is not an error. If you have a browser tool, open the page and confirm them; do not change a selector because of this check alone.`,
       selectorsFetchFailed: (url: string) =>
         `Could not open ${url} to verify the selectors — check that the address actually loads and is visible without logging in.`,
     },

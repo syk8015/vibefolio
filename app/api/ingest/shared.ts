@@ -111,7 +111,7 @@ export type AcceptedEcho = {
 export type ScriptReviewEcho = ScriptStats & {
   selectors: SelectorCheck | null;
   // 사람이 읽는 문장(PAT=영어·세션=쿠키 언어). 위 숫자에서 파생 — CLI는 숫자로
-  // 한국어를 직접 만들고, 원시 JSON을 읽는 AI는 이 줄을 그대로 지시문으로 쓴다.
+  // 문장을 직접 만들고, 원시 JSON을 읽는 AI는 이 줄을 그대로 지시문으로 쓴다.
   hints: string[];
 };
 
@@ -134,7 +134,8 @@ export function buildScriptReview(
   if (!s.hasSkip) hints.push(r.noSkip);
   if (selectors?.status === "checked" && selectors.missing.length) {
     hints.push(r.selectorsMissing(selectors.missing, selectors.url));
-  } else if (selectors?.status === "skipped" && selectors.reason === "js-rendered") {
+  } else if (selectors?.status === "skipped" && (selectors.reason === "js-rendered" || selectors.reason === "no-match")) {
+    // 빈 JS 틀이든 하나도 안 맞든 "이 HTML로는 판정 못 함" — 같은 문장으로 답한다.
     hints.push(r.selectorsUnverifiable(selectors.url));
   } else if (selectors?.status === "skipped" && (selectors.reason === "fetch-failed" || selectors.reason === "not-html")) {
     hints.push(r.selectorsFetchFailed(selectors.url));

@@ -11,7 +11,10 @@
 //   1. scriptStats — 대본만 보고 세는 것(조작 스텝 수·셀렉터·expect·skip 유무).
 //   2. 셀렉터 실재 확인 — 진입 URL의 HTML을 한 번 받아 `#id`·`.class`·태그·속성이
 //      정적 HTML에 있는지 센다. 페이블이 손으로 한 DOM 확인을 모두에게 자동으로.
-//      한계: JS가 그리는 화면(SPA 셸)은 못 본다 → "확인 불가"로 정직하게 답한다.
+//      한계: HTML 한 장은 로봇의 **첫 화면**뿐이다. 첫 조작 뒤 스텝의 셀렉터는 다른
+//      화면에 있는 게 정상이라 판정하지 않고(later), JS가 그리는 빈 틀이거나 셀렉터가
+//      하나도 안 맞으면 "확인 불가"로 답한다. 틀린 "없음"은 AI가 멀쩡한 셀렉터를
+//      고치게 만든다(09-15 스킨로그: 0/8 "없음" → 실제 8/8).
 //      SSRF: lib/ssrf.ts safeFetch(사전 DNS 검증·수동 리다이렉트·connect 훅) 경유.
 //
 // 이 파일은 네트워크 없는 순수 함수(scriptStats·checkSelectorsInHtml)와 fetch를
@@ -54,15 +57,32 @@ export function scriptStats(script: DemoScript): ScriptStats {
   };
 }
 
-/** 대본에 적힌 셀렉터 전부(출발·도착), 중복 제거·순서 유지. */
-export function selectorsOf(script: DemoScript): string[] {
-  const out: string[] = [];
+// 화면을 바꾸지 않는 액션 — focus는 필름 카메라가 확대만 하고, scroll은 같은 페이지를
+// 움직일 뿐이다. 나머지(click·type·drag·draw·hover, action 없음)는 다른 화면이나
+// JS가 새로 그리는 요소(드롭다운·모달·검색 결과)를 부를 수 있다.
+const SAME_SCREEN_ACTIONS = new Set<string>(["focus", "scroll"]);
+
+export type SelectorGroups = {
+  // 로봇이 진입 URL을 열자마자 쓰는 셀렉터 — 앞에서부터 첫 "화면을 바꿀 수 있는"
+  // 스텝까지(그 스텝·drag 도착지 포함). 진입 URL의 HTML과 대볼 수 있는 건 이것뿐이다.
+  entry: string[];
+  // 그 뒤 스텝의 셀렉터 — 다른 화면에 있는 게 정상이라 "없음"으로 판정하지 않는다.
+  later: string[];
+};
+
+/** 대본에 적힌 셀렉터 전부(출발·도착)를 첫 화면/뒤 화면으로 가른다. 중복 제거·순서 유지. */
+export function selectorsOf(script: DemoScript): SelectorGroups {
+  const entry: string[] = [];
+  const later: string[] = [];
+  let firstScreen = true;
   for (const s of script.steps) {
     for (const sel of [s.selector, s.toSelector]) {
-      if (sel && !out.includes(sel)) out.push(sel);
+      if (!sel || entry.includes(sel) || later.includes(sel)) continue;
+      (firstScreen ? entry : later).push(sel);
     }
+    if (!s.action || !SAME_SCREEN_ACTIONS.has(s.action)) firstScreen = false;
   }
-  return out;
+  return { entry, later };
 }
 
 // ── 셀렉터 → 검사 가능한 토큰 ────────────────────────────────────────────────
@@ -152,8 +172,14 @@ export function indexHtml(html: string): HtmlIndex {
 
 // SPA 셸(<div id="root"></div> + 번들 스크립트) 판별 — 이런 페이지에선 "못 찾음"이
 // 오타가 아니라 "아직 안 그려짐"이라, 못 찾았다고 말하면 AI가 멀쩡한 셀렉터를 고친다.
+// 본문이 한 문장도 안 되면 틀에 달린 id·class 수와 상관없이 빈 틀로 본다 — 09-15
+// 스킨로그(Next.js) 페이지는 본문 4자인데 글꼴·Tailwind가 틀에 class 5개를 달아
+// "id+class 5개 미만" 조건 하나로는 빠져나갔다.
+const JS_SHELL_TEXT_MAX = 80;
+
 export function looksJsRendered(idx: HtmlIndex): boolean {
-  return idx.hasScript && idx.textChars < 300 && idx.ids.size + idx.classes.size < 5;
+  if (!idx.hasScript) return false;
+  return idx.textChars < JS_SHELL_TEXT_MAX || (idx.textChars < 300 && idx.ids.size + idx.classes.size < 5);
 }
 
 function attrMatches(list: string[] | undefined, op?: string, value?: string): boolean {
@@ -181,35 +207,63 @@ function tokenFound(t: Token, idx: HtmlIndex): boolean {
   }
 }
 
-type SelectorCheckReason = "no-selectors" | "fetch-failed" | "not-html" | "js-rendered";
+type SelectorCheckReason =
+  | "no-selectors"
+  | "no-entry-selectors" // 첫 화면 스텝에 판정할 셀렉터가 없음(뒤 화면 것만 있음)
+  | "fetch-failed"
+  | "not-html"
+  | "js-rendered"
+  | "no-match"; // 첫 화면·뒤 화면 통틀어 하나도 안 맞음 = 이 HTML은 로봇이 찍을 화면이 아님
 
 export type SelectorCheck = {
   status: "checked" | "skipped";
   reason?: SelectorCheckReason;
   // 실제로 연 주소(demoAccess까지 합친 것) — AI가 "어디를 봤는지" 알게.
   url: string;
+  // checked·found·missing·unparsed는 첫 화면 셀렉터(entry)만 센다.
   checked: number;
   found: number;
   missing: string[];
   // 가상클래스만 있는 등 정적 HTML로는 판정 못 한 셀렉터.
   unparsed: string[];
+  // 첫 조작 뒤 스텝의 셀렉터 — 판정하지 않고 싣기만 한다(구버전 CLI는 이 키를 모른다).
+  later: string[];
 };
 
+function skippedCheck(reason: SelectorCheckReason, url: string, groups: SelectorGroups): SelectorCheck {
+  return { status: "skipped", reason, url, checked: 0, found: 0, missing: [], unparsed: [], later: groups.later };
+}
+
+/** 셀렉터 하나가 이 HTML에 있나. 검사 가능한 토큰이 없으면 null(=판정 불가). */
+function selectorHit(selector: string, idx: HtmlIndex): boolean | null {
+  const alts = parseSelector(selector);
+  return alts ? alts.some((tokens) => tokens.every((t) => tokenFound(t, idx))) : null;
+}
+
 /** 네트워크 없는 판정 코어. url은 표시용으로 그대로 실어 보낸다. */
-export function checkSelectorsInHtml(html: string, selectors: string[], url = ""): SelectorCheck {
-  const base = { url, checked: 0, found: 0, missing: [] as string[], unparsed: [] as string[] };
-  if (!selectors.length) return { status: "skipped", reason: "no-selectors", ...base };
-  const idx = indexHtml(html);
-  if (looksJsRendered(idx)) return { status: "skipped", reason: "js-rendered", ...base };
-  for (const sel of selectors) {
-    const alts = parseSelector(sel);
-    if (!alts) { base.unparsed.push(sel); continue; }
-    base.checked++;
-    const hit = alts.some((tokens) => tokens.every((t) => tokenFound(t, idx)));
-    if (hit) base.found++;
-    else base.missing.push(sel);
+export function checkSelectorsInHtml(html: string, groups: SelectorGroups, url = ""): SelectorCheck {
+  if (!groups.entry.length) {
+    return skippedCheck(groups.later.length ? "no-entry-selectors" : "no-selectors", url, groups);
   }
-  return { status: "checked", ...base };
+  const idx = indexHtml(html);
+  if (looksJsRendered(idx)) return skippedCheck("js-rendered", url, groups);
+  const out: SelectorCheck = {
+    status: "checked", url, checked: 0, found: 0, missing: [], unparsed: [], later: groups.later,
+  };
+  for (const sel of groups.entry) {
+    const hit = selectorHit(sel, idx);
+    if (hit === null) { out.unparsed.push(sel); continue; }
+    out.checked++;
+    if (hit) out.found++;
+    else out.missing.push(sel);
+  }
+  if (!out.checked) return { ...skippedCheck("no-entry-selectors", url, groups), unparsed: out.unparsed };
+  // 첫 화면·뒤 화면 통틀어 하나도 안 맞으면 이 HTML은 로봇이 찍을 화면이 아니다 —
+  // JS가 그리거나 다른 화면으로 넘어가는 페이지다(오타가 전부 겹칠 확률보다 훨씬 흔하다).
+  if (!out.found && !groups.later.some((sel) => selectorHit(sel, idx))) {
+    return skippedCheck("no-match", url, groups);
+  }
+  return out;
 }
 
 // 로봇이 실제로 여는 주소 — local-runner/job.ts resolveEntry의 live_url 분기와 같은
@@ -238,13 +292,14 @@ const PROBE_TIMEOUT_MS = 6000;
 const PROBE_HTML_CAP = 1024 * 1024;
 
 /**
- * 진입 URL의 HTML을 한 번 받아 셀렉터 실재를 센다. 절대 throw하지 않는다 — 발행을
- * 막는 게이트가 아니라 부가 정보라, 어떤 실패도 "확인 못 함"으로만 답한다.
+ * 진입 URL의 HTML을 한 번 받아 첫 화면 셀렉터의 실재를 센다. 절대 throw하지 않는다 —
+ * 발행을 막는 게이트가 아니라 부가 정보라, 어떤 실패도 "확인 못 함"으로만 답한다.
  */
-export async function probeSelectors(url: string, selectors: string[]): Promise<SelectorCheck> {
-  const skipped = (reason: SelectorCheckReason): SelectorCheck =>
-    ({ status: "skipped", reason, url, checked: 0, found: 0, missing: [], unparsed: [] });
-  if (!selectors.length) return skipped("no-selectors");
+export async function probeSelectors(url: string, groups: SelectorGroups): Promise<SelectorCheck> {
+  // 첫 화면에 판정할 셀렉터가 없으면 받아 올 이유도 없다(응답 지연 최대 6초 절약).
+  if (!groups.entry.length) {
+    return skippedCheck(groups.later.length ? "no-entry-selectors" : "no-selectors", url, groups);
+  }
   try {
     const res = await safeFetch(url, {
       headers: {
@@ -253,13 +308,13 @@ export async function probeSelectors(url: string, selectors: string[]): Promise<
       },
       signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
     });
-    if (!res.ok) return skipped("fetch-failed");
+    if (!res.ok) return skippedCheck("fetch-failed", url, groups);
     const ct = res.headers.get("content-type") ?? "";
-    if (!/text\/html|application\/xhtml/i.test(ct)) return skipped("not-html");
+    if (!/text\/html|application\/xhtml/i.test(ct)) return skippedCheck("not-html", url, groups);
     const bytes = await readResponseCapped(res, PROBE_HTML_CAP);
     const html = new TextDecoder("utf-8", { fatal: false }).decode(bytes);
-    return checkSelectorsInHtml(html, selectors, url);
+    return checkSelectorsInHtml(html, groups, url);
   } catch {
-    return skipped("fetch-failed");
+    return skippedCheck("fetch-failed", url, groups);
   }
 }

@@ -529,6 +529,8 @@
 | tokenNotFound | 토큰을 찾을 수 없어요. | Token not found. | |
 | tokenForbidden | 이 토큰에 대한 권한이 없어요. | You don't have permission for this token. | |
 | tokenRevokeFailed | 토큰을 폐기하지 못했어요. 잠시 후 다시 시도해 주세요. | Couldn't revoke the token. Please try again in a moment. | |
+| scriptReview.selectorsMissing | 첫 화면에서 쓰는 셀렉터가 {url} 이 처음 보내는 HTML에 없어요: {missing}. 페이지가 뜬 뒤 자바스크립트가 그리는 요소(API로 받아 오는 목록 등)라면 정상이에요 — 로봇이 기다렸다가 찾아요. 처음부터 HTML에 있어야 하는 요소라면 코드와 철자를 대조하거나, where에 눈으로 찾는 법을 적으세요. | These first-screen selectors are not in the HTML {url} sends first: {missing}. That is normal if JavaScript draws them after the page loads (lists fetched from an API, parts shown after a session check) — the robot waits for them. If they should already be in that HTML, compare the spelling with your code, or add a where label for each. | 함수(missing, url) · 대본 점검표, 첫 화면 셀렉터에만 뜬다(09-15 교체) · ⚠️ 괄호 예시가 영어판에 하나 더 있음 |
+| scriptReview.selectorsUnverifiable | {url} 이 처음 보내는 HTML에는 로봇이 찍을 화면이 없어요(자바스크립트가 그리거나, 다른 화면으로 넘어가는 페이지). 그래서 셀렉터를 확인하지 못했을 뿐 오류가 아니에요. 브라우저 도구가 있으면 페이지를 열어 확인하고, 이 결과만 보고 셀렉터를 바꾸지는 마세요. | The HTML {url} sends first does not show the screen the robot films (JavaScript draws it, or the page moves on to another screen), so the selectors could not be checked from it — this is not an error. If you have a browser tool, open the page and confirm them; do not change a selector because of this check alone. | 함수(url) · js-rendered·no-match 공용(09-15 교체) |
 
 ## demoFailure (시연 실패 코드별 카피 — 대시보드 팝오버 + 실패 메일 공유)
 

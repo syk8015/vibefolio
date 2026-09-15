@@ -203,14 +203,24 @@
   발행·초안 PATCH·재촬영 세 입구 공통. 자동 촬영이 없는 경우(영상 동봉)엔 아예 없다.
 - 숫자: `steps` · `wired`(셀렉터+action) · `interactive`(click/type/drag/draw) · `withExpect` · `withHold` · `hasSkip` · `hasPrep`.
 - `selectors`: 서버가 진입 URL(demoAccess까지 합친 주소, `composeProbeUrl`)의 HTML을 **한 번**
-  받아 `#id`·`.class`·태그·`[attr=…]`가 있는지 센다 → `{status:"checked", found, missing[]}`.
-  JS 셸(본문 300자 미만·id/class 5개 미만·script 있음)은 `skipped/js-rendered`로 정직하게
-  답한다(못 찾았다고 하면 AI가 멀쩡한 셀렉터를 고친다). fetch는 `lib/ssrf.ts safeFetch`
-  경유·6초·1MB 캡, 실패는 `skipped/fetch-failed` — 절대 발행을 막지 않는다.
+  받아 `#id`·`.class`·태그·`[attr=…]`가 있는지 센다. HTML 한 장은 로봇의 **첫 화면**뿐이라
+  `selectorsOf()`가 셀렉터를 둘로 가른다(2026-09-15): `entry` = 앞에서부터 첫 "화면을 바꿀 수
+  있는" 스텝까지(focus·scroll은 같은 화면으로 보고 넘어간다, 그 스텝과 drag 도착지 포함) — 이것만
+  판정한다. 그 뒤 스텝의 셀렉터는 다른 화면에 있는 게 정상이라 `later[]`로만 싣는다.
+  → `{status:"checked", checked, found, missing[], unparsed[], later[]}`(앞의 넷은 첫 화면 기준).
+  "확인 불가"로 답하는 경우 — `skipped/js-rendered`: script 있음 + 본문 80자 미만(또는 300자 미만·
+  id/class 5개 미만) · `skipped/no-match`: 첫 화면·뒤 화면 통틀어 하나도 안 맞음(JS가 그리거나 다른
+  화면으로 넘어가는 페이지) · `skipped/no-entry-selectors`: 첫 화면에 판정할 셀렉터가 없음(HTML을 받지
+  않는다). 못 찾았다고 잘못 말하면 AI가 멀쩡한 셀렉터를 고친다 — 09-15 스킨로그(`/demo`가 홈으로
+  넘어가는 Next.js 앱, 첫 HTML 본문 4자·class 5)가 옛 판정에서 "0/8 없음"을 받았고 실제론 8/8이었다.
+  fetch는 `lib/ssrf.ts safeFetch` 경유·6초·1MB 캡, 실패는 `skipped/fetch-failed` — 절대 발행을 막지 않는다.
 - `hints[]`: 발화 조건 = 6스텝 미만 · 조작 2개 미만 · 셀렉터/expect 빠진 스텝 · skip 없음 ·
-  못 찾은 셀렉터 · 확인 불가. PAT=영어, 세션=쿠키 언어.
-- CLI(`echo.js formatScriptReviewWarnings`)는 hints를 안 찍고 숫자로 한국어를 만든다 —
-  서버 hints는 원시 JSON을 읽는 AI용. CLI `nookframe@0.1.10`(2026-09-04 npm 발행)부터 출력된다.
+  첫 화면 셀렉터 누락("JS가 뒤에 그리면 정상"을 먼저 말한다) · 확인 불가(js-rendered·no-match 공용,
+  "오류 아님, 이것만 보고 셀렉터를 바꾸지 말 것"). PAT=영어, 세션=쿠키 언어.
+- CLI(`echo.js formatScriptReviewWarnings`)는 hints를 안 찍고 숫자로 영어 문장을 만든다 —
+  서버 hints는 원시 JSON을 읽는 AI용. 점검표 출력은 `nookframe@0.1.10`부터, 첫 화면/뒤 화면 문구는
+  0.1.13부터다. 판정 자체는 서버에 있어 배포 즉시 모든 CLI에 적용된다(옛 CLI는 js-rendered만 한 줄로
+  말하고 no-match는 조용히 넘어간다).
 - 검증: `node scripts/probe-script-review.mjs`(prod E2E) + `npx -y tsx scripts/probe-script-review-unit.mts`(순수 함수).
 
 ## 관련 파일
