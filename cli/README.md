@@ -75,9 +75,10 @@ whole video.
 - `action`: `click` · `type` · `drag` · `scroll` · `hover` · `draw` · `focus` (no interaction; the camera zooms into that area).
 - Put `action` **and** `selector` (or `where`, if you do not know the selector) on every step — a step with only a `goal` is a table of contents, and the server rejects a script made only of those (at least 3 steps must meet this bar).
 - `hold` (0.5-4s): holds that step's result on screen for beats that need a slow look.
-- Even if the script asks, the robot **never presses login, submit, delete, or file-picker controls.**
-- The publish result carries a **script check** line — step count, how many steps actually operate the app, how many carry a selector and an expect, plus the result of the server fetching the entry URL's HTML once to count **whether the selectors really exist**. Fix the lines marked `⚠` and publish again with the same URL to update the draft.
-  (The server cannot see JavaScript-rendered screens, so in that case it tells you to check in a browser yourself.)
+- The robot films a **1280×720 desktop browser** — give selectors for the layout at that size, even for a phone-first app.
+- The robot has no account (it cannot log in) and never opens file pickers. Clicks that save, send or delete are **skipped or answered with a fake success** — nothing reaches your real server — so don't build a step on a result only your server can produce (an AI reply, data reloaded from the database).
+- The publish result carries a **script check** line — step count, how many steps actually operate the app, how many carry a selector and an expect, plus the result of the server fetching the entry URL's HTML once to count **whether the first screen's selectors really exist**. Fix the lines marked `⚠` and publish again with the same URL to update the draft.
+  (That HTML only shows the first screen: selectors for later steps are not judged, and a JavaScript-drawn page is reported as "not checkable" — that is not an error, so don't change selectors because of it.)
 
 Uploaded work lands as a **draft**. Review and edit it in the dashboard, and the automatic demo video is filmed
 when you publish. Running `publish` again with the same URL does not create a new draft — it **updates the

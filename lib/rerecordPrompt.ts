@@ -96,7 +96,8 @@ RULES (the robot follows the script literally)
 - Every step needs BOTH an "action" and a "selector" (or "where") — a step with only a goal is rejected, and at least 3 steps must clear this bar.
 - Give a real CSS "selector" for EVERY step — when all steps carry one (and drags carry toSelector, types carry text), the robot skips its vision pass and frames straight from the DOM: faster, cheaper, pixel-exact. "where" is only the fallback.
 - "hold" (0.5–4s) keeps that step's result on screen; "focus" magnifies an area without touching it.
-- The robot never logs in, submits, deletes, or opens file pickers — don't ask it to.
+- The robot films a 1280×720 desktop browser, so selectors must match the layout at that size.
+- It has no account (it can't log in) and never opens file pickers; clicks that save, send or delete are skipped or answered with a fake success — don't build a beat on a result only the server can produce (an AI reply, data reloaded from the database).
 - Re-check the live page if you can: selectors that no longer exist are the most common reason a beat goes missing.
 
 HOW TO SUBMIT — pick whichever fits you (this replaces nothing until the owner approves it in their dashboard)
