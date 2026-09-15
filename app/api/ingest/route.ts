@@ -23,8 +23,8 @@ import {
   summarizeDropped,
 } from "@/lib/upload-safety";
 import {
-  validateMedia, uploadMedia, storeZipBundle,
-  UPLOAD_KINDS, UPLOAD_TEMP_KEYS, type SniffedMedia, type UploadKind,
+  validateMedia, uploadMedia, storeZipBundle, removeStaleFiles,
+  UPLOAD_KINDS, UPLOAD_TEMP_KEYS, UPLOAD_REPLACE_MARKER, type SniffedMedia, type UploadKind,
 } from "@/lib/ingestStore";
 import { uploadErrorResponse } from "./uploadError";
 import { logger } from "@/lib/logger";
@@ -33,8 +33,9 @@ import { logger } from "@/lib/logger";
 // 유저 대신 프로젝트를 "초안"으로 밀어넣는다. 초안은 공개 어디에도 안 뜨고(RLS),
 // 유저가 대시보드에서 확인 후 "공개"를 눌러야 노출+데모 촬영이 시작된다. 이 라우트는
 // 데모 파이프라인 컬럼을 절대 건드리지 않는다 — 데모는 발행 시점의 쿠키 인증
-// trigger-demo 라우트가 처리한다(인증 경계 분리). 같은 진입 URL의 초안이 이미
-// 있으면 새 행 대신 그 행을 갱신한다(upsert — 6단계). 설계 상세: docs/nookframe-connect.md.
+// trigger-demo 라우트가 처리한다(인증 경계 분리). draftId로 지정한 초안, 없으면 같은
+// 진입 URL의 초안이 이미 있을 때 새 행 대신 그 행을 갱신한다(upsert — 3.5·6단계).
+// 설계 상세: docs/nookframe-connect.md.
 
 // 검토 대기 초안 상한(유저당). 무한 초안 생성 남용을 막는다.
 const MAX_ACTIVE_DRAFTS = 20;
@@ -56,6 +57,7 @@ interface IngestPayload {
   appUrl?: unknown;
   demoAccess?: unknown;
   uploads?: unknown;
+  draftId?: unknown;
 }
 
 export async function POST(req: NextRequest) {
@@ -118,6 +120,38 @@ export async function POST(req: NextRequest) {
       // { payload: {...} } 도, 필드를 최상위에 둔 { ... } 도 허용.
       const b = body as { payload?: IngestPayload } & IngestPayload;
       payload = (b?.payload ?? b) as IngestPayload;
+    }
+
+    const admin = createAdminClient();
+
+    // 3.5. 갱신할 초안 지정 — draftId(2026-09-15). 주면 진입 URL 대신 그 초안을 갱신한다(6단계).
+    // 파일 업로드 초안은 비교할 URL이 없어 다시 올릴 때마다 새 초안이 생겼고, URL을 바꿔 올린
+    // 초안도 그랬다. 틀린 id는 게이트보다 먼저 되돌려보낸다 — 갱신할 대상이 없는 요청에 대본부터
+    // 지적하면 AI가 엉뚱한 곳을 고친다. 판정 순서는 drafts/[id] PATCH와 같다(404→403→409).
+    let draftTarget: { id: string; thumbnail: string | null; demoUrl: string | null } | null = null;
+    if (payload?.draftId !== undefined && payload?.draftId !== null) {
+      const draftId = strOrNull(payload.draftId);
+      const { data: row, error: rowErr } = draftId
+        ? await admin
+            .from("projects")
+            .select("id, user_id, is_draft, thumbnail, demo_url")
+            .eq("id", draftId)
+            .maybeSingle()
+        : { data: null, error: null };
+      if (rowErr || !row) {
+        return apiError({ status: 404, message: t.api.projectNotFound, code: "NOT_FOUND" });
+      }
+      if (row.user_id !== userId) {
+        return apiError({ status: 403, message: t.api.projectForbidden, code: "FORBIDDEN" });
+      }
+      if (!row.is_draft) {
+        return apiError({ status: 409, message: t.api.draftIdNotDraft, code: "NOT_DRAFT" });
+      }
+      draftTarget = {
+        id: row.id as string,
+        thumbnail: (row.thumbnail as string | null) ?? null,
+        demoUrl: (row.demo_url as string | null) ?? null,
+      };
     }
 
     // 4. payload 검증.
@@ -256,8 +290,6 @@ export async function POST(req: NextRequest) {
       return apiError({ status: 400, message: t.api.targetDeviceRequired, code: "TARGET_DEVICE_REQUIRED" });
     }
 
-    const admin = createAdminClient();
-
     // 5. URL 경로면 여기서 demo_url·thumbnail 확정(파일 경로는 행 생성 후).
     // 랜딩(/)과 실제 앱(/app)이 나뉜 제품은 deployUrl(랜딩)만 받으면 시연 로봇이
     // 랜딩만 찍는다 → appUrl(앱 화면 진입 URL)이 있으면 그걸 임베드·촬영 대상으로
@@ -310,25 +342,36 @@ export async function POST(req: NextRequest) {
       selectorProbe = probeSelectors(composeProbeUrl(demoUrl, demoAccess), selectorsOf(demoScript));
     }
 
-    // 6. upsert 판별(요청4) — 같은 진입 URL의 "초안"이 이미 있으면 새 행을 만들지
-    // 않고 그 행을 갱신한다(재푸시=최신 페이로드가 진실). 초안 한정: 공개된 행은
-    // 절대 건드리지 않아 PAT의 폭발반경(자기 초안뿐)이 유지된다. zip 경로는 비교할
-    // URL이 없어 항상 새 초안(기존 동작).
+    // 6. upsert 판별 — 갱신할 초안이 있으면 새 행을 만들지 않고 그 행을 갱신한다(재푸시=
+    // 최신 페이로드가 진실). 대상은 3.5에서 확인한 draftId 초안, 없으면 같은 진입 URL의
+    // 초안(요청4). 초안 한정: 공개된 행은 절대 건드리지 않아 PAT의 폭발반경(자기 초안뿐)이
+    // 유지된다. draftId 없는 zip 경로는 비교할 URL이 없어 항상 새 초안(기존 동작).
     let projectId: string;
     let upserted = false;
-    const { data: existing } = demoUrl
-      ? await admin
-          .from("projects")
-          .select("id, thumbnail")
-          .eq("user_id", userId)
-          .eq("is_draft", true)
-          .eq("demo_url", demoUrl)
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle()
-      : { data: null };
+    let existingThumbnail: string | null = null;
+    let existing = draftTarget;
+    if (!existing && demoUrl) {
+      const { data: sameUrl } = await admin
+        .from("projects")
+        .select("id, thumbnail, demo_url")
+        .eq("user_id", userId)
+        .eq("is_draft", true)
+        .eq("demo_url", demoUrl)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (sameUrl) {
+        existing = {
+          id: sameUrl.id as string,
+          thumbnail: (sameUrl.thumbnail as string | null) ?? null,
+          demoUrl: (sameUrl.demo_url as string | null) ?? null,
+        };
+      }
+    }
 
     if (existing) {
+      const existingId = existing.id;
+      existingThumbnail = existing.thumbnail;
       const upd: Record<string, unknown> = {
         title,
         description,
@@ -340,12 +383,18 @@ export async function POST(req: NextRequest) {
         content_type: contentTypeId,
         target_device: targetDevice,
       };
+      // 진입 URL도 새 값으로 — draftId로 URL을 바꿔 올린 경우다(같은 URL 재발행이면 같은 값).
+      // zip이 오는 요청은 옛 주소를 그대로 두고, 새 파일이 검증을 통과한 뒤(8단계·finalize) 바꾼다.
+      if (demoUrl) upd.demo_url = demoUrl;
       if (videoBuf) upd.type = "video";
       // 제작자 스크린샷(_media/) 썸네일은 보존 — thum.io 자동 썸네일로 덮지 않는다.
-      if (thumbnail && !(existing.thumbnail as string | null)?.includes("/_media/")) {
+      if (thumbnail && !existing.thumbnail?.includes("/_media/")) {
         upd.thumbnail = thumbnail;
       }
-      let { error: updErr } = await admin.from("projects").update(upd).eq("id", existing.id);
+      // is_draft 조건 — 초안 확인과 갱신 사이에 공개됐으면 건드리지 않는다(갱신된 행 수로 판정).
+      const updateDraftRow = () =>
+        admin.from("projects").update(upd).eq("id", existingId).eq("is_draft", true).select("id");
+      let { data: updRows, error: updErr } = await updateDraftRow();
       // 마이그레이션 적용 전 무중단 디그레이드(워커의 42703 정책과 동일): 컬럼이
       // 없다고 발행 전체가 죽으면 안 된다 — 없는 선택 컬럼만 빼고 재시도한다.
       for (let col = missingOptionalColumn(updErr); col && col in upd; col = missingOptionalColumn(updErr)) {
@@ -353,13 +402,22 @@ export async function POST(req: NextRequest) {
         delete upd[col];
         if (col === "demo_script") scriptStored = false;
         if (col === "target_device") deviceStored = false;
-        ({ error: updErr } = await admin.from("projects").update(upd).eq("id", existing.id));
+        ({ data: updRows, error: updErr } = await updateDraftRow());
       }
       if (updErr) {
         return apiError({ status: 500, message: t.api.projectCreateFailed, code: "DB_UPDATE_FAILED", cause: updErr });
       }
-      projectId = existing.id as string;
+      if (!updRows?.length) {
+        return apiError({ status: 409, message: t.api.finalizeNotDraft, code: "NOT_DRAFT" });
+      }
+      projectId = existingId;
       upserted = true;
+      // 파일 초안을 URL로 바꿔 올렸으면 옛 zip은 이제 어디서도 안 가리킨다 — 공개 버킷이라
+      // 지운다. 정리 실패는 발행 실패가 아니다(행은 이미 새 URL) — 기록만 남긴다.
+      if (demoUrl && existing.demoUrl?.startsWith("/api/preview/")) {
+        await removeStaleFiles(admin, userId, existingId, new Set()).catch((err) =>
+          logger.error("ingest: stale file cleanup failed", { error: err, projectId: existingId }));
+      }
     } else {
       // 7. 초안 상한 체크(새 행을 만들 때만) 후 insert — 행 id를 파일 스토리지
       // 폴더로 쓰기 위해(삭제 누수 wart도 해소).
@@ -432,16 +490,24 @@ export async function POST(req: NextRequest) {
         demoUrl = `/api/preview/${userId}/${projectId}/${entryPath}`;
         // runnable 앵커(파이썬·CLI 소스 zip)는 미리보기가 없어 thum.io 스크린샷이
         // 소스 코드 원문을 찍는다 — 썸네일 없이 두고 촬영본/제작자 스크린샷이 채운다.
+        // 교체 발행이면 제작자 스크린샷(_media/) 썸네일도 덮지 않는다(6단계와 같은 규칙).
+        const keepShot = !!existingThumbnail?.includes("/_media/");
         const { error: updErr } = await admin
           .from("projects")
           .update({
             demo_url: demoUrl,
-            ...(runnable ? {} : { thumbnail: screenshotUrl(`${req.nextUrl.origin}${demoUrl}`) }),
+            ...(runnable || keepShot ? {} : { thumbnail: screenshotUrl(`${req.nextUrl.origin}${demoUrl}`) }),
           })
           .eq("id", projectId);
         if (updErr) throw new UploadError(t.api.demoUrlSaveFailed);
+        // 교체 발행이면 새 zip에 없는 옛 파일을 지운다(공개 버킷 — lib/ingestStore.ts).
+        if (upserted) {
+          await removeStaleFiles(admin, userId, projectId, new Set(stored.keys)).catch((err) =>
+            logger.error("ingest: stale file cleanup failed", { error: err, projectId }));
+        }
       } catch (e) {
-        await admin.from("projects").delete().eq("id", projectId);
+        // 이번 요청이 만든 행만 지운다 — 이미 있던 초안(draftId·같은 URL)은 이전 상태가 남는 게 낫다.
+        if (!upserted) await admin.from("projects").delete().eq("id", projectId);
         if (e instanceof UploadError) return await uploadErrorResponse(e, t, userId);
         logger.error("ingest: file upload failed", { error: e, projectId });
         return apiError({ status: 500, message: t.api.uploadProcessingError, code: "UPLOAD_ERROR", cause: e });
@@ -470,6 +536,22 @@ export async function POST(req: NextRequest) {
     let uploads: Partial<Record<UploadKind, string>> | undefined;
     if (declared.length) {
       uploads = {};
+      // 이미 있던 초안(draftId·같은 URL)에 올리는 파일이면 교체 표식을 남긴다 — finalize는 행이
+      // 이번에 새로 생긴 건지 모르므로, 이 표식을 보고 검증 실패 때 그 초안을 지우지 않는다.
+      if (upserted) {
+        const { error: markErr } = await admin.storage
+          .from("project-files")
+          .upload(UPLOAD_REPLACE_MARKER(userId, projectId), new Uint8Array([1]), {
+            upsert: true,
+            contentType: "application/octet-stream",
+          });
+        if (markErr) {
+          return apiError({
+            status: 500, message: t.api.mediaUploadFailed, code: "SIGN_FAILED",
+            cause: markErr, context: { projectId, kind: "replace-marker" },
+          });
+        }
+      }
       for (const kind of declared) {
         const { data, error } = await admin.storage
           .from("project-files")

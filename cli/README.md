@@ -27,6 +27,7 @@ nookframe publish            Upload the current project as a draft
   --json -                   Payload JSON from standard input (e.g. a heredoc: --json - <<'EOF' … EOF)
   --json '<payload>'         Payload JSON inline (shell quoting breaks easily — prefer --file)
                              The flags below override the same fields in the JSON
+  --id <draft id>            Update that draft in place instead of matching by URL (replaces its files or URL too)
   --url <url>                Deployed public URL (falls back to auto-detecting dist/out/build/public)
                              A public GitHub repo URL also works — JS and Python web apps (Streamlit,
                              Gradio, Dash, Django, Flask, FastAPI) are run automatically; CLI tools and
@@ -89,12 +90,13 @@ whole video.
 - `hold` (0.5-4s): holds that step's result on screen for beats that need a slow look.
 - The robot films a **1280×720 desktop browser** — give selectors for the layout at that size, even for a phone-first app.
 - The robot has no account (it cannot log in) and never opens file pickers. Clicks that save, send or delete are **skipped or answered with a fake success** — nothing reaches your real server — so don't build a step on a result only your server can produce (an AI reply, data reloaded from the database).
-- The publish result carries a **script check** line — step count, how many steps actually operate the app, how many carry a selector and an expect, plus the result of the server fetching the entry URL's HTML once to count **whether the first screen's selectors really exist**. Fix the lines marked `⚠` and publish again with the same URL to update the draft.
+- The publish result carries a **script check** line — step count, how many steps actually operate the app, how many carry a selector and an expect, plus the result of the server fetching the entry URL's HTML once to count **whether the first screen's selectors really exist**. Fix the lines marked `⚠` and publish again (same URL, or `--id <draft id>`) to update the draft.
   (That HTML only shows the first screen: selectors for later steps are not judged, and a JavaScript-drawn page is reported as "not checkable" — that is not an error, so don't change selectors because of it.)
 
 Uploaded work lands as a **draft**. Review and edit it in the dashboard, and the automatic demo video is filmed
 when you publish. Running `publish` again with the same URL does not create a new draft — it **updates the
-existing one**.
+existing one**. A folder upload (`--dir`) has no URL to match, so pass `--id <draft id>` (printed after every
+publish) to replace its files; the same flag also lets you change a draft's URL.
 
 ## Re-recording (rerecord)
 

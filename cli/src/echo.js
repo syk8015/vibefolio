@@ -115,7 +115,7 @@ export function formatScriptReviewWarnings(review) {
   const out = [];
   const total = review.steps ?? 0;
   if (total < 6) {
-    out.push(`⚠ The script has ${total} steps — 6 to 8 is right for a 30-second film. Add the key features in order of importance and publish again with the same URL to update this draft.`);
+    out.push(`⚠ The script has ${total} steps — 6 to 8 is right for a 30-second film. Add the key features in order of importance and publish again with the same URL or the draft id (--id / draftId) to update this draft.`);
   }
   if ((review.interactive ?? 0) < 2) {
     out.push(`⚠ Only ${review.interactive ?? 0} step(s) actually operate the app (click/type/drag) — if the rest are focus/hover/scroll the film looks like a slideshow. Add at least 2 steps that press something and change the screen.`);

@@ -100,7 +100,8 @@
   2. 각 파일을 signedUrl로 **PUT** (스토리지 직행 — Vercel 상한 우회)
   3. `POST /api/ingest/finalize` `{ projectId }` → 임시 오브젝트를 내려받아 **인라인과 동일 검증**
      (zip 안전 일습·미디어 매직바이트, 공유 코어=`lib/ingestStore.ts`) 후 demo_url·thumbnail·video_url
-     연결, `_upload/` 삭제. 검증 실패 시 행 삭제(인라인과 동일 정책). is_draft=false 행은 409 거부
+     연결, `_upload/` 삭제. 검증 실패 시 이번 발행이 만든 행만 삭제(인라인과 동일 정책 — 이미 있던 초안은
+     아래 draftId 절의 교체 표식을 보고 남긴다). is_draft=false 행은 409 거부
      (PAT 폭발반경 유지). 재호출은 멱등 200(같은 결과로 수렴 — `deduped:true` 플래그는 best-effort:
      지워진 임시 오브젝트가 스토리지 CDN 캐시에서 잠깐 더 읽히면 재처리로 돌아 플래그가 빠질 수 있음,
      실측 2026-08-14). CLI ≥0.1.3은 파일이 있으면 자동으로 이 경로.
@@ -118,9 +119,19 @@
 - 파일 경로: 행 id 확보 → `project-files/{uid}/{rowId}/…` 업로드 → `demo_url=/api/preview/…/index.html`.
 - **upsert(요청4)**: 같은 유저의 **초안** 중 `demo_url`이 이번 진입 URL(appUrl 우선, `detectDemoSource`
   정규화 후 값)과 같은 행이 있으면 insert 대신 그 행을 **갱신**한다(재푸시=최신 페이로드가 진실.
-  응답에 `upserted:true`). 초안 한정이라 공개된 행은 절대 안 건드림(PAT 폭발반경 유지). zip 경로는
-  비교할 URL이 없어 항상 새 초안. 제작자 스크린샷(`_media/`) 썸네일은 thum.io로 안 덮는다.
-  upsert된 행은 미디어 업로드 실패 시에도 삭제하지 않는다(신규 행만 고아 정리).
+  응답에 `upserted:true`). 초안 한정이라 공개된 행은 절대 안 건드림(PAT 폭발반경 유지). 제작자
+  스크린샷(`_media/`) 썸네일은 thum.io로 안 덮는다. upsert된 행은 파일·미디어 검증 실패 시에도
+  삭제하지 않는다(이번 요청이 만든 행만 고아 정리).
+- **draftId(2026-09-15)**: payload `draftId`를 주면 URL 대신 **그 초안**을 갱신한다 — zip 경로는 비교할
+  URL이 없어 다시 올릴 때마다 새 초안이 생겼고(draftId 없으면 지금도 그렇다), URL을 바꿔 올린 초안도
+  그랬다. 확인은 게이트보다 먼저(404 `NOT_FOUND` → 403 `FORBIDDEN` → 공개된 행 409 `NOT_DRAFT`). 갱신은
+  `is_draft=true` 조건으로 걸어 확인~갱신 사이에 공개되면 409. URL로 바꾸면 `demo_url`도 교체하고, zip이면
+  옛 주소를 새 파일이 검증을 통과한 뒤에 바꾼다. 교체 뒤 새 아티팩트에 없는 옛 파일은 지운다
+  (`lib/ingestStore.ts removeStaleFiles` — 공개 버킷이라 남기면 옛 주소로 계속 서빙됨, `_media`·`_upload` 제외).
+  2단계 업로드면 1단계가 `_upload/replace.marker`(**교체 표식**)를 남기고, finalize가 이를 **list로**
+  확인해 검증이 실패해도 그 초안을 안 지운다(download는 CDN 캐시로 옛 값이 읽힐 수 있음). 서명 URL을
+  발급하지 않는 키라 PAT로는 못 만든다. CLI `publish --id <id>`(≥0.1.13) · MCP `publish_to_nookframe`의
+  `draftId`. 옛 CLI·MCP도 JSON에 `draftId`를 넣으면 서버까지 그대로 간다.
 - 응답: `{ ok, projectId, reviewUrl, isDraft:true, upserted? }`. reviewUrl은 요청 origin 기준.
 
 ## 초안 관리 API (요청4) — `/api/ingest/drafts`
@@ -131,8 +142,8 @@
 - `GET /api/ingest/drafts` — 내 초안 목록 `{ ok, count, drafts:[{ id, title, …, reviewUrl }] }`.
 - `PATCH /api/ingest/drafts/[id]` — 보낸 필드만 갱신(title/description/builderNote/demoHighlights/demoScript/
   tags/contentType/targetDevice/demoAccess — 검증은 생성 경로와 동일 규칙·동일 게이트). `deployUrl`·`appUrl`·
-  `uploads`가 오면 400 `ARTIFACT_IMMUTABLE` — 아티팩트 교체는 같은 URL로 publish 재실행(upsert)이
-  정규 경로(검증 경로 단일화).
+  `uploads`가 오면 400 `ARTIFACT_IMMUTABLE` — 아티팩트 교체는 publish 재실행(`draftId`로 이 초안을
+  지정, URL 초안은 같은 URL로도 됨)이 정규 경로(검증 경로 단일화).
 - `DELETE /api/ingest/drafts/[id]` — 행 + 스토리지(행 폴더 `{uid}/{id}/` BFS: zip 확장·`_media`·
   `_upload`) 삭제. 인제스트 초안은 행을 먼저 만들고 그 id 폴더에 올리므로 demo-assets 라우트의
   M16(업로드 UUID≠행 id) 문제가 없고, R2 데모 산출물은 발행 후에만 생겨 초안엔 없다.

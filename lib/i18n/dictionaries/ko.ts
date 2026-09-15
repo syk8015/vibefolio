@@ -708,10 +708,10 @@ export const ko = {
     scriptStepsVague: (solid: number, total: number) =>
       `demoScript의 스텝 ${total}개 중 실제로 찍을 수 있는 건 ${solid}개뿐이에요. 스텝마다 **무엇을 하는지**(action: click|type|drag|scroll|hover|draw|focus)와 **어디서 하는지**(selector — 이 앱을 만든 당신은 정확한 CSS 셀렉터를 알고 있습니다. 화면만 안다면 where에 눈으로 찾는 법)를 둘 다 넣어 주세요. goal만 적힌 줄은 대본이 아니라 목차라서, 로봇이 결국 화면을 픽셀로 더듬어 추측하게 됩니다 — 영상이 망가지는 가장 흔한 경로예요. 최소 3개 스텝이 이 조건을 채워야 저장합니다.`,
     // 대본 점검표(2026-09-04) — 저장은 됐지만 더 좋아질 수 있는 곳. 거절이 아니라
-    // "같은 URL로 다시 publish하면 이 초안이 갱신된다"는 전제의 고쳐-다시-올리기 안내.
+    // "같은 URL(또는 draftId)로 다시 publish하면 이 초안이 갱신된다"는 전제의 고쳐-다시-올리기 안내.
     scriptReview: {
       fewSteps: (n: number) =>
-        `대본이 ${n}스텝이에요 — 영상 30초를 채우려면 6~8스텝이 알맞아요. 이 앱의 핵심 기능을 중요한 순서대로 더 넣고 같은 URL로 다시 publish하면 이 초안이 갱신돼요.`,
+        `대본이 ${n}스텝이에요 — 영상 30초를 채우려면 6~8스텝이 알맞아요. 이 앱의 핵심 기능을 중요한 순서대로 더 넣고 다시 publish하면(같은 URL, 또는 draftId에 이 초안 id) 이 초안이 갱신돼요.`,
       lowInteraction: (n: number, total: number) =>
         `${total}스텝 중 실제 조작(click·type·drag)은 ${n}개뿐이에요 — 나머지가 focus·hover·scroll이면 영상이 슬라이드쇼처럼 보여요. 핵심 기능을 직접 눌러서 결과가 바뀌는 스텝을 2개 이상 넣으세요.`,
       unwired: (n: number, total: number) =>
@@ -745,8 +745,9 @@ export const ko = {
     mediaUploadFailed: "미디어 업로드에 실패했어요. 잠시 후 다시 시도해 주세요.",
     finalizeNothing: "업로드된 파일이 없어요. 발급받은 URL로 파일을 먼저 올린 뒤 finalize를 호출해 주세요.",
     finalizeNotDraft: "이미 공개된 프로젝트는 이 경로로 수정할 수 없어요.",
+    draftIdNotDraft: "이미 공개된 프로젝트예요 — draftId로는 초안만 갱신할 수 있어요. 공개된 작품의 영상을 바꾸려면 rerecord로 새 대본을 내세요.",
     draftNoFields: "수정할 항목이 없어요.",
-    draftUrlImmutable: "URL이나 파일 교체는 publish를 다시 실행하세요 — 같은 URL이면 기존 초안이 갱신돼요.",
+    draftUrlImmutable: "URL이나 파일 교체는 payload에 \"draftId\": \"<이 초안 id>\"를 넣고 publish를 다시 실행하세요 — 그 초안이 그대로 갱신돼요(같은 URL로 다시 올려도 갱신돼요).",
     projectCreateFailed: "프로젝트를 만들지 못했어요.",
     indexHtmlMissing: "이 파일 묶음에는 웹페이지(index.html)도 실행 가능한 코드(package.json·*.py)도 없어요. 정적 사이트라면 index.html을, 파이썬·CLI 프로젝트라면 소스 파일을 포함해 주세요.",
     nativePlatforms: { ios: "iOS(Swift·Xcode)", android: "안드로이드(Kotlin·Gradle)", unity: "Unity" } as Record<string, string>,

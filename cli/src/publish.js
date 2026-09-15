@@ -80,7 +80,12 @@ export async function runPublish({ payload = {}, dir = null, screenshotPath = nu
   if (!fin.ok) throw new Error(body2.error || `Could not finalize the upload (HTTP ${fin.status})`);
   // 저장 내용 에코(C-1)는 1단계(=메타데이터를 받은 쪽)가 만든다. finalize는 파일만
   // 연결하므로 그 결과에 없으면 1단계 것을 그대로 이어붙여야 사라지지 않는다.
-  return { ...body2, accepted: body2.accepted ?? body1.accepted };
+  // upserted도 1단계 응답에만 있다 — 빠뜨리면 기존 초안 갱신을 "새로 올렸다"고 보고한다.
+  return {
+    ...body2,
+    accepted: body2.accepted ?? body1.accepted,
+    ...(body1.upserted ? { upserted: true } : {}),
+  };
 }
 
 function safeHost(url) {
@@ -120,6 +125,14 @@ export async function publishCommand(args) {
   if (args.hint) payload.demoHighlights = args.hint;
   if (args.url) payload.deployUrl = args.url;
   if (args["app-url"]) payload.appUrl = args["app-url"];
+  // 갱신할 초안(2026-09-15) — URL 대신 이 id로 찾는다. 파일 업로드 초안·URL을 바꾼 초안도
+  // 중복 없이 교체된다(서버 /api/ingest의 draftId).
+  if (args.id !== undefined) {
+    if (typeof args.id !== "string" || !args.id.trim()) {
+      throw new Error("--id needs a draft id (list them with: nookframe drafts).");
+    }
+    payload.draftId = args.id.trim();
+  }
   // 로그인 필요 앱의 데모 모드 진입 정보 — url·params·note·impossible만(계정
   // 정보는 서버가 안 받음). impossible=게스트 경로가 원천 불가능한 앱 선언(B-3).
   if (
@@ -173,9 +186,15 @@ export async function publishCommand(args) {
   }
 
   const body = await runPublish({ payload, dir, screenshotPath, videoPath, token, origin });
-  console.log(body.upserted
-    ? "\n✓ Updated the existing draft with the same URL."
-    : "\n✓ Uploaded to Nookframe as a draft.");
+  console.log(payload.draftId
+    ? `\n✓ Updated draft ${body.projectId ?? payload.draftId}.`
+    : body.upserted
+      ? "\n✓ Updated the existing draft with the same URL."
+      : "\n✓ Uploaded to Nookframe as a draft.");
   for (const line of formatAccepted(body.accepted)) console.log(line);
   console.log(`\n  Review and publish: ${body.reviewUrl}`);
+  // 다음 수정이 중복 초안을 만들지 않게 id와 방법을 같이 알려준다 — 파일 업로드 초안은 URL로 못 찾는다.
+  if (body.projectId) {
+    console.log(`  Draft id: ${body.projectId} — to change this draft later (files or URL included): publish --id ${body.projectId}`);
+  }
 }

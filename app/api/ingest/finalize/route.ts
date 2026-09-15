@@ -6,7 +6,8 @@ import { ingestAuth, pickApiT } from "../shared";
 import { screenshotUrl } from "@/lib/thumbnail";
 import { MAX_UPLOAD_BYTES, UploadError, summarizeDropped } from "@/lib/upload-safety";
 import {
-  validateMedia, uploadMedia, storeZipBundle, UPLOAD_TEMP_KEYS,
+  validateMedia, uploadMedia, storeZipBundle, removeStaleFiles, hasReplaceMarker,
+  UPLOAD_TEMP_KEYS, UPLOAD_REPLACE_MARKER,
 } from "@/lib/ingestStore";
 import { uploadErrorResponse } from "../uploadError";
 import { logger } from "@/lib/logger";
@@ -19,8 +20,9 @@ import { logger } from "@/lib/logger";
 //
 // 보안: 서명 URL은 서버가 조립한 고정 키에만 유효하고, 여기서도 그 고정 키만
 // 읽는다(클라 입력이 키에 안 섞임). 검증 실패 시 인라인 경로와 같은 정책으로
-// 행을 지운다(불량 아티팩트가 연결된 초안이 남지 않게). is_draft=false 행은
-// 거부 — PAT의 폭발반경(자기 초안 생성뿐)을 유지한다.
+// 이번 발행이 새로 만든 행을 지운다(불량 아티팩트가 연결된 초안이 남지 않게) —
+// 이미 있던 초안(같은 URL 재발행·draftId)은 1단계가 남긴 교체 표식을 보고 그대로
+// 둔다. is_draft=false 행은 거부 — PAT의 폭발반경(자기 초안 생성뿐)을 유지한다.
 
 export async function POST(req: NextRequest) {
   try {
@@ -51,7 +53,7 @@ export async function POST(req: NextRequest) {
     const admin = createAdminClient();
     const { data: row, error: selErr } = await admin
       .from("projects")
-      .select("id, user_id, is_draft, demo_url, video_url")
+      .select("id, user_id, is_draft, demo_url, video_url, thumbnail")
       .eq("id", projectId)
       .maybeSingle();
     if (selErr || !row) {
@@ -65,6 +67,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 5. 임시 오브젝트 회수(고정 키만). download 에러 = 미업로드로 간주.
+    // replacing = 1단계가 "이미 있던 초안에 올린다"고 남긴 교체 표식(lib/ingestStore.ts).
     const tempKeys = {
       bundle: UPLOAD_TEMP_KEYS.bundle(userId, projectId),
       screenshot: UPLOAD_TEMP_KEYS.screenshot(userId, projectId),
@@ -75,16 +78,20 @@ export async function POST(req: NextRequest) {
       if (error || !data) return null;
       return new Uint8Array(await data.arrayBuffer());
     };
-    const [bundleBuf, shotBuf, videoBuf] = await Promise.all([
+    const [bundleBuf, shotBuf, videoBuf, replacing] = await Promise.all([
       download(tempKeys.bundle),
       download(tempKeys.screenshot),
       download(tempKeys.video),
+      hasReplaceMarker(admin, userId, projectId),
     ]);
     const cleanupTemp = () =>
-      admin.storage.from("project-files").remove(Object.values(tempKeys)).then(
-        () => {},
-        () => {},
-      );
+      admin.storage
+        .from("project-files")
+        .remove([...Object.values(tempKeys), UPLOAD_REPLACE_MARKER(userId, projectId)])
+        .then(
+          () => {},
+          () => {},
+        );
 
     // 아무것도 안 올라온 finalize: 이미 아티팩트가 연결돼 있으면(재호출) 멱등 성공,
     // 아니면 실패 — 빈 초안을 "완료"로 오인하게 두지 않는다.
@@ -96,7 +103,7 @@ export async function POST(req: NextRequest) {
       return apiError({ status: 400, message: t.api.finalizeNothing, code: "NOTHING_TO_FINALIZE" });
     }
 
-    // 6. 검증 + 연결 — 인라인 경로와 동일 코어. 실패 시 행 삭제(동일 정책).
+    // 6. 검증 + 연결 — 인라인 경로와 동일 코어. 실패 시 이번 발행이 만든 행만 삭제(동일 정책).
     // droppedFiles = 안전상 저장하지 않은 비밀 파일 요약(.env·.git/ 등). 응답 밖으로
     // 새어나가야 하므로 try 밖에 선언한다 — 알려주지 않으면 발행자는 자기 앱이 왜
     // 안 도는지 모른다.
@@ -104,6 +111,7 @@ export async function POST(req: NextRequest) {
     try {
       const updates: Record<string, string> = {};
       const sniffed = validateMedia(shotBuf, videoBuf);
+      let keep: Set<string> | null = null;
       if (bundleBuf) {
         if (bundleBuf.byteLength > MAX_UPLOAD_BYTES) {
           throw new UploadError(t.api.uploadTooLarge, "too-large");
@@ -111,10 +119,12 @@ export async function POST(req: NextRequest) {
         const stored = await storeZipBundle(admin, userId, projectId, bundleBuf.buffer as ArrayBuffer);
         const { entryPath, runnable } = stored;
         droppedFiles = summarizeDropped(stored.dropped, t.api.secretFileKinds);
+        keep = new Set(stored.keys);
         updates.demo_url = `/api/preview/${userId}/${projectId}/${entryPath}`;
         // runnable 앵커(소스 zip)는 미리보기 화면이 없다 — 인라인 경로와 동일하게
-        // thum.io 썸네일을 만들지 않는다(소스 원문 스크린샷 방지).
-        if (!runnable) {
+        // thum.io 썸네일을 만들지 않는다(소스 원문 스크린샷 방지). 교체 발행이면 제작자
+        // 스크린샷(_media/) 썸네일도 덮지 않는다(ingest upsert와 같은 규칙).
+        if (!runnable && !(row.thumbnail as string | null)?.includes("/_media/")) {
           updates.thumbnail = screenshotUrl(`${req.nextUrl.origin}${updates.demo_url}`);
         }
       }
@@ -123,9 +133,16 @@ export async function POST(req: NextRequest) {
       if (videoBuf) updates.type = "video";
       const { error: updErr } = await admin.from("projects").update(updates).eq("id", projectId);
       if (updErr) throw new UploadError(t.api.demoUrlSaveFailed);
+      // 파일 초안의 zip을 갈아끼웠으면 새 zip에 없는 옛 파일을 지운다(공개 버킷). 정리 실패는
+      // 발행 실패가 아니다 — 새 파일은 이미 연결됐으니 기록만 남긴다.
+      if (keep && (row.demo_url as string | null)?.startsWith("/api/preview/")) {
+        await removeStaleFiles(admin, userId, projectId, keep).catch((err) =>
+          logger.error("ingest finalize: stale file cleanup failed", { error: err, projectId }));
+      }
       await cleanupTemp();
     } catch (e) {
-      await admin.from("projects").delete().eq("id", projectId);
+      // 교체 표식이 있으면 이미 있던 초안이다 — 지우지 않고 이전 상태를 남긴다.
+      if (!replacing) await admin.from("projects").delete().eq("id", projectId);
       await cleanupTemp();
       if (e instanceof UploadError) return await uploadErrorResponse(e, t, userId);
       logger.error("ingest finalize: processing failed", { error: e, projectId });

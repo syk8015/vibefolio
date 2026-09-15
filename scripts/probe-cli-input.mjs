@@ -39,6 +39,7 @@ const server = createServer((req, res) => {
         : null;
       return send({
         ok: true, projectId: "p-1", reviewUrl, accepted: { title: body?.title },
+        ...(body?.draftId ? { upserted: true } : {}),
         ...(uploads ? { uploads, finalizeUrl: `${origin}/api/ingest/finalize` } : {}),
       });
     }
@@ -164,6 +165,14 @@ try {
   await reject("(8e) --json 뒤에 값이 없음", ["publish", "--json"], /--json needs a value/);
   await reject("(8f) 빈 표준입력", ["publish", "--json", "-"], /standard input is empty/, { input: "" });
   await reject("(8g) --dir 뒤에 경로가 없음", ["publish", "--file", f1, "--dir"], /--dir needs a path/);
+  await reject("(8h) --id 뒤에 값이 없음", ["publish", "--file", f1, "--id"], /--id needs a draft id/);
+
+  // (11) --id → payload.draftId, 결과에 초안 id와 다음 수정 방법
+  reset();
+  r = await run(["publish", "--file", f1, "--id", "d-42"]);
+  ok("(11) publish --id: draftId로 보내고, 초안 id와 다음 수정 방법을 알려준다",
+    r.code === 0 && lastIngest()?.body?.draftId === "d-42" && /Updated draft p-1/.test(r.out) && /publish --id p-1/.test(r.out),
+    r.err || r.out);
 
   // (9) rerecord · drafts update도 같은 규칙
   reset();

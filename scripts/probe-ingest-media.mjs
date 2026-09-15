@@ -125,7 +125,9 @@ try {
   }
 
   // (4) 불량 영상(가짜 바이트) → finalize 400 BAD_MEDIA + 행 삭제.
-  const d = await (await jsonPost("/api/ingest", { title: "__probe_badfinal__", targetDevice: "desktop", description: "프로브가 만든 임시 행\n곧 지워집니다", deployUrl: "https://example.com", uploads: ["video"] })).json();
+  // 고유 URL — (2)와 같은 URL이면 upsert(이미 있던 초안)라 교체 표식 때문에 행이 남는다(09-15 draftId).
+  // 여기서 보려는 건 "이번 발행이 새로 만든 행"의 고아 정리다.
+  const d = await (await jsonPost("/api/ingest", { title: "__probe_badfinal__", targetDevice: "desktop", description: "프로브가 만든 임시 행\n곧 지워집니다", deployUrl: `https://example.com/probe-badfinal-${Date.now()}`, uploads: ["video"] })).json();
   await fetch(d.uploads.video, { method: "PUT", headers: { "Content-Type": "application/octet-stream" }, body: new TextEncoder().encode("definitely not a video") });
   const fin = await jsonPost("/api/ingest/finalize", { projectId: d.projectId });
   const finBody = await fin.json().catch(() => ({}));

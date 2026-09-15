@@ -694,3 +694,13 @@ SNS/검색 로봇은 JS를 안 돌려 OG·크롤러 노출 문구(루트 descrip
 | projects.reviewEmbedBlocked | 이 사이트는 다른 화면 안에 넣는 걸 막아 뒀어요 — 여기선 못 보여줘요. 위 [작품 열기]로 새 탭에서 확인하세요. 시연 영상은 진짜 브라우저로 찍으니 촬영에는 아무 영향 없어요. | This site refuses to be shown inside another page, so we can't render it here. Use [Open work] above to see it in a new tab. The demo film is shot in a real browser, so recording is unaffected. | ⚠️ 촬영에는 영향 없다는 안심 문구가 핵심 |
 | projects.reviewEmbedUnreachable | 지금 이 주소에 연결하지 못했어요. 주소가 맞는지, 사이트가 살아 있는지 확인해 주세요. | Couldn't reach this URL right now. Check that the address is right and the site is up. | |
 | rerecord.currentScriptHint | 지금 영상은 아래 대본대로 찍혔어요. 몇 번째 스텝이 마음에 안 드는지 같이 적어 주면 훨씬 정확해져요. | This film was shot from the script below. Pointing at the step you didn't like makes the fix far more precise. | 재촬영 요청 화면에 현재 대본을 같이 보여주면서 |
+
+## draftId 교체 발행 (2026-09-15)
+
+인제스트가 URL 대신 초안 id(`draftId`)로도 갱신할 초안을 찾게 되면서 바뀐 서버 응답 문구. PAT 경로는 영어판만 읽힌다.
+
+| 키 | 한국어 | English | 비고 |
+|---|---|---|---|
+| api.draftIdNotDraft | 이미 공개된 프로젝트예요 — draftId로는 초안만 갱신할 수 있어요. 공개된 작품의 영상을 바꾸려면 rerecord로 새 대본을 내세요. | That project is already published — draftId only updates drafts. To change a published work's demo video, submit a new script with rerecord. | 신규 · 409 NOT_DRAFT |
+| api.draftUrlImmutable | URL이나 파일 교체는 payload에 "draftId": "<이 초안 id>"를 넣고 publish를 다시 실행하세요 — 그 초안이 그대로 갱신돼요(같은 URL로 다시 올려도 갱신돼요). | To change the URL or files, run publish again with "draftId": "<this draft's id>" in the payload — that draft is updated in place (publishing the same URL again also updates it). | 교체 · 파일 업로드 초안에는 "같은 URL" 안내가 틀렸다 |
+| api.scriptReview.fewSteps | 대본이 {n}스텝이에요 — …더 넣고 다시 publish하면(같은 URL, 또는 draftId에 이 초안 id) 이 초안이 갱신돼요. | The script has {n} steps — …and publish again — with the same URL, or this draft's id as draftId — to update the draft in place. | 교체 · 끝 문장만 |

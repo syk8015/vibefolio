@@ -4,7 +4,7 @@ import { formatAccepted } from "./echo.js";
 import { listDrafts, updateDraft, deleteDraft } from "./drafts.js";
 import { submitRerecord, formatRerecord } from "./rerecord.js";
 import {
-  AI_TOOL_IDS, CONTENT_TYPES, TARGET_DEVICE_SCHEMA, DEMO_SCRIPT_SCHEMA,
+  AI_TOOL_IDS, CONTENT_TYPES, TARGET_DEVICE_SCHEMA, DEMO_SCRIPT_SCHEMA, DEMO_ACCESS_PROPERTIES,
   PUBLISH_DESCRIPTION, PUBLISH_INPUT_SCHEMA,
 } from "./schema.js";
 
@@ -48,7 +48,7 @@ export async function runMcp() {
     {
       name: "update_nookframe_draft",
       description:
-        "Edit a Nookframe draft's metadata (title/description/builderNote/demoHighlights/demoScript/tags/contentType/targetDevice/demoAccess). Only the fields you send change. This tool cannot swap the URL or the files — call publish_to_nookframe again with the same URL and that draft is updated. Published projects cannot be edited.",
+        "Edit a Nookframe draft's metadata (title/description/builderNote/demoHighlights/demoScript/tags/contentType/targetDevice/demoAccess). Only the fields you send change. This tool cannot swap the URL or the files — call publish_to_nookframe with draftId set to this draft's id (publishing the same URL again also works). Published projects cannot be edited.",
       inputSchema: {
         type: "object",
         properties: {
@@ -64,15 +64,7 @@ export async function runMcp() {
             enum: CONTENT_TYPES,
           },
           targetDevice: TARGET_DEVICE_SCHEMA,
-          demoAccess: {
-            type: "object",
-            properties: {
-              url: { type: "string" },
-              params: { type: "object", additionalProperties: { type: "string" } },
-              note: { type: "string" },
-              impossible: { type: "boolean" },
-            },
-          },
+          demoAccess: { type: "object", properties: DEMO_ACCESS_PROPERTIES },
         },
         required: ["id"],
       },
@@ -124,12 +116,13 @@ export async function runMcp() {
             videoPath: video || null,
             ...conn,
           });
-          const verb = body.upserted ? "Updated the existing draft" : "Uploaded as a draft";
+          const verb = payload.draftId ? "Updated the draft" : body.upserted ? "Updated the existing draft" : "Uploaded as a draft";
           // 저장 에코를 툴 결과에 실어야 호출한 AI가 자기 payload가 어디까지
           // 살아남았는지(태그 철자·분류·500자 절단) 스스로 확인하고 고칠 수 있다.
+          // 초안 id도 싣는다 — 다음 수정에 draftId로 넘겨야 파일 업로드 초안이 중복되지 않는다.
           const echo = formatAccepted(body.accepted);
           return { content: [{ type: "text", text:
-            `${verb} on Nookframe. Review and publish: ${body.reviewUrl}${echo.length ? `\n${echo.join("\n")}` : ""}` }] };
+            `${verb} on Nookframe (draft id: ${body.projectId} — pass it as draftId to update this draft). Review and publish: ${body.reviewUrl}${echo.length ? `\n${echo.join("\n")}` : ""}` }] };
         }
         case "list_nookframe_drafts": {
           const { drafts } = await listDrafts(conn);

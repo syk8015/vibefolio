@@ -24,6 +24,11 @@ type AdminClient = {
         opts?: { upsert?: boolean; contentType?: string },
       ): Promise<{ error: { message: string } | null }>;
       getPublicUrl(path: string): { data: { publicUrl: string } };
+      list(
+        path: string,
+        opts?: { limit?: number; offset?: number },
+      ): Promise<{ data: { name: string; id: string | null }[] | null; error: { message: string } | null }>;
+      remove(paths: string[]): Promise<{ error: { message: string } | null }>;
     };
   };
 };
@@ -42,6 +47,22 @@ export const UPLOAD_TEMP_KEYS: Record<UploadKind, (uid: string, pid: string) => 
   screenshot: (uid, pid) => `${uid}/${pid}/_upload/screenshot.bin`,
   video: (uid, pid) => `${uid}/${pid}/_upload/video.bin`,
 };
+
+// 교체 표식(2026-09-15) — 2단계 업로드가 "이미 있던 초안"(같은 URL 재발행·draftId)에
+// 올리는 것이면 1단계(/api/ingest)가 이 키에 남긴다. finalize는 행이 이번 요청에서 새로
+// 생긴 건지 알 수 없어서, 표식이 있으면 검증이 실패해도 행을 지우지 않는다(인라인 경로의
+// !upserted와 같은 규칙). 서명 URL을 발급하지 않는 키라 PAT 호출자는 이 파일을 못 만든다.
+const REPLACE_MARKER_NAME = "replace.marker";
+export const UPLOAD_REPLACE_MARKER = (uid: string, pid: string) => `${uid}/${pid}/_upload/${REPLACE_MARKER_NAME}`;
+
+// 표식 확인은 download가 아니라 목록 조회로 한다. 지운 임시 오브젝트가 스토리지 CDN
+// 캐시에서 잠깐 더 읽히는 걸 실측했다(2026-08-14) — 반대로 막 만든 표식 자리에서 옛
+// "없음"이 읽히면 이미 있던 초안을 지우게 되므로, 캐시를 타지 않는 list로 판정한다.
+export async function hasReplaceMarker(admin: AdminClient, uid: string, pid: string): Promise<boolean> {
+  const { data, error } = await admin.storage.from("project-files").list(`${uid}/${pid}/_upload`, { limit: 100 });
+  if (error) throw new Error(`storage list failed: ${error.message}`);
+  return (data ?? []).some((f) => f.name === REPLACE_MARKER_NAME);
+}
 
 // 캡 + 매직바이트 판정(네트워크 없음). 행 생성 전에 불러 실패를 조기 확정한다.
 // 저장 확장자·MIME은 여기 결과만 쓴다(자칭 Content-Type·파일명 불신).
@@ -102,12 +123,13 @@ export async function uploadMedia(
 // 앵커 파일의 상대경로를 돌려준다. 앵커=index.html(정적 사이트) 또는, 그게
 // 없으면 실행 가능한 코드의 표식(package.json / *.py — E2B 빌드 모드로 촬영,
 // 2026-08-20 zip 입구 완화). 최종 demo_url/thumbnail 세팅은 호출부 몫.
+// keys = 올린 오브젝트 키 전부 — 교체 발행에서 옛 파일 정리(removeStaleFiles)가 남길 목록.
 export async function storeZipBundle(
   admin: AdminClient,
   userId: string,
   projectId: string,
   buf: ArrayBuffer,
-): Promise<{ entryPath: string; runnable: boolean; dropped: DroppedFile[] }> {
+): Promise<{ entryPath: string; runnable: boolean; dropped: DroppedFile[]; keys: string[] }> {
   if (buf.byteLength > MAX_UPLOAD_BYTES) {
     throw new UploadError("업로드가 너무 커요.", "too-large");
   }
@@ -130,8 +152,11 @@ export async function storeZipBundle(
   // %2e%2e·raw CR/LF 등을 `..`로 정규화한다. 문자열 startsWith만으로는
   // prefix 이탈을 못 막으므로(서비스롤=스토리지 RLS 우회), 실제로 전송될 URL을
   // 파싱한 뒤 정규화된 pathname이 소유자 prefix 안인지 assert한다.
+  // 경로 검사를 전부 끝낸 뒤에 올린다 — 이미 있던 초안의 파일을 갈아끼울 때(draftId)
+  // 중간에 걸려 옛 파일과 새 파일이 섞인 채 남지 않게.
   const storageKeyBase = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/project-files/`;
   const requiredPathPrefix = new URL(`${storageKeyBase}${prefix}`).pathname;
+  const keys: string[] = [];
   for (const e of entries) {
     const storagePath = `${prefix}${e.relativePath}`;
     let normalizedPath: string;
@@ -147,14 +172,53 @@ export async function storeZipBundle(
     ) {
       throw new UploadError("잘못된 파일 경로가 감지됐어요.", "bad-file-path");
     }
+    keys.push(storagePath);
+  }
+  for (let i = 0; i < entries.length; i++) {
     const { error: upErr } = await admin.storage
       .from("project-files")
-      .upload(storagePath, e.data, { upsert: true, contentType: e.contentType });
+      .upload(keys[i], entries[i].data, { upsert: true, contentType: entries[i].contentType });
     if (upErr) throw new UploadError(`파일 업로드 실패: ${upErr.message}`, "upload-failed");
   }
   return {
     entryPath: anchor.path,
     runnable: anchor.kind === "runnable",
     dropped, // 언어별 라벨은 라우트가 사전으로 붙인다(PAT 응답은 영어 고정).
+    keys,
   };
+}
+
+// 아티팩트를 갈아끼운 초안에서 새 아티팩트에 없는 옛 파일을 지운다(draftId 교체 발행,
+// 2026-09-15). project-files는 공개 버킷이라, 남겨두면 새 zip에서 뺀 파일(또는 URL로
+// 바꾼 초안의 옛 zip 전체)이 옛 주소로 계속 서빙된다. _media(제작자 미디어)·_upload
+// (진행 중 임시)는 건드리지 않는다. list는 한 겹·한 페이지씩만 보므로 폴더 BFS + 페이지 반복.
+const LIST_PAGE = 1000;
+export async function removeStaleFiles(
+  admin: AdminClient,
+  userId: string,
+  projectId: string,
+  keep: ReadonlySet<string>,
+): Promise<number> {
+  const root = `${userId}/${projectId}`;
+  const stale: string[] = [];
+  const queue = [root];
+  while (queue.length) {
+    const dir = queue.shift()!;
+    for (let offset = 0; ; offset += LIST_PAGE) {
+      const { data, error } = await admin.storage.from("project-files").list(dir, { limit: LIST_PAGE, offset });
+      if (error) throw new Error(`storage list failed: ${error.message}`);
+      for (const entry of data ?? []) {
+        if (dir === root && (entry.name === "_media" || entry.name === "_upload")) continue;
+        const full = `${dir}/${entry.name}`;
+        if (entry.id === null) queue.push(full);
+        else if (!keep.has(full)) stale.push(full);
+      }
+      if (!data || data.length < LIST_PAGE) break;
+    }
+  }
+  for (let i = 0; i < stale.length; i += 100) {
+    const { error } = await admin.storage.from("project-files").remove(stale.slice(i, i + 100));
+    if (error) throw new Error(`storage remove failed: ${error.message}`);
+  }
+  return stale.length;
 }

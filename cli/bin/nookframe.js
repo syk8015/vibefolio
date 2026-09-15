@@ -10,7 +10,9 @@ Commands:
     --json -           Payload JSON from standard input (e.g. a heredoc: --json - <<'EOF' ... EOF)
     --json '<payload>' Payload JSON inline (shell quoting breaks on ' and newlines — prefer --file)
                         Fields and rules: nookframe schema. The flags below override the same fields in the JSON
-    --url <url>        Deployed public URL (falls back to auto-detecting dist/out/build/public)
+    --id <draft id>    Update that draft in place instead of matching by URL — the way to replace a file
+                        upload (--dir) or change the URL without leaving a duplicate draft
+    --url <url>       Deployed public URL (falls back to auto-detecting dist/out/build/public)
                         If it needs a server/DB and --dir won't do, a public GitHub repo URL also works
                         (last resort: JS/Python web apps are run automatically, CLI/bots are filmed in a live terminal)
     --app-url <url>    URL of the actual app screen (when it differs from the landing page — the demo films this one)
@@ -36,9 +38,9 @@ Commands:
     --json -           Same JSON from standard input
     --json '<json>'    Same JSON inline
     --note <text>      One line on what changed and why
-  drafts             List your drafts (running publish again with the same URL updates the existing draft)
+  drafts             List your drafts (publish --id <id>, or publishing the same URL again, updates a draft)
     update <id>        Edit draft metadata (--title/--description/--note/--hint, or JSON via --file/--json —
-                        to swap the URL or files, run publish again)
+                        to swap the URL or files, run publish --id <id>)
     delete <id>        Delete a draft (published projects cannot be deleted with this command)
   login <token>      Save a token to ~/.nookframe/config.json
   mcp                Run the MCP stdio server (for Claude Desktop, Cursor, etc.)

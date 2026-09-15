@@ -5,7 +5,7 @@ import { readJsonObject } from "./jsonInput.js";
 
 // CLI와 MCP가 공유하는 초안 관리 코어(요청4). 서버가 is_draft=true 행만 다루게
 // 강제하므로 여기서 지울 수 있는 건 "아직 공개 안 한 초안"뿐이다. URL·파일 교체는
-// update로 안 되고, 같은 URL로 publish를 다시 실행하면 초안이 갱신된다(upsert).
+// update로 안 되고, publish --id <id>(또는 같은 URL)로 다시 실행하면 그 초안이 갱신된다(upsert).
 
 export function listDrafts({ token, origin }) {
   return api("GET", "/api/ingest/drafts", { token, origin });

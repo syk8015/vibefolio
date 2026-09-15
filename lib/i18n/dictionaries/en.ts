@@ -678,7 +678,7 @@ export const en: Dictionary = {
       `Only ${solid} of the ${total} demoScript steps can actually be filmed. Every step needs BOTH what to do (action: click|type|drag|scroll|hover|draw|focus) and where to do it (selector — you built this app, so give the exact CSS selector; if you only know the UI, put how to find it by eye in where). A step with just a goal is a table of contents, not a script: the robot falls back to guessing from pixels, which is the most common way a demo comes out broken. At least 3 steps must meet this bar.`,
     scriptReview: {
       fewSteps: (n: number) =>
-        `The script has ${n} steps — 6–8 fill the 30-second film best. Add this app's core features in order of importance and publish again with the same URL: the draft gets updated in place.`,
+        `The script has ${n} steps — 6–8 fill the 30-second film best. Add this app's core features in order of importance and publish again — with the same URL, or this draft's id as draftId — to update the draft in place.`,
       lowInteraction: (n: number, total: number) =>
         `Only ${n} of ${total} steps actually interact (click/type/drag) — a film of focus/hover/scroll alone looks like a slideshow. Add at least 2 steps that press a core feature and change what's on screen.`,
       unwired: (n: number, total: number) =>
@@ -712,8 +712,9 @@ export const en: Dictionary = {
     mediaUploadFailed: "Media upload failed. Please try again in a moment.",
     finalizeNothing: "No uploaded files found. PUT your files to the issued URLs first, then call finalize.",
     finalizeNotDraft: "A published project can't be modified through this path.",
+    draftIdNotDraft: "That project is already published — draftId only updates drafts. To change a published work's demo video, submit a new script with rerecord.",
     draftNoFields: "No fields to update.",
-    draftUrlImmutable: "To change the URL or files, run publish again — pushing the same URL updates the existing draft.",
+    draftUrlImmutable: "To change the URL or files, run publish again with \"draftId\": \"<this draft's id>\" in the payload — that draft is updated in place (publishing the same URL again also updates it).",
     projectCreateFailed: "Couldn't create the project.",
     indexHtmlMissing: "This bundle has no web page (index.html) and no runnable code (package.json / *.py). Include index.html for a static site, or the source files for a Python/CLI project.",
     nativePlatforms: { ios: "iOS (Swift/Xcode)", android: "Android (Kotlin/Gradle)", unity: "Unity" } as Record<string, string>,

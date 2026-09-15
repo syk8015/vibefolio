@@ -63,34 +63,37 @@ export const DEMO_SCRIPT_SCHEMA = {
 };
 
 // 로그인 질문 답(데모 진입) — 서버 게이트가 url·noLogin·impossible 중 하나를 요구한다.
+// 필드는 publish와 update_nookframe_draft가 같이 쓴다(update 쪽 사본엔 noLogin이 빠져 있었다).
+export const DEMO_ACCESS_PROPERTIES = {
+  url: { type: "string", description: "Demo/guest entry URL or path (e.g. \"/demo\")" },
+  params: {
+    type: "object",
+    additionalProperties: { type: "string" },
+    description: "Extra query parameters to append to the entry URL (e.g. {\"guest\":\"1\"})",
+  },
+  note: { type: "string", description: "One or two sentences on how to reach demo mode there (max 500 chars). If impossible, why it is impossible" },
+  impossible: {
+    type: "boolean",
+    description:
+      "Declares that a guest path is fundamentally impossible (E2E encryption, mandatory device pairing, etc.). If true, automatic filming captures only the landing page and says so in the report — attaching a video is recommended.",
+  },
+  noLogin: {
+    type: "boolean",
+    description:
+      "Declares that no login is needed at all and every feature is usable from the first screen. Do not set it just because the landing page looks fine — only after checking the actual routes and guards.",
+  },
+};
+
 export const DEMO_ACCESS_SCHEMA = {
   type: "object",
   description:
     "Required. The filming robot never logs in — judge not 'does a screen appear' but 'what actually works before login', and answer with exactly one of url, noLogin or impossible. The most common failure is an app that looks fine when logged out but has empty lists and bounces saves to a login screen (a screen did appear, so it is not even caught as a failure). Without one of the three the server rejects with 400. Never include account credentials (they are not accepted).",
-  properties: {
-    url: { type: "string", description: "Demo/guest entry URL or path (e.g. \"/demo\")" },
-    params: {
-      type: "object",
-      additionalProperties: { type: "string" },
-      description: "Extra query parameters to append to the entry URL (e.g. {\"guest\":\"1\"})",
-    },
-    note: { type: "string", description: "One or two sentences on how to reach demo mode there (max 500 chars). If impossible, why it is impossible" },
-    impossible: {
-      type: "boolean",
-      description:
-        "Declares that a guest path is fundamentally impossible (E2E encryption, mandatory device pairing, etc.). If true, automatic filming captures only the landing page and says so in the report — attaching a video is recommended.",
-    },
-    noLogin: {
-      type: "boolean",
-      description:
-        "Declares that no login is needed at all and every feature is usable from the first screen. Do not set it just because the landing page looks fine — only after checking the actual routes and guards.",
-    },
-  },
+  properties: DEMO_ACCESS_PROPERTIES,
 };
 
 // publish_to_nookframe 툴 설명 = `nookframe schema` 문서의 description.
 export const PUBLISH_DESCRIPTION =
-  "Upload this project to Nookframe (a portfolio for vibe-coded work) as a draft. You are the AI that built it, so write title/description/demoScript yourself from the repo (README, routes, git log) and pass them in. The description must NOT be one paragraph: it is 2-3 lines separated by newlines (\\n) — it is the first-impression copy laid over the work on the card, and a long line wraps and gets cut off on phones (a single paragraph, or any line over 52 columns where a CJK character counts as 2, is rejected). Give either deployUrl (a deployed public URL) or dir (absolute path to a local folder — static build output for web apps, the source folder itself for Python/CLI projects). If it is not deployed and needs a server or DB so dir will not do, you may pass a public GitHub repo URL as deployUrl instead (a last resort: the repo is cloned and run — JS repos via npm run dev/start, Python web apps by detecting Streamlit/Gradio/Dash/Django/Flask/FastAPI then pip install + run (Django also gets migrate run for it), and projects with no web screen (CLI tools, bots, backends) are filmed as a live terminal session where the robot types the commands (put the exact commands in demoScript and it gets much better). Private repos fail; apps needing a remote DB get a read-only demo). If the landing page and the actual app screen are different URLs, also pass appUrl (the demo and the embed open appUrl). demoAccess is REQUIRED — the filming robot never logs in, so decide 'what actually works before login' and answer with exactly one of: { url, params, note } if there is a way in without login; { noLogin: true, note: \"one line on what you checked\" } if no login is needed at all and every feature is usable from the first screen (noLogin without note is rejected); { impossible: true, note: \"why\" } if a guest path is fundamentally impossible (E2E encryption, mandatory device pairing). In that last case only the landing page gets filmed, so attaching a video is strongly recommended. Without one of the three the server rejects with 400. Account credentials are not accepted. The film and card are public, so screens the robot opens must show fake or sample data, never real people's records; if the app needs a demo mode to be filmable, ask the human before changing their code or deploying. targetDevice is REQUIRED too: \"mobile\" if the app was designed mainly for phone screens, \"desktop\" if for computer browsers (not the same as contentType) — the owner's draft preview is framed from it, while the robot always films a 1280x720 desktop browser. If you have your own screenshot or demo video, pass absolute paths in screenshot/video (supplying a video skips automatic filming). Order demoScript.steps by importance — step 1 is the feature that absolutely cannot be missing. Uploading the same URL again does not create a new draft, it updates the existing one (use this to edit content). When you report back, tell the human it is a DRAFT: nothing is public until they open the review link and press publish.";
+  "Upload this project to Nookframe (a portfolio for vibe-coded work) as a draft. You are the AI that built it, so write title/description/demoScript yourself from the repo (README, routes, git log) and pass them in. The description must NOT be one paragraph: it is 2-3 lines separated by newlines (\\n) — it is the first-impression copy laid over the work on the card, and a long line wraps and gets cut off on phones (a single paragraph, or any line over 52 columns where a CJK character counts as 2, is rejected). Give either deployUrl (a deployed public URL) or dir (absolute path to a local folder — static build output for web apps, the source folder itself for Python/CLI projects). If it is not deployed and needs a server or DB so dir will not do, you may pass a public GitHub repo URL as deployUrl instead (a last resort: the repo is cloned and run — JS repos via npm run dev/start, Python web apps by detecting Streamlit/Gradio/Dash/Django/Flask/FastAPI then pip install + run (Django also gets migrate run for it), and projects with no web screen (CLI tools, bots, backends) are filmed as a live terminal session where the robot types the commands (put the exact commands in demoScript and it gets much better). Private repos fail; apps needing a remote DB get a read-only demo). If the landing page and the actual app screen are different URLs, also pass appUrl (the demo and the embed open appUrl). demoAccess is REQUIRED — the filming robot never logs in, so decide 'what actually works before login' and answer with exactly one of: { url, params, note } if there is a way in without login; { noLogin: true, note: \"one line on what you checked\" } if no login is needed at all and every feature is usable from the first screen (noLogin without note is rejected); { impossible: true, note: \"why\" } if a guest path is fundamentally impossible (E2E encryption, mandatory device pairing). In that last case only the landing page gets filmed, so attaching a video is strongly recommended. Without one of the three the server rejects with 400. Account credentials are not accepted. The film and card are public, so screens the robot opens must show fake or sample data, never real people's records; if the app needs a demo mode to be filmable, ask the human before changing their code or deploying. targetDevice is REQUIRED too: \"mobile\" if the app was designed mainly for phone screens, \"desktop\" if for computer browsers (not the same as contentType) — the owner's draft preview is framed from it, while the robot always films a 1280x720 desktop browser. If you have your own screenshot or demo video, pass absolute paths in screenshot/video (supplying a video skips automatic filming). Order demoScript.steps by importance — step 1 is the feature that absolutely cannot be missing. Uploading the same URL again does not create a new draft, it updates the existing one (use this to edit content); a file upload (dir) has no URL to match, so to replace its files — or to change the URL — pass draftId, the draft id from the publish result. When you report back, tell the human it is a DRAFT: nothing is public until they open the review link and press publish.";
 
 export const PUBLISH_INPUT_SCHEMA = {
   type: "object",
@@ -112,6 +115,10 @@ export const PUBLISH_INPUT_SCHEMA = {
     targetDevice: TARGET_DEVICE_SCHEMA,
     deployUrl: { type: "string", description: "Deployed public URL" },
     appUrl: { type: "string", description: "URL of the actual app screen (when it differs from the landing page — the demo and the embed open this one)" },
+    draftId: {
+      type: "string",
+      description: "(optional) Id of one of your drafts to update in place — it is in every publish result and in list_nookframe_drafts. Without it a draft is matched by URL, so re-uploading a folder (dir) or changing the URL leaves a second draft behind; with it, that draft's fields and its files or URL are replaced. Published projects are refused.",
+    },
     demoAccess: DEMO_ACCESS_SCHEMA,
     // 로컬 경로 셋은 서버로 가지 않는다 — MCP 핸들러와 CLI publish가 꺼내서 파일로 올린다.
     dir: { type: "string", description: "Absolute path of the local directory to upload (when there is no deployUrl — static build output, or a Python/CLI source folder)" },
