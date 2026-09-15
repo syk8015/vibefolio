@@ -95,8 +95,10 @@
     실제로 통과한다** — 그보다 큰 파일은 아래 2단계로.
 - **서명 URL 2단계 (대용량 zip ≤25MB · 영상 ≤20MB의 정규 경로)**:
   1. `POST /api/ingest` JSON에 `uploads: ["bundle"|"screenshot"|"video", …]`를 선언 →
-     응답에 `{ projectId, uploads: {kind: signedUrl}, finalizeUrl }` (서명 URL은 서버 고정 키
-     `{uid}/{rowId}/_upload/…` 전용, 클라 입력이 키에 안 섞임. bundle 선언 시 URL 없이도 아티팩트 인정)
+     응답에 `{ projectId, uploads: {kind: signedUrl}, finalizeUrl }` (서명 URL은 서버가 만든 키
+     `{uid}/{rowId}/_upload/<session>/…` 전용, 클라 입력이 키에 안 섞임. 세션 폴더는 업로드마다 새로 만든다 —
+     고정 키를 다시 쓰면 같은 초안에 다시 올릴 때 CDN 캐시의 옛 임시 파일이 새 파일 대신 읽혔다(09-15 prod
+     실측). finalize는 가장 새 세션을 목록 조회(캐시 안 탐)로 찾는다. bundle 선언 시 URL 없이도 아티팩트 인정)
   2. 각 파일을 signedUrl로 **PUT** (스토리지 직행 — Vercel 상한 우회)
   3. `POST /api/ingest/finalize` `{ projectId }` → 임시 오브젝트를 내려받아 **인라인과 동일 검증**
      (zip 안전 일습·미디어 매직바이트, 공유 코어=`lib/ingestStore.ts`) 후 demo_url·thumbnail·video_url

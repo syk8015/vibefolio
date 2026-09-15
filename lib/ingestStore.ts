@@ -38,15 +38,26 @@ export type SniffedMedia = {
   videoType: { ext: string; mime: string } | null;
 };
 
-// 서명 URL 2단계에서 선언 가능한 업로드 종류와 임시 오브젝트 키. finalize는 이
-// 고정 키만 읽는다 — 클라 입력이 키에 섞이지 않아 traversal 여지가 없다.
+// 서명 URL 2단계에서 선언 가능한 업로드 종류와 임시 오브젝트 키. finalize는 서버가
+// 만든 키만 읽는다 — 클라 입력이 키에 섞이지 않아 traversal 여지가 없다.
+// 키는 업로드마다 새 세션 폴더 `_upload/<session>/` 아래에 둔다(2026-09-15). 같은 초안에
+// 다시 올릴 때(draftId·같은 URL 재발행) 고정 키를 다시 쓰면, 방금 지운 옛 임시 파일이
+// 스토리지 CDN 캐시에서 읽혀 새 파일 대신 처리됐다(prod 프로브: 새 zip 자리에 옛 zip이
+// 저장됨). 한 번도 요청된 적 없는 경로에는 캐시가 없다.
 export const UPLOAD_KINDS = ["bundle", "screenshot", "video"] as const;
 export type UploadKind = (typeof UPLOAD_KINDS)[number];
-export const UPLOAD_TEMP_KEYS: Record<UploadKind, (uid: string, pid: string) => string> = {
-  bundle: (uid, pid) => `${uid}/${pid}/_upload/bundle.zip`,
-  screenshot: (uid, pid) => `${uid}/${pid}/_upload/screenshot.bin`,
-  video: (uid, pid) => `${uid}/${pid}/_upload/video.bin`,
+export const UPLOAD_TEMP_KEYS: Record<UploadKind, (uid: string, pid: string, session: string) => string> = {
+  bundle: (uid, pid, s) => `${uid}/${pid}/_upload/${s}/bundle.zip`,
+  screenshot: (uid, pid, s) => `${uid}/${pid}/_upload/${s}/screenshot.bin`,
+  video: (uid, pid, s) => `${uid}/${pid}/_upload/${s}/video.bin`,
 };
+
+// 세션 이름 = 시각(base36 8자) + 난수 12자. 이름순이 곧 시간순이라, 버려진 옛 세션이
+// 남아 있어도 finalize가 목록에서 가장 새 세션을 고른다.
+const UPLOAD_SESSION_RE = /^[0-9a-z]{8}-[0-9a-f]{12}$/;
+export function newUploadSession(): string {
+  return `${Date.now().toString(36).padStart(8, "0")}-${crypto.randomUUID().replace(/-/g, "").slice(0, 12)}`;
+}
 
 // 교체 표식(2026-09-15) — 2단계 업로드가 "이미 있던 초안"(같은 URL 재발행·draftId)에
 // 올리는 것이면 1단계(/api/ingest)가 이 키에 남긴다. finalize는 행이 이번 요청에서 새로
@@ -55,13 +66,24 @@ export const UPLOAD_TEMP_KEYS: Record<UploadKind, (uid: string, pid: string) => 
 const REPLACE_MARKER_NAME = "replace.marker";
 export const UPLOAD_REPLACE_MARKER = (uid: string, pid: string) => `${uid}/${pid}/_upload/${REPLACE_MARKER_NAME}`;
 
-// 표식 확인은 download가 아니라 목록 조회로 한다. 지운 임시 오브젝트가 스토리지 CDN
-// 캐시에서 잠깐 더 읽히는 걸 실측했다(2026-08-14) — 반대로 막 만든 표식 자리에서 옛
-// "없음"이 읽히면 이미 있던 초안을 지우게 되므로, 캐시를 타지 않는 list로 판정한다.
-export async function hasReplaceMarker(admin: AdminClient, uid: string, pid: string): Promise<boolean> {
-  const { data, error } = await admin.storage.from("project-files").list(`${uid}/${pid}/_upload`, { limit: 100 });
+// finalize가 볼 업로드 상태 — 가장 새 세션과 교체 표식. 둘 다 download가 아니라 목록
+// 조회로 본다: 목록은 CDN 캐시를 타지 않는다(위 세션 폴더와 같은 이유).
+export async function inspectUploads(
+  admin: AdminClient,
+  uid: string,
+  pid: string,
+): Promise<{ session: string | null; replacing: boolean }> {
+  const { data, error } = await admin.storage.from("project-files").list(`${uid}/${pid}/_upload`, { limit: 1000 });
   if (error) throw new Error(`storage list failed: ${error.message}`);
-  return (data ?? []).some((f) => f.name === REPLACE_MARKER_NAME);
+  const entries = data ?? [];
+  const sessions = entries
+    .filter((e) => e.id === null && UPLOAD_SESSION_RE.test(e.name))
+    .map((e) => e.name)
+    .sort();
+  return {
+    session: sessions.length ? sessions[sessions.length - 1] : null,
+    replacing: entries.some((e) => e.id !== null && e.name === REPLACE_MARKER_NAME),
+  };
 }
 
 // 캡 + 매직바이트 판정(네트워크 없음). 행 생성 전에 불러 실패를 조기 확정한다.

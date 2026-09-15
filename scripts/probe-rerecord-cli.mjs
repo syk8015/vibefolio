@@ -97,9 +97,9 @@ if (insErr) {
 
 const S = mkdtempSync(join(tmpdir(), "nf-probe-rerec-"));
 const env = { ...process.env, NOOKFRAME_TOKEN: raw, NOOKFRAME_ORIGIN: ORIGIN };
-const runCli = (args) => {
+const runCli = (args, input) => {
   try {
-    return { code: 0, out: execFileSync("node", [CLI, ...args], { env, encoding: "utf8" }) };
+    return { code: 0, out: execFileSync("node", [CLI, ...args], { env, encoding: "utf8", ...(input !== undefined ? { input } : {}) }) };
   } catch (e) {
     return { code: e.status ?? 1, out: `${e.stdout ?? ""}${e.stderr ?? ""}` };
   }
@@ -157,7 +157,8 @@ try {
     "--json",
     JSON.stringify({ demoScript: script(4, "봉투"), note: "16초 클릭 제거" }),
   ]);
-  ok("(1) CLI 봉투 형태 성공", r1.code === 0 && /4스텝 대기/.test(r1.out), r1.out.trim().slice(0, 160));
+  // CLI·MCP 출력은 0.1.11부터 영어 — "✓ New demo script submitted — N steps, pending owner approval."
+  ok("(1) CLI 봉투 형태 성공", r1.code === 0 && /4 steps, pending/.test(r1.out), r1.out.trim().slice(0, 160));
   const p1 = await pending();
   ok("(1) pending 대본 4스텝", p1.pending_demo_script?.steps?.length === 4, JSON.stringify(p1.pending_demo_script)?.slice(0, 80));
   ok("(1) note 저장", p1.pending_script_note === "16초 클릭 제거", p1.pending_script_note);
@@ -166,7 +167,7 @@ try {
 
   // (2) 대본만 + --note
   const r2 = runCli(["rerecord", projectId, "--json", JSON.stringify(script(5, "생대본")), "--note", "스텝 5개로"]);
-  ok("(2) CLI 대본만 준 형태 성공", r2.code === 0 && /5스텝 대기/.test(r2.out), r2.out.trim().slice(0, 160));
+  ok("(2) CLI 대본만 준 형태 성공", r2.code === 0 && /5 steps, pending/.test(r2.out), r2.out.trim().slice(0, 160));
   const p2 = await pending();
   ok("(2) pending 5스텝 + note", p2.pending_demo_script?.steps?.length === 5 && p2.pending_script_note === "스텝 5개로");
   await clearPending();
@@ -175,7 +176,14 @@ try {
   const f = join(S, "shot.json");
   writeFileSync(f, JSON.stringify({ demoScript: script(4, "파일"), note: "파일 경로" }));
   const r3 = runCli(["rerecord", projectId, "--file", f]);
-  ok("(3) CLI --file 성공", r3.code === 0 && /4스텝 대기/.test(r3.out), r3.out.trim().slice(0, 160));
+  ok("(3) CLI --file 성공", r3.code === 0 && /4 steps, pending/.test(r3.out), r3.out.trim().slice(0, 160));
+  await clearPending();
+
+  // (3b) --json - (표준입력, 0.1.13) — 셸 인용 없이 heredoc·파이프로 넘기는 길
+  const r3b = runCli(["rerecord", projectId, "--json", "-"], JSON.stringify({ demoScript: script(5, "표준입력"), note: "stdin" }));
+  const p3b = await pending();
+  ok("(3b) CLI --json - 성공 · pending 5스텝", r3b.code === 0 && /5 steps, pending/.test(r3b.out) && p3b.pending_demo_script?.steps?.length === 5,
+    r3b.out.trim().slice(0, 160));
   await clearPending();
 
   // (4) MCP 실물 왕복
@@ -201,7 +209,7 @@ try {
     JSON.stringify(publishSchema?.properties?.targetDevice?.enum),
   );
   const callText = callRes?.result?.content?.[0]?.text ?? "";
-  ok("(4) tools/call 성공 + 대기 안내", /6스텝 대기/.test(callText) && !callRes?.result?.isError, callText.slice(0, 160));
+  ok("(4) tools/call 성공 + 대기 안내", /6 steps, pending/.test(callText) && !callRes?.result?.isError, callText.slice(0, 160));
   const p4 = await pending();
   ok("(4) MCP 제출이 pending에 도달", p4.pending_demo_script?.steps?.length === 6, JSON.stringify(p4.pending_demo_script)?.slice(0, 80));
   await clearPending();
@@ -216,7 +224,7 @@ try {
   ok("(5) 없는 프로젝트는 실패", foreign.code !== 0, foreign.out.trim().slice(0, 120));
 
   const noScript = runCli(["rerecord", projectId, "--json", JSON.stringify({ note: "대본 없음" })]);
-  ok("(5) 대본 없으면 클라가 먼저 거절", noScript.code !== 0 && /대본을 찾지 못했어요/.test(noScript.out), noScript.out.trim().slice(0, 120));
+  ok("(5) 대본 없으면 클라가 먼저 거절", noScript.code !== 0 && /No demo script found/.test(noScript.out), noScript.out.trim().slice(0, 120));
 } finally {
   await svc.from("projects").delete().eq("id", projectId);
   await svc.from("projects").delete().like("title", "__probe_rerec%");

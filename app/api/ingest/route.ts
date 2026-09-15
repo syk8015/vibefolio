@@ -24,7 +24,7 @@ import {
 } from "@/lib/upload-safety";
 import {
   validateMedia, uploadMedia, storeZipBundle, removeStaleFiles,
-  UPLOAD_KINDS, UPLOAD_TEMP_KEYS, UPLOAD_REPLACE_MARKER, type SniffedMedia, type UploadKind,
+  UPLOAD_KINDS, UPLOAD_TEMP_KEYS, UPLOAD_REPLACE_MARKER, newUploadSession, type SniffedMedia, type UploadKind,
 } from "@/lib/ingestStore";
 import { uploadErrorResponse } from "./uploadError";
 import { logger } from "@/lib/logger";
@@ -531,8 +531,8 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 8.7. 서명 URL 발급(2단계 선언분) — 스토리지 직행 PUT용. 키는 서버 고정
-    // (_upload/ 임시 폴더), 만료는 짧게. 검증·연결은 finalize가 한다.
+    // 8.7. 서명 URL 발급(2단계 선언분) — 스토리지 직행 PUT용. 키는 서버가 만든 이번 업로드
+    // 세션 폴더(_upload/<session>/, lib/ingestStore.ts), 만료는 짧게. 검증·연결은 finalize가 한다.
     let uploads: Partial<Record<UploadKind, string>> | undefined;
     if (declared.length) {
       uploads = {};
@@ -552,10 +552,11 @@ export async function POST(req: NextRequest) {
           });
         }
       }
+      const session = newUploadSession();
       for (const kind of declared) {
         const { data, error } = await admin.storage
           .from("project-files")
-          .createSignedUploadUrl(UPLOAD_TEMP_KEYS[kind](userId, projectId), { upsert: true });
+          .createSignedUploadUrl(UPLOAD_TEMP_KEYS[kind](userId, projectId, session), { upsert: true });
         if (error || !data) {
           if (!upserted) await admin.from("projects").delete().eq("id", projectId);
           return apiError({

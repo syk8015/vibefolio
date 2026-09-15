@@ -12,7 +12,7 @@ Commands:
                         Fields and rules: nookframe schema. The flags below override the same fields in the JSON
     --id <draft id>    Update that draft in place instead of matching by URL — the way to replace a file
                         upload (--dir) or change the URL without leaving a duplicate draft
-    --url <url>       Deployed public URL (falls back to auto-detecting dist/out/build/public)
+    --url <url>        Deployed public URL (falls back to auto-detecting dist/out/build/public)
                         If it needs a server/DB and --dir won't do, a public GitHub repo URL also works
                         (last resort: JS/Python web apps are run automatically, CLI/bots are filmed in a live terminal)
     --app-url <url>    URL of the actual app screen (when it differs from the landing page — the demo films this one)

@@ -6,7 +6,7 @@ import { ingestAuth, pickApiT } from "../shared";
 import { screenshotUrl } from "@/lib/thumbnail";
 import { MAX_UPLOAD_BYTES, UploadError, summarizeDropped } from "@/lib/upload-safety";
 import {
-  validateMedia, uploadMedia, storeZipBundle, removeStaleFiles, hasReplaceMarker,
+  validateMedia, uploadMedia, storeZipBundle, removeStaleFiles, inspectUploads,
   UPLOAD_TEMP_KEYS, UPLOAD_REPLACE_MARKER,
 } from "@/lib/ingestStore";
 import { uploadErrorResponse } from "../uploadError";
@@ -14,12 +14,12 @@ import { logger } from "@/lib/logger";
 
 // POST /api/ingest/finalize — 서명 URL 2단계의 마무리. /api/ingest가 uploads
 // 선언에 발급한 URL로 클라가 스토리지에 직접 PUT한 뒤(Vercel 본문 상한 ~4.5MB
-// 우회) 여기를 호출하면, 임시 `_upload/` 오브젝트를 내려받아 인라인 경로와
+// 우회) 여기를 호출하면, 임시 `_upload/<session>/` 오브젝트를 내려받아 인라인 경로와
 // 동일한 검증(zip 안전 일습·미디어 매직바이트, lib/ingestStore.ts 공유)을 거쳐
 // demo_url·thumbnail·video_url을 연결하고 임시 오브젝트를 지운다.
 //
-// 보안: 서명 URL은 서버가 조립한 고정 키에만 유효하고, 여기서도 그 고정 키만
-// 읽는다(클라 입력이 키에 안 섞임). 검증 실패 시 인라인 경로와 같은 정책으로
+// 보안: 서명 URL은 서버가 조립한 키에만 유효하고, 여기서도 서버가 만든 가장 새 업로드
+// 세션의 키만 읽는다(클라 입력이 키에 안 섞임). 검증 실패 시 인라인 경로와 같은 정책으로
 // 이번 발행이 새로 만든 행을 지운다(불량 아티팩트가 연결된 초안이 남지 않게) —
 // 이미 있던 초안(같은 URL 재발행·draftId)은 1단계가 남긴 교체 표식을 보고 그대로
 // 둔다. is_draft=false 행은 거부 — PAT의 폭발반경(자기 초안 생성뿐)을 유지한다.
@@ -66,28 +66,28 @@ export async function POST(req: NextRequest) {
       return apiError({ status: 409, message: t.api.finalizeNotDraft, code: "NOT_DRAFT" });
     }
 
-    // 5. 임시 오브젝트 회수(고정 키만). download 에러 = 미업로드로 간주.
-    // replacing = 1단계가 "이미 있던 초안에 올린다"고 남긴 교체 표식(lib/ingestStore.ts).
-    const tempKeys = {
-      bundle: UPLOAD_TEMP_KEYS.bundle(userId, projectId),
-      screenshot: UPLOAD_TEMP_KEYS.screenshot(userId, projectId),
-      video: UPLOAD_TEMP_KEYS.video(userId, projectId),
-    };
-    const download = async (key: string): Promise<Uint8Array | null> => {
+    // 5. 임시 오브젝트 회수 — 1단계가 만든 가장 새 업로드 세션의 키만. download 에러 =
+    // 미업로드로 간주. replacing = 1단계가 "이미 있던 초안에 올린다"고 남긴 교체 표식.
+    // 세션·표식은 목록 조회로 찾는다(CDN 캐시를 안 탄다 — lib/ingestStore.ts).
+    const { session, replacing } = await inspectUploads(admin, userId, projectId);
+    const tempKeys = session
+      ? [
+          UPLOAD_TEMP_KEYS.bundle(userId, projectId, session),
+          UPLOAD_TEMP_KEYS.screenshot(userId, projectId, session),
+          UPLOAD_TEMP_KEYS.video(userId, projectId, session),
+        ]
+      : [];
+    const download = async (key: string | undefined): Promise<Uint8Array | null> => {
+      if (!key) return null;
       const { data, error } = await admin.storage.from("project-files").download(key);
       if (error || !data) return null;
       return new Uint8Array(await data.arrayBuffer());
     };
-    const [bundleBuf, shotBuf, videoBuf, replacing] = await Promise.all([
-      download(tempKeys.bundle),
-      download(tempKeys.screenshot),
-      download(tempKeys.video),
-      hasReplaceMarker(admin, userId, projectId),
-    ]);
+    const [bundleBuf, shotBuf, videoBuf] = await Promise.all(tempKeys.length ? tempKeys.map(download) : [null, null, null]);
     const cleanupTemp = () =>
       admin.storage
         .from("project-files")
-        .remove([...Object.values(tempKeys), UPLOAD_REPLACE_MARKER(userId, projectId)])
+        .remove([...tempKeys, UPLOAD_REPLACE_MARKER(userId, projectId)])
         .then(
           () => {},
           () => {},
