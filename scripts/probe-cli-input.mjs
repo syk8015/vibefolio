@@ -174,6 +174,12 @@ try {
     r.code === 0 && lastIngest()?.body?.draftId === "d-42" && /Updated draft p-1/.test(r.out) && /publish --id p-1/.test(r.out),
     r.err || r.out);
 
+  // (12) --new → newDraft(앞 초안을 남기고 새로 만들기). --id와 함께 주면 거절.
+  reset();
+  r = await run(["publish", "--file", f1, "--new"]);
+  ok("(12) publish --new: newDraft=true로 보낸다", r.code === 0 && lastIngest()?.body?.newDraft === true, r.err || r.out);
+  await reject("(12) --new와 --id 동시 → 거절", ["publish", "--file", f1, "--new", "--id", "d-1"], /opposites/);
+
   // (9) rerecord · drafts update도 같은 규칙
   reset();
   r = await run(["rerecord", "p-9", "--json", "-", "--note", "왜 바꿨는지"], { input: JSON.stringify({ steps: PAYLOAD.demoScript.steps }) });

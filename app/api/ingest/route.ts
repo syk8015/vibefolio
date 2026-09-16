@@ -58,6 +58,7 @@ interface IngestPayload {
   demoAccess?: unknown;
   uploads?: unknown;
   draftId?: unknown;
+  newDraft?: unknown;
 }
 
 export async function POST(req: NextRequest) {
@@ -128,6 +129,14 @@ export async function POST(req: NextRequest) {
     // 파일 업로드 초안은 비교할 URL이 없어 다시 올릴 때마다 새 초안이 생겼고, URL을 바꿔 올린
     // 초안도 그랬다. 틀린 id는 게이트보다 먼저 되돌려보낸다 — 갱신할 대상이 없는 요청에 대본부터
     // 지적하면 AI가 엉뚱한 곳을 고친다. 판정 순서는 drafts/[id] PATCH와 같다(404→403→409).
+    // 별도 생성(newDraft, 2026-09-16 — 외부 AI 피드백 NF-16). 같은 URL이면 늘 기존 초안을
+    // 덮어쓰는 게 유일한 길이라, v1을 남기고 v2를 따로 올릴 수가 없었다. true면 URL 매칭을
+    // 건너뛰고 새 초안을 만든다(초안 상한 20은 그대로 적용).
+    const newDraft = payload?.newDraft === true;
+    if (newDraft && payload?.draftId !== undefined && payload?.draftId !== null) {
+      return apiError({ status: 400, message: t.api.newDraftConflict, code: "BAD_REQUEST" });
+    }
+
     let draftTarget: { id: string; thumbnail: string | null; demoUrl: string | null } | null = null;
     if (payload?.draftId !== undefined && payload?.draftId !== null) {
       const draftId = strOrNull(payload.draftId);
@@ -350,7 +359,8 @@ export async function POST(req: NextRequest) {
     let upserted = false;
     let existingThumbnail: string | null = null;
     let existing = draftTarget;
-    if (!existing && demoUrl) {
+    // newDraft면 URL로 찾지 않는다 — 앞 초안을 남기고 새로 만드는 유일한 길(NF-16).
+    if (!existing && demoUrl && !newDraft) {
       const { data: sameUrl } = await admin
         .from("projects")
         .select("id, thumbnail, demo_url")

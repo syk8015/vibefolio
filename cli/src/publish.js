@@ -133,6 +133,14 @@ export async function publishCommand(args) {
     }
     payload.draftId = args.id.trim();
   }
+  // 별도 생성(2026-09-16) — 같은 URL이면 기존 초안을 덮어쓰는 게 기본이라, 앞 초안을 남기고
+  // 새로 올리려면 이 플래그가 필요하다(서버 newDraft).
+  if (args.new !== undefined) {
+    if (payload.draftId) {
+      throw new Error("--new and --id are opposites — --new always creates a new draft, --id updates that one. Use one.");
+    }
+    payload.newDraft = true;
+  }
   // 로그인 필요 앱의 데모 모드 진입 정보 — url·params·note·impossible만(계정
   // 정보는 서버가 안 받음). impossible=게스트 경로가 원천 불가능한 앱 선언(B-3).
   if (

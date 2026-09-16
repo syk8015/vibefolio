@@ -7,8 +7,8 @@ import { getDictionary } from "@/lib/i18n/dictionaries";
 import { verifyToken, bearerFromHeader } from "@/lib/apiToken";
 import type { DemoScript } from "@/lib/demoScript";
 import {
-  scriptStats, SCRIPT_REVIEW_IDEAL_STEPS, SCRIPT_REVIEW_MIN_INTERACTIVE,
-  type ScriptStats, type SelectorCheck,
+  scriptStats, estimateFilm, SCRIPT_REVIEW_IDEAL_STEPS, SCRIPT_REVIEW_MIN_INTERACTIVE,
+  type ScriptStats, type SelectorCheck, type FilmEstimate,
 } from "@/lib/demoScriptReview";
 import { liveUrlIssue } from "@/lib/demoSource";
 import { assertSafePublicUrl, SsrfError } from "@/lib/ssrf";
@@ -85,6 +85,9 @@ export type AcceptedEcho = {
   descriptionChars: number;
   descriptionLines: number;
   descriptionMaxLineCols: number;
+  // 줄별 칸 수(2026-09-16, 외부 AI 피드백 NF-10) — "3줄 54자"만으로는 어느 줄이 위태로운지
+  // 알 수 없었다. 상한(52칸)과 나란히 읽으라고 줄 순서 그대로 싣는다.
+  descriptionLineCols: number[];
   builderNoteChars: number;
   demoHighlightsChars: number;
   demoHighlightsTruncated: boolean;
@@ -110,6 +113,9 @@ export type AcceptedEcho = {
 
 export type ScriptReviewEcho = ScriptStats & {
   selectors: SelectorCheck | null;
+  // 예상 촬영 길이와 잘리는 스텝(2026-09-16, 외부 AI 피드백 NF-05/17) — "5~8스텝"만으로는
+  // 9스텝 대본이 30초를 넘는지 알 수 없었다. 어림 계산이라 하한으로 읽는 값.
+  film: FilmEstimate;
   // 사람이 읽는 문장(PAT=영어·세션=쿠키 언어). 위 숫자에서 파생 — CLI는 숫자로
   // 문장을 직접 만들고, 원시 JSON을 읽는 AI는 이 줄을 그대로 지시문으로 쓴다.
   hints: string[];
@@ -125,8 +131,11 @@ export function buildScriptReview(
   t: IngestDict,
 ): ScriptReviewEcho {
   const s = scriptStats(script);
+  const film = estimateFilm(script);
   const r = t.api.scriptReview;
   const hints: string[] = [];
+  // 길이는 스텝을 빼야 하는 판단이라 제일 먼저 말한다 — 뒤 스텝이 통째로 안 찍히는 문제다.
+  if (film.cutFromStep) hints.push(r.filmTooLong(film.seconds, film.cutFromStep, film.budget));
   if (s.steps < SCRIPT_REVIEW_IDEAL_STEPS) hints.push(r.fewSteps(s.steps));
   if (s.interactive < SCRIPT_REVIEW_MIN_INTERACTIVE) hints.push(r.lowInteraction(s.interactive, s.steps));
   if (s.wired < s.steps) hints.push(r.unwired(s.steps - s.wired, s.steps));
@@ -140,7 +149,7 @@ export function buildScriptReview(
   } else if (selectors?.status === "skipped" && (selectors.reason === "fetch-failed" || selectors.reason === "not-html")) {
     hints.push(r.selectorsFetchFailed(selectors.url));
   }
-  return { ...s, selectors, hints };
+  return { ...s, film, selectors, hints };
 }
 
 const DEMO_HIGHLIGHTS_MAX = 500;
@@ -227,6 +236,8 @@ export function buildAccepted(
     descriptionMaxLineCols: stored.description
       ? Math.max(...stored.description.split("\n").map(lineCols))
       : 0,
+    // 줄별 칸 수(2026-09-16) — 줄 순서 그대로. 52칸이 거절선이라 어느 줄이 위태로운지가 곧 고칠 곳이다.
+    descriptionLineCols: stored.description ? stored.description.split("\n").map(lineCols) : [],
     builderNoteChars: [...stored.comment].length,
     demoHighlightsChars: stored.demoHint ? [...stored.demoHint].length : 0,
     demoHighlightsTruncated: [...rawHint].length > DEMO_HIGHLIGHTS_MAX,

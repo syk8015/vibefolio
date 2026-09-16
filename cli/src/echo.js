@@ -30,8 +30,11 @@ export function formatAccepted(accepted) {
 
   lines.push(ROW("title", accepted.title || "(none)"));
 
+  // 줄별 칸 수(2026-09-16) — 52칸이 실제 거절선이라, 줄 수·글자 수보다 이게 화면을 결정한다.
+  // 구버전 서버는 descriptionLineCols를 안 준다(그때는 예전처럼 줄 수·글자 수만).
+  const descLineCols = Array.isArray(accepted.descriptionLineCols) ? accepted.descriptionLineCols : null;
   const texts = [
-    `description ${accepted.descriptionLines ?? 0} lines / ${accepted.descriptionChars ?? 0} chars`,
+    `description ${accepted.descriptionLines ?? 0} lines${descLineCols?.length ? ` (${descLineCols.join("·")} of 52 cols)` : ""} / ${accepted.descriptionChars ?? 0} chars`,
   ];
   if (accepted.builderNoteChars) texts.push(`note ${accepted.builderNoteChars} chars`);
   if (accepted.demoHighlightsChars) texts.push(`highlights ${accepted.demoHighlightsChars} chars`);
@@ -62,6 +65,8 @@ export function formatAccepted(accepted) {
   if (review && typeof review === "object") {
     const parts = [
       `${review.steps} steps`,
+      // 예상 필름 길이(2026-09-16) — 구버전 서버는 film이 없어 이 칸만 빠진다.
+      ...(review.film ? [`≈${review.film.seconds}s of ~${review.film.budget}s`] : []),
       `interactive ${review.interactive}`,
       `selector ${review.wired}/${review.steps}`,
       `expect ${review.withExpect}/${review.steps}`,
@@ -94,7 +99,13 @@ export function formatAccepted(accepted) {
   if ((accepted.descriptionLines ?? 0) > 3) {
     warn.push(`⚠ The description is ${accepted.descriptionLines} lines — the card shows at most 3 (the full text lives on the detail page).`);
   }
-  if ((accepted.descriptionMaxLineCols ?? 0) > 46) {
+  // 줄별 칸 수(2026-09-16) — "한 줄이 너무 길다"에서 "몇 번째 줄이 몇 칸"으로. 구버전 서버는
+  // descriptionLineCols를 안 주므로 그때는 예전처럼 최대값만 보고 말한다.
+  const lineCols = Array.isArray(accepted.descriptionLineCols) ? accepted.descriptionLineCols : null;
+  const longLines = (lineCols ?? []).map((c, i) => [i + 1, c]).filter(([, c]) => c > 46);
+  if (longLines.length) {
+    warn.push(`⚠ Description line${longLines.length > 1 ? "s" : ""} ${longLines.map(([i, c]) => `${i} (${c} cols)`).join(", ")} — over ~46 of the 52-column limit wraps on phones and the last line gets cut off.`);
+  } else if (!lineCols && (accepted.descriptionMaxLineCols ?? 0) > 46) {
     warn.push("⚠ One description line is too long — it wraps on phones and the last line gets cut off (aim for ~40 columns per line).");
   }
   if (accepted.demoHighlightsTruncated) {
@@ -114,6 +125,10 @@ export function formatScriptReviewWarnings(review) {
   if (!review || typeof review !== "object") return [];
   const out = [];
   const total = review.steps ?? 0;
+  // 예상 필름 길이(2026-09-16) — 잘리는 스텝이 있으면 가장 먼저 말한다(스텝을 빼야 하는 판단이라).
+  if (review.film?.cutFromStep) {
+    out.push(`⚠ About ${review.film.seconds}s of filming, but the camera stops at ~${review.film.budget}s — step ${review.film.cutFromStep} and everything after it would not make the film. Drop the least important beats, or shorten "hold".`);
+  }
   if (total < 6) {
     out.push(`⚠ The script has ${total} steps — 6 to 8 is right for a 30-second film. Add the key features in order of importance and publish again with the same URL or the draft id (--id / draftId) to update this draft.`);
   }

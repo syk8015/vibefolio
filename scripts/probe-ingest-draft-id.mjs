@@ -1,11 +1,13 @@
 // draftId 교체 발행 prod E2E(2026-09-15) — 갱신할 초안을 URL 대신 id로 지정하는 경로.
 // (0) 배포 감지: 없는 draftId → 404 (1) URL 초안 생성 (2) draftId로 URL을 바꿔 갱신 = 같은 행·새 행 없음
+// (2b) newDraft = 같은 URL에도 새 초안(앞 초안 유지) (2c) newDraft + draftId → 400
 // (3) 폴더(zip) 초안 생성 (4) draftId로 zip 교체 = 같은 행·옛 파일 삭제 (5) 불량 zip 교체 → 초안 유지
 // (6) 공개된 행 draftId → 409 (7) zip 초안을 URL로 교체 → 옛 zip 파일 삭제
 // (8) 같은 URL 재발행 + 불량 스크린샷 → 초안 유지(교체 표식) (9) 새 URL 행 + 불량 영상 → 행 삭제(고아 정리 유지)
 //
 // 사용: 레포 루트에서 `node scripts/probe-ingest-draft-id.mjs` — 배포가 끝난 뒤에(감지는 한 번만 한다).
-// 주의: ingest 레이트리밋(유저 20/h)을 판당 15회 소비 — 같은 시간에 다른 ingest 프로브와 같이 돌리면 429.
+// 주의: ingest 레이트리밋(유저 20/h)을 판당 18회 소비 — 창은 첫 요청부터 1시간이라, 같은 시간에
+// 다른 ingest 프로브와 같이 돌리면 429.
 // 서비스롤 키는 macOS 키체인에서 온다(파일 폴백) — scripts/_secrets.mjs 참조.
 import "./_secrets.mjs";
 import { createClient } from "@supabase/supabase-js";
@@ -113,6 +115,16 @@ try {
     a2.status === 200 && a2.body.projectId === A && a2.body.upserted === true &&
       rowA?.title === "__probe_did_A2__" && rowA?.demo_url === U("b") && dupB === 1,
     `${a2.status} ${JSON.stringify(rowA)} dup=${dupB}`);
+
+  // (2b)(2c) newDraft — 같은 URL이어도 앞 초안을 남기고 새로 만든다. draftId와 동시 사용은 400.
+  const e1 = await post("/api/ingest", { ...GATE, title: "__probe_did_E1__", deployUrl: U("e") });
+  const e2 = await post("/api/ingest", { ...GATE, title: "__probe_did_E2__", deployUrl: U("e"), newDraft: true });
+  const { count: dupE } = await svc.from("projects").select("id", { count: "exact", head: true }).eq("demo_url", U("e"));
+  ok("(2b) newDraft → 같은 URL에도 새 초안(앞 초안 유지)",
+    e2.status === 200 && !!e2.body.projectId && e2.body.projectId !== e1.body.projectId && !e2.body.upserted && dupE === 2,
+    `${e2.status} ${e1.body.projectId}→${e2.body.projectId} dup=${dupE}`);
+  const conf = await post("/api/ingest", { ...GATE, title: "__probe_did_CONF__", deployUrl: U("e"), newDraft: true, draftId: A });
+  ok("(2c) newDraft + draftId 동시 → 400", conf.status === 400, `${conf.status} ${conf.body.code}`);
 
   // (3)(4) 폴더 초안 → draftId로 zip 교체(CLI runPublish 2단계 그대로).
   const b1 = await publish({ title: "__probe_did_B1__" }, SITE1);

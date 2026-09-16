@@ -119,6 +119,10 @@ export const PUBLISH_INPUT_SCHEMA = {
       type: "string",
       description: "(optional) Id of one of your drafts to update in place — it is in every publish result and in list_nookframe_drafts. Without it a draft is matched by URL, so re-uploading a folder (dir) or changing the URL leaves a second draft behind; with it, that draft's fields and its files or URL are replaced. Published projects are refused.",
     },
+    newDraft: {
+      type: "boolean",
+      description: "(optional) Set true to always create a NEW draft instead of updating the one with the same URL. Use it when the owner wants to keep the draft already there (publishing the same URL again overwrites it by default). Cannot be combined with draftId.",
+    },
     demoAccess: DEMO_ACCESS_SCHEMA,
     // 로컬 경로 셋은 서버로 가지 않는다 — MCP 핸들러와 CLI publish가 꺼내서 파일로 올린다.
     dir: { type: "string", description: "Absolute path of the local directory to upload (when there is no deployUrl — static build output, or a Python/CLI source folder)" },

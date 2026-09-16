@@ -7,6 +7,7 @@
 // (5) 첫 화면/뒤 화면을 갈라, 뒤 화면 셀렉터를 "없음"이라 하지 않나(09-15 스킨로그 0/8 오경보).
 import {
   scriptStats, selectorsOf, checkSelectorsInHtml, indexHtml, looksJsRendered, composeProbeUrl,
+  estimateFilm,
 } from "../lib/demoScriptReview";
 import type { DemoScript } from "../lib/demoScript";
 
@@ -161,6 +162,30 @@ ok("첫 화면 셀렉터가 판정 불가뿐 → skipped/no-entry-selectors",
   m4.status === "skipped" && m4.reason === "no-entry-selectors" && m4.unparsed.join(",") === ":nth-child(2)", JSON.stringify(m4));
 ok("첫 화면 셀렉터 없음 → skipped/no-entry-selectors", checkSelectorsInHtml(html, { entry: [], later: ["#refreshBtn"] }).reason === "no-entry-selectors");
 ok("셀렉터 없음 → skipped/no-selectors", checkSelectorsInHtml(html, { entry: [], later: [] }).reason === "no-selectors");
+
+// ── (6) 예상 필름 길이(09-16) ──
+// 러너 페이싱을 옮겨 온 어림 계산 — 스텝 비용(커서 이동·조작·hold)과 "몇 번째부터 잘리나".
+// seconds는 화면에 그대로 찍히는 값이라 0.1초로 반올림해서 나온다 — 기대값도 그 표시값으로 본다.
+const fe1 = estimateFilm({ steps: [{ goal: "a", selector: "#a", action: "click" }] });
+ok("click 한 스텝 = 커서 1.0 + 정지 0.18 + 기본 hold 0.9 → 2.1", fe1.seconds === 2.1, JSON.stringify(fe1));
+ok("예산 30초·안 넘으면 cutFromStep 없음", fe1.budget === 30 && fe1.cutFromStep === null, JSON.stringify(fe1));
+const fe2 = estimateFilm({ steps: [{ goal: "t", selector: "#t", action: "type", text: "선크림", hold: 2 }] });
+ok("type: 글자당 0.055초 + 준 hold(1.0+0.18+0.165+2 → 3.3)", fe2.seconds === 3.3, JSON.stringify(fe2));
+const fe3 = estimateFilm({ steps: [{ goal: "s", selector: "#s", action: "scroll" }] });
+ok("scroll은 hold를 안 주면 0.75 → 0.8", fe3.seconds === 0.8, JSON.stringify(fe3));
+const fe4 = estimateFilm({ steps: [{ goal: "f", selector: "#f", action: "focus", hold: 9 }] });
+ok("hold는 스키마 상한 4초로 자른다", Math.abs(fe4.seconds - (0.7 + 4)) < 0.01, JSON.stringify(fe4));
+// 외부 AI가 09-16에 고른 9컷(hold 합 20초) 모양 — 30초를 넘어 뒤 스텝이 못 들어간다.
+const nine: DemoScript = {
+  steps: Array.from({ length: 9 }, (_, i) => ({
+    goal: `beat ${i + 1}`, selector: `#s${i}`, action: "click" as const, hold: i < 8 ? 2.5 : 0.5,
+  })),
+};
+const fe5 = estimateFilm(nine);
+ok("9컷 × hold 2.5 → 30초 초과, 잘리는 스텝(9)을 짚는다",
+  fe5.seconds > 30 && fe5.cutFromStep === 9, JSON.stringify(fe5));
+const fe6 = estimateFilm(sonnet);
+ok("소넷 6스텝(focus 5·click 1) = 예산 안", fe6.seconds < 30 && fe6.cutFromStep === null, JSON.stringify(fe6));
 
 console.log(failed ? `\n${failed}건 실패` : "\nALL PASS");
 process.exit(failed ? 1 : 0);

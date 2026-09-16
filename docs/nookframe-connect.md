@@ -137,6 +137,9 @@
   (`lib/draftFixPrompt.ts`)는 JSON에 `draftId`를 실어서 CLI·MCP·`/publish` 붙여넣기 어느 길로 와도 그 초안을
   갱신한다. AI 프롬프트 3종의 셸 제출 줄은 `--file`이다(npm 0.1.13 발행 확인 뒤 교체 — 먼저 바꾸면 옛 CLI가
   모르는 플래그를 조용히 무시한다).
+- **newDraft(2026-09-16, 외부 AI 피드백 NF-16)**: payload `newDraft:true`(CLI `--new`)면 URL 매칭을 건너뛰고
+  **늘 새 초안**을 만든다 — 앞 초안을 남긴 채 v2를 올릴 유일한 길이다(기본은 같은 URL이면 말없이 덮어쓰기).
+  `draftId`와 같이 주면 400 `BAD_REQUEST`(`newDraftConflict`). 초안 상한 20은 그대로 적용된다.
 - 응답: `{ ok, projectId, reviewUrl, isDraft:true, upserted? }`. reviewUrl은 요청 origin 기준.
 
 ## 초안 관리 API (요청4) — `/api/ingest/drafts`
@@ -203,7 +206,8 @@
 싣는다. 요청 payload가 아니라 **저장 직전(PATCH는 갱신된 행)의 값**으로 조립한다.
 
 - 조립: `app/api/ingest/shared.ts` 의 `buildAccepted()` — 표시 전용, 저장 내용 불변.
-- 필드: `title` · `descriptionChars` · `builderNoteChars` · `demoHighlightsChars` · `demoScriptSteps` · `demoScriptDropped` ·
+- 필드: `title` · `descriptionChars` · `descriptionLines` · `descriptionMaxLineCols` · `descriptionLineCols`(줄별 칸 수,
+  09-16 — "3줄 54자"만으로는 어느 줄이 52칸에 걸리는지 몰랐다) · `builderNoteChars` · `demoHighlightsChars` · `demoScriptSteps` · `demoScriptDropped` ·
   `demoHighlightsTruncated` · `tags` · `droppedTags` · `contentType` ·
   `droppedContentType` · `entryUrl` · `scoutAltUrl` · `demoAccess` · `demoAccessDropped` · `targetDevice`.
 - 파일 업로드(2단계) 경로는 `finalize` 응답에 `accepted`가 없으므로 CLI가 1단계 것을
@@ -222,6 +226,12 @@
 - 조립: `lib/demoScriptReview.ts`(순수 통계 + 셀렉터 확인) → `shared.ts` `buildScriptReview()`(문장).
   발행·초안 PATCH·재촬영 세 입구 공통. 자동 촬영이 없는 경우(영상 동봉)엔 아예 없다.
 - 숫자: `steps` · `wired`(셀렉터+action) · `interactive`(click/type/drag/draw) · `withExpect` · `withHold` · `hasSkip` · `hasPrep`.
+- `film`(2026-09-16, 외부 AI 피드백 NF-05/17): 예상 촬영 길이 `{seconds, budget:30, cutFromStep}`.
+  `lib/demoScriptReview.ts estimateFilm` — 러너 페이싱(`local-runner/replay.ts`·`camera.ts`)을 옮겨 온
+  어림 계산이다(커서 활강 1.0초 · 클릭 전 정지 0.18 · 타이핑 0.055/자 · focus 0.7 · 기본 hold 0.9,
+  hold는 스키마대로 0.5~4로 자름). 예산 30초 = `MAX_VIDEO_SEC` 34 − 인트로 3 − 꼬리 1.1. 넘으면 힌트
+  `filmTooLong`이 **몇 번째 스텝부터 못 들어가는지**를 말한다. 셀렉터 대기·느린 페이지는 더 걸리므로
+  **하한**으로 읽는 값이고, 러너 상수가 바뀌면 여기도 손으로 맞춘다(lib은 러너를 import 하지 않는다).
 - `selectors`: 서버가 진입 URL(demoAccess까지 합친 주소, `composeProbeUrl`)의 HTML을 **한 번**
   받아 `#id`·`.class`·태그·`[attr=…]`가 있는지 센다. HTML 한 장은 로봇의 **첫 화면**뿐이라
   `selectorsOf()`가 셀렉터를 둘로 가른다(2026-09-15): `entry` = 앞에서부터 첫 "화면을 바꿀 수

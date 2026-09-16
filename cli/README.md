@@ -28,6 +28,8 @@ nookframe publish            Upload the current project as a draft
   --json '<payload>'         Payload JSON inline (shell quoting breaks easily — prefer --file)
                              The flags below override the same fields in the JSON
   --id <draft id>            Update that draft in place instead of matching by URL (replaces its files or URL too)
+  --new                      Always create a new draft instead of updating the one with the same URL
+                             (keeps the draft already there; not with --id)
   --url <url>                Deployed public URL (falls back to auto-detecting dist/out/build/public)
                              A public GitHub repo URL also works — JS and Python web apps (Streamlit,
                              Gradio, Dash, Django, Flask, FastAPI) are run automatically; CLI tools and

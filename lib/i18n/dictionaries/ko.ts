@@ -712,6 +712,8 @@ export const ko = {
     scriptReview: {
       fewSteps: (n: number) =>
         `대본이 ${n}스텝이에요 — 영상 30초를 채우려면 6~8스텝이 알맞아요. 이 앱의 핵심 기능을 중요한 순서대로 더 넣고 다시 publish하면(같은 URL, 또는 draftId에 이 초안 id) 이 초안이 갱신돼요.`,
+      filmTooLong: (seconds: number, cut: number, budget: number) =>
+        `이 대본은 촬영에 약 ${seconds}초가 걸리는데 필름은 약 ${budget}초에서 끊겨요 — ${cut}번째 스텝부터는 영상에 못 들어가요. 덜 중요한 비트를 빼거나(5~8스텝이 알맞아요) hold를 줄이세요. 이 계산은 커서 이동·조작·hold만 더한 값이라, 페이지가 느리면 더 길어질 수는 있어도 짧아지지는 않아요.`,
       lowInteraction: (n: number, total: number) =>
         `${total}스텝 중 실제 조작(click·type·drag)은 ${n}개뿐이에요 — 나머지가 focus·hover·scroll이면 영상이 슬라이드쇼처럼 보여요. 핵심 기능을 직접 눌러서 결과가 바뀌는 스텝을 2개 이상 넣으세요.`,
       unwired: (n: number, total: number) =>
@@ -746,6 +748,7 @@ export const ko = {
     finalizeNothing: "업로드된 파일이 없어요. 발급받은 URL로 파일을 먼저 올린 뒤 finalize를 호출해 주세요.",
     finalizeNotDraft: "이미 공개된 프로젝트는 이 경로로 수정할 수 없어요.",
     draftIdNotDraft: "이미 공개된 프로젝트예요 — draftId로는 초안만 갱신할 수 있어요. 공개된 작품의 영상을 바꾸려면 rerecord로 새 대본을 내세요.",
+    newDraftConflict: "newDraft와 draftId는 서로 반대예요 — newDraft는 늘 새 초안을 만들고, draftId는 그 초안을 갱신해요. 둘 중 하나만 보내세요.",
     draftNoFields: "수정할 항목이 없어요.",
     draftUrlImmutable: "URL이나 파일 교체는 payload에 \"draftId\": \"<이 초안 id>\"를 넣고 publish를 다시 실행하세요 — 그 초안이 그대로 갱신돼요(같은 URL로 다시 올려도 갱신돼요).",
     projectCreateFailed: "프로젝트를 만들지 못했어요.",

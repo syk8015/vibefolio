@@ -8,6 +8,9 @@
 // token 없이 호출 — 자리표시 문구가 들어간다.
 
 export const NPX_PUBLISH = "npx nookframe@latest publish";
+// 발행 payload의 필드·규칙을 기계가 읽는 형태로(JSON Schema). 0.1.13부터 있고 MCP 툴
+// 스키마와 같은 출처다 — 프롬프트가 알려주지 않으면 CLI로 올리는 AI는 있는 줄도 모른다(09-16).
+export const NPX_SCHEMA = "npx nookframe@latest schema";
 
 // 자동발급 토큰의 name 센티널 — 서버(app/api/tokens)가 재발급 시 이전 것을 찾아
 // 폐기하는 키이자, 목록 UI가 현지화 라벨로 바꿔 보여주는 판별값. 클라이언트에서도
@@ -65,7 +68,7 @@ You're the AI that built this project, so read the repo yourself and describe it
 1) If you have a shell, first run this once to save my connect token (skip if you have no shell):
    ${login}
 2) Investigate from the README, package.json, the actual routes/screens, and git log. If it's still half-built, also work out what it was going to be.
-3) Build a publish payload (JSON) with these fields:
+3) Build a publish payload (JSON) with these fields (${NPX_SCHEMA} prints the same list as a JSON Schema, if you want it machine-readable):
    • title — a short, clear product name
    • description — the intro that sits ON TOP of the work on your public card, so first impressions live or die here. Do NOT write a paragraph. Write THREE short lines separated by newlines (\\n), where the first two modify and the last one names what it is:
        For people who create with AI

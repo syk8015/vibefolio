@@ -57,6 +57,62 @@ export function scriptStats(script: DemoScript): ScriptStats {
   };
 }
 
+// ── 예상 필름 길이(2026-09-16, 외부 AI 피드백 NF-05/17) ──────────────────────
+// "5~8스텝이 알맞다"는 말만으로는 9스텝 대본이 30초를 넘는지 알 수 없었다(외부 AI는
+// hold 합이 20초인 9스텝을 넘는지 모른 채 골랐다). 러너의 페이싱 상수를 옮겨 온 어림
+// 계산이다 — local-runner/replay.ts(HOLD_MS 900 · TYPE_DELAY_MS 55 · FOCUS_MOVE_MS 700 ·
+// SETTLE_MS 180)와 camera.ts(glideMsFor × CURSOR_SLOWDOWN 1.67 = 커서 활강 0.7~1.5초).
+// 셀렉터를 기다리거나 페이지가 느리면 실제는 더 걸린다 — **하한**으로 읽어야 하는 숫자다.
+// lib은 러너를 import 하지 않으므로(런타임이 다름) 상수가 바뀌면 여기도 손으로 맞춘다.
+const CURSOR_MOVE_SEC = 1.0; // 커서 활강 평균(짧은 이동 0.7 · 화면 횡단 1.5)
+const SETTLE_SEC = 0.18; // 클릭 직전 정지
+const TYPE_CHAR_SEC = 0.055; // 글자당 타이핑
+const FOCUS_MOVE_SEC = 0.7; // focus 카메라 이동
+const SCROLL_SEC = 0.75; // 부드러운 스크롤 한 번
+const DRAG_SEC = 0.6; // 드래그 제스처 최소
+const DRAW_SEC = 1.2; // 자유 곡선 한 획
+const DEFAULT_HOLD_SEC = 0.9; // hold를 안 준 스텝의 기본 정지
+// 필름 상한 34초(MAX_VIDEO_SEC)에서 인트로 3초·꼬리 1.1초를 뺀 "스텝에 쓸 수 있는 시간".
+// 프롬프트가 말하는 "~30초"와 같은 숫자다.
+export const FILM_BUDGET_SEC = 30;
+
+export type FilmEstimate = {
+  /** 스텝 전부를 찍는 데 걸리는 어림 시간(초, 인트로·꼬리 제외) */
+  seconds: number;
+  /** 스텝에 쓸 수 있는 시간(초) */
+  budget: number;
+  /** 이 번째 스텝부터 예산을 넘어 영상에 못 들어간다(1부터). 안 넘으면 null */
+  cutFromStep: number | null;
+};
+
+function stepSeconds(step: DemoScript["steps"][number]): number {
+  // hold는 스키마 상한(0.5~4초)으로 자른다 — 대본이 20을 적어도 러너가 그만큼 쉬지 않는다.
+  const hold = typeof step.hold === "number"
+    ? Math.min(4, Math.max(0.5, step.hold))
+    : step.action === "scroll" ? 0 : DEFAULT_HOLD_SEC;
+  switch (step.action) {
+    case "focus": return FOCUS_MOVE_SEC + hold;
+    case "scroll": return SCROLL_SEC + hold;
+    case "hover": return CURSOR_MOVE_SEC + hold;
+    case "type": return CURSOR_MOVE_SEC + SETTLE_SEC + (step.text?.length ?? 0) * TYPE_CHAR_SEC + hold;
+    case "drag": return CURSOR_MOVE_SEC + SETTLE_SEC + DRAG_SEC + hold;
+    case "draw": return CURSOR_MOVE_SEC + SETTLE_SEC + DRAW_SEC + hold;
+    // click과 action 없는 스텝(로봇이 화면을 보고 고르는 것)은 같은 비용으로 센다.
+    default: return CURSOR_MOVE_SEC + SETTLE_SEC + hold;
+  }
+}
+
+/** 대본 → 예상 촬영 길이와 "몇 번째 스텝부터 잘리나". 네트워크 없는 순수 함수. */
+export function estimateFilm(script: DemoScript): FilmEstimate {
+  let total = 0;
+  let cutFromStep: number | null = null;
+  script.steps.forEach((step, i) => {
+    total += stepSeconds(step);
+    if (cutFromStep === null && total > FILM_BUDGET_SEC) cutFromStep = i + 1;
+  });
+  return { seconds: Math.round(total * 10) / 10, budget: FILM_BUDGET_SEC, cutFromStep };
+}
+
 // 화면을 바꾸지 않는 액션 — focus는 필름 카메라가 확대만 하고, scroll은 같은 페이지를
 // 움직일 뿐이다. 나머지(click·type·drag·draw·hover, action 없음)는 다른 화면이나
 // JS가 새로 그리는 요소(드롭다운·모달·검색 결과)를 부를 수 있다.

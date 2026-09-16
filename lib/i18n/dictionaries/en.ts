@@ -679,6 +679,8 @@ export const en: Dictionary = {
     scriptReview: {
       fewSteps: (n: number) =>
         `The script has ${n} steps — 6–8 fill the 30-second film best. Add this app's core features in order of importance and publish again — with the same URL, or this draft's id as draftId — to update the draft in place.`,
+      filmTooLong: (seconds: number, cut: number, budget: number) =>
+        `This script is roughly ${seconds}s of filming, but the camera stops at about ${budget}s — step ${cut} and everything after it would not make the film. Drop the least important beats (5–8 steps is the sweet spot) or shorten the "hold" values. The estimate counts cursor travel, the action itself and each hold, so a slow page can make it longer, never shorter.`,
       lowInteraction: (n: number, total: number) =>
         `Only ${n} of ${total} steps actually interact (click/type/drag) — a film of focus/hover/scroll alone looks like a slideshow. Add at least 2 steps that press a core feature and change what's on screen.`,
       unwired: (n: number, total: number) =>
@@ -713,6 +715,7 @@ export const en: Dictionary = {
     finalizeNothing: "No uploaded files found. PUT your files to the issued URLs first, then call finalize.",
     finalizeNotDraft: "A published project can't be modified through this path.",
     draftIdNotDraft: "That project is already published — draftId only updates drafts. To change a published work's demo video, submit a new script with rerecord.",
+    newDraftConflict: "newDraft and draftId are opposites — newDraft always creates a new draft, draftId updates that one. Send only one of them.",
     draftNoFields: "No fields to update.",
     draftUrlImmutable: "To change the URL or files, run publish again with \"draftId\": \"<this draft's id>\" in the payload — that draft is updated in place (publishing the same URL again also updates it).",
     projectCreateFailed: "Couldn't create the project.",
