@@ -27,6 +27,20 @@ if (!existsSync(`${S}/big.mp4`)) throw new Error("fixture 생성 실패");
 const ORIGIN = "https://nookframe.com";
 const svc = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 
+// 대본·로그인 게이트(08-25/08-27)를 통과하는 최소 픽스처. **영상을 첨부하는 케이스는
+// 면제라 일부러 안 싣는다** — 그게 이 프로브가 보려는 것 중 하나다. zip처럼 면제가 없는
+// 케이스만 이걸 쓴다(안 실으면 400 SCRIPT_REQUIRED로 발행 전에 막힌다).
+const SCRIPT = {
+  steps: [
+    { goal: "첫 화면", selector: "#a", action: "click", expect: "열린다", hold: 1 },
+    { goal: "입력", selector: "#b", action: "type", text: "hello", expect: "글자가 보인다" },
+    { goal: "결과", selector: "#c", action: "focus", expect: "결과가 보인다" },
+    { goal: "되돌아오기", selector: "#d", action: "click", expect: "첫 화면" },
+  ],
+  skip: ["다크모드 토글"],
+};
+const ACCESS = { noLogin: true, note: "프로브 픽스처 — 인증 가드 없는 정적 페이지" };
+
 let failed = 0;
 const ok = (name, pass, detail = "") => {
   console.log(`${pass ? "✓" : "✗"} ${name}${detail ? ` — ${detail}` : ""}`);
@@ -111,7 +125,8 @@ try {
 
   // (3) 6MB zip 2단계 — 인라인로는 불가능했던 크기.
   const r3 = await runPublish({
-    payload: { title: "__probe_2step_zip__", targetDevice: "desktop", description: "프로브가 만든 임시 행\n곧 지워집니다" },
+    // zip은 영상 면제가 없으니 대본·demoAccess를 실어야 게이트를 지나 zip 처리까지 닿는다.
+    payload: { title: "__probe_2step_zip__", targetDevice: "desktop", description: "프로브가 만든 임시 행\n곧 지워집니다", demoScript: SCRIPT, demoAccess: ACCESS },
     dir: `${S}/zipproj`,
     token: raw,
     origin: ORIGIN,
