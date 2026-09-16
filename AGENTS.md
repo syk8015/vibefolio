@@ -22,5 +22,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - PAT는 `Authorization: Bearer` **헤더로만** 받는다(쿼리/폼 금지). raw 토큰은 발급 응답 1회만, DB엔 sha256만.
 - **raw 토큰을 프롬프트에 박지 않는다**(2026-09-16). 프롬프트에 들어가는 건 1회용 페어링 코드(`nf_code_`, 30분·1회, `lib/connectCode.ts`)이고 `login <코드>`가 `/api/connect/exchange`에서 토큰으로 바꾼다 — 프롬프트는 AI 채팅창에 붙여넣는 물건이라 살아 있는 크리덴셜이 대화 기록에 남는다. 코드는 Bearer로 쓸 수 없다(`ingestAuth`가 401 `PAIRING_CODE`로 짚어준다).
 - 발행 게이트의 사전 검사는 `/api/ingest?dryRun=1`(CLI `nookframe check`) **한 경로뿐**. 게이트 판정을 `cli/`에 복제하지 말 것 — 상수 사본이 갈라지면 검사와 발행의 답이 달라진다.
+- **`/api/mcp`(원격 MCP)는 Bearer 전용이다** — `ingestAuth`의 쿠키 폴백을 여기에 붙이지 말 것. 쿠키를 받는 순간 남의 사이트가 로그인한 사람의 브라우저로 툴을 호출시킬 수 있다(CSRF). 툴 실행은 `lib/mcpDispatch.ts`가 **기존 API를 HTTP로 다시 부르는** 방식이다 — 게이트를 한 벌로 두려는 것이니 라우트 핸들러를 쪼개 import하지 말 것.
+- **OAuth 발견 문서의 두 항목을 지우지 말 것**(`app/api/oauth/meta/authorization-server`): `client_id_metadata_document_supported: true` + `token_endpoint_auth_methods_supported: ["none"]`. 둘이 **같이** 있어야 Claude가 CIMD를 고르고, 하나라도 빠지면 동적 등록(우리가 안 만든 것)을 찾다가 조용히 연결 실패한다. `npm test`의 `probe-oauth-unit`이 막아준다.
 - `cli/`는 독립 배포 패키지(자체 `package.json`·`bin`) — 레포 코드 import 금지, HTTPS로 인제스트 API만 호출.
 - **`cli/src/schema.js`는 생성물이다**(2026-09-17) — 손으로 고치지 말 것. 원본은 `schema/publish.json` 한 장이고 `npm run schema:build`(`scripts/build-schema.mts`)가 만든다. AI 도구·분류·대상 화면·대본 액션 목록은 생성 시점에 `lib/projectTaxonomy.ts`·`lib/demoScript.ts`에서 읽어 박으므로 옛 손동기화 사본이 없다. 생성물을 손대면 `npm test`의 `probe-schema-drift`가 막는다. import 금지 규칙은 그대로다 — 생성기는 레포에서 돌며 파일을 **쓸** 뿐, `cli/`가 레포를 읽지 않는다.

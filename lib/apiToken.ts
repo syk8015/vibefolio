@@ -85,12 +85,21 @@ export async function verifyToken(
 ): Promise<ResolvedToken | null> {
   if (!raw || !raw.startsWith(TOKEN_SCHEME)) return null;
   const admin = createAdminClient();
-  const { data, error } = await admin
-    .from("api_tokens")
-    .select("id, user_id")
-    .eq("token_hash", hashToken(raw))
-    .is("revoked_at", null)
+  const live = () =>
+    admin.from("api_tokens").select("id, user_id").eq("token_hash", hashToken(raw)).is("revoked_at", null);
+
+  // 만료 검사(2026-09-17, OAuth). 사람이 만든 PAT는 expires_at이 null이라 이 필터를
+  // 그대로 통과한다 — 동작 불변. 만료가 붙는 것은 원격 MCP 커넥터가 받아 가는 토큰뿐이다.
+  let { data, error } = await live()
+    .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
     .maybeSingle();
+  // 컬럼이 아직 없으면(코드 배포가 마이그레이션보다 먼저 나간 경우) 만료 필터만 빼고
+  // 다시 묻는다. 여기서 그냥 실패하면 **모든 PAT 인증이 한꺼번에 죽는다** — 인제스트·
+  // CLI·MCP가 전부 401이 되는 사고라, 인제스트 라우트의 선택 컬럼 디그레이드와 같은 태세를 쓴다.
+  if (error && (error.code === "42703" || error.code === "PGRST204")) {
+    logger.error("apiToken: expires_at column missing — run supabase/migration_oauth.sql", { error });
+    ({ data, error } = await live().maybeSingle());
+  }
   if (error) {
     logger.error("apiToken: verify lookup failed", { error });
     return null;

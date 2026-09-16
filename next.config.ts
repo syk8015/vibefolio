@@ -45,6 +45,27 @@ const nextConfig: NextConfig = {
       { source: "/@:username/:slug", destination: "/:username/:slug", permanent: false },
     ];
   },
+  async rewrites() {
+    // OAuth 발견 문서는 `/.well-known/…`에 있어야 한다(RFC 9728·8414). app/ 안에
+    // 점으로 시작하는 폴더는 라우트로 잡히지 않으므로 평범한 경로에 두고 여기서 잇는다.
+    //
+    // 주소가 둘인 이유: 우리 MCP 엔드포인트가 /api/mcp라, 클라이언트는 **경로를 끼운**
+    // 주소를 먼저 찾고 없으면 뿌리 주소를 찾는다(RFC 9728 §3.1). 둘 다 같은 문서를 낸다.
+    return [
+      {
+        source: "/.well-known/oauth-protected-resource/api/mcp",
+        destination: "/api/oauth/meta/protected-resource",
+      },
+      {
+        source: "/.well-known/oauth-protected-resource",
+        destination: "/api/oauth/meta/protected-resource",
+      },
+      {
+        source: "/.well-known/oauth-authorization-server",
+        destination: "/api/oauth/meta/authorization-server",
+      },
+    ];
+  },
   async headers() {
     return [
       {

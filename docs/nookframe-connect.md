@@ -80,6 +80,74 @@
 - **폭발반경**: 유출돼도 자기 계정의 **초안 INSERT만** 가능. 발행·데모예산 소진·토큰조회는
   전부 쿠키(`auth.uid()`) 전용이라 닿지 못한다. 유저당 토큰 ≤10, 활성 초안 ≤20, 레이트리밋 20/h(user_id 키).
 
+## 원격 MCP — 셸 없는 채팅창 AI (2026-09-17 사용자 확정)
+
+`POST https://nookframe.com/api/mcp`. `npx nookframe mcp`(stdio)를 **실행할 수 없는** AI —
+claude.ai 웹 같은 채팅창 — 가 우리 서버를 직접 부르는 통로다. Claude 설정 → 커넥터 →
+[커스텀 커넥터 추가]에 이 주소를 넣으면 붙는다.
+
+툴 정의는 stdio 쪽과 **같은 원본에서 생성된다**(`schema/publish.json` → `npm run schema:build`
+→ `lib/mcpTools.ts`). 다른 점은 하나뿐 — 로컬 경로 필드(`dir`·`screenshot`·`video`)가 없다.
+채팅 AI에겐 우리 서버에 그 경로가 가리킬 파일이 없기 때문이고, 설명의 그 대목만
+`{{FILES}}`·`{{MEDIA}}` 자리표시로 갈라 채운다(본문은 한 벌).
+
+### 두 시대를 한 주소에서 받는다
+
+MCP 규격이 2026-07-28에 갈아엎였다: `initialize`·세션·`ping`이 사라지고 `server/discover`가
+그 자리에 왔다. 그런데 Claude는 전환 한가운데라 표면에 따라 **옛 방식으로 말을 거는 경우가
+있다**(2026-08 실측 보고). 한쪽만 구현하면 화면엔 "연결 실패"만 뜨고 이유는 안 나온다.
+그래서 `app/api/mcp/route.ts`는 본문에 `_meta["io.modelcontextprotocol/protocolVersion"]`이
+있는지로 갈라 읽는다.
+
+- 신규격: `server/discover` · `tools/list`(+`ttlMs`·`cacheScope`) · `tools/call`(+`resultType`).
+  헤더(`MCP-Protocol-Version`·`Mcp-Method`·`Mcp-Name`)가 본문과 어긋나면 `-32020`.
+- 옛 규격: `initialize`(받은 판을 그대로 되돌려줌) · `notifications/initialized`(202) · `ping`.
+  **세션 id는 절대 만들지 않는다** — 우리는 무상태다.
+- GET·DELETE는 `405`. 모르는 메서드는 `404` + `-32601`.
+
+### 인증 = OAuth (CIMD)
+
+사용자 확정(09-17): 요청 헤더에 PAT를 손으로 넣는 방식(A)이 아니라 OAuth(B). 비개발자가
+[허용] 한 번으로 끝나고, 살아 있는 토큰을 사람이 복사해 옮기지 않는다.
+
+| 조각 | 자리 |
+|---|---|
+| 보호 자원 메타데이터 | `/.well-known/oauth-protected-resource[/api/mcp]` |
+| 인증 서버 메타데이터 | `/.well-known/oauth-authorization-server` |
+| 동의 화면(사람이 보는 곳) | `/oauth/authorize` — **페이지** |
+| [허용] 처리 | `POST /api/oauth/authorize/decision` |
+| 토큰 교환·갱신 | `POST /api/oauth/token` (폼 인코딩) |
+| 핵심 로직 | `lib/oauth.ts` · 테이블 `supabase/migration_oauth.sql` |
+
+`.well-known` 주소는 `next.config.ts`의 rewrite가 잇는다 — `app/` 안의 점으로 시작하는
+폴더는 라우트로 잡히지 않는다.
+
+**CIMD**(Client ID Metadata Document)는 등록 절차가 없는 방식이다. `client_id`로 https URL이
+오고 우리가 그 주소를 읽어 이름·허용 리다이렉트 주소를 알아낸다. 문서는 그쪽이 스스로 쓴
+자기소개라 믿을 수 없으므로, **동의 화면의 큰 글씨는 이름이 아니라 client_id URL의 호스트**다.
+
+토큰은 기존 `api_tokens` 행 하나로 산다(같은 `nf_live_` 스킴) — 그래서 `verifyToken`·
+`ingestAuth`·연결 패널의 [폐기]가 전부 그대로 동작한다. OAuth가 더한 것은 만료·갱신·발급자
+컬럼과 인증 코드 테이블뿐이다. 액세스 12시간 · 갱신 90일 · 갱신 때마다 회전.
+
+### 함정
+
+- **`/api/mcp`는 Bearer 전용.** `ingestAuth`의 쿠키 폴백을 붙이면 남의 사이트가 로그인한
+  사람의 브라우저로 툴을 호출시킬 수 있다(CSRF).
+- **발견 문서의 CIMD 두 항목**(`client_id_metadata_document_supported: true` +
+  `token_endpoint_auth_methods_supported: ["none"]`)이 **같이** 있어야 Claude가 CIMD를 고른다.
+  하나라도 빠지면 동적 등록(우리가 안 만든 것)을 찾다가 조용히 실패한다.
+- **커넥터는 추가한 뒤 인증 설정을 못 바꾼다** — 틀리면 지우고 다시 추가해야 하고, 조직이면
+  구성원 전원이 다시 연결한다.
+- **주소가 `/sse`로 끝나면** 클라이언트가 옛 SSE 전송으로 잡는다. 끝 슬래시도 대상 판정을 깬다.
+- **Claude는 MCP 주소의 리다이렉트를 따라가고, 그때 Authorization 헤더가 사라진다** —
+  다른 호스트로 튀는 순간 401이 되고 "인증 실패"만 남는다. 이 경로엔 리다이렉트를 두지 말 것
+  (미들웨어의 온보딩 리다이렉트에서 `/.well-known`을 제외해 둔 이유).
+- `client_id`의 점 세그먼트는 **원문에서** 검사한다 — URL 파서가 `/a/../b`를 `/b`로 펴 버린다.
+- 툴 실행은 `lib/mcpDispatch.ts`가 **기존 API를 HTTP로 다시 부른다**. 게이트를 한 벌로 두려는
+  것이니 라우트 핸들러를 쪼개 import하지 말 것.
+- 검증: `npm test`의 `probe-oauth-unit`(38단언 — CIMD 두 항목·client_id 규칙·PKCE·문서 모양).
+
 ## 인제스트 API — `POST /api/ingest`
 
 - 인증: `Authorization: Bearer nf_live_…` (우선) 또는 쿠키 세션(`/publish` 경로).

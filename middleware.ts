@@ -83,7 +83,12 @@ export async function middleware(request: NextRequest) {
   }
 
   // username 없는 로그인 유저 → 온보딩으로
-  const skipOnboarding = pathname.startsWith("/onboarding") || pathname.startsWith("/api") || pathname.startsWith("/auth");
+  // /.well-known/*(OAuth 발견 문서)도 제외한다 — 로그인은 했지만 아직 username이
+  // 없는 사람의 브라우저에서 이 주소를 열면 온보딩으로 튕겨 발견이 깨진다. 바깥
+  // 서버(쿠키 없음)는 어차피 안 걸리지만, 리다이렉트가 붙는 순간 인증 헤더가 사라지는
+  // 클라이언트가 있어 이 경로엔 리다이렉트를 하나도 두지 않는 편이 안전하다.
+  const skipOnboarding = pathname.startsWith("/onboarding") || pathname.startsWith("/api")
+    || pathname.startsWith("/auth") || pathname.startsWith("/.well-known");
   if (user && !user.user_metadata?.username && !skipOnboarding) {
     return NextResponse.redirect(new URL("/onboarding", request.url));
   }
