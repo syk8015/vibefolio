@@ -428,12 +428,18 @@ export async function POST(req: NextRequest) {
         description,
         comment,
         demo_user_hint: demoHint,
-        demo_script: demoScript,
-        demo_access: demoAccess,
         tags,
         content_type: contentTypeId,
         target_device: targetDevice,
       };
+      // 대본·로그인 답은 **영상이 아직 안 온 2단계 발행에서는 덮지 않는다**(2026-09-16).
+      // 게이트가 `uploads:["video"]` 선언만 보고 면제해 주므로 이런 요청엔 대본이 없는
+      // 게 정상이다 — 그대로 덮으면 기존 초안의 대본이 이 순간 사라지고, 그 뒤 영상이
+      // 안 오거나 불량이면 (교체 표식 때문에 행은 남아서) 대본도 영상도 없는 초안이
+      // 된다. 영상이 실제로 도착하면 finalize가 type=video로 바꾸므로 옛 대본은 안 쓰인다.
+      const videoPending = declared.includes("video");
+      if (demoScript || !videoPending) upd.demo_script = demoScript;
+      if (demoAccess || !videoPending) upd.demo_access = demoAccess;
       // 진입 URL도 새 값으로 — draftId로 URL을 바꿔 올린 경우다(같은 URL 재발행이면 같은 값).
       // zip이 오는 요청은 옛 주소를 그대로 두고, 새 파일이 검증을 통과한 뒤(8단계·finalize) 바꾼다.
       if (demoUrl) upd.demo_url = demoUrl;

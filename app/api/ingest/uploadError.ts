@@ -57,6 +57,8 @@ export async function uploadErrorResponse(
       return apiError({ status: 400, message: t.api.mediaImageBadType, code: "BAD_MEDIA" });
     case "media-video-bad":
       return apiError({ status: 400, message: t.api.mediaVideoBadType, code: "BAD_MEDIA" });
+    case "no-film-source":
+      return apiError({ status: 400, message: t.api.finalizeNoScriptNoVideo, code: "NO_FILM_SOURCE" });
     default:
       // code 없이 라우트가 직접 만든 locale 메시지(예: demoUrlSaveFailed).
       return apiError({ status: 400, message: e.message, code: "UPLOAD_FAILED" });

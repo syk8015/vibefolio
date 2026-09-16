@@ -60,7 +60,10 @@ type UploadErrorCode =
   | "media-image-large"
   | "media-video-large"
   | "media-image-bad"
-  | "media-video-bad";
+  | "media-video-bad"
+  // 2단계 발행이 영상을 선언해 대본 게이트를 면제받고서 영상을 끝내 안 올린 경우
+  // (finalize에서만 판정 가능 — 발행 시점엔 파일이 아직 없다).
+  | "no-film-source";
 
 export class UploadError extends Error {
   code?: UploadErrorCode;

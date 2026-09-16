@@ -707,3 +707,11 @@ SNS/검색 로봇은 JS를 안 돌려 OG·크롤러 노출 문구(루트 descrip
 | api.draftUrlImmutable | URL이나 파일 교체는 payload에 "draftId": "<이 초안 id>"를 넣고 publish를 다시 실행하세요 — 그 초안이 그대로 갱신돼요(같은 URL로 다시 올려도 갱신돼요). | To change the URL or files, run publish again with "draftId": "<this draft's id>" in the payload — that draft is updated in place (publishing the same URL again also updates it). | 교체 · 파일 업로드 초안에는 "같은 URL" 안내가 틀렸다 |
 | api.scriptReview.fewSteps | 대본이 {n}스텝이에요 — …더 넣고 다시 publish하면(같은 URL, 또는 draftId에 이 초안 id) 이 초안이 갱신돼요. | The script has {n} steps — …and publish again — with the same URL, or this draft's id as draftId — to update the draft in place. | 교체 · 끝 문장만 |
 | projects.reviewFixCopied | 복사했어요 — AI에게 붙여넣으세요. AI가 다시 올리면 이 초안이 갱신돼요. | Copied — paste it into your AI. When it republishes, this draft is updated in place. | 교체 · 고쳐달라기 프롬프트가 JSON에 draftId를 싣게 되면서 "같은 URL" 조건을 뺐다(npm 0.1.13 발행 뒤) |
+
+## 영상 선언만 하고 안 올린 발행 (2026-09-16)
+
+`uploads:["video"]` 선언은 대본·로그인 게이트를 면제해 준다(자동 촬영을 건너뛰므로). 영상이 끝내 안 오면 대본도 영상도 없는 초안이 남던 구멍을 `finalize`에서 막으면서 생긴 문구. PAT 경로는 영어판만 읽힌다.
+
+| 키 | 한국어 | English | 비고 |
+|---|---|---|---|
+| api.finalizeNoScriptNoVideo | 영상도 촬영 대본도 없어요. 선언한 영상을 올리거나, demoScript를 넣어 다시 발행해 주세요. 둘 중 하나가 있어야 시연을 만들 수 있어요. | Neither a video nor a demo script. Upload the video you declared, or publish again with a demoScript — the demo needs one of the two. | 신규 · 400 NO_FILM_SOURCE(finalize 전용 — 발행 시점엔 파일이 아직 없어 판정 불가) |

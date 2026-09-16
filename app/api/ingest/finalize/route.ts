@@ -10,6 +10,7 @@ import {
   UPLOAD_TEMP_KEYS, UPLOAD_REPLACE_MARKER,
 } from "@/lib/ingestStore";
 import { uploadErrorResponse } from "../uploadError";
+import { normalizeDemoScript } from "@/lib/demoScript";
 import { logger } from "@/lib/logger";
 
 // POST /api/ingest/finalize — 서명 URL 2단계의 마무리. /api/ingest가 uploads
@@ -53,7 +54,7 @@ export async function POST(req: NextRequest) {
     const admin = createAdminClient();
     const { data: row, error: selErr } = await admin
       .from("projects")
-      .select("id, user_id, is_draft, demo_url, video_url, thumbnail")
+      .select("id, user_id, is_draft, demo_url, video_url, thumbnail, demo_script")
       .eq("id", projectId)
       .maybeSingle();
     if (selErr || !row) {
@@ -111,6 +112,15 @@ export async function POST(req: NextRequest) {
     try {
       const updates: Record<string, string> = {};
       const sniffed = validateMedia(shotBuf, videoBuf);
+      // 영상도 대본도 없으면 이 초안은 찍을 방법이 없다(2026-09-16). 발행 때
+      // `uploads:["video"]` **선언만으로** 대본 게이트를 면제받고서 영상을 끝내 안
+      // 올린 경우다 — 여기서 막지 않으면 대본 없는 초안이 남고, 공개되면 픽셀 추측
+      // 이라는 옛 촬영 경로로 간다(편당 $0.19 vs 셀렉터 직배선 $0.02).
+      // 아래 catch가 기존 정책대로 처리한다: 이번 발행이 만든 행이면 삭제, 교체
+      // 발행이면 그대로 둔다 — 1단계가 이제 옛 대본을 안 덮으므로 옛 대본이 살아 있다.
+      if (!videoBuf && !row.video_url && !normalizeDemoScript(row.demo_script)) {
+        throw new UploadError(t.api.finalizeNoScriptNoVideo, "no-film-source");
+      }
       let keep: Set<string> | null = null;
       if (bundleBuf) {
         if (bundleBuf.byteLength > MAX_UPLOAD_BYTES) {

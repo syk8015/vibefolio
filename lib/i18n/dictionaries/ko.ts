@@ -746,6 +746,7 @@ export const ko = {
     mediaVideoBadType: "video는 mp4/webm 영상 파일이어야 해요.",
     mediaUploadFailed: "미디어 업로드에 실패했어요. 잠시 후 다시 시도해 주세요.",
     finalizeNothing: "업로드된 파일이 없어요. 발급받은 URL로 파일을 먼저 올린 뒤 finalize를 호출해 주세요.",
+    finalizeNoScriptNoVideo: "영상도 촬영 대본도 없어요. 선언한 영상을 올리거나, demoScript를 넣어 다시 발행해 주세요. 둘 중 하나가 있어야 시연을 만들 수 있어요.",
     finalizeNotDraft: "이미 공개된 프로젝트는 이 경로로 수정할 수 없어요.",
     draftIdNotDraft: "이미 공개된 프로젝트예요 — draftId로는 초안만 갱신할 수 있어요. 공개된 작품의 영상을 바꾸려면 rerecord로 새 대본을 내세요.",
     newDraftConflict: "newDraft와 draftId는 서로 반대예요 — newDraft는 늘 새 초안을 만들고, draftId는 그 초안을 갱신해요. 둘 중 하나만 보내세요.",

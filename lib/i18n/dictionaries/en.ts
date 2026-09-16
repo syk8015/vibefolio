@@ -713,6 +713,7 @@ export const en: Dictionary = {
     mediaVideoBadType: "video must be an mp4/webm video file.",
     mediaUploadFailed: "Media upload failed. Please try again in a moment.",
     finalizeNothing: "No uploaded files found. PUT your files to the issued URLs first, then call finalize.",
+    finalizeNoScriptNoVideo: "Neither a video nor a demo script. Upload the video you declared, or publish again with a demoScript — the demo needs one of the two.",
     finalizeNotDraft: "A published project can't be modified through this path.",
     draftIdNotDraft: "That project is already published — draftId only updates drafts. To change a published work's demo video, submit a new script with rerecord.",
     newDraftConflict: "newDraft and draftId are opposites — newDraft always creates a new draft, draftId updates that one. Send only one of them.",

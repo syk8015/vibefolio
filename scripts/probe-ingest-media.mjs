@@ -10,7 +10,7 @@ import "./_secrets.mjs";
 import { createClient } from "@supabase/supabase-js";
 import { createHash, randomBytes } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, writeFileSync, existsSync, appendFileSync } from "node:fs";
+import { mkdtempSync, writeFileSync, existsSync, appendFileSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runPublish } from "../cli/src/publish.js";
@@ -149,6 +149,34 @@ try {
   ok("불량 영상 finalize 400 BAD_MEDIA", fin.status === 400 && finBody.code === "BAD_MEDIA", `${fin.status} ${finBody.code}`);
   const { data: gone } = await svc.from("projects").select("id").eq("id", d.projectId).maybeSingle();
   ok("불량 finalize 후 행 삭제됨", gone == null);
+
+  // (5) 영상을 선언해 대본 게이트를 면제받고서 **영상을 끝내 안 올린** 경우(2026-09-16).
+  // 영상+스크린샷을 선언하고 스크린샷만 올린다 — 아무것도 안 올리면 NOTHING_TO_FINALIZE가
+  // 먼저 잡으므로, 새 게이트가 실제로 걸리는 건 이 모양이다.
+  const noFilm = await (await jsonPost("/api/ingest", { title: "__probe_nofilm__", targetDevice: "desktop", description: "프로브가 만든 임시 행\n곧 지워집니다", deployUrl: `https://example.com/probe-nofilm-${Date.now()}`, uploads: ["video", "screenshot"] })).json();
+  ok("영상 선언만으로 발행은 통과(대본 없이)", !!noFilm.projectId, JSON.stringify(noFilm).slice(0, 100));
+  if (noFilm.projectId) {
+    await fetch(noFilm.uploads.screenshot, { method: "PUT", headers: { "Content-Type": "image/png" }, body: readFileSync(`${S}/tiny.png`) });
+    const fin5 = await jsonPost("/api/ingest/finalize", { projectId: noFilm.projectId });
+    const body5 = await fin5.json().catch(() => ({}));
+    ok("영상도 대본도 없으면 finalize 400 NO_FILM_SOURCE", fin5.status === 400 && body5.code === "NO_FILM_SOURCE", `${fin5.status} ${body5.code}`);
+    const { data: gone5 } = await svc.from("projects").select("id").eq("id", noFilm.projectId).maybeSingle();
+    ok("그 행은 삭제됨(이번 발행이 만든 행)", gone5 == null);
+  }
+
+  // (6) 기존 초안에 "영상 올릴게요" 선언만으로 재발행해도 **옛 대본이 살아 있어야** 한다.
+  // 예전엔 demo_script를 payload 값으로 그대로 덮어서, 영상이 안 오면 대본도 영상도 없는
+  // 초안이 남았다(교체 표식 때문에 행은 안 지워진다).
+  const keepUrl = `https://example.com/probe-keepscript-${Date.now()}`;
+  const first = await (await jsonPost("/api/ingest", { title: "__probe_keepscript__", targetDevice: "desktop", description: "프로브가 만든 임시 행\n곧 지워집니다", deployUrl: keepUrl, demoScript: SCRIPT, demoAccess: ACCESS })).json();
+  ok("대본 있는 초안 발행 성공", !!first.projectId, JSON.stringify(first).slice(0, 100));
+  if (first.projectId) {
+    const again = await (await jsonPost("/api/ingest", { title: "__probe_keepscript__", targetDevice: "desktop", description: "프로브가 만든 임시 행\n곧 지워집니다", deployUrl: keepUrl, uploads: ["video"] })).json();
+    ok("같은 초안을 영상 선언으로 재발행", again.projectId === first.projectId, `${again.projectId} vs ${first.projectId}`);
+    const { data: kept } = await svc.from("projects").select("demo_script, demo_access").eq("id", first.projectId).single();
+    ok("옛 대본이 살아 있다", (kept?.demo_script?.steps?.length ?? 0) === SCRIPT.steps.length, `steps=${kept?.demo_script?.steps?.length}`);
+    ok("옛 demoAccess도 살아 있다", kept?.demo_access?.noLogin === true, JSON.stringify(kept?.demo_access));
+  }
 } finally {
   await cleanupAll();
   console.log("  (throwaway 행·스토리지·토큰 정리 완료)");
