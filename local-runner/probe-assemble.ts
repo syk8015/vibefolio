@@ -19,6 +19,25 @@ check(
 );
 check(!isFullyWired(norm({ steps: [{ goal: "a", action: "click" }] })), "셀렉터 없는 스텝=비전 폴백");
 check(!isFullyWired(norm({ steps: [{ goal: "a", selector: "#x" }] })), "action 없는 스텝=비전 폴백");
+// 뒤로가기(NF-06)는 셀렉터가 없는 게 정상 — 요구하면 이 한 줄 때문에 대본 전체가
+// 비전 경로로 떨어진다.
+check(
+  isFullyWired(norm({ steps: [{ goal: "목록으로", action: "navigate", to: "back" }] })),
+  "navigate 스텝=셀렉터 없어도 직배선",
+);
+check(
+  isFullyWired(norm({ steps: [{ goal: "a", selector: "#x", action: "click" }, { goal: "뒤로", action: "navigate" }] })),
+  "navigate가 섞여도 직배선 유지",
+);
+// `to`는 toSelector의 별칭이기도 하다 — navigate에서만 방향으로 읽어야 한다.
+check(
+  norm({ steps: [{ goal: "뒤로", action: "navigate", to: "back" }] }).steps[0].toSelector === undefined,
+  "navigate의 to는 toSelector로 새지 않는다",
+);
+check(
+  norm({ steps: [{ goal: "옮기기", action: "drag", selector: "#a", to: "#b" }] }).steps[0].toSelector === "#b",
+  "drag의 to는 여전히 toSelector",
+);
 check(
   !isFullyWired(norm({ steps: [{ goal: "a", selector: "#x", action: "drag" }] })),
   "drag에 toSelector 없으면 비전 폴백",

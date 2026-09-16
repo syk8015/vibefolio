@@ -18,6 +18,11 @@ type ScriptActionBase =
   // Non-typing key beat (standalone Enter, arrows, Tab…) — replay presses it so
   // keyboard-driven UI (slider nudges, focus moves) stays in sync (audit A-C2).
   | { kind: "key"; key: string }
+  // 뒤로가기 비트(2026-09-16, NF-06). 예전엔 대본에 이 어휘가 없어서 AI가 앱의 '뒤로'
+  // 버튼을 일반 click으로 적었고, 30초 필름에서 컷 하나가 거기 쓰였다. 브라우저 히스토리를
+  // 쓰면 화면 안 버튼을 찾을 필요가 없다. 주소는 대본이 정하지 않는다(back 전용) —
+  // netguard와 엮이지 않게.
+  | { kind: "navigate"; to: "back"; label?: string }
   // M1 (explore) emits these; replay handles them then.
   | { kind: "hover"; selector: string; x?: number; y?: number }
   // viaKey: the dismissal explore observed was an Escape press (no element to

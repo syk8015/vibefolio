@@ -27,6 +27,10 @@ const DEMO_SCRIPT_ACTIONS = [
   // 카메라 강조(2026-08-20): 그 영역을 조작하지 않고 "자세히 보여주기"만 원할 때.
   // 레코더가 커서를 얹는 게 아니라 최종 필름의 카메라가 그 영역을 확대(크롭)한다.
   "focus",
+  // 뒤로가기(2026-09-16, NF-06): 앱의 '뒤로' 버튼을 click으로 적으면 30초 필름에서
+  // 컷 하나를 거기 쓴다. 브라우저 히스토리로 돌아가면 그 컷을 아낀다. 값은 back 하나뿐 —
+  // 대본이 주소를 정하면 안전 검사(같은 출처 확인)가 한 겹 더 필요해진다.
+  "navigate",
 ] as const;
 type DemoScriptAction = (typeof DEMO_SCRIPT_ACTIONS)[number];
 
@@ -83,6 +87,9 @@ export const DEMO_SCRIPT_MIN_SUBSTANTIAL = 3;
 // 러너(assemble.ts)와 대시보드 초안 검토 화면이 **같은 규칙**을 써야 배지가
 // 거짓말을 하지 않는다 — 그래서 여기(양쪽이 import 가능한 곳)에 둔다.
 export function isStepWired(st: DemoScriptStep): boolean {
+  // navigate(뒤로가기)는 화면 안 요소를 안 쓴다 — 셀렉터를 요구하면 뒤로가기 한 줄
+  // 때문에 대본 전체가 비싼 비전 경로로 떨어진다(편당 $0.19 vs $0.02).
+  if (st.action === "navigate") return true;
   if (!st.selector || !st.action) return false;
   if (st.action === "draw") return false;
   if (st.action === "drag" && !st.toSelector) return false;
@@ -98,6 +105,7 @@ export function isFullyWired(script: DemoScript): boolean {
 // (selector 또는 where)가 둘 다 있어야 한다. isStepWired(비전 생략의 조건)보다 느슨한
 // 기준이다 — 셀렉터 없이 where만 준 대본도 (비전 폴백으로) 찍히기는 하므로 실속으로 센다.
 export function isStepSubstantial(st: DemoScriptStep): boolean {
+  if (st.action === "navigate") return true; // 어디를 누를지가 없는 게 정상인 유일한 액션
   return !!st.action && !!(st.selector || st.where);
 }
 
@@ -143,12 +151,17 @@ function normStep(raw: unknown): DemoScriptStep | null {
   // 원형 유지(제어문자 제거·상한). 문법 검증은 조립 시점 locator가 한다.
   const selector = clean(r.selector, DEMO_SCRIPT_SELECTOR_MAX);
   if (selector) step.selector = selector;
-  const toSelector = clean(r.toSelector ?? r.to, DEMO_SCRIPT_SELECTOR_MAX);
-  if (toSelector) step.toSelector = toSelector;
+  // action을 toSelector보다 **먼저** 읽는다: `to`는 toSelector의 별칭인데
+  // navigate 스텝의 `to: "back"`은 드롭 대상이 아니라 방향이다(2026-09-16).
   const action = clean(r.action, 20).toLowerCase();
   if ((DEMO_SCRIPT_ACTIONS as readonly string[]).includes(action)) {
     step.action = action as DemoScriptAction;
   }
+  const toSelector = clean(
+    r.toSelector ?? (step.action === "navigate" ? undefined : r.to),
+    DEMO_SCRIPT_SELECTOR_MAX,
+  );
+  if (toSelector) step.toSelector = toSelector;
   const text = clean(r.text, DEMO_SCRIPT_TEXT_MAX);
   if (text) step.text = text;
   const expect = clean(r.expect ?? r.result, DEMO_SCRIPT_EXPECT_MAX);

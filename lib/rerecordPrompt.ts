@@ -35,7 +35,8 @@ const SHAPE = `{
       "selector": "the control's CSS selector — you know the code, give the exact one",
       "toSelector": "(action=drag) CSS selector of the drop target",
       "where": "how to find it by eye (visible label/position) — the fallback when a selector misses",
-      "action": "click | type | drag | scroll | hover | draw | focus",
+      "action": "click | type | drag | scroll | hover | draw | focus | navigate",
+      "to": "(action=navigate) \\"back\\" — return to the previous screen via browser history, no selector needed",
       "text": "(action=type) what to type",
       "expect": "what the screen should show right after",
       "hold": 2

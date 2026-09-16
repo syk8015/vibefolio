@@ -175,6 +175,11 @@ const fe3 = estimateFilm({ steps: [{ goal: "s", selector: "#s", action: "scroll"
 ok("scroll은 hold를 안 주면 0.75 → 0.8", fe3.seconds === 0.8, JSON.stringify(fe3));
 const fe4 = estimateFilm({ steps: [{ goal: "f", selector: "#f", action: "focus", hold: 9 }] });
 ok("hold는 스키마 상한 4초로 자른다", Math.abs(fe4.seconds - (0.7 + 4)) < 0.01, JSON.stringify(fe4));
+// 뒤로가기(NF-06)는 커서가 안 움직인다 — 히스토리 복귀 0.8 + 기본 hold 0.9 → 1.7.
+// 클릭(2.1)보다 싸다는 게 이 액션을 만든 이유다(컷 하나를 통째로 아낀다).
+const feNav = estimateFilm({ steps: [{ goal: "목록으로", action: "navigate" }] });
+ok("navigate = 0.8 + 기본 hold 0.9 → 1.7", feNav.seconds === 1.7, JSON.stringify(feNav));
+ok("navigate가 click(2.1)보다 싸다", feNav.seconds < fe1.seconds, `${feNav.seconds} < ${fe1.seconds}`);
 // 외부 AI가 09-16에 고른 9컷(hold 합 20초) 모양 — 30초를 넘어 뒤 스텝이 못 들어간다.
 const nine: DemoScript = {
   steps: Array.from({ length: 9 }, (_, i) => ({

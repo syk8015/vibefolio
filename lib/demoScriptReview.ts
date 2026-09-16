@@ -85,6 +85,10 @@ export type FilmEstimate = {
   cutFromStep: number | null;
 };
 
+// 뒤로가기 비트: 커서가 움직이지 않고 브라우저 히스토리 복귀만 기다린다
+// (replay.ts navigate 분기 — goBack + hold). 클릭보다 싸다.
+const NAV_SEC = 0.8;
+
 function stepSeconds(step: DemoScript["steps"][number]): number {
   // hold는 스키마 상한(0.5~4초)으로 자른다 — 대본이 20을 적어도 러너가 그만큼 쉬지 않는다.
   const hold = typeof step.hold === "number"
@@ -96,6 +100,7 @@ function stepSeconds(step: DemoScript["steps"][number]): number {
     case "hover": return CURSOR_MOVE_SEC + hold;
     case "type": return CURSOR_MOVE_SEC + SETTLE_SEC + (step.text?.length ?? 0) * TYPE_CHAR_SEC + hold;
     case "drag": return CURSOR_MOVE_SEC + SETTLE_SEC + DRAG_SEC + hold;
+    case "navigate": return NAV_SEC + hold;
     case "draw": return CURSOR_MOVE_SEC + SETTLE_SEC + DRAW_SEC + hold;
     // click과 action 없는 스텝(로봇이 화면을 보고 고르는 것)은 같은 비용으로 센다.
     default: return CURSOR_MOVE_SEC + SETTLE_SEC + hold;

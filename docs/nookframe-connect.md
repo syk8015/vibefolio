@@ -151,7 +151,11 @@
   스크린샷·zip만 올린" 모양이다. 프로브=`probe-ingest-media.mjs` (5)(6).
 - payload 매핑: `demoScript`→`demo_script`(**촬영 대본** — demoHighlights의 구조화 승격, 2026-08-20.
   `{ steps: [{ goal, where?, action?, text?, expect?, hold? }], skip?, prep? }`, 정규화=`lib/demoScript.ts`:
-  스텝≤10·필드 캡·action 화이트리스트, 형식 어긋난 스텝은 조용히 드랍 후 에코의 `demoScriptSteps`/
+  스텝≤10·필드 캡·action 화이트리스트(`click|type|drag|scroll|hover|draw|focus|navigate` — **navigate**는
+  2026-09-16 추가된 뒤로가기 비트[NF-06]로 `to:"back"` 하나만 받고 **셀렉터가 없는 게 정상**이다:
+  `isStepWired`·`isStepSubstantial`이 이 액션만 예외로 통과시킨다. 안 그러면 뒤로가기 한 줄 때문에
+  대본 전체가 비전 경로로 떨어진다. `to`는 `toSelector`의 별칭이기도 해서 정규화가 action을 **먼저**
+  읽는다 — 순서를 되돌리면 `to:"back"`이 드롭 대상 셀렉터로 새어 들어간다), 형식 어긋난 스텝은 조용히 드랍 후 에코의 `demoScriptSteps`/
   `demoScriptDropped`로 보고. 레코더에선 explore 브리핑의 등뼈가 되고 `mark_step` 툴로 커버리지를
   코드가 추적, 마지막 스텝 도달 전 종료는 재촉으로 거부되고, **완주하면 즉시 종료**(분량 하한·재촉은 대본 없는 판 전용 — 대본이 곧 필름 전체). hold(초 0.5~4)는 mark_step 매핑으로 그 스텝 첫 기록 액션에 붙어 replay 페이싱이 된다. **"제안"으로만 취급** — 하드룰·쓰기
   mock은 대본과 무관하게 유지. 컬럼 부재 시 3개 라우트+워커 전부 42703/PGRST204 디그레이드로 대본만

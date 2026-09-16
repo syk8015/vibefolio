@@ -44,7 +44,8 @@ export const DEMO_SCRIPT_SCHEMA = {
           toSelector: { type: "string", description: "CSS selector for the drop target when action=drag" },
           where: { type: "string", description: "How to find it by eye (visible label, position) — the fallback when the selector misses (max 120 chars)" },
           // "focus" = 강조 비트: 조작 없이 필름 카메라가 그 영역을 확대(2026-08-20).
-          action: { type: "string", enum: ["click", "type", "drag", "scroll", "hover", "draw", "focus"] },
+          action: { type: "string", enum: ["click", "type", "drag", "scroll", "hover", "draw", "focus", "navigate"] },
+          to: { type: "string", enum: ["back"], description: "Only for action=navigate: go back to the previous screen using browser history. No selector needed — do not spend a click beat on an in-page back button" },
           text: { type: "string", description: "What to type when action=type (max 60 chars)" },
           expect: { type: "string", description: "What should appear on screen afterwards (max 120 chars)" },
           hold: { type: "number", description: "How many seconds to hold on this step's result (0.5-4). Only for beats that need a slow look" },

@@ -77,9 +77,17 @@ export async function assembleScript(
 
   for (let i = 0; i < script.steps.length; i++) {
     const st = script.steps[i];
-    const sel = st.selector!;
     const holdMs = st.hold ? Math.round(st.hold * 1000) : undefined;
     const label = st.goal.slice(0, 40);
+    // 뒤로가기 비트(NF-06)는 화면 안 요소를 쓰지 않는다 — 셀렉터 해석·중앙 정렬을
+    // 통째로 건너뛴다. 조립도 상태 의존이라 실제로 돌아가 둬야 다음 스텝의 무대가 맞다.
+    if (st.action === "navigate") {
+      actions.push({ kind: "navigate", to: "back", label, ...(holdMs ? { holdMs } : {}) });
+      await page.goBack({ waitUntil: "domcontentloaded" }).catch(() => {});
+      await sleep(500);
+      continue;
+    }
+    const sel = st.selector!;
     let pos: { x: number; y: number; w: number; h: number };
     try {
       pos = await ensureCentered(page, sel, actions);

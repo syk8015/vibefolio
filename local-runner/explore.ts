@@ -830,6 +830,8 @@ export function buildScriptBrief(script: DemoScript): string {
     "  hunt for more than one beat.",
     "- The moment you START a step, call the mark_step tool with its number (in the same turn as the",
     "  step's first action).",
+    "- A step whose action is 'navigate' means GO BACK to the previous screen. Press Alt+Left (browser",
+    "  history) instead of hunting for a back button in the page — it has no selector on purpose.",
     "- 'expect' says what should appear right after. Check the next screenshot against it: if it did NOT",
     "  appear, the step failed — do not build later steps on top of it; retry ONCE differently or skip",
     "  ahead to the next step.",

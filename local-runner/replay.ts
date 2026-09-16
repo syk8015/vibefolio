@@ -207,6 +207,19 @@ async function runAction(
     await sleep(hold / 2);
     return;
   }
+  if (act.kind === "navigate") {
+    // 뒤로가기(NF-06): 손이 하는 일이 아니라 브라우저가 하는 일이라 커서를 숨긴다
+    // (스크롤과 같은 취급). 줌이 남아 있으면 먼저 푼다 — 확대된 창 안에서 화면이
+    // 통째로 바뀌면 무엇이 바뀌었는지 안 읽힌다.
+    await cursorHide(page, CURSOR_FADE_MS);
+    if (cam.isZoomed()) {
+      cam.settleWide();
+      await sleep(ZOOM_OUT_MS);
+    }
+    await page.goBack({ waitUntil: "domcontentloaded" }).catch(() => {});
+    await sleep(hold);
+    return;
+  }
   if (act.kind === "hover") {
     const to = await resolveTarget(page, act, fell);
     await approach(page, cam, to);
