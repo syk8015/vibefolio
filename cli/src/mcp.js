@@ -3,6 +3,7 @@ import { runPublish } from "./publish.js";
 import { formatAccepted } from "./echo.js";
 import { listDrafts, updateDraft, deleteDraft } from "./drafts.js";
 import { submitRerecord, formatRerecord } from "./rerecord.js";
+import { runDryRun, declareUploads, formatDryRun } from "./check.js";
 import {
   AI_TOOL_IDS, CONTENT_TYPES, TARGET_DEVICE_SCHEMA, DEMO_SCRIPT_SCHEMA, DEMO_ACCESS_PROPERTIES,
   PUBLISH_DESCRIPTION, PUBLISH_INPUT_SCHEMA,
@@ -34,6 +35,15 @@ export async function runMcp() {
   const TOOL = {
     name: "publish_to_nookframe",
     description: PUBLISH_DESCRIPTION,
+    inputSchema: PUBLISH_INPUT_SCHEMA,
+  };
+
+  // 사전 검사(2026-09-16) — 같은 payload를 `?dryRun=1`로 보내 판정만 받는다. 저장·업로드
+  // 없음. 게이트에 걸릴 payload를 초안으로 만들지 않고 고칠 수 있는 자리다.
+  const CHECK_TOOL = {
+    name: "check_nookframe_payload",
+    description:
+      "Dry run a Nookframe publish payload: the server runs every gate it would run for real (demo script minimum, the login question, the description's 2-3 line shape, targetDevice, the entry URL, selector existence, estimated film length) and answers whether this payload would be accepted — without creating a draft or uploading anything. Call it before publish_to_nookframe whenever you are unsure, and after fixing a rejection. Same input as publish_to_nookframe. The answer also says whether publishing would UPDATE the draft already at that URL or create a new one. What it cannot check: the uploaded files themselves and the draft count limit.",
     inputSchema: PUBLISH_INPUT_SCHEMA,
   };
 
@@ -99,7 +109,7 @@ export async function runMcp() {
   };
 
   server.setRequestHandler(ListToolsRequestSchema, async () => ({
-    tools: [TOOL, RERECORD_TOOL, ...DRAFT_TOOLS],
+    tools: [TOOL, CHECK_TOOL, RERECORD_TOOL, ...DRAFT_TOOLS],
   }));
 
   server.setRequestHandler(CallToolRequestSchema, async (req) => {
@@ -123,6 +133,21 @@ export async function runMcp() {
           const echo = formatAccepted(body.accepted);
           return { content: [{ type: "text", text:
             `${verb} on Nookframe (draft id: ${body.projectId} — pass it as draftId to update this draft). Review and publish: ${body.reviewUrl}${echo.length ? `\n${echo.join("\n")}` : ""}` }] };
+        }
+        case "check_nookframe_payload": {
+          const { dir, screenshot, video, ...payload } = a;
+          // 파일은 올리지 않지만 "올릴 예정"이라는 선언은 실어야 발행과 같은 답이 나온다.
+          const uploads = declareUploads(payload, { dir, screenshot, video });
+          const { status, body } = await runDryRun({ payload, ...conn });
+          if (status !== 200 || !body?.ok) {
+            return { isError: true, content: [{ type: "text", text:
+              `This payload would be REJECTED (${body?.code ?? `HTTP ${status}`}): ${body?.error ?? "the server sent no message"}\nNothing was uploaded — fix the payload and check again.` }] };
+          }
+          if (!body.dryRun) {
+            return { isError: true, content: [{ type: "text", text:
+              `This Nookframe server does not support checking yet, so the payload was PUBLISHED as a draft (id ${body.projectId ?? "unknown"}). Tell the owner, or delete it with delete_nookframe_draft.` }] };
+          }
+          return { content: [{ type: "text", text: formatDryRun(body, uploads).join("\n") }] };
         }
         case "list_nookframe_drafts": {
           const { drafts } = await listDrafts(conn);

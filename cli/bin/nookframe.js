@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { publishCommand } from "../src/publish.js";
-import { saveToken, getOrigin } from "../src/config.js";
+import { getOrigin } from "../src/config.js";
 
 const HELP = `nookframe — publish a vibe-coded project to Nookframe in one command
 
@@ -34,6 +34,10 @@ Commands:
     --video <p>        Your own demo video (mp4/webm, <=20MB — supplying one skips automatic filming)
     --origin <url>     API origin (default ${getOrigin()})
   schema             Print the publish payload as a JSON Schema — every field --file/--json take, with its rules
+  check              Dry run: ask the server whether this payload would be accepted, without uploading anything
+                     Same input as publish (--file / --json - / --json / the flags above, --dir included).
+                     Prints the same report publish would, plus whether it would update the draft already there.
+                     Exits 1 with the server's own message when it would be rejected — run it before publish.
   rerecord <id>      Unhappy with the video — submit a rewritten demo script
                      (it goes into a pending slot; the owner must review it and press [Re-record] in the dashboard)
     --file <path>      New script JSON from a file — { "steps": [...] } or { "demoScript": {...}, "note": "..." }
@@ -44,10 +48,12 @@ Commands:
     update <id>        Edit draft metadata (--title/--description/--note/--hint, or JSON via --file/--json —
                         to swap the URL or files, run publish --id <id>)
     delete <id>        Delete a draft (published projects cannot be deleted with this command)
-  login <token>      Save a token to ~/.nookframe/config.json
+  login <code>       Trade the one-time pairing code in your prompt for an access token and save it
+                     (~/.nookframe/config.json, owner-only). An access token (nf_live_…) is still accepted as-is.
   mcp                Run the MCP stdio server (for Claude Desktop, Cursor, etc.)
 
-Get a token: nookframe.com/dashboard -> Connect tab. Then set NOOKFRAME_TOKEN or run login.`;
+Get connected: nookframe.com/dashboard -> Connect tab -> [Copy prompt]. Step 1 of that prompt is your
+pairing code — run "nookframe login <code>" once (or set NOOKFRAME_TOKEN if you already have a token).`;
 
 function parseArgs(argv) {
   const out = { _: [] };
@@ -96,6 +102,11 @@ try {
       console.error("Write a payload that matches this schema to a file, then run: npx nookframe publish --file payload.json");
       break;
     }
+    case "check": {
+      const { checkCommand } = await import("../src/check.js");
+      await checkCommand(args);
+      break;
+    }
     case "rerecord": {
       const { rerecordCommand } = await import("../src/rerecord.js");
       await rerecordCommand(args);
@@ -107,13 +118,8 @@ try {
       break;
     }
     case "login": {
-      const token = args._[0] || (typeof args.token === "string" ? args.token : null);
-      if (!token) {
-        console.error("Usage: npx nookframe login <token>  (get a token at nookframe.com/dashboard -> Connect tab)");
-        process.exit(1);
-      }
-      saveToken(token);
-      console.log("✓ Token saved to ~/.nookframe/config.json");
+      const { runLogin } = await import("../src/login.js");
+      await runLogin(args);
       break;
     }
     case "mcp": {

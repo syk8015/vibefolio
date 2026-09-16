@@ -59,6 +59,7 @@ interface IngestPayload {
   uploads?: unknown;
   draftId?: unknown;
   newDraft?: unknown;
+  dryRun?: unknown;
 }
 
 export async function POST(req: NextRequest) {
@@ -68,8 +69,15 @@ export async function POST(req: NextRequest) {
     if (auth.fail) return auth.fail;
     const { userId, t } = auth;
 
-    // 2. 레이트리밋 — user_id 키(토큰 여러 개로 우회 못 하게).
-    const allowed = await rateLimit({ name: "ingest", key: userId, windowSeconds: 3600, max: 20 });
+    // 2. 레이트리밋 — user_id 키(토큰 여러 개로 우회 못 하게). 사전 검사(`?dryRun=1`,
+    // = `nookframe check`)는 아무것도 저장하지 않으므로 발행 버킷(20/h)을 쓰지 않는다 —
+    // 검사 몇 번에 발행 예산이 마르면 "올리기 전에 확인해라"와 어긋난다. 버킷을 고르려면
+    // 본문 파싱(3단계) 전에 알아야 해서 쿼리로 받는다(payload.dryRun도 뒤에서 받아주되,
+    // 그 경로는 발행 버킷을 한 번 쓴다 — 저장은 여전히 안 한다).
+    const dryRunQuery = req.nextUrl.searchParams.get("dryRun") === "1";
+    const allowed = dryRunQuery
+      ? await rateLimit({ name: "ingest-check", key: userId, windowSeconds: 3600, max: 60 })
+      : await rateLimit({ name: "ingest", key: userId, windowSeconds: 3600, max: 20 });
     if (!allowed) {
       return apiError({ status: 429, message: t.api.tooManyRequests, code: "RATE_LIMITED" });
     }
@@ -122,6 +130,11 @@ export async function POST(req: NextRequest) {
       const b = body as { payload?: IngestPayload } & IngestPayload;
       payload = (b?.payload ?? b) as IngestPayload;
     }
+
+    // 사전 검사 여부(6.5단계에서 쓴다) — 쿼리와 payload 둘 다 받는다. 쿼리는 버킷을 고르려고
+    // 파싱 **전에** 읽은 값이고, payload 경로는 이미 발행 버킷을 한 번 썼지만(파싱 전엔 알 수
+    // 없었다) 저장은 하지 않는다 — 어느 쪽이든 "쓰지 않는" 안전한 쪽으로 기운다.
+    const dryRun = dryRunQuery || payload?.dryRun === true;
 
     const admin = createAdminClient();
 
@@ -377,6 +390,34 @@ export async function POST(req: NextRequest) {
           demoUrl: (sameUrl.demo_url as string | null) ?? null,
         };
       }
+    }
+
+    // 6.5. 사전 검사(dryRun, 2026-09-16 사용자 확정 — CLI `nookframe check`). 게이트를
+    // 전부 통과했으니 여기까지 왔다: 저장·업로드·서명 URL은 하나도 하지 않고 발행했을 때와
+    // **같은 에코**만 돌려준다. 이 자리인 이유 — 위는 전부 읽기 전용(인증·게이트·URL 검사·
+    // 셀렉터 확인·갱신 대상 찾기)이고 아래부터 쓰기다. "발행하면 무슨 일이 일어나나"를 다
+    // 아는 유일한 지점이 이 사이다.
+    //
+    // 규칙을 CLI에 다시 구현하지 않고 이 경로로 물어보게 한 이유: 대본·소개글·로그인·대상
+    // 화면 게이트는 전부 lib에 있고 cli/는 레포 코드를 import할 수 없다(AGENTS.md) — 사본을
+    // 하나 더 만들면 서버와 답이 갈라진다. 검사 못 하는 것은 파일 자체(zip 안전성·미디어
+    // 매직바이트 일부)와 초안 개수 상한(쓰기 분기에서 센다)뿐이다.
+    if (dryRun) {
+      const review = !hasOwnVideo && demoScript
+        ? buildScriptReview(demoScript, selectorProbe ? await selectorProbe : null, t)
+        : undefined;
+      return NextResponse.json({
+        ok: true, dryRun: true,
+        // 발행하면 새 초안이 생기는지, 기존 초안을 덮는지. NF-16의 불만이 "말없이 덮어쓰기"였다.
+        wouldUpdate: !!existing,
+        ...(existing ? { draftId: existing.id } : {}),
+        // 컬럼 부재 디그레이드(demo_script·target_device)는 쓰기 때만 알 수 있어 여기선
+        // "보낸 값이 저장된다"고 답한다 — 그 상황이면 발행 응답이 진실을 말한다.
+        accepted: buildAccepted(payload as unknown as Record<string, unknown>, {
+          title, description, comment, demoHint, tags, demoScript,
+          contentTypeId, demoAccess, entryUrl: demoUrl, targetDevice,
+        }, normalizeTags, review),
+      });
     }
 
     if (existing) {

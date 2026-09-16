@@ -20,4 +20,6 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - **초안 은닉은 RLS 단일 게이트**(`projects` SELECT: `is_draft=false or auth.uid()=user_id`). 공개 프로젝트 읽기에 앱 레이어 `is_draft` 필터를 달지 말 것(소유자 초안을 숨길 위험). 단 서비스롤/admin으로 **공개 출력**하는 새 경로엔 명시 필터 필수.
 - **서버 zip은 서비스롤이라 스토리지 RLS를 우회** → `safeRelativePath` + 최종 키 `{uid}/{rowId}/` prefix assert + `lib/upload-safety.ts`의 zip-bomb/본문 캡이 유일 방어. 우회 금지.
 - PAT는 `Authorization: Bearer` **헤더로만** 받는다(쿼리/폼 금지). raw 토큰은 발급 응답 1회만, DB엔 sha256만.
+- **raw 토큰을 프롬프트에 박지 않는다**(2026-09-16). 프롬프트에 들어가는 건 1회용 페어링 코드(`nf_code_`, 30분·1회, `lib/connectCode.ts`)이고 `login <코드>`가 `/api/connect/exchange`에서 토큰으로 바꾼다 — 프롬프트는 AI 채팅창에 붙여넣는 물건이라 살아 있는 크리덴셜이 대화 기록에 남는다. 코드는 Bearer로 쓸 수 없다(`ingestAuth`가 401 `PAIRING_CODE`로 짚어준다).
+- 발행 게이트의 사전 검사는 `/api/ingest?dryRun=1`(CLI `nookframe check`) **한 경로뿐**. 게이트 판정을 `cli/`에 복제하지 말 것 — 상수 사본이 갈라지면 검사와 발행의 답이 달라진다.
 - `cli/`는 독립 배포 패키지(자체 `package.json`·`bin`) — 레포 코드 import 금지, HTTPS로 인제스트 API만 호출.

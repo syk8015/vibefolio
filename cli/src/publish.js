@@ -106,12 +106,12 @@ function localPath(name, flag, fromJson) {
   return typeof fromJson === "string" && fromJson.trim() ? resolve(fromJson) : null;
 }
 
-// `nookframe publish` CLI 명령. 플래그 → payload 조립 + 아티팩트 결정 + 진행 출력.
-export async function publishCommand(args) {
-  const token = getToken();
-  const origin = args.origin || getOrigin();
-
-  // payload JSON(--file·표준입력·--json) 위에 플래그를 덮는다 — 명령줄에 직접 쓴 값이 이긴다.
+/**
+ * payload JSON(--file·표준입력·--json) 위에 플래그를 덮는다 — 명령줄에 직접 쓴 값이 이긴다.
+ * publish와 check(사전 검사)가 **같은 payload**를 만들어야 답이 같으므로 조립은 여기 한 곳이다.
+ * 로컬 경로 셋(dir·screenshot·video)은 서버로 보내지 않고 호출부에 돌려준다.
+ */
+export async function buildPublishPayload(args) {
   let payload = (await readJsonObject(args)) ?? {};
   // 서버는 { "payload": {...} } 봉투도 받는다. 여기서도 풀어야 아래 플래그 병합·URL 확인이 맞는다.
   if (Object.keys(payload).length === 1 && isObject(payload.payload)) payload = payload.payload;
@@ -159,21 +159,30 @@ export async function publishCommand(args) {
     if (args["access-no-login"]) access.noLogin = true;
     payload.demoAccess = access;
   }
+  return { payload, jsonDir, jsonScreenshot, jsonVideo };
+}
+
+/** URL도 --dir도 없을 때 올릴 빌드 폴더 자동 탐색(dist·out·build·public). 없으면 null. */
+export function detectBuildDir() {
+  for (const d of BUILD_DIRS) {
+    const p = resolve(d);
+    if (existsSync(join(p, "index.html"))) return p;
+  }
+  return null;
+}
+
+// `nookframe publish` CLI 명령. 플래그 → payload 조립 + 아티팩트 결정 + 진행 출력.
+export async function publishCommand(args) {
+  const token = getToken();
+  const origin = args.origin || getOrigin();
+  const { payload, jsonDir, jsonScreenshot, jsonVideo } = await buildPublishPayload(args);
 
   // 아티팩트: --dir(또는 JSON의 dir) 명시 > URL 있음 > 자동으로 빌드 디렉터리 탐색.
   let dir = localPath("dir", args.dir, jsonDir);
   if (dir && !existsSync(dir)) {
     throw new Error(`Directory not found: ${dir}`);
   }
-  if (!dir && !payload.deployUrl && !payload.appUrl) {
-    for (const d of BUILD_DIRS) {
-      const p = resolve(d);
-      if (existsSync(join(p, "index.html"))) {
-        dir = p;
-        break;
-      }
-    }
-  }
+  if (!dir && !payload.deployUrl && !payload.appUrl) dir = detectBuildDir();
 
   // 제작자 미디어(요청1): 이미지≤5MB(png/jpg/webp/gif)·영상≤20MB(mp4/webm),
   // 검증은 서버(매직바이트)가 한다. 영상을 주면 발행 시 자동 촬영이 생략된다.

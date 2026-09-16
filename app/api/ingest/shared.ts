@@ -5,6 +5,7 @@ import { getT } from "@/lib/i18n/server";
 import { lineCols, DESCRIPTION_LINE_COLS_MAX, type DescriptionIssue } from "@/lib/descriptionShape";
 import { getDictionary } from "@/lib/i18n/dictionaries";
 import { verifyToken, bearerFromHeader } from "@/lib/apiToken";
+import { looksLikeConnectCode } from "@/lib/connectCode";
 import type { DemoScript } from "@/lib/demoScript";
 import {
   scriptStats, estimateFilm, SCRIPT_REVIEW_IDEAL_STEPS, SCRIPT_REVIEW_MIN_INTERACTIVE,
@@ -37,6 +38,12 @@ export async function ingestAuth(req: NextRequest): Promise<
   const bearer = bearerFromHeader(req.headers.get("authorization"));
   const t = await pickApiT(req);
   if (bearer) {
+    // 옛 CLI(0.1.14 이하)의 `login <코드>`는 페어링 코드를 그대로 토큰으로 저장한다 —
+    // 그러면 nf_code_…가 Bearer로 여기 온다(2026-09-16). "토큰이 유효하지 않다"고만
+    // 답하면 AI가 엉뚱한 데를 고치므로, 무엇을 해야 하는지 짚어 준다.
+    if (looksLikeConnectCode(bearer)) {
+      return { t, fail: apiError({ status: 401, message: t.api.pairingCodeAsToken, code: "PAIRING_CODE" }) };
+    }
     const tok = await verifyToken(bearer);
     if (!tok) {
       return { t, fail: apiError({ status: 401, message: t.api.tokenInvalid, code: "UNAUTHORIZED" }) };

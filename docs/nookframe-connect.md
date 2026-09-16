@@ -40,8 +40,36 @@
 - 형식 `nf_live_<random>`. DB(`api_tokens`)엔 **sha256 해시만** 저장, raw는 발급 응답에서 1회.
 - 발급 `POST /api/tokens` (쿠키), 폐기 `DELETE /api/tokens/[id]` (쿠키·소프트 revoke), 목록은 RLS select.
 - 자동발급(요청5): `POST /api/tokens {auto:true}` — name을 `prompt-auto` 센티널로 고정하고,
-  같은 이름의 살아있는 토큰을 먼저 revoke(유저당 자동발급 토큰 상시 1개). 연결 패널의
-  [프롬프트 복사]가 이 경로만 쓴다(수동 발급 UI는 제거, API의 name 발급은 하위호환 유지).
+  같은 이름의 살아있는 토큰을 먼저 revoke(유저당 자동발급 토큰 상시 1개). 발급 규약 자체는
+  `lib/apiToken.ts issueToken()` 한 곳이다(2026-09-16 — 페어링 코드 교환이 같은 규칙을 써야 해서).
+
+### 페어링 코드 — 프롬프트에 토큰을 박지 않는다 (2026-09-16 사용자 확정)
+
+문제: [프롬프트 복사]는 그 순간 발급한 **raw PAT**를 프롬프트 1단계(`npx nookframe login <토큰>`)에
+평문으로 넣었다. 그 프롬프트는 **AI 채팅창에 붙여넣는 물건**이라, 살아 있는 크리덴셜이 대화
+기록·요약·메모리에 영구히 남는다(사용자 전역 규칙 "비밀은 파일에 두고 코드가 읽는다"와 정면 충돌).
+
+- 프롬프트에 들어가는 것 = **1회용 페어링 코드** `nf_code_<32바이트 base64url>`.
+  `connect_codes`(마이그레이션 `supabase/migration_connect_code.sql`)엔 **sha256만**, 유효기간
+  `CONNECT_CODE_TTL_MIN=30`분, **1회용**. 기록에 남는 코드는 곧 죽어 쓸모가 없다.
+- 발급 `POST /api/connect/code`(쿠키·유저 30/h) → `{ code, expiresAt, expiresInMinutes }`.
+  **토큰은 이때 만들지 않는다** — 교환 시점에 만들어지므로, 복사만 하고 안 쓰면 토큰은 생기지도 않는다
+  (예전엔 복사마다 토큰 하나가 남았다).
+- 교환 `POST /api/connect/exchange`(**인증 없음 — 코드가 곧 인증**, IP 20/h) → `{ token, prefix }`.
+  소비는 조건부 UPDATE 한 방(`used_at is null` + 만료 전)이라 같은 코드의 동시 교환에서 한쪽만 이긴다
+  (`lib/connectCode.ts`). 발급되는 토큰은 `prompt-auto` 센티널 — 새로 페어링하면 이전 자동 토큰은 죽는다.
+  없는 코드·쓴 코드·만료 코드 **전부 같은 401**(열거 실마리 없음). 쿠키를 안 쓰므로 CSRF 표면도 없다.
+- **코드는 Bearer로 쓸 수 없다.** 옛 CLI(≤0.1.14)의 `login <코드>`는 코드를 그대로 토큰으로 저장하므로
+  `ingestAuth`가 `nf_code_`를 먼저 보고 401 `PAIRING_CODE`로 "먼저 login을 실행하라"고 짚어준다.
+- 예전에 기각된 "1회용 토큰"과 다르다: **1회용인 것은 코드뿐**이고 교환으로 받은 PAT는 계속 살아 있어
+  같은 초안 재발행(upsert·draftId) 경로가 그대로다.
+- CLI `login`은 두 입력을 받는다(`cli/src/login.js`): `nf_code_…`는 교환해서 저장, `nf_live_…`는 그대로 저장
+  (이미 저장해 둔 토큰·`NOOKFRAME_TOKEN`을 깨뜨리지 않는다).
+- 검증: `node scripts/probe-connect-code.mjs`(prod E2E 14단언 — 1회용·만료·해시만 저장·센티널 폐기·
+  Bearer 거절·발급은 세션 필수). ⚠️ 이 프로브는 `prompt-auto` 토큰을 갈아치운다.
+- **전환 순서**: 서버·CLI가 먼저(코드 발급·교환 API + `login <코드>`), 프롬프트 3종과 연결 패널이
+  코드를 쓰게 바꾸는 것은 **npm 0.1.15 발행 확인 뒤**다 — 먼저 바꾸면 옛 CLI가 코드를 토큰으로
+  저장해 모든 PAT 호출이 401이 된다(09-15 `--file` 교체와 같은 규칙).
 - 검증(`lib/apiToken.ts`): Bearer 헤더 전용 → 해시 조회(`.is('revoked_at',null)`) → user_id.
 - **폭발반경**: 유출돼도 자기 계정의 **초안 INSERT만** 가능. 발행·데모예산 소진·토큰조회는
   전부 쿠키(`auth.uid()`) 전용이라 닿지 못한다. 유저당 토큰 ≤10, 활성 초안 ≤20, 레이트리밋 20/h(user_id 키).
@@ -255,10 +283,12 @@
 
 ## 관련 파일
 
-- 마이그레이션: `supabase/migration_api_ingest.sql` (api_tokens · is_draft · RLS 정책 교체)
-- libs: `lib/apiToken.ts` · `lib/upload-safety.ts` · `lib/projectTaxonomy.ts` · `lib/connectSnippets.ts`
+- 마이그레이션: `supabase/migration_api_ingest.sql` (api_tokens · is_draft · RLS 정책 교체) ·
+  `supabase/migration_connect_code.sql` (connect_codes — 페어링 코드)
+- libs: `lib/apiToken.ts` · `lib/connectCode.ts` · `lib/upload-safety.ts` · `lib/projectTaxonomy.ts` · `lib/connectSnippets.ts`
 - API: `app/api/ingest/route.ts` · `app/api/ingest/finalize/route.ts` · `app/api/ingest/drafts/*`
-  (공용 인증·URL 게이트=`app/api/ingest/shared.ts`) · `app/api/tokens/route.ts` · `app/api/tokens/[id]/route.ts`
+  (공용 인증·URL 게이트=`app/api/ingest/shared.ts`) · `app/api/tokens/route.ts` · `app/api/tokens/[id]/route.ts` ·
+  `app/api/connect/code/route.ts` · `app/api/connect/exchange/route.ts`
 - UI: `components/dashboard/ConnectPanel.tsx`(연결 패널) · `ProjectsTab.tsx`(초안 검토·발행) · `app/publish/*`
 - CLI/MCP: `cli/` (배포명 `nookframe`)
 - 검증: `scripts/probe-api-ingest.mjs`
@@ -281,6 +311,32 @@
 도는 앱을 그냥 올리면 로봇은 로그인 화면이나 빈 껍데기를 찍는데, 화면은 떴으므로
 blank 가드도 통과하고 워커도 성공으로 마킹한다. demoAccess가 선택 항목이던 동안
 발행 AI는 이 칸을 그냥 비웠다. 이제 셋 중 하나로 **답을 해야** 저장한다.
+
+### 사전 검사 — `POST /api/ingest?dryRun=1` (2026-09-16 사용자 확정, CLI `nookframe check`)
+
+게이트는 "거절이 곧 품질을 올리는 순간"이지만, 거절을 알려면 **올려 봐야** 했다. 사전 검사는
+같은 라우트에 `?dryRun=1`을 붙여 **저장·업로드·서명 URL 없이 판정만** 돌려준다.
+
+- **왜 서버인가**: 게이트 판정은 전부 `lib/`에 있고 `cli/`는 레포 코드를 import할 수 없다 —
+  CLI에 다시 구현하면 상수 사본이 셋이 되어(이미 `film` 상수·`AI_TOOLS` enum이 손동기화 중) 검사와
+  발행의 답이 갈라진다. 사용자 결정: 로컬 재구현·혼합안 대신 **서버 드라이런**.
+- **자리**: `app/api/ingest/route.ts` 6.5단계 — 위는 전부 읽기 전용(인증·게이트·URL 게이트·셀렉터
+  확인·갱신 대상 찾기), 아래부터 쓰기다. 그 사이가 "발행하면 무슨 일이 일어나나"를 다 아는 유일한 지점.
+- 응답: `{ ok, dryRun:true, wouldUpdate, draftId?, accepted }` — `accepted`는 발행 응답과 **같은 조립**
+  (`scriptReview`·`film`·`descriptionLineCols` 포함). `wouldUpdate`는 "같은 URL의 초안을 덮어쓸 것"을
+  미리 말해 준다(NF-16의 불만이 말없는 덮어쓰기였다). `projectId`·`reviewUrl`은 없다.
+- 레이트리밋: 쿼리로 온 검사는 **별도 버킷** `ingest-check` 60/h — 검사 몇 번에 발행 예산(20/h)이
+  마르면 "올리기 전에 확인해라"와 어긋난다. 쿼리를 못 쓰는 호출자용으로 `payload.dryRun:true`도
+  받지만 그 경로는 발행 버킷을 한 번 쓴다(저장은 여전히 안 한다).
+- 검사하지 못하는 것: **파일 자체**(zip 안전성·미디어 매직바이트 — 올리지 않으므로)와 **초안 개수
+  상한**(쓰기 분기에서 센다). CLI·MCP는 파일을 올리는 대신 `uploads` **선언만** 실어 보낸다 —
+  bundle 선언은 URL 없는 폴더 발행이 아티팩트 게이트를 통과하는 근거이고, video 선언은 대본·로그인
+  게이트의 유일한 면제 조건이라, 그래야 발행과 같은 답이 나온다.
+- 클라이언트: CLI `nookframe check`(publish와 **같은 입력 조립** `buildPublishPayload`, 거절이면
+  서버 메시지를 그대로 찍고 **종료코드 1**) · MCP 툴 `check_nookframe_payload`. 옛 서버에 붙어
+  `dryRun` 응답이 없으면 "검사가 아니라 발행됐다"고 경고하고 초안 id·삭제 명령을 알려준다.
+- 검증: `node scripts/probe-ingest-dry-run.mjs`(prod E2E 18단언 — 게이트 5종 동일 코드·행 0건 유지·
+  서명 URL 미발급·wouldUpdate·공개 행 409) + `npm test`의 `probe-cli-input.mjs` (13a~13c).
 
 판정 함수는 `lib/demoAccess.ts`의 `demoAccessAnswered()` 하나뿐이고, 생성·수정 두
 라우트가 같은 함수를 쓴다(수정 경로를 막지 않으면 "게이트를 통과한 뒤 도로 비우는"

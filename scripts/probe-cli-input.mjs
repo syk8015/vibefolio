@@ -33,6 +33,18 @@ const server = createServer((req, res) => {
       res.end(JSON.stringify(obj));
     };
     const reviewUrl = `${origin}/dashboard?review=p-1`;
+    // 사전 검사(2026-09-16) — publish와 같은 라우트에 `?dryRun=1`. 발행 분기보다 먼저 본다.
+    if (req.method === "POST" && req.url.startsWith("/api/ingest?dryRun=1")) {
+      if (body?.title === "__reject__") {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        return res.end(JSON.stringify({ ok: false, error: "demoScript is required", code: "SCRIPT_REQUIRED" }));
+      }
+      return send({
+        ok: true, dryRun: true, wouldUpdate: !!body?.draftId,
+        ...(body?.draftId ? { draftId: body.draftId } : {}),
+        accepted: { title: body?.title },
+      });
+    }
     if (req.method === "POST" && req.url === "/api/ingest") {
       const uploads = Array.isArray(body?.uploads)
         ? Object.fromEntries(body.uploads.map((k) => [k, `${origin}/put/${k}`]))
@@ -192,6 +204,34 @@ try {
   r = await run(["drafts", "update", "p-9", "--file", f9]);
   const patch = seen.find((s) => s.method === "PATCH");
   ok("(9b) drafts update --file", r.code === 0 && patch?.body?.description === PAYLOAD.description, r.err);
+
+  // (13) check — 같은 payload를 dryRun으로 보내고 아무것도 올리지 않는다(2026-09-16)
+  const lastCheck = () => [...seen].reverse().find((s) => s.method === "POST" && s.url.startsWith("/api/ingest?dryRun=1"));
+  reset();
+  r = await run(["check", "--file", f1]);
+  ok("(13a) check --file: dryRun 쿼리로 같은 payload를 보낸다",
+    r.code === 0 && isDeepStrictEqual(lastCheck()?.body, PAYLOAD) && /would be accepted/.test(r.out),
+    r.err || JSON.stringify(lastCheck()?.body));
+  ok("(13a) check는 발행·업로드를 하지 않는다",
+    !seen.some((s) => s.url === "/api/ingest" || s.method === "PUT" || s.url === "/api/ingest/finalize"),
+    seen.map((s) => `${s.method} ${s.url}`).join(", "));
+
+  // 폴더 업로드는 파일을 안 올리지만 "bundle로 올릴 예정" 선언은 실어야 답이 발행과 같다.
+  reset();
+  r = await run(["check", "--file", f7]);
+  ok("(13b) check --file(dir 포함): uploads=[\"bundle\"] 선언만 싣고 zip은 안 올린다",
+    r.code === 0 && isDeepStrictEqual(lastCheck()?.body?.uploads, ["bundle"]) &&
+      !seen.some((s) => s.method === "PUT"),
+    r.err || JSON.stringify(lastCheck()?.body?.uploads));
+
+  // 거절은 크래시가 아니라 결과다 — 서버 메시지를 그대로 보여주고 종료코드 1.
+  const rejectPayload = join(tmp, "reject.json");
+  writeFileSync(rejectPayload, JSON.stringify({ ...PAYLOAD, title: "__reject__" }));
+  reset();
+  r = await run(["check", "--file", rejectPayload]);
+  ok("(13c) 거절되면 서버 메시지·코드를 찍고 종료코드 1",
+    r.code === 1 && /SCRIPT_REQUIRED/.test(r.err) && /demoScript is required/.test(r.err),
+    `${r.code} ${r.err.trim()}`);
 
   // (10) schema — stdout은 순수 JSON, MCP 입력 스키마와 같은 출처
   reset();

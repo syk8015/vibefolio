@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { apiError } from "@/lib/apiError";
 import { requireUser } from "@/lib/routeAuth";
 import { getT } from "@/lib/i18n/server";
-import { generateToken, MAX_TOKENS_PER_USER } from "@/lib/apiToken";
+import { issueToken, MAX_TOKENS_PER_USER } from "@/lib/apiToken";
 import { AUTO_TOKEN_NAME, MCP_TOKEN_NAME } from "@/lib/connectSnippets";
 
 // POST /api/tokens — 로그인한 유저가 새 개인 액세스 토큰(PAT)을 발급한다.
@@ -29,61 +28,30 @@ export async function POST(req: NextRequest) {
       /* name·auto·mcp는 선택 — 본문 없어도 됨 */
     }
 
-    const admin = createAdminClient();
-
-    // 자동발급(연결 패널 "프롬프트 복사"·"MCP 설정 복사") — 살아있는 센티널 토큰은
-    // 유저당 이름별로 항상 1개가 되도록 이전 것을 먼저 폐기한다(복사할 때마다 새
-    // 토큰, 이전 것은 즉시 무효). 폐기가 실패하면 발급도 멈춘다 — "이전 토큰은
-    // 죽었다"는 약속이 UI 문구에 있다.
-    if (sentinel) {
-      name = sentinel;
-      const { error: revokeErr } = await admin
-        .from("api_tokens")
-        .update({ revoked_at: new Date().toISOString() })
-        .eq("user_id", user.id)
-        .eq("name", sentinel)
-        .is("revoked_at", null);
-      if (revokeErr) {
+    // 자동발급(연결 패널 "MCP 설정 복사" 등) — 살아있는 센티널 토큰은 유저당 이름별로
+    // 항상 1개가 되도록 이전 것을 먼저 폐기한다(복사할 때마다 새 토큰, 이전 것은 즉시
+    // 무효). 발급 규약 자체는 lib/apiToken.ts의 issueToken 한 곳 — 페어링 코드 교환
+    // (/api/connect/exchange)이 같은 규칙을 써야 해서 2026-09-16에 뽑아냈다.
+    if (sentinel) name = sentinel;
+    const issued = await issueToken({ userId: user.id, name, revokeSameName: !!sentinel });
+    if (!issued.ok) {
+      if (issued.reason === "limit") {
         return apiError({
-          status: 500,
-          message: t.api.tokenCreateFailed,
-          code: "DB_REVOKE_FAILED",
-          cause: revokeErr,
+          status: 409,
+          message: t.api.tokenLimit(MAX_TOKENS_PER_USER),
+          code: "TOKEN_LIMIT",
         });
       }
-    }
-
-    const { count } = await admin
-      .from("api_tokens")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", user.id)
-      .is("revoked_at", null);
-    if ((count ?? 0) >= MAX_TOKENS_PER_USER) {
-      return apiError({
-        status: 409,
-        message: t.api.tokenLimit(MAX_TOKENS_PER_USER),
-        code: "TOKEN_LIMIT",
-      });
-    }
-
-    const { raw, hash, prefix } = generateToken();
-    const { error } = await admin.from("api_tokens").insert({
-      user_id: user.id,
-      token_hash: hash,
-      token_prefix: prefix,
-      name,
-    });
-    if (error) {
       return apiError({
         status: 500,
         message: t.api.tokenCreateFailed,
-        code: "DB_INSERT_FAILED",
-        cause: error,
+        code: issued.reason === "revoke" ? "DB_REVOKE_FAILED" : "DB_INSERT_FAILED",
+        cause: issued.cause,
       });
     }
 
     // raw는 여기서만. 클라이언트는 이 값을 복사해 NOOKFRAME_TOKEN으로 저장한다.
-    return NextResponse.json({ ok: true, token: raw, prefix });
+    return NextResponse.json({ ok: true, token: issued.raw, prefix: issued.prefix });
   } catch (err) {
     return apiError({ status: 500, message: t.api.retryLater, code: "INTERNAL", cause: err });
   }

@@ -783,6 +783,12 @@ export const ko = {
     // 토큰 (tokens)
     tokenLimit: (max: number) => `토큰은 최대 ${max}개까지 만들 수 있어요. 안 쓰는 토큰을 폐기해 주세요.`,
     tokenCreateFailed: "토큰을 만들지 못했어요. 잠시 후 다시 시도해 주세요.",
+    // 페어링 코드(2026-09-16) — 프롬프트에 박히던 raw 토큰을 1회용 코드로 대체.
+    pairingCodeFailed: "연결 코드를 만들지 못했어요. 잠시 후 다시 시도해 주세요.",
+    pairingCodeInvalid:
+      "이 연결 코드는 이미 썼거나 시간이 지났어요(코드는 30분 동안, 한 번만 써요). 대시보드 연결 탭에서 프롬프트를 다시 복사하면 새 코드가 같이 들어가요.",
+    pairingCodeAsToken:
+      "이건 액세스 토큰이 아니라 연결 코드예요. 먼저 `npx nookframe@latest login <코드>`를 실행해 주세요 — 코드를 토큰으로 바꿔 저장해요(nookframe 0.1.15 이상. 옛 버전은 코드를 그대로 저장해서 이 호출이 거절됐어요).",
     tokenNotFound: "토큰을 찾을 수 없어요.",
     tokenForbidden: "이 토큰에 대한 권한이 없어요.",
     tokenRevokeFailed: "토큰을 폐기하지 못했어요. 잠시 후 다시 시도해 주세요.",

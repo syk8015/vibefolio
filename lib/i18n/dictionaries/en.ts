@@ -746,6 +746,12 @@ export const en: Dictionary = {
     accountDeleteFailed: "Something went wrong while deleting the account. Please try again in a moment.",
     tokenLimit: (max: number) => `You can have up to ${max} tokens. Revoke one you're not using first.`,
     tokenCreateFailed: "Couldn't create the token. Please try again in a moment.",
+    // 페어링 코드(2026-09-16) — 프롬프트에 박히던 raw 토큰을 1회용 코드로 대체.
+    pairingCodeFailed: "Couldn't create a connect code. Please try again in a moment.",
+    pairingCodeInvalid:
+      "This connect code is already used or has expired (a code lasts 30 minutes and works once). Copy the prompt again on your Nookframe dashboard — Connect tab — and a fresh code comes with it.",
+    pairingCodeAsToken:
+      "That is a pairing code, not an access token. Run `npx nookframe@latest login <the code>` first — it trades the code for a token and saves it (nookframe 0.1.15 or newer; older versions save the code as-is, which is why this call was rejected).",
     tokenNotFound: "Token not found.",
     tokenForbidden: "You don't have permission for this token.",
     tokenRevokeFailed: "Couldn't revoke the token. Please try again in a moment.",

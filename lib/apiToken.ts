@@ -30,6 +30,50 @@ export function generateToken(): { raw: string; hash: string; prefix: string } {
   };
 }
 
+export type TokenIssue =
+  | { ok: true; raw: string; prefix: string }
+  | { ok: false; reason: "revoke" | "limit" | "insert"; cause?: unknown };
+
+/**
+ * 발급 규약 한 곳(2026-09-16) — /api/tokens(수동·자동), /api/connect/exchange(페어링 코드
+ * 교환)가 같은 규칙을 쓴다. 센티널 이름(prompt-auto·mcp-auto)으로 발급하면 살아 있는
+ * 동명 토큰을 먼저 폐기한다 = "복사할 때마다 새 토큰, 이전 것은 즉시 무효"라는 UI의 약속.
+ * 폐기가 실패하면 발급도 멈춘다(그 약속이 깨진 채 새 토큰을 주면 안 된다).
+ */
+export async function issueToken(opts: {
+  userId: string;
+  name: string | null;
+  /** 같은 이름의 살아 있는 토큰을 먼저 폐기한다(센티널 이름 전용). */
+  revokeSameName?: boolean;
+}): Promise<TokenIssue> {
+  const admin = createAdminClient();
+  if (opts.revokeSameName && opts.name) {
+    const { error } = await admin
+      .from("api_tokens")
+      .update({ revoked_at: new Date().toISOString() })
+      .eq("user_id", opts.userId)
+      .eq("name", opts.name)
+      .is("revoked_at", null);
+    if (error) return { ok: false, reason: "revoke", cause: error };
+  }
+  const { count } = await admin
+    .from("api_tokens")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", opts.userId)
+    .is("revoked_at", null);
+  if ((count ?? 0) >= MAX_TOKENS_PER_USER) return { ok: false, reason: "limit" };
+
+  const { raw, hash, prefix } = generateToken();
+  const { error } = await admin.from("api_tokens").insert({
+    user_id: opts.userId,
+    token_hash: hash,
+    token_prefix: prefix,
+    name: opts.name,
+  });
+  if (error) return { ok: false, reason: "insert", cause: error };
+  return { ok: true, raw, prefix };
+}
+
 type ResolvedToken = { userId: string; tokenId: string };
 
 /**
