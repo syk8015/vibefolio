@@ -4,8 +4,15 @@
 // 거절"이 생긴다. cli/는 독립 배포 패키지라 레포 코드를 import할 수 없어(AGENTS.md)
 // 사본 자체는 피할 수 없다 — 대신 **손으로 만들지 않게** 해서 갈라질 수 없게 한다.
 //
-// 지금 만드는 것: cli/src/schema.js (npm 배포 — `nookframe schema`와 stdio MCP가 읽음).
-// 앞으로 붙을 것: lib/mcpTools.ts(원격 MCP) · public/openapi.json(ChatGPT 도우미).
+// 지금 만드는 것:
+//   cli/src/schema.js — npm 배포(`nookframe schema`와 stdio MCP가 읽음)
+//   lib/mcpTools.ts   — 원격 MCP(app/api/mcp)가 tools/list로 내보내는 정의
+// 앞으로 붙을 것: public/openapi.json(ChatGPT 도우미).
+//
+// 두 통로가 갈라지는 지점은 **파일뿐**이다: CLI는 사람 컴퓨터에서 도니까 로컬 경로
+// (dir·screenshot·video)를 받지만, 원격 MCP는 채팅 AI가 우리 서버로 부르는 것이라
+// 그 경로가 가리킬 파일이 없다. 그래서 localOnlyFields는 원격 스키마에서 빼고,
+// 설명은 {{FILES}}·{{MEDIA}} 자리에만 변종 문장을 채운다 — 본문은 끝까지 한 벌이다.
 //
 // 사용: `npm run schema:build` — 그리고 `npm test`의 드리프트 프로브가 생성물이
 // 원본과 어긋났는지(= 누가 생성물을 손으로 고쳤는지) 검사한다.
@@ -53,10 +60,17 @@ function resolve(node: Json, fields: Record<string, Json>, seen: string[] = []):
   return out;
 }
 
+/** 설명서를 받아 가는 통로. 지금은 둘 — 셸 있는 AI(cli)와 채팅창 AI(remote). */
+type Variant = "cli" | "remote";
+
 const src = JSON.parse(readFileSync(SOURCE, "utf8")) as {
   fields: Record<string, Json>;
   publishDescription: string;
   publishInput: Json;
+  /** 원격 스키마에서 빼는 필드(로컬 파일 경로) — 채팅 AI에겐 가리킬 파일이 없다. */
+  localOnlyFields: string[];
+  /** `{{NAME}}` 자리에 통로별로 들어갈 문장. 본문은 갈라지지 않는다. */
+  descriptionFills: Record<Variant, Record<string, string>>;
   tools: { name: string; description?: string; descriptionRef?: string; inputSchema: Json }[];
 };
 
@@ -69,11 +83,41 @@ const demoScript = resolve(fields.demoScript, fields);
 const demoAccessProperties = resolve(fields.demoAccessProperties, fields);
 const demoAccess = resolve(fields.demoAccess, fields);
 const publishInput = resolve(src.publishInput, fields);
-const tools = src.tools.map((t) => ({
-  name: t.name,
-  description: t.descriptionRef ? String(src[t.descriptionRef as "publishDescription"]) : t.description!,
-  inputSchema: resolve(t.inputSchema, fields),
-}));
+
+/** `{{NAME}}` 자리표시를 통로별 문장으로 채운다. 채울 문장이 없으면 즉시 실패 —
+ *  자리표시가 그대로 남은 설명이 npm에 발행되면 AI가 그 문장을 읽는다. */
+function fillDescription(variant: Variant): string {
+  const fills = src.descriptionFills[variant];
+  return src.publishDescription.replace(/\{\{(\w+)\}\}/g, (_, name: string) => {
+    const text = fills?.[name];
+    if (text === undefined) throw new Error(`descriptionFills.${variant}.${name} 없음 — publish.json에 추가하세요`);
+    return text;
+  });
+}
+
+// 원격 변종의 입력 스키마 = 로컬 경로 필드를 뺀 publishInput. 빼는 이름이 실제로
+// 있는지 확인한다 — 오타로 조용히 안 빠지면 채팅 AI가 못 쓰는 필드를 보게 된다.
+const publishInputRemote: Json = (() => {
+  const input = JSON.parse(JSON.stringify(publishInput)) as { properties: Record<string, Json> };
+  for (const name of src.localOnlyFields) {
+    if (!(name in input.properties)) throw new Error(`localOnlyFields "${name}"가 publishInput에 없습니다`);
+    delete input.properties[name];
+  }
+  return input as unknown as Json;
+})();
+
+// 갈리는 것은 publishInput 하나뿐 — 나머지 툴은 두 통로가 글자 그대로 같다.
+const toolsFor = (variant: Variant) =>
+  src.tools.map((t) => ({
+    name: t.name,
+    description: t.descriptionRef ? fillDescription(variant) : t.description!,
+    inputSchema: resolve(
+      t.inputSchema,
+      variant === "remote" ? { ...fields, publishInput: publishInputRemote } : fields,
+    ),
+  }));
+
+const tools = toolsFor("cli");
 
 // cli/src/schema.js — 지금의 export 이름을 그대로 유지한다(mcp.js·check.js·publish.js가 읽는다).
 const cli = `// 생성된 파일입니다 — 직접 고치지 마세요.
@@ -96,7 +140,7 @@ export const DEMO_ACCESS_PROPERTIES = ${lit(demoAccessProperties)};
 
 export const DEMO_ACCESS_SCHEMA = ${lit(demoAccess)};
 
-export const PUBLISH_DESCRIPTION = ${lit(src.publishDescription)};
+export const PUBLISH_DESCRIPTION = ${lit(fillDescription("cli"))};
 
 export const PUBLISH_INPUT_SCHEMA = ${lit(publishInput)};
 
@@ -115,7 +159,33 @@ export function publishPayloadSchema() {
 }
 `;
 
-export const GENERATED = { "cli/src/schema.js": cli };
+// lib/mcpTools.ts — 원격 MCP(app/api/mcp)가 내보내는 툴 정의. 서버 코드라 TS다.
+const remote = `// 생성된 파일입니다 — 직접 고치지 마세요.
+// 원본: schema/publish.json · 생성: npm run schema:build (scripts/build-schema.mts)
+// 손으로 고치면 npm test의 schema-drift 프로브가 막습니다.
+//
+// 원격 MCP 서버(app/api/mcp)가 tools/list로 내보내는 툴 정의. 셸이 있는 AI가 보는
+// stdio 쪽(cli/src/schema.js의 TOOLS)과 **같은 원본**에서 나온다 — 두 통로가 같은
+// 설명을 보게 하는 것이 이 생성기의 존재 이유다. 다른 점은 로컬 경로 필드
+// (${src.localOnlyFields.join(" · ")})가 없다는 것뿐: 원격 호출자에겐 우리 서버에 파일이 없다.
+
+export type McpTool = {
+  name: string;
+  description: string;
+  inputSchema: {
+    type: "object";
+    properties?: Record<string, unknown>;
+    required?: string[];
+  };
+};
+
+export const MCP_TOOLS: McpTool[] = ${lit(toolsFor("remote") as unknown as Json)};
+
+/** tools/call이 받아주는 이름 전부 — 목록 밖 이름은 서버가 거절한다. */
+export const MCP_TOOL_NAMES: string[] = MCP_TOOLS.map((t) => t.name);
+`;
+
+export const GENERATED = { "cli/src/schema.js": cli, "lib/mcpTools.ts": remote };
 
 // 직접 실행이면 파일로 쓴다. 드리프트 프로브는 import만 해서 내용을 비교한다(쓰지 않음).
 if (process.argv[1]?.endsWith("build-schema.mts")) {
