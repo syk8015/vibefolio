@@ -17,7 +17,9 @@
 
 // explore의 스크립트 액션 어휘와 1:1이 아니다 — 이건 "의도" 수준의 어휘고,
 // 실제 제스처(정확한 좌표·드래그 벡터)는 explore가 화면에서 확정한다.
-const DEMO_SCRIPT_ACTIONS = [
+// export인 이유: scripts/build-schema.mts가 이 목록을 읽어 cli/src/schema.js의 action
+// enum을 만든다(2026-09-17). 예전엔 cli 쪽에 손으로 적힌 사본이었다.
+export const DEMO_SCRIPT_ACTIONS = [
   "click",
   "type",
   "drag",

@@ -24,7 +24,8 @@
    payload JSON은 `--file <path>` · `--json -`(표준입력) · `--json '<json>'` 중 하나로 받는다(≥0.1.13 —
    명령줄 인자는 셸이 먼저 읽어 작은따옴표·줄바꿈·한글에서 깨졌다). 셋 다 `cli/src/jsonInput.js` 한 곳이고
    rerecord·drafts update도 같은 규칙. 필드 목록은 `nookframe schema`(JSON Schema) — MCP `publish_to_nookframe`
-   입력 스키마와 같은 출처 `cli/src/schema.js`라, JSON 안의 `dir`·`screenshot`·`video`도 CLI가 로컬 경로로 쓴다.
+   입력 스키마와 같은 출처 `cli/src/schema.js`(**생성물** — 원본은 `schema/publish.json`, `npm run schema:build`)라,
+   JSON 안의 `dir`·`screenshot`·`video`도 CLI가 로컬 경로로 쓴다.
 2. **MCP 서버** — `npx nookframe mcp`, 툴 `publish_to_nookframe` (클로드 데스크탑·커서 MCP).
 3. **붙여넣기 프롬프트 + `/publish`** — 셸 없는 챗봇: AI가 JSON 출력 → 유저가 `/publish`에 붙여넣기.
 
