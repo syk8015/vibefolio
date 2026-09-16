@@ -590,7 +590,21 @@ export const ko = {
     pasteHint: "아래 칸에 붙여넣어도 바로 올라가요.",
     clipboardEmpty: "클립보드에서 JSON을 찾지 못했어요. AI 답을 복사한 뒤 다시 눌러 주세요.",
     clipboardDenied: "브라우저가 클립보드 읽기를 막았어요 — 아래 칸에 직접 붙여넣어 주세요.",
+    // 파일 첨부(2026-09-17): 채팅창 AI는 파일을 못 내지만 **사람 손엔 파일이 있다**
+    // (Claude 화면의 "HTML로 내려받기" 등). 인터넷에 올리지 못해 포기하는 경우가
+    // 가장 많다는 조사 결과에 맞춘 칸이다.
+    filesTitle: "파일도 같이 올리기 (없으면 건너뛰어도 돼요)",
+    filesHint: "인터넷에 안 올린 작품이라면 파일을 주세요. AI가 만들어준 화면은 보통 “HTML로 내려받기”가 돼요 — 그 파일 하나면 됩니다.",
+    pickHtml: "작품 파일 (.html 또는 .zip, 25MB까지)",
+    pickShot: "스크린샷 (5MB까지)",
+    pickVideo: "직접 만든 시연 영상 (20MB까지)",
+    fileChosen: (name: string) => `${name} 선택됨`,
+    fileClear: "빼기",
+    fileTooLarge: (name: string, mb: number) => `${name}이(가) 너무 커요 — ${mb}MB까지만 올릴 수 있어요.`,
+    zipping: "파일 준비 중…",
+    uploadingFiles: "파일 올리는 중…",
     errors: {
+      uploadFailed: "파일을 올리지 못했어요. 크기를 확인하고 다시 시도해 주세요.",
       empty: "AI가 준 JSON을 붙여넣어 주세요.",
       urlOnly: "URL만으로는 부족해요 — 제목·설명이 담긴 JSON을 붙여넣어 주세요.",
       invalidJson: "JSON을 읽을 수 없어요. AI가 준 { ... } 형식 그대로 붙여넣어 주세요.",

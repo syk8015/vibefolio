@@ -23,6 +23,15 @@ export default function PublishForm() {
   // AI에게 되물을 게 아니라 사람이 다시 붙여넣으면 되는 일이라 버튼을 띄우지 않는다.
   const [bounce, setBounce] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  // 파일 첨부(2026-09-17). 채팅창 AI는 파일을 서버로 못 보내지만 **사람 손엔 파일이
+  // 있다** — Claude 아티팩트의 "Download as HTML" 같은 것. 조사에서 바이브코딩
+  // 프로젝트의 60%가 "인터넷에 올리는 법을 몰라" 배포 전에 버려진다고 나왔고,
+  // 이 칸이 그 지점을 정확히 받는다. .html 한 장은 브라우저에서 index.html로 zip해
+  // 기존 번들 경로를 그대로 탄다(서버 storeZipBundle이 index.html을 요구한다).
+  const [workFile, setWorkFile] = useState<File | null>(null);
+  const [shotFile, setShotFile] = useState<File | null>(null);
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [stage, setStage] = useState<"idle" | "zipping" | "uploading">("idle");
   const router = useRouter();
   const { t, locale } = useT();
 
@@ -50,13 +59,38 @@ export default function PublishForm() {
     return null;
   }
 
+  /** .html 한 장 → index.html 하나짜리 zip. 이미 zip이면 그대로. */
+  async function buildBundle(file: File): Promise<Blob> {
+    if (/\.zip$/i.test(file.name)) return file;
+    const { default: JSZip } = await import("jszip");
+    const zip = new JSZip();
+    // 이름이 artifact.html이든 뭐든 index.html로 넣는다 — 서버가 그 이름으로 진입점을 찾는다.
+    zip.file("index.html", await file.text());
+    return zip.generateAsync({ type: "blob" });
+  }
+
   async function submitPayload(payload: Record<string, unknown>) {
     setSubmitting(true);
+    const fail = (msg: string) => { setError(msg); setSubmitting(false); setStage("idle"); };
     try {
+      // 파일이 있으면 종류만 **선언**해 서명 URL을 받고, 스토리지로 직접 PUT한 뒤
+      // finalize로 연결한다(CLI와 같은 2단계 — Vercel 본문 상한 ~4.5MB 우회).
+      const kinds: string[] = [];
+      let bundle: Blob | null = null;
+      if (workFile) {
+        setStage("zipping");
+        bundle = await buildBundle(workFile);
+        if (bundle.size > 25 * 1024 * 1024) return fail(t.publish.fileTooLarge(workFile.name, 25));
+        kinds.push("bundle");
+      }
+      if (shotFile) kinds.push("screenshot");
+      if (videoFile) kinds.push("video");
+      setStage("idle");
+
       const res = await fetch("/api/ingest", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(kinds.length ? { ...payload, uploads: kinds } : payload),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -68,10 +102,40 @@ export default function PublishForm() {
         setSubmitting(false);
         return;
       }
+
+      if (body.uploads && body.finalizeUrl) {
+        setStage("uploading");
+        const parts: [string, Blob | null][] = [["bundle", bundle], ["screenshot", shotFile], ["video", videoFile]];
+        for (const [kind, blob] of parts) {
+          const url = (body.uploads as Record<string, string | undefined>)[kind];
+          if (!url || !blob) continue;
+          const put = await fetch(url, {
+            method: "PUT",
+            headers: { "Content-Type": blob.type || "application/octet-stream" },
+            body: blob,
+          });
+          if (!put.ok) return fail(t.publish.errors.uploadFailed);
+        }
+        const fin = await fetch(body.finalizeUrl as string, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ projectId: body.projectId }),
+        });
+        const finBody = await fin.json().catch(() => ({}));
+        if (!fin.ok) {
+          const reason = finBody.error || t.publish.errors.uploadFailed;
+          setError(reason);
+          if (finBody.error) setBounce(reason);
+          setSubmitting(false);
+          setStage("idle");
+          return;
+        }
+      }
       router.push(`/dashboard?review=${body.projectId}`);
     } catch {
       setError(t.publish.errors.network);
       setSubmitting(false);
+      setStage("idle");
     }
   }
 
@@ -159,6 +223,55 @@ export default function PublishForm() {
           onPaste={onPaste}
         />
 
+        {/* 파일 첨부 — 인터넷에 안 올린 작품용. 조사(2026-09-17): 바이브코딩 프로젝트의
+            60%가 배포 전에 버려지고, 막히는 지점이 "로컬에선 되는데 올리는 법을 모르겠다"였다. */}
+        <div className="rounded-2xl mt-5" style={{ background: "var(--surface-soft)", padding: "16px 18px" }}>
+          <p className="text-sm" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontWeight: 600, margin: 0 }}>
+            {t.publish.filesTitle}
+          </p>
+          <p className="text-xs" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", lineHeight: 1.7, margin: "6px 0 12px" }}>
+            {t.publish.filesHint}
+          </p>
+          {([
+            { label: t.publish.pickHtml, accept: ".html,.htm,.zip", file: workFile, set: setWorkFile, mb: 25 },
+            { label: t.publish.pickShot, accept: "image/*", file: shotFile, set: setShotFile, mb: 5 },
+            { label: t.publish.pickVideo, accept: "video/*", file: videoFile, set: setVideoFile, mb: 20 },
+          ] as { label: string; accept: string; file: File | null; set: (f: File | null) => void; mb: number }[]).map((row) => (
+            <div key={row.label} style={{ marginBottom: 10 }}>
+              <label className="text-xs block" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", marginBottom: 4 }}>
+                {row.label}
+              </label>
+              {row.file ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}>
+                    {t.publish.fileChosen(row.file.name)}
+                  </span>
+                  <button type="button" onClick={() => row.set(null)} className="vf-button-ghost" style={{ fontSize: "0.75rem", padding: "0.2rem 0.6rem" }}>
+                    {t.publish.fileClear}
+                  </button>
+                </div>
+              ) : (
+                <input
+                  type="file" accept={row.accept} disabled={submitting}
+                  className="text-xs" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0] ?? null;
+                    // 서버 캡과 같은 값으로 미리 막는다 — 20MB를 올려놓고 finalize에서
+                    // 거절당하면 사람은 왜 안 되는지 모른다.
+                    if (f && f.size > row.mb * 1024 * 1024) {
+                      setError(t.publish.fileTooLarge(f.name, row.mb));
+                      e.target.value = "";
+                      return;
+                    }
+                    reset();
+                    row.set(f);
+                  }}
+                />
+              )}
+            </div>
+          ))}
+        </div>
+
         {error && (
           <div className="mt-3">
             <p className="text-sm" style={{ color: "var(--danger, #c0392b)", fontFamily: "var(--font-nunito)", lineHeight: 1.7 }}>{error}</p>
@@ -178,7 +291,11 @@ export default function PublishForm() {
         <div className="flex items-center gap-3 mt-5">
           <button onClick={() => void submit()} disabled={submitting} className="vf-soft-fill rounded-full"
             style={{ padding: "0.6rem 1.3rem", fontFamily: "var(--font-nunito)", fontSize: "0.85rem", fontWeight: 500, cursor: "pointer", opacity: submitting ? 0.6 : 1 }}>
-            {submitting ? t.publish.submitting : t.publish.submit}
+            {submitting
+              ? stage === "zipping" ? t.publish.zipping
+                : stage === "uploading" ? t.publish.uploadingFiles
+                  : t.publish.submitting
+              : t.publish.submit}
           </button>
           <span className="text-xs" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
             {t.publish.reviewNote}
