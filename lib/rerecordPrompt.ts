@@ -1,5 +1,5 @@
 import type { DemoScript } from "@/lib/demoScript";
-import { loginCommand, outputLanguageLine } from "@/lib/connectSnippets";
+import { CONNECT_CODE_PLACEHOLDER, loginCommand, outputLanguageLine } from "@/lib/connectSnippets";
 
 // 재촬영 프롬프트 (2026-08-25 사용자 확정 설계).
 //
@@ -63,13 +63,15 @@ export function rerecordPrompt(
   origin: string,
   c: RerecordContext,
   locale: "ko" | "en" = "ko",
-  token?: string,
+  code?: string,
 ): string {
-  const tokenArg = token ?? "<a fresh token is filled in here when you press copy>";
+  const codeArg = code ?? CONNECT_CODE_PLACEHOLDER;
   const current = c.currentScript
     ? JSON.stringify(c.currentScript, null, 2)
     : "(none — this film was shot without a script)";
-  const submitUrl = `${origin.replace(/\/$/, "")}/api/ingest/rerecord/${c.projectId}`;
+  const base = origin.replace(/\/$/, "");
+  const submitUrl = `${base}/api/ingest/rerecord/${c.projectId}`;
+  const exchangeUrl = `${base}/api/connect/exchange`;
 
   // 본문은 영어 하나(2026-09-05). 대본의 goal/expect는 소유자가 검토 화면에서
   // 눈으로 읽는 문장이라, 그 언어만 outputLanguageLine이 정해 준다.
@@ -103,14 +105,20 @@ RULES (the robot follows the script literally)
 HOW TO SUBMIT — pick whichever fits you (this replaces nothing until the owner approves it in their dashboard)
 - If you have the Nookframe MCP server: call the "rerecord_nookframe_demo" tool with
   { "id": "${c.projectId}", "demoScript": <your script>, "note": "one line on what you changed and why" }
-- If you have a shell: save the token once, write {"demoScript": <your script>, "note": "what you changed and why"} to a file, then submit it —
-   ${loginCommand(tokenArg)}
+- If you have a shell: pair once, write {"demoScript": <your script>, "note": "what you changed and why"} to a file, then submit it —
+   ${loginCommand(codeArg)}
    npx nookframe@latest rerecord ${c.projectId} --file <that file>
-- Neither? Plain HTTP works too:
+  That argument is a ONE-TIME pairing code, not a token: it works once, dies 30 minutes after the owner copied this, and the command trades it for the real token it saves here.
+- Neither? Plain HTTP works too, but it takes TWO calls — the code above cannot go in an Authorization header, so trade it for a token first:
+   curl -X POST ${exchangeUrl} \\
+     -H "Content-Type: application/json" \\
+     -d '{"code": "${codeArg}"}'
+  That prints {"token": "nf_live_…"}. Use THAT token — not the code — to submit:
    curl -X POST ${submitUrl} \\
-     -H "Authorization: Bearer ${tokenArg}" \\
+     -H "Authorization: Bearer <the token it just printed>" \\
      -H "Content-Type: application/json" \\
      -d '{"demoScript": <your script>, "note": "one line on what you changed and why"}'
+  Only do this if you did NOT run the login command above — that already spent the code, and the token it saved is the one to reuse.
 Then tell the owner what you changed AND that nothing is re-recorded yet — they have to open Nookframe and press re-record.
 
 Script shape:

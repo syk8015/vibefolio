@@ -3,22 +3,36 @@
 // 레포를 introspection해 카피를 대신 쓰게 유도하고, 셸 유무에 따라 CLI 실행 또는
 // JSON 출력으로 환경 자동적응한다.
 //
-// 요청5(2026-08-14): 토큰 발급 단계를 별도 화면에서 없애고, 복사 순간 자동 발급된
-// 토큰을 프롬프트 1단계(`npx nookframe login <token>`)에 내장한다. 화면 미리보기는
-// token 없이 호출 — 자리표시 문구가 들어간다.
+// 요청5(2026-08-14): 토큰 발급 단계를 별도 화면에서 없애고, 복사 순간 발급된 값을
+// 프롬프트 1단계(`npx nookframe login <…>`)에 내장한다. 화면 미리보기는 값 없이
+// 호출 — 자리표시 문구가 들어간다.
+//
+// 2026-09-16: 그 "값"이 raw PAT에서 **1회용 페어링 코드**로 바뀌었다. 프롬프트는 AI
+// 채팅창에 붙여넣는 물건이라, 살아 있는 크리덴셜을 박으면 대화 기록에 영구히 남는다.
+// 코드는 30분·1회용이고 Bearer로 쓸 수 없다 — `login <코드>`가 /api/connect/exchange에서
+// 진짜 토큰으로 바꿔 저장한다. MCP 설정 명령의 토큰은 **그대로 토큰**이다(터미널에
+// 붙여넣는 물건이라 대화 기록에 안 남는다).
 
 export const NPX_PUBLISH = "npx nookframe@latest publish";
 // 발행 payload의 필드·규칙을 기계가 읽는 형태로(JSON Schema). 0.1.13부터 있고 MCP 툴
 // 스키마와 같은 출처다 — 프롬프트가 알려주지 않으면 CLI로 올리는 AI는 있는 줄도 모른다(09-16).
 export const NPX_SCHEMA = "npx nookframe@latest schema";
+// 발행 전 사전 검사(서버 드라이런, 0.1.15). 거절 사유를 **올리기 전에** 같은 코드로
+// 받아보는 유일한 길 — 게이트 판정을 CLI에 복제하지 않기로 한 결정의 다른 쪽 절반이다.
+export const NPX_CHECK = "npx nookframe@latest check";
 
 // 자동발급 토큰의 name 센티널 — 서버(app/api/tokens)가 재발급 시 이전 것을 찾아
 // 폐기하는 키이자, 목록 UI가 현지화 라벨로 바꿔 보여주는 판별값. 클라이언트에서도
 // import하므로 SERVER-ONLY인 lib/apiToken.ts가 아니라 여기 둔다.
 export const AUTO_TOKEN_NAME = "prompt-auto";
 
-export function loginCommand(token: string): string {
-  return `npx nookframe@latest login ${token}`;
+// 화면 미리보기(복사 전)에 들어가는 자리표시 문구. 토큰 자리표시와 문장이 달라야
+// 한다 — 여기 들어갈 물건이 토큰이 아니라 1회용 코드라는 걸 읽는 사람이 알아야 한다.
+export const CONNECT_CODE_PLACEHOLDER = "<a one-time connect code is filled in here when you press copy>";
+
+/** `login`이 받는 값은 **페어링 코드**다(`nf_code_…`). 코드는 Bearer로 쓸 수 없고, CLI가 서버에서 토큰으로 바꿔 저장한다. */
+export function loginCommand(code: string): string {
+  return `npx nookframe@latest login ${code}`;
 }
 
 // MCP 연결(2026-09-04, 인터뷰 ⑦ 터미널 쪽). 프롬프트 붙여넣기·JSON 옮기기가 통째로
@@ -56,17 +70,17 @@ export function outputLanguageLine(locale: "ko" | "en"): string {
 export function pastePrompt(
   origin: string,
   locale: "ko" | "en" = "ko",
-  token?: string,
+  code?: string,
 ): string {
-  const tokenArg = token ?? MCP_TOKEN_PLACEHOLDER;
-  const login = loginCommand(tokenArg);
+  const login = loginCommand(code ?? CONNECT_CODE_PLACEHOLDER);
   return `Upload this project to Nookframe (a vibe-coding portfolio) as a DRAFT — only the owner can make it public.
 
 ${outputLanguageLine(locale)}
 
 You're the AI that built this project, so read the repo yourself and describe it on my behalf:
-1) If you have a shell, first run this once to save my connect token (skip if you have no shell):
+1) If you have a shell, first run this once to pair with my account (skip if you have no shell):
    ${login}
+   That argument is a ONE-TIME pairing code, not a token: the command trades it at the server for the real token and saves that on this machine. It works once and dies 30 minutes after I copied this prompt, so putting it in an Authorization header will fail — if it's already used or expired, ask me to press "Copy prompt" again for a fresh one.
 2) Investigate from the README, package.json, the actual routes/screens, and git log. If it's still half-built, also work out what it was going to be.
 3) Build a publish payload (JSON) with these fields (${NPX_SCHEMA} prints the same list as a JSON Schema, if you want it machine-readable):
    • title — a short, clear product name
@@ -91,7 +105,8 @@ You're the AI that built this project, so read the repo yourself and describe it
      – login genuinely isn't needed AND every feature works from the first screen → { "noLogin": true, "note": "one line of evidence — e.g. no auth guard in middleware or the first screen; the list renders from seed data" }. Only claim this after opening the actual routes/guards, not from the landing page looking nice — a bare noLogin with no note is rejected
      – a guest path is fundamentally impossible (E2E-encrypted, device pairing, real payments) → { "impossible": true, "note": "why" } (rejected without the note). Only the landing page gets filmed, so attach your own "video" as well
      NEVER include account IDs or passwords — they are not accepted, and publishing is rejected without one of the three answers above. The film and the card are PUBLIC, so every screen the robot opens must show fake or sample data — never real people's names, emails, messages, health or payment records
-4) If you have a shell: write the JSON above to a file and run ${NPX_PUBLISH} --file <that file> (the token was saved in step 1). Then tell the owner it went up as a DRAFT — nothing is public until they open the review link it prints and press publish.
+4) If you have a shell: before uploading anything, write the JSON above to a file and run ${NPX_CHECK} --file <that file>. That asks the server the exact questions publishing would ask — the script, the description shape, targetDevice, demoAccess, the estimated film length — and prints either the precise rejection reason or a summary of what would be accepted. Nothing is stored and nothing is uploaded. If it rejects, fix the JSON and check again until it passes; reading the reason here is far cheaper than publishing and getting a 400.
+5) If you have a shell: publish it — ${NPX_PUBLISH} --file <that file> (step 1 already paired this machine). Then tell the owner it went up as a DRAFT — nothing is public until they open the review link it prints and press publish.
    If you have a screenshot or a demo video you made, add --screenshot <path> / --video <path> (image png/jpg/webp/gif ≤5MB; video mp4/webm ≤20MB — providing a video replaces the auto-recorded demo).
    If you don't have a shell: print the JSON in one \`\`\`json code block, then put this link on its own line right after it so I can click straight through: ${origin}/publish — I'll paste the JSON there.
    To revise something already pushed, publish again with --id <the draft id it printed> — that draft is updated in place, no duplicates.`;

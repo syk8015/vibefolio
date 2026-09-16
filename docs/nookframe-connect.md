@@ -7,11 +7,13 @@
 ## 흐름
 
 ```
-[1회] 대시보드 연결 패널 → [프롬프트 복사] — 누르는 순간 새 토큰이 자동 발급돼 프롬프트에
-      내장된다(화면에 토큰 표시 없음, 프롬프트 1단계가 npx nookframe login <token>).
-      다시 복사하면 새 토큰 발급 + 이전 자동발급 토큰(name=prompt-auto)은 자동 폐기.
+[1회] 대시보드 연결 패널 → [프롬프트 복사] — 누르는 순간 **1회용 페어링 코드**가 발급돼
+      프롬프트에 내장된다(프롬프트 1단계가 npx nookframe login <nf_code_…>, 30분·1회).
+      토큰은 여기서 안 만들어진다 — CLI가 /api/connect/exchange에서 교환하는 순간 생기고,
+      그때 이전 자동발급 토큰(name=prompt-auto)이 폐기된다. 복사만 하고 안 쓰면 토큰 0개.
 [매번] 만든 AI에게 "이거 Nookframe에 올려줘"
-        → AI가 레포 introspection → payload 작성 → npx nookframe publish (또는 /publish 붙여넣기)
+        → AI가 레포 introspection → payload 작성 → npx nookframe check (발행 전 서버 드라이런)
+        → npx nookframe publish (또는 /publish 붙여넣기)
         → POST /api/ingest → projects 행(is_draft=true) 생성 → reviewUrl 반환
 [유저] 대시보드에서 AI 카피 확인·수정 → "확인하고 공개" → is_draft=false + 자동 시연 트리거
 ```
@@ -67,9 +69,12 @@
   (이미 저장해 둔 토큰·`NOOKFRAME_TOKEN`을 깨뜨리지 않는다).
 - 검증: `node scripts/probe-connect-code.mjs`(prod E2E 14단언 — 1회용·만료·해시만 저장·센티널 폐기·
   Bearer 거절·발급은 세션 필수). ⚠️ 이 프로브는 `prompt-auto` 토큰을 갈아치운다.
-- **전환 순서**: 서버·CLI가 먼저(코드 발급·교환 API + `login <코드>`), 프롬프트 3종과 연결 패널이
-  코드를 쓰게 바꾸는 것은 **npm 0.1.15 발행 확인 뒤**다 — 먼저 바꾸면 옛 CLI가 코드를 토큰으로
-  저장해 모든 PAT 호출이 401이 된다(09-15 `--file` 교체와 같은 규칙).
+- **전환 순서**(둘 다 완료): ①서버·CLI 먼저 — 코드 발급·교환 API + `login <코드>`(커밋 1).
+  ②프롬프트 3종(`pastePrompt`·`buildDraftFixPrompt`·`rerecordPrompt`)과 연결 패널·초안 검토 창·
+  재촬영 프롬프트 라우트가 코드를 쓰게 바꾸는 것은 **npm 0.1.15 발행 확인 뒤**(커밋 2) — 먼저
+  바꾸면 옛 CLI가 코드를 토큰으로 저장해 모든 PAT 호출이 401이 된다(09-15 `--file` 교체와 같은 규칙).
+  재촬영 프롬프트의 curl 폴백은 **2단계**가 됐다(`/api/connect/exchange`로 코드→토큰, 그 토큰으로
+  제출) — 셸은 있는데 npm이 막힌 경로를 살리면서도 프롬프트엔 코드만 남는다.
 - 검증(`lib/apiToken.ts`): Bearer 헤더 전용 → 해시 조회(`.is('revoked_at',null)`) → user_id.
 - **폭발반경**: 유출돼도 자기 계정의 **초안 INSERT만** 가능. 발행·데모예산 소진·토큰조회는
   전부 쿠키(`auth.uid()`) 전용이라 닿지 못한다. 유저당 토큰 ≤10, 활성 초안 ≤20, 레이트리밋 20/h(user_id 키).

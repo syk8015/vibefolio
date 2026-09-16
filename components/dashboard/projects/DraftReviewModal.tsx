@@ -196,13 +196,11 @@ export function DraftReviewModal({ draft, onClose, onPublish, onEdit, onDelete, 
     setFixBusy(true);
     setFixState("idle");
     try {
-      const res = await fetch("/api/tokens", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ auto: true }),
-      });
+      // 연결 패널과 같은 규약: 프롬프트에 박히는 것은 1회용 페어링 코드뿐이다
+      // (이 프롬프트도 AI 채팅창에 붙여넣는 물건이라 토큰을 실으면 기록에 남는다).
+      const res = await fetch("/api/connect/code", { method: "POST" });
       const body = await res.json().catch(() => ({}));
-      if (!res.ok || typeof body.token !== "string") throw new Error("token");
+      if (!res.ok || typeof body.code !== "string") throw new Error("code");
       const prompt = buildDraftFixPrompt({
         projectId: draft.id,
         title: draft.title,
@@ -216,7 +214,7 @@ export function DraftReviewModal({ draft, onClose, onPublish, onEdit, onDelete, 
         demoScript: draft.demo_script,
         demoAccess: draft.demo_access,
         note: fixNote.trim(),
-        token: body.token,
+        code: body.code,
         origin: window.location.origin,
       }, locale);
       if (!(await copyText(prompt))) throw new Error("copy failed");

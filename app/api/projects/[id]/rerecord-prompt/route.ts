@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { apiError } from "@/lib/apiError";
 import { requireUser } from "@/lib/routeAuth";
 import { getT, getLocale } from "@/lib/i18n/server";
-import { generateToken } from "@/lib/apiToken";
-import { AUTO_TOKEN_NAME } from "@/lib/connectSnippets";
+import { issueConnectCode } from "@/lib/connectCode";
 import { rerecordPrompt } from "@/lib/rerecordPrompt";
 import { normalizeDemoScript } from "@/lib/demoScript";
 
@@ -44,8 +42,8 @@ export async function POST(
     }
     if (note.length > NOTE_MAX) note = note.slice(0, NOTE_MAX);
 
-    // 소유자 확인은 RLS가 아니라 여기서 명시적으로 — 아래 토큰 발급이 서비스롤이라
-    // 남의 프로젝트 id로 프롬프트(+토큰)를 받아가는 길을 만들면 안 된다.
+    // 소유자 확인은 RLS가 아니라 여기서 명시적으로 — 아래 코드 발급이 서비스롤이라
+    // 남의 프로젝트 id로 프롬프트(+페어링 코드)를 받아가는 길을 만들면 안 된다.
     const { data: project, error: selErr } = await supabase
       .from("projects")
       .select("id, user_id, title, description, demo_url, content_type, tags, demo_access, demo_script")
@@ -58,28 +56,16 @@ export async function POST(
       return apiError({ status: 403, message: t.api.projectForbidden, code: "FORBIDDEN" });
     }
 
-    const admin = createAdminClient();
-
-    // 프롬프트에 심을 토큰은 ConnectPanel과 같은 규약: 자동발급분(prompt-auto)은
-    // 항상 하나만 살아 있게 이전 것을 폐기하고 새로 발급한다. raw는 이 응답에만
-    // 존재하고 DB엔 sha256만 남는다.
-    await admin
-      .from("api_tokens")
-      .update({ revoked_at: new Date().toISOString() })
-      .eq("user_id", user.id)
-      .eq("name", AUTO_TOKEN_NAME)
-      .is("revoked_at", null);
-    const { raw, hash, prefix } = generateToken();
-    const { error: tokErr } = await admin.from("api_tokens").insert({
-      user_id: user.id,
-      token_hash: hash,
-      token_prefix: prefix,
-      name: AUTO_TOKEN_NAME,
-    });
-    if (tokErr) {
+    // 프롬프트에 심는 것은 ConnectPanel과 같은 규약: 토큰이 아니라 **1회용 페어링
+    // 코드**다(2026-09-16). 이 프롬프트도 AI 채팅창에 붙여넣는 물건이라, 살아 있는
+    // 토큰을 실으면 대화 기록에 영구히 남는다. 토큰은 CLI `login <코드>`가
+    // /api/connect/exchange에서 교환하는 순간 비로소 만들어진다 — 프롬프트를 복사만
+    // 하고 안 쓰면 토큰은 아예 생기지 않는다.
+    const issued = await issueConnectCode(user.id);
+    if (!issued) {
       return apiError({
-        status: 500, message: t.api.retryLater, code: "TOKEN_ISSUE_FAILED",
-        cause: tokErr, context: { projectId: id },
+        status: 500, message: t.api.pairingCodeFailed, code: "CODE_ISSUE_FAILED",
+        context: { projectId: id },
       });
     }
 
@@ -98,7 +84,7 @@ export async function POST(
         note,
       },
       locale === "en" ? "en" : "ko",
-      raw,
+      issued.code,
     );
 
     return NextResponse.json({ ok: true, prompt });

@@ -90,17 +90,17 @@ export default function ConnectPanel() {
     setError(null);
     setCopiedOnce(false);
     try {
-      const res = await fetch("/api/tokens", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ auto: true }),
-      });
+      // 프롬프트에 심는 것은 토큰이 아니라 **1회용 페어링 코드**다(2026-09-16). 이
+      // 프롬프트는 AI 채팅창에 붙여넣는 물건이라, 토큰을 박으면 살아 있는 크리덴셜이
+      // 대화 기록에 영구히 남는다. 토큰은 CLI `login <코드>`가 교환할 때 비로소 생긴다
+      // — 복사만 하고 안 쓰면 토큰은 아예 만들어지지 않는다.
+      const res = await fetch("/api/connect/code", { method: "POST" });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
         setError(body.error || t.connect.issueFailed);
         return;
       }
-      const ok = await copyText(pastePrompt(origin, locale, body.token as string));
+      const ok = await copyText(pastePrompt(origin, locale, body.code as string));
       if (!ok) {
         setError(t.connect.copyFailed);
         return;

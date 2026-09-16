@@ -7,7 +7,7 @@
 // 같은 해법: **사람은 불만 한 줄, 고치는 건 AI.** 지금 초안 전체와 사람의 요청을
 // 통째로 싣고, JSON의 draftId로 다시 올리면 그 초안이 갱신된다는 사실까지 넣는다 —
 // 새 세션의 AI가 이 프롬프트 하나로 일을 끝낼 수 있어야 한다.
-import { loginCommand, NPX_PUBLISH, outputLanguageLine } from "@/lib/connectSnippets";
+import { loginCommand, NPX_CHECK, NPX_PUBLISH, outputLanguageLine } from "@/lib/connectSnippets";
 import type { DemoScript } from "@/lib/demoScript";
 import type { DemoAccess } from "@/lib/demoAccess";
 
@@ -28,8 +28,12 @@ export interface DraftFixContext {
   demoAccess: DemoAccess | null;
   /** 사람이 쓴 수정 요청 원문 */
   note: string;
-  /** 복사 순간 자동 발급된 연결 토큰 */
-  token: string;
+  /**
+   * 복사 순간 발급된 **1회용 페어링 코드**(`nf_code_…`, 30분·1회). 토큰이 아니다 —
+   * 이 프롬프트도 AI 채팅창에 붙여넣는 물건이라 살아 있는 크리덴셜을 실으면 대화
+   * 기록에 남는다(2026-09-16). `login <코드>`가 서버에서 토큰으로 바꿔 저장한다.
+   */
+  code: string;
   origin: string;
 }
 
@@ -51,7 +55,7 @@ export function buildDraftFixPrompt(c: DraftFixContext, locale: "ko" | "en" = "k
     demoAccess: c.demoAccess ?? {},
   };
   const json = JSON.stringify(payload, null, 2);
-  const login = loginCommand(c.token);
+  const login = loginCommand(c.code);
 
   // 프롬프트 본문은 영어 하나로 통일(2026-09-05) — 결과 카피 언어만 locale이 정한다.
   return `Revise a Nookframe draft you published earlier. You built this project, so read the repo again if you need to.
@@ -71,8 +75,9 @@ ${json}
 ${c.targetDevice ? "" : `\n"targetDevice" is still unanswered (null above) — set it to "mobile" or "desktop": the screen this app was mainly designed for (not the same as contentType). The server rejects the draft without it.\n`}
 
 HOW TO RESUBMIT — keep "draftId" in the JSON: publishing it again updates this draft in place (no duplicate):
-- If you have a shell: save the token once, write the revised JSON to a file, then publish again —
+- If you have a shell: pair once (that argument is a ONE-TIME code, good for 30 minutes and a single use — it is not a token and cannot go in an Authorization header), write the revised JSON to a file, check it, then publish again —
    ${login}
+   ${NPX_CHECK} --file <that file>   (asks the server whether this would be accepted; stores nothing)
    ${NPX_PUBLISH} --file <that file>${c.deployUrl ? "" : "  (this draft was a file upload — add --dir <the folder> again)"}
 - If you have the Nookframe MCP server: call "publish_to_nookframe" with the revised fields, draftId included.
 - No shell? Print the revised JSON only and I'll paste it into ${c.origin}/publish.
