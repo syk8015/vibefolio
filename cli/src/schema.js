@@ -8,6 +8,7 @@
 
 export const AI_TOOL_IDS = [
   "ChatGPT",
+  "Claude",
   "Claude Code",
   "Cursor",
   "GitHub Copilot",
@@ -299,6 +300,7 @@ export const PUBLISH_INPUT_SCHEMA = {
         "type": "string",
         "enum": [
           "ChatGPT",
+          "Claude",
           "Claude Code",
           "Cursor",
           "GitHub Copilot",
@@ -523,6 +525,7 @@ export const TOOLS = [
             "type": "string",
             "enum": [
               "ChatGPT",
+              "Claude",
               "Claude Code",
               "Cursor",
               "GitHub Copilot",
@@ -745,6 +748,7 @@ export const TOOLS = [
             "type": "string",
             "enum": [
               "ChatGPT",
+              "Claude",
               "Claude Code",
               "Cursor",
               "GitHub Copilot",
@@ -1000,6 +1004,7 @@ export const TOOLS = [
             "type": "string",
             "enum": [
               "ChatGPT",
+              "Claude",
               "Claude Code",
               "Cursor",
               "GitHub Copilot",

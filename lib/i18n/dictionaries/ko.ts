@@ -757,7 +757,7 @@ export const ko = {
       filmTooLong: (seconds: number, cut: number, budget: number) =>
         `이 대본은 촬영에 약 ${seconds}초가 걸리는데 필름은 약 ${budget}초에서 끊겨요 — ${cut}번째 스텝부터는 영상에 못 들어가요. 덜 중요한 비트를 빼거나(5~8스텝이 알맞아요) hold를 줄이세요. 이 계산은 커서 이동·조작·hold만 더한 값이라, 페이지가 느리면 더 길어질 수는 있어도 짧아지지는 않아요.`,
       lowInteraction: (n: number, total: number) =>
-        `${total}스텝 중 실제 조작(click·type·drag)은 ${n}개뿐이에요 — 나머지가 focus·hover·scroll이면 영상이 슬라이드쇼처럼 보여요. 핵심 기능을 직접 눌러서 결과가 바뀌는 스텝을 2개 이상 넣으세요.`,
+        `${total}스텝 중 실제 조작(click·type·drag)은 ${n}개뿐이에요 — 나머지가 focus·hover·scroll이면 영상이 슬라이드쇼처럼 보일 수 있어요. 누를 만한 기능이 이미 있다면, 핵심 기능을 눌러 결과가 바뀌는 스텝을 2개 이상 넣으세요. 다만 원래 넘겨 보거나 바라보는 작품이라면(읽는 글, 포스터, 생성 화면, 누를 게 없다는 것 자체가 핵심인 작품) 대본을 그대로 두세요 — 이 안내를 맞추려고 작품에 없던 버튼을 만들지는 마세요.`,
       unwired: (n: number, total: number) =>
         `${total}스텝 중 ${n}개에 selector가 없어요 — 그 스텝은 로봇이 화면을 보고 추측해요(느리고 비쌈). 이 앱의 코드를 열어 정확한 CSS 셀렉터를 넣으세요.`,
       noExpect: (n: number, total: number) =>
@@ -768,8 +768,22 @@ export const ko = {
         `첫 화면에서 쓰는 셀렉터가 ${url} 이 처음 보내는 HTML에 없어요: ${missing.join(", ")}. 페이지가 뜬 뒤 자바스크립트가 그리는 요소(API로 받아 오는 목록 등)라면 정상이에요 — 로봇이 기다렸다가 찾아요. 처음부터 HTML에 있어야 하는 요소라면 코드와 철자를 대조하거나, where에 눈으로 찾는 법을 적으세요.`,
       selectorsUnverifiable: (url: string) =>
         `${url} 이 처음 보내는 HTML에는 로봇이 찍을 화면이 없어요(자바스크립트가 그리거나, 다른 화면으로 넘어가는 페이지). 그래서 셀렉터를 확인하지 못했을 뿐 오류가 아니에요. 브라우저 도구가 있으면 페이지를 열어 확인하고, 이 결과만 보고 셀렉터를 바꾸지는 마세요.`,
-      selectorsFetchFailed: (url: string) =>
-        `셀렉터 확인용으로 ${url} 을 열지 못했어요 — 주소가 실제로 열리는지, 로그인 없이 보이는지 확인하세요.`,
+      selectorsFetchFailed: (url: string, detail: string) => {
+        const botWall = detail === "http-403" || detail === "http-429" || detail === "http-503";
+        const why = botWall
+          ? `${detail.replace("http-", "HTTP ")} 를 돌려줬어요 — 로그인 문제가 아니라 봇 차단(Cloudflare 같은 것)일 가능성이 아주 높아요`
+          : detail === "timeout" ? "시간 안에 응답이 없었어요"
+            : detail === "unreachable" ? "주소에 닿지도 못했어요(없거나 죽은 도메인)"
+              : detail.startsWith("http-4") ? `${detail.replace("http-", "HTTP ")} 를 돌려줬어요 — 주소가 틀렸거나, 비공개거나, 로그인이 필요해요`
+                : detail.startsWith("http-5") ? `${detail.replace("http-", "HTTP ")} 를 돌려줬어요 — 그 사이트가 오류를 내고 있어요`
+                  : "요청이 실패했어요";
+        const fix = botWall
+          ? "촬영 로봇도 같은 벽에 막혀요. 공유 설정을 바꿔도 안 되니 그쪽을 손대게 하지 마세요 — 보통 방식으로 배포한 주소를 주거나, 작품을 파일로 올리는 쪽으로 가세요."
+          : detail === "timeout"
+            ? "이것만으로 무언가를 바꿀 이유는 없어요 — 다만 늘 이렇게 느리면 촬영이 빈 화면을 찍을 수 있어요."
+            : "그 주소가 처음 온 사람에게도, 로그인 없이 열리는지 확인하세요.";
+        return `셀렉터 확인용으로 ${url} 을 열지 못했어요: ${why}. ${fix}`;
+      },
     },
     descriptionShape: (kind: "empty" | "lines" | "long-line", n: number, maxCols: number) => {
       const example =

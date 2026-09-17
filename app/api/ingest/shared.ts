@@ -154,7 +154,7 @@ export function buildScriptReview(
     // 빈 JS 틀이든 하나도 안 맞든 "이 HTML로는 판정 못 함" — 같은 문장으로 답한다.
     hints.push(r.selectorsUnverifiable(selectors.url));
   } else if (selectors?.status === "skipped" && (selectors.reason === "fetch-failed" || selectors.reason === "not-html")) {
-    hints.push(r.selectorsFetchFailed(selectors.url));
+    hints.push(r.selectorsFetchFailed(selectors.url, selectors.detail ?? ""));
   }
   return { ...s, film, selectors, hints };
 }
@@ -262,7 +262,10 @@ export function buildAccepted(
       ? "impossible"
       : (access?.url ?? (access?.noLogin ? "no-login" : null)),
     // altUrl은 서버가 스스로 채우는 값이라 "유저가 준 demoAccess가 살아남았나"의 근거가 못 된다.
-    demoAccessDropped: !!raw?.demoAccess && !access?.url && !access?.impossible,
+    // noLogin도 **저장된 답 셋 중 하나**다(2026-09-17 수리). 예전엔 url·impossible만
+    // 봐서, 제대로 `{noLogin:true, note}`를 보낸 AI에게 "네 demoAccess는 버려졌다"고
+    // 거짓말을 했다 — 외부 AI가 멀쩡한 답을 고치려 들게 만드는 오보였다.
+    demoAccessDropped: !!raw?.demoAccess && !access?.url && !access?.impossible && !access?.noLogin,
     targetDevice: stored.targetDevice === "mobile" || stored.targetDevice === "desktop" ? stored.targetDevice : null,
   };
 }

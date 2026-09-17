@@ -279,6 +279,11 @@ type SelectorCheckReason =
 export type SelectorCheck = {
   status: "checked" | "skipped";
   reason?: SelectorCheckReason;
+  // 왜 못 열었는지를 가르는 짧은 코드(2026-09-17): `http-403`·`timeout`·`unreachable`·
+  // `network`. 예전엔 전부 뭉뚱그려 "열지 못했어요"라 AI가 사용자에게 엉뚱한 것을
+  // 시켰다("공유 설정을 확인해 주세요" — 실제로는 봇 차단이라 설정과 무관했다).
+  // 사람이 읽는 문장으로 바꾸는 일은 사전이 한다(여기선 코드만 싣는다).
+  detail?: string;
   // 실제로 연 주소(demoAccess까지 합친 것) — AI가 "어디를 봤는지" 알게.
   url: string;
   // checked·found·missing·unparsed는 첫 화면 셀렉터(entry)만 센다.
@@ -291,8 +296,16 @@ export type SelectorCheck = {
   later: string[];
 };
 
-function skippedCheck(reason: SelectorCheckReason, url: string, groups: SelectorGroups): SelectorCheck {
-  return { status: "skipped", reason, url, checked: 0, found: 0, missing: [], unparsed: [], later: groups.later };
+function skippedCheck(
+  reason: SelectorCheckReason,
+  url: string,
+  groups: SelectorGroups,
+  detail?: string,
+): SelectorCheck {
+  return {
+    status: "skipped", reason, url, checked: 0, found: 0, missing: [], unparsed: [],
+    later: groups.later, ...(detail ? { detail } : {}),
+  };
 }
 
 /** 셀렉터 하나가 이 HTML에 있나. 검사 가능한 토큰이 없으면 null(=판정 불가). */
@@ -369,13 +382,20 @@ export async function probeSelectors(url: string, groups: SelectorGroups): Promi
       },
       signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
     });
-    if (!res.ok) return skippedCheck("fetch-failed", url, groups);
+    if (!res.ok) return skippedCheck("fetch-failed", url, groups, `http-${res.status}`);
     const ct = res.headers.get("content-type") ?? "";
     if (!/text\/html|application\/xhtml/i.test(ct)) return skippedCheck("not-html", url, groups);
     const bytes = await readResponseCapped(res, PROBE_HTML_CAP);
     const html = new TextDecoder("utf-8", { fatal: false }).decode(bytes);
     return checkSelectorsInHtml(html, groups, url);
-  } catch {
-    return skippedCheck("fetch-failed", url, groups);
+  } catch (err) {
+    // 시간 초과와 "주소에 닿지도 못함"은 사람이 할 일이 다르다 — 앞은 느린 페이지라
+    // 그냥 넘어가도 되고, 뒤는 주소가 틀렸거나 죽은 것이다.
+    const name = err instanceof Error ? err.name : "";
+    const detail =
+      name === "TimeoutError" || name === "AbortError" ? "timeout"
+        : name === "SsrfError" ? "unreachable"
+          : "network";
+    return skippedCheck("fetch-failed", url, groups, detail);
   }
 }

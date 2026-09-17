@@ -15,6 +15,10 @@ export const CONTENT_TYPES = [
 
 export const AI_TOOLS = [
   { id: "ChatGPT"          },
+  // 채팅창 Claude(2026-09-17 추가). 원격 MCP로 올리는 사람은 대개 이쪽이고, 예전엔
+  // "Claude Code"뿐이라 태그를 비우고 올리는 일이 생겼다. 대조는 소문자 정확 일치라
+  // "claude"와 "claude code"는 서로 다른 키다 — 충돌하지 않는다.
+  { id: "Claude"           },
   { id: "Claude Code"      },
   { id: "Cursor"           },
   { id: "GitHub Copilot"   },

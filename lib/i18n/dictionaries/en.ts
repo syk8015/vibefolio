@@ -718,7 +718,7 @@ export const en: Dictionary = {
       filmTooLong: (seconds: number, cut: number, budget: number) =>
         `This script is roughly ${seconds}s of filming, but the camera stops at about ${budget}s — step ${cut} and everything after it would not make the film. Drop the least important beats (5–8 steps is the sweet spot) or shorten the "hold" values. The estimate counts cursor travel, the action itself and each hold, so a slow page can make it longer, never shorter.`,
       lowInteraction: (n: number, total: number) =>
-        `Only ${n} of ${total} steps actually interact (click/type/drag) — a film of focus/hover/scroll alone looks like a slideshow. Add at least 2 steps that press a core feature and change what's on screen.`,
+        `Only ${n} of ${total} steps actually interact (click/type/drag) — a film of focus/hover/scroll alone can look like a slideshow. If this app already has controls worth pressing, add at least 2 steps that press a core feature and change what's on screen. If it genuinely is something to scroll through or watch (an article, a poster, a generative canvas, a piece whose point is that nothing is clickable), leave the script as it is — NEVER add a control to the work itself just to satisfy this note.`,
       unwired: (n: number, total: number) =>
         `${n} of ${total} steps have no selector — the robot has to guess those from pixels (slower, pricier). Open this app's code and put the exact CSS selector on each.`,
       noExpect: (n: number, total: number) =>
@@ -729,8 +729,25 @@ export const en: Dictionary = {
         `These first-screen selectors are not in the HTML ${url} sends first: ${missing.join(", ")}. That is normal if JavaScript draws them after the page loads (lists fetched from an API, parts shown after a session check) — the robot waits for them. If they should already be in that HTML, compare the spelling with your code, or add a where label for each.`,
       selectorsUnverifiable: (url: string) =>
         `The HTML ${url} sends first does not show the screen the robot films (JavaScript draws it, or the page moves on to another screen), so the selectors could not be checked from it — this is not an error. If you have a browser tool, open the page and confirm them; do not change a selector because of this check alone.`,
-      selectorsFetchFailed: (url: string) =>
-        `Could not open ${url} to verify the selectors — check that the address actually loads and is visible without logging in.`,
+      selectorsFetchFailed: (url: string, detail: string) => {
+        // 403·503은 대개 봇 차단(Cloudflare 등)이다 — 로그인 문제가 아니라서 "공유
+        // 설정을 확인하라"고 시키면 사람이 헛수고를 한다. 촬영 로봇도 같은 벽에 막히므로
+        // 이때는 파일 업로드로 갈아타라고 말해 주는 것이 유일하게 쓸모 있는 답이다.
+        const botWall = detail === "http-403" || detail === "http-429" || detail === "http-503";
+        const why = botWall
+          ? `it answered ${detail.replace("http-", "HTTP ")}, which almost always means a bot check (Cloudflare and friends) rather than a login`
+          : detail === "timeout" ? "it did not answer in time"
+            : detail === "unreachable" ? "the address could not be reached at all (wrong or dead domain)"
+              : detail.startsWith("http-4") ? `it answered ${detail.replace("http-", "HTTP ")} — the address is wrong, private, or needs a login`
+                : detail.startsWith("http-5") ? `it answered ${detail.replace("http-", "HTTP ")} — the site is erroring`
+                  : "the request failed";
+        const fix = botWall
+          ? "The filming robot hits that same wall, so this link cannot be filmed no matter what the owner changes — do NOT ask them to fix sharing settings. Give a normally deployed address instead, or have the owner attach the work as a file on the Nookframe publish page."
+          : detail === "timeout"
+            ? "This alone is not a reason to change anything — but if the page is always this slow, filming may catch a blank screen."
+            : "Check the address actually loads for a stranger, with no login.";
+        return `Could not open ${url} to verify the selectors: ${why}. ${fix}`;
+      },
     },
     descriptionShape: (kind: "empty" | "lines" | "long-line", n: number, maxCols: number) => {
       const example =
