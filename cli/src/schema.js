@@ -396,6 +396,10 @@ export const PUBLISH_INPUT_SCHEMA = {
         }
       }
     },
+    "htmlBody": {
+      "type": "string",
+      "description": "The COMPLETE HTML of a single-file app, as text — use it when the work is not deployed anywhere and you cannot upload a file (a Claude artifact, a one-file page you wrote in this chat). It is stored as index.html and filmed like any static site, so it must be the whole document, not a fragment: send everything from <!doctype html> through </html>, with the CSS and JS inlined. If your answer would be cut off before the end, do NOT send a partial document — the server rejects it, and a half-written app would be published if it did not. Only for single-file works; anything with separate CSS/JS/asset files needs a real upload instead. Max 2MB."
+    },
     "dir": {
       "type": "string",
       "description": "Absolute path of the local directory to upload (when there is no deployUrl — static build output, or a Python/CLI source folder)"
@@ -621,6 +625,10 @@ export const TOOLS = [
             }
           }
         },
+        "htmlBody": {
+          "type": "string",
+          "description": "The COMPLETE HTML of a single-file app, as text — use it when the work is not deployed anywhere and you cannot upload a file (a Claude artifact, a one-file page you wrote in this chat). It is stored as index.html and filmed like any static site, so it must be the whole document, not a fragment: send everything from <!doctype html> through </html>, with the CSS and JS inlined. If your answer would be cut off before the end, do NOT send a partial document — the server rejects it, and a half-written app would be published if it did not. Only for single-file works; anything with separate CSS/JS/asset files needs a real upload instead. Max 2MB."
+        },
         "dir": {
           "type": "string",
           "description": "Absolute path of the local directory to upload (when there is no deployUrl — static build output, or a Python/CLI source folder)"
@@ -843,6 +851,10 @@ export const TOOLS = [
               "description": "Declares that no login is needed at all and every feature is usable from the first screen. Do not set it just because the landing page looks fine — only after checking the actual routes and guards."
             }
           }
+        },
+        "htmlBody": {
+          "type": "string",
+          "description": "The COMPLETE HTML of a single-file app, as text — use it when the work is not deployed anywhere and you cannot upload a file (a Claude artifact, a one-file page you wrote in this chat). It is stored as index.html and filmed like any static site, so it must be the whole document, not a fragment: send everything from <!doctype html> through </html>, with the CSS and JS inlined. If your answer would be cut off before the end, do NOT send a partial document — the server rejects it, and a half-written app would be published if it did not. Only for single-file works; anything with separate CSS/JS/asset files needs a real upload instead. Max 2MB."
         },
         "dir": {
           "type": "string",

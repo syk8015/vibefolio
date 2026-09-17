@@ -26,6 +26,7 @@ import {
   validateMedia, uploadMedia, storeZipBundle, removeStaleFiles,
   UPLOAD_KINDS, UPLOAD_TEMP_KEYS, UPLOAD_REPLACE_MARKER, newUploadSession, type SniffedMedia, type UploadKind,
 } from "@/lib/ingestStore";
+import { htmlBodyIssue, htmlBodyToZip, HTML_BODY_MAX_BYTES } from "@/lib/htmlBody";
 import { uploadErrorResponse } from "./uploadError";
 import { logger } from "@/lib/logger";
 
@@ -57,6 +58,8 @@ interface IngestPayload {
   appUrl?: unknown;
   demoAccess?: unknown;
   uploads?: unknown;
+  // 파일 하나짜리 작품의 HTML 전문(2026-09-17) — 셸 없는 채팅창 AI가 파일 대신 넘기는 길.
+  htmlBody?: unknown;
   draftId?: unknown;
   newDraft?: unknown;
   dryRun?: unknown;
@@ -129,6 +132,28 @@ export async function POST(req: NextRequest) {
       // { payload: {...} } 도, 필드를 최상위에 둔 { ... } 도 허용.
       const b = body as { payload?: IngestPayload } & IngestPayload;
       payload = (b?.payload ?? b) as IngestPayload;
+    }
+
+    // 3.2. htmlBody(글자로 온 파일 하나짜리 작품, 2026-09-17) → index.html 하나짜리 zip.
+    //
+    // **여기서 bundle로 바꿔 두는 것이 이 기능의 전부다.** 아래 코드는 한 줄도 안 고친다 —
+    // 번들 유무 판정(5단계)·저장(8단계)·교체 시 옛 파일 정리가 그대로 적용된다. 전용 저장
+    // 경로를 새로 내면 경로 검사와 prefix assert가 두 벌이 되는데, 서버 zip은 서비스롤이라
+    // 스토리지 RLS를 우회하므로 그 검사가 **유일한 방어**다(AGENTS.md 불변식). 사본을
+    // 만들지 않으려고 일부러 기존 길에 태운다.
+    //
+    // 잘린 HTML을 여기서 막는 이유: 긴 코드는 AI 답변이 중간에 끊기는데, 그대로 저장되면
+    // 반쪽짜리 작품이 "발행 성공"으로 올라간다 — 사람이 영상을 보고서야 알게 된다.
+    if (!bundle && typeof payload?.htmlBody === "string") {
+      const issue = htmlBodyIssue(payload.htmlBody);
+      if (issue) {
+        return apiError({
+          status: 400,
+          message: t.api.htmlBodyIssue(issue.kind, Math.round(HTML_BODY_MAX_BYTES / (1024 * 1024))),
+          code: "HTML_BODY_INVALID",
+        });
+      }
+      bundle = new File([await htmlBodyToZip(payload.htmlBody)], "index.zip", { type: "application/zip" });
     }
 
     // 사전 검사 여부(6.5단계에서 쓴다) — 쿼리와 payload 둘 다 받는다. 쿼리는 버킷을 고르려고

@@ -728,7 +728,17 @@ export const ko = {
       `description이 너무 길어요(최대 ${max}자). 명함 화면에는 2~3문장만 보이니 짧게 줄여주세요.`,
     draftLimit: (max: number) =>
       `검토 대기 중인 초안이 너무 많아요 (최대 ${max}개). 대시보드에서 먼저 공개하거나 정리해 주세요.`,
-    artifactRequired: "deployUrl(또는 appUrl) 또는 파일 번들(bundle)이 필요해요.",
+    artifactRequired: "deployUrl(또는 appUrl), 파일 번들(bundle), 또는 htmlBody(파일 하나짜리 작품의 HTML 전문) 중 하나가 필요해요.",
+    // 글자로 온 HTML(2026-09-17). 셸 없는 채팅창 AI가 파일 대신 본문을 넘기는 길이라,
+    // 되돌려보내는 문장이 곧 그 AI의 지시문이다 — 무엇을 어떻게 다시 보낼지까지 적는다.
+    htmlBodyIssue: (kind: "empty" | "too-large" | "not-html" | "truncated", maxMb: number) =>
+      kind === "empty"
+        ? "htmlBody가 비어 있어요."
+        : kind === "too-large"
+          ? `htmlBody가 너무 커요 (최대 ${maxMb}MB). 이 길은 파일 하나짜리 작품용이에요 — 더 크거나 CSS·JS가 따로 있는 작품은 주인이 zip으로 올려야 해요.`
+          : kind === "not-html"
+            ? "htmlBody가 완전한 HTML 문서가 아니에요. <!doctype html>부터 </html>까지 통째로, CSS·JS를 문서 안에 넣어 보내세요 — 조각(<div>…</div>)이나 설명문은 페이지로 뜨지 않아요."
+            : "htmlBody가 중간에 잘린 것 같아요 — 닫는 </html>도 </body>도 없어요. 답변이 끊겼다면 이어서 받은 뒤 **전체를 한 번에** 보내세요. 반쪽짜리 작품이 그대로 발행되지 않게 여기서 막는 거예요.",
     badUrl: "임베드·시연할 수 있는 URL이 아니에요.",
     demoAccessBadUrl: "demoAccess.url은 http(s) 주소이거나 /로 시작하는 경로여야 해요.",
     demoAccessRequired:

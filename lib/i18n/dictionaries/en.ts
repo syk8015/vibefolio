@@ -691,7 +691,15 @@ export const en: Dictionary = {
       `description is too long (max ${max} characters). Only 2–3 sentences show on the card — please shorten it.`,
     draftLimit: (max: number) =>
       `Too many drafts are waiting for review (max ${max}). Publish or clean some up on your dashboard first.`,
-    artifactRequired: "Either deployUrl (or appUrl) or a file bundle is required.",
+    artifactRequired: "One of deployUrl (or appUrl), a file bundle, or htmlBody (the full HTML of a single-file work) is required.",
+    htmlBodyIssue: (kind: "empty" | "too-large" | "not-html" | "truncated", maxMb: number) =>
+      kind === "empty"
+        ? "htmlBody is empty."
+        : kind === "too-large"
+          ? `htmlBody is too large (max ${maxMb}MB). This route is for single-file works — anything bigger, or with separate CSS/JS files, has to be uploaded by the owner as a zip.`
+          : kind === "not-html"
+            ? "htmlBody is not a complete HTML document. Send everything from <!doctype html> through </html>, with the CSS and JS inlined — a fragment (<div>…</div>) or a description will not render as a page."
+            : "htmlBody looks cut off — there is no closing </html> and no </body>. If your answer was truncated, continue it and then send the WHOLE document in one go. This check exists so a half-written app is not published as if it were finished.",
     badUrl: "This URL can't be embedded or filmed for a demo.",
     demoAccessBadUrl: "demoAccess.url must be an http(s) URL or a path starting with /.",
     demoAccessRequired:
