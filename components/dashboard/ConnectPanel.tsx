@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { copyText } from "@/lib/clipboard";
-import { pastePrompt, AUTO_TOKEN_NAME, MCP_TOKEN_NAME, mcpClaudeCodeCommand, mcpConfigJson } from "@/lib/connectSnippets";
+import { pastePrompt, AUTO_TOKEN_NAME, MCP_TOKEN_NAME, mcpClaudeCodeCommand, mcpConfigJson, remoteMcpUrl } from "@/lib/connectSnippets";
 import { useT } from "@/lib/i18n/client";
 
 interface TokenRow {
@@ -37,6 +37,9 @@ export default function ConnectPanel() {
   const [showMcp, setShowMcp] = useState(false);
   const [mcpBusy, setMcpBusy] = useState(false);
   const [mcpCopied, setMcpCopied] = useState<"claude-code" | "json" | null>(null);
+  // 원격 커넥터 주소 복사(2026-09-17). 위 둘과 달리 **토큰을 발급하지 않는다** —
+  // 공개 주소 하나를 복사할 뿐이고, 인증은 클로드가 띄우는 [허용] 화면에서 일어난다.
+  const [urlCopied, setUrlCopied] = useState(false);
   const origin = typeof window !== "undefined" ? window.location.origin : "https://nookframe.com";
 
   async function load() {
@@ -52,6 +55,16 @@ export default function ConnectPanel() {
   // 판정하지만 실제 캐스케이드 렌더는 없다(ProjectsTab loadProjects와 동일).
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { load(); }, []);
+
+  async function copyRemoteUrl() {
+    setError(null);
+    const ok = await copyText(remoteMcpUrl(origin));
+    if (!ok) {
+      setError(t.connect.copyFailed);
+      return;
+    }
+    setUrlCopied(true);
+  }
 
   // 발급+복사 원자 흐름. 발급은 됐는데 클립보드가 실패하면 그 토큰은 버려진 상태로
   // 남지만, 다음 시도가 자동 폐기하므로 따로 청소하지 않는다.
@@ -215,6 +228,35 @@ export default function ConnectPanel() {
             <p className="text-xs" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", lineHeight: 1.7, margin: 0 }}>
               {t.connect.mcpLead}
             </p>
+
+            {/* 원격 커넥터(2026-09-17) — 설치도, 설정 파일 편집도, 토큰 복사도 없는
+                유일한 길이라 아래 터미널 방식들보다 먼저 보여준다. 채팅창 전용이 아니라
+                데스크탑 앱에서도 같은 주소를 쓴다(그쪽이 JSON 편집보다 쉽다). */}
+            <div>
+              <p className="text-xs" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontWeight: 600, margin: "0 0 6px" }}>
+                {t.connect.mcpRemoteTitle}
+              </p>
+              <pre
+                className="text-xs p-3 rounded-lg"
+                style={{ background: "var(--surface-soft)", color: "var(--text-secondary)", fontFamily: "var(--font-mono), monospace", whiteSpace: "pre-wrap", lineHeight: 1.6, margin: 0, wordBreak: "break-all" }}
+              >
+                {remoteMcpUrl(origin)}
+              </pre>
+              <div className="flex items-center gap-3 flex-wrap mt-2">
+                <button type="button" onClick={() => void copyRemoteUrl()} className="vf-button-ghost" style={{ fontSize: "0.75rem", padding: "0.35rem 0.8rem" }}>
+                  {t.connect.mcpRemoteCopy}
+                </button>
+                {urlCopied && (
+                  <span className="text-xs" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>{t.connect.mcpRemoteCopied}</span>
+                )}
+              </div>
+              <p className="text-xs" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", lineHeight: 1.7, margin: "8px 0 0" }}>
+                {t.connect.mcpRemoteHint}
+              </p>
+              <p className="text-xs" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", lineHeight: 1.7, margin: "4px 0 0" }}>
+                {t.connect.mcpRemoteCaveat}
+              </p>
+            </div>
             {([
               { kind: "claude-code" as const, label: t.connect.mcpClaudeCode, text: mcpClaudeCodeCommand() },
               { kind: "json" as const, label: t.connect.mcpJson, text: mcpConfigJson() },

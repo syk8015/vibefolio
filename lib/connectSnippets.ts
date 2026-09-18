@@ -38,6 +38,15 @@ export function loginCommand(code: string): string {
 // MCP 연결(2026-09-04, 인터뷰 ⑦ 터미널 쪽). 프롬프트 붙여넣기·JSON 옮기기가 통째로
 // 사라지는 길이라 연결 탭에 같이 둔다. 토큰 이름은 자동 토큰처럼 센티널 —
 // 서버가 재복사 때 이전 것을 폐기해 토큰 상한(MAX_TOKENS_PER_USER)에 안 걸린다.
+/**
+ * 원격 MCP 커넥터 주소(2026-09-17). 이것만 붙이면 끝이라 **토큰을 만들지 않는다** —
+ * 인증은 Claude가 띄우는 [허용] 화면에서 OAuth로 일어난다. 아래 stdio 방식(npx+토큰)과
+ * 헷갈리지 말 것: 이 길은 설치도, 설정 파일 편집도, 토큰 복사도 없다.
+ */
+export function remoteMcpUrl(origin: string): string {
+  return `${origin}/api/mcp`;
+}
+
 export const MCP_TOKEN_NAME = "mcp-auto";
 export const MCP_TOKEN_PLACEHOLDER = "<a fresh token is filled in here when you press copy>";
 
