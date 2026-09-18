@@ -191,6 +191,25 @@ export default function ConnectPanel() {
             <p className="text-xs" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", lineHeight: 1.6, margin: "4px 0 0" }}>
               {t.connect.copiedNote}
             </p>
+
+            {/* 셸 없는 챗봇의 출구(2026-09-18). 위 문장은 "AI가 곧 올린다"를 전제로
+                기다리지만, 채팅창 AI는 영원히 안 올린다 — JSON을 손에 들고 돌아온
+                사람이 붙여넣을 곳을 못 찾고 멈추던 자리가 정확히 여기였다. */}
+            <div style={{ borderTop: "1px solid var(--border)", margin: "12px 0 0", paddingTop: 12 }}>
+              <p className="text-xs" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontWeight: 600, margin: 0 }}>
+                {t.connect.pasteJsonLead}
+              </p>
+              <Link
+                href="/publish"
+                className="vf-button-primary inline-block"
+                style={{ fontSize: "0.85rem", padding: "0.5rem 1.1rem", textDecoration: "none", margin: "8px 0 0" }}
+              >
+                {t.connect.pasteJsonCta}
+              </Link>
+              <p className="text-xs" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", lineHeight: 1.6, margin: "8px 0 0" }}>
+                {t.connect.pasteJsonHint}
+              </p>
+            </div>
           </div>
         </div>
       )}
@@ -211,11 +230,14 @@ export default function ConnectPanel() {
             >
               {pastePrompt(origin, locale)}
             </pre>
-            <p className="text-xs mt-2" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", lineHeight: 1.6 }}>
-              {t.connect.noShell1}<Link href="/publish" style={{ color: "var(--text-primary)", textDecoration: "underline" }}>{origin.replace(/^https?:\/\//, "")}/publish</Link>{t.connect.noShell2}
-            </p>
           </div>
         )}
+        {/* 이 안내는 **접힘 밖**에 둔다(2026-09-18). 안에 두면 프롬프트를 펼친 사람만
+            보는데, 정작 필요한 사람은 AI가 JSON만 주고 끝난 사람이라 프롬프트를 다시
+            펼칠 이유가 없다. 두 겹 안에 숨어 있어서 "칸이 없다"고 느껴지던 원인. */}
+        <p className="text-xs mt-2" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", lineHeight: 1.6 }}>
+          {t.connect.noShell1}<Link href="/publish" style={{ color: "var(--text-primary)", textDecoration: "underline" }}>{origin.replace(/^https?:\/\//, "")}/publish</Link>{t.connect.noShell2}
+        </p>
       </div>
 
       {/* 접힘: MCP 연결 — 터미널 AI는 붙여넣기 자체가 없어진다(인터뷰 ⑦) */}
