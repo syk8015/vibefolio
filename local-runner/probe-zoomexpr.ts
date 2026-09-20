@@ -8,6 +8,7 @@ import { buildZoomFilter, coalescePans, type CameraEvent } from "./camera";
 import {
   FPS, PAD_FRAC, PAD_COLOR, CENTER_BIAS, CAMERA_MAX_EVENTS, CAMERA_VF_MAX_CHARS,
 } from "./config";
+import { mkdir } from "node:fs/promises";
 import { run } from "./util";
 
 const OUT = "/tmp/nf-runner";
@@ -48,6 +49,9 @@ function baseChain(events: CameraEvent[]): string {
   const zoom = buildZoomFilter(scaled, FPS, pw, ph, { centerBias: CENTER_BIAS, baseZoom: padScale });
   return `scale=${zw}:${zh}:flags=lanczos,pad=${pw}:${ph}:${padX}:${padY}:color=${PAD_COLOR},${zoom},scale=1280:720:flags=lanczos`;
 }
+
+// /tmp is swept by macOS, so the run dir can be gone between sessions.
+await mkdir(OUT, { recursive: true });
 
 // 2s grey source clip at capture size (tiny/cheap: crf 40, 10fps input is fine).
 await run("ffmpeg", ["-y", "-f", "lavfi", "-i", `color=c=gray:s=${rawW}x${rawH}:r=${FPS}:d=2`, "-c:v", "libx264", "-preset", "ultrafast", "-crf", "40", RAW], { timeoutMs: 60_000 });
