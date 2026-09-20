@@ -16,6 +16,7 @@ const PROBES = [
   "local-runner/probe-focus-coalesce.ts",   // 스크롤 병합·focus 카메라 산식
   "local-runner/probe-zoomexpr.ts",         // zoompan 식 가드
   "scripts/test-zoom-filter-local.mts",     // 로컬 카메라 ffmpeg 체인
+  "local-runner/dispatch/probe-dispatch.mjs", // 자동 실행기 — 큐·한도 게이트·산출물 수거 (node --test 53개)
 ];
 
 let failed = 0;

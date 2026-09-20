@@ -1,0 +1,14 @@
+{
+  "name": "nookframe-dispatch",
+  "version": "1.0.0",
+  "private": true,
+  "description": "nookframe 자동 실행기 — 잡 큐 + 한도 게이트 + 산출물 수거 + 폰 푸시 (UI 없는 백엔드 자동화)",
+  "type": "module",
+  "bin": { "dispatch": "./bin/dispatch.js" },
+  "scripts": {
+    "test": "node --test test/harness.mjs"
+  },
+  "dependencies": {
+    "web-push": "^3.6.7"
+  }
+}

@@ -21,10 +21,12 @@
 //     "$USER" nookframe-supabase-service-role "$KEY" | security -i
 // ⚠️ `... -w` 를 인자 없이 두고 stdin으로 값을 흘리는 방법은 쓰지 말 것 — 그 대화형
 //    프롬프트는 **128바이트에서 값을 잘라 먹는다**(서비스롤 JWT는 219자라 조용히 깨짐).
-import { execFileSync, spawn } from "node:child_process";
+import { spawn } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { dirname, join } from "node:path";
-import { userInfo } from "node:os";
+import { readKeychain, writeKeychain } from "./_keychain.mjs";
+
+export { readKeychain, writeKeychain };
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const QUIET = process.env.NF_SECRETS_QUIET === "1";
@@ -45,20 +47,6 @@ function loadEnvFiles() {
         /* 없으면 다음 후보 */
       }
     }
-  }
-}
-
-function readKeychain(service) {
-  try {
-    const out = execFileSync(
-      "security",
-      ["find-generic-password", "-a", userInfo().username, "-s", service, "-w"],
-      { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] },
-    );
-    const v = out.replace(/\n$/, "");
-    return v.length > 0 ? v : null;
-  } catch {
-    return null; // 항목 없음 · 사용자 취소 · 잠긴 키체인
   }
 }
 
