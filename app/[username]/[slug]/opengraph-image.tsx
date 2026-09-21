@@ -51,6 +51,7 @@ export default async function Image({
   let handle = `@${username}`;
   let title = "";
   let poster: string | undefined;
+  let hasVideo = false;
   if (UUID_RE.test(slug)) {
     const profile = await getProfileByUsername(username);
     if (profile) {
@@ -58,6 +59,7 @@ export default async function Image({
       const project = await getProjectById(profile.id, slug);
       if (project) {
         title = project.title;
+        hasVideo = !!project.demo_video_url;
         poster =
           posterFromDemo(project.demo_video_url, project.demo_generated_at) ||
           project.thumbnail ||
@@ -89,24 +91,27 @@ export default async function Image({
           <div style={{ position: "absolute", ...FILL, background: "linear-gradient(180deg, rgba(0,0,0,0.05), rgba(0,0,0,0.6))" }} />
         ) : null}
 
-        {/* play button, centered */}
-        <div style={{ position: "absolute", ...FILL, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <div
-            style={{
-              width: 128,
-              height: 128,
-              borderRadius: 64,
-              background: "rgba(255,255,255,0.94)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <svg width="50" height="56" viewBox="0 0 50 56">
-              <polygon points="6,4 46,28 6,52" fill={INK} />
-            </svg>
+        {/* play button, centered — 영상이 있을 때만. 없는 영상에 재생 단추를
+            그리면 눌러도 재생할 게 없는 카드가 된다. */}
+        {hasVideo ? (
+          <div style={{ position: "absolute", ...FILL, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div
+              style={{
+                width: 128,
+                height: 128,
+                borderRadius: 64,
+                background: "rgba(255,255,255,0.94)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <svg width="50" height="56" viewBox="0 0 50 56">
+                <polygon points="6,4 46,28 6,52" fill={INK} />
+              </svg>
+            </div>
           </div>
-        </div>
+        ) : null}
 
         {/* bottom label */}
         <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, padding: "32px 48px", display: "flex", flexDirection: "column" }}>

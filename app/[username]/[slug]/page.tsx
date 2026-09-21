@@ -20,6 +20,13 @@ import JsonLd from "@/components/JsonLd";
 const SITE = "https://nookframe.com";
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const CAPTION = "No human recorded this — filmed straight from the live app";
+// 영상이 없는 작품은 둘로 갈린다: 지금 찍는 중(곧 생긴다)과 영상이 올 일이 없는
+// 것(이미지형·실패·보류·요청 안 함). 앞의 것만 "rendering"이라 말할 수 있다 —
+// 나머지에 그 문구를 띄우면 영원히 멈춘 화면이 되고, CAPTION은 없는 영상을
+// "찍었다"고 단언하게 된다. pending은 빠진다 — 촬영은 로컬 맥 배치 워커가 사람이
+// 돌릴 때만 집어가서, 대기열에서 며칠씩 머문다(2026-09-21 공개 작품 1개가 이 상태).
+// 실제로 카메라가 도는 세 단계만 "rendering"이다(cron/health의 IN_FLIGHT와 같다).
+const FILMING = ["building", "recording", "editing"];
 
 type Params = { params: Promise<{ username: string; slug: string }> };
 
@@ -48,13 +55,15 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const title = `${project.title} · ${handle} on Nookframe`;
   // 설명은 3줄로 끊어 쓴 카피라 줄바꿈을 품는다 — 화면은 그대로 살리고,
   // meta·OG처럼 기계가 읽는 자리에서는 한 줄로 눕힌다(lib/text.ts).
-  const description = project.description
-    ? oneLine(project.description)
-    : `${CAPTION}. Watch ${handle}'s demo on Nookframe.`;
-  const watchUrl = `${SITE}/${profile.username}/${project.id}`;
   const video = project.demo_video_url
     ? versioned(project.demo_video_url, project.demo_generated_at)
     : undefined;
+  const description = project.description
+    ? oneLine(project.description)
+    : video
+      ? `${CAPTION}. Watch ${handle}'s demo on Nookframe.`
+      : `${project.title} by ${handle} on Nookframe.`;
+  const watchUrl = `${SITE}/${profile.username}/${project.id}`;
 
   // og:image / twitter:image come from the co-located opengraph-image.tsx (a
   // poster + play-button composite that always renders — cream card if the poster
@@ -69,7 +78,8 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
       description,
       url: watchUrl,
       siteName: "Nookframe",
-      type: "video.other",
+      // 영상이 없는데 video.other를 걸면 og:video 없는 영상 카드가 나간다.
+      type: video ? "video.other" : "website",
       // Discord/Slack/Telegram/iMessage inline-play this. (X ignores direct-mp4
       // og:video and shows the poster card — creators use the Share Kit's native
       // upload path for X.)
@@ -101,6 +111,7 @@ export default async function WatchPage({ params }: Params) {
   const video = project.demo_video_url
     ? versioned(project.demo_video_url, project.demo_generated_at)
     : undefined;
+  const rendering = !video && FILMING.includes(project.demo_build_status ?? "");
 
   // 구조화 데이터. 영상이 실제로 있을 때만 VideoObject를 쓴다 — 구글이
   // VideoObject에 uploadDate를 요구하는데, 그건 촬영 시각(demo_generated_at)
@@ -165,49 +176,61 @@ export default async function WatchPage({ params }: Params) {
       </header>
 
       <div className="flex-1 w-full max-w-[860px] mx-auto px-5 md:px-8 pb-16">
-        {/* Player */}
-        <div
-          className="vf-card overflow-hidden"
-          style={{ padding: 0, borderRadius: 18, aspectRatio: "16 / 9", background: "#0b0b0f" }}
-        >
-          {video ? (
-            <video
-              src={video}
-              poster={poster}
-              controls
-              autoPlay
-              muted
-              loop
-              playsInline
-              style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
-            />
-          ) : (
-            <div className="relative w-full h-full flex items-center justify-center">
-              {poster && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={poster}
-                  alt={project.title}
-                  style={{ width: "100%", height: "100%", objectFit: "cover", opacity: 0.55 }}
-                />
-              )}
-              <span
-                className="absolute vf-chip"
-                style={{ fontFamily: "var(--font-nunito)", color: "var(--text-secondary)" }}
-              >
-                Demo is rendering…
-              </span>
-            </div>
-          )}
-        </div>
+        {/* Player — 영상이 없으면 찍는 중일 때만 "rendering", 아니면 대표 이미지만.
+            둘 다 없으면 칸 자체를 그리지 않는다(빈 검은 상자보다 제목이 먼저 보이는 게 낫다). */}
+        {(video || rendering || poster) && (
+          <div
+            className="vf-card overflow-hidden"
+            style={{ padding: 0, borderRadius: 18, aspectRatio: "16 / 9", background: "#0b0b0f" }}
+          >
+            {video ? (
+              <video
+                src={video}
+                poster={poster}
+                controls
+                autoPlay
+                muted
+                loop
+                playsInline
+                style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
+              />
+            ) : (
+              <div className="relative w-full h-full flex items-center justify-center">
+                {poster && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={poster}
+                    alt={project.title}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: rendering ? "cover" : "contain",
+                      opacity: rendering ? 0.55 : 1,
+                    }}
+                  />
+                )}
+                {rendering && (
+                  <span
+                    className="absolute vf-chip"
+                    style={{ fontFamily: "var(--font-nunito)", color: "var(--text-secondary)" }}
+                  >
+                    Demo is rendering…
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
-        {/* Caption — the source claim */}
-        <p
-          className="mt-4 text-center vf-mono"
-          style={{ color: "var(--text-primary)", opacity: 0.5, fontSize: "0.8rem", letterSpacing: "0.01em" }}
-        >
-          {CAPTION}
-        </p>
+        {/* Caption — the source claim. 실제 영상이 있을 때만 참이다. */}
+        {video && (
+          <p
+            className="mt-4 text-center vf-mono"
+            style={{ color: "var(--text-primary)", opacity: 0.5, fontSize: "0.8rem", letterSpacing: "0.01em" }}
+          >
+            {CAPTION}
+          </p>
+        )}
 
         {/* Identity + title */}
         <div className="mt-9 flex items-center gap-3">
