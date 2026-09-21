@@ -8,9 +8,15 @@ import TurnstileWidget, { turnstileEnabled, resetTurnstile } from "@/components/
 import Logo from "@/components/Logo";
 import LanguageToggle from "@/components/LanguageToggle";
 import { useT } from "@/lib/i18n/client";
+import { safeNext } from "@/lib/safeNext";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
 
 const RETURNING_USER_KEY = "vf-returning-user";
+
+// 로그인 뒤 돌아갈 곳. useSearchParams는 Suspense 경계를 요구해서, 클릭 시점에 주소를 읽는다.
+function nextFromUrl(): string {
+  return safeNext(new URLSearchParams(location.search).get("next"));
+}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -51,7 +57,7 @@ export default function LoginPage() {
       setError(errorMessage(error.message, t));
     } else {
       localStorage.setItem(RETURNING_USER_KEY, "1");
-      router.push("/");
+      router.push(nextFromUrl());
       router.refresh();
     }
   }
@@ -59,9 +65,15 @@ export default function LoginPage() {
   async function handleGoogle() {
     localStorage.setItem(RETURNING_USER_KEY, "1");
     const supabase = createClient();
+    // ?next=를 콜백에 실어 보낸다. Supabase 허용 목록이 쿼리까지 매칭하므로
+    // `…/auth/callback?**` 와일드카드가 있어야 한다(비밀번호 재설정이 이미 같은 모양을 쓴다).
+    // 없으면 Site URL(홈)로 떨어질 뿐이라 지금보다 나빠지진 않는다.
+    const next = nextFromUrl();
     await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `${location.origin}/auth/callback` },
+      options: {
+        redirectTo: `${location.origin}/auth/callback${next === "/" ? "" : `?next=${encodeURIComponent(next)}`}`,
+      },
     });
   }
 

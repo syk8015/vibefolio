@@ -1,4 +1,5 @@
 import { createServerClient } from "@supabase/ssr";
+import { safeNext } from "@/lib/safeNext";
 import { NextResponse, type NextRequest } from "next/server";
 import { PREVIEW_ORIGIN, APP_ORIGIN } from "@/lib/previewOrigin";
 import { LOCALE_COOKIE, isLocale } from "@/lib/i18n/config";
@@ -77,9 +78,9 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  // 로그인 유저가 /login, /signup 접근 시 홈으로
+  // 로그인 유저가 /login, /signup 접근 시 홈으로 — ?next=가 있으면 거기로(/publish에서 온 사람).
   if (user && (pathname === "/login" || pathname === "/signup")) {
-    return NextResponse.redirect(new URL("/", request.url));
+    return NextResponse.redirect(new URL(safeNext(request.nextUrl.searchParams.get("next")), request.url));
   }
 
   // username 없는 로그인 유저 → 온보딩으로

@@ -1,21 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { logger } from "@/lib/logger";
+import { safeNext } from "@/lib/safeNext";
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
   // Open-redirect guard: `next` is user-controlled and concatenated onto origin.
-  // Only allow a same-origin relative path — reject `//evil.com`, `/\evil.com`,
-  // `@evil.com` (userinfo trick), or any absolute URL, all of which would escape
-  // our origin and turn the post-login redirect into a phishing hop.
-  const nextParam = searchParams.get("next") ?? "/";
-  const next =
-    nextParam.startsWith("/") &&
-    !nextParam.startsWith("//") &&
-    !nextParam.startsWith("/\\")
-      ? nextParam
-      : "/";
+  // lib/safeNext keeps only a same-origin relative path (login page shares it).
+  const next = safeNext(searchParams.get("next"));
 
   if (code) {
     try {

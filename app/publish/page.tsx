@@ -17,7 +17,8 @@ export async function generateMetadata() {
 export default async function PublishPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  // 로그인 뒤 여기로 돌아오게 — 없으면 챗봇이 준 JSON을 들고 온 사람이 홈에 떨어진다.
+  if (!user) redirect("/login?next=/publish");
 
   // 대시보드와 동일한 self-heal: 프로필 행이 없으면 프로젝트 INSERT의 FK가 깨지므로 온보딩으로.
   const { data: profileRow } = await supabase
