@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { copyText, copyTextLater } from "@/lib/clipboard";
 import { ManualCopyBox } from "@/components/dashboard/ManualCopyBox";
+import { AI_TOOL_PATHS } from "@/components/dashboard/aiToolPaths";
 import { pastePrompt, AUTO_TOKEN_NAME, MCP_TOKEN_NAME, mcpClaudeCodeCommand, mcpConfigJson, remoteMcpUrl } from "@/lib/connectSnippets";
 import { useT } from "@/lib/i18n/client";
 
@@ -32,13 +33,56 @@ interface TokenRow {
 // 만들었나요?"를 먼저 묻고 그 길 하나만 보여준다. 새 통로는 없다 — 이미 있던 셋
 // (프롬프트 / 원격 커넥터 / /publish 붙여넣기)의 순서만 답에 맞춰 바꾼다(09-18 결정).
 // 클로드는 커넥터가 가장 짧은 길이라 그 답의 첫 화면이 주소다.
+//
+// 두 줄 개편(2026-09-22 사용자 확정): 답을 "쓰는 곳"(터미널·앱·웹)이 아니라 "할 수 있는
+// 일"로 나눈다 — 명령을 직접 실행하는 AI / 채팅만 하는 AI. 쓰는 곳으로 나누면 Claude
+// Code·Codex가 두 줄에 겹치고, Claude 데스크탑 앱은 대화와 Code 탭이 한 앱이라 또
+// 갈라야 했다. 각 줄 안은 도구 로고 칩이고, 줄이 곧 누른 뒤 나오는 길이다(Claude 채팅만
+// 커넥터라는 예외).
 type AiPath = "terminal" | "claude" | "chat";
-const PATH_KEY = "nf.connect.path";
-const PATHS: AiPath[] = ["terminal", "claude", "chat"];
+type ToolId =
+  | "claude-code" | "codex" | "cursor" | "copilot" | "antigravity" | "other-cli"
+  | "claude-chat" | "chatgpt" | "gemini" | "other-chat";
+const TOOL_KEY = "nf.connect.tool";
+// 폰 2칸·PC 3칸 격자에 딱 맞게 6개(2026-09-22 — 한 칸만 남는 줄이 비대칭으로 보였다).
+const AGENT_TOOLS: ToolId[] = ["claude-code", "codex", "cursor", "copilot", "antigravity", "other-cli"];
+const CHAT_TOOLS: ToolId[] = ["claude-chat", "chatgpt", "gemini", "other-chat"];
+
+/** 칩 앞 로고 — 단색 경로. 로고가 없는 것은 흉내 내지 않고 중립 기호로 둔다. */
+function ToolIcon({ id }: { id: ToolId }) {
+  const d =
+    id === "claude-code" || id === "claude-chat" ? AI_TOOL_PATHS.claude
+      : id === "codex" || id === "chatgpt" ? AI_TOOL_PATHS.openai
+        : id === "cursor" ? AI_TOOL_PATHS.cursor
+          : id === "copilot" ? AI_TOOL_PATHS.copilot
+          : id === "gemini" ? AI_TOOL_PATHS.gemini
+            : null;
+  if (d) {
+    return (
+      <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" style={{ flexShrink: 0 }}>
+        <path d={d} fill="currentColor" />
+      </svg>
+    );
+  }
+  const glyph = id === "antigravity" ? "A" : id === "other-cli" ? ">_" : "…";
+  return (
+    <span aria-hidden="true" className="vf-mono" style={{
+      width: 16, height: 16, flexShrink: 0, display: "inline-flex", alignItems: "center", justifyContent: "center",
+      fontSize: id === "other-cli" ? "0.55rem" : "0.65rem", fontWeight: 700, borderRadius: 4,
+      boxShadow: "inset 0 0 0 1.2px currentColor",
+    }}>{glyph}</span>
+  );
+}
 
 export default function ConnectPanel() {
   const { t, locale } = useT();
-  const [path, setPath] = useState<AiPath | null>(null);
+  const [tool, setTool] = useState<ToolId | null>(null);
+  // Claude 채팅인데 커넥터를 못 쓰는 계정 → 프롬프트 길로 돌린다(칩은 그대로 Claude 채팅).
+  const [promptInstead, setPromptInstead] = useState(false);
+  const path: AiPath | null = !tool ? null
+    : AGENT_TOOLS.includes(tool) ? "terminal"
+      : tool === "claude-chat" && !promptInstead ? "claude"
+        : "chat";
   const [tokens, setTokens] = useState<TokenRow[]>([]);
   const [copying, setCopying] = useState(false);
   const [copiedOnce, setCopiedOnce] = useState(false);
@@ -72,17 +116,18 @@ export default function ConnectPanel() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
     try {
-      const saved = localStorage.getItem(PATH_KEY) as AiPath | null;
-      if (saved && PATHS.includes(saved)) setPath(saved);
+      const saved = localStorage.getItem(TOOL_KEY) as ToolId | null;
+      if (saved && [...AGENT_TOOLS, ...CHAT_TOOLS].includes(saved)) setTool(saved);
     } catch {
       // 저장소가 막힌 브라우저 — 매번 묻는 것으로 충분하다.
     }
   }, []);
 
-  function choose(p: AiPath) {
-    setPath(p);
+  function choose(id: ToolId) {
+    setTool(id);
+    setPromptInstead(false);
     setError(null);
-    try { localStorage.setItem(PATH_KEY, p); } catch { /* 위와 같음 */ }
+    try { localStorage.setItem(TOOL_KEY, id); } catch { /* 위와 같음 */ }
   }
 
   async function copyRemoteUrl() {
@@ -194,67 +239,96 @@ export default function ConnectPanel() {
     </a>
   );
 
-  const choices: { id: AiPath; label: string; sub: string }[] = [
-    { id: "terminal", label: t.connect.pickTerminal, sub: t.connect.pickTerminalSub },
-    { id: "claude", label: t.connect.pickClaude, sub: t.connect.pickClaudeSub },
-    { id: "chat", label: t.connect.pickChat, sub: t.connect.pickChatSub },
-  ];
-
-  return (
-    <div className="flex flex-col items-center text-center">
-      {/* 첫 질문 — 답에 따라 아래 길이 하나만 보인다 */}
-      <p className="text-sm mb-3" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontWeight: 600, margin: "0 0 12px" }}>
-        {t.connect.ask}
-      </p>
-      <div role="radiogroup" aria-label={t.connect.ask} className="w-full grid gap-2 mb-5" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(10rem, 1fr))" }}>
-        {choices.map((c) => {
-          const on = path === c.id;
+  const toolName = (id: ToolId): string =>
+    id === "claude-code" ? "Claude Code"
+      : id === "codex" ? "Codex"
+        : id === "cursor" ? "Cursor"
+          : id === "copilot" ? "GitHub Copilot"
+          : id === "antigravity" ? "Antigravity"
+            : id === "other-cli" ? t.connect.toolOtherCli
+              : id === "claude-chat" ? t.connect.toolClaudeChat
+                : id === "chatgpt" ? "ChatGPT"
+                  : id === "gemini" ? "Gemini"
+                    : t.connect.toolOtherChat;
+  const group = (title: string, note: string, ids: ToolId[], cols: string) => (
+    <div className="w-full">
+      <p className="text-xs" style={smallText("var(--text-primary)", { fontWeight: 600 })}>{title}</p>
+      <p className="text-xs" style={smallText("var(--text-muted)", { marginTop: 2 })}>{note}</p>
+      <div role="radiogroup" aria-label={title} className={`grid grid-cols-2 gap-2 mt-2 ${cols}`}>
+        {ids.map((id) => {
+          const on = tool === id;
           return (
             <button
-              key={c.id}
+              key={id}
               type="button"
               role="radio"
               aria-checked={on}
-              onClick={() => choose(c.id)}
-              className="rounded-2xl px-3 py-3 text-left"
+              onClick={() => choose(id)}
+              className="rounded-xl flex items-center gap-2 text-left"
               style={{
+                padding: "0.6rem 0.75rem", minHeight: 48,
                 background: on ? "var(--surface)" : "var(--surface-soft)",
                 boxShadow: on ? "inset 0 0 0 1.5px var(--text-primary)" : "none",
-                border: "none", cursor: "pointer", transition: "box-shadow 0.15s, background 0.15s",
+                color: "var(--text-primary)", border: "none", cursor: "pointer",
+                transition: "box-shadow 0.15s, background 0.15s",
               }}
             >
-              <span className="block text-sm" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontWeight: 600 }}>{c.label}</span>
-              <span className="block text-xs mt-0.5" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>{c.sub}</span>
+              <ToolIcon id={id} />
+              <span className="text-sm" style={{ fontFamily: "var(--font-nunito)", fontWeight: 600, lineHeight: 1.3 }}>{toolName(id)}</span>
             </button>
           );
         })}
       </div>
+    </div>
+  );
+  // 번호 단계 — 화살표 한 줄은 폰에서 가운데 정렬로 쪼개져 읽기 어려웠다(2026-09-22 사용자 지적).
+  const steps = (items: string[]) => (
+    <ol className="w-full flex flex-col gap-2" style={{ listStyle: "none", padding: 0, margin: 0 }}>
+      {items.map((line, i) => (
+        <li key={i} className="flex items-start gap-2.5">
+          <span aria-hidden="true" className="vf-mono shrink-0 inline-flex items-center justify-center rounded-full" style={{
+            width: 20, height: 20, fontSize: "0.7rem", fontWeight: 700,
+            background: "var(--surface-soft)", color: "var(--text-secondary)",
+          }}>{i + 1}</span>
+          <span className="text-sm" style={smallText("var(--text-secondary)", { lineHeight: 1.6, paddingTop: 1 })}>{line}</span>
+        </li>
+      ))}
+    </ol>
+  );
+
+  return (
+    <div className="flex flex-col items-stretch text-left gap-5">
+      {/* 첫 질문 — 두 줄(할 수 있는 일)로 나눈 도구 칩. 누른 칩의 길 하나만 아래에 편다. */}
+      <p className="text-base" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontWeight: 600, margin: 0 }}>
+        {t.connect.ask}
+      </p>
+      {group(t.connect.groupAgent, t.connect.groupAgentNote, AGENT_TOOLS, "sm:grid-cols-3")}
+      {group(t.connect.groupChat, t.connect.groupChatNote, CHAT_TOOLS, "sm:grid-cols-4")}
 
       {path && (
-        <p className="text-xs mb-5" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", lineHeight: 1.7 }}>
-          {path === "terminal" ? t.connect.stepsTerminal : path === "chat" ? t.connect.stepsChat : t.connect.stepsClaude}
-        </p>
+        <div style={{ borderTop: "1px solid var(--border)" }} />
       )}
 
-      {/* 클로드 — 원격 커넥터 주소가 첫 화면(2026-09-17 원격 커넥터, 09-22 앞으로) */}
+      {path === "terminal" && steps(t.connect.stepsTerminal)}
+      {path === "chat" && steps(t.connect.stepsChat)}
+
+      {/* Claude 채팅 — 원격 커넥터가 첫 화면(2026-09-17 원격 커넥터). 이 단계들은 Claude 앱
+          자체의 화면이라 줄일 수 없고, 대신 처음 한 번뿐이다. */}
       {path === "claude" && (
-        <div className="w-full text-left flex flex-col gap-2">
-          <p className="text-xs" style={smallText("var(--text-primary)", { fontWeight: 600 })}>
-            {t.connect.mcpRemoteTitle}
-          </p>
+        <div className="w-full flex flex-col gap-3">
+          {steps(t.connect.stepsClaude)}
           <pre className="text-xs p-3 rounded-lg" style={preStyle}>{remoteMcpUrl(origin)}</pre>
           <div className="flex items-center gap-3 flex-wrap">
-            <button type="button" onClick={() => void copyRemoteUrl()} className="vf-button-primary" style={{ fontSize: "0.85rem", padding: "0.5rem 1.1rem" }}>
+            <button type="button" onClick={() => void copyRemoteUrl()} className="vf-button-primary" style={{ fontSize: "0.9rem", padding: "0.6rem 1.3rem" }}>
               {t.connect.mcpRemoteCopy}
             </button>
             {urlCopied && <span className="text-xs" style={smallText("var(--text-secondary)")}>{t.connect.mcpRemoteCopied}</span>}
           </div>
-          <p className="text-xs" style={smallText("var(--text-secondary)", { lineHeight: 1.7, marginTop: 4 })}>{t.connect.mcpRemoteHint}</p>
-          <p className="text-xs" style={smallText("var(--text-secondary)", { lineHeight: 1.7 })}>{t.connect.mcpRemoteAuthTip}</p>
-          <p className="text-xs" style={smallText("var(--text-secondary)", { lineHeight: 1.7 })}>{t.connect.mcpRemoteNext}</p>
+          <p className="text-xs" style={smallText("var(--text-muted)", { lineHeight: 1.7 })}>{t.connect.claudeOnce}</p>
+          <p className="text-xs" style={smallText("var(--text-muted)", { lineHeight: 1.7 })}>{t.connect.mcpRemoteCaveat}</p>
           <p className="text-xs" style={smallText("var(--text-muted)", { lineHeight: 1.7 })}>
-            {t.connect.mcpRemoteCaveat} {t.connect.claudeFallback}
-            <button type="button" onClick={() => choose("chat")} style={{ ...toggleStyle, color: "var(--text-primary)", textDecoration: "underline", fontWeight: 500, display: "inline" }}>
+            {t.connect.claudeFallback}
+            <button type="button" onClick={() => setPromptInstead(true)} style={{ ...toggleStyle, color: "var(--text-primary)", textDecoration: "underline", fontWeight: 500, display: "inline" }}>
               {t.connect.claudeFallbackLink}
             </button>
           </p>
@@ -263,33 +337,33 @@ export default function ConnectPanel() {
 
       {/* 터미널·채팅 AI — 프롬프트 복사가 첫 동작 */}
       {(path === "terminal" || path === "chat") && (
-        <>
+        <div className="flex flex-col gap-3">
           <button
             type="button"
             onClick={copyPromptWithCode}
             disabled={copying}
-            className="vf-button-primary"
+            className="vf-button-primary w-full sm:w-auto sm:self-start"
             style={{
               fontSize: "0.95rem", padding: "0.85rem 2.2rem", opacity: copying ? 0.6 : 1,
               // 복사됐다는 걸 버튼 스스로 말하게 한다(2026-09-05 사용자 지적) —
               // 라벨이 ✓로 바뀌고 살짝 커진다. 아래 작은 문구만으로는 눌린 티가 안 났다.
-              transform: copiedOnce ? "scale(1.05)" : "scale(1)",
+              transform: copiedOnce ? "scale(1.03)" : "scale(1)",
               transition: "transform 0.22s cubic-bezier(0.34, 1.4, 0.64, 1)",
             }}
           >
             {copying ? t.connect.copying : copiedOnce ? t.connect.copiedButton : t.connect.copyPrompt}
           </button>
-          {manualPrompt && <div className="w-full mt-4"><ManualCopyBox text={manualPrompt} /></div>}
+          {manualPrompt && <ManualCopyBox text={manualPrompt} />}
           {(copiedOnce || manualPrompt) && (
-            <p className="text-xs mt-3" style={smallText("var(--text-muted)")}>{t.connect.copiedNote}</p>
+            <p className="text-xs" style={smallText("var(--text-muted)")}>{t.connect.copiedNote}</p>
           )}
-        </>
+        </div>
       )}
 
       {/* 터미널 AI: 복사 후 = AI가 올려주기를 기다리는 시간. 초안이 도착하면 ProjectsTab이
           이 모달을 닫고 검토 화면을 연다(useDraftArrival) — 그때까지의 안내. */}
       {path === "terminal" && (copiedOnce || manualPrompt) && (
-        <div className="mt-4 w-full rounded-2xl px-4 py-3.5 flex items-start gap-3 text-left" style={cardStyle}>
+        <div className="w-full rounded-2xl px-4 py-3.5 flex items-start gap-3" style={cardStyle}>
           <span className="vf-spinner shrink-0" style={{ width: "0.9rem", height: "0.9rem", marginTop: 2 }} />
           <div className="min-w-0">
             <p className="text-xs" style={smallText("var(--text-primary)", { fontWeight: 600 })}>{t.connect.waitingTitle}</p>
@@ -307,7 +381,7 @@ export default function ConnectPanel() {
       {/* 채팅 AI: 스스로 못 올리니 "기다리는 중" 대신 답을 가져올 곳을 처음부터 보여준다 —
           답을 들고 창을 다시 연 사람이 또 복사를 누르지 않아도 되게. */}
       {path === "chat" && (
-        <div className="mt-4 w-full rounded-2xl px-4 py-3.5 text-left" style={cardStyle}>
+        <div className="w-full rounded-2xl px-4 py-3.5" style={cardStyle}>
           <p className="text-xs" style={smallText("var(--text-primary)", { fontWeight: 600 })}>{t.connect.chatNextTitle}</p>
           <p className="text-xs" style={smallText("var(--text-secondary)", { marginTop: 4 })}>{t.connect.chatNextBody}</p>
           {pasteLink}
@@ -315,12 +389,12 @@ export default function ConnectPanel() {
       )}
 
       {error && (
-        <p className="text-xs mt-3" style={{ color: "var(--danger)", fontFamily: "var(--font-nunito)" }}>{error}</p>
+        <p className="text-xs" style={{ color: "var(--danger)", fontFamily: "var(--font-nunito)", margin: 0 }}>{error}</p>
       )}
 
       {/* 접힘: 프롬프트 전문 */}
       {(path === "terminal" || path === "chat") && (
-        <div className="w-full mt-6 text-left">
+        <div className="w-full">
           <button type="button" onClick={() => setShowPrompt(v => !v)} aria-expanded={showPrompt} style={toggleStyle}>
             {chevron(showPrompt)}{t.connect.previewToggle}
           </button>
@@ -334,7 +408,7 @@ export default function ConnectPanel() {
 
       {/* 접힘: MCP 연결 — 터미널 AI는 붙여넣기 자체가 없어진다(인터뷰 ⑦) */}
       {path === "terminal" && (
-        <div className="w-full mt-3 text-left">
+        <div className="w-full" style={{ marginTop: -8 }}>
           <button type="button" onClick={() => setShowMcp(v => !v)} aria-expanded={showMcp} style={toggleStyle}>
             {chevron(showMcp)}{t.connect.mcpToggle}
           </button>
@@ -366,7 +440,7 @@ export default function ConnectPanel() {
 
       {/* 접힘: 연결 관리(발급된 토큰) — 없으면 아예 안 그린다. 답과 상관없이 맨 아래. */}
       {tokens.length > 0 && (
-        <div className="w-full mt-3 text-left">
+        <div className="w-full" style={{ marginTop: path ? -8 : 0 }}>
           <button type="button" onClick={() => setShowTokens(v => !v)} aria-expanded={showTokens} style={toggleStyle}>
             {chevron(showTokens)}{t.connect.tokensToggle(tokens.length)}
           </button>
