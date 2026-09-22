@@ -3,7 +3,8 @@
 // 배경: 실DB의 storage.objects엔 같은 일을 하는 쓰기 규칙이 세 벌 겹쳐 있고(대시보드 손 규칙·
 // migration_security_hardening·migration_prelaunch_hardening), permissive 규칙은 OR라서
 // security_hardening의 ".." 금지 WITH CHECK는 사실상 무력하다. 그래도 안전한 이유를 여기서 지킨다:
-//   (1) 로그인 키로 자기 폴더 정상 업로드 → 성공
+//   (1) 로그인 키로 자기 폴더 업로드·같은 이름 교체·아바타 업로드·자기 파일 삭제 → 성공
+//       (supabase/migration_storage_write_policies.sql로 규칙을 한 벌로 합친 뒤에도 앱이 도는지)
 //   (2) 주소를 정리하지 않은 날것 "{uid}/../{가짜uid}/…" 업로드 → 403(서버 앞단이 ".."를 풀고,
 //       RLS는 풀린 최종 이름의 첫 폴더를 본다 → 남의 폴더면 거부)
 //   (3) "%2e%2e"로 감춘 모양 → 거부
@@ -48,9 +49,21 @@ function rawUpload(path) {
 }
 
 const t = Date.now();
+const blob = () => new Blob(["probe"], { type: "text/plain" });
 const good = `${uid}/_probe/ok-${t}.txt`;
-const r1 = await user.storage.from(BUCKET).upload(good, new Blob(["probe"], { type: "text/plain" }), { upsert: true });
+const r1 = await user.storage.from(BUCKET).upload(good, blob(), { upsert: true });
 ok("자기 폴더 정상 업로드", !r1.error, r1.error?.message ?? "");
+// 같은 이름으로 다시(upsert = 교체) — 대시보드의 썸네일·파일 교체가 쓰는 길(UPDATE 규칙).
+const r1b = await user.storage.from(BUCKET).upload(good, blob(), { upsert: true });
+ok("같은 이름 교체(upsert)", !r1b.error, r1b.error?.message ?? "");
+// 아바타 버킷도 같은 규칙 — 프로필 사진 업로드가 쓰는 길. 기존 아바타를 건드리지 않게 _probe 아래.
+const avatarKey = `${uid}/_probe/avatar-${t}.txt`;
+const r1c = await user.storage.from("avatars").upload(avatarKey, blob(), { upsert: true });
+ok("아바타 버킷 업로드", !r1c.error, r1c.error?.message ?? "");
+// 자기 파일 삭제를 사용자 키로(DELETE 규칙) — 업로드 실패 뒤 정리가 쓰는 길.
+const del = await user.storage.from(BUCKET).remove([good]);
+ok("자기 파일 삭제(사용자 키)", !del.error && (del.data ?? []).length === 1, del.error?.message ?? `${(del.data ?? []).length}개 지움`);
+await svc.storage.from("avatars").remove([avatarKey]).catch(() => {});
 
 const r2 = await rawUpload(`${uid}/../${FAKE}/_probe/x-${t}.txt`);
 ok('날것 ".."로 남의 폴더 쓰기 → 거부', r2.status >= 400 && /row-level security|AccessDenied/i.test(r2.body), `HTTP ${r2.status}`);
