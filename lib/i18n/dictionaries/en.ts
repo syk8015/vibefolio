@@ -726,9 +726,9 @@ export const en: Dictionary = {
     rerecordDefaultReason: "The owner asked for a re-record with a new script.",
     scriptRequired:
       "demoScript is required — it IS the demo film. Without it the robot has to guess from pixels, which is slower, pricier and worse. Send { \"steps\": [ { \"goal\": …, \"selector\": …, \"where\": …, \"action\": \"click|type|drag|scroll|hover|draw|focus\", \"text\": …, \"expect\": …, \"hold\": … } ] } with 5–8 steps (min 4, max 10), most important first: you built this app, so give the exact CSS selector for each control (a `where` label is the fallback when you only know the UI). Only exception: attach your own demo `video`, which skips auto-recording entirely.",
-    scriptTooThin: (n: number) =>
     demoAccessSecretParam: (name: string): string =>
       `demoAccess contains a name that looks like a secret ("${name}") — tokens, passwords and keys are not accepted. On a published work this field is readable by anyone, so a secret placed here leaks. Send a guest/demo path that needs no secret instead ({ "url": "/demo", "params": {"guest":"1"} }).`,
+    scriptTooThin: (n: number) =>
       `demoScript has only ${n} step(s) — too thin to be a film. Send at least 4 (5–8 is the sweet spot, max 10), ordered by importance: step 1 must be the feature this project cannot be shown without.`,
     scriptStepsVague: (solid: number, total: number) =>
       `Only ${solid} of the ${total} demoScript steps can actually be filmed. Every step needs BOTH what to do (action: click|type|drag|scroll|hover|draw|focus) and where to do it (selector — you built this app, so give the exact CSS selector; if you only know the UI, put how to find it by eye in where). A step with just a goal is a table of contents, not a script: the robot falls back to guessing from pixels, which is the most common way a demo comes out broken. At least 3 steps must meet this bar.`,
