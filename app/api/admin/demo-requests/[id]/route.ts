@@ -5,6 +5,12 @@ import { resolveBuildPayload, DemoSourceError } from "@/lib/demoPayload";
 import { assertSafePublicUrl, SsrfError } from "@/lib/ssrf";
 import { apiError } from "@/lib/apiError";
 import { requireAdmin } from "@/lib/routeAuth";
+import { logger } from "@/lib/logger";
+import { formatDemoFailure } from "@/lib/demo-failure";
+import { recipientLocale } from "@/lib/i18n/user-locale";
+import { getDictionary } from "@/lib/i18n/dictionaries";
+import { sendEmail, isEmailConfigured } from "@/lib/email";
+import { demoRequestDeclinedEmail } from "@/lib/email-templates";
 
 // Admin decision on a held / re-record request. Approving is the ONE privileged
 // path that enqueues a demo past the normal caps: it sets the project to pending
@@ -51,10 +57,18 @@ export async function POST(
     const decidedAt = new Date().toISOString();
 
     if (action === "reject") {
-      await admin
+      // 승인과 같은 조건부 전환 — 두 번 눌러도 알림은 한 번.
+      const { data: claimedReject } = await admin
         .from("demo_requests")
         .update({ status: "rejected", admin_note: note, decided_at: decidedAt })
-        .eq("id", requestId);
+        .eq("id", requestId)
+        .eq("status", "pending")
+        .select("id")
+        .maybeSingle();
+      if (!claimedReject) {
+        return apiError({ status: 409, message: "이미 처리된 요청이에요.", code: "ALREADY_DECIDED" });
+      }
+      await settleRejected(admin, request.project_id, request.user_id, request.kind, note);
       return NextResponse.json({ ok: true, status: "rejected" });
     }
 
@@ -179,5 +193,60 @@ export async function POST(
       code: "INTERNAL",
       cause: err,
     });
+  }
+}
+
+// 거절 뒤 정리 + 소유자 통보(2026-09-22 R4). 예전엔 요청 행만 rejected로 바뀌어,
+// 재촬영 대본(pending_demo_script)이 그대로 남아 재촬영 창이 같은 [이 대본으로 재촬영]
+// 버튼을 계속 띄웠고(누르면 새 요청·관리자 메일이 또 생김), 한도 초과로 보류(held)된
+// 작품은 held에 영영 머물렀다(request_demo는 held면 아무것도 안 한다). 사용자에게는 아무
+// 소식도 가지 않았다. 여기 실패는 거절 자체를 되돌리지 않는다 — 기록만 남긴다.
+async function settleRejected(
+  admin: ReturnType<typeof createAdminClient>,
+  projectId: string,
+  userId: string,
+  kind: string,
+  note: string | null,
+): Promise<void> {
+  try {
+    const { data: project } = await admin
+      .from("projects")
+      .select("id, title, demo_build_status, demo_build_error")
+      .eq("id", projectId)
+      .maybeSingle();
+    if (!project) return;
+
+    const upd: Record<string, unknown> = {};
+    if (kind === "rerecord") {
+      Object.assign(upd, { pending_demo_script: null, pending_script_at: null, pending_script_note: null });
+    }
+    // 마커 없는 held = 한도 초과 보류. 크레딧·모더레이션 보류는 각자 경로가 푼다.
+    if (project.demo_build_status === "held" && !project.demo_build_error) {
+      Object.assign(upd, {
+        demo_build_status: "failed",
+        demo_build_error: formatDemoFailure("declined", note ?? "관리자가 촬영 요청을 승인하지 않았어요."),
+      });
+    }
+    if (Object.keys(upd).length) {
+      const { error } = await admin.from("projects").update(upd).eq("id", projectId);
+      if (error) logger.error("admin reject: project cleanup failed", { error, projectId });
+    }
+
+    if (!isEmailConfigured()) return;
+    const { data: u } = await admin.auth.admin.getUserById(userId);
+    const to = u?.user?.email;
+    if (!to) return;
+    const locale = await recipientLocale(admin, userId);
+    await sendEmail({
+      to,
+      ...demoRequestDeclinedEmail({
+        projectTitle: (project.title as string | null) || getDictionary(locale).email.untitledProject,
+        rerecord: kind === "rerecord",
+        note,
+        locale,
+      }),
+    });
+  } catch (error) {
+    logger.error("admin reject: settle failed", { error, projectId });
   }
 }

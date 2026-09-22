@@ -906,6 +906,10 @@ export const en: Dictionary = {
       title: "We couldn't publish this due to content policy",
       body: "On review, this demo contained content we can't publish on Nookframe. Please revise it and try again — and if you think this was a mistake, let us know by replying.",
     },
+    declined: {
+      title: "Your demo request wasn't approved",
+      body: "We reviewed it and decided not to film this one for now. We've emailed you the reason. You can fix things up and request again.",
+    },
     error: {
       title: "Something went wrong during the shoot",
       body: "It may be a temporary issue. Try once more, and if it keeps failing, check that the URL opens normally in a browser.",
@@ -933,5 +937,12 @@ export const en: Dictionary = {
     takedownReason: (reason: string) => `Reported for: ${reason}`,
     takedownAppeal: "If you disagree with this, reply to this email or write to vivestarter@gmail.com and we will take another look.",
     takedownCta: "Open dashboard",
+    declinedSubject: (title: string) => `Your demo request wasn't approved — ${title}`,
+    declinedBody: (titleHtml: string) => `We reviewed the demo request for ${titleHtml} and decided not to film it this time.`,
+    declinedRerecordBody: (titleHtml: string) =>
+      `We reviewed the re-record request for ${titleHtml} and decided not to go ahead this time. Your current published video stays as it is.`,
+    declinedNote: (note: string) => `Note from the team: ${note}`,
+    declinedNext: "You can make changes and request again from your dashboard. Questions? Just reply to this email.",
+    declinedCta: "Open dashboard",
   },
 };

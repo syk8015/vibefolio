@@ -24,13 +24,19 @@ export function AdminRequestList({ items }: { items: AdminRequestItem[] }) {
   const [error, setError] = useState<string | null>(null);
 
   async function decide(id: string, action: "approve" | "reject") {
+    // 거절 이유는 사용자에게 메일로 간다(비워도 됨). 취소하면 거절하지 않는다.
+    let note: string | null = null;
+    if (action === "reject") {
+      note = window.prompt("거절할게요. 사용자 메일에 실을 이유를 적어 주세요(비워도 돼요).", "");
+      if (note === null) return;
+    }
     setBusy(id);
     setError(null);
     try {
       const res = await fetch(`/api/admin/demo-requests/${id}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action }),
+        body: JSON.stringify({ action, ...(note ? { note } : {}) }),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);

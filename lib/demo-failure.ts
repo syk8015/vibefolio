@@ -20,6 +20,7 @@ export const DEMO_FAILURE_CODES = [
   "not-a-webapp", // nothing serveable — no web page, or backend-only repo
   "blank", // page loaded but rendered nothing (empty/placeholder)
   "policy", // admin rejected a moderation-held take (content policy)
+  "declined", // admin declined a held (over-cap) demo request
   "error", // anything else (raw pipeline message follows)
 ] as const;
 

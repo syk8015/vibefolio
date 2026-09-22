@@ -968,6 +968,10 @@ export const ko = {
       title: "콘텐츠 정책에 맞지 않아 게시하지 못했어요",
       body: "검토 결과 이 시연은 Nookframe에 공개하기 어려운 내용이 담겨 있었어요. 내용을 수정한 뒤 다시 시도해 주시고, 잘못된 판단이라고 생각되면 회신으로 알려주세요.",
     },
+    declined: {
+      title: "촬영 요청이 승인되지 않았어요",
+      body: "운영자가 검토한 뒤 이번 촬영은 진행하지 않기로 했어요. 이유는 메일로 보냈어요. 내용을 고친 뒤 다시 요청할 수 있어요.",
+    },
     error: {
       title: "촬영 중 문제가 생겼어요",
       body: "일시적인 문제일 수 있어요. 한 번 더 시도해 보고, 반복되면 URL이 브라우저에서 정상 접속되는지 확인해 주세요.",
@@ -1001,6 +1005,15 @@ export const ko = {
     takedownReason: (reason: string) => `신고 사유: ${reason}`,
     takedownAppeal: "판단에 이의가 있으면 이 메일에 답장하거나 vivestarter@gmail.com 으로 알려주세요. 다시 검토할게요.",
     takedownCta: "대시보드에서 보기",
+    // 관리자가 촬영·재촬영 요청을 거절했을 때 (2026-09-22 R4). 예전엔 아무 소식이 없어
+    // 사용자가 같은 요청을 계속 다시 넣었다.
+    declinedSubject: (title: string) => `촬영 요청이 승인되지 않았어요 — ${title}`,
+    declinedBody: (titleHtml: string) => `${titleHtml}의 촬영 요청을 검토했는데, 이번에는 진행하지 않기로 했어요.`,
+    declinedRerecordBody: (titleHtml: string) =>
+      `${titleHtml}의 재촬영 요청을 검토했는데, 이번에는 진행하지 않기로 했어요. 지금 공개된 영상은 그대로 남아 있어요.`,
+    declinedNote: (note: string) => `운영자 메모: ${note}`,
+    declinedNext: "내용을 고친 뒤 대시보드에서 다시 요청할 수 있어요. 궁금한 점은 이 메일에 회신해 주세요.",
+    declinedCta: "대시보드에서 보기",
   },
 };
 

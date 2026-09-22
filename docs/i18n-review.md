@@ -742,3 +742,10 @@ SNS/검색 로봇은 JS를 안 돌려 OG·크롤러 노출 문구(루트 descrip
 | onboarding.usernameInvalid · errors.usernameInvalid | 영문 소문자, 숫자, _, -만 쓸 수 있어요 (2~30자) | Lowercase letters, numbers, _ and - only (2–30 characters) | 교체 · 소문자·30자(A7·B23) |
 | onboarding.ageConfirm | 만 14세 이상이에요 | I'm 14 or older | 신규 · 약관 1조 가입 조건 체크(법무⑤) |
 | card.usernameChangeWarning | 저장하면 옛 주소 nookframe.com/{old}는 바로 열리지 않아요. 이미 공유한 링크가 끊겨요. | Once you save, nookframe.com/{old} stops working right away. Links you've already shared will break. | 신규 · 함수(old) · C11 |
+| demoFailure.declined | 촬영 요청이 승인되지 않았어요 / 운영자가 검토한 뒤 이번 촬영은 진행하지 않기로 했어요. 이유는 메일로 보냈어요. 내용을 고친 뒤 다시 요청할 수 있어요. | Your demo request wasn't approved / We reviewed it and decided not to film this one for now. We've emailed you the reason. You can fix things up and request again. | 신규 · 관리자가 한도 초과 보류 요청을 거절(R4) |
+| email.declinedSubject | 촬영 요청이 승인되지 않았어요 — {title} | Your demo request wasn't approved — {title} | 신규 · R4 |
+| email.declinedBody | {title}의 촬영 요청을 검토했는데, 이번에는 진행하지 않기로 했어요. | We reviewed the demo request for {title} and decided not to film it this time. | 신규 · R4 |
+| email.declinedRerecordBody | {title}의 재촬영 요청을 검토했는데, 이번에는 진행하지 않기로 했어요. 지금 공개된 영상은 그대로 남아 있어요. | We reviewed the re-record request for {title} and decided not to go ahead this time. Your current published video stays as it is. | 신규 · R4 |
+| email.declinedNote | 운영자 메모: {note} | Note from the team: {note} | 신규 · R4 |
+| email.declinedNext | 내용을 고친 뒤 대시보드에서 다시 요청할 수 있어요. 궁금한 점은 이 메일에 회신해 주세요. | You can make changes and request again from your dashboard. Questions? Just reply to this email. | 신규 · R4 |
+| email.declinedCta | 대시보드에서 보기 | Open dashboard | 신규 · R4 |

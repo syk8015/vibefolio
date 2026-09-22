@@ -170,6 +170,33 @@ export function demoFailedEmail(input: {
   };
 }
 
+// ── 관리자가 촬영·재촬영 요청을 거절했을 때 (소유자 수신, 2026-09-22 R4) ─────
+export function demoRequestDeclinedEmail(input: {
+  projectTitle: string;
+  rerecord: boolean;
+  note: string | null;
+  locale?: Locale;
+}): RenderedEmail {
+  const locale = input.locale ?? DEFAULT_LOCALE;
+  const t = getDictionary(locale).email;
+  const title = t.declinedSubject(clampSubject(input.projectTitle));
+  const titleHtml = `<strong>${escapeHtml(input.projectTitle)}</strong>`;
+  return {
+    subject: title,
+    html: shell(
+      title,
+      [
+        heading(title),
+        paragraph(input.rerecord ? t.declinedRerecordBody(titleHtml) : t.declinedBody(titleHtml)),
+        ...(input.note ? [paragraph(escapeHtml(t.declinedNote(input.note)))] : []),
+        paragraph(escapeHtml(t.declinedNext)),
+        button(t.declinedCta, `${SITE_URL}/dashboard`),
+      ].join("\n"),
+      locale,
+    ),
+  };
+}
+
 // ── 신고 처리로 작품을 내렸을 때 (소유자 수신, 2026-09-01) ────────────────────
 // 삭제가 아니라 비공개(초안) 전환이라, 되돌릴 수 있다는 것과 이의 제기 경로를
 // 반드시 같이 알린다 — 약관 제7조가 재검토 요청을 보장한다.
