@@ -808,9 +808,20 @@ export const en: Dictionary = {
     draftUrlImmutable: "To change the URL or files, run publish again with \"draftId\": \"<this draft's id>\" in the payload — that draft is updated in place (publishing the same URL again also updates it).",
     projectCreateFailed: "Couldn't create the project.",
     indexHtmlMissing: "This bundle has no web page (index.html) and no runnable code (package.json / *.py). Include index.html for a static site, or the source files for a Python/CLI project.",
-    nativePlatforms: { ios: "iOS (Swift/Xcode)", android: "Android (Kotlin/Gradle)", unity: "Unity" } as Record<string, string>,
-    nativeAppUnsupported: (platform: string) =>
-      `An app built for ${platform} can't be opened in a browser, so it can't be auto-recorded. If it was built with Flutter, Expo or React Native, upload the source as-is — we build its web target and film that. For any other native app, attach your own demo video instead.`,
+    nativePlatforms: {
+      ios: "iOS (Swift/Xcode)",
+      android: "Android (Kotlin/Gradle)",
+      unity: "Unity",
+      electron: "Electron desktop",
+      tauri: "Tauri desktop",
+      extension: "browser extension",
+    } as Record<string, string>,
+    nativeAppUnsupported: (platform: string, mobile = true) =>
+      `An app built for ${platform} can't be opened in a browser, so it can't be auto-recorded. ` +
+      (mobile
+        ? "If it was built with Flutter, Expo or React Native, upload the source as-is — we build its web target and film that. Otherwise, "
+        : "") +
+      "attach a screen recording as `video` — with a video attached we skip auto-recording and show yours right away.",
     badFilePath: "An invalid file path was detected.",
     fileUploadFailed: (detail: string) => `File upload failed: ${detail}`,
     demoUrlSaveFailed: "Couldn't save the demo URL.",
@@ -867,7 +878,7 @@ export const en: Dictionary = {
     },
     "not-a-webapp": {
       title: "We couldn't find a web screen to show",
-      body: "There doesn't seem to be a web page (HTML). Auto demos film what shows up in a browser. For a web app, check that index.html is included; backend or CLI projects may not be filmable.",
+      body: "There doesn't seem to be a web page (HTML). Auto demos film what shows up in a browser. For a web app, check that index.html is included. For a phone app, desktop app or browser extension, edit the project and upload a screen recording yourself — we'll show that instead.",
     },
     blank: {
       title: "Nothing showed up on screen",

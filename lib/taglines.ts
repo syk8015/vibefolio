@@ -1,15 +1,9 @@
 /**
  * Nookframe 회전 카피 풀.
  * {N} 토큰은 실제 사용자 수로 치환됨.
- *
- * 첫 문장은 항상 소개 풀에서 나온다(TypingTagline). 전체를 섞던 때는 첫 문장이
- * 소개일 확률이 10%쯤이라, 폰 첫 3초에 "여기가 뭘 하는 곳인지"가 한 번도 안
- * 나왔다(2026-09-22 실측 3/3). 개발자 농담(토큰·README·깃허브…)은 처음 온
- * 사람이 못 알아들어 로그인 풀(lib/loggedInTaglines.ts)로 옮겼다.
  */
-
-// 소개 — 처음 보는 사람에게 "여기가 뭘 해주는 곳인지"
-export const taglineIntros: string[] = [
+export const taglines: string[] = [
+  // 소개 — 처음 보는 사람에게 "여기가 뭘 해주는 곳인지"
   "작품 주소만 주면 시연 영상까지 자동으로",
   "스크린샷 대신 움직이는 화면을 보여주는 포트폴리오",
   "방문자가 직접 만져보는 라이브 포트폴리오",
@@ -18,24 +12,7 @@ export const taglineIntros: string[] = [
   "시연 영상은 자동으로, 자랑은 직접",
   "코드를 열어보지 않아도 전해지는 작업",
   "만든 걸 보여주는 데 필요한 건 링크 하나",
-];
 
-export const taglineIntrosEn: string[] = [
-  "Send the URL — the demo video records itself",
-  "A portfolio that moves, instead of screenshots",
-  "A live portfolio visitors can actually touch",
-  "Ask your AI once, and your work is up",
-  "The link you send instead of a GitHub URL",
-  "The demo films itself. The bragging is yours",
-  "Your work lands without anyone opening the code",
-  "All it takes to show your work is one link",
-];
-
-// 사용자 수가 이보다 적으면 {N} 문장을 뺀다 — "빌더 3명이 사용 중"은 오히려
-// 신뢰를 깎는다.
-export const LIVE_COUNT_MIN = 50;
-
-export const taglines: string[] = [
   // 기존 카피 (변주)
   "AI로 만든 결과물, 이제 보여줄 차례",
   "링크 하나로 바이브코딩을 전시",
@@ -74,6 +51,10 @@ export const taglines: string[] = [
   // 자조·유머
   "코드는 몰라도 무언가 만든 사람도 많은 세상",
   "에러 메시지 복붙의 달인도 결국 빌더가 되는 시대",
+  "Ctrl+C 없이도 뭔가 만드는 사람이 많은 요즘",
+  "디버깅 담당 : AI",
+  "깃은 몰라도 깃허브는 있는 사람",
+  "README는 내일의 일",
   "만든 건 나, 코드는 AI",
 
   // 정체성
@@ -83,6 +64,8 @@ export const taglines: string[] = [
   "아이디어만으로 제품을 만드는 빌더들이 모이는 곳",
   "프롬프트로 제품을 만드는 사람도 사용 중",
   "코드보다 아이디어가 먼저인 사람도 환영",
+  "나랑 같은 토큰을 쓰는 동료도 사용 중",
+  "스택오버플로우 대신 AI한테 묻는 사람도 사용 중",
   "ChatGPT한테 \"왜 안 돼요\" 물어본 사람도 사용 중",
   "1인 스타트업의 진짜 1인도 사용 중",
   "키보드 하나로 회사 하나를 굴리는 사람도 사용 중",
@@ -123,6 +106,16 @@ export const taglines: string[] = [
  * 규칙은 한국어 풀과 동일: 종결부호 없음, {N}은 사용자 수 치환.
  */
 export const taglinesEn: string[] = [
+  // 소개 — 처음 보는 사람에게 "여기가 뭘 해주는 곳인지"
+  "Send the URL — the demo video records itself",
+  "A portfolio that moves, instead of screenshots",
+  "A live portfolio visitors can actually touch",
+  "Ask your AI once, and your work is up",
+  "The link you send instead of a GitHub URL",
+  "The demo films itself. The bragging is yours",
+  "Your work lands without anyone opening the code",
+  "All it takes to show your work is one link",
+
   // 기존 카피 (변주)
   "The AI built it. You take the credit",
   "Show off your vibe coding with a single link",
@@ -161,6 +154,10 @@ export const taglinesEn: string[] = [
   // 자조·유머
   "Plenty of people can't code and build anyway",
   "Copy-pasting error messages until you become a builder",
+  "These days people ship without ever touching Ctrl+C",
+  "Debugging department: AI",
+  "Never learned git, still has a GitHub",
+  "READMEs are a tomorrow problem",
   "My vision, AI's syntax",
 
   // 정체성
@@ -170,6 +167,8 @@ export const taglinesEn: string[] = [
   "Where idea people actually ship",
   "Used by people who code in plain English",
   "Ideas > syntax — welcome aboard",
+  "Used by fellow token-burning enthusiasts",
+  "Used by people who ask AI instead of Stack Overflow",
   "Used by people who've asked ChatGPT \"why isn't this working??\"",
   "Used by the actual \"1\" in one-person startups",
   "Used by people running a whole company from one keyboard",

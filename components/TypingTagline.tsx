@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { taglines, taglinesEn, taglineIntros, taglineIntrosEn, LIVE_COUNT_MIN } from "@/lib/taglines";
+import { taglines, taglinesEn } from "@/lib/taglines";
 import type { Locale } from "@/lib/i18n/config";
 
 function shuffle<T>(arr: T[]): T[] {
@@ -23,12 +23,7 @@ export default function TypingTagline({ userCount, locale }: { userCount: number
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   useEffect(() => {
-    // 첫 문장은 소개 풀에서 하나, 나머지(남은 소개 포함)는 섞는다.
-    const intros = shuffle(locale === "en" ? taglineIntrosEn : taglineIntros);
-    const rest = (locale === "en" ? taglinesEn : taglines).filter(
-      (line) => userCount >= LIVE_COUNT_MIN || !line.includes("{N}"),
-    );
-    const queue = [intros[0], ...shuffle([...intros.slice(1), ...rest])];
+    const queue = shuffle(locale === "en" ? taglinesEn : taglines);
     let idx = 0;
     let cancelled = false;
 
@@ -87,6 +82,7 @@ export default function TypingTagline({ userCount, locale }: { userCount: number
 
   return (
     <h1
+      aria-live="polite"
       className="vf-tagline md:whitespace-nowrap"
       style={{
         fontFamily: "var(--font-serif), 'Noto Serif KR', serif",
@@ -106,11 +102,7 @@ export default function TypingTagline({ userCount, locale }: { userCount: number
         overflowWrap: "break-word",
       }}
     >
-      {/* 제목의 뜻은 가려진 고정 한 줄이 맡는다 — 서버 HTML에 설명 문장이
-          0개였고(검색·링크 미리보기), 한 글자씩 바뀌는 글을 화면 낭독기가
-          매번 읽었다. 화면 모양은 그대로다. */}
-      <span className="sr-only">{locale === "en" ? "The live portfolio for vibe coders" : "바이브코더를 위한 라이브 포트폴리오"}</span>
-      <span aria-hidden>{text || "​"}</span>
+      {text || "​"}
       <span className="vf-cursor vf-cursor-inline" aria-hidden />
     </h1>
   );

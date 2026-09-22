@@ -95,13 +95,6 @@ export const loggedInTaglines: LoggedInTagline[] = [
   { text: "Replit에서 장난삼아 시작했는데 어쩌다 프로덕션까지 옴" },
   { text: "럭키비키 — 토큰 다 썼는데 마침 오늘이 리셋일" },
   { text: "프롬프트를 다시 쓰는 게 코드를 고치는 것보다 빠른 순간" },
-  // C. 랜딩 풀에서 옮겨온 개발자 농담(2026-09-22) — 처음 온 사람은 못 알아듣는다
-  { text: "디버깅 담당 : AI" },
-  { text: "깃은 몰라도 깃허브는 있는 사람" },
-  { text: "README는 내일의 일" },
-  { text: "나랑 같은 토큰을 쓰는 동료도 사용 중" },
-  { text: "스택오버플로우 대신 AI한테 묻는 사람도 사용 중" },
-  { text: "Ctrl+C 없이도 뭔가 만드는 사람이 많은 요즘" },
 ];
 
 /**
@@ -197,11 +190,4 @@ export const loggedInTaglinesEn: LoggedInTagline[] = [
   { text: "Started on Replit as a joke, somehow ended up in production" },
   { text: "Task failed successfully: out of tokens, but the limit resets today" },
   { text: "When rewriting the prompt is faster than fixing the code" },
-  // C. Moved from the landing pool (2026-09-22)
-  { text: "Debugging department: AI" },
-  { text: "Never learned git, still has a GitHub" },
-  { text: "READMEs are a tomorrow problem" },
-  { text: "Used by fellow token-burning enthusiasts" },
-  { text: "Used by people who ask AI instead of Stack Overflow" },
-  { text: "These days people ship without ever touching Ctrl+C" },
 ];

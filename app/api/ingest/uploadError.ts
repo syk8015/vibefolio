@@ -41,7 +41,10 @@ export async function uploadErrorResponse(
       });
       return apiError({
         status: 400,
-        message: t.api.nativeAppUnsupported(t.api.nativePlatforms[platform]),
+        message: t.api.nativeAppUnsupported(
+          t.api.nativePlatforms[platform],
+          platform === "ios" || platform === "android",
+        ),
         code: "NATIVE_APP_UNSUPPORTED",
       });
     }

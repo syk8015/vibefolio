@@ -13,7 +13,7 @@
 import { Sandbox } from "e2b";
 import { apiPost, fetchSigned } from "./api";
 import { BuildFailedError, NotAWebappError } from "./errors";
-import { detectNativeApp } from "../lib/nativeApp";
+import { detectNativeApp, isElectronLaunchScript } from "../lib/nativeApp";
 
 // Single-quote a value so it is always exactly ONE shell argument, regardless of
 // metacharacters (sink-hardening: a repo URL like
@@ -863,12 +863,20 @@ export async function buildAndServe(
           `const d=Object.assign({},p.dependencies,p.devDependencies);` +
           `const dv=s.dev||s.start||'';` +
           `const isNext=Boolean(d.next)||/\\bnext\\b/.test(dv);` +
-          `console.log((s.dev?'dev':s.start?'start':'-')+' '+(isNext?1:0));` +
+          `console.log((s.dev?'dev':s.start?'start':'-')+' '+(isNext?1:0)+' '+JSON.stringify(dv));` +
           `"`,
       )
       .then((r) => {
-        const [script, next] = r.stdout.trim().split(" ");
+        const line = r.stdout.trim();
+        const [script, next] = line.split(" ");
+        let launch = "";
+        try {
+          launch = String(JSON.parse(line.split(" ").slice(2).join(" ") || '""'));
+        } catch {
+          /* 옛 형식·깨진 출력 — Electron 판정만 건너뛴다 */
+        }
         return {
+          launch,
           // Which script to actually launch. Detection accepts dev OR start, so the
           // launch must run the one that exists — `npm run dev` on a start-only repo
           // (CRA's `react-scripts start` is the archetype) dies "Missing script" and
@@ -877,7 +885,15 @@ export async function buildAndServe(
           isNext: next === "1",
         };
       })
-      .catch(() => ({ devScript: null, isNext: false }));
+      .catch(() => ({ launch: "", devScript: null, isNext: false }));
+
+    // Electron 앱: 실행 스크립트가 브라우저가 아니라 데스크톱 창을 띄운다. 설치까지
+    // 다 태운 뒤 포트 대기에서 build-failed로 죽던 것을, 설치 전에 네이티브로 거절해
+    // 이유를 말하고 수요를 센다(lib/nativeApp.ts).
+    if (scriptCheck.devScript && isElectronLaunchScript(scriptCheck.launch)) {
+      console.log(`[build] electron app detected (${scriptCheck.launch}) — no web target to serve`);
+      throw new NotAWebappError(`native electron app — "${scriptCheck.launch}" opens a desktop window, not a web page`, "electron");
+    }
 
     if (!scriptCheck.devScript) {
       // Python web app? Checked before the static fallback — see detectPythonApp.
