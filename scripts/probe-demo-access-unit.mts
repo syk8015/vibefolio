@@ -35,5 +35,20 @@ ok("무해한 입력은 그대로", !fine.issue && fine.access?.url === "/demo?g
 const bad = normalizeDemoAccess({ url: "ftp://x" });
 ok("형식 위반은 여전히 bad-url", bad.issue === "bad-url");
 
+// "/"로 시작해도 풀면 다른 호스트가 되는 모양(2026-09-22 감사 N-1) — 호출부가 "/" 경로를
+// 같은 사이트 안으로 믿고 공개 URL 게이트를 건너뛰므로 여기서 bad-url이어야 한다.
+for (const [label, v] of [
+  ["//host", "//evil.example/x"],
+  ["/\\host", "/\\evil.example/x"],
+  ["/<탭>/host", "/\t/evil.example/x"],
+  ["/<줄바꿈>/host", "/\n/evil.example"],
+  ["///host", "///evil.example"],
+] as const) {
+  ok(`url ${label} → bad-url`, normalizeDemoAccess({ url: v }).issue === "bad-url");
+  ok(`altUrl ${label} → bad-url`, normalizeDemoAccess({ url: "/demo", altUrl: v }).issue === "bad-url");
+}
+const inner = normalizeDemoAccess({ url: "/demo//nested?x=1#y" });
+ok("경로 안쪽의 // 는 그대로 통과", !inner.issue && inner.access?.url === "/demo//nested?x=1#y");
+
 console.log(failed ? `\n${failed} FAILED` : "\nall passed");
 process.exit(failed ? 1 : 0);

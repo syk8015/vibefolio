@@ -257,8 +257,11 @@ export async function POST(req: NextRequest) {
         });
       }
       demoAccess = norm.access;
-      if (demoAccess?.url && !demoAccess.url.startsWith("/")) {
-        const gate = await publicUrlGate(demoAccess.url, t);
+      // url(데모 진입)·altUrl(정찰 후보) 둘 다 워커가 실제로 여는 주소 — drafts PATCH·
+      // trigger-demo와 같은 게이트를 태운다(2026-09-22 감사 N-2: altUrl만 빠져 있었다).
+      for (const u of [demoAccess?.url, demoAccess?.altUrl]) {
+        if (!u || u.startsWith("/")) continue;
+        const gate = await publicUrlGate(u, t);
         if (gate) return gate;
       }
     }

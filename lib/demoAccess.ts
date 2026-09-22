@@ -66,6 +66,9 @@ function secretQueryName(url: string): string | null {
   return null;
 }
 
+// 경로가 base 밖으로 새는지 보는 가짜 base. 실제로 요청하지 않는다.
+const PATH_PROBE_BASE = "https://entry.invalid";
+
 // 진입 URL 한 개의 shape 검사: http(s) 절대 URL 또는 "/"로 시작하는 경로만.
 // null=없음, "bad"=형식 위반(호출부가 400으로 알린다).
 function normEntryUrl(v: unknown): string | null | "bad" {
@@ -74,6 +77,17 @@ function normEntryUrl(v: unknown): string | null | "bad" {
   const isPath = url.startsWith("/");
   const isHttp = /^https?:\/\//i.test(url);
   if (!isPath && !isHttp) return "bad";
+  // "//evil.com"·"/\\evil.com"·"/<탭>/evil.com"은 "/"로 시작하지만 URL 파서가
+  // 프로토콜 상대 주소로 풀어 다른 호스트가 된다(2026-09-22 감사 N-1). 호출부는
+  // "/" 경로를 "같은 사이트 안"으로 믿고 공개 URL 게이트를 건너뛰므로, 여기서
+  // 실제로 풀어 보고 origin이 그대로인 경로만 경로로 인정한다.
+  if (isPath) {
+    try {
+      if (new URL(url, PATH_PROBE_BASE).origin !== PATH_PROBE_BASE) return "bad";
+    } catch {
+      return "bad";
+    }
+  }
   if (isHttp) {
     try {
       new URL(url);

@@ -124,6 +124,18 @@ function assertRecordableUrl(parsed: URL, job: JobInput) {
 // sources only its path+query+hash count — the deployed origin in the URL is
 // not the sandbox we just built. params are appended last so they apply to
 // whichever base won.
+// 경로를 base에 붙이되 origin 밖으로 새면 거부한다. "//evil.com/x"나 "/\\evil.com"은
+// "/"로 시작해도 프로토콜 상대 주소로 풀려 다른 호스트가 된다 — 이 분기는
+// assertRecordableUrl을 타지 않으므로 여기서 막는다(2026-09-22 감사 N-1).
+function resolveSameOrigin(path: string, baseUrl: string): string {
+  const base = new URL(baseUrl);
+  const resolved = new URL(path, base);
+  if (resolved.origin !== base.origin) {
+    throw new Error(`demo entry path escapes the job origin (${resolved.host})`);
+  }
+  return resolved.toString();
+}
+
 function resolveEntry(baseUrl: string, entry: string | undefined, job: JobInput): string {
   const access = job.demoAccess;
   let target = baseUrl;
@@ -134,10 +146,10 @@ function resolveEntry(baseUrl: string, entry: string | undefined, job: JobInput)
         assertRecordableUrl(parsed, job);
         target = parsed.toString();
       } else {
-        target = new URL(parsed.pathname + parsed.search + parsed.hash, baseUrl).toString();
+        target = resolveSameOrigin(parsed.pathname + parsed.search + parsed.hash, baseUrl);
       }
     } else if (entry.startsWith("/")) {
-      target = new URL(entry, baseUrl).toString();
+      target = resolveSameOrigin(entry, baseUrl);
     }
   }
   if (access?.params) {

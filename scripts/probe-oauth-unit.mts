@@ -37,6 +37,17 @@ rejects("(1f) 사용자정보 거절", () => parseClientId("https://u:p@claude.a
 rejects("(1g) 점 세그먼트 거절", () => parseClientId("https://claude.ai/oauth/../x"));
 rejects("(1h) URL이 아니면 거절", () => parseClientId("claude-ai"));
 rejects("(1i) 빈 값 거절", () => parseClientId(""));
+// (1j~) 우리 호스트에 올라간 파일은 client_id가 될 수 없다(2026-09-22 감사 N-3) — 작품
+// 미리보기 주소·Supabase 저장소는 누구나 파일을 올려 200으로 서빙시킬 수 있어서,
+// 가짜 앱 설명 파일로 동의 화면에 우리 주소가 뜨게 할 수 있었다.
+process.env.NEXT_PUBLIC_PREVIEW_ORIGIN = "https://sandbox-probe.vercel.app";
+process.env.NEXT_PUBLIC_SUPABASE_URL = "https://probe-ref.supabase.co";
+rejects("(1j) 앱 주소 거절", () => parseClientId("https://nookframe.com/c.json"));
+rejects("(1k) www 앱 주소 거절", () => parseClientId("https://www.nookframe.com/c.json"));
+rejects("(1l) 작품 미리보기 주소 거절", () => parseClientId("https://sandbox-probe.vercel.app/api/preview/u/r/c.json"));
+rejects("(1m) 대소문자·포트 바꿔도 거절", () => parseClientId("https://SANDBOX-probe.vercel.app:8443/api/preview/u/r/c.json"));
+rejects("(1n) Supabase 저장소 주소 거절", () => parseClientId("https://probe-ref.supabase.co/storage/v1/object/public/project-files/u/r/c.json"));
+ok("(1o) 다른 vercel.app·supabase.co는 통과", parseClientId("https://other-app.vercel.app/oauth/c.json") === "https://other-app.vercel.app/oauth/c.json" && parseClientId("https://other.supabase.co/c.json") === "https://other.supabase.co/c.json");
 
 // ── (2) 리다이렉트 주소 대조 ─────────────────────────────────────────────────
 const hosted: ClientDoc = {

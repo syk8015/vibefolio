@@ -349,7 +349,12 @@ export function composeProbeUrl(baseUrl: string, access: DemoAccess | null | und
   if (entry) {
     if (/^https?:\/\//i.test(entry)) target = entry;
     else if (entry.startsWith("/")) {
-      try { target = new URL(entry, baseUrl).toString(); } catch { /* base 그대로 */ }
+      // 풀린 주소가 base 밖(//host 등)이면 base 그대로 — normalizeDemoAccess가 이미
+      // 거르지만, 옛 행이나 다른 입구로 들어온 값에 대비한 이중 잠금.
+      try {
+        const r = new URL(entry, baseUrl);
+        if (r.origin === new URL(baseUrl).origin) target = r.toString();
+      } catch { /* base 그대로 */ }
     }
   }
   if (access?.params) {

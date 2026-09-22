@@ -84,6 +84,31 @@ export class OAuthError extends Error {
   }
 }
 
+function hostOf(origin: string | undefined): string | null {
+  if (!origin) return null;
+  try {
+    return new URL(origin).hostname.toLowerCase();
+  } catch {
+    return null;
+  }
+}
+
+/** 사용자가 파일을 올려 서빙시킬 수 있거나 우리 자신인 호스트들. */
+function ownHosts(): Set<string> {
+  const hosts = new Set<string>();
+  const app = hostOf(APP_ORIGIN);
+  if (app) {
+    hosts.add(app);
+    hosts.add(app.startsWith("www.") ? app.slice(4) : `www.${app}`);
+  }
+  // 호출 시점에 env를 읽는다(모듈 로드 시점 상수 대신) — 순수 검사 스크립트가 값을 바꿔 볼 수 있게.
+  for (const o of [process.env.NEXT_PUBLIC_PREVIEW_ORIGIN, process.env.NEXT_PUBLIC_SUPABASE_URL]) {
+    const h = hostOf(o);
+    if (h) hosts.add(h);
+  }
+  return hosts;
+}
+
 /**
  * client_id URL 규칙(draft-ietf-oauth-client-id-metadata-document): https 전용,
  * **경로 필수**, 사용자정보·프래그먼트 금지. 비교는 언제나 단순 문자열 비교다 —
@@ -105,6 +130,13 @@ export function parseClientId(raw: unknown): string {
   if (url.hash) throw new OAuthError("invalid_client", "client_id must not contain a fragment");
   if (url.pathname === "/" || url.pathname === "") {
     throw new OAuthError("invalid_client", "client_id must include a path");
+  }
+  // 우리 호스트는 client_id가 될 수 없다(2026-09-22 감사 N-3). 동의 화면은 client_id
+  // 호스트를 "누가 연결을 원하는지"로 크게 보여주는데, 작품 미리보기 주소와 Supabase
+  // 저장소 주소는 누구나 파일을 올려 200으로 서빙시킬 수 있다 — 가짜 앱 설명 파일을
+  // 올리면 화면에 우리 주소가 뜨는 클라이언트가 된다. 우리 자신은 클라이언트가 아니다.
+  if (ownHosts().has(url.hostname.toLowerCase())) {
+    throw new OAuthError("invalid_client", "client_id must not be hosted on this service's own domains");
   }
   // 점 세그먼트 금지. **원문에서** 본다 — URL 파서는 "/a/../b"를 파싱하면서 "/b"로
   // 펴 버리므로, 파싱된 pathname을 보면 이미 사라지고 없다. 그대로 두면 서로 다른
