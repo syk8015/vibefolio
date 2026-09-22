@@ -147,6 +147,7 @@ export const en: Dictionary = {
       usernameTaken: "This username is already taken. Please pick another.",
       usernameInvalid: "Usernames use lowercase letters, numbers, _ and -, 2–30 characters.",
       usernameReserved: "This username can't be used. Please pick another.",
+      nameBlocked: "This name can't be used. Please enter a different one.",
       saveAuth: "Something went wrong while saving. Please try again.",
       saveProfile: "Something went wrong while saving your profile. Please try again.",
     },

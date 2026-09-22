@@ -748,6 +748,7 @@ SNS/검색 로봇은 JS를 안 돌려 OG·크롤러 노출 문구(루트 descrip
 | resetPassword.doneBody | 잠시 후 대시보드로 이동합니다. | Taking you to your dashboard in a moment. | 교체 · 목적지 홈→대시보드(C4) |
 | onboarding.usernameInvalid · errors.usernameInvalid | 영문 소문자, 숫자, _, -만 쓸 수 있어요 (2~30자) | Lowercase letters, numbers, _ and - only (2–30 characters) | 교체 · 소문자·30자(A7·B23) |
 | signup.errors.emailTaken | 이미 가입된 이메일이에요. 로그인하거나, 구글로 가입했다면 [Google로 계속하기]를 눌러 주세요. | This email already has an account. Log in, or use Continue with Google if you signed up that way. | 교체 · 이미 있는 주소면 Supabase가 가짜 성공을 돌려줘 "메일 보냈어요"만 뜨던 것(identities 빈 배열로 감지) |
+| onboarding.errors.nameBlocked | 이 이름은 쓸 수 없어요. 다른 이름을 입력해 주세요. | This name can't be used. Please enter a different one. | 신규 · 금지어(욕설·성적인 말·혐오·회사 이름 사칭, lib/nameFilter.ts). 아이디는 기존 usernameReserved 문구를 같이 씀 |
 | onboarding.ageConfirm | 만 14세 이상이에요 | I'm 14 or older | 신규 · 약관 1조 가입 조건 체크(법무⑤) |
 | card.usernameChangeWarning | 저장하면 옛 주소 nookframe.com/{old}는 바로 열리지 않아요. 이미 공유한 링크가 끊겨요. | Once you save, nookframe.com/{old} stops working right away. Links you've already shared will break. | 신규 · 함수(old) · C11 |
 | demoFailure.declined | 촬영 요청이 승인되지 않았어요 / 운영자가 검토한 뒤 이번 촬영은 진행하지 않기로 했어요. 이유는 메일로 보냈어요. 내용을 고친 뒤 다시 요청할 수 있어요. | Your demo request wasn't approved / We reviewed it and decided not to film this one for now. We've emailed you the reason. You can fix things up and request again. | 신규 · 관리자가 한도 초과 보류 요청을 거절(R4) |

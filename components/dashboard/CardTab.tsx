@@ -6,6 +6,7 @@ import Image from "next/image";
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import { isReservedUsername } from "@/lib/reservedUsernames";
+import { hasBlockedTerm } from "@/lib/nameFilter";
 import {
   BIO_MAX, NAME_MAX, USERNAME_MAX, USERNAME_PATTERN,
   isValidUsername, normalizeUsername, usernameIlikePattern,
@@ -121,7 +122,14 @@ export default function CardTab({ user, profile }: { user: User; profile: Dashbo
       setError(t.onboarding.errors.usernameInvalid);
       return;
     }
-    if (isReservedUsername(username)) {
+    // 금지어는 바뀐 값만 본다 — 규칙이 생기기 전에 정한 아이디·이름(예: 운영 계정
+    // claudehelp)이 명함 저장 자체를 막으면 안 된다.
+    if (form.name !== (profile.name || "") && hasBlockedTerm(form.name, "name")) {
+      setLoading(false);
+      setError(t.onboarding.errors.nameBlocked);
+      return;
+    }
+    if (isReservedUsername(username) || (username !== savedUsername && hasBlockedTerm(username, "username"))) {
       setLoading(false);
       setError(t.onboarding.errors.usernameReserved);
       return;

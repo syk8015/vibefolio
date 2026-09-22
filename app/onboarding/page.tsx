@@ -8,6 +8,7 @@ import { AnalyticsEvent, trackClientEvent, firstTouch, type FirstTouchData } fro
 import Logo from "@/components/Logo";
 import { isReservedUsername } from "@/lib/reservedUsernames";
 import { safeNext } from "@/lib/safeNext";
+import { hasBlockedTerm } from "@/lib/nameFilter";
 import {
   BIO_MAX, NAME_MAX, USERNAME_MAX, USERNAME_PATTERN,
   isValidUsername, normalizeUsername, usernameIlikePattern,
@@ -55,7 +56,9 @@ export default function OnboardingPage() {
     if (!isValidUsername(value)) {
       setUsernameStatus("invalid"); return;
     }
-    if (isReservedUsername(value)) {
+    // 예약어와 금지어(욕설·사칭)는 같은 "쓸 수 없는 이름"으로 알린다 — 어떤 단어가
+    // 걸렸는지는 말하지 않는다.
+    if (isReservedUsername(value) || hasBlockedTerm(value, "username")) {
       setUsernameStatus("reserved"); return;
     }
     setUsernameStatus("checking");
@@ -111,6 +114,7 @@ export default function OnboardingPage() {
     if (usernameStatus === "taken") { setError(t.onboarding.errors.usernameTaken); return; }
     if (usernameStatus === "invalid") { setError(t.onboarding.errors.usernameInvalid); return; }
     if (usernameStatus === "reserved") { setError(t.onboarding.errors.usernameReserved); return; }
+    if (hasBlockedTerm(form.name, "name")) { setError(t.onboarding.errors.nameBlocked); return; }
 
     setLoading(true);
     setError("");
@@ -127,7 +131,7 @@ export default function OnboardingPage() {
         setLoading(false);
         return;
       }
-      if (isReservedUsername(username)) {
+      if (isReservedUsername(username) || hasBlockedTerm(username, "username")) {
         setError(t.onboarding.errors.usernameReserved);
         setLoading(false);
         return;

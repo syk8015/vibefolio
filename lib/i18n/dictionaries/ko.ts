@@ -153,6 +153,7 @@ export const ko = {
       usernameTaken: "이미 사용 중인 username이에요. 다른 걸 입력해주세요.",
       usernameInvalid: "username은 영문 소문자, 숫자, _, -로 2~30자여야 해요.",
       usernameReserved: "사용할 수 없는 username이에요. 다른 걸 입력해주세요.",
+      nameBlocked: "이 이름은 쓸 수 없어요. 다른 이름을 입력해 주세요.",
       saveAuth: "저장 중 오류가 발생했어요. 다시 시도해주세요.",
       saveProfile: "프로필 저장 중 오류가 발생했어요. 다시 시도해주세요.",
     },

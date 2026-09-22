@@ -5,6 +5,7 @@
 import { safeNext } from "../lib/safeNext";
 import { normalizeUsername, isValidUsername, usernameIlikePattern, USERNAME_MAX } from "../lib/username";
 import { isInAppBrowser } from "../lib/traffic-source";
+import { hasBlockedTerm } from "../lib/nameFilter";
 
 let failed = 0;
 const ok = (name: string, pass: boolean, detail = "") => {
@@ -69,6 +70,28 @@ ok("in-app: Threads", isInAppBrowser(THREADS));
 ok("in-app: Facebook", isInAppBrowser(FB));
 ok("not in-app: Safari", !isInAppBrowser(SAFARI));
 ok("not in-app: Chrome", !isInAppBrowser(CHROME));
+
+// 금지어 — 막을 것과 살릴 것(오탐)
+const blk = (v: string, kind: "username" | "name", want: boolean) =>
+  ok(`${kind} ${JSON.stringify(v)} → ${want ? "막음" : "통과"}`, hasBlockedTerm(v, kind) === want);
+blk("fuckyou", "username", true);
+blk("f_u_c_k", "username", true);
+blk("p0rnstar", "username", true);
+blk("googleofficial", "username", true);
+blk("openai-team", "username", true);
+blk("apple", "username", true);
+blk("씨발", "name", true);
+blk("개 새 끼", "name", true);
+blk("Google", "name", true);
+blk("class", "username", false);
+blk("grapefruit", "username", false);
+blk("spicy", "username", false);
+blk("torpedo", "username", false);
+blk("applepie", "username", false);
+blk("Claude Monet", "name", false);
+blk("안성기", "name", false);
+blk("lwk207088", "username", false);
+blk("alexvibe", "username", false);
 
 console.log(failed ? `\n${failed} FAILED` : "\nall passed");
 process.exit(failed ? 1 : 0);

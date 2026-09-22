@@ -10,11 +10,12 @@ import { useT } from "@/lib/i18n/client";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
 import { safeNext } from "@/lib/safeNext";
 import { firstTouch } from "@/lib/analytics-client";
-import { NAME_MAX, USERNAME_MAX, USERNAME_MIN, USERNAME_PATTERN, normalizeUsername } from "@/lib/username";
 import InAppBrowserNotice from "@/components/InAppBrowserNotice";
 
 type Step = "form" | "check-email";
-type FieldName = "name" | "username" | "email" | "password";
+// 이름·아이디는 여기서 받지 않는다 — 인증 뒤 온보딩에서 한 번만 받는다(구글 가입과
+// 같은 길). 예전엔 여기서 받고 온보딩에서 또 물어 두 번 입력하는 셈이었다(2026-09-22).
+type FieldName = "email" | "password";
 
 // 가입 뒤 돌아갈 곳(?next=, /publish에서 온 사람). 인증 메일 링크·구글 콜백에 실어
 // 보내면 미들웨어가 온보딩에 ?next=로 넘기고, 온보딩 끝에서 거기로 간다.
@@ -40,7 +41,6 @@ function fieldError(field: FieldName, value: string, t: Dictionary): string | nu
   if (!value) return null;
   if (field === "email" && !EMAIL_RE.test(value)) return t.auth.errors.invalidEmail;
   if (field === "password" && value.length < 8) return t.auth.errors.passwordTooShort;
-  if (field === "username" && value.length < USERNAME_MIN) return t.onboarding.errors.usernameInvalid;
   return null;
 }
 
@@ -50,7 +50,7 @@ export default function SignupPage() {
   const [step, setStep] = useState<Step>("form");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [form, setForm] = useState({ name: "", username: "", email: "", password: "" });
+  const [form, setForm] = useState({ email: "", password: "" });
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [touched, setTouched] = useState<Partial<Record<FieldName, boolean>>>({});
   const [resend, setResend] = useState<"idle" | "sending" | "sent" | "failed">("idle");
@@ -58,9 +58,7 @@ export default function SignupPage() {
   const loginHref = useSyncExternalStore(noopSubscribe, loginHrefFromUrl, () => "/login");
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const { name } = e.target;
-    const value = name === "username" ? normalizeUsername(e.target.value) : e.target.value;
-    setForm((prev) => ({ ...prev, [name]: value }));
+    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
     setError("");
   }
 
@@ -73,10 +71,10 @@ export default function SignupPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const firstBad = (["name", "username", "email", "password"] as FieldName[])
+    const firstBad = (["email", "password"] as FieldName[])
       .map((f) => fieldError(f, form[f], t)).find(Boolean);
     if (firstBad) {
-      setTouched({ name: true, username: true, email: true, password: true });
+      setTouched({ email: true, password: true });
       setError(firstBad);
       return;
     }
@@ -91,15 +89,9 @@ export default function SignupPage() {
         // 인증 링크가 돌아올 곳. 없으면 Supabase Site URL(랜딩)로 떨어져 코드 교환이
         // 안 되고, 인증은 됐는데 로그아웃된 랜딩만 보인다(2026-09-22 A3).
         emailRedirectTo: callbackUrl(),
+        // user_metadata에 username을 넣지 말 것 — 미들웨어의 "온보딩 끝" 표식이라
+        // 넣는 순간 온보딩을 건너뛰어 profiles 행이 안 생긴다.
         data: {
-          name: form.name,
-          // NOT `username`: middleware treats user_metadata.username as the
-          // "onboarding done" gate. Committing it here would skip /onboarding, so the
-          // profiles row (and the SignupCompleted funnel event) would never be created
-          // — the account's public card would 404 and its first project INSERT would
-          // hit a raw FK error. Stash it under a non-gating key so onboarding can
-          // pre-fill and confirm it (uniqueness-checked there), exactly like Google.
-          pending_username: normalizeUsername(form.username),
           // Supabase 인증메일 템플릿({{ .Data.locale }})이 언어를 고르는 근거.
           // 앱 메일은 profiles.locale을 쓰지만 auth 템플릿은 user_metadata만 읽는다.
           locale,
@@ -259,28 +251,6 @@ export default function SignupPage() {
           </div>
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-            <Field label={t.signup.nameLabel}>
-              <input className="vf-input" type="text" name="name" placeholder={t.signup.namePlaceholder}
-                value={form.name} onChange={handleChange} required autoComplete="name" maxLength={NAME_MAX} />
-            </Field>
-
-            <Field label={t.signup.usernameLabel}>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold pointer-events-none"
-                  style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>@</span>
-                <input className="vf-input" style={{ paddingLeft: "1.75rem" }}
-                  type="text" name="username" placeholder="alexvibe"
-                  value={form.username} onChange={handleChange} onBlur={handleBlur} required
-                  pattern={USERNAME_PATTERN} title={t.auth.usernamePattern} maxLength={USERNAME_MAX}
-                  autoCapitalize="none" autoCorrect="off" spellCheck={false} autoComplete="off" />
-              </div>
-              {hint("username") ? <FieldHint text={hint("username")!} /> : form.username && (
-                <p className="mt-1 text-xs font-semibold" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
-                  nookframe.com/{form.username}
-                </p>
-              )}
-            </Field>
-
             <Field label={t.auth.emailLabel}>
               <input className="vf-input" type="email" name="email" placeholder="hello@example.com"
                 value={form.email} onChange={handleChange} onBlur={handleBlur} required autoComplete="email"
