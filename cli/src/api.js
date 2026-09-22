@@ -6,7 +6,7 @@ import { getToken, getOrigin } from "./config.js";
 export async function api(method, path, { token, origin, body } = {}) {
   if (!token) {
     throw new Error(
-      "No token. Create one at nookframe.com/dashboard -> Connect tab, then set the `NOOKFRAME_TOKEN` env var or run `npx nookframe login <token>`.",
+      "No token. Press [Copy prompt] at nookframe.com/dashboard -> Add project and run the `npx nookframe login <code>` step from that prompt (or set the `NOOKFRAME_TOKEN` env var).",
     );
   }
   const res = await fetch(`${(origin || getOrigin()).replace(/\/$/, "")}${path}`, {

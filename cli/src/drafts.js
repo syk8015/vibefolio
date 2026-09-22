@@ -37,7 +37,11 @@ export async function draftsCommand(args) {
       const meta = [
         d.tags?.length ? d.tags.join(", ") : "no AI tools",
         d.content_type || "no type",
-        d.demo_user_hint ? "has demo highlights" : "no demo highlights",
+        // 대본(demoScript)이 진짜 촬영 지시다 — demoHighlights(옛 한 줄 힌트)만 보고 "없음"이라
+        // 하면 멀쩡한 초안이 뭔가 빠진 것처럼 보였다(0.1.19).
+        d.demo_script?.steps?.length
+          ? `${d.demo_script.steps.length}-step demo script`
+          : d.demo_user_hint ? "demo highlights only (no script)" : "no demo script",
       ];
       console.log(`    ${meta.join(" · ")}`);
     }

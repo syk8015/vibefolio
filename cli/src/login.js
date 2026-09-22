@@ -17,7 +17,7 @@ export async function runLogin(args) {
   const value = String(args._[0] ?? (typeof args.token === "string" ? args.token : "")).trim();
   if (!value) {
     throw new Error(
-      "Usage: npx nookframe login <code>  (press [Copy prompt] on nookframe.com/dashboard -> Connect tab — the code is in step 1 of that prompt)",
+      "Usage: npx nookframe login <code>  (press [Copy prompt] on nookframe.com/dashboard -> Add project — the code is in step 1 of that prompt)",
     );
   }
   const origin = (args.origin || getOrigin()).replace(/\/$/, "");
@@ -39,7 +39,7 @@ export async function runLogin(args) {
   }
 
   throw new Error(
-    `That is neither a Nookframe pairing code (${CODE_PREFIX}…) nor an access token (${TOKEN_PREFIX}…). Copy the prompt again on nookframe.com/dashboard -> Connect tab and use the code in step 1.`,
+    `That is neither a Nookframe pairing code (${CODE_PREFIX}…) nor an access token (${TOKEN_PREFIX}…). Copy the prompt again on nookframe.com/dashboard -> Add project and use the code in step 1.`,
   );
 }
 

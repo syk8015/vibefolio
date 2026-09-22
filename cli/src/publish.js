@@ -15,15 +15,15 @@ const BUILD_DIRS = ["dist", "out", "build", "public"];
 export async function runPublish({ payload = {}, dir = null, screenshotPath = null, videoPath = null, token, origin }) {
   if (!token) {
     throw new Error(
-      "No token. Create one at nookframe.com/dashboard -> Connect tab, then set the `NOOKFRAME_TOKEN` env var or run `npx nookframe login <token>`.",
+      "No token. Press [Copy prompt] at nookframe.com/dashboard -> Add project and run the `npx nookframe login <code>` step from that prompt (or set the `NOOKFRAME_TOKEN` env var).",
     );
   }
   const endpoint = `${origin.replace(/\/$/, "")}/api/ingest`;
 
   const entryUrl = payload.appUrl || payload.deployUrl;
-  if (!payload.title) {
-    payload.title = dir ? basename(dir) : entryUrl ? safeHost(entryUrl) : "Untitled";
-  }
+  // 제목이 없으면 채우지 않는다(0.1.19). 예전엔 폴더 이름·호스트로 몰래 채워서, check는
+  // "title required"로 거절하는데 publish는 제목이 `site`인 초안을 말없이 만들었다 —
+  // 이제 서버가 check와 똑같이 거절한다(판정은 서버 한 곳, AGENTS.md).
 
   // htmlBody(채팅창 AI가 글자로 넘긴 단일 HTML)도 올릴 거리다 — 서버가 index.html 하나짜리
   // zip으로 바꾼다. 0.1.17까지 이 검사가 htmlBody를 몰라서 check는 통과하는데 publish가
@@ -89,14 +89,6 @@ export async function runPublish({ payload = {}, dir = null, screenshotPath = nu
     accepted: body2.accepted ?? body1.accepted,
     ...(body1.upserted ? { upserted: true } : {}),
   };
-}
-
-function safeHost(url) {
-  try {
-    return new URL(url).hostname;
-  } catch {
-    return "Untitled";
-  }
 }
 
 const isObject = (v) => !!v && typeof v === "object" && !Array.isArray(v);

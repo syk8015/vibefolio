@@ -86,7 +86,7 @@ try {
   ok("없는 코드 → 401 CODE_INVALID", unknown.status === 401 && unknown.body?.code === "CODE_INVALID", `status ${unknown.status}`);
   ok(
     "거절 카피가 '다시 복사하라'고 말한다",
-    typeof unknown.body?.error === "string" && /Connect tab/i.test(unknown.body.error) && /30 minutes/i.test(unknown.body.error),
+    typeof unknown.body?.error === "string" && /Add project/i.test(unknown.body.error) && /30 minutes/i.test(unknown.body.error),
     (unknown.body?.error ?? "").slice(0, 160),
   );
 

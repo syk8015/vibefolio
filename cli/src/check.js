@@ -28,7 +28,7 @@ export function declareUploads(payload, { dir, screenshot, video } = {}) {
 export async function runDryRun({ payload, token, origin }) {
   if (!token) {
     throw new Error(
-      "No token. Create one at nookframe.com/dashboard -> Connect tab, then set the `NOOKFRAME_TOKEN` env var or run `npx nookframe login <code>`.",
+      "No token. Press [Copy prompt] at nookframe.com/dashboard -> Add project and run the `npx nookframe login <code>` step from that prompt (or set the `NOOKFRAME_TOKEN` env var).",
     );
   }
   const res = await fetch(`${(origin || getOrigin()).replace(/\/$/, "")}/api/ingest?dryRun=1`, {
