@@ -37,6 +37,35 @@ export const DEMO_ACCESS_NOTE_MAX = 500;
 const PARAMS_MAX_ENTRIES = 12;
 const PARAMS_KV_MAX = 120;
 
+// 비밀처럼 보이는 이름은 받지 않는다(2026-09-22 보안1 급한 불). projects 행 단위
+// RLS라 공개 작품의 demo_access는 anon REST로 읽힐 수 있다 — 게스트 토큰·데모
+// 비번을 params나 진입 URL 쿼리에 실으면 그대로 공개된다. 조용히 버리면 촬영이
+// 이유 없이 로그인 화면을 찍으므로 400으로 알린다. 정공법(비공개 칸 별도 테이블)은
+// 이번 주 작업. 이름을 camelCase·구분자로 쪼개 조각 단위로 본다 — "keyword"·
+// "monkey" 같은 무해한 이름이 "key" 부분일치로 걸리지 않게.
+const SECRET_WORD = /^(pass|passwd|password|passcode|pwd|pw|token|secret|key|apikey|jwt|otp|pin|credential|credentials|auth|session|sid|signature|sig)$/;
+const SECRET_JOINED = /(password|passwd|passcode|secret|token|apikey|accesskey|privatekey|sessionid|credential)/;
+
+export function secretLikeName(name: string): boolean {
+  const parts = name
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
+  if (parts.some((p) => SECRET_WORD.test(p))) return true;
+  return SECRET_JOINED.test(parts.join(""));
+}
+
+// 진입 URL 쿼리에 실린 비밀 이름. 경로("/demo?token=…")도 같이 본다.
+function secretQueryName(url: string): string | null {
+  const q = url.indexOf("?");
+  if (q < 0) return null;
+  for (const k of new URLSearchParams(url.slice(q + 1).split("#")[0]).keys()) {
+    if (secretLikeName(k)) return k;
+  }
+  return null;
+}
+
 // 진입 URL 한 개의 shape 검사: http(s) 절대 URL 또는 "/"로 시작하는 경로만.
 // null=없음, "bad"=형식 위반(호출부가 400으로 알린다).
 function normEntryUrl(v: unknown): string | null | "bad" {
@@ -61,7 +90,7 @@ function normEntryUrl(v: unknown): string | null | "bad" {
 // 절대 URL의 콘텐츠호스트·사설망·SSRF 게이트는 라우트 몫(ingest·trigger-demo).
 export function normalizeDemoAccess(
   v: unknown,
-): { access: DemoAccess | null; issue?: "bad-url" } {
+): { access: DemoAccess | null; issue?: "bad-url" | "secret-param"; secretName?: string } {
   if (!v || typeof v !== "object" || Array.isArray(v)) return { access: null };
   const raw = v as {
     url?: unknown;
@@ -82,13 +111,21 @@ export function normalizeDemoAccess(
 
   const url = normEntryUrl(raw.url);
   if (url === "bad") return { access: null, issue: "bad-url" };
-  if (url) access.url = url;
+  if (url) {
+    const leak = secretQueryName(url);
+    if (leak) return { access: null, issue: "secret-param", secretName: leak };
+    access.url = url;
+  }
 
   // altUrl도 로봇이 실제로 여는 주소다 — url과 똑같이 검사한다(형식 위반을 조용히
   // 버리면 정찰이 이유 없이 꺼진 채 촬영이 돈다).
   const altUrl = normEntryUrl(raw.altUrl);
   if (altUrl === "bad") return { access: null, issue: "bad-url" };
-  if (altUrl) access.altUrl = altUrl;
+  if (altUrl) {
+    const leak = secretQueryName(altUrl);
+    if (leak) return { access: null, issue: "secret-param", secretName: leak };
+    access.altUrl = altUrl;
+  }
 
   if (raw.params && typeof raw.params === "object" && !Array.isArray(raw.params)) {
     const out: Record<string, string> = {};
@@ -97,6 +134,7 @@ export function normalizeDemoAccess(
       PARAMS_MAX_ENTRIES,
     )) {
       if (!k.trim()) continue;
+      if (secretLikeName(k)) return { access: null, issue: "secret-param", secretName: k.trim() };
       if (typeof val === "string" || typeof val === "number" || typeof val === "boolean") {
         out[k.trim().slice(0, PARAMS_KV_MAX)] = String(val).slice(0, PARAMS_KV_MAX);
       }

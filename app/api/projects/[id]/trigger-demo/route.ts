@@ -98,6 +98,13 @@ export async function POST(
     if (demoAccess.issue === "bad-url") {
       return apiError({ status: 400, message: t.api.demoAccessBadUrl, code: "BAD_DEMO_ACCESS" });
     }
+    if (demoAccess.issue === "secret-param") {
+      return apiError({
+        status: 400,
+        message: t.api.demoAccessSecretParam(demoAccess.secretName ?? ""),
+        code: "DEMO_ACCESS_SECRET",
+      });
+    }
     // url = 데모 진입, altUrl = 촬영 전 정찰의 두 번째 후보(피드백 B-4). 워커가
     // 실제로 여는 주소라는 점에서 둘의 위험은 같으므로 같은 게이트를 태운다.
     for (const accessUrl of [demoAccess.access?.url, demoAccess.access?.altUrl]) {

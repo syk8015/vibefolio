@@ -500,6 +500,7 @@ export const en: Dictionary = {
     pasteJsonCta: "Paste the JSON",
     pasteJsonHint: "A chatbot with no shell cannot upload for you. Copy the JSON it gave you, press this, and paste — that is the whole job. Files go on the same screen.",
     copyFailed: "Couldn't copy to the clipboard. Please press it once more.",
+    manualCopyLead: "Your browser blocked automatic copying. Tap the box below to select everything, then copy it yourself.",
     issueFailed: "Couldn't issue the token.",
     networkFailed: "A network error prevented issuing.",
     previewToggle: "Preview the prompt",

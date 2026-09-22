@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import { RerecordRequestModal } from "@/components/dashboard/RerecordRequestModal";
@@ -22,6 +23,7 @@ import { useDraftArrival } from "./projects/useDraftArrival";
 // a stale handle when the two sources drift.
 export default function ProjectsTab({ user, username, reviewProjectId }: { user: User; username: string; reviewProjectId?: string | null }) {
   const { t } = useT();
+  const router = useRouter();
   const [projects, setProjects] = useState<DBProject[]>([]);
   const [drafts, setDrafts] = useState<DBProject[]>([]);
   const [loading, setLoading] = useState(true);
@@ -57,8 +59,17 @@ export default function ProjectsTab({ user, username, reviewProjectId }: { user:
         // 모달이 닫힌 채로 도착하면 화면을 가로채지 않고 토스트로만 알린다.
         setNotice(t.projects.draftArrived(draft.title || t.projects.untitled));
       }
+      router.refresh();
     },
   });
+
+  // 공개 화면에 보이는 게 바뀐 뒤: 명함·작품 페이지 캐시(60초)를 비우고, 서버가
+  // 센 탭 숫자·미니 명함 No.도 다시 받는다. 캐시 비우기 실패는 60초 뒤 저절로
+  // 풀리니 조용히 넘긴다.
+  function syncPublic() {
+    fetch("/api/revalidate", { method: "POST" }).catch(() => {});
+    router.refresh();
+  }
 
   async function loadProjects() {
     const supabase = createClient();
@@ -115,6 +126,7 @@ export default function ProjectsTab({ user, username, reviewProjectId }: { user:
       setNotice(t.projects.orderSaveFailed);
       loadProjects();
     }
+    syncPublic();
   }
 
   function handleDragStart(index: number) {
@@ -181,7 +193,9 @@ export default function ProjectsTab({ user, username, reviewProjectId }: { user:
         });
       }
       setNotice(t.projects.deleteFailed);
+      return;
     }
+    syncPublic();
   }
 
 
@@ -246,6 +260,7 @@ export default function ProjectsTab({ user, username, reviewProjectId }: { user:
       if (updated.is_draft) setDrafts(apply);
       else setProjects(apply);
       if (before) await deleteSwappedAssets(id, before, updated);
+      if (!updated.is_draft) syncPublic();
     }
     setEditProject(null);
   }
@@ -298,6 +313,7 @@ export default function ProjectsTab({ user, username, reviewProjectId }: { user:
         .neq("id", id);
     }
     await supabase.from("projects").update({ is_featured: next }).eq("id", id);
+    syncPublic();
   }
 
   async function handlePublishDraft(stale: DBProject) {
@@ -326,6 +342,7 @@ export default function ProjectsTab({ user, username, reviewProjectId }: { user:
       setNotice(t.projects.publishFailed);
       return;
     }
+    syncPublic();
     trackClientEvent(AnalyticsEvent.ProjectCreated, { projectId: project.id, demoSource: source?.type ?? null });
     // 공개 직후 "다음에 무슨 일이 일어나는지"를 바로 말해준다(2026-09-04, 인터뷰 ⑤).
     // 전엔 실패할 때만 알림이 떴고, 성공하면 모달이 닫히며 행이 목록으로 옮겨질 뿐이었다.

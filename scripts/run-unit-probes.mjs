@@ -12,6 +12,7 @@ const PROBES = [
   "scripts/probe-schema-drift.mts",         // 생성물(cli/src/schema.js·lib/mcpTools.ts)이 원본과 어긋났는지
   "scripts/probe-oauth-unit.mts",           // 원격 MCP OAuth — CIMD 두 항목·client_id 규칙·PKCE
   "scripts/probe-safe-next-unit.mts",     // 로그인 뒤 돌아갈 곳(?next=) — 밖으로 튕기는 모양 차단
+  "scripts/probe-demo-access-unit.mts",     // demoAccess에 토큰·비번 이름이 오면 400(공개 칸이라 새어 나감)
   "scripts/probe-html-body-unit.mts",       // 채팅창이 글자로 넘긴 HTML — 잘림 감지·울타리·zip 변환
   "scripts/probe-cli-input.mjs",            // CLI --file·표준입력·schema (127.0.0.1 가짜 서버, 네트워크 없음)
   "local-runner/probe-focus-coalesce.ts",   // 스크롤 병합·focus 카메라 산식

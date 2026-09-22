@@ -715,3 +715,9 @@ SNS/검색 로봇은 JS를 안 돌려 OG·크롤러 노출 문구(루트 descrip
 | 키 | 한국어 | English | 비고 |
 |---|---|---|---|
 | api.finalizeNoScriptNoVideo | 영상도 촬영 대본도 없어요. 선언한 영상을 올리거나, demoScript를 넣어 다시 발행해 주세요. 둘 중 하나가 있어야 시연을 만들 수 있어요. | Neither a video nor a demo script. Upload the video you declared, or publish again with a demoScript — the demo needs one of the two. | 신규 · 400 NO_FILM_SOURCE(finalize 전용 — 발행 시점엔 파일이 아직 없어 판정 불가) |
+
+## 출시 점검 S5 — 백엔드·운영 (2026-09-22)
+
+| 키 | 한국어 | English | 비고 |
+|---|---|---|---|
+| api.demoAccessSecretParam | demoAccess에 비밀값처럼 보이는 이름("{name}")이 있어요 — 토큰·비밀번호·키는 받지 않아요. … | demoAccess contains a name that looks like a secret ("{name}") — tokens, passwords and keys are not accepted. … | 신규 · 400 DEMO_ACCESS_SECRET, 함수(name) · 전문은 사전 참조 |

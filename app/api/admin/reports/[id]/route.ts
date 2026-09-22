@@ -7,6 +7,7 @@ import { getDictionary } from "@/lib/i18n/dictionaries";
 import { sendEmail, isEmailConfigured } from "@/lib/email";
 import { takedownEmail } from "@/lib/email-templates";
 import { logger } from "@/lib/logger";
+import { revalidatePortfolio } from "@/lib/revalidatePortfolio";
 
 // Admin decision on a content report (/admin 신고 인박스).
 //   resolve  → 문제 없음으로 종결. Resolution frees the partial-unique dedup slot,
@@ -107,6 +108,8 @@ export async function POST(
             });
           }
           takenDown = true;
+          // 내린 작품이 캐시로 1분간 공개 화면에 남지 않게.
+          revalidatePortfolio();
         }
         // 소유자 통지 — 조용히 사라지면 "내 작품이 왜 없어졌지"가 된다.
         // 메일 실패가 조치를 되돌리지는 않는다(로그로 남긴다).

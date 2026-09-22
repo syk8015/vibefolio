@@ -245,6 +245,13 @@ export async function POST(req: NextRequest) {
       if (norm.issue === "bad-url") {
         return apiError({ status: 400, message: t.api.demoAccessBadUrl, code: "BAD_DEMO_ACCESS" });
       }
+      if (norm.issue === "secret-param") {
+        return apiError({
+          status: 400,
+          message: t.api.demoAccessSecretParam(norm.secretName ?? ""),
+          code: "DEMO_ACCESS_SECRET",
+        });
+      }
       demoAccess = norm.access;
       if (demoAccess?.url && !demoAccess.url.startsWith("/")) {
         const gate = await publicUrlGate(demoAccess.url, t);

@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import Modal from "@/components/Modal";
-import { copyText } from "@/lib/clipboard";
+import { copyTextLater } from "@/lib/clipboard";
+import { ManualCopyBox } from "@/components/dashboard/ManualCopyBox";
 import { DemoScriptPanel } from "@/components/dashboard/projects/DemoScriptPanel";
 import type { DBProject } from "@/components/dashboard/projects/types";
 import { useT } from "@/lib/i18n/client";
@@ -32,9 +33,14 @@ export function RerecordRequestModal({
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
+  // 자동 복사가 막힌 환경(사파리 등)에서 받은 프롬프트를 직접 복사하게 펼쳐 둔다.
+  const [manual, setManual] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  async function copyPrompt() {
+  // 복사는 fetch보다 **먼저** 시작한다(copyTextLater) — 사파리는 클릭 직후에만
+  // 클립보드 쓰기를 허락해서, fetch를 기다린 뒤 쓰면 거절된다. 그 거절을 버리고
+  // "복사했어요"를 띄우던 것이 R2(2026-09-22): AI에 붙여넣으면 엉뚱한 옛 글이 들어갔다.
+  function copyPrompt() {
     const trimmed = note.trim();
     if (!trimmed) {
       setError(t.rerecord.emptyReason);
@@ -42,21 +48,25 @@ export function RerecordRequestModal({
     }
     setBusy(true);
     setError(null);
-    try {
-      const res = await fetch(`/api/projects/${project.id}/rerecord-prompt`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ note: trimmed }),
-      });
+    setManual(null);
+    let prompt = "";
+    const text = fetch(`/api/projects/${project.id}/rerecord-prompt`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ note: trimmed }),
+    }).then(async (res) => {
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
-      await copyText(body.prompt);
-      setCopied(true);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t.rerecord.requestFailed);
-    } finally {
-      setBusy(false);
-    }
+      prompt = body.prompt as string;
+      return prompt;
+    });
+    copyTextLater(text)
+      .then((ok) => {
+        if (ok) setCopied(true);
+        else setManual(prompt);
+      })
+      .catch((err) => setError(err instanceof Error ? err.message : t.rerecord.requestFailed))
+      .finally(() => setBusy(false));
   }
 
   async function apply() {
@@ -109,7 +119,7 @@ export function RerecordRequestModal({
           <>
             <textarea
               value={note}
-              onChange={(e) => { setNote(e.target.value); setCopied(false); }}
+              onChange={(e) => { setNote(e.target.value); setCopied(false); setManual(null); }}
               rows={5}
               maxLength={1000}
               autoFocus
@@ -117,7 +127,8 @@ export function RerecordRequestModal({
               className="vf-input w-full resize-none"
               style={{ fontFamily: "var(--font-nunito)" }}
             />
-            {copied && (
+            {manual && <ManualCopyBox text={manual} />}
+            {(copied || manual) && (
               <p className="text-sm" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", margin: 0 }}>
                 {t.rerecord.afterCopy}
               </p>

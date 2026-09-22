@@ -521,6 +521,8 @@ export const ko = {
     pasteJsonCta: "JSON 붙여넣기",
     pasteJsonHint: "셸이 없는 챗봇은 스스로 못 올려요. 받은 JSON을 복사해 두고 이 버튼을 누르면, 거기서 붙여넣기만 하면 끝나요. 파일도 같은 화면에서 올릴 수 있어요.",
     copyFailed: "클립보드 복사에 실패했어요. 한 번 더 눌러주세요.",
+    // 자동 복사가 막힌 브라우저(사파리 등)의 출구 — 받은 글을 읽기 전용 칸에 펼친다(A2).
+    manualCopyLead: "자동 복사가 막혔어요. 아래 칸을 누르면 전체가 선택돼요 — 그대로 복사해 주세요.",
     issueFailed: "토큰 발급에 실패했어요.",
     networkFailed: "네트워크 오류로 발급하지 못했어요.",
     previewToggle: "프롬프트 미리보기",

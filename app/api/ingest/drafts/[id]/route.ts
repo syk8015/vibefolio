@@ -163,6 +163,13 @@ export async function PATCH(
       if (norm.issue === "bad-url") {
         return apiError({ status: 400, message: t.api.demoAccessBadUrl, code: "BAD_DEMO_ACCESS" });
       }
+      if (norm.issue === "secret-param") {
+        return apiError({
+          status: 400,
+          message: t.api.demoAccessSecretParam(norm.secretName ?? ""),
+          code: "DEMO_ACCESS_SECRET",
+        });
+      }
       // url(데모 진입)·altUrl(촬영 전 정찰 후보, 피드백 B-4) 둘 다 워커가 실제로
       // 여는 주소 — 생성 경로와 같은 게이트를 태운다.
       for (const u of [norm.access?.url, norm.access?.altUrl]) {
