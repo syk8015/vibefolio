@@ -13,6 +13,7 @@
 //   - local-runner worker (tsx)  → import "../lib/email"
 
 import { ADMIN_EMAILS } from "./adminEmails";
+import { logger } from "./logger";
 
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
 const SEND_TIMEOUT_MS = 10_000;
@@ -45,8 +46,9 @@ export type SendEmailInput = {
 };
 
 // Returns true only when Resend accepted the message. Unconfigured → false
-// without a network call. All failures are one-line console errors (the worker
-// has no lib/logger wiring, and a reporter loop from here is not worth it).
+// without a network call. 실패는 logger.error로 올린다(2026-09-22 운영2) — 예전엔
+// console.error뿐이라 Resend 한도가 차거나 도메인이 틀어져 완료·실패 메일이 안 나가도
+// Sentry에 흔적이 없었다. 받는 사람 주소는 싣지 않는다(개인정보).
 export async function sendEmail(input: SendEmailInput): Promise<boolean> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) return false;
@@ -80,14 +82,12 @@ export async function sendEmail(input: SendEmailInput): Promise<boolean> {
     }
     if (!res.ok) {
       const detail = (await res.text().catch(() => "")).slice(0, 300);
-      console.error(`[email] resend ${res.status} for "${input.subject}": ${detail}`);
+      logger.error("email: resend rejected", { status: res.status, subject: input.subject, detail });
       return false;
     }
     return true;
   } catch (err) {
-    console.error(
-      `[email] send failed for "${input.subject}": ${err instanceof Error ? err.message : String(err)}`,
-    );
+    logger.error("email: send failed", { error: err, subject: input.subject });
     return false;
   }
 }
