@@ -6,8 +6,7 @@ import { assertSafePublicUrl, SsrfError } from "@/lib/ssrf";
 import { apiError } from "@/lib/apiError";
 import { requireUser } from "@/lib/routeAuth";
 import { getT } from "@/lib/i18n/server";
-import { sendEmail, alertRecipients } from "@/lib/email";
-import { adminAlertEmail, SITE_URL } from "@/lib/email-templates";
+import { mailApprovalRequest } from "@/lib/approvalMail";
 
 // POST /api/projects/[id]/apply-rerecord — 대기 중인 새 대본으로 재촬영을 시작한다.
 //
@@ -78,18 +77,13 @@ export async function POST(
             cause: insErr, context: { projectId: id },
           });
         }
-        await sendEmail({
-          to: alertRecipients(),
-          ...adminAlertEmail({
-            title: "재촬영 승인 요청 (새 대본 대기)",
-            lines: [
-              `프로젝트: ${project.title ?? "(제목 없음)"} (${id})`,
-              `AI 메모: ${reason.length > 200 ? reason.slice(0, 200) + "…" : reason}`,
-              "승인하면 대기 중인 새 대본으로 재촬영이 시작돼요.",
-            ],
-            ctaLabel: "승인 콘솔 열기",
-            ctaUrl: `${SITE_URL}/admin`,
-          }),
+        await mailApprovalRequest({
+          title: "재촬영 승인 요청 (새 대본 대기)",
+          lines: [
+            `프로젝트: ${project.title ?? "(제목 없음)"} (${id})`,
+            `AI 메모: ${reason.length > 200 ? reason.slice(0, 200) + "…" : reason}`,
+            "승인하면 대기 중인 새 대본으로 재촬영이 시작돼요.",
+          ],
         });
       }
       return NextResponse.json({ ok: true, status: "awaiting_approval" });

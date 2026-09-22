@@ -10,6 +10,7 @@ import { getDictionary } from "@/lib/i18n/dictionaries";
 import { sendEmail, isEmailConfigured, alertRecipients } from "@/lib/email";
 import { demoFailedEmail, adminAlertEmail, SITE_URL } from "@/lib/email-templates";
 import { setDemoPaused } from "@/lib/workerOps";
+import { APPROVAL_MAIL_KEY, APPROVAL_MAIL_WINDOW_MS } from "@/lib/approvalMail";
 
 // Stuck-job watchdog (P0.4). Hit on a schedule by an EXTERNAL free cron
 // (cron-job.org etc.) which sends the shared secret. It:
@@ -296,6 +297,24 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // ── 3.6 Approval queue digest ───────────────────────────────────────────────
+  // 승인 요청 메일은 하루 한 통으로 묶인다(lib/approvalMail.ts). 그 뒤 들어온 요청을
+  // 놓치지 않게, 큐가 남아 있으면 같은 키로 하루 한 번 "승인 대기 N건"을 보낸다.
+  let approvalsWaiting = 0;
+  {
+    const { count, error: apprErr } = await admin
+      .from("demo_requests")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "pending");
+    if (apprErr) {
+      logger.warn("watchdog: demo_requests query failed", { error: apprErr });
+    } else if ((count ?? 0) > 0) {
+      approvalsWaiting = count ?? 0;
+      logger.info("watchdog: approval requests waiting", { approvalsWaiting });
+      alerts.push(`${APPROVAL_MAIL_KEY}:${approvalsWaiting}`);
+    }
+  }
+
   // ── 3.7 Demand — 사람이 오고 있나 ─────────────────────────────────────────────
   // 위 경보는 전부 공급(촬영) 쪽이라, 방문이 0이어도 이 크론은 "healthy"였다
   // (2026-09-21 밤 조사). 방문 = 랜딩·작품 페이지 핑 + 명함 조회. 할 일 알림이지
@@ -353,6 +372,7 @@ export async function GET(req: NextRequest) {
           staleMinutes: staleMs !== null ? Math.round(staleMs / 60_000) : null,
           pendingStuck: pendingStuck ?? 0,
           pendingWaiting,
+          approvalsWaiting,
           paused,
           moderationOpen,
           visits3d,
@@ -404,6 +424,7 @@ function alertKey(alert: string): string {
   if (alert.startsWith("reaped:")) return "reaped";
   if (alert.startsWith("moderation-open:")) return "moderation-open";
   if (alert.startsWith("queue-waiting:")) return "queue-waiting";
+  if (alert.startsWith(`${APPROVAL_MAIL_KEY}:`)) return APPROVAL_MAIL_KEY;
   return alert;
 }
 
@@ -416,6 +437,7 @@ async function emailWatchdogAlert(
     staleMinutes: number | null;
     pendingStuck: number;
     pendingWaiting: number;
+    approvalsWaiting: number;
     paused: boolean;
     moderationOpen: number;
     visits3d: number;
@@ -446,7 +468,11 @@ async function emailWatchdogAlert(
   const keys = [...new Set(alerts.map(alertKey))];
   const fresh = keys.filter((k) => {
     const last = state[k] ? Date.parse(state[k]) : NaN;
-    const suppress = DEMAND_KEYS.has(k) ? DEMAND_SUPPRESS_MS : ALERT_SUPPRESS_MS;
+    const suppress = DEMAND_KEYS.has(k)
+      ? DEMAND_SUPPRESS_MS
+      : k === APPROVAL_MAIL_KEY
+        ? APPROVAL_MAIL_WINDOW_MS
+        : ALERT_SUPPRESS_MS;
     return !(Number.isFinite(last) && now - last < suppress);
   });
   if (fresh.length === 0) return false;
@@ -489,6 +515,8 @@ async function emailWatchdogAlert(
     lines.push(
       `촬영 요청 ${detail.pendingWaiting}건이 대기 중이에요 — 여유될 때 맥에서 npm run demo:batch 한 번이면 소화하고 다시 잠들어요.`,
     );
+  if (keys.includes(APPROVAL_MAIL_KEY))
+    lines.push(`관리자 승인을 기다리는 촬영·재촬영 요청이 ${detail.approvalsWaiting}건 있어요 — 관제탑 승인 큐에서 처리해 주세요.`);
   if (keys.includes("demand-zero"))
     lines.push(
       `지난 3일 동안 랜딩·명함·작품 페이지 방문이 0건이에요 (14일 ${detail.visits14d}건) — 홍보 링크가 실제로 나가고 있는지 봐 주세요.`,
@@ -503,7 +531,9 @@ async function emailWatchdogAlert(
   // A pure queue-waiting mail is a to-do nudge, not an incident — don't title
   // it like one.
   const onlyQueue = keys.every((k) => k === "queue-waiting");
-  const onlyNudges = keys.every((k) => k === "queue-waiting" || DEMAND_KEYS.has(k));
+  const onlyNudges = keys.every(
+    (k) => k === "queue-waiting" || k === APPROVAL_MAIL_KEY || DEMAND_KEYS.has(k),
+  );
   return sendEmail({
     to: alertRecipients(),
     ...adminAlertEmail({

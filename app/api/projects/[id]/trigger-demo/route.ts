@@ -8,8 +8,7 @@ import { requireUser } from "@/lib/routeAuth";
 import { getT } from "@/lib/i18n/server";
 import { trackServerEvent } from "@/lib/analytics";
 import { AnalyticsEvent } from "@/lib/analytics-events";
-import { sendEmail, alertRecipients } from "@/lib/email";
-import { adminAlertEmail, SITE_URL } from "@/lib/email-templates";
+import { mailApprovalRequest } from "@/lib/approvalMail";
 
 // Shape returned by the request_demo() SQL function (supabase/migration_demo_quota.sql).
 type QuotaResult = {
@@ -216,20 +215,15 @@ export async function POST(
       // 승인 대기 알림 (T4): "보통 24h내" 약속은 관리자가 큐를 봐야 지켜진다.
       // deduped 재발화(이미 held인 행 재클릭)는 메일도 재발송하지 않는다.
       if (!result.deduped) {
-        await sendEmail({
-          to: alertRecipients(),
-          ...adminAlertEmail({
-            title: "시연 승인 대기 — 한도 초과 요청",
-            lines: [
-              `프로젝트: ${project.title ?? "(제목 없음)"} (${id})`,
-              result.reason === "global"
-                ? "사유: 전역 일일 한도 초과."
-                : "사유: 유저 일일 한도 초과.",
-              "승인 전까지 대시보드에는 폴백 이미지로 표시돼요.",
-            ],
-            ctaLabel: "승인 콘솔 열기",
-            ctaUrl: `${SITE_URL}/admin`,
-          }),
+        await mailApprovalRequest({
+          title: "시연 승인 대기 — 한도 초과 요청",
+          lines: [
+            `프로젝트: ${project.title ?? "(제목 없음)"} (${id})`,
+            result.reason === "global"
+              ? "사유: 전역 일일 한도 초과."
+              : "사유: 유저 일일 한도 초과.",
+            "승인 전까지 대시보드에는 폴백 이미지로 표시돼요.",
+          ],
         });
       }
       return NextResponse.json({

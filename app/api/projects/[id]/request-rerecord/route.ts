@@ -3,8 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { apiError } from "@/lib/apiError";
 import { requireUser } from "@/lib/routeAuth";
 import { getT } from "@/lib/i18n/server";
-import { sendEmail, alertRecipients } from "@/lib/email";
-import { adminAlertEmail, SITE_URL } from "@/lib/email-templates";
+import { mailApprovalRequest } from "@/lib/approvalMail";
 
 // A project gets ONE auto demo. Re-recording a landed video (or getting another
 // take after the retry budget is spent) is not self-serve — the owner files a
@@ -98,19 +97,14 @@ export async function POST(
     }
 
     // 승인 대기 알림 (T4) — 새 요청이 실제로 접수됐을 때만 (already 경로 제외).
-    // sendEmail은 절대 throw 하지 않으므로 요청 접수 응답을 위협하지 않는다.
-    await sendEmail({
-      to: alertRecipients(),
-      ...adminAlertEmail({
-        title: "재촬영 요청 접수",
-        lines: [
-          `프로젝트: ${project.title ?? "(제목 없음)"} (${id})`,
-          `요청 내용: ${reason.length > 200 ? reason.slice(0, 200) + "…" : reason}`,
-          "승인해야 재촬영이 시작돼요 — 승인 전까지는 아무것도 과금되지 않아요.",
-        ],
-        ctaLabel: "승인 콘솔 열기",
-        ctaUrl: `${SITE_URL}/admin`,
-      }),
+    // mailApprovalRequest는 throw 하지 않으므로 요청 접수 응답을 위협하지 않는다(하루 한 통으로 묶임).
+    await mailApprovalRequest({
+      title: "재촬영 요청 접수",
+      lines: [
+        `프로젝트: ${project.title ?? "(제목 없음)"} (${id})`,
+        `요청 내용: ${reason.length > 200 ? reason.slice(0, 200) + "…" : reason}`,
+        "승인해야 재촬영이 시작돼요 — 승인 전까지는 아무것도 과금되지 않아요.",
+      ],
     });
 
     return NextResponse.json({ ok: true });
