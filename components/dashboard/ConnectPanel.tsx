@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { copyText, copyTextLater } from "@/lib/clipboard";
 import { ManualCopyBox } from "@/components/dashboard/ManualCopyBox";
 import { AI_TOOL_PATHS } from "@/components/dashboard/aiToolPaths";
+import { PasteReply } from "@/components/publish/PasteReply";
 import { pastePrompt, AUTO_TOKEN_NAME, MCP_TOKEN_NAME, mcpClaudeCodeCommand, mcpConfigJson, remoteMcpUrl } from "@/lib/connectSnippets";
 import { useT } from "@/lib/i18n/client";
 
@@ -99,6 +100,11 @@ export default function ConnectPanel() {
   // 원격 커넥터 주소 복사(2026-09-17). 위 둘과 달리 **토큰을 발급하지 않는다** —
   // 공개 주소 하나를 복사할 뿐이고, 인증은 클로드가 띄우는 [허용] 화면에서 일어난다.
   const [urlCopied, setUrlCopied] = useState(false);
+  // 터미널 AI가 답만 주고 끝났을 때 펼치는 붙여넣기 칸.
+  const [showPaste, setShowPaste] = useState(false);
+  // 창 안 붙여넣기 성공 뒤의 폴백 타이머(아래 onPasted).
+  const pastedTimer = useRef<number | null>(null);
+  useEffect(() => () => { if (pastedTimer.current) window.clearTimeout(pastedTimer.current); }, []);
   const origin = typeof window !== "undefined" ? window.location.origin : "https://nookframe.com";
 
   async function load() {
@@ -225,19 +231,17 @@ export default function ConnectPanel() {
     background: "var(--surface-soft)", color: "var(--text-secondary)", fontFamily: "var(--font-mono), monospace",
     whiteSpace: "pre-wrap", lineHeight: 1.6, margin: 0, wordBreak: "break-all",
   };
-  // /publish는 **새 탭**으로 연다(C3) — 같은 탭이면 대시보드가 사라지면서 "도착하면
-  // 저절로 확인 화면" 흐름도 같이 끝난다. 이 창은 남아서 도착을 기다린다.
-  const pasteLink = (
-    <a
-      href="/publish"
-      target="_blank"
-      rel="noopener"
-      className="vf-button-primary inline-block"
-      style={{ fontSize: "0.85rem", padding: "0.5rem 1.1rem", textDecoration: "none", margin: "8px 0 0" }}
-    >
-      {t.connect.pasteJsonCta}
-    </a>
-  );
+  // 창 안에서 바로 올린다(D6, 2026-09-22). 새 초안이면 ProjectsTab의 도착 감지가 이 창을
+  // 닫고 확인 화면을 연다. 같은 주소의 기존 초안을 **갱신**한 경우엔 새 행이 없어 도착
+  // 감지가 안 울린다 — 잠시 기다려도 이 창이 그대로면 확인 화면 딥링크로 직접 간다.
+  // (ProjectsTab은 다른 세션 소유라 콜백을 늘리지 않고 이 창 안에서 끝낸다.)
+  function onPasted(projectId: string) {
+    if (pastedTimer.current) window.clearTimeout(pastedTimer.current);
+    pastedTimer.current = window.setTimeout(() => {
+      window.location.assign(`/dashboard?review=${encodeURIComponent(projectId)}`);
+    }, 2500);
+  }
+
 
   const toolName = (id: ToolId): string =>
     id === "claude-code" ? "Claude Code"
@@ -371,20 +375,28 @@ export default function ConnectPanel() {
             {/* 터미널 AI가 예상과 달리 답만 주고 끝났을 때의 출구(2026-09-18). */}
             <div style={{ borderTop: "1px solid var(--border)", margin: "12px 0 0", paddingTop: 12 }}>
               <p className="text-xs" style={smallText("var(--text-primary)", { fontWeight: 600 })}>{t.connect.pasteJsonLead}</p>
-              {pasteLink}
-              <p className="text-xs" style={smallText("var(--text-secondary)", { marginTop: 8 })}>{t.connect.pasteJsonHint}</p>
+              {showPaste ? (
+                <div className="mt-2">
+                  <p className="text-xs mb-2" style={smallText("var(--text-secondary)")}>{t.connect.pasteJsonHint}</p>
+                  <PasteReply compact onSuccess={onPasted} />
+                </div>
+              ) : (
+                <button type="button" onClick={() => setShowPaste(true)} className="vf-button-ghost" style={{ fontSize: "0.8rem", padding: "0.4rem 0.9rem", marginTop: 8 }}>
+                  {t.connect.pasteJsonCta}
+                </button>
+              )}
             </div>
           </div>
         </div>
       )}
 
-      {/* 채팅 AI: 스스로 못 올리니 "기다리는 중" 대신 답을 가져올 곳을 처음부터 보여준다 —
-          답을 들고 창을 다시 연 사람이 또 복사를 누르지 않아도 되게. */}
+      {/* 채팅 AI: 스스로 못 올리니 "기다리는 중" 대신 붙여넣을 칸을 처음부터 보여준다 —
+          답을 들고 창을 다시 연 사람이 또 복사를 누르지 않아도 되게(D6, 창 안에서 바로). */}
       {path === "chat" && (
         <div className="w-full rounded-2xl px-4 py-3.5" style={cardStyle}>
-          <p className="text-xs" style={smallText("var(--text-primary)", { fontWeight: 600 })}>{t.connect.chatNextTitle}</p>
-          <p className="text-xs" style={smallText("var(--text-secondary)", { marginTop: 4 })}>{t.connect.chatNextBody}</p>
-          {pasteLink}
+          <p className="text-sm" style={smallText("var(--text-primary)", { fontWeight: 600 })}>{t.connect.chatNextTitle}</p>
+          <p className="text-xs" style={smallText("var(--text-secondary)", { marginTop: 4, marginBottom: 12 })}>{t.connect.chatNextBody}</p>
+          <PasteReply compact onSuccess={onPasted} />
         </div>
       )}
 
