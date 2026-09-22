@@ -104,14 +104,19 @@ function BarChart({ days, counts }: { days: Date[]; counts: number[] }) {
         })}
       </div>
 
-      {/* X-axis labels — 첫날·7일째·마지막날·오늘만 표시 */}
+      {/* X-axis labels — 첫날·7일째·마지막날·오늘만 표시.
+          칸 폭은 막대 하나(폰에서 ~20px)라 "오늘"·"12/31"이 칸보다 넓다. 줄바꿈을 막고
+          양 끝 라벨은 카드 안쪽으로 붙인다 — 가운데 정렬이면 마지막 라벨이 카드 밖으로
+          넘쳐 "오/늘"로 쪼개졌다(09-22 폰 실측). */}
       <div style={{ display: "flex", alignItems: "center", gap: 3, marginTop: 6 }}>
         {days.map((day, i) => {
           const isToday = day.getTime() === today.getTime();
           const showLabel = i === 0 || i === 6 || i === 13 || isToday;
+          const edge = i === 0 ? "flex-start" : i === days.length - 1 ? "flex-end" : "center";
           return (
-            <div key={i} style={{ flex: 1, textAlign: "center" }}>
+            <div key={i} style={{ flex: 1, minWidth: 0, display: "flex", justifyContent: edge }}>
               <span style={{
+                whiteSpace: "nowrap",
                 fontSize: "0.55rem",
                 fontFamily: "var(--font-mono), monospace",
                 fontWeight: isToday ? 600 : 400,
