@@ -30,7 +30,7 @@ export default async function TermsPage() {
           {en ? "Terms of Service" : "이용약관"}
         </h1>
         <p className="text-sm mb-12" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
-          {en ? "Effective date: September 29, 2026 (announced September 22, 2026; previous version effective September 1, 2026)" : "시행일: 2026년 9월 29일 (2026년 9월 22일 공지 · 이전 판 시행일 2026년 9월 1일)"}
+          {en ? "Effective date: September 22, 2026 (previous version: September 1, 2026)" : "시행일: 2026년 9월 22일 (이전 판: 2026년 9월 1일)"}
         </p>
 
         <div className="flex flex-col gap-10" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", fontSize: "0.9rem", lineHeight: 1.9 }}>
