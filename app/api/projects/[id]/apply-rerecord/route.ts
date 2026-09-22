@@ -36,7 +36,7 @@ export async function POST(
 
     const { data: project, error: selErr } = await supabase
       .from("projects")
-      .select("id, user_id, title, demo_url, demo_build_status, pending_demo_script, pending_script_note, rerecord_self_used")
+      .select("id, user_id, title, demo_url, demo_build_status, rerecord_self_used")
       .eq("id", id)
       .single();
     if (selErr || !project) {
@@ -45,19 +45,36 @@ export async function POST(
     if (project.user_id !== user.id) {
       return apiError({ status: 403, message: t.api.projectForbidden, code: "FORBIDDEN" });
     }
-    if (!project.pending_demo_script) {
+
+    const admin = createAdminClient();
+
+    // 대기 대본·AI 메모는 비공개 칸이라 사용자 키로는 못 읽는다(lib/projectColumns.ts)
+    // — 주인 확인이 위에서 끝났으니 관리자 권한으로 읽되, user_id를 한 번 더 건다.
+    const { data: priv, error: privErr } = await admin
+      .from("projects")
+      .select("pending_demo_script, pending_script_note")
+      .eq("id", id)
+      .eq("user_id", user.id)
+      .single();
+    if (privErr || !priv) {
+      // 두 읽기 사이에 지워졌으면 404, 그 밖의 실패는 DB 문제다.
+      if (!privErr || privErr.code === "PGRST116") {
+        return apiError({ status: 404, message: t.api.projectNotFound, code: "NOT_FOUND" });
+      }
+      return apiError({ status: 500, message: t.api.retryLater, code: "INTERNAL", cause: privErr });
+    }
+
+    if (!priv.pending_demo_script) {
       return apiError({ status: 400, message: t.api.rerecordNoPendingScript, code: "NO_PENDING_SCRIPT" });
     }
     if (IN_FLIGHT.includes(project.demo_build_status ?? "")) {
       return apiError({ status: 409, message: t.api.rerecordInFlight, code: "IN_FLIGHT" });
     }
 
-    const admin = createAdminClient();
-
     // ── 2회차부터: 관리자 승인 대기열로. 대본은 pending에 그대로 두고, 승인
     //    라우트가 승격시킨다(그래야 승인 전엔 공개 데이터가 안 바뀐다).
     if (project.rerecord_self_used) {
-      const reason = (project.pending_script_note as string | null)?.trim()
+      const reason = (priv.pending_script_note as string | null)?.trim()
         || t.api.rerecordDefaultReason;
       const { data: existing } = await admin
         .from("demo_requests")
@@ -126,7 +143,7 @@ export async function POST(
     const { data: claimed, error: updErr } = await admin
       .from("projects")
       .update({
-        demo_script: project.pending_demo_script,
+        demo_script: priv.pending_demo_script,
         pending_demo_script: null,
         pending_script_at: null,
         pending_script_note: null,

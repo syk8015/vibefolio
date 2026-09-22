@@ -37,12 +37,14 @@ export const DEMO_ACCESS_NOTE_MAX = 500;
 const PARAMS_MAX_ENTRIES = 12;
 const PARAMS_KV_MAX = 120;
 
-// 비밀처럼 보이는 이름은 받지 않는다(2026-09-22 보안1 급한 불). projects 행 단위
-// RLS라 공개 작품의 demo_access는 anon REST로 읽힐 수 있다 — 게스트 토큰·데모
-// 비번을 params나 진입 URL 쿼리에 실으면 그대로 공개된다. 조용히 버리면 촬영이
-// 이유 없이 로그인 화면을 찍으므로 400으로 알린다. 정공법(비공개 칸 별도 테이블)은
-// 이번 주 작업. 이름을 camelCase·구분자로 쪼개 조각 단위로 본다 — "keyword"·
-// "monkey" 같은 무해한 이름이 "key" 부분일치로 걸리지 않게.
+// 비밀처럼 보이는 이름은 받지 않는다(2026-09-22 보안1 급한 불). 그때는 projects가 행
+// 단위 RLS뿐이라 공개 작품의 demo_access가 익명 키로 읽혔다. 지금은 demo_access가 주인
+// 전용 칸이다(2026-09-23, supabase/migration_private_columns.sql · lib/projectColumns.ts).
+// 그래도 이 400은 유지한다 — demo_access는 주인이 AI 채팅창에 붙여넣는 재촬영
+// 프롬프트에 실리고 촬영 로봇에게도 넘어가므로, 비밀은 애초에 여기 안 두는 게 맞다.
+// 조용히 버리면 촬영이 이유 없이 로그인 화면을 찍으므로 400으로 알린다. 이름을
+// camelCase·구분자로 쪼개 조각 단위로 본다 — "keyword"·"monkey" 같은 무해한 이름이
+// "key" 부분일치로 걸리지 않게.
 const SECRET_WORD = /^(pass|passwd|password|passcode|pwd|pw|token|secret|key|apikey|jwt|otp|pin|credential|credentials|auth|session|sid|signature|sig)$/;
 const SECRET_JOINED = /(password|passwd|passcode|secret|token|apikey|accesskey|privatekey|sessionid|credential)/;
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { apiError } from "@/lib/apiError";
 import { requireUser } from "@/lib/routeAuth";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getT, getLocale } from "@/lib/i18n/server";
 import { issueConnectCode } from "@/lib/connectCode";
 import { rerecordPrompt } from "@/lib/rerecordPrompt";
@@ -46,7 +47,7 @@ export async function POST(
     // 남의 프로젝트 id로 프롬프트(+페어링 코드)를 받아가는 길을 만들면 안 된다.
     const { data: project, error: selErr } = await supabase
       .from("projects")
-      .select("id, user_id, title, description, demo_url, content_type, tags, demo_access, demo_script")
+      .select("id, user_id, title, description, demo_url, content_type, tags")
       .eq("id", id)
       .single();
     if (selErr || !project) {
@@ -54,6 +55,23 @@ export async function POST(
     }
     if (project.user_id !== user.id) {
       return apiError({ status: 403, message: t.api.projectForbidden, code: "FORBIDDEN" });
+    }
+
+    // 데모 진입 정보·지금 대본은 비공개 칸이라 사용자 키로는 못 읽는다
+    // (lib/projectColumns.ts) — 주인 확인이 위에서 끝났으니 관리자 권한으로 읽되,
+    // user_id를 한 번 더 건다. 코드 발급 전에 읽어 실패해도 코드가 헛나가지 않게.
+    const { data: priv, error: privErr } = await createAdminClient()
+      .from("projects")
+      .select("demo_access, demo_script")
+      .eq("id", id)
+      .eq("user_id", user.id)
+      .single();
+    if (privErr || !priv) {
+      // 두 읽기 사이에 지워졌으면 404, 그 밖의 실패는 DB 문제다.
+      if (!privErr || privErr.code === "PGRST116") {
+        return apiError({ status: 404, message: t.api.projectNotFound, code: "NOT_FOUND" });
+      }
+      return apiError({ status: 500, message: t.api.retryLater, code: "INTERNAL", cause: privErr });
     }
 
     // 프롬프트에 심는 것은 ConnectPanel과 같은 규약: 토큰이 아니라 **1회용 페어링
@@ -79,8 +97,8 @@ export async function POST(
         demoUrl: (project.demo_url as string) ?? "",
         contentType: (project.content_type as string | null) ?? null,
         tags: (project.tags as string[]) ?? [],
-        demoAccess: project.demo_access ?? null,
-        currentScript: normalizeDemoScript(project.demo_script),
+        demoAccess: priv.demo_access ?? null,
+        currentScript: normalizeDemoScript(priv.demo_script),
         note,
       },
       locale === "en" ? "en" : "ko",

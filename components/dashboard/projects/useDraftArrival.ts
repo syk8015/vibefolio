@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
-import type { DBProject } from "./types";
+import { PUBLIC_PROJECT_SELECT } from "@/lib/projectColumns";
+import type { UserKeyRow } from "./ownerPrivate";
 
 // 새 초안 도착 감지 (2026-09-05 사용자 요청).
 //
@@ -12,11 +13,14 @@ import type { DBProject } from "./types";
 // 두 겹으로 듣는다: realtime INSERT(즉시) + 연결 모달이 열려 있는 동안의 폴링
 // (publication 누락·소켓 끊김·탭 절전 폴백). 둘 다 같은 콜백으로 흘러가고,
 // 같은 초안이 두 번 와도 호출부가 id로 거른다.
+//
+// 넘겨주는 행은 사용자 키로 읽은 것이라 비공개 칸(대본·로그인 답·로봇 메모)이 빠져
+// 있을 수 있다(2026-09-23, lib/projectColumns.ts) — 채우는 건 호출부(ownerPrivate.ts).
 const POLL_MS = 4000;
 
 export function useDraftArrival(
   userId: string,
-  { active, onArrive }: { active: boolean; onArrive: (draft: DBProject) => void },
+  { active, onArrive }: { active: boolean; onArrive: (draft: UserKeyRow) => void },
 ) {
   // 콜백은 매 렌더 새로 만들어진다 — 그때마다 구독을 다시 걸지 않도록 ref로
   // 최신 함수만 본다(구독은 userId가 바뀔 때만 재생성).
@@ -38,7 +42,8 @@ export function useDraftArrival(
           filter: `user_id=eq.${userId}`,
         },
         (payload) => {
-          const row = payload.new as DBProject;
+          // SQL 적용 뒤엔 realtime이 주인도 못 읽는 칸을 빼고 보낸다 — 공개 칸만 믿는다.
+          const row = payload.new as UserKeyRow;
           if (row?.is_draft) onArriveRef.current(row);
         },
       )
@@ -59,14 +64,14 @@ export function useDraftArrival(
     async function tick() {
       const { data } = await supabase
         .from("projects")
-        .select("*")
+        .select(PUBLIC_PROJECT_SELECT)
         .eq("user_id", userId)
         .eq("is_draft", true)
         .gt("created_at", since)
         .order("created_at", { ascending: false })
         .limit(1);
       if (cancelled || !data?.length) return;
-      onArriveRef.current(data[0] as DBProject);
+      onArriveRef.current(data[0] as unknown as UserKeyRow);
     }
 
     const timer = setInterval(tick, POLL_MS);

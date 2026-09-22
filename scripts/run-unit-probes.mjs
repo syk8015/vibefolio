@@ -13,6 +13,8 @@ const PROBES = [
   "scripts/probe-oauth-unit.mts",           // 원격 MCP OAuth — CIMD 두 항목·client_id 규칙·PKCE
   "scripts/probe-safe-next-unit.mts",     // 로그인 뒤 돌아갈 곳(?next=) — 밖으로 튕기는 모양 차단
   "scripts/probe-demo-access-unit.mts",     // demoAccess에 토큰·비번 이름이 오면 400(공개 칸이라 새어 나감)
+  "scripts/probe-project-columns.mts",      // projects 공개/비공개 칸 목록 == SQL GRANT, select("*") 금지(칸 단위 읽기 권한)
+  "scripts/probe-owner-private-unit.mts",   // 대시보드 비공개 칸 합치기·"서버에 다시 물을지" 판정(대본만 고친 초안 놓치지 않기)
   "scripts/probe-native-app-unit.mts",      // 못 찍는 앱 판별 — 데스크톱·확장 추가, 웹으로 찍을 것은 안 건드림
   "scripts/probe-storage-list-unit.mts",    // 삭제 경로의 폴더 나열 — 1000개 넘는 폴더도 끝까지(탈퇴 즉시 파기)
   "scripts/probe-ingest-store-unit.mts",    // zip 저장 — 동시 업로드(상한 8)·실패 뒤 늦은 업로드 없음·새 행 폴더 정리

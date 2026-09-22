@@ -6,6 +6,7 @@ import { unstable_cache } from "next/cache";
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { createPublicClient, throwIfReadFailed } from "@/lib/supabase/public";
+import { PUBLIC_PROJECT_SELECT } from "@/lib/projectColumns";
 import CopyLinkButton from "@/components/CopyLinkButton";
 import type { Project } from "@/lib/data";
 import { placeholderThumbnail } from "@/lib/placeholder";
@@ -45,14 +46,17 @@ const getProfile = unstable_cache(
 const getProjects = unstable_cache(
   async (userId: string) => {
     const supabase = createPublicClient();
+    // 칸을 적는다 — "*"는 비공개 칸 GRANT 회수 뒤 permission denied로 명함 전체를
+    // 깨뜨린다(lib/projectColumns.ts). 이 페이지가 쓰는 건 전부 공개 칸이다.
     const { data, error } = await supabase
       .from("projects")
-      .select("*")
+      .select(PUBLIC_PROJECT_SELECT)
       .eq("user_id", userId)
       .order("sort_order", { ascending: true })
       .order("created_at", { ascending: false });
     throwIfReadFailed(error, "theater:projects");
-    return (data as DBProject[]) ?? [];
+    // 상수 select 문자열은 supabase 타입 파서가 행 모양을 못 읽는다 — 결과만 캐스트(ingest/drafts와 같은 이유).
+    return (data as unknown as DBProject[] | null) ?? [];
   },
   ["portfolio-projects"],
   { revalidate: 60, tags: ["portfolio"] }

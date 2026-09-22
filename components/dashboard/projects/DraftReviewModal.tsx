@@ -39,8 +39,11 @@ function objectParticle(word: string): string {
   return "을(를)";
 }
 
-export function DraftReviewModal({ draft, onClose, onPublish, onEdit, onDelete, onSave }: {
+export function DraftReviewModal({ draft, privateReady = true, onClose, onPublish, onEdit, onDelete, onSave }: {
   draft: DBProject;
+  // 비공개 칸(대본·로그인 답·로봇 메모)을 서버에서 받았나. 못 받은 동안엔 "대본 없음"이라
+  // 거짓으로 보이거나, 빈 값으로 AI 수정 프롬프트를 만들어 AI가 멀쩡한 대본을 덮게 된다.
+  privateReady?: boolean;
   onClose: () => void;
   onPublish: () => void;
   onEdit: () => void;
@@ -210,7 +213,7 @@ export function DraftReviewModal({ draft, onClose, onPublish, onEdit, onDelete, 
     el?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, []);
   const copyFix = async () => {
-    if (!fixNote.trim() || fixBusy) return;
+    if (!fixNote.trim() || fixBusy || !privateReady) return;
     setFixBusy(true);
     setFixState("idle");
     try {
@@ -284,7 +287,10 @@ export function DraftReviewModal({ draft, onClose, onPublish, onEdit, onDelete, 
   const wired = steps.filter(isStepWired).length;
   const hasOwnVideo = !!draft.video_url;
   const access = draft.demo_access;
-  const accessLine = access?.url
+  // 비공개 칸을 아직 못 받았으면 "로그인 답 없음" 경고는 거짓이다 — 중립 자리표시만.
+  const accessLine = !privateReady
+    ? { text: "…", note: undefined, warn: false }
+    : access?.url
     ? { text: `${t.projects.reviewAccessUrl} · ${access.url}`, note: access.note, warn: false }
     : access?.noLogin
       ? { text: t.projects.reviewAccessNoLogin, note: access.note, warn: false }
@@ -626,7 +632,7 @@ export function DraftReviewModal({ draft, onClose, onPublish, onEdit, onDelete, 
                     </p>
                   </div>
                 </div>
-                {!hasOwnVideo && <DemoScriptPanel script={draft.demo_script} onChange={saveScript} />}
+                {!hasOwnVideo && <DemoScriptPanel script={draft.demo_script} loading={!privateReady} onChange={saveScript} />}
                 {scriptError && (
                   <p style={{ ...smallText, marginTop: 8, color: "#b34747" }}>{scriptError}</p>
                 )}
@@ -642,8 +648,8 @@ export function DraftReviewModal({ draft, onClose, onPublish, onEdit, onDelete, 
                     rows={3} placeholder={t.projects.reviewFixPlaceholder} className="vf-input w-full"
                     style={{ fontSize: "0.9rem", lineHeight: 1.6, background: "var(--surface)" }} />
                   <div className="flex items-center gap-3 flex-wrap" style={{ marginTop: 8 }}>
-                    <button type="button" onClick={() => void copyFix()} disabled={fixBusy || !fixNote.trim()}
-                      className="vf-button-primary" style={{ fontSize: "0.85rem", padding: "0.55rem 1.1rem", opacity: fixBusy || !fixNote.trim() ? 0.5 : 1 }}>
+                    <button type="button" onClick={() => void copyFix()} disabled={fixBusy || !fixNote.trim() || !privateReady}
+                      className="vf-button-primary" style={{ fontSize: "0.85rem", padding: "0.55rem 1.1rem", opacity: fixBusy || !fixNote.trim() || !privateReady ? 0.5 : 1 }}>
                       {t.projects.reviewFixCopy}
                     </button>
                     {fixState === "copied" && (
@@ -662,7 +668,7 @@ export function DraftReviewModal({ draft, onClose, onPublish, onEdit, onDelete, 
                 <div className="flex flex-col gap-4" style={{ padding: "14px 16px 0" }}>
                   <div>
                     <p style={fieldLabelStyle}>{t.projectForm.hintLabel}</p>
-                    <p style={fieldValueStyle}>{draft.demo_user_hint || emptyValue}</p>
+                    <p style={fieldValueStyle}>{privateReady ? draft.demo_user_hint || emptyValue : "…"}</p>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>

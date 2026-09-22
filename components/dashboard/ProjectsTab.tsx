@@ -8,6 +8,7 @@ import { RerecordRequestModal } from "@/components/dashboard/RerecordRequestModa
 import Modal from "@/components/Modal";
 import { detectDemoSource } from "@/lib/demoSource";
 import { AnalyticsEvent, trackClientEvent } from "@/lib/analytics-client";
+import { PUBLIC_PROJECT_SELECT } from "@/lib/projectColumns";
 
 import { useT } from "@/lib/i18n/client";
 import { deleteSwappedAssets } from "./projects/helpers";
@@ -18,6 +19,14 @@ import { AddProjectModal } from "./projects/AddProjectModal";
 import { DraftReviewModal, type DraftPatch } from "./projects/DraftReviewModal";
 import { useDemoStatusSync } from "./projects/useDemoStatusSync";
 import { useDraftArrival } from "./projects/useDraftArrival";
+import {
+  applyPrivate,
+  fetchOwnerPrivate,
+  hasPrivate,
+  mergeRow,
+  type OwnerPrivate,
+  type UserKeyRow,
+} from "./projects/ownerPrivate";
 
 // username comes from DashboardClient's profiles row (the handle public links
 // actually resolve) — deriving it here from auth metadata could hand ShareKit
@@ -50,33 +59,134 @@ export default function ProjectsTab({
   // 빈 주소로 공개돼 촬영이 빠지거나 옛 대본으로 덮어쓰게 된다.
   const [reviewDraftId, setReviewDraftId] = useState<string | null>(null);
   const reviewDraft = reviewDraftId ? drafts.find((d) => d.id === reviewDraftId) ?? null : null;
+  // 수정 창을 **연 순간**의 로봇 메모와 "그 값을 서버에서 받아 봤나". 창은 열릴 때 폼을 한 번
+  // 채우므로, 그 뒤에 비공개 칸이 도착해도 폼엔 빈 칸이 남는다 — 그때 저장하면 "모름"을 "지움"으로
+  // 보내지 않게 연 순간 기준으로 가른다(창을 다시 띄우면 입력 중인 글이 날아가서 안 띄운다).
+  const [editHint, setEditHint] = useState<{ value: string | null; known: boolean }>({ value: null, known: false });
+  function openEdit(p: DBProject) {
+    const live = [...projects, ...drafts].find((x) => x.id === p.id) ?? p;
+    setEditHint({ value: live.demo_user_hint ?? null, known: privLoaded.has(p.id) });
+    setEditProject(live);
+  }
   // ?review 딥링크는 첫 매칭 때 한 번만 모달을 연다 — 닫은 뒤 drafts가 갱신될
   // 때마다 다시 열리면 안 되니까.
   const reviewLinkConsumed = useRef(false);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
-  const [rerecordModal, setRerecordModal] = useState<DBProject | null>(null);
+  // 재촬영 창은 id만 쥐고 목록의 최신 행을 본다 — 대기 대본(비공개 칸)이 창을 연 뒤에 도착할 수 있다.
+  const [rerecordId, setRerecordId] = useState<string | null>(null);
+  const rerecordModal = rerecordId ? projects.find((p) => p.id === rerecordId) ?? null : null;
   const [notice, setNotice] = useState<string | null>(null);
   // 삭제 확인은 브라우저 confirm 대신 모달 — 디자인이 끊기고, 인앱 브라우저에선
   // confirm 창 자체가 막히기도 한다(B19).
   const [deleteTarget, setDeleteTarget] = useState<DBProject | null>(null);
+
+  // 비공개 칸(대본·로그인 답·로봇 메모·촬영 에러 원문·촬영 소스)은 사용자 키로 못 읽어
+  // /api/projects/private에서 따로 받아 id로 합친다(2026-09-23, projects/ownerPrivate.ts).
+  // privLoaded = 서버에서 비공개 칸을 실제로 받아 본 행. 못 받은 행(요청 실패)은 화면에
+  // null로 보여도 DB엔 값이 있을 수 있다 — 수정 저장이 그 null로 로봇 메모를 지우지 않게,
+  // 검토 창이 "대본 없음"이라고 거짓말하지 않게 가른다(렌더에서 봐야 해서 state).
+  const [privLoaded, setPrivLoaded] = useState<ReadonlySet<string>>(() => new Set());
+  const markPrivLoaded = (ids: Iterable<string>) =>
+    setPrivLoaded((prev) => {
+      const next = new Set(prev);
+      for (const id of ids) next.add(id);
+      return next.size === prev.size ? prev : next;
+    });
+  // 목록 재조회 때 "화면에 있던 비공개 칸"을 지키려고 최신 두 목록을 본다.
+  const rowsRef = useRef<DBProject[]>([]);
+  const showAddModalRef = useRef(showAddModal);
+  useEffect(() => {
+    rowsRef.current = [...projects, ...drafts];
+    showAddModalRef.current = showAddModal;
+  });
+
+  // 행별 세대 번호 — 비공개 칸 요청을 시작할 때와 이 화면이 그 칸을 직접 쓸 때 올린다.
+  // 응답이 올 때 세대가 그대로인 행만 얹는다. 늦게 온 옛 응답(빠른 대본 수정 두 번 사이의
+  // 요청 등)이 방금 쓴 새 값을 덮으면, 다음 수정이 그 옛 대본을 기준으로 DB까지 되돌린다.
+  const privGen = useRef(new Map<string, number>());
+  const bumpPrivGen = (id: string) => privGen.current.set(id, (privGen.current.get(id) ?? 0) + 1);
+
+  async function landPrivate(pending: Promise<Map<string, OwnerPrivate> | null>, snap: Map<string, number>) {
+    const priv = await pending;
+    if (!priv?.size) return;
+    const fresh = new Map([...priv].filter(([id]) => privGen.current.get(id) === snap.get(id)));
+    if (!fresh.size) return;
+    markPrivLoaded(fresh.keys());
+    const apply = (prev: DBProject[]) => applyPrivate(prev, fresh);
+    setProjects(apply);
+    setDrafts(apply);
+  }
+
+  // 그 행들(없으면 전부)의 비공개 칸만 서버에서 받아 두 목록에 얹는다. 실패하면 조용히
+  // 넘긴다 — 화면에 있던 값이 그대로 남고, 다음 갱신 때 다시 묻는다.
+  function loadPrivate(ids?: string[]) {
+    for (const id of ids ?? rowsRef.current.map((p) => p.id)) bumpPrivGen(id);
+    return landPrivate(fetchOwnerPrivate(ids), new Map(privGen.current));
+  }
+
+  // realtime·폴링이 부르는 쪽 — 짧은 틈에 몰린 요청을 한 번으로 묶는다(대표 지정 한 번에
+  // 행마다 이벤트가 와도 요청은 하나).
+  const refreshQueue = useRef(new Set<string>());
+  const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  function refreshPrivate(ids: string[]) {
+    for (const id of ids) refreshQueue.current.add(id);
+    if (refreshTimer.current) return;
+    refreshTimer.current = setTimeout(() => {
+      refreshTimer.current = null;
+      const batch = [...refreshQueue.current];
+      refreshQueue.current.clear();
+      if (batch.length) void loadPrivate(batch);
+    }, 250);
+  }
+  useEffect(() => () => {
+    if (refreshTimer.current) clearTimeout(refreshTimer.current);
+  }, []);
+
+  // 검토·수정 창을 여는데 그 행의 비공개 칸을 아직 못 받았으면(첫 요청 실패) 다시 묻는다.
+  const openedId = reviewDraftId ?? editProject?.id ?? rerecordId ?? null;
+  useEffect(() => {
+    if (openedId && !privLoaded.has(openedId)) void loadPrivate([openedId]);
+    // loadPrivate는 매 렌더 새 함수지만 ref만 만진다 — 창이 바뀔 때만 다시 묻는다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openedId]);
+
   // 촬영 상태 배지의 realtime 구독 + 폴백 폴링 (projects/useDemoStatusSync.ts).
-  const { demoPaused, nowMs } = useDemoStatusSync(user.id, projects, drafts, setProjects, setDrafts);
+  const { demoPaused, nowMs } = useDemoStatusSync(
+    user.id, projects, drafts, setProjects, setDrafts, refreshPrivate,
+    (ids) => {
+      for (const id of ids) bumpPrivGen(id);
+      markPrivLoaded(ids);
+    },
+  );
 
   // AI가 초안을 올리는 순간(INSERT) 목록에 바로 꽂는다. 연결 모달이 열려 있었다면
   // — 즉 사용자가 프롬프트를 복사하고 AI 응답을 기다리고 있었다면 — 모달을 닫고
   // 그 초안의 검토 화면으로 데려간다(2026-09-05 요청 6: 수동 이동 + 새로고침 제거).
+  // arriving: 비공개 칸을 받는 사이 realtime과 폴링이 같은 초안을 또 넘겨도 한 번만.
+  const arriving = useRef(new Set<string>());
   useDraftArrival(user.id, {
     active: showAddModal,
-    onArrive: (draft) => {
-      if (drafts.some((d) => d.id === draft.id)) return;
-      setDrafts((prev) => (prev.some((d) => d.id === draft.id) ? prev : [draft, ...prev]));
-      if (showAddModal) {
+    onArrive: async (row) => {
+      if (drafts.some((d) => d.id === row.id) || arriving.current.has(row.id)) return;
+      arriving.current.add(row.id);
+      // 목록엔 **먼저** 꽂는다 — 인제스트는 INSERT 직후 같은 요청에서 demo_url·썸네일을
+      // UPDATE한다. 비공개 칸을 기다리는 동안 그 realtime UPDATE가 오면 합칠 행이 없어 버려진다.
+      setDrafts((prev) => (prev.some((d) => d.id === row.id) ? prev : [mergeRow(undefined, row), ...prev]));
+      // 검토 창이 보여 줄 대본·로그인 답·로봇 메모는 비공개 칸이라 도착 행에 없을 수
+      // 있다 — 창은 그걸 받은 뒤에 연다(못 받으면 창이 "불러오는 중" 자리를 보여 준다).
+      if (hasPrivate(row)) {
+        bumpPrivGen(row.id);
+        markPrivLoaded([row.id]);
+      }
+      else await loadPrivate([row.id]);
+      // 기다리는 사이 사용자가 연결 창을 닫았을 수 있다 — 지금 상태로 가른다.
+      if (showAddModalRef.current) {
         setShowAddModal(false);
-        setReviewDraftId(draft.id);
+        setReviewDraftId(row.id);
       } else {
         // 모달이 닫힌 채로 도착하면 화면을 가로채지 않고 토스트로만 알린다.
-        setNotice(t.projects.draftArrived(draft.title || t.projects.untitled));
+        setNotice(t.projects.draftArrived(row.title || t.projects.untitled));
       }
       router.refresh();
     },
@@ -92,15 +202,24 @@ export default function ProjectsTab({
 
   async function loadProjects() {
     const supabase = createClient();
+    // 공개 칸은 사용자 키로, 비공개 칸은 서버 라우트로 — 같이 받아 id로 합친다.
+    // 비공개 쪽이 실패해도 목록은 뜬다(그 칸만 화면에 있던 값, 처음이면 빈 값).
+    // 비공개 쪽을 기다리느라 목록이 스피너에 묶이지 않게 공개 칸부터 그리고, 비공개 칸은
+    // 도착하면 얹는다(같이 출발시켜 대기 시간은 겹친다).
+    for (const p of rowsRef.current) bumpPrivGen(p.id);
+    const snap = new Map(privGen.current);
+    const priv = fetchOwnerPrivate();
     const { data } = await supabase
-      .from("projects").select("*").eq("user_id", user.id)
+      .from("projects").select(PUBLIC_PROJECT_SELECT).eq("user_id", user.id)
       .order("sort_order", { ascending: true })
       .order("created_at", { ascending: false });
-    const all = (data as DBProject[]) ?? [];
+    const known = new Map(rowsRef.current.map((p) => [p.id, p]));
+    const all = ((data ?? []) as unknown as UserKeyRow[]).map((r) => mergeRow(known.get(r.id), r));
     // 초안은 별도 리스트 — 공개 프로젝트의 순서/드래그 인덱스와 섞이지 않게.
     setProjects(all.filter((p) => !p.is_draft));
     setDrafts(all.filter((p) => p.is_draft));
     setLoading(false);
+    await landPrivate(priv, snap);
   }
 
   useEffect(() => {
@@ -109,10 +228,9 @@ export default function ProjectsTab({
     return () => clearTimeout(t);
   }, [notice]);
 
-  // 마운트 시 1회 데이터 로드. 훅 규칙은 호출된 함수의 await 뒤 setState까지
-  // "동기 setState"로 보수 판정하지만, 실제로는 비동기 응답 후 갱신이라
-  // 캐스케이드 렌더가 없다. 의존성도 의도적으로 마운트 1회.
-  // eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps
+  // 마운트 시 1회 데이터 로드(setState는 전부 응답 뒤라 캐스케이드 렌더가 없다).
+  // 의존성도 의도적으로 마운트 1회.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { loadProjects(); }, []);
 
   // ?review=<id> 로 들어오면 그 초안 카드로 스크롤+하이라이트하고, 검토 모달을
@@ -230,7 +348,7 @@ export default function ProjectsTab({
     // A landed video is locked to one take — collect a change request for an admin
     // instead of silently re-shooting (and re-spending).
     if (project && (project.demo_video_url || project.demo_build_status === "done")) {
-      setRerecordModal(project);
+      setRerecordId(project.id);
       return;
     }
 
@@ -249,7 +367,7 @@ export default function ProjectsTab({
           setProjects(prev => prev.map(p => p.id === id
             ? { ...p, demo_build_status: prevStatus }
             : p));
-          if (project) setRerecordModal(project);
+          if (project) setRerecordId(project.id);
           return;
         }
         throw new Error(body.error || `HTTP ${res.status}`);
@@ -270,23 +388,38 @@ export default function ProjectsTab({
     }
   }
 
-  async function handleEdit(id: string, form: ProjectForm) {
+  async function handleEdit(id: string, form: ProjectForm, hintKnown: boolean) {
     const supabase = createClient();
     // 초안 수정도 이 경로로 온다 — projects에서만 찾으면 초안의 이전 값이 안
     // 잡혀 교체된 파일 청소가 건너뛰어지고, 갱신도 공개 리스트에만 반영됐다.
     const before = projects.find(p => p.id === id) ?? drafts.find(p => p.id === id);
+    const hint = form.demo_user_hint?.trim() || null;
+    const patch: Partial<ProjectForm> = { ...form, demo_user_hint: hint };
+    // 비공개 칸을 못 받아 온 행이면 폼의 빈 로봇 메모는 "모름"이지 "지움"이 아니다 —
+    // 그대로 보내면 DB의 메모를 null로 지운다. 새로 적은 게 없으면 그 칸은 안 보낸다.
+    if (hint === null && !hintKnown) delete patch.demo_user_hint;
+    // 돌려받는 건 공개 칸만 — 비공개 칸까지 달라고(select()) 하면 SQL 적용 뒤 거절된다.
     const { data, error } = await supabase
       .from("projects")
-      .update({ ...form, demo_user_hint: form.demo_user_hint?.trim() || null })
-      .eq("id", id).select().single();
+      .update(patch)
+      .eq("id", id).select(PUBLIC_PROJECT_SELECT).single();
     if (error) {
       // DB 원문("new row violates …")을 화면에 그대로 띄우지 않는다(B16).
       console.error("project edit failed", error);
       throw new Error(t.projectForm.saveFailed);
     }
     if (data) {
-      const updated = data as DBProject;
-      const apply = (prev: DBProject[]) => prev.map(p => (p.id === id ? updated : p));
+      const updated = data as unknown as UserKeyRow;
+      // 기존 행 위에 얹고, 방금 쓴 로봇 메모(비공개 칸)는 보낸 값에서 가져온다.
+      const own = "demo_user_hint" in patch ? { demo_user_hint: hint } : {};
+      // 이 화면이 방금 그 칸을 썼다 — 그 전에 출발한 비공개 칸 응답은 버리고, 아직 한 번도
+      // 못 받은 행이면 다시 묻는다(버린 응답이 그 행의 첫 응답이었을 수 있다).
+      if ("demo_user_hint" in patch) {
+        bumpPrivGen(id);
+        if (!privLoaded.has(id)) refreshPrivate([id]);
+      }
+      const apply = (prev: DBProject[]) =>
+        prev.map(p => (p.id === id ? { ...mergeRow(p, updated), ...own } : p));
       if (updated.is_draft) setDrafts(apply);
       else setProjects(apply);
       if (before) await deleteSwappedAssets(id, before, updated);
@@ -300,10 +433,17 @@ export default function ProjectsTab({
   async function handleSaveDraft(id: string, patch: DraftPatch) {
     const supabase = createClient();
     const { data, error } = await supabase
-      .from("projects").update(patch).eq("id", id).select().single();
+      .from("projects").update(patch).eq("id", id).select(PUBLIC_PROJECT_SELECT).single();
     if (error) throw new Error(error.message);
-    const updated = data as DBProject;
-    setDrafts(prev => prev.map(p => (p.id === id ? updated : p)));
+    // 돌려받는 건 공개 칸뿐 — 방금 고친 대본(비공개 칸)은 보낸 patch에서 얹는다.
+    const updated = data as unknown as UserKeyRow;
+    // 방금 쓴 대본보다 먼저 출발한 비공개 칸 응답이 늦게 와서 되돌리지 않게 — 대본을 쓸 때만.
+    // 버린 응답이 그 행의 첫 응답이었을 수 있으니, 아직 못 받은 행이면 다시 묻는다.
+    if ("demo_script" in patch) {
+      bumpPrivGen(id);
+      if (!privLoaded.has(id)) refreshPrivate([id]);
+    }
+    setDrafts(prev => prev.map(p => (p.id === id ? { ...mergeRow(p, updated), ...patch } : p)));
   }
 
   function handleMoveUp(index: number) {
@@ -341,6 +481,8 @@ export default function ProjectsTab({
       const { error } = await supabase.from("projects")
         .update({ is_featured: false })
         .eq("user_id", user.id)
+        // 이미 false인 행까지 다시 쓰면 행마다 realtime UPDATE가 간다 — 결과는 같으니 대표였던 행만.
+        .eq("is_featured", true)
         .neq("id", id);
       failed = !!error;
     }
@@ -364,9 +506,10 @@ export default function ProjectsTab({
     const supabase = createClient();
     // 화면의 행은 realtime이 놓친 UPDATE(2단계 업로드의 demo_url 등)를 모를 수
     // 있다 — 촬영 판정은 DB의 지금 값으로 한다. 못 읽으면 화면 값으로 진행.
+    // 촬영 판정은 공개 칸만 쓴다 — 비공개 칸(AI가 고친 대본 등)은 기다리지 않고 옮긴 뒤 얹는다.
     const { data: fresh } = await supabase
-      .from("projects").select("*").eq("id", stale.id).maybeSingle();
-    const project = (fresh as DBProject | null) ?? stale;
+      .from("projects").select(PUBLIC_PROJECT_SELECT).eq("id", stale.id).maybeSingle();
+    const project: DBProject = fresh ? mergeRow(stale, fresh as unknown as UserKeyRow) : stale;
     // 인제스트로 들어온 수동 시연 영상(video_url)이 있으면 자동 촬영 생략 — 위
     // handleAdd와 같은 이유(노출 순위상 촬영본이 보이지 않음).
     const source = project.video_url ? null : detectDemoSource(project.demo_url);
@@ -379,6 +522,7 @@ export default function ProjectsTab({
       : base;
     setDrafts(prev => prev.filter(p => p.id !== project.id));
     setProjects(prev => [published, ...prev]);
+    void loadPrivate([project.id]);
 
     const { error } = await supabase.from("projects").update({ is_draft: false, sort_order: sortOrder }).eq("id", project.id);
     if (error) {
@@ -475,7 +619,7 @@ export default function ProjectsTab({
                 draft={d}
                 highlight={d.id === reviewProjectId}
                 isLast={projects.length === 0 && i === drafts.length - 1}
-                onEdit={() => setEditProject(d)}
+                onEdit={() => openEdit(d)}
                 onDelete={() => setDeleteTarget(d)}
                 onPublish={() => handlePublishDraft(d)}
                 onReview={() => setReviewDraftId(d.id)}
@@ -489,7 +633,7 @@ export default function ProjectsTab({
                 demoPaused={demoPaused}
                 nowMs={nowMs}
                 onDelete={() => setDeleteTarget(project)}
-                onEdit={() => setEditProject(project)}
+                onEdit={() => openEdit(project)}
                 onToggleFeatured={() => handleToggleFeatured(project.id)}
                 onRerecord={() => handleRerecord(project.id)}
                 onMoveUp={() => handleMoveUp(i)}
@@ -522,9 +666,10 @@ export default function ProjectsTab({
           // 파일 업로드가 끝나 주소가 늦게 채워지면 미리보기 판정도 다시 한다.
           key={`${reviewDraft.id}:${reviewDraft.demo_url}`}
           draft={reviewDraft}
+          privateReady={privLoaded.has(reviewDraft.id)}
           onClose={() => setReviewDraftId(null)}
           onPublish={() => { const d = reviewDraft; setReviewDraftId(null); handlePublishDraft(d); }}
-          onEdit={() => { setEditProject(reviewDraft); setReviewDraftId(null); }}
+          onEdit={() => { openEdit(reviewDraft); setReviewDraftId(null); }}
           onDelete={() => { setDeleteTarget(reviewDraft); setReviewDraftId(null); }}
           onSave={(patch) => handleSaveDraft(reviewDraft.id, patch)}
         />
@@ -539,19 +684,21 @@ export default function ProjectsTab({
             tags: editProject.tags, demo_url: editProject.demo_url,
             comment: editProject.comment,
             video_url: editProject.video_url ?? "",
-            demo_user_hint: editProject.demo_user_hint ?? null,
+            demo_user_hint: editHint.value,
           }}
           onClose={() => setEditProject(null)}
-          onSubmit={form => handleEdit(editProject.id, form)}
+          onSubmit={form => handleEdit(editProject.id, form, editHint.known)}
           submitLabel={t.projects.submitSave} userId={user.id} />
       )}
 
       {rerecordModal && (
         <RerecordRequestModal
+          // 창은 처음 뜰 때 대기 대본 유무로 모드를 정한다 — 비공개 칸이 늦게 오면 그때 다시 띄운다.
+          key={`${rerecordModal.id}:${privLoaded.has(rerecordModal.id) ? "p" : "-"}`}
           project={rerecordModal}
-          onClose={() => setRerecordModal(null)}
+          onClose={() => setRerecordId(null)}
           onDone={(message) => {
-            setRerecordModal(null);
+            setRerecordId(null);
             setNotice(message);
             // 촬영이 시작되면 상태 배지·대기 대본이 바뀐다 — 서버 상태를 다시 읽는다.
             void loadProjects();

@@ -40,6 +40,7 @@ ok("session → 204", r2.status === 204, `got ${r2.status}`);
 const r3 = await fetch(`${ORIGIN}/api/revalidate`, { headers: { cookie: cookieHeader } });
 ok("GET → 405", r3.status === 405, `got ${r3.status}`);
 
-await anon.auth.signOut().catch(() => {});
+// scope local — 기본값(global)은 이 계정의 실제 브라우저 세션까지 전부 끊는다.
+await anon.auth.signOut({ scope: "local" }).catch(() => {});
 console.log(failed ? `\n${failed} failed` : "\nall passed");
 process.exit(failed ? 1 : 0);

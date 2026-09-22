@@ -29,8 +29,10 @@ const holdOf = (st: DemoScriptStep) => (typeof st.hold === "number" && st.hold >
 const playSeconds = (hold: number) => Math.max(2.2, hold * 1.4);
 const fmtSec = (s: number) => String(Math.round(s * 10) / 10);
 
-export function DemoScriptPanel({ script, onChange }: {
+export function DemoScriptPanel({ script, loading = false, onChange }: {
   script: DemoScript | null;
+  // 대본(비공개 칸)을 아직 못 받았다 — "대본 없음"은 거짓이라 빈 자리만 보여 준다.
+  loading?: boolean;
   onChange?: (next: DemoScript) => void;
 }) {
   const { t } = useT();
@@ -40,6 +42,16 @@ export function DemoScriptPanel({ script, onChange }: {
   const [dir, setDir] = useState<1 | -1>(1);
   const [userPaused, setUserPaused] = useState(false);
   const steps = script?.steps ?? [];
+
+  if (loading && !steps.length) {
+    return (
+      <div
+        aria-busy="true"
+        className="rounded-xl animate-pulse"
+        style={{ height: 72, background: "var(--surface-sunken)" }}
+      />
+    );
+  }
 
   // 대본 없음 = 제작자가 시연 영상을 직접 준 경우(발행 게이트의 유일한 면제).
   if (!steps.length) {

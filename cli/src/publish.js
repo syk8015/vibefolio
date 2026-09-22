@@ -74,7 +74,10 @@ export async function runPublish({ payload = {}, dir = null, screenshotPath = nu
     if (!put.ok) throw new Error(`Failed to upload ${kind} (HTTP ${put.status})`);
   }
 
-  const fin = await fetch(body1.finalizeUrl || `${origin.replace(/\/$/, "")}/api/ingest/finalize`, {
+  // 열쇠(Bearer)를 싣는 요청은 언제나 우리가 아는 origin으로만 보낸다 — 서버 응답의
+  // finalizeUrl을 그대로 따르면, 응답이 조작된 경우 열쇠가 다른 호스트로 간다
+  // (2026-09-22 감사 메모). 서버가 주는 값도 같은 주소라 동작은 그대로다.
+  const fin = await fetch(`${origin.replace(/\/$/, "")}/api/ingest/finalize`, {
     method: "POST",
     headers: authJson,
     body: JSON.stringify({ projectId: body1.projectId }),

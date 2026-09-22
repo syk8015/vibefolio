@@ -5,6 +5,7 @@ import { resolveBuildPayload, DemoSourceError, type BuildPayload } from "@/lib/d
 import { assertSafePublicUrl, SsrfError } from "@/lib/ssrf";
 import { apiError } from "@/lib/apiError";
 import { requireUser } from "@/lib/routeAuth";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getT } from "@/lib/i18n/server";
 import { trackServerEvent } from "@/lib/analytics";
 import { AnalyticsEvent } from "@/lib/analytics-events";
@@ -33,7 +34,7 @@ export async function POST(
 
     const { data: project, error: selErr } = await supabase
       .from("projects")
-      .select("id, user_id, title, demo_url, demo_access")
+      .select("id, user_id, title, demo_url")
       .eq("id", id)
       .single();
     if (selErr || !project) {
@@ -41,6 +42,23 @@ export async function POST(
     }
     if (project.user_id !== user.id) {
       return apiError({ status: 403, message: t.api.projectForbidden, code: "FORBIDDEN" });
+    }
+
+    // demo_access는 비공개 칸이라 사용자 키로는 못 읽는다(lib/projectColumns.ts) —
+    // 주인 확인이 위에서 끝났으니 관리자 권한으로 **읽기만** 한다(user_id를 한 번 더
+    // 건다). 촬영 대기열 진입은 여전히 아래 쿠키 인증 request_demo() 한 곳이다.
+    const { data: priv, error: privErr } = await createAdminClient()
+      .from("projects")
+      .select("demo_access")
+      .eq("id", id)
+      .eq("user_id", user.id)
+      .single();
+    if (privErr || !priv) {
+      // 두 읽기 사이에 지워졌으면 404, 그 밖의 실패는 DB 문제다.
+      if (!privErr || privErr.code === "PGRST116") {
+        return apiError({ status: 404, message: t.api.projectNotFound, code: "NOT_FOUND" });
+      }
+      return apiError({ status: 500, message: t.api.retryLater, code: "INTERNAL", cause: privErr });
     }
 
     const source = detectDemoSource(project.demo_url);
@@ -93,7 +111,7 @@ export async function POST(
     // private-host / SSRF treatment as demo_url. The worker re-checks at the
     // sink and its netguard is the final backstop. Storage only — the payload
     // stays untouched; the worker reads demo_access off the job row.
-    const demoAccess = normalizeDemoAccess(project.demo_access);
+    const demoAccess = normalizeDemoAccess(priv.demo_access);
     if (demoAccess.issue === "bad-url") {
       return apiError({ status: 400, message: t.api.demoAccessBadUrl, code: "BAD_DEMO_ACCESS" });
     }

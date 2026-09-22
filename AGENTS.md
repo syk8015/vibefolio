@@ -10,6 +10,8 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - 한국어 UI 카피를 추가·수정하면 커밋 전 `npm run font:subset`(prebuild `font:check`가 막아준다).
 - API 실패 응답은 `lib/apiError.ts`의 `apiError()` 한 가지 모양. 인증 게이트는 `lib/routeAuth.ts`(`requireUser`/`requireAdmin`)·`lib/workerAuth.ts`(`requireWorker`).
 
+- **`projects`는 칸 단위로 읽기가 갈린다**(2026-09-23). RLS는 행 단위라 공개 작품의 모든 칸이 익명 키로 읽혔다 → `supabase/migration_private_columns.sql`이 anon·authenticated SELECT를 `lib/projectColumns.ts` `PUBLIC_PROJECT_COLUMNS`로만 허락한다. 비공개 칸(`demo_access`·`demo_user_hint`·`demo_script`·`pending_*`·`demo_build_error`·`demo_source_value`)은 **주인이라도 사용자 키로 못 읽는다** — 서버가 주인 확인 뒤 관리자 권한으로 읽고, 대시보드는 `/api/projects/private`로 받는다. 사용자 키로 projects를 `select("*")`/`select()` 하지 말 것. **칸을 새로 만들면** 공개 칸은 PUBLIC + GRANT SQL, 아니면 PRIVATE(`npm test`의 `probe-project-columns`가 어긋남을 막는다).
+
 # Nookframe Connect (AI 인제스트 · 토큰)
 
 외부 AI가 로그인된 유저 대신 프로젝트를 **초안**으로 밀어넣는 경로. `app/api/ingest`, `app/api/tokens/*`, `lib/apiToken.ts`, `lib/upload-safety.ts`, `cli/`, `app/publish/*`. 전체 레퍼런스는 `docs/nookframe-connect.md`.

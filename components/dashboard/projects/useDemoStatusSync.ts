@@ -1,22 +1,42 @@
-import { useState, useEffect, type Dispatch, type SetStateAction } from "react";
+import { useState, useEffect, useRef, type Dispatch, type SetStateAction } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { type DBProject, DEMO_IN_FLIGHT, DEMO_POLL_MS, DEMO_POLL_PAUSED_MS } from "./types";
+import { hasPrivate, mayTouchPrivate, mergeRow } from "./ownerPrivate";
 
 // 촬영 상태 배지 동기화 훅. ProjectsTab에서 이동(분해 4/N) — realtime 구독과
 // 폴백 폴링이 한 쌍으로만 의미가 있어 함께 산다. 두 리스트(setProjects/setDrafts)
 // 모두에 같은 머지를 흘려보내는 구조는 원본 그대로.
+//
+// 비공개 칸(촬영 에러 원문·촬영 소스·대본)은 사용자 키로 못 읽는다(2026-09-23,
+// lib/projectColumns.ts). 여기 들어오는 갱신은 공개 칸뿐이라 기존 행 위에 얹기만 하고,
+// 비공개 칸도 바뀌었을 만한 갱신(상태 전이·새 대본·초안)이면 refreshPrivate로 그 행만
+// 서버에 다시 묻는다(ownerPrivate.ts mayTouchPrivate).
 export function useDemoStatusSync(
   userId: string,
   projects: DBProject[],
   drafts: DBProject[],
   setProjects: Dispatch<SetStateAction<DBProject[]>>,
   setDrafts: Dispatch<SetStateAction<DBProject[]>>,
+  refreshPrivate: (ids: string[]) => void,
+  // 페이로드에 비공개 칸이 통째로 실려 왔을 때(SQL 적용 전) — 그 값이 최신이니 "받음"으로
+  // 표시하고, 그 전에 출발한 비공개 칸 응답이 이 값을 덮지 않게 한다.
+  notePrivateArrived: (ids: string[]) => void,
 ) {
   // 자동 시연이 일시정지면 큐는 그대로 쌓이므로, 스피너 대신 '촬영 대기 중'으로 알린다.
   const [demoPaused, setDemoPaused] = useState(false);
   // 경과 시간 판정용 시각. 렌더 중 Date.now()는 불순(재렌더 시점에 따라 결과가
   // 흔들림)이라 마운트 때 한 번 고정하고 이후 폴링 주기에 실어 갱신한다.
   const [nowMs, setNowMs] = useState(() => Date.now());
+  // 구독·폴링은 한 번 걸어 두고 오래 산다 — "직전 값과 달라졌나"를 판정할 최신 행과
+  // 최신 콜백은 ref로 본다(매 렌더마다 구독을 다시 걸지 않게).
+  const latestRows = useRef<DBProject[]>([]);
+  const refreshRef = useRef(refreshPrivate);
+  const arrivedRef = useRef(notePrivateArrived);
+  useEffect(() => {
+    latestRows.current = [...projects, ...drafts];
+    refreshRef.current = refreshPrivate;
+    arrivedRef.current = notePrivateArrived;
+  });
 
   // Live-update the build-status badge as the recording job progresses.
   // Requires realtime publication on the projects table; silent no-op otherwise.
@@ -33,11 +53,15 @@ export function useDemoStatusSync(
           filter: `user_id=eq.${userId}`,
         },
         (payload) => {
-          const updated = payload.new as DBProject;
+          // SQL 적용 뒤엔 realtime이 주인도 못 읽는 칸을 빼고 보낸다 — 갈아 끼우지 말고 얹는다.
+          const updated = payload.new as Partial<DBProject> & { id: string };
+          const before = latestRows.current.find((p) => p.id === updated.id);
           const merge = (prev: DBProject[]) =>
-            prev.map((p) => (p.id === updated.id ? { ...p, ...updated } : p));
+            prev.map((p) => (p.id === updated.id ? mergeRow(p, updated) : p));
           setProjects(merge);
           setDrafts(merge);
+          if (hasPrivate(updated)) arrivedRef.current([updated.id]);
+          else if (before && mayTouchPrivate(before, updated)) refreshRef.current([updated.id]);
         },
       )
       .subscribe();
@@ -91,7 +115,9 @@ export function useDemoStatusSync(
         .from("projects")
         // demo_status_changed_at을 같이 안 가져오면 pending→building 전이 후에도
         // 옛 타임스탬프가 남아 "오래 걸려요"가 너무 일찍 뜬다.
-        .select("id, demo_build_status, demo_build_error, demo_video_url, demo_generated_at, demo_status_changed_at")
+        // demo_build_error는 비공개 칸이라 여기서 못 읽는다 — 상태가 바뀐 행만 아래에서
+        // refreshPrivate로 받아 온다(실패 팝오버의 원인 문구가 그 칸에서 나온다).
+        .select("id, demo_build_status, demo_video_url, demo_generated_at, demo_status_changed_at")
         .in("id", ids);
       if (cancelled || !data) return;
       // 찍는 중(building·recording·editing)인 행이 하나라도 있으면 빠른 주기 유지.
@@ -101,13 +127,20 @@ export function useDemoStatusSync(
       const fresh = new Map<string, Partial<DBProject>>(
         (data as Partial<DBProject>[]).map((r) => [r.id as string, r]),
       );
+      const stale = latestRows.current
+        .filter((p) => {
+          const next = fresh.get(p.id);
+          return !!next && mayTouchPrivate(p, next);
+        })
+        .map((p) => p.id);
       const merge = (prev: DBProject[]) =>
         prev.map((p) => {
           const next = fresh.get(p.id);
-          return next ? { ...p, ...next } : p;
+          return next ? mergeRow(p, next) : p;
         });
       setProjects(merge);
       setDrafts(merge);
+      if (stale.length) refreshRef.current(stale);
     }
 
     // 프로젝트 행은 방금 loadProjects가 실어왔으니 재조회가 불필요하지만, 일시정지
