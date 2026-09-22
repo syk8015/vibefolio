@@ -18,6 +18,11 @@ const getServerTheme = (): Theme => "dark";
 //
 // username을 주면 "링크 복사" 줄이 생긴다(명함 페이지). 랜딩처럼 복사할 대상이
 // 없는 화면은 생략한다.
+//
+// 언어 버튼은 명함이 아닌 화면(랜딩·로그인 홈)에서만 ⋯ 밖으로 꺼낸다(09-22 실브라우저
+// #7: PC·가입·로그인엔 EN이 바로 보이는데 폰 랜딩만 메뉴 속이라 영어 방문자가 못 찾음).
+// 테두리 없는 글자 하나라 "버튼이 너무 많다"(08-19)를 되살리지 않는다. 명함은 방문자가
+// 남의 페이지에서 언어를 찾을 일이 드물어 그대로 메뉴 안.
 export default function MobileNavMenu({
   username,
   showLogin = false,
@@ -26,6 +31,7 @@ export default function MobileNavMenu({
   showLogin?: boolean;
 }) {
   const { t, locale, setLocale, ready } = useT();
+  const languageOutside = !username;
   const [open, setOpen] = useState(false);
   const theme = useSyncExternalStore(subscribeTheme, getInitialTheme, getServerTheme);
   const [copied, setCopied] = useState(false);
@@ -61,9 +67,9 @@ export default function MobileNavMenu({
   }
 
   // 언어 쿠키를 읽기 전에는 라벨을 확정할 수 없다 — 자리만 잡아 레이아웃이 튀지 않게.
-  if (!ready) return <div style={{ width: 34, height: 34 }} />;
+  if (!ready) return <div style={{ width: languageOutside ? 34 + 4 + 34 : 34, height: 34 }} />;
 
-  return (
+  const menu = (
     <div ref={wrapRef} style={{ position: "relative" }}>
       <button
         type="button"
@@ -141,6 +147,7 @@ export default function MobileNavMenu({
               )
             }
           />
+          {!languageOutside && (
           <MenuRow
             onClick={() => {
               setLocale(locale === "ko" ? "en" : "ko");
@@ -154,6 +161,7 @@ export default function MobileNavMenu({
               </>
             }
           />
+          )}
           {showLogin && (
             <MenuRow
               href="/login"
@@ -168,6 +176,37 @@ export default function MobileNavMenu({
           )}
         </div>
       )}
+    </div>
+  );
+
+  if (!languageOutside) return menu;
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+      {/* 라벨은 LanguageToggle과 같은 규칙 — "누르면 바뀔 언어"(ko → EN, en → 한). */}
+      <button
+        type="button"
+        onClick={() => setLocale(locale === "ko" ? "en" : "ko")}
+        aria-label={t.common.switchLanguage}
+        style={{
+          width: 34,
+          height: 34,
+          border: "none",
+          background: "transparent",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          cursor: "pointer",
+          color: "var(--text-secondary)",
+          fontFamily: "var(--font-nunito)",
+          fontSize: 12,
+          fontWeight: 700,
+          letterSpacing: "0.02em",
+          flexShrink: 0,
+        }}
+      >
+        {locale === "ko" ? "EN" : "한"}
+      </button>
+      {menu}
     </div>
   );
 }
