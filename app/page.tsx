@@ -98,10 +98,20 @@ export default async function LandingPage() {
     getT(),
   ]);
 
+  // 이름·아바타는 profiles가 정본이다. user_metadata는 가입 때(구글 값) 찍힌
+  // 사본이라 명함 탭에서 이름을 바꿔도 여기만 옛 이름이 남았다(2026-09-22 실측).
+  // 행이 아직 없으면(온보딩 전) metadata로 떨어진다.
+  const { data: ownProfile } = user
+    ? await supabase
+        .from("profiles")
+        .select("username, name, avatar_url")
+        .eq("id", user.id)
+        .maybeSingle()
+    : { data: null };
   const meta = user?.user_metadata || {};
-  const username = meta.username || user?.email?.split("@")[0] || "";
-  const name = meta.name || username;
-  const avatarUrl = meta.avatar_url as string | undefined;
+  const username = ownProfile?.username || meta.username || user?.email?.split("@")[0] || "";
+  const name = ownProfile?.name || meta.name || username;
+  const avatarUrl = (ownProfile?.avatar_url || meta.avatar_url || undefined) as string | undefined;
 
   // Only profiles with enough projects (≥3) make a convincing interactive
   // showcase, so the PiP section draws from that pool.
