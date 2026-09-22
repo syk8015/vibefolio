@@ -1,5 +1,6 @@
 import { unstable_cache } from "next/cache";
 import { createPublicClient, throwIfReadFailed } from "@/lib/supabase/public";
+import { detectVideoKind } from "@/lib/video";
 
 // Shared public reads for the per-project watch page (/{username}/{id}). Kept
 // separate from the theater page's own private copies in app/[username]/page.tsx
@@ -19,6 +20,7 @@ export type WatchProject = {
   title: string;
   description: string | null;
   content_type: string | null;
+  video_url: string | null;
   demo_video_url: string | null;
   demo_generated_at: string | null;
   thumbnail: string | null;
@@ -42,6 +44,32 @@ export function posterFromDemo(
   return generatedAt ? `${url}?v=${encodeURIComponent(generatedAt)}` : url;
 }
 
+// 작품 페이지·OG가 틀 영상. 명함(TheaterStage)과 같은 순서 — 사람이 직접 준
+// 영상(video_url)이 자동 촬영(demo_video_url)보다 먼저다. 단 직접 영상은 파일
+// 주소(mp4/webm/mov)일 때만 쓴다: 유튜브·비메오는 <video>로도 og:video로도 못
+// 튼다 → 자동 촬영이 있으면 그것으로, 없으면 영상 없음. auto=false면 "사람이
+// 안 찍었다" 문구를 붙이면 안 된다(직접 찍은 영상이니까).
+export type WatchVideo = { url: string; type: string; auto: boolean };
+
+function versioned(url: string, at: string | null): string {
+  return at ? `${url}?v=${encodeURIComponent(at)}` : url;
+}
+
+export function watchVideo(
+  p: Pick<WatchProject, "video_url" | "demo_video_url" | "demo_generated_at">,
+): WatchVideo | null {
+  if (p.video_url && detectVideoKind(p.video_url) === "direct") {
+    const ext = p.video_url.split("?")[0].match(/\.(\w+)$/)?.[1]?.toLowerCase();
+    const type = ext === "webm" ? "video/webm" : ext === "mov" ? "video/quicktime" : "video/mp4";
+    return { url: p.video_url, type, auto: false };
+  }
+  // 재촬영도 키가 바뀌지만, 고정 키인 Supabase 폴백 경로를 위해 ?v=를 붙인다.
+  if (p.demo_video_url) {
+    return { url: versioned(p.demo_video_url, p.demo_generated_at), type: "video/mp4", auto: true };
+  }
+  return null;
+}
+
 export const getProfileByUsername = unstable_cache(
   async (username: string): Promise<WatchProfile | null> => {
     const supabase = createPublicClient();
@@ -63,7 +91,7 @@ export const getProjectById = unstable_cache(
     const { data, error } = await supabase
       .from("projects")
       .select(
-        "id, title, description, content_type, demo_video_url, demo_generated_at, thumbnail, demo_build_status",
+        "id, title, description, content_type, video_url, demo_video_url, demo_generated_at, thumbnail, demo_build_status",
       )
       .eq("user_id", userId)
       .eq("id", projectId)

@@ -1,5 +1,5 @@
 import { ImageResponse } from "next/og";
-import { getProfileByUsername, getProjectById, posterFromDemo } from "@/lib/portfolio";
+import { getProfileByUsername, getProjectById, posterFromDemo, watchVideo } from "@/lib/portfolio";
 import { safeFetch, readResponseCapped } from "@/lib/ssrf";
 
 // og:image for the watch page — the poster frame with a play button + label, so a
@@ -59,9 +59,10 @@ export default async function Image({
       const project = await getProjectById(profile.id, slug);
       if (project) {
         title = project.title;
-        hasVideo = !!project.demo_video_url;
+        const clip = watchVideo(project);
+        hasVideo = !!clip;
         poster =
-          posterFromDemo(project.demo_video_url, project.demo_generated_at) ||
+          (clip?.auto !== false ? posterFromDemo(project.demo_video_url, project.demo_generated_at) : undefined) ||
           project.thumbnail ||
           undefined;
       }

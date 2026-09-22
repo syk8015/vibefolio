@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import type { Metadata } from "next";
-import { getProfileByUsername, getProjectById, posterFromDemo } from "@/lib/portfolio";
+import { getProfileByUsername, getProjectById, posterFromDemo, watchVideo } from "@/lib/portfolio";
 import WatchPing from "@/components/WatchPing";
 import ReportButton from "@/components/ReportButton";
 import Logo from "@/components/Logo";
@@ -39,12 +39,6 @@ async function load(username: string, slug: string) {
   return { profile, project };
 }
 
-// Re-records overwrite storage keys are versioned, but keep the ?v= cache-bust for
-// the Supabase fallback path (fixed key) where the URL is otherwise stable.
-function versioned(url: string, at: string | null): string {
-  return at ? `${url}?v=${encodeURIComponent(at)}` : url;
-}
-
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { username, slug } = await params;
   const data = await load(username, slug);
@@ -55,13 +49,14 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const title = `${project.title} · ${handle} on Nookframe`;
   // 설명은 3줄로 끊어 쓴 카피라 줄바꿈을 품는다 — 화면은 그대로 살리고,
   // meta·OG처럼 기계가 읽는 자리에서는 한 줄로 눕힌다(lib/text.ts).
-  const video = project.demo_video_url
-    ? versioned(project.demo_video_url, project.demo_generated_at)
-    : undefined;
+  const clip = watchVideo(project);
+  const video = clip?.url;
   const description = project.description
     ? oneLine(project.description)
-    : video
-      ? `${CAPTION}. Watch ${handle}'s demo on Nookframe.`
+    : clip
+      ? clip.auto
+        ? `${CAPTION}. Watch ${handle}'s demo on Nookframe.`
+        : `Watch ${handle}'s demo on Nookframe.`
       : `${project.title} by ${handle} on Nookframe.`;
   const watchUrl = `${SITE}/${profile.username}/${project.id}`;
 
@@ -84,7 +79,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
       // og:video and shows the poster card — creators use the Share Kit's native
       // upload path for X.)
       videos: video
-        ? [{ url: video, secureUrl: video, type: "video/mp4", width: 1280, height: 720 }]
+        ? [{ url: video, secureUrl: video, type: clip?.type, width: 1280, height: 720 }]
         : undefined,
     },
     twitter: {
@@ -104,13 +99,13 @@ export default async function WatchPage({ params }: Params) {
   const handle = `@${profile.username}`;
   const name = profile.name || profile.username;
   const initial = name.charAt(0).toUpperCase();
+  const clip = watchVideo(project);
+  // 직접 올린 영상이면 자동 촬영 포스터는 다른 그림이다 → 대표 이미지로.
   const poster =
-    posterFromDemo(project.demo_video_url, project.demo_generated_at) ||
+    (clip?.auto !== false ? posterFromDemo(project.demo_video_url, project.demo_generated_at) : undefined) ||
     project.thumbnail ||
     undefined;
-  const video = project.demo_video_url
-    ? versioned(project.demo_video_url, project.demo_generated_at)
-    : undefined;
+  const video = clip?.url;
   const rendering = !video && FILMING.includes(project.demo_build_status ?? "");
 
   // 구조화 데이터. 영상이 실제로 있을 때만 VideoObject를 쓴다 — 구글이
@@ -125,7 +120,7 @@ export default async function WatchPage({ params }: Params) {
     url: profileUrl,
   };
   const jsonLd =
-    video && project.demo_generated_at
+    clip?.auto && project.demo_generated_at
       ? {
           "@context": "https://schema.org",
           "@type": "VideoObject",
@@ -222,8 +217,9 @@ export default async function WatchPage({ params }: Params) {
           </div>
         )}
 
-        {/* Caption — the source claim. 실제 영상이 있을 때만 참이다. */}
-        {video && (
+        {/* Caption — the source claim. 자동 촬영 영상일 때만 참이다
+            (직접 올린 영상은 사람이 찍은 것). */}
+        {clip?.auto && (
           <p
             className="mt-4 text-center vf-mono"
             style={{ color: "var(--text-primary)", opacity: 0.5, fontSize: "0.8rem", letterSpacing: "0.01em" }}
