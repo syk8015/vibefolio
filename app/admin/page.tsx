@@ -64,6 +64,26 @@ function topCounts(map: Record<string, number>, n: number): { label: string; cou
     .map(([label, count]) => ({ label, count }));
 }
 
+// PostgREST는 한 번에 최대 1000행만 돌려준다(프로젝트 기본값). 30일 이벤트·방문을
+// 한 번에 읽던 때는 1000건을 넘는 순간 관제탑이 조용히 일부만 셌다(2026-09-22 운영1 —
+// 랜딩 방문마다 이벤트가 쌓이기 시작했다). 페이지를 넘겨 전부 읽되, 관제탑 한 번 여는
+// 비용이 끝없이 커지지 않게 상한을 두고 넘으면 화면에 "잘림"을 띄운다.
+const PAGE_ROWS = 1000;
+const MAX_ROWS = 50_000;
+type Page<T> = PromiseLike<{ data: T[] | null; error: { code?: string; message: string } | null }>;
+async function readAllRows<T>(
+  page: (from: number, to: number) => Page<T>,
+): Promise<{ data: T[]; error: { code?: string; message: string } | null; truncated: boolean }> {
+  const out: T[] = [];
+  for (let from = 0; from < MAX_ROWS; from += PAGE_ROWS) {
+    const { data, error } = await page(from, from + PAGE_ROWS - 1);
+    if (error) return { data: out, error, truncated: false };
+    out.push(...(data ?? []));
+    if (!data || data.length < PAGE_ROWS) return { data: out, error: null, truncated: false };
+  }
+  return { data: out, error: null, truncated: true };
+}
+
 function bump(map: Record<string, number>, key: string) {
   map[key] = (map[key] ?? 0) + 1;
 }
@@ -106,7 +126,13 @@ export default async function AdminPage() {
       .select("worker_last_seen_at, worker_status, demo_paused, alerts_state")
       .eq("id", "singleton")
       .single(),
-    admin.from("projects").select("demo_build_status").not("demo_build_status", "is", null),
+    readAllRows((from, to) =>
+      admin
+        .from("projects")
+        .select("demo_build_status")
+        .not("demo_build_status", "is", null)
+        .order("id")
+        .range(from, to)),
     admin
       .from("projects")
       .select("id, user_id, title, demo_build_status, demo_status_changed_at, demo_build_error")
@@ -126,19 +152,24 @@ export default async function AdminPage() {
       .eq("status", "open")
       .order("created_at", { ascending: false })
       .limit(20),
-    admin
-      .from("analytics_events")
-      .select("event, created_at, props")
-      .gte("created_at", since)
-      .order("created_at", { ascending: true }),
+    readAllRows((from, to) =>
+      admin
+        .from("analytics_events")
+        .select("event, created_at, props")
+        .gte("created_at", since)
+        .order("created_at", { ascending: true })
+        .order("id")
+        .range(from, to)),
     // ⚠️ portfolio_views is a remote-only table (no local SQL) and its timestamp
     // column is `viewed_at`, not created_at — checked against the live schema.
-    admin
-      .from("portfolio_views")
-      .select("referrer, country, viewed_at, user_agent")
-      .gte("viewed_at", since)
-      .order("viewed_at", { ascending: false })
-      .limit(5000),
+    readAllRows((from, to) =>
+      admin
+        .from("portfolio_views")
+        .select("referrer, country, viewed_at, user_agent")
+        .gte("viewed_at", since)
+        .order("viewed_at", { ascending: false })
+        .order("id")
+        .range(from, to)),
   ]);
 
   // ── approval queue ─────────────────────────────────────────────────────────
@@ -661,6 +692,7 @@ export default async function AdminPage() {
           aside={
             <MonoAside>
               {metricsMissing ? "" : `가입 ${signups30} · `}조회 {views.length} · {WINDOW_DAYS}일
+              {eventsRes.truncated || viewsRes.truncated ? ` · ${MAX_ROWS.toLocaleString()}건에서 잘림` : ""}
             </MonoAside>
           }
         >
