@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useLayoutEffect } from "react";
 import { useT } from "@/lib/i18n/client";
+import { applyTheme, getInitialTheme } from "@/lib/theme";
 
 // Branded fallback shown by the route-level error boundaries (app/error.tsx,
 // app/dashboard/error.tsx, app/[username]/error.tsx). These render INSIDE the
@@ -26,6 +28,12 @@ export default function ErrorState({
   digest?: string;
 }) {
   const { t } = useT();
+  // 404·에러 응답은 Next가 문서를 통째로 클라이언트에서 다시 그려서(<html
+  // id="__next_error__">) layout 부트 스크립트가 붙인 data-theme이 사라진다 →
+  // 다크 사용자에게 이 화면만 밝게 나왔다(2026-09-22 실측). 페인트 전에 되돌린다.
+  useLayoutEffect(() => {
+    if (!document.documentElement.getAttribute("data-theme")) applyTheme(getInitialTheme());
+  }, []);
   return (
     <div
       style={{
@@ -57,7 +65,7 @@ export default function ErrorState({
 
         <h1
           className="vf-serif-display"
-          style={{ fontSize: "1.5rem", lineHeight: 1.3, marginBottom: "0.75rem" }}
+          style={{ fontSize: "1.5rem", lineHeight: 1.3, marginBottom: "0.75rem", wordBreak: "keep-all" }}
         >
           {title}
         </h1>
@@ -67,6 +75,9 @@ export default function ErrorState({
             color: "var(--text-secondary)",
             fontSize: "0.92rem",
             lineHeight: 1.6,
+            // 한국어가 "…홈 / 으로"처럼 단어 중간에서 꺾이지 않게.
+            wordBreak: "keep-all",
+            overflowWrap: "break-word",
             marginBottom: "1.75rem",
           }}
         >
