@@ -773,6 +773,8 @@ export const ko = {
       `demoScript가 ${n}스텝뿐이라 영상이 되기엔 부실해요. 최소 4스텝(권장 5~8, 최대 10)을 중요한 순서대로 주세요 — 1번은 이 작품에서 절대 빠지면 안 되는 기능이어야 합니다.`,
     scriptStepsVague: (solid: number, total: number) =>
       `demoScript의 스텝 ${total}개 중 실제로 찍을 수 있는 건 ${solid}개뿐이에요. 스텝마다 **무엇을 하는지**(action: click|type|drag|scroll|hover|draw|focus)와 **어디서 하는지**(selector — 이 앱을 만든 당신은 정확한 CSS 셀렉터를 알고 있습니다. 화면만 안다면 where에 눈으로 찾는 법)를 둘 다 넣어 주세요. goal만 적힌 줄은 대본이 아니라 목차라서, 로봇이 결국 화면을 픽셀로 더듬어 추측하게 됩니다 — 영상이 망가지는 가장 흔한 경로예요. 최소 3개 스텝이 이 조건을 채워야 저장합니다.`,
+    demoAccessSecretParam: (name: string): string =>
+      `demoAccess에 비밀값처럼 보이는 이름("${name}")이 있어요 — 토큰·비밀번호·키는 받지 않아요. 공개된 작품의 이 칸은 누구나 읽을 수 있어서 넣는 순간 새어 나갑니다. 비밀 없이 들어가는 게스트/데모 경로({ "url": "/demo", "params": {"guest":"1"} })를 주세요.`,
     // 대본 점검표(2026-09-04) — 저장은 됐지만 더 좋아질 수 있는 곳. 거절이 아니라
     // "같은 URL(또는 draftId)로 다시 publish하면 이 초안이 갱신된다"는 전제의 고쳐-다시-올리기 안내.
     scriptReview: {

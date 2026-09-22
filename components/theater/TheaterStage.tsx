@@ -721,6 +721,8 @@ function MobileHeroMedia({ project }: { project: Project }) {
   // blur를 통과하면 정지/재생을 눈으로 가릴 수 없는 반면 다운로드는 291KB가
   // 그대로 두 배였다(2026-08-19 실측 + 전후 캡처 육안 확인).
   const posterSrc = project.poster ?? project.thumbnail;
+  // eager: 폰 첫 화면에서 가장 큰 그림(LCP)이 이 배경이다. next/image 기본값
+  // lazy로 두면 늦게 받아 LCP가 6.3초까지 밀렸다(2026-09-22 Lighthouse 실측).
   const ambient = (
     <Image
       src={posterSrc}
@@ -728,6 +730,7 @@ function MobileHeroMedia({ project }: { project: Project }) {
       alt=""
       aria-hidden
       fill
+      loading="eager"
       sizes="100vw"
       className="vf-mhero-ambient"
     />
