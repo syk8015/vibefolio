@@ -749,3 +749,4 @@ SNS/검색 로봇은 JS를 안 돌려 OG·크롤러 노출 문구(루트 descrip
 | email.declinedNote | 운영자 메모: {note} | Note from the team: {note} | 신규 · R4 |
 | email.declinedNext | 내용을 고친 뒤 대시보드에서 다시 요청할 수 있어요. 궁금한 점은 이 메일에 회신해 주세요. | You can make changes and request again from your dashboard. Questions? Just reply to this email. | 신규 · R4 |
 | email.declinedCta | 대시보드에서 보기 | Open dashboard | 신규 · R4 |
+| projects.pausedTip · publishedNoticePaused · progressPausedBody | …보통 24시간 안에 찍혀요 / 보통 24시간 안에 차례가 와서… | …usually within 24 hours… | 교체 · 촬영 대기 기대치(D3, 사용자 09-22 "24시간") |
