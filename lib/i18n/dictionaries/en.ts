@@ -749,6 +749,8 @@ export const en: Dictionary = {
         : 'A bare { "impossible": true } is not accepted — add a note explaining why a guest path is fundamentally impossible (12+ characters). e.g. { "impossible": true, "note": "end-to-end encrypted; without a key the screen renders empty" }. Only the landing page gets filmed in that case, so attaching your own demo video is strongly recommended.',
     targetDeviceRequired:
       'targetDevice is required — answer which screen this app was mainly designed for: "mobile" (built for phone screens — a narrow single column, a bottom tab bar, touch-first) or "desktop" (built for a computer browser — wide layouts, sidebars, hover). If it works on both, pick the one it was designed for first. This is a different question from contentType ("mobile" there is the phone-app category). The answer decides whether the draft preview is framed as a phone or a desktop screen.',
+    targetDeviceInvalid: (got: string) =>
+      `targetDevice must be "mobile" or "desktop" — got ${got}. Use "mobile" if the app was designed for phone screens, "desktop" if it was designed for a computer browser, and send it again.`,
     rerecordPendingNext: "New script received. It starts nothing yet — the owner reviews it in their dashboard and presses re-record.",
     rerecordNoPendingScript: "No new script is waiting. Hand the re-record prompt to your AI first — press this once it has submitted a new script.",
     rerecordAlreadyUsed: "This project already used its one self-serve re-record. Further takes need admin approval.",

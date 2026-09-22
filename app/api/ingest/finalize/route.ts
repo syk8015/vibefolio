@@ -32,8 +32,10 @@ export async function POST(req: NextRequest) {
     if (auth.fail) return auth.fail;
     const { userId, t } = auth;
 
-    // 2. 레이트리밋 — ingest와 같은 버킷(2단계 발행 = 2히트, 상한 내 여유 충분).
-    const allowed = await rateLimit({ name: "ingest", key: userId, windowSeconds: 3600, max: 20 });
+    // 2. 레이트리밋 — 자기 버킷(2026-09-22, 출시 점검 R5). 전엔 ingest와 같은 버킷이라
+    // 1단계가 한도를 다 쓴 순간 파일을 다 올려 놓고 연결만 429로 막혀 빈 초안이 남았다.
+    // 1단계(ingest 20/h)가 이미 문지기라 여기선 같은 크기의 별도 예산이면 충분하다.
+    const allowed = await rateLimit({ name: "ingest-finalize", key: userId, windowSeconds: 3600, max: 20 });
     if (!allowed) {
       return apiError({ status: 429, message: t.api.tooManyRequests, code: "RATE_LIMITED" });
     }

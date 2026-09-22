@@ -75,12 +75,16 @@ export async function POST(req: NextRequest) {
     // 2. 레이트리밋 — user_id 키(토큰 여러 개로 우회 못 하게). 사전 검사(`?dryRun=1`,
     // = `nookframe check`)는 아무것도 저장하지 않으므로 발행 버킷(20/h)을 쓰지 않는다 —
     // 검사 몇 번에 발행 예산이 마르면 "올리기 전에 확인해라"와 어긋난다. 버킷을 고르려면
-    // 본문 파싱(3단계) 전에 알아야 해서 쿼리로 받는다(payload.dryRun도 뒤에서 받아주되,
-    // 그 경로는 발행 버킷을 한 번 쓴다 — 저장은 여전히 안 한다).
+    // 본문 파싱(3단계) 전에 알아야 해서 쿼리로 받는다.
+    //
+    // 발행 버킷(20/h)은 여기서 쓰지 않고 **게이트를 다 통과한 뒤**(6.6단계) 쓴다(2026-09-22,
+    // 출시 점검 R5). 게이트는 "AI가 거절 사유를 보고 고쳐서 다시 보낸다"는 설계라, 거절까지
+    // 발행 한도를 깎으면 check를 안 쓰는 AI(웹 챗·옛 프롬프트)가 몇 번 고치다 한 시간을
+    // 통째로 막혔다. 여기엔 남용만 막는 느슨한 시도 버킷(60/h)을 둔다.
     const dryRunQuery = req.nextUrl.searchParams.get("dryRun") === "1";
     const allowed = dryRunQuery
       ? await rateLimit({ name: "ingest-check", key: userId, windowSeconds: 3600, max: 60 })
-      : await rateLimit({ name: "ingest", key: userId, windowSeconds: 3600, max: 20 });
+      : await rateLimit({ name: "ingest-attempt", key: userId, windowSeconds: 3600, max: 60 });
     if (!allowed) {
       return apiError({ status: 429, message: t.api.tooManyRequests, code: "RATE_LIMITED" });
     }
@@ -157,8 +161,8 @@ export async function POST(req: NextRequest) {
     }
 
     // 사전 검사 여부(6.5단계에서 쓴다) — 쿼리와 payload 둘 다 받는다. 쿼리는 버킷을 고르려고
-    // 파싱 **전에** 읽은 값이고, payload 경로는 이미 발행 버킷을 한 번 썼지만(파싱 전엔 알 수
-    // 없었다) 저장은 하지 않는다 — 어느 쪽이든 "쓰지 않는" 안전한 쪽으로 기운다.
+    // 파싱 **전에** 읽은 값이고, payload 경로는 시도 버킷(60/h)만 쓴다 — 발행 버킷은 이
+    // 검사가 끝난 뒤(6.6단계)에야 세므로 어느 쪽이든 발행 예산을 먹지 않는다.
     const dryRun = dryRunQuery || payload?.dryRun === true;
 
     const admin = createAdminClient();
@@ -341,6 +345,16 @@ export async function POST(req: NextRequest) {
     // 틀이 짐작이 된다. 촬영이 아니라 "어떻게 보여줄까"의 질문이라 영상 동봉도 면제가
     // 아니다. 대본·로그인 게이트 뒤에 두는 이유: 큰 결함부터 되돌려보내고 이건 마지막 한 줄로.
     if (!targetDevice) {
+      // 값은 왔는데 목록 밖("tablet" 등)이면 "필요해요"가 아니라 "그 값은 안 돼요"라고 말한다
+      // (출시 점검 r2-connect) — AI가 "넣었는데?" 하고 같은 값을 다시 보내지 않게.
+      const sent = payload?.targetDevice;
+      if (sent !== undefined && sent !== null && sent !== "") {
+        return apiError({
+          status: 400,
+          message: t.api.targetDeviceInvalid(typeof sent === "string" ? sent : JSON.stringify(sent)),
+          code: "TARGET_DEVICE_INVALID",
+        });
+      }
       return apiError({ status: 400, message: t.api.targetDeviceRequired, code: "TARGET_DEVICE_REQUIRED" });
     }
 
@@ -450,6 +464,12 @@ export async function POST(req: NextRequest) {
           contentTypeId, demoAccess, entryUrl: demoUrl, targetDevice,
         }, normalizeTags, review),
       });
+    }
+
+    // 6.6. 발행 한도(20/h) — 게이트를 다 통과해 실제로 쓰기 직전에만 센다(R5, 위 2단계 설명).
+    // finalize는 자기 버킷을 쓴다: 파일을 다 올려 놓고 연결만 429로 막히면 빈 초안이 남는다.
+    if (!(await rateLimit({ name: "ingest", key: userId, windowSeconds: 3600, max: 20 }))) {
+      return apiError({ status: 429, message: t.api.tooManyRequests, code: "RATE_LIMITED" });
     }
 
     if (existing) {
