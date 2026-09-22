@@ -23,7 +23,7 @@ import {
   summarizeDropped,
 } from "@/lib/upload-safety";
 import {
-  validateMedia, uploadMedia, storeZipBundle, removeStaleFiles,
+  validateMedia, uploadMedia, storeZipBundle, removeStaleFiles, dropNewRow,
   UPLOAD_KINDS, UPLOAD_TEMP_KEYS, UPLOAD_REPLACE_MARKER, newUploadSession, type SniffedMedia, type UploadKind,
 } from "@/lib/ingestStore";
 import { htmlBodyIssue, htmlBodyToZip, HTML_BODY_MAX_BYTES } from "@/lib/htmlBody";
@@ -596,7 +596,7 @@ export async function POST(req: NextRequest) {
         }
       } catch (e) {
         // 이번 요청이 만든 행만 지운다 — 이미 있던 초안(draftId·같은 URL)은 이전 상태가 남는 게 낫다.
-        if (!upserted) await admin.from("projects").delete().eq("id", projectId);
+        if (!upserted) await dropNewRow(admin, userId, projectId);
         if (e instanceof UploadError) return await uploadErrorResponse(e, t, userId);
         logger.error("ingest: file upload failed", { error: e, projectId });
         return apiError({ status: 500, message: t.api.uploadProcessingError, code: "UPLOAD_ERROR", cause: e });
@@ -612,9 +612,9 @@ export async function POST(req: NextRequest) {
         const { error: updErr } = await admin.from("projects").update(updates).eq("id", projectId);
         if (updErr) throw new Error(`media row update: ${updErr.message}`);
       } catch (e) {
-        // 고아 행 정리 — zip 실패 경로와 동일 정책(스토리지 잔재는 storage-audit이
-        // 회수). 단 upsert된 기존 초안은 지우지 않는다(이전 상태가 남는 게 낫다).
-        if (!upserted) await admin.from("projects").delete().eq("id", projectId);
+        // 고아 행 정리 — zip 실패 경로와 동일 정책(행 폴더의 파일도 dropNewRow가 지운다).
+        // 단 upsert된 기존 초안은 지우지 않는다(이전 상태가 남는 게 낫다).
+        if (!upserted) await dropNewRow(admin, userId, projectId);
         logger.error("ingest: media upload failed", { error: e, projectId });
         return apiError({ status: 500, message: t.api.mediaUploadFailed, code: "MEDIA_UPLOAD_FAILED", cause: e });
       }
@@ -647,7 +647,7 @@ export async function POST(req: NextRequest) {
           .from("project-files")
           .createSignedUploadUrl(UPLOAD_TEMP_KEYS[kind](userId, projectId, session), { upsert: true });
         if (error || !data) {
-          if (!upserted) await admin.from("projects").delete().eq("id", projectId);
+          if (!upserted) await dropNewRow(admin, userId, projectId);
           return apiError({
             status: 500, message: t.api.mediaUploadFailed, code: "SIGN_FAILED",
             cause: error, context: { projectId, kind },

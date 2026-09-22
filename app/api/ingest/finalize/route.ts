@@ -6,7 +6,7 @@ import { ingestAuth, pickApiT } from "../shared";
 import { screenshotUrl } from "@/lib/thumbnail";
 import { MAX_UPLOAD_BYTES, UploadError, summarizeDropped } from "@/lib/upload-safety";
 import {
-  validateMedia, uploadMedia, storeZipBundle, removeStaleFiles, inspectUploads,
+  validateMedia, uploadMedia, storeZipBundle, removeStaleFiles, dropNewRow, inspectUploads,
   UPLOAD_TEMP_KEYS, UPLOAD_REPLACE_MARKER,
 } from "@/lib/ingestStore";
 import { uploadErrorResponse } from "../uploadError";
@@ -152,7 +152,7 @@ export async function POST(req: NextRequest) {
       await cleanupTemp();
     } catch (e) {
       // 교체 표식이 있으면 이미 있던 초안이다 — 지우지 않고 이전 상태를 남긴다.
-      if (!replacing) await admin.from("projects").delete().eq("id", projectId);
+      if (!replacing) await dropNewRow(admin, userId, projectId);
       await cleanupTemp();
       if (e instanceof UploadError) return await uploadErrorResponse(e, t, userId);
       logger.error("ingest finalize: processing failed", { error: e, projectId });

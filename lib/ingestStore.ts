@@ -13,6 +13,7 @@ import {
   type DroppedFile,
 } from "./upload-safety";
 import { detectNativeApp } from "./nativeApp";
+import { logger } from "./logger";
 
 // 서비스롤 admin 클라이언트 중 여기서 쓰는 표면만 (demoPayload.ts의 선례).
 type AdminClient = {
@@ -146,6 +147,8 @@ export async function uploadMedia(
 // 없으면 실행 가능한 코드의 표식(package.json / *.py — E2B 빌드 모드로 촬영,
 // 2026-08-20 zip 입구 완화). 최종 demo_url/thumbnail 세팅은 호출부 몫.
 // keys = 올린 오브젝트 키 전부 — 교체 발행에서 옛 파일 정리(removeStaleFiles)가 남길 목록.
+const UPLOAD_CONCURRENCY = 8;
+
 export async function storeZipBundle(
   admin: AdminClient,
   userId: string,
@@ -196,12 +199,27 @@ export async function storeZipBundle(
     }
     keys.push(storagePath);
   }
-  for (let i = 0; i < entries.length; i++) {
-    const { error: upErr } = await admin.storage
-      .from("project-files")
-      .upload(keys[i], entries[i].data, { upsert: true, contentType: entries[i].contentType });
-    if (upErr) throw new UploadError(`파일 업로드 실패: ${upErr.message}`, "upload-failed");
-  }
+  // 여러 개를 동시에 올린다(2026-09-22 트래픽7). 하나씩 await하면 파일 2000개짜리
+  // zip은 함수 시간 제한에 걸려 중간에 끊겼다. 하나라도 실패하면 새 업로드를 멈추고,
+  // 이미 날아간 요청이 다 끝난 뒤에 던진다 — 호출부의 폴더 정리가 뒤늦게 도착한
+  // 업로드와 엇갈리지 않게.
+  let next = 0;
+  let failure: UploadError | null = null;
+  const lane = async () => {
+    while (!failure && next < entries.length) {
+      const i = next++;
+      try {
+        const { error: upErr } = await admin.storage
+          .from("project-files")
+          .upload(keys[i], entries[i].data, { upsert: true, contentType: entries[i].contentType });
+        if (upErr) failure ??= new UploadError(`파일 업로드 실패: ${upErr.message}`, "upload-failed");
+      } catch (e) {
+        failure ??= new UploadError(`파일 업로드 실패: ${(e as Error).message}`, "upload-failed");
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(UPLOAD_CONCURRENCY, entries.length) }, lane));
+  if (failure) throw failure;
   return {
     entryPath: anchor.path,
     runnable: anchor.kind === "runnable",
@@ -215,14 +233,12 @@ export async function storeZipBundle(
 // 바꾼 초안의 옛 zip 전체)이 옛 주소로 계속 서빙된다. _media(제작자 미디어)·_upload
 // (진행 중 임시)는 건드리지 않는다. list는 한 겹·한 페이지씩만 보므로 폴더 BFS + 페이지 반복.
 const LIST_PAGE = 1000;
-export async function removeStaleFiles(
+async function listRowFiles(
   admin: AdminClient,
-  userId: string,
-  projectId: string,
-  keep: ReadonlySet<string>,
-): Promise<number> {
-  const root = `${userId}/${projectId}`;
-  const stale: string[] = [];
+  root: string,
+  skipTopLevel: ReadonlySet<string>,
+): Promise<string[]> {
+  const files: string[] = [];
   const queue = [root];
   while (queue.length) {
     const dir = queue.shift()!;
@@ -230,17 +246,63 @@ export async function removeStaleFiles(
       const { data, error } = await admin.storage.from("project-files").list(dir, { limit: LIST_PAGE, offset });
       if (error) throw new Error(`storage list failed: ${error.message}`);
       for (const entry of data ?? []) {
-        if (dir === root && (entry.name === "_media" || entry.name === "_upload")) continue;
+        if (dir === root && skipTopLevel.has(entry.name)) continue;
         const full = `${dir}/${entry.name}`;
         if (entry.id === null) queue.push(full);
-        else if (!keep.has(full)) stale.push(full);
+        else files.push(full);
       }
       if (!data || data.length < LIST_PAGE) break;
     }
   }
-  for (let i = 0; i < stale.length; i += 100) {
-    const { error } = await admin.storage.from("project-files").remove(stale.slice(i, i + 100));
+  return files;
+}
+
+async function removeKeys(admin: AdminClient, keys: string[]): Promise<void> {
+  for (let i = 0; i < keys.length; i += 100) {
+    const { error } = await admin.storage.from("project-files").remove(keys.slice(i, i + 100));
     if (error) throw new Error(`storage remove failed: ${error.message}`);
   }
+}
+
+export async function removeStaleFiles(
+  admin: AdminClient,
+  userId: string,
+  projectId: string,
+  keep: ReadonlySet<string>,
+): Promise<number> {
+  const all = await listRowFiles(admin, `${userId}/${projectId}`, new Set(["_media", "_upload"]));
+  const stale = all.filter((k) => !keep.has(k));
+  await removeKeys(admin, stale);
   return stale.length;
+}
+
+// 이번 요청이 새로 만든 행을 실패로 되돌릴 때 그 행 폴더 {uid}/{id}/ 를 통째로 지운다
+// (2026-09-22 데이터2). 예전엔 행만 지우고 파일은 남겨, 반쯤 올라간 zip·미디어가
+// 공개 버킷에 주인 없이 남아 저장소(무료 1GB)를 먹었다. 이미 있던 초안(교체 발행)엔
+// 부르지 말 것 — 그 폴더엔 살아 있는 옛 파일이 있다. 정리 실패는 발행 실패가 아니므로
+// 호출부가 기록만 남긴다.
+export async function removeRowFolder(
+  admin: AdminClient,
+  userId: string,
+  projectId: string,
+): Promise<number> {
+  const all = await listRowFiles(admin, `${userId}/${projectId}`, new Set());
+  await removeKeys(admin, all);
+  return all.length;
+}
+
+// 이번 요청이 만든 행을 실패로 되돌린다 — 행을 지우고 그 폴더의 파일도 지운다. 인제스트·
+// finalize의 실패 분기가 같이 쓴다. 파일 정리 실패는 삼키고 기록만(응답은 원래 실패 그대로).
+// 함수 시간 초과로 죽은 요청은 여기까지 못 온다 — 그 잔재는 탈퇴 때 사용자 폴더와 같이 지워진다.
+type RowAdmin = AdminClient & {
+  from(table: string): { delete(): { eq(column: string, value: string): PromiseLike<unknown> } };
+};
+export async function dropNewRow(
+  admin: RowAdmin,
+  userId: string,
+  projectId: string,
+): Promise<void> {
+  await admin.from("projects").delete().eq("id", projectId);
+  await removeRowFolder(admin, userId, projectId).catch((error) =>
+    logger.warn("ingest: orphan folder cleanup failed", { error, projectId }));
 }

@@ -15,6 +15,7 @@ const PROBES = [
   "scripts/probe-demo-access-unit.mts",     // demoAccess에 토큰·비번 이름이 오면 400(공개 칸이라 새어 나감)
   "scripts/probe-native-app-unit.mts",      // 못 찍는 앱 판별 — 데스크톱·확장 추가, 웹으로 찍을 것은 안 건드림
   "scripts/probe-storage-list-unit.mts",    // 삭제 경로의 폴더 나열 — 1000개 넘는 폴더도 끝까지(탈퇴 즉시 파기)
+  "scripts/probe-ingest-store-unit.mts",    // zip 저장 — 동시 업로드(상한 8)·실패 뒤 늦은 업로드 없음·새 행 폴더 정리
   "scripts/probe-html-body-unit.mts",       // 채팅창이 글자로 넘긴 HTML — 잘림 감지·울타리·zip 변환
   "scripts/probe-cli-input.mjs",            // CLI --file·표준입력·schema (127.0.0.1 가짜 서버, 네트워크 없음)
   "local-runner/probe-focus-coalesce.ts",   // 스크롤 병합·focus 카메라 산식
