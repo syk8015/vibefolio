@@ -12,6 +12,10 @@ export type ClipPost = {
   trackingUrl: string;
   visits: number;
   signups: number;
+  // 채널 버튼을 누르면 링크가 발급되고 캡션이 복사될 뿐이다(draft). 실제로 올렸는지는
+  // 사람만 안다 — [올렸음]을 눌러야 posted. 예전엔 복사 순간 posted로 찍어서
+  // "게시완료 3"이 떴는데 실업로드는 0이었다(2026-09-18 사용자 정정).
+  posted: boolean;
 };
 
 export type ClipData = {
@@ -55,8 +59,8 @@ const PREVIEW_W: Record<ClipData["format"], number> = { vertical: 208, horizonta
  * 칸 하나, 아래=채널 바로가기 버튼. 예전의 "채널 추가 폼 → 채널마다 캡션 줄"
  * 구조는 폐기했다 — 어차피 캡션은 채널이 달라도 같은 걸 쓰는데 줄만 쌓였다.
  *
- * 버튼 한 번 = 이 채널에 올린다:
- *   캡션 저장 → (없으면) 그 채널 포스트 생성 → 캡션+추적링크 클립보드 복사 →
+ * 버튼 한 번 = 이 채널에 올릴 준비(게시 표시는 아니다 — 올린 뒤 [올렸음]):
+ *   캡션 저장 → (없으면) 그 채널 포스트 생성(draft) → 캡션+추적링크 클립보드 복사 →
  *   업로드 페이지 새 탭. 추적링크는 포스트를 만들어야 발급되므로(campaign =
  *   promo-{postId}) 이 순서를 바꾸면 링크 없는 캡션이 복사된다.
  */
@@ -104,11 +108,11 @@ export default function ClipCard({ clip }: { clip: ClipData }) {
         const res = await fetch("/api/admin/promo/posts", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ clipId: clip.id, channel, caption, status: "posted" }),
+          body: JSON.stringify({ clipId: clip.id, channel, caption }),
         });
         const body = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
-        post = { id: body.postId, channel, trackingUrl: body.trackingUrl, visits: 0, signups: 0 };
+        post = { id: body.postId, channel, trackingUrl: body.trackingUrl, visits: 0, signups: 0, posted: false };
       }
 
       const payload = [caption.trim(), post.trackingUrl].filter(Boolean).join("\n\n");
@@ -124,6 +128,27 @@ export default function ClipCard({ clip }: { clip: ClipData }) {
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "실패했어요.");
+    } finally {
+      setBusyChannel(null);
+    }
+  }
+
+  async function handleMarkPosted(post: ClipPost) {
+    setBusyChannel(post.channel);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/promo/posts/${post.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "posted" }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || `HTTP ${res.status}`);
+      }
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "게시 표시에 실패했어요.");
     } finally {
       setBusyChannel(null);
     }
@@ -254,6 +279,7 @@ export default function ClipCard({ clip }: { clip: ClipData }) {
                     busy={busyChannel === ch.label}
                     copied={copiedChannel === ch.label}
                     onClick={() => handleChannel(ch.label, ch.uploadUrl)}
+                    onMarkPosted={post ? () => handleMarkPosted(post) : undefined}
                     onRemove={post ? () => handleRemove(post) : undefined}
                   />
                 );
@@ -267,6 +293,7 @@ export default function ClipCard({ clip }: { clip: ClipData }) {
                   busy={busyChannel === post.channel}
                   copied={copiedChannel === post.channel}
                   onClick={() => copyText([caption.trim(), post.trackingUrl].filter(Boolean).join("\n\n"))}
+                  onMarkPosted={() => handleMarkPosted(post)}
                   onRemove={() => handleRemove(post)}
                 />
               ))}
@@ -280,8 +307,9 @@ export default function ClipCard({ clip }: { clip: ClipData }) {
   );
 }
 
-// 명함(SocialBadge)의 알약 배지와 같은 모양 — 로고 원 + 이름. 올린 채널은
-// 브랜드 색이 들어오고 그 채널 성적이 붙는다. 아직 안 올린 채널은 회색.
+// 명함(SocialBadge)의 알약 배지와 같은 모양 — 로고 원 + 이름. 세 단계:
+// 회색(손 안 댐) → 점선(링크 복사함, 아직 안 올림 — 옆에 [올렸음]) → 브랜드 색(올림).
+// 성적(유입·가입)은 링크가 있으면 붙는다 — 표시를 잊어도 유입은 링크로 잡히니까.
 function ChannelPill({
   label,
   host,
@@ -289,6 +317,7 @@ function ChannelPill({
   busy,
   copied,
   onClick,
+  onMarkPosted,
   onRemove,
 }: {
   label: string;
@@ -297,12 +326,14 @@ function ChannelPill({
   busy: boolean;
   copied: boolean;
   onClick: () => void;
+  onMarkPosted?: () => void;
   onRemove?: () => void;
 }) {
   const brand = host ? getSocialBrand(host) : null;
-  const posted = !!post;
+  const hasLink = !!post;
+  const posted = !!post?.posted;
   // 숫자가 붙기 시작한 채널은 지우면 유입 기록이 같이 날아간다 — 0일 때만 취소.
-  const canRemove = !!onRemove && posted && post.visits === 0 && post.signups === 0;
+  const canRemove = !!onRemove && hasLink && post.visits === 0 && post.signups === 0;
 
   return (
     <span className="relative inline-flex">
@@ -310,13 +341,19 @@ function ChannelPill({
         type="button"
         onClick={onClick}
         disabled={busy}
-        title={posted ? `${label}에 올림 — 다시 누르면 캡션+링크를 또 복사해요` : `${label}에 올리기`}
+        title={
+          posted
+            ? `${label}에 올림 — 다시 누르면 캡션+링크를 또 복사해요`
+            : hasLink
+              ? `${label} 링크 복사함(아직 안 올림) — 다시 누르면 또 복사해요`
+              : `${label}에 올리기`
+        }
         className="inline-flex items-center gap-2 transition-opacity hover:opacity-75 disabled:opacity-50"
         style={{
           borderRadius: "999px",
           padding: "5px 12px 5px 6px",
           background: posted ? "var(--surface-soft)" : "transparent",
-          border: `1px solid ${posted ? "transparent" : "var(--border-bright)"}`,
+          border: `1px ${hasLink && !posted ? "dashed" : "solid"} ${posted ? "transparent" : "var(--border-bright)"}`,
           cursor: busy ? "wait" : "pointer",
         }}
       >
@@ -337,7 +374,7 @@ function ChannelPill({
         >
           {copied ? "복사됨" : label}
         </span>
-        {posted && (
+        {hasLink && (
           <span
             className="vf-mono"
             style={{ fontSize: "0.62rem", color: "var(--text-muted)", fontVariantNumeric: "tabular-nums" }}
@@ -346,6 +383,26 @@ function ChannelPill({
           </span>
         )}
       </button>
+      {hasLink && !posted && onMarkPosted && (
+        <button
+          type="button"
+          onClick={onMarkPosted}
+          disabled={busy}
+          title={`${label}에 실제로 올렸으면 눌러요`}
+          className="ml-1 font-semibold transition-opacity hover:opacity-75 disabled:opacity-50"
+          style={{
+            borderRadius: "999px",
+            padding: "5px 10px",
+            fontSize: "0.68rem",
+            background: "var(--surface-soft)",
+            color: "var(--text-secondary)",
+            border: "none",
+            cursor: busy ? "wait" : "pointer",
+          }}
+        >
+          올렸음
+        </button>
+      )}
       {canRemove && (
         <button
           type="button"

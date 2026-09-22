@@ -28,6 +28,9 @@ export const AnalyticsEvent = {
   DemoDownloaded: "demo_downloaded",
   WatchView: "watch_view", // ?p= watch page load — viral attribution
   PromoLinkVisit: "promo_link_visit", // first touch via a /admin/promo tracking link (lib/promo.ts)
+  // 비로그인 랜딩(/) 방문, 세션당 1회(components/LandingPing). 2026-09-22 이전엔
+  // 랜딩 방문을 세는 장치가 0개라 홍보를 해도 효과를 잴 수 없었다.
+  LandingView: "landing_view",
 } as const;
 
 export type AnalyticsEventName = (typeof AnalyticsEvent)[keyof typeof AnalyticsEvent];
@@ -43,6 +46,7 @@ export const CLIENT_EVENTS = new Set<string>([
   AnalyticsEvent.DemoDownloaded,
   AnalyticsEvent.WatchView,
   AnalyticsEvent.PromoLinkVisit,
+  AnalyticsEvent.LandingView,
 ]);
 
 export function isClientEvent(event: unknown): event is AnalyticsEventName {

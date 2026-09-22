@@ -191,7 +191,9 @@ export const ko = {
     pendingReview: (n: number) => `검토 대기 ${n}`,
     addProject: "프로젝트 추가",
     emptyTitle: "아직 프로젝트가 없어요",
-    emptyBody: "위 버튼으로 첫 프로젝트를 추가해보세요",
+    // 올리는 길은 AI 하나뿐이다(08-25 수동 위저드 폐기) — 빈 화면이 그 길을 말해야 한다.
+    emptyBody: "작품을 만든 AI에게 한 줄만 붙여넣으면, 소개글과 시연 대본까지 써서 여기에 초안으로 올려줘요",
+    emptyCta: "AI 연결하고 첫 작품 올리기",
     connectTitle: "AI로 한 줄에 올리기",
     connectSubtitle: "클로드코드·커서·챗봇을 연결하면, 그 작업을 만든 AI가 여기에 초안으로 올려줘요",
     editTitle: "프로젝트 수정",

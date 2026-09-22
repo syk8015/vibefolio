@@ -84,6 +84,7 @@ export default async function PromoPage() {
       trackingUrl: promoTrackingUrl({ channel: p.channel, postId: p.id }),
       visits: stats.visits,
       signups: stats.signups,
+      posted: p.status === "posted",
     };
     const arr = postsByClipId.get(p.clip_id) ?? [];
     arr.push(row);
@@ -140,7 +141,8 @@ export default async function PromoPage() {
 
   const ledger: LedgerEntry[] = [
     { label: "클립", value: clips.length, sub: `완료 ${doneCount} · 대기 ${pendingCount}`, state: "plain" },
-    { label: "올린 채널", value: posts.length, sub: `게시완료 ${postedCount}`, state: "plain" },
+    // 값은 [올렸음]을 누른 것만. 링크 복사는 게시가 아니다(예전엔 복사=게시완료로 셌다).
+    { label: "올린 채널", value: postedCount, sub: `링크만 복사 ${posts.length - postedCount}`, state: "plain" },
     { label: "유입", value: totalVisits, sub: "추적 링크 첫 방문 (30일 제한 없음)", state: "plain" },
     {
       label: "가입",

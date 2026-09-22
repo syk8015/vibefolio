@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
     // the Referer, but their User-Agent (this request's own header — the ping
     // comes from the same WebView) identifies them; the client can't forge a
     // prettier channel than its own UA allows.
-    if (event === AnalyticsEvent.WatchView) {
+    if (event === AnalyticsEvent.WatchView || event === AnalyticsEvent.LandingView) {
       props = {
         ...props,
         channel: classifyTrafficSource({

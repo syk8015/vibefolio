@@ -378,9 +378,15 @@ export default function ProjectsTab({ user, username, reviewProjectId }: { user:
             >
               {t.projects.emptyTitle}
             </p>
-            <p className="text-xs" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
+            <p
+              className="text-xs mx-auto"
+              style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", maxWidth: "26rem", lineHeight: 1.6 }}
+            >
               {t.projects.emptyBody}
             </p>
+            <button onClick={() => setShowAddModal(true)} className="vf-button-primary mt-5">
+              {t.projects.emptyCta}
+            </button>
           </div>
         ) : (
           <>

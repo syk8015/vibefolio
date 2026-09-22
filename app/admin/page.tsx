@@ -308,6 +308,8 @@ export default async function AdminPage() {
   const maxDaily = Math.max(1, ...days.map((d) => daily.get(d)!.requested));
   const failed14 = days.reduce((a, d) => a + daily.get(d)!.failed, 0);
   const funnelSteps = [
+    // 비로그인 랜딩 방문(세션당 1회). 09-22에 계측 시작 — 그 전 기간은 0으로 보인다.
+    { label: "랜딩 방문", value: counts[AnalyticsEvent.LandingView] ?? 0 },
     { label: "가입", value: counts[AnalyticsEvent.SignupCompleted] ?? 0 },
     { label: "프로젝트 생성", value: counts[AnalyticsEvent.ProjectCreated] ?? 0 },
     { label: "시연 요청", value: requested },
@@ -402,7 +404,7 @@ export default async function AdminPage() {
   }
   const signupSpark = days30.map((d) => signupsByDay.get(d)!);
   const viewSpark = days30.map((d) => viewsByDay.get(d)!);
-  const signups30 = funnelSteps[0].value;
+  const signups30 = counts[AnalyticsEvent.SignupCompleted] ?? 0;
   const overallConv = signups30 > 0 ? Math.round((shares / signups30) * 100) : null;
 
   // ── storage ────────────────────────────────────────────────────────────────

@@ -257,6 +257,45 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // ── 3.7 Demand — 사람이 오고 있나 ─────────────────────────────────────────────
+  // 위 경보는 전부 공급(촬영) 쪽이라, 방문이 0이어도 이 크론은 "healthy"였다
+  // (2026-09-21 밤 조사). 방문 = 랜딩·작품 페이지 핑 + 명함 조회. 할 일 알림이지
+  // 장애가 아니므로 Sentry(error)가 아니라 info, 메일은 키별로 길게 묶는다(DEMAND_SUPPRESS_MS).
+  // 가입은 profiles에 생성 시각이 없어 signup_completed(브라우저 보고)로 센다 — 경보용이라 충분.
+  let visits3d = 0;
+  let visits14d = 0;
+  let signups14d = 0;
+  {
+    const since3d = new Date(now - 3 * 24 * 3_600_000).toISOString();
+    const since14d = new Date(now - 14 * 24 * 3_600_000).toISOString();
+    const pageEvents = [AnalyticsEvent.LandingView, AnalyticsEvent.WatchView];
+    const [ev3, pv3, ev14, pv14, su14] = await Promise.all([
+      admin.from("analytics_events").select("id", { count: "exact", head: true })
+        .in("event", pageEvents).gte("created_at", since3d),
+      admin.from("portfolio_views").select("*", { count: "exact", head: true }).gte("viewed_at", since3d),
+      admin.from("analytics_events").select("id", { count: "exact", head: true })
+        .in("event", pageEvents).gte("created_at", since14d),
+      admin.from("portfolio_views").select("*", { count: "exact", head: true }).gte("viewed_at", since14d),
+      admin.from("analytics_events").select("id", { count: "exact", head: true })
+        .eq("event", AnalyticsEvent.SignupCompleted).gte("created_at", since14d),
+    ]);
+    const demandErr = ev3.error ?? pv3.error ?? ev14.error ?? pv14.error ?? su14.error;
+    if (demandErr) {
+      logger.warn("watchdog: demand query failed", { error: demandErr });
+    } else {
+      visits3d = (ev3.count ?? 0) + (pv3.count ?? 0);
+      visits14d = (ev14.count ?? 0) + (pv14.count ?? 0);
+      signups14d = su14.count ?? 0;
+      if (visits3d === 0) {
+        logger.info("watchdog: no visitors in 3 days", { visits14d });
+        alerts.push("demand-zero");
+      } else if (signups14d === 0) {
+        logger.info("watchdog: visitors but no signups in 14 days", { visits14d });
+        alerts.push("signups-zero");
+      }
+    }
+  }
+
   // ── 4. Sweep expired rate-limit windows (T6) — keeps rate_limits at ~distinct
   // active keys. Best-effort: a missing table (migration pending) just logs. ───
   const { error: rlErr } = await admin
@@ -277,6 +316,9 @@ export async function GET(req: NextRequest) {
           pendingWaiting,
           paused,
           moderationOpen,
+          visits3d,
+          visits14d,
+          signups14d,
         })
       : false;
 
@@ -292,6 +334,7 @@ export async function GET(req: NextRequest) {
       status: sys?.worker_status ?? null,
     },
     pendingStuck: pendingStuck ?? 0,
+    demand: { visits3d, visits14d, signups14d },
     alerts,
     emailed,
     healthy: alerts.length === 0,
@@ -310,6 +353,9 @@ export async function GET(req: NextRequest) {
 // channel is for "a human should look now", so repeats inside the window stay
 // silent instead of paging every 5 minutes while the worker machine is off.
 const ALERT_SUPPRESS_MS = 6 * 3_600_000;
+// 수요 알림은 하루에 몇 번 받아도 할 수 있는 게 같다 — 3일에 한 번.
+const DEMAND_SUPPRESS_MS = 3 * 24 * 3_600_000;
+const DEMAND_KEYS = new Set(["demand-zero", "signups-zero"]);
 // Drop dedup entries that haven't fired in a week so alerts_state can't grow.
 const ALERT_STATE_TTL_MS = 7 * 24 * 3_600_000;
 
@@ -333,6 +379,9 @@ async function emailWatchdogAlert(
     pendingWaiting: number;
     paused: boolean;
     moderationOpen: number;
+    visits3d: number;
+    visits14d: number;
+    signups14d: number;
   },
 ): Promise<boolean> {
   if (!isEmailConfigured()) return false;
@@ -358,7 +407,8 @@ async function emailWatchdogAlert(
   const keys = [...new Set(alerts.map(alertKey))];
   const fresh = keys.filter((k) => {
     const last = state[k] ? Date.parse(state[k]) : NaN;
-    return !(Number.isFinite(last) && now - last < ALERT_SUPPRESS_MS);
+    const suppress = DEMAND_KEYS.has(k) ? DEMAND_SUPPRESS_MS : ALERT_SUPPRESS_MS;
+    return !(Number.isFinite(last) && now - last < suppress);
   });
   if (fresh.length === 0) return false;
 
@@ -396,6 +446,12 @@ async function emailWatchdogAlert(
     lines.push(
       `촬영 요청 ${detail.pendingWaiting}건이 대기 중이에요 — 여유될 때 맥에서 npm run demo:batch 한 번이면 소화하고 다시 잠들어요.`,
     );
+  if (keys.includes("demand-zero"))
+    lines.push(
+      `지난 3일 동안 랜딩·명함·작품 페이지 방문이 0건이에요 (14일 ${detail.visits14d}건) — 홍보 링크가 실제로 나가고 있는지 봐 주세요.`,
+    );
+  if (keys.includes("signups-zero"))
+    lines.push(`지난 14일 방문 ${detail.visits14d}건, 가입 0건이에요 — 첫 화면이 가입까지 이어지는지 봐 주세요.`);
   if (keys.includes("stuck-query-failed") || keys.includes("reap-update-failed"))
     lines.push("워치독 DB 쿼리/업데이트가 실패했어요 — Sentry를 확인해 주세요.");
   if (detail.paused) lines.push("demo_paused=true — 드레인이 멈춰 있는 상태예요.");
@@ -404,10 +460,11 @@ async function emailWatchdogAlert(
   // A pure queue-waiting mail is a to-do nudge, not an incident — don't title
   // it like one.
   const onlyQueue = keys.every((k) => k === "queue-waiting");
+  const onlyNudges = keys.every((k) => k === "queue-waiting" || DEMAND_KEYS.has(k));
   return sendEmail({
     to: alertRecipients(),
     ...adminAlertEmail({
-      title: onlyQueue ? "촬영 요청 대기" : "워치독 경보",
+      title: onlyQueue ? "촬영 요청 대기" : onlyNudges ? "운영 알림" : "워치독 경보",
       lines,
       ctaLabel: "관리자 콘솔 열기",
       ctaUrl: `${SITE_URL}/admin`,

@@ -13,6 +13,7 @@ import TypingTagline from "@/components/TypingTagline";
 import ScrollHint from "@/components/ScrollHint";
 import Logo from "@/components/Logo";
 import JsonLd from "@/components/JsonLd";
+import LandingPing from "@/components/LandingPing";
 import { getT } from "@/lib/i18n/server";
 
 interface FeaturedProfile {
@@ -166,6 +167,7 @@ export default async function LandingPage() {
   return (
     <main className="flex flex-col" style={{ background: "var(--bg)", overflowX: "clip" }}>
       <JsonLd data={SITE_JSONLD} />
+      <LandingPing />
 
       {/* Hero — single rotating phrase, true viewport center.
           Nav floats absolutely so it doesn't offset the tagline. */}
