@@ -117,6 +117,19 @@ process.on("SIGINT", () => {
   stopping = true;
 });
 
+// 터미널 창을 닫거나(SIGHUP) 종료 신호(SIGTERM)를 받아도 배치는 다시 잠그고 끝낸다
+// (2026-09-22 트래픽4). 예전엔 Ctrl-C·정상 종료만 잠가서, 창을 닫으면 일시정지가 풀린 채
+// 워커가 사라졌다. 하던 촬영은 다음 실행의 startup recovery나 서버 워치독이 정리한다.
+// 덮개 닫기·전원 차단은 여기로 오지 않는다 — 그 경우는 health 크론이 다시 잠근다.
+if (BATCH_MODE) {
+  for (const sig of ["SIGTERM", "SIGHUP"] as const) {
+    process.on(sig, () => {
+      console.log(`\n[worker] ${sig} — repausing before exit`);
+      void setDemoPaused(true).finally(() => process.exit(0));
+    });
+  }
+}
+
 // Mark the job failed AND mail the owner. These were two steps here; the server
 // keeps them adjacent because both need the same failure code, and the code — not
 // a pre-formatted string — is what travels now (lib/demo-failure formats it).
@@ -373,6 +386,8 @@ async function processOne(row: PendingRow) {
       // The job is marked failed; now exit so launchd restarts a clean worker and
       // the hung child processes (browser/ffmpeg) die with us.
       console.error("[worker] hard timeout — exiting for a clean launchd restart");
+      // 배치는 launchd가 다시 띄우지 않는다 — 풀린 채 죽지 않게 먼저 다시 잠근다(트래픽4).
+      if (BATCH_MODE) await setDemoPaused(true);
       await Sentry.flush(2000);
       process.exit(1);
     }

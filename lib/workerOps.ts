@@ -100,13 +100,22 @@ export async function claimNext(skipIds: string[] = []): Promise<ClaimResult> {
     logger.error(`worker: daily drain ceiling (${DEMO_QUOTA.GLOBAL_DRAIN_DAILY}) reached`, {});
     return { job: null, reason: "ceiling" };
   }
+  // 먼저 요청한 순서대로(2026-09-22 트래픽1). order가 없던 때는 Postgres가 아무 순서로
+  // 돌려줘 먼저 온 요청이 계속 밀릴 수 있었다 — 화면은 "순서대로"라고 말한다. 건너뛸 행은
+  // 쿼리에서 빼야 한다: 앞쪽 5개가 전부 skipIds면 6번째부터는 이 세션에서 못 집었다.
+  // skipIds는 워커가 보낸 값이라 uuid 모양만 통과시킨다(PostgREST in-목록에 그대로 들어간다).
+  const skipList = skipIds.filter((id) => /^[0-9a-f-]{36}$/i.test(id));
   let rows: JobRow[] = [];
   for (const cols of [FULL_COLS, BASE_COLS]) {
-    const { data, error } = await admin
+    let q = admin
       .from("projects")
       .select(cols)
       .eq("demo_build_status", "pending")
-      .not("demo_source_type", "is", null)
+      .not("demo_source_type", "is", null);
+    if (skipList.length) q = q.not("id", "in", `(${skipList.join(",")})`);
+    const { data, error } = await q
+      .order("demo_status_changed_at", { ascending: true, nullsFirst: true })
+      .order("id")
       .limit(5);
     if (!error) {
       rows = (data ?? []) as unknown as JobRow[];

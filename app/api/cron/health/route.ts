@@ -9,6 +9,7 @@ import { recipientLocale } from "@/lib/i18n/user-locale";
 import { getDictionary } from "@/lib/i18n/dictionaries";
 import { sendEmail, isEmailConfigured, alertRecipients } from "@/lib/email";
 import { demoFailedEmail, adminAlertEmail, SITE_URL } from "@/lib/email-templates";
+import { setDemoPaused } from "@/lib/workerOps";
 
 // Stuck-job watchdog (P0.4). Hit on a schedule by an EXTERNAL free cron
 // (cron-job.org etc.) which sends the shared secret. It:
@@ -65,6 +66,20 @@ export async function GET(req: NextRequest) {
   const pendingCutoff = new Date(now - STUCK_PENDING_MIN * 60_000).toISOString();
 
   const alerts: string[] = [];
+  // 지난 틱까지의 경보 기록(메일 dedup과 같은 표) — 아래 0번에서 채운다.
+  let prevAlerts: Record<string, string> = {};
+
+  // 같은 상태 경보는 Sentry에 창(메일 dedup과 같은 6시간)마다 한 번만 error로 올린다
+  // (2026-09-22 운영5). 5분 크론이라 상태가 이어지면 하루 288건씩 쌓여 무료 쿼터를
+  // 먹고 진짜 예외가 버려질 수 있었다. 반복분은 warn — Vercel 로그엔 그대로 남는다.
+  const alertLog = (key: string, message: string, ctx: Record<string, unknown>) => {
+    const last = prevAlerts[key] ? Date.parse(prevAlerts[key]) : NaN;
+    if (Number.isFinite(last) && now - last < ALERT_SUPPRESS_MS) {
+      logger.warn(message, { ...ctx, repeatOf: prevAlerts[key] });
+    } else {
+      logger.error(message, ctx);
+    }
+  };
 
   // ── 0. Stamp cron liveness ──────────────────────────────────────────────────
   // The external cron leaves no DB trace on a healthy tick, so /admin/ops would
@@ -78,6 +93,7 @@ export async function GET(req: NextRequest) {
       .select("alerts_state")
       .eq("id", "singleton")
       .single();
+    prevAlerts = (st?.alerts_state ?? {}) as Record<string, string>;
     if (st) {
       await admin
         .from("system_status")
@@ -158,7 +174,7 @@ export async function GET(req: NextRequest) {
     .single();
 
   const lastSeenAt = sys?.worker_last_seen_at ?? null;
-  const paused = !!sys?.demo_paused;
+  let paused = !!sys?.demo_paused;
   const seen = !!lastSeenAt;
   const staleMs = seen ? now - new Date(lastSeenAt as string).getTime() : null;
   const workerStale = staleMs !== null && staleMs > HEARTBEAT_STALE_MIN * 60_000;
@@ -179,12 +195,19 @@ export async function GET(req: NextRequest) {
         staleMinutes: Math.round((staleMs as number) / 60_000),
       });
     } else {
-      logger.error("watchdog: worker heartbeat stale", {
+      alertLog("worker-stale", "watchdog: worker heartbeat stale", {
         lastSeenAt,
         staleMinutes: Math.round((staleMs as number) / 60_000),
         workerStatus: sys?.worker_status,
       });
       alerts.push("worker-stale");
+      // 평소 상태는 일시정지(배치 모드, 08-11)라 "풀린 채 워커가 없다" = 배치 도중 맥이
+      // 잠들었거나 꺼진 것(덮개·전원·강제 종료는 워커의 재잠금 경로를 못 탄다). 풀린 채
+      // 두면 대시보드가 "보통 1–3분" 스피너를 보여주고 이 경보가 계속 뜬다 — 다시 잠근다
+      // (2026-09-22 트래픽4). 맥이 깨어나면 워커는 잠김을 보고 배치를 스스로 끝낸다.
+      await setDemoPaused(true);
+      paused = true;
+      alerts.push("batch-relocked");
     }
   }
 
@@ -199,16 +222,32 @@ export async function GET(req: NextRequest) {
     logger.warn("watchdog: pending query failed", { error: pendErr });
   } else if ((pendingStuck ?? 0) > 0 && !paused) {
     if (!seen) {
-      logger.error("watchdog: pending demo jobs but worker never checked in", { pendingStuck });
+      alertLog("pending-no-worker", "watchdog: pending demo jobs but worker never checked in", { pendingStuck });
       alerts.push("pending-no-worker");
     } else if (!workerStale) {
-      // Worker looks alive and isn't paused, yet pending rows are aging — a claim
-      // problem (worker wedged short of a heartbeat gap, or a bad row).
-      logger.error("watchdog: pending demo jobs not draining despite live worker", {
-        pendingStuck,
-        lastSeenAt,
-      });
-      alerts.push("pending-not-draining");
+      // Worker looks alive and isn't paused, yet pending rows are aging. 배치 중엔
+      // 편당 ~3분이라 12편 넘게 쌓이면 뒤쪽이 자연스럽게 30분을 넘긴다 — 그건 막힘이
+      // 아니다(2026-09-22 트래픽5). 지난 30분 안에 상태가 바뀐(집히거나 끝난) 행이 있으면
+      // 대기열이 움직이는 중이라 경보하지 않는다. 진짜 막힘(워커가 하트비트는 치는데
+      // 못 집음·나쁜 행)일 때만 남는다.
+      const { count: moved, error: movedErr } = await admin
+        .from("projects")
+        .select("id", { count: "exact", head: true })
+        .not("demo_build_status", "is", null)
+        .neq("demo_build_status", "pending")
+        .gte("demo_status_changed_at", pendingCutoff);
+      if (!movedErr && (moved ?? 0) > 0) {
+        logger.info("watchdog: pending backlog aging but queue is moving (batch in progress)", {
+          pendingStuck,
+          movedInWindow: moved,
+        });
+      } else {
+        alertLog("pending-not-draining", "watchdog: pending demo jobs not draining despite live worker", {
+          pendingStuck,
+          lastSeenAt,
+        });
+        alerts.push("pending-not-draining");
+      }
     }
     // If the worker is stale, the worker-stale alert already explains the backlog.
   }
@@ -252,7 +291,7 @@ export async function GET(req: NextRequest) {
       });
     } else if ((count ?? 0) > 0) {
       moderationOpen = count ?? 0;
-      logger.error("watchdog: moderation-held takes awaiting review", { open: moderationOpen });
+      alertLog("moderation-open", "watchdog: moderation-held takes awaiting review", { open: moderationOpen });
       alerts.push(`moderation-open:${moderationOpen}`);
     }
   }
@@ -435,6 +474,10 @@ async function emailWatchdogAlert(
   if (keys.includes("worker-stale"))
     lines.push(
       `워커 하트비트가 ${detail.staleMinutes ?? "?"}분째 없어요 (마지막: ${detail.lastSeenAt ?? "기록 없음"}).`,
+    );
+  if (keys.includes("batch-relocked"))
+    lines.push(
+      "배치 도중 맥이 끊긴 것 같아(일시정지가 풀린 채 하트비트 없음) 촬영을 다시 잠갔어요. 하던 촬영은 30분 뒤 실패로 정리돼요 — 맥이 깨어나면 npm run demo:batch 를 다시 돌려 주세요.",
     );
   if (keys.includes("pending-no-worker"))
     lines.push(`대기 중인 시연 ${detail.pendingStuck}건이 있는데 워커가 한 번도 체크인하지 않았어요.`);
