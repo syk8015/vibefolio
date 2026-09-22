@@ -363,6 +363,7 @@ export const ko = {
     zipFailed: (msg: string) => `zip 압축해제 실패: ${msg}`,
     zipUnreadable: "zip 파일을 읽을 수 없어요.",
     tooLarge: (mb: string) => `총 파일 크기가 25MB를 초과해요. (현재 ${mb}MB)`,
+    uploadPartialFailed: (failed: number, total: number) => `파일 ${total}개 중 ${failed}개를 올리지 못했어요. 네트워크를 확인하고 다시 골라 주세요.`,
     // 비밀 파일 폐기 안내(2026-09-01) — 왜 뺐는지까지 말한다. 앱이 .env 없이는
     // 안 도는 경우가 있어, 이유를 모르면 "왜 내 앱이 흰 화면이지"로 끝난다.
     secretFilesSkipped: "안전을 위해 아래 파일은 올리지 않았어요.",

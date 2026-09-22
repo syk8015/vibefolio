@@ -151,6 +151,8 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
     const supabase = createClient();
     const projectId = crypto.randomUUID();
     let indexHtmlStoragePath: string | null = null;
+    const uploaded: string[] = [];
+    let failed = 0;
 
     for (let i = 0; i < entries.length; i++) {
       const { relativePath, data } = entries[i];
@@ -158,12 +160,27 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
       const { error } = await supabase.storage.from("project-files")
         .upload(storagePath, data, { upsert: true, contentType: getMimeType(relativePath) });
 
-      if (!error) {
+      if (error) {
+        failed++;
+      } else {
+        uploaded.push(storagePath);
         if (relativePath === "index.html" || (relativePath.endsWith(".html") && !indexHtmlStoragePath)) {
           indexHtmlStoragePath = storagePath;
         }
       }
       setUploadProgress(Math.round(((i + 1) / entries.length) * 100));
+    }
+
+    // 파일 하나라도 못 올렸으면 "완료"로 넘기지 않는다 — index.html만 올라가고
+    // JS·CSS가 빠진 반쯤 깨진 작품이 저장되던 것(R7). 이번에 올린 조각은 치운다
+    // (새 무작위 폴더라 지금 작품이 쓰는 파일과 겹치지 않는다).
+    if (failed > 0) {
+      if (uploaded.length) {
+        await supabase.storage.from("project-files").remove(uploaded).catch(() => {});
+      }
+      setUploading(false);
+      setUploadError(t.projectForm.uploadPartialFailed(failed, entries.length));
+      return;
     }
 
     if (indexHtmlStoragePath) {

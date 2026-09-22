@@ -238,6 +238,7 @@
 | zipFailed | zip 압축해제 실패: {msg} | Couldn't extract the zip: {msg} | 함수 |
 | zipUnreadable | zip 파일을 읽을 수 없어요. | Couldn't read the zip file. | |
 | tooLarge | 총 파일 크기가 25MB를 초과해요. (현재 {mb}MB) | Total file size exceeds 25MB. (Currently {mb}MB) | 함수 |
+| uploadPartialFailed | 파일 {total}개 중 {failed}개를 올리지 못했어요. 네트워크를 확인하고 다시 골라 주세요. | {failed} of {total} files failed to upload. Check your connection and pick the files again. | 함수. 일부만 올라가면 '완료' 대신 이 문구(R7) |
 | noHtml | 웹페이지(HTML) 파일이 없어요. 자동 시연은 브라우저에 뜨는 화면을 촬영해요 — index.html이 포함됐는지 확인해 주세요. | No web page (HTML) file found. The auto demo films what shows up in a browser — make sure index.html is included. | |
 | saveFailed | 저장 중 오류가 발생했어요. | Something went wrong while saving. | |
 | urlOptionTitle | URL 링크 | URL link | |

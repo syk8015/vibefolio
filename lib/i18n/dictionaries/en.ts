@@ -348,6 +348,7 @@ export const en: Dictionary = {
     zipFailed: (msg: string) => `Couldn't extract the zip: ${msg}`,
     zipUnreadable: "Couldn't read the zip file.",
     tooLarge: (mb: string) => `Total file size exceeds 25MB. (Currently ${mb}MB)`,
+    uploadPartialFailed: (failed: number, total: number) => `${failed} of ${total} files failed to upload. Check your connection and pick the files again.`,
     secretFilesSkipped: "These files were left out for your safety:",
     secretFilesWhy: "Uploaded files are served publicly, so a .env holding API keys or a .git history would be downloadable by anyone.",
     onlySecretFiles: "Nothing to upload — every file you picked is one we leave out for safety.",
