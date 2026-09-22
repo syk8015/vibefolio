@@ -4,6 +4,7 @@ import Image from "next/image";
 import ShareKit from "@/components/dashboard/ShareKit";
 import { parseDemoFailure } from "@/lib/demo-failure";
 import { detectDemoSource } from "@/lib/demoSource";
+import { detectVideoKind } from "@/lib/video";
 import { placeholderThumbnail } from "@/lib/placeholder";
 import { CONTENT_TYPES } from "@/lib/projectTaxonomy";
 import { popoverAnchor, formatUploadedAt, type PopoverAnchor } from "./helpers";
@@ -508,6 +509,8 @@ export function ProjectRow({ project, username, demoPaused, nowMs, onDelete, onE
   // 촬영 소스는 request_demo가 돌아야 채워진다 — 공개 때 트리거가 빠졌거나
   // 실패한 행도 주소만 있으면 여기서 다시 시작할 길을 남긴다.
   const canShoot = !!project.demo_source_value || !!detectDemoSource(project.demo_url);
+  const shareVideo = project.demo_video_url
+    || (project.video_url && detectVideoKind(project.video_url) === "direct" ? project.video_url : null);
   const rerecordLabel =
     !canShoot || demoInFlight || status === "held"
       ? null
@@ -604,12 +607,15 @@ export function ProjectRow({ project, username, demoPaused, nowMs, onDelete, onE
         <div className="flex items-center gap-1.5 md:gap-2">
           {/* 1차 액션은 공유뿐 — 나머지는 전부 ⋯ 메뉴로(시안 A).
               위/아래 이동이 메뉴에 있어 모바일(드래그 불가)도 정렬이 된다. */}
-          {project.demo_video_url && (
+          {/* 직접 올린 영상(바로 재생되는 파일)도 공유 대상 — 전엔 자동 촬영본만
+              봐서, 영상을 직접 준 사람은 공유 버튼이 없었다(A6). */}
+          {shareVideo && (
             <ShareKit
               username={username}
               projectId={project.id}
-              demoVideoUrl={project.demo_video_url}
+              demoVideoUrl={shareVideo}
               projectTitle={project.title}
+              autoFilmed={!!project.demo_video_url}
             />
           )}
           <RowMenu

@@ -385,7 +385,8 @@
 |---|---|---|---|
 | share | 공유 | Share | 툴팁 |
 | copiedFlash | 복사됨! | Copied! | |
-| copyWatch | watch 링크 복사 | Copy watch link | |
+| copyWatch | 작품 링크 복사 | Copy project link | "watch"가 무슨 뜻인지 모른다는 지적(B22)으로 교체 |
+| copyFailed | 복사가 막혔어요. 아래 글을 길게 눌러 직접 복사해 주세요. | Copying was blocked. Press and hold the text below to copy it yourself. | 인앱 브라우저 등 복사 실패 시 글을 펼쳐 보여 줌 |
 | copyX | X 공유문구 복사 | Copy X post | |
 | downloadMp4 | mp4 다운로드 | Download mp4 | |
 

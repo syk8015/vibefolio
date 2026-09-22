@@ -618,7 +618,8 @@ export const ko = {
   share: {
     share: "공유",
     copiedFlash: "복사됨!",
-    copyWatch: "watch 링크 복사",
+    copyWatch: "작품 링크 복사",
+    copyFailed: "복사가 막혔어요. 아래 글을 길게 눌러 직접 복사해 주세요.",
     copyX: "X 공유문구 복사",
     downloadMp4: "mp4 다운로드",
   },

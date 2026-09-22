@@ -584,7 +584,8 @@ export const en: Dictionary = {
   share: {
     share: "Share",
     copiedFlash: "Copied!",
-    copyWatch: "Copy watch link",
+    copyWatch: "Copy project link",
+    copyFailed: "Copying was blocked. Press and hold the text below to copy it yourself.",
     copyX: "Copy X post",
     downloadMp4: "Download mp4",
   },
