@@ -68,7 +68,8 @@ export async function generateMetadata({
   if (!profile) return {};
 
   const name = profile.name || username;
-  const description = profile.bio || `${name}의 Nookframe — 바이브코더의 라이브 포트폴리오`;
+  // 소개글은 줄바꿈을 품는다 — meta·OG는 한 줄로 눕힌다(작품 페이지와 같은 처리).
+  const description = (profile.bio && oneLine(profile.bio)) || `${name}의 Nookframe — 바이브코더의 라이브 포트폴리오`;
   const url = `https://nookframe.com/${username}`;
 
   return {
@@ -143,7 +144,7 @@ export default async function UserPortfolioPage({
     .catch(() => null);
   // 이 라우트는 위 auth 읽기(쿠키) 때문에 이미 매 요청 렌더 — getT를 써도
   // 캐시를 새로 깨뜨리지 않는다. 60s 캐시는 unstable_cache DB 읽기에만 걸려 있다.
-  const { t } = await getT();
+  const { t, locale } = await getT();
 
   const profile = await getProfile(username);
   if (!profile) notFound();
@@ -268,7 +269,9 @@ export default async function UserPortfolioPage({
             className="hidden sm:inline text-xs tracking-widest uppercase"
             style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}
           >
-            {projects.length} Projects
+            {locale === "ko"
+              ? `작품 ${projects.length}개`
+              : `${projects.length} Project${projects.length === 1 ? "" : "s"}`}
           </span>
           {isOwner && !isEmbed && (
             <div className="hidden md:block">
