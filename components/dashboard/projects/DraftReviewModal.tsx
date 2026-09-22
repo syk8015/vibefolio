@@ -142,20 +142,23 @@ export function DraftReviewModal({ draft, onClose, onPublish, onEdit, onDelete, 
     return null;
   };
 
-  const save = async () => {
-    if (!editing) return;
+  // 저장됐으면(또는 바뀐 게 없으면) true — 공개 버튼이 "고치던 글 먼저 저장"에 쓴다.
+  const save = async (): Promise<boolean> => {
+    if (!editing) return true;
     const f = editing;
     const trimmed = value.trim();
     const problem = validate(f, trimmed);
-    if (problem) { setSaveError(problem); return; }
+    if (problem) { setSaveError(problem); return false; }
     const current = f === "title" ? draft.title : f === "description" ? draft.description : draft.comment;
-    if (trimmed === current) { cancel(); return; }
+    if (trimmed === current) { cancel(); return true; }
     setSaving(true);
     try {
       await onSave({ [f]: trimmed } as DraftPatch);
       setEditing(null);
+      return true;
     } catch {
       setSaveError(t.projects.reviewSaveFailed);
+      return false;
     } finally {
       setSaving(false);
     }
@@ -173,13 +176,28 @@ export function DraftReviewModal({ draft, onClose, onPublish, onEdit, onDelete, 
 
   // ── 대본 살짝 고치기 ────────────────────────────────────────────────────
   const [scriptError, setScriptError] = useState<string | null>(null);
+  const [scriptSaving, setScriptSaving] = useState(0);
   const saveScript = async (next: NonNullable<DBProject["demo_script"]>) => {
     setScriptError(null);
+    setScriptSaving((n) => n + 1);
     try {
       await onSave({ demo_script: next });
     } catch {
       setScriptError(t.projects.reviewSaveFailed);
+    } finally {
+      setScriptSaving((n) => n - 1);
     }
+  };
+
+  // 공개 — 글을 고치던 중이면 먼저 저장하고, 저장이 안 되면 공개하지 않는다.
+  // 전엔 편집 칸이 열린 채 [공개]를 누르면 고친 내용이 조용히 버려졌다(B9).
+  const [publishing, setPublishing] = useState(false);
+  const publish = async () => {
+    if (publishing || saving || scriptSaving > 0) return;
+    setPublishing(true);
+    const ok = await save();
+    setPublishing(false);
+    if (ok) onPublish();
   };
 
   // ── AI에게 고쳐달라기 ───────────────────────────────────────────────────
@@ -686,7 +704,8 @@ export function DraftReviewModal({ draft, onClose, onPublish, onEdit, onDelete, 
               </button>
               <button
                 type="button"
-                onClick={onPublish}
+                onClick={() => void publish()}
+                disabled={publishing || saving || scriptSaving > 0}
                 className="vf-button-primary"
                 style={{ fontSize: "0.92rem", padding: "0.72rem 1.4rem", minWidth: 120 }}
               >

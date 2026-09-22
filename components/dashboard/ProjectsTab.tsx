@@ -351,13 +351,17 @@ export default function ProjectsTab({
     // 인제스트로 들어온 수동 시연 영상(video_url)이 있으면 자동 촬영 생략 — 위
     // handleAdd와 같은 이유(노출 순위상 촬영본이 보이지 않음).
     const source = project.video_url ? null : detectDemoSource(project.demo_url);
+    // 방금 공개한 작품은 맨 앞에 — 인제스트는 sort_order를 "기존 행 수"로 넣어
+    // 그대로 두면 명함 맨 뒤에 붙고, 첫 화면에서 안 보여 "올라간 게 맞나?"가 된다.
+    const sortOrder = projects.reduce((min, p) => Math.min(min, p.sort_order ?? 0), 0) - 1;
+    const base: DBProject = { ...project, is_draft: false, sort_order: sortOrder };
     const published: DBProject = source
-      ? { ...project, is_draft: false, demo_build_status: "pending", demo_source_type: source.type, demo_source_value: source.value }
-      : { ...project, is_draft: false };
+      ? { ...base, demo_build_status: "pending", demo_source_type: source.type, demo_source_value: source.value }
+      : base;
     setDrafts(prev => prev.filter(p => p.id !== project.id));
-    setProjects(prev => [...prev, published]);
+    setProjects(prev => [published, ...prev]);
 
-    const { error } = await supabase.from("projects").update({ is_draft: false }).eq("id", project.id);
+    const { error } = await supabase.from("projects").update({ is_draft: false, sort_order: sortOrder }).eq("id", project.id);
     if (error) {
       // 롤백 — 다시 초안으로.
       setProjects(prev => prev.filter(p => p.id !== project.id));
@@ -375,8 +379,16 @@ export default function ProjectsTab({
     if (source) {
       fetch(`/api/projects/${project.id}/trigger-demo`, { method: "POST" })
         .then(async (res) => {
-          if (res.ok) return;
           const body = await res.json().catch(() => ({}));
+          if (res.ok) {
+            // 하루 한도에 걸려 관리자 승인 대기로 빠졌으면 "촬영 시작" 알림을
+            // 바로잡는다 — 재시도 경로(handleRerecord)와 같은 처리.
+            if (body.held) {
+              setProjects(prev => prev.map(p => p.id === project.id ? { ...p, demo_build_status: "held", demo_build_error: null } : p));
+              setNotice(body.message ?? t.projects.heldNotice);
+            }
+            return;
+          }
           setProjects(prev => prev.map(p => p.id === project.id ? { ...published, demo_build_status: null } : p));
           setNotice(body.message || t.projects.publishedDemoStartFailed);
         })
