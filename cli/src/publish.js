@@ -25,8 +25,11 @@ export async function runPublish({ payload = {}, dir = null, screenshotPath = nu
     payload.title = dir ? basename(dir) : entryUrl ? safeHost(entryUrl) : "Untitled";
   }
 
-  if (!dir && !entryUrl) {
-    throw new Error("Nothing to upload — pass a deployed URL with --url, or a static build with --dir.");
+  // htmlBody(채팅창 AI가 글자로 넘긴 단일 HTML)도 올릴 거리다 — 서버가 index.html 하나짜리
+  // zip으로 바꾼다. 0.1.17까지 이 검사가 htmlBody를 몰라서 check는 통과하는데 publish가
+  // 서버를 부르기도 전에 멈췄다(2026-09-22 실측).
+  if (!dir && !entryUrl && !payload.htmlBody) {
+    throw new Error("Nothing to upload — pass a deployed URL with --url, a static build with --dir, or htmlBody in the JSON.");
   }
 
   const authJson = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
