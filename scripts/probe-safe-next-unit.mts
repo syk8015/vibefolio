@@ -6,6 +6,7 @@ import { safeNext } from "../lib/safeNext";
 import { normalizeUsername, isValidUsername, usernameIlikePattern, USERNAME_MAX } from "../lib/username";
 import { isInAppBrowser } from "../lib/traffic-source";
 import { hasBlockedTerm } from "../lib/nameFilter";
+import { execFileSync } from "node:child_process";
 
 let failed = 0;
 const ok = (name: string, pass: boolean, detail = "") => {
@@ -92,6 +93,14 @@ blk("Claude Monet", "name", false);
 blk("안성기", "name", false);
 blk("lwk207088", "username", false);
 blk("alexvibe", "username", false);
+
+// DB 금지어 검사(supabase/migration_name_filter.sql)가 목록과 어긋나지 않았는지
+try {
+  execFileSync("npx", ["-y", "tsx", "scripts/build-name-filter-sql.mts", "--check"], { stdio: "pipe" });
+  ok("migration_name_filter.sql = lib/nameFilter.ts", true);
+} catch {
+  ok("migration_name_filter.sql = lib/nameFilter.ts", false, "npm run namefilter:sql 필요");
+}
 
 console.log(failed ? `\n${failed} FAILED` : "\nall passed");
 process.exit(failed ? 1 : 0);

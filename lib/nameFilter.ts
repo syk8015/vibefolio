@@ -11,9 +11,13 @@
 // 거의 안 들어가는 것만 **들어 있기만 해도** 막는다(CONTAINS).
 // 회사 이름은 아이디에서만 "들어 있기만 해도" 막는다 — 이름 칸엔 Claude 같은 실제
 // 사람 이름이 오므로 통째로 같을 때만 막는다.
+//
+// DB도 같은 검사를 한다(브라우저를 건너뛴 직접 요청 방어) — 목록을 고치면
+// `npm run namefilter:sql`로 supabase/migration_name_filter.sql을 다시 만들고 SQL을
+// 다시 실행할 것. 어긋나면 `npm test`가 막는다.
 
 // 욕설·성적인 말·혐오 표현 — 들어 있기만 해도 막는다(소문자·기호 뺀 형태로 비교).
-const ABUSE_CONTAINS = [
+export const ABUSE_CONTAINS = [
   "fuck", "shit", "bitch", "bastard", "asshole", "dickhead", "motherf", "cunt", "wank",
   "bollock", "twat",
   "porn", "hentai", "blowjob", "handjob", "dildo", "vagina", "penis", "boob",
@@ -28,13 +32,13 @@ const ABUSE_CONTAINS = [
 ];
 
 // 통째로 같을 때만 막는다 — 흔한 단어 안에 들어가는 짧은 것.
-const ABUSE_EXACT = [
+export const ABUSE_EXACT = [
   "ass", "cum", "tit", "tits", "fag", "dick", "piss", "slut", "whore", "hoe", "cock",
   "rape", "pedo", "spic", "prick", "nude", "loli",
 ];
 
 // 실제 회사·서비스 이름(사칭). 아이디: 들어 있기만 해도 / 이름: 통째로 같을 때만.
-const BRANDS_DISTINCT = [
+export const BRANDS_DISTINCT = [
   "google", "youtube", "gmail", "microsoft", "openai", "chatgpt", "anthropic", "claude",
   "samsung", "netflix", "instagram", "facebook", "whatsapp", "tiktok", "twitter", "linkedin",
   "github", "paypal", "nvidia", "tesla", "disney", "nintendo", "playstation", "coupang",
@@ -42,7 +46,7 @@ const BRANDS_DISTINCT = [
   "삼성", "네이버", "카카오", "구글", "쿠팡", "넷플릭스", "유튜브", "누크프레임",
 ];
 // 일반 명사이기도 한 회사 이름 — 아이디·이름 모두 통째로 같을 때만.
-const BRANDS_EXACT = [
+export const BRANDS_EXACT = [
   "apple", "meta", "amazon", "adobe", "intel", "oracle", "sony", "uber", "airbnb", "spotify",
   "x", "line", "gemini", "copilot", "figma", "notion", "slack", "discord", "reddit", "zoom",
   "cursor", "toss", "애플", "토스",

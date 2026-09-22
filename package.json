@@ -14,6 +14,7 @@
     "demo:fixtures": "python3 -m http.server 5050 --directory local-runner/fixtures",
     "promo:batch": "npx -y tsx local-runner/promo-worker.ts",
     "schema:build": "npx -y tsx scripts/build-schema.mts",
+    "namefilter:sql": "npx -y tsx scripts/build-name-filter-sql.mts",
     "font:subset": "node scripts/build-font-subset.mjs",
     "font:check": "node scripts/build-font-subset.mjs --check",
     "prebuild": "node scripts/build-font-subset.mjs --check"
