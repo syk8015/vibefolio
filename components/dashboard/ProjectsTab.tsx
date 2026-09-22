@@ -21,7 +21,22 @@ import { useDraftArrival } from "./projects/useDraftArrival";
 // username comes from DashboardClient's profiles row (the handle public links
 // actually resolve) — deriving it here from auth metadata could hand ShareKit
 // a stale handle when the two sources drift.
-export default function ProjectsTab({ user, username, reviewProjectId }: { user: User; username: string; reviewProjectId?: string | null }) {
+// openAddRequested: 대시보드 환영 배너의 "첫 작품 추가하기"가 연결 창을 열어 달라는
+// 신호. 연결 창 상태가 이 안에 있어 배너가 직접 못 연다(B2) — 열고 나면
+// onAddRequestHandled로 신호를 끈다(탭을 오갈 때 다시 열리지 않게).
+export default function ProjectsTab({
+  user,
+  username,
+  reviewProjectId,
+  openAddRequested = false,
+  onAddRequestHandled,
+}: {
+  user: User;
+  username: string;
+  reviewProjectId?: string | null;
+  openAddRequested?: boolean;
+  onAddRequestHandled?: () => void;
+}) {
   const { t } = useT();
   const router = useRouter();
   const [projects, setProjects] = useState<DBProject[]>([]);
@@ -112,6 +127,14 @@ export default function ProjectsTab({ user, username, reviewProjectId }: { user:
       }
     }
   }, [reviewProjectId, drafts]);
+
+  useEffect(() => {
+    if (!openAddRequested) return;
+    // 배너 클릭 1회 소비 — 위 ?review 딥링크와 같은 단발 오픈.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setShowAddModal(true);
+    onAddRequestHandled?.();
+  }, [openAddRequested, onAddRequestHandled]);
 
   async function saveOrder(ordered: DBProject[]) {
     const supabase = createClient();

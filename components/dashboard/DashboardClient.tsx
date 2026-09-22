@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import type { User } from "@supabase/supabase-js";
 import Link from "next/link";
 import dynamic from "next/dynamic";
@@ -65,6 +65,9 @@ export default function DashboardClient({ user, profile, publishedCount, totalCo
   });
   const [showWelcome, setShowWelcome] = useState(() => searchParams.get("welcome") === "1");
   const [reviewId] = useState<string | null>(() => searchParams.get("review"));
+  // 환영 배너 → 작품 탭의 연결 창. 창 상태는 ProjectsTab 안에 있어 신호만 넘긴다.
+  const [addRequested, setAddRequested] = useState(false);
+  const handleAddRequest = useCallback(() => setAddRequested(false), []);
   const [addrCopied, setAddrCopied] = useState(false);
 
   useEffect(() => {
@@ -144,7 +147,12 @@ export default function DashboardClient({ user, profile, publishedCount, totalCo
                   <p className="text-sm" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
                     {t.dashboard.welcomeBody}{" "}
                     <button
-                      onClick={() => switchTab("projects")}
+                      onClick={() => {
+                        // 작품 탭은 이미 기본이라 탭만 바꾸면 아무 일도 안 일어났다(B2).
+                        switchTab("projects");
+                        setAddRequested(true);
+                        setShowWelcome(false);
+                      }}
                       className="vf-button-text underline"
                       style={{ color: "var(--text-primary)", fontWeight: 600 }}>
                       {t.dashboard.welcomeCta}
@@ -251,7 +259,13 @@ export default function DashboardClient({ user, profile, publishedCount, totalCo
 
         {/* Tab content */}
         {tab === "projects" ? (
-          <ProjectsTab user={user} username={username} reviewProjectId={reviewId} />
+          <ProjectsTab
+            user={user}
+            username={username}
+            reviewProjectId={reviewId}
+            openAddRequested={addRequested}
+            onAddRequestHandled={handleAddRequest}
+          />
         ) : tab === "card" ? (
           <CardTab user={user} profile={profile} />
         ) : (
