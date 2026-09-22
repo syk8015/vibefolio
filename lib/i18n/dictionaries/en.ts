@@ -91,7 +91,7 @@ export const en: Dictionary = {
     checkEmailTitle: "Check your email",
     checkEmailBody: "We sent a verification link to this address. Check your inbox.",
     errors: {
-      emailTaken: "This email is already in use.",
+      emailTaken: "This email already has an account. Log in, or use Continue with Google if you signed up that way.",
     },
   },
   forgotPassword: {

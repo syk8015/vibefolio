@@ -84,7 +84,7 @@ export default function SignupPage() {
     setError("");
 
     const supabase = createClient();
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email: form.email,
       password: form.password,
       options: {
@@ -117,6 +117,13 @@ export default function SignupPage() {
       resetTurnstile();
       setCaptchaToken(null);
       setError(errorMessage(error.message, t));
+    } else if (data.user && data.user.identities?.length === 0) {
+      // 이미 가입된 주소 — Supabase는 주소 존재를 숨기려고 가짜 성공을 돌려주고 메일은
+      // 보내지 않는다(identities가 빈 배열인 게 유일한 표식). 그대로 "메일 보냈어요"를
+      // 띄우면 오지 않을 메일을 기다리게 된다(2026-09-22 실가입 확인에서 발견).
+      resetTurnstile();
+      setCaptchaToken(null);
+      setError(t.signup.errors.emailTaken);
     } else {
       setStep("check-email");
     }

@@ -97,7 +97,7 @@ export const ko = {
     checkEmailTitle: "이메일을 확인해주세요",
     checkEmailBody: "위 주소로 인증 링크를 보냈어요. 메일함을 확인해주세요.",
     errors: {
-      emailTaken: "이미 사용 중인 이메일이에요.",
+      emailTaken: "이미 가입된 이메일이에요. 로그인하거나, 구글로 가입했다면 [Google로 계속하기]를 눌러 주세요.",
     },
   },
   forgotPassword: {
