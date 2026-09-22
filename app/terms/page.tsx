@@ -30,7 +30,7 @@ export default async function TermsPage() {
           {en ? "Terms of Service" : "이용약관"}
         </h1>
         <p className="text-sm mb-12" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
-          {en ? "Effective date: September 1, 2026" : "시행일: 2026년 9월 1일"}
+          {en ? "Effective date: September 29, 2026 (announced September 22, 2026; previous version effective September 1, 2026)" : "시행일: 2026년 9월 29일 (2026년 9월 22일 공지 · 이전 판 시행일 2026년 9월 1일)"}
         </p>
 
         <div className="flex flex-col gap-10" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", fontSize: "0.9rem", lineHeight: 1.9 }}>
@@ -83,6 +83,8 @@ function KoBody() {
         <ul className="list-disc pl-5 flex flex-col gap-1">
           <li>이용자가 서비스에 등록한 콘텐츠의 저작권은 해당 이용자에게 귀속됩니다.</li>
           <li>이용자는 서비스 이용을 통해 다른 이용자의 저작권, 개인정보, 기타 권리를 침해해서는 안 됩니다.</li>
+          <li>이용자는 운영자가 서비스를 제공하는 데 필요한 범위(저장, 작품 페이지·임베드에서의 표시와 실행, 미리보기 이미지와 데모 영상 생성, 검색 결과 노출)에서 콘텐츠를 복제·전송·표시하는 것을 허락합니다. 이 허락은 이용자가 해당 콘텐츠를 삭제하거나 탈퇴하면 끝납니다.</li>
+          <li>이용자가 올린 콘텐츠(업로드한 파일 포함)에 제3자의 개인정보가 담겨 있는 경우, 그 개인정보를 적법하게 수집·공개할 근거(정보주체의 동의 등)를 갖출 책임은 이용자에게 있습니다. 이를 어겨 생긴 분쟁과 손해는 이용자가 책임지며, 운영자는 고의 또는 과실이 없는 한 책임을 지지 않습니다. 운영자는 신고를 받으면 제7조에 따라 해당 콘텐츠를 비공개 처리하거나 삭제할 수 있습니다.</li>
           <li>운영자는 이용자가 <strong>공개로 발행한</strong> 콘텐츠에 한해, 서비스 소개·홍보(예: 소셜미디어 홍보 영상) 목적으로 활용할 수 있습니다. 이때 이용자와 작품의 출처를 명시합니다.</li>
           <li>발행하지 않은 초안은 홍보에 활용하지 않습니다.</li>
           <li>이용자가 홍보 활용을 원하지 않는 경우, 아래 문의 이메일로 알려주시면 중단합니다.</li>
@@ -190,6 +192,8 @@ function EnBody() {
         <ul className="list-disc pl-5 flex flex-col gap-1">
           <li>Copyright in the content you register on the Service belongs to you.</li>
           <li>You may not use the Service to infringe other users&apos; copyrights, privacy, or other rights.</li>
+          <li>You permit the operator to copy, transmit, and display your content to the extent needed to provide the Service (storage, display and execution on work pages and embeds, generating preview images and demo videos, and appearing in search results). This permission ends when you delete the content or your account.</li>
+          <li>If your content (including uploaded files) contains personal information of third parties, you are responsible for having a lawful basis to collect and publish it (such as the data subject&apos;s consent). You are responsible for disputes and damages arising from a failure to do so, and the operator is not liable unless it acted intentionally or negligently. On receiving a report, the operator may make the content private or delete it under Article 7.</li>
           <li>The operator may use content you have <strong>published publicly</strong> to introduce and promote the Service (for example, in social media promo videos), crediting you and the source of the work.</li>
           <li>Unpublished drafts are never used for promotion.</li>
           <li>If you do not want your work used for promotion, email the address below and we will stop.</li>
