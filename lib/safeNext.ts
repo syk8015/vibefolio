@@ -4,10 +4,11 @@
 //
 // 막는 모양: `//evil.com`(스킴 생략 절대주소) · `/\evil.com`(브라우저가 \를 /로 읽음)
 // · `https://…` · `javascript:` · 제어문자·공백(탭/줄바꿈을 끼워 넣어 위 검사를 비껴가는 수법).
-export function safeNext(raw: string | null | undefined): string {
-  if (!raw) return "/";
-  if (!raw.startsWith("/")) return "/";
-  if (raw.startsWith("//") || raw.includes("\\")) return "/";
-  if (/[\u0000- \u007f]/.test(raw)) return "/";
+// `fallback`은 걸렀거나 비었을 때 갈 곳 — 로그인 직후엔 "/"(중간 화면) 대신 "/dashboard".
+export function safeNext(raw: string | null | undefined, fallback = "/"): string {
+  if (!raw) return fallback;
+  if (!raw.startsWith("/")) return fallback;
+  if (raw.startsWith("//") || raw.includes("\\")) return fallback;
+  if (/[\u0000- \u007f]/.test(raw)) return fallback;
   return raw;
 }

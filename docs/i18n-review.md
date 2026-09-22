@@ -721,3 +721,23 @@ SNS/검색 로봇은 JS를 안 돌려 OG·크롤러 노출 문구(루트 descrip
 | 키 | 한국어 | English | 비고 |
 |---|---|---|---|
 | api.demoAccessSecretParam | demoAccess에 비밀값처럼 보이는 이름("{name}")이 있어요 — 토큰·비밀번호·키는 받지 않아요. … | demoAccess contains a name that looks like a secret ("{name}") — tokens, passwords and keys are not accepted. … | 신규 · 400 DEMO_ACCESS_SECRET, 함수(name) · 전문은 사전 참조 |
+
+## 출시 점검 S3 — 가입·로그인·온보딩·계정 (2026-09-22)
+
+| 키 | 한국어 | English | 비고 |
+|---|---|---|---|
+| auth.resendPrompt | 이메일을 잘못 입력했나요? | Typed the email wrong? | 교체 · 위에 [인증 메일 다시 보내기]가 생겨 "메일이 안 왔나요" 몫을 넘김 |
+| auth.resendButton | 인증 메일 다시 보내기 | Resend verification email | 신규 · 가입 "메일 확인" 화면 + 로그인 "이메일 미인증" |
+| auth.resending | 보내는 중... | Sending... | 신규 |
+| auth.resendSent | 인증 메일을 다시 보냈어요. 스팸함도 확인해 주세요. | Sent again. Check your spam folder too. | 신규 |
+| auth.resendFailed | 지금은 보낼 수 없어요. 1분 뒤에 다시 눌러 주세요. | Can't send right now. Try again in a minute. | 신규 · Supabase 같은 주소 60초 제한 |
+| auth.usernamePattern | 영문 소문자, 숫자, _-만 쓸 수 있어요 | Lowercase letters, numbers, _ and - only | 교체 · 아이디 소문자 저장(A7) |
+| auth.inAppTitle | 앱 안 브라우저에서는 구글 로그인이 막혀요 | Google sign-in is blocked inside in-app browsers | 신규 · 인스타·스레드 웹뷰(D5) |
+| auth.inAppBody | 오른쪽 위 ⋯ 메뉴에서 '외부 브라우저로 열기'를 눌러 주세요. 이메일 가입은 여기서도 돼요. | Tap the ⋯ menu (top right) and choose 'Open in external browser'. Email sign-up works here too. | 신규 |
+| auth.inAppCopy / inAppCopied / inAppCopyFailed | 주소 복사 / 복사했어요 — 사파리·크롬에 붙여 넣어 주세요 / 복사하지 못했어요 — ⋯ 메뉴를 써 주세요 | Copy link / Copied — paste it into Safari or Chrome / Couldn't copy — use the ⋯ menu instead | 신규 |
+| login.callbackConfirmFailed | 이 브라우저에서는 링크를 이어서 열 수 없었어요. 메일 인증은 끝났으니 아래에서 로그인해 주세요. | That link couldn't finish in this browser. Your email is verified — log in below. | 신규 · /login?error=auth(B8) |
+| login.callbackResetFailed / callbackResetAgain | 재설정 링크가 만료됐거나 다른 브라우저에서 열렸어요. / 재설정 메일 다시 받기 → | That reset link expired or was opened in a different browser. / Send a new reset link → | 신규 |
+| resetPassword.doneBody | 잠시 후 대시보드로 이동합니다. | Taking you to your dashboard in a moment. | 교체 · 목적지 홈→대시보드(C4) |
+| onboarding.usernameInvalid · errors.usernameInvalid | 영문 소문자, 숫자, _, -만 쓸 수 있어요 (2~30자) | Lowercase letters, numbers, _ and - only (2–30 characters) | 교체 · 소문자·30자(A7·B23) |
+| onboarding.ageConfirm | 만 14세 이상이에요 | I'm 14 or older | 신규 · 약관 1조 가입 조건 체크(법무⑤) |
+| card.usernameChangeWarning | 저장하면 옛 주소 nookframe.com/{old}는 바로 열리지 않아요. 이미 공유한 링크가 끊겨요. | Once you save, nookframe.com/{old} stops working right away. Links you've already shared will break. | 신규 · 함수(old) · C11 |

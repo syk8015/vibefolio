@@ -8,7 +8,7 @@ export const RESERVED_USERNAMES = new Set([
   // app routes (app/*)
   "admin", "api", "auth", "dashboard", "login", "signup", "onboarding",
   "publish", "privacy", "terms", "forgot-password", "reset-password",
-  "error", "not-found",
+  "error", "not-found", "oauth", "promo-record",
   // framework / static surfaces
   "_next", "static", "public", "assets", "favicon", "robots", "sitemap",
   "icon", "apple-icon",

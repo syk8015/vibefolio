@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import TurnstileWidget, { turnstileEnabled, resetTurnstile } from "@/components/TurnstileWidget";
@@ -8,8 +8,41 @@ import Logo from "@/components/Logo";
 import LanguageToggle from "@/components/LanguageToggle";
 import { useT } from "@/lib/i18n/client";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
+import { safeNext } from "@/lib/safeNext";
+import { firstTouch } from "@/lib/analytics-client";
+import { NAME_MAX, USERNAME_MAX, USERNAME_MIN, USERNAME_PATTERN, normalizeUsername } from "@/lib/username";
+import InAppBrowserNotice from "@/components/InAppBrowserNotice";
 
 type Step = "form" | "check-email";
+type FieldName = "name" | "username" | "email" | "password";
+
+// 가입 뒤 돌아갈 곳(?next=, /publish에서 온 사람). 인증 메일 링크·구글 콜백에 실어
+// 보내면 미들웨어가 온보딩에 ?next=로 넘기고, 온보딩 끝에서 거기로 간다.
+function nextFromUrl(): string {
+  return safeNext(new URLSearchParams(location.search).get("next"), "/dashboard");
+}
+
+const noopSubscribe = () => () => {};
+
+function loginHrefFromUrl(): string {
+  const next = new URLSearchParams(location.search).get("next");
+  return next && safeNext(next) === next ? `/login?next=${encodeURIComponent(next)}` : "/login";
+}
+
+function callbackUrl(): string {
+  return `${location.origin}/auth/callback?next=${encodeURIComponent(nextFromUrl())}`;
+}
+
+// 입력 오류 안내 — 제출 버튼은 보안 확인(Turnstile) 전엔 잠겨 있어서 브라우저 기본
+// 검증 말풍선이 한 번도 안 뜬다. 칸을 벗어날 때 무엇이 틀렸는지 바로 보여 준다.
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+function fieldError(field: FieldName, value: string, t: Dictionary): string | null {
+  if (!value) return null;
+  if (field === "email" && !EMAIL_RE.test(value)) return t.auth.errors.invalidEmail;
+  if (field === "password" && value.length < 8) return t.auth.errors.passwordTooShort;
+  if (field === "username" && value.length < USERNAME_MIN) return t.onboarding.errors.usernameInvalid;
+  return null;
+}
 
 export default function SignupPage() {
   const { t, locale } = useT();
@@ -19,14 +52,34 @@ export default function SignupPage() {
   const [error, setError] = useState("");
   const [form, setForm] = useState({ name: "", username: "", email: "", password: "" });
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [touched, setTouched] = useState<Partial<Record<FieldName, boolean>>>({});
+  const [resend, setResend] = useState<"idle" | "sending" | "sent" | "failed">("idle");
+  // 로그인 링크에도 ?next=를 이어 붙인다(이미 계정이 있던 사람이 /publish로 돌아가게).
+  const loginHref = useSyncExternalStore(noopSubscribe, loginHrefFromUrl, () => "/login");
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    const { name } = e.target;
+    const value = name === "username" ? normalizeUsername(e.target.value) : e.target.value;
+    setForm((prev) => ({ ...prev, [name]: value }));
     setError("");
   }
 
+  function handleBlur(e: React.FocusEvent<HTMLInputElement>) {
+    const name = e.target.name as FieldName;
+    setTouched((prev) => ({ ...prev, [name]: true }));
+  }
+
+  const hint = (field: FieldName) => (touched[field] ? fieldError(field, form[field], t) : null);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    const firstBad = (["name", "username", "email", "password"] as FieldName[])
+      .map((f) => fieldError(f, form[f], t)).find(Boolean);
+    if (firstBad) {
+      setTouched({ name: true, username: true, email: true, password: true });
+      setError(firstBad);
+      return;
+    }
     setLoading(true);
     setError("");
 
@@ -35,6 +88,9 @@ export default function SignupPage() {
       email: form.email,
       password: form.password,
       options: {
+        // 인증 링크가 돌아올 곳. 없으면 Supabase Site URL(랜딩)로 떨어져 코드 교환이
+        // 안 되고, 인증은 됐는데 로그아웃된 랜딩만 보인다(2026-09-22 A3).
+        emailRedirectTo: callbackUrl(),
         data: {
           name: form.name,
           // NOT `username`: middleware treats user_metadata.username as the
@@ -43,10 +99,13 @@ export default function SignupPage() {
           // — the account's public card would 404 and its first project INSERT would
           // hit a raw FK error. Stash it under a non-gating key so onboarding can
           // pre-fill and confirm it (uniqueness-checked there), exactly like Google.
-          pending_username: form.username,
+          pending_username: normalizeUsername(form.username),
           // Supabase 인증메일 템플릿({{ .Data.locale }})이 언어를 고르는 근거.
           // 앱 메일은 profiles.locale을 쓰지만 auth 템플릿은 user_metadata만 읽는다.
           locale,
+          // 첫 방문 정보(유입 경로·utm). 폰에서 인증 메일을 누르면 다른 브라우저가 열려
+          // localStorage가 비므로, 온보딩이 가입 완료를 홍보 성과로 셀 수 있게 계정에 실어 둔다.
+          first_touch: firstTouch(),
         },
         captchaToken: captchaToken ?? undefined,
       },
@@ -69,15 +128,31 @@ export default function SignupPage() {
     // so we clear the consumed one (keeps the submit button gated until the new one lands).
     setStep("form");
     setError("");
+    setResend("idle");
     resetTurnstile();
     setCaptchaToken(null);
+  }
+
+  // 인증 메일 다시 보내기 — 스팸함·지연으로 막힌 사람이 폼으로 돌아가지 않고 스스로 푼다.
+  // Supabase가 같은 주소엔 60초에 한 번만 보내므로, 너무 빠르면 실패 문구가 뜬다.
+  async function handleResend() {
+    setResend("sending");
+    const supabase = createClient();
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email: form.email,
+      options: { emailRedirectTo: callbackUrl(), captchaToken: captchaToken ?? undefined },
+    });
+    resetTurnstile();
+    setCaptchaToken(null);
+    setResend(error ? "failed" : "sent");
   }
 
   async function handleGoogle() {
     const supabase = createClient();
     await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `${location.origin}/auth/callback` },
+      options: { redirectTo: callbackUrl() },
     });
   }
 
@@ -98,8 +173,25 @@ export default function SignupPage() {
             <strong style={{ color: "var(--text-primary)" }}>{form.email}</strong><br />
             {t.signup.checkEmailBody}
           </p>
+          {resend === "sent" ? (
+            <p className="text-sm font-semibold mb-6" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
+              {t.auth.resendSent}
+            </p>
+          ) : (
+            <div className="flex flex-col items-center gap-3 mb-6">
+              <TurnstileWidget onToken={setCaptchaToken} />
+              <button type="button" onClick={handleResend}
+                disabled={resend === "sending" || (turnstileEnabled && !captchaToken)}
+                className="vf-button-ghost disabled:opacity-50">
+                {resend === "sending" ? t.auth.resending : t.auth.resendButton}
+              </button>
+              {resend === "failed" && (
+                <p className="text-xs" style={{ color: "#ef4444", fontFamily: "var(--font-nunito)" }}>{t.auth.resendFailed}</p>
+              )}
+            </div>
+          )}
           <Link
-            href="/login"
+            href={loginHref}
             className="text-sm font-bold"
             style={{ color: "var(--blue)", textDecoration: "none", fontFamily: "var(--font-nunito)" }}
           >
@@ -124,7 +216,7 @@ export default function SignupPage() {
         <div className="flex items-center gap-4">
           <p className="text-sm font-semibold" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
             {t.signup.haveAccount}
-            <Link href="/login" style={{ color: "var(--blue)", textDecoration: "none", fontWeight: 700, marginLeft: "8px" }}>{t.signup.loginLink}</Link>
+            <Link href={loginHref} style={{ color: "var(--blue)", textDecoration: "none", fontWeight: 700, marginLeft: "8px" }}>{t.signup.loginLink}</Link>
           </p>
           <LanguageToggle />
         </div>
@@ -140,6 +232,8 @@ export default function SignupPage() {
               {t.signup.subtitle}
             </p>
           </div>
+
+          <InAppBrowserNotice />
 
           <button
             type="button"
@@ -160,7 +254,7 @@ export default function SignupPage() {
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <Field label={t.signup.nameLabel}>
               <input className="vf-input" type="text" name="name" placeholder={t.signup.namePlaceholder}
-                value={form.name} onChange={handleChange} required autoComplete="name" />
+                value={form.name} onChange={handleChange} required autoComplete="name" maxLength={NAME_MAX} />
             </Field>
 
             <Field label={t.signup.usernameLabel}>
@@ -169,10 +263,11 @@ export default function SignupPage() {
                   style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>@</span>
                 <input className="vf-input" style={{ paddingLeft: "1.75rem" }}
                   type="text" name="username" placeholder="alexvibe"
-                  value={form.username} onChange={handleChange} required
-                  pattern="[a-zA-Z0-9_-]+" title={t.auth.usernamePattern} />
+                  value={form.username} onChange={handleChange} onBlur={handleBlur} required
+                  pattern={USERNAME_PATTERN} title={t.auth.usernamePattern} maxLength={USERNAME_MAX}
+                  autoCapitalize="none" autoCorrect="off" spellCheck={false} autoComplete="off" />
               </div>
-              {form.username && (
+              {hint("username") ? <FieldHint text={hint("username")!} /> : form.username && (
                 <p className="mt-1 text-xs font-semibold" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
                   nookframe.com/{form.username}
                 </p>
@@ -181,14 +276,16 @@ export default function SignupPage() {
 
             <Field label={t.auth.emailLabel}>
               <input className="vf-input" type="email" name="email" placeholder="hello@example.com"
-                value={form.email} onChange={handleChange} required autoComplete="email" />
+                value={form.email} onChange={handleChange} onBlur={handleBlur} required autoComplete="email"
+                autoCapitalize="none" autoCorrect="off" spellCheck={false} />
+              {hint("email") && <FieldHint text={hint("email")!} />}
             </Field>
 
             <Field label={t.auth.passwordLabel}>
               <div className="relative">
                 <input className="vf-input" style={{ paddingRight: "3rem" }}
                   type={show ? "text" : "password"} name="password" placeholder={t.signup.passwordPlaceholder}
-                  value={form.password} onChange={handleChange} required minLength={8} autoComplete="new-password" />
+                  value={form.password} onChange={handleChange} onBlur={handleBlur} required minLength={8} autoComplete="new-password" />
                 <button type="button" onClick={() => setShow((v) => !v)}
                   aria-label={show ? t.auth.hidePassword : t.auth.showPassword}
                   className="absolute right-3 top-1/2 -translate-y-1/2"
@@ -196,6 +293,7 @@ export default function SignupPage() {
                   {show ? <EyeOff /> : <Eye />}
                 </button>
               </div>
+              {hint("password") && <FieldHint text={hint("password")!} />}
             </Field>
 
             {error && (
@@ -235,6 +333,14 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       </label>
       {children}
     </div>
+  );
+}
+
+function FieldHint({ text }: { text: string }) {
+  return (
+    <p className="mt-1 text-xs font-semibold" style={{ color: "#ef4444", fontFamily: "var(--font-nunito)" }}>
+      {text}
+    </p>
   );
 }
 

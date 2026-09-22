@@ -9,13 +9,15 @@ import Logo from "@/components/Logo";
 import LanguageToggle from "@/components/LanguageToggle";
 import { useT } from "@/lib/i18n/client";
 import { safeNext } from "@/lib/safeNext";
+import InAppBrowserNotice from "@/components/InAppBrowserNotice";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
 
 const RETURNING_USER_KEY = "vf-returning-user";
 
 // 로그인 뒤 돌아갈 곳. useSearchParams는 Suspense 경계를 요구해서, 클릭 시점에 주소를 읽는다.
+// 기본은 대시보드 — 홈("/")은 로그인한 사람에겐 버튼 두 개짜리 중간 화면이다.
 function nextFromUrl(): string {
-  return safeNext(new URLSearchParams(location.search).get("next"));
+  return safeNext(new URLSearchParams(location.search).get("next"), "/dashboard");
 }
 
 export default function LoginPage() {
@@ -27,9 +29,22 @@ export default function LoginPage() {
   const [form, setForm] = useState({ email: "", password: "" });
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [isReturning, setIsReturning] = useState<boolean | null>(null);
+  // 인증 콜백 실패(?error=auth)로 왔을 때의 안내 — 재설정 링크였는지 가입 인증이었는지로 가른다.
+  const [callbackError, setCallbackError] = useState<"reset" | "confirm" | null>(null);
+  // "이메일 미인증"으로 막힌 사람에게 인증 메일을 다시 보내는 버튼 상태.
+  const [unconfirmed, setUnconfirmed] = useState(false);
+  const [resend, setResend] = useState<"idle" | "sending" | "sent" | "failed">("idle");
+  // 가입 링크에 ?next=를 이어 붙인다(/publish에서 온 신규 사용자가 길을 잃지 않게).
+  const [signupHref, setSignupHref] = useState("/signup");
 
   useEffect(() => {
     setIsReturning(localStorage.getItem(RETURNING_USER_KEY) === "1");
+    const params = new URLSearchParams(location.search);
+    if (params.get("error") === "auth") {
+      setCallbackError(safeNext(params.get("next")).startsWith("/reset-password") ? "reset" : "confirm");
+    }
+    const next = params.get("next");
+    if (next && safeNext(next) === next) setSignupHref(`/signup?next=${encodeURIComponent(next)}`);
   }, []);
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -54,12 +69,31 @@ export default function LoginPage() {
       // Turnstile tokens are single-use — the failed attempt consumed this one.
       resetTurnstile();
       setCaptchaToken(null);
+      setUnconfirmed(error.message.includes("Email not confirmed"));
+      setResend("idle");
       setError(errorMessage(error.message, t));
     } else {
       localStorage.setItem(RETURNING_USER_KEY, "1");
       router.push(nextFromUrl());
       router.refresh();
     }
+  }
+
+  async function handleResend() {
+    setResend("sending");
+    const supabase = createClient();
+    const next = nextFromUrl();
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email: form.email,
+      options: {
+        emailRedirectTo: `${location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
+        captchaToken: captchaToken ?? undefined,
+      },
+    });
+    resetTurnstile();
+    setCaptchaToken(null);
+    setResend(error ? "failed" : "sent");
   }
 
   async function handleGoogle() {
@@ -72,7 +106,7 @@ export default function LoginPage() {
     await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${location.origin}/auth/callback${next === "/" ? "" : `?next=${encodeURIComponent(next)}`}`,
+        redirectTo: `${location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
       },
     });
   }
@@ -84,7 +118,7 @@ export default function LoginPage() {
         <div className="flex items-center gap-4">
           <p className="text-sm font-semibold" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
             {t.login.noAccount}
-            <Link href="/signup" style={{ color: "var(--blue)", textDecoration: "none", fontWeight: 700, marginLeft: "8px" }}>{t.login.signupLink}</Link>
+            <Link href={signupHref} style={{ color: "var(--blue)", textDecoration: "none", fontWeight: 700, marginLeft: "8px" }}>{t.login.signupLink}</Link>
           </p>
           <LanguageToggle />
         </div>
@@ -100,6 +134,22 @@ export default function LoginPage() {
               {isReturning ? t.login.welcomeBackSub : t.login.welcomeSub}
             </p>
           </div>
+
+          {callbackError && (
+            <div role="alert" className="mb-6 rounded-xl px-4 py-3 text-xs leading-relaxed"
+              style={{ background: "var(--blue-tint)", color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}>
+              {callbackError === "reset" ? (
+                <>
+                  {t.login.callbackResetFailed}{" "}
+                  <Link href="/forgot-password" style={{ color: "var(--blue)", fontWeight: 700 }}>{t.login.callbackResetAgain}</Link>
+                </>
+              ) : (
+                t.login.callbackConfirmFailed
+              )}
+            </div>
+          )}
+
+          <InAppBrowserNotice />
 
           <button type="button" onClick={handleGoogle}
             className="w-full flex items-center justify-center gap-3 py-3 rounded-xl font-bold text-sm mb-6 transition-opacity hover:opacity-80"
@@ -152,6 +202,19 @@ export default function LoginPage() {
               <p className="text-sm font-semibold text-center py-2 px-3 rounded-xl"
                 style={{ color: "#ef4444", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", fontFamily: "var(--font-nunito)" }}>
                 {error}
+              </p>
+            )}
+
+            {unconfirmed && (
+              <p className="text-xs text-center" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
+                {resend === "sent" ? t.auth.resendSent : resend === "failed" ? t.auth.resendFailed : (
+                  <button type="button" onClick={handleResend}
+                    disabled={resend === "sending" || (turnstileEnabled && !captchaToken)}
+                    style={{ color: "var(--blue)", fontWeight: 700, background: "none", border: "none", cursor: "pointer", padding: 0, textDecoration: "underline", fontFamily: "inherit", fontSize: "inherit" }}
+                    className="disabled:opacity-50">
+                    {resend === "sending" ? t.auth.resending : t.auth.resendButton}
+                  </button>
+                )}
               </p>
             )}
 

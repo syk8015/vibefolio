@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
   const code = searchParams.get("code");
   // Open-redirect guard: `next` is user-controlled and concatenated onto origin.
   // lib/safeNext keeps only a same-origin relative path (login page shares it).
-  const next = safeNext(searchParams.get("next"));
+  const next = safeNext(searchParams.get("next"), "/dashboard");
 
   if (code) {
     try {
@@ -44,5 +44,12 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  return NextResponse.redirect(`${origin}/login?error=auth`);
+  // 실패해도 어디로 가던 길이었는지는 넘긴다 — 로그인 화면이 "재설정 링크였다"와
+  // "가입 인증이었다"를 구분해 안내하고(B8), 로그인하면 그 길을 이어 간다.
+  // (다른 브라우저에서 연 가입 인증 링크가 대표 사례: 코드 교환은 실패해도 Supabase가
+  // 메일 인증 자체는 이미 끝냈다 — 비밀번호로 로그인하면 된다.)
+  const fail = new URL("/login", origin);
+  fail.searchParams.set("error", "auth");
+  fail.searchParams.set("next", next);
+  return NextResponse.redirect(fail);
 }

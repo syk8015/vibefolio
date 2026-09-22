@@ -4,12 +4,35 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { AnalyticsEvent, trackClientEvent, firstTouch } from "@/lib/analytics-client";
+import { AnalyticsEvent, trackClientEvent, firstTouch, type FirstTouchData } from "@/lib/analytics-client";
 import Logo from "@/components/Logo";
 import { isReservedUsername } from "@/lib/reservedUsernames";
+import { safeNext } from "@/lib/safeNext";
+import {
+  BIO_MAX, NAME_MAX, USERNAME_MAX, USERNAME_PATTERN,
+  isValidUsername, normalizeUsername, usernameIlikePattern,
+} from "@/lib/username";
 import { useT } from "@/lib/i18n/client";
 
 type UsernameStatus = "idle" | "checking" | "available" | "taken" | "invalid" | "reserved";
+
+// 온보딩이 끝나면 갈 곳. 미들웨어가 원래 가려던 주소를 ?next=로 실어 보낸다
+// (/publish에서 가입한 사람은 JSON을 들고 왔으니 거기로 돌려보낸다). 없거나
+// 대시보드면 환영 배너가 뜨는 대시보드로.
+function destination(): string {
+  const next = safeNext(new URLSearchParams(location.search).get("next"));
+  return next === "/" || next.startsWith("/dashboard") ? "/dashboard?welcome=1" : next;
+}
+
+// 아이디 겹침 검사 — DB 유일 인덱스가 lower(username)이라 대소문자를 가리지 않고
+// 본다. 자기 행은 뺀다(프로필은 저장됐는데 metadata 저장이 실패해 다시 온 사람이
+// 자기 아이디에 "이미 사용 중"을 보지 않게).
+async function usernameTaken(supabase: ReturnType<typeof createClient>, value: string, selfId: string | null) {
+  let q = supabase.from("profiles").select("id").ilike("username", usernameIlikePattern(value));
+  if (selfId) q = q.neq("id", selfId);
+  const { data } = await q.limit(1);
+  return (data?.length ?? 0) > 0;
+}
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -20,51 +43,60 @@ export default function OnboardingPage() {
   const [initLoading, setInitLoading] = useState(true);
   const [error, setError] = useState("");
   const [usernameStatus, setUsernameStatus] = useState<UsernameStatus>("idle");
+  const [ageOk, setAgeOk] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const userIdRef = useRef<string | null>(null);
+  // 가입 폼이 metadata에 실어 둔 첫 방문 정보 — 인증 메일을 다른 브라우저에서 열어
+  // 이 브라우저의 localStorage가 비어 있을 때 쓴다(홍보 유입 귀속).
+  const signupTouchRef = useRef<FirstTouchData | null>(null);
 
   const checkUsername = useCallback(async (value: string) => {
     if (!value) { setUsernameStatus("idle"); return; }
-    if (!/^[a-zA-Z0-9_-]+$/.test(value) || value.length < 2) {
+    if (!isValidUsername(value)) {
       setUsernameStatus("invalid"); return;
     }
     if (isReservedUsername(value)) {
       setUsernameStatus("reserved"); return;
     }
     setUsernameStatus("checking");
-    const supabase = createClient();
-    const { data } = await supabase.from("profiles").select("id").eq("username", value).maybeSingle();
-    setUsernameStatus(data ? "taken" : "available");
+    const taken = await usernameTaken(createClient(), value, userIdRef.current);
+    setUsernameStatus(taken ? "taken" : "available");
   }, []);
 
   useEffect(() => {
     const supabase = createClient();
     supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) return;
+      // 미들웨어는 /onboarding을 로그인 없이도 통과시킨다 — 여기서 돌려보내지 않으면
+      // 스피너가 끝없이 돈다(로그아웃 뒤 뒤로가기 등).
+      if (!user) { router.replace("/login"); return; }
+      userIdRef.current = user.id;
       const meta = user.user_metadata;
+      signupTouchRef.current = meta?.first_touch ?? null;
       const name = meta?.full_name || meta?.name || "";
       // Prefer the username picked at email signup (stashed as pending_username so it
       // wouldn't satisfy the middleware onboarding gate); the Google path has none, so
       // fall back to the email prefix as before.
       // Self-heal (an existing username, for a user re-sent here without a profiles
       // row) wins, then a fresh signup's pending choice, then the email prefix (Google).
-      const existing = String(meta?.username ?? "").replace(/[^a-zA-Z0-9_-]/g, "");
-      const pending = String(meta?.pending_username ?? "").replace(/[^a-zA-Z0-9_-]/g, "");
-      const emailPrefix = (user.email?.split("@")[0] ?? "").replace(/[^a-zA-Z0-9_-]/g, "");
+      const existing = normalizeUsername(String(meta?.username ?? ""));
+      const pending = normalizeUsername(String(meta?.pending_username ?? ""));
+      const emailPrefix = normalizeUsername(user.email?.split("@")[0] ?? "");
       const suggestedUsername =
         existing.length >= 2 ? existing : pending.length >= 2 ? pending : (emailPrefix.length >= 2 ? emailPrefix : "");
       setAvatarUrl(meta?.avatar_url ?? null);
       setForm((prev) => ({
         ...prev,
-        name: name || prev.name,
+        name: (name || prev.name).slice(0, NAME_MAX),
         username: suggestedUsername || prev.username,
       }));
       if (suggestedUsername) checkUsername(suggestedUsername);
       setInitLoading(false);
     });
-  }, [checkUsername]);
+  }, [checkUsername, router]);
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
-    const { name, value } = e.target;
+    const { name } = e.target;
+    const value = name === "username" ? normalizeUsername(e.target.value) : e.target.value;
     setForm((prev) => ({ ...prev, [name]: value }));
     setError("");
     if (name === "username") {
@@ -86,35 +118,33 @@ export default function OnboardingPage() {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { router.push("/login"); return; }
+    const username = normalizeUsername(form.username);
 
     // Final check if debounce hasn't resolved yet
     if (usernameStatus !== "available") {
-      if (isReservedUsername(form.username)) {
+      if (!isValidUsername(username)) {
+        setError(t.onboarding.errors.usernameInvalid);
+        setLoading(false);
+        return;
+      }
+      if (isReservedUsername(username)) {
         setError(t.onboarding.errors.usernameReserved);
         setLoading(false);
         return;
       }
-      const { data: existing } = await supabase.from("profiles").select("id").eq("username", form.username).maybeSingle();
-      if (existing) {
+      if (await usernameTaken(supabase, username, user.id)) {
         setError(t.onboarding.errors.usernameTaken);
         setLoading(false);
         return;
       }
     }
 
-    const { error: authErr } = await supabase.auth.updateUser({
-      data: { name: form.name, username: form.username, bio: form.bio },
-    });
-
-    if (authErr) {
-      setError(t.onboarding.errors.saveAuth);
-      setLoading(false);
-      return;
-    }
-
+    // profiles를 먼저 쓴다. metadata.username은 미들웨어의 "온보딩 끝" 표식이라,
+    // 그걸 먼저 쓰고 profiles가 실패하면(아이디 겹침 23505 등) 관문이 다시는 안 잡아
+    // "프로필 없는 계정"이 사이트를 돌아다닌다(2026-09-22 A4). CardTab과 같은 순서.
     const { error: profileErr } = await supabase.from("profiles").upsert({
       id: user.id,
-      username: form.username,
+      username,
       name: form.name,
       bio: form.bio,
       updated_at: new Date().toISOString(),
@@ -132,9 +162,19 @@ export default function OnboardingPage() {
       return;
     }
 
+    const { error: authErr } = await supabase.auth.updateUser({
+      data: { name: form.name, username, bio: form.bio, age_confirmed_at: new Date().toISOString() },
+    });
+    if (authErr) {
+      // 프로필은 저장됐다 — 다시 누르면 upsert는 같은 행을 덮고 여기를 한 번 더 시도한다.
+      setError(t.onboarding.errors.saveAuth);
+      setLoading(false);
+      return;
+    }
+
     // 퍼널 첫 단 — 온보딩(username 확정)이 "가입 완료"의 정의. 첫 방문 시 담아둔
     // referrer/UTM을 실어 보내 "어디서 가입됐나"를 관제탑에서 셀 수 있게 한다.
-    const ft = firstTouch();
+    const ft = firstTouch() ?? signupTouchRef.current;
     trackClientEvent(
       AnalyticsEvent.SignupCompleted,
       ft
@@ -148,7 +188,7 @@ export default function OnboardingPage() {
         : undefined,
     );
 
-    router.push("/dashboard?welcome=1");
+    router.push(destination());
     router.refresh();
   }
 
@@ -162,7 +202,7 @@ export default function OnboardingPage() {
     router.refresh();
   }
 
-  const canSubmit = !loading && usernameStatus !== "taken" && usernameStatus !== "invalid" && usernameStatus !== "reserved" && usernameStatus !== "checking";
+  const canSubmit = !loading && ageOk && usernameStatus !== "taken" && usernameStatus !== "invalid" && usernameStatus !== "reserved" && usernameStatus !== "checking";
 
   if (initLoading) {
     return (
@@ -217,7 +257,8 @@ export default function OnboardingPage() {
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <Field label={t.onboarding.nameLabel}>
             <input className="vf-input" type="text" name="name"
-              placeholder={t.signup.namePlaceholder} value={form.name} onChange={handleChange} required autoFocus />
+              placeholder={t.signup.namePlaceholder} value={form.name} onChange={handleChange} required autoFocus
+              maxLength={NAME_MAX} autoComplete="name" />
           </Field>
 
           <Field label={t.onboarding.usernameLabel}>
@@ -227,7 +268,8 @@ export default function OnboardingPage() {
               <input className="vf-input" style={{ paddingLeft: "1.75rem", paddingRight: "2.5rem" }}
                 type="text" name="username" placeholder="alexvibe"
                 value={form.username} onChange={handleChange} required
-                pattern="[a-zA-Z0-9_-]+" title={t.auth.usernamePattern} />
+                pattern={USERNAME_PATTERN} title={t.auth.usernamePattern} maxLength={USERNAME_MAX}
+                autoCapitalize="none" autoCorrect="off" spellCheck={false} autoComplete="off" />
               <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
                 <UsernameStatusIcon status={usernameStatus} />
               </div>
@@ -253,8 +295,16 @@ export default function OnboardingPage() {
           <Field label={t.onboarding.bioLabel}>
             <textarea className="vf-input" name="bio"
               placeholder={t.onboarding.bioPlaceholder}
-              value={form.bio} onChange={handleChange} rows={2} style={{ resize: "none" }} />
+              value={form.bio} onChange={handleChange} rows={2} maxLength={BIO_MAX} style={{ resize: "none" }} />
           </Field>
+
+          {/* 만 14세 이상 확인 — 약관 1조의 가입 조건. 이메일·구글 가입이 모두 여기를 지난다. */}
+          <label className="flex items-start gap-2 text-xs font-semibold cursor-pointer"
+            style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
+            <input type="checkbox" checked={ageOk} onChange={(e) => setAgeOk(e.target.checked)}
+              required className="mt-0.5" style={{ accentColor: "var(--blue)" }} />
+            <span>{t.onboarding.ageConfirm}</span>
+          </label>
 
           {error && (
             <p className="text-sm font-semibold text-center py-2 px-3 rounded-xl"

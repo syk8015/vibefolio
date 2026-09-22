@@ -83,3 +83,10 @@ export function classifyTrafficSource(input: {
 
   return "직접/알 수 없음";
 }
+
+// 앱 안 브라우저(웹뷰)인가 — 가입·로그인 화면이 "외부 브라우저로 열어 주세요"를
+// 띄우는 근거(2026-09-22 D5). 구글은 웹뷰에서 오는 OAuth를 403
+// `disallowed_useragent`로 막는다. 위 UA 서명이 전부 앱 웹뷰라 같은 목록을 쓴다.
+export function isInAppBrowser(userAgent: string): boolean {
+  return UA_SIGNATURES.some(([re]) => re.test(userAgent));
+}

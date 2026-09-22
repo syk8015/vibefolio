@@ -6,6 +6,10 @@ import Image from "next/image";
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import { isReservedUsername } from "@/lib/reservedUsernames";
+import {
+  BIO_MAX, NAME_MAX, USERNAME_MAX, USERNAME_PATTERN,
+  isValidUsername, normalizeUsername, usernameIlikePattern,
+} from "@/lib/username";
 // 링크 판정은 명함이 실제로 렌더하는 것과 같은 매처 하나만 쓴다 — 여기서 따로
 // 넓게 인식해주면 "확인됐다"고 보여놓고 명함에선 조용히 버려진다.
 import { getSocialMeta } from "@/components/SocialBadge";
@@ -59,7 +63,9 @@ export default function CardTab({ user, profile }: { user: User; profile: Dashbo
   const [deleteError, setDeleteError] = useState("");
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    const { name } = e.target;
+    const value = name === "username" ? normalizeUsername(e.target.value) : e.target.value;
+    setForm((prev) => ({ ...prev, [name]: value }));
     setSaved(false);
     setError("");
   }
@@ -108,8 +114,14 @@ export default function CardTab({ user, profile }: { user: User; profile: Dashbo
     const supabase = createClient();
 
     const filteredLinks = form.socialLinks.filter((l) => l.trim());
+    const username = normalizeUsername(form.username);
 
-    if (isReservedUsername(form.username)) {
+    if (!isValidUsername(username)) {
+      setLoading(false);
+      setError(t.onboarding.errors.usernameInvalid);
+      return;
+    }
+    if (isReservedUsername(username)) {
       setLoading(false);
       setError(t.onboarding.errors.usernameReserved);
       return;
@@ -118,9 +130,10 @@ export default function CardTab({ user, profile }: { user: User; profile: Dashbo
     // Username is unique in profiles. The upsert below would reject a collision (caught
     // as 23505 there), but checking first gives a clear message and avoids writing the
     // new name into auth metadata when the profiles row can't take it. Exclude our own row.
+    // 대소문자 무시 — DB 유일 인덱스가 lower(username)이다.
     const { data: takenBy } = await supabase
-      .from("profiles").select("id").eq("username", form.username).neq("id", user.id).maybeSingle();
-    if (takenBy) {
+      .from("profiles").select("id").ilike("username", usernameIlikePattern(username)).neq("id", user.id).limit(1);
+    if (takenBy?.length) {
       setLoading(false);
       setError(t.onboarding.errors.usernameTaken);
       return;
@@ -139,14 +152,16 @@ export default function CardTab({ user, profile }: { user: User; profile: Dashbo
         setError(t.card.avatarUploadFailed);
         return;
       }
-      avatarUrl = supabase.storage.from("avatars").getPublicUrl(path).data.publicUrl;
+      // 경로가 매번 같아서(upsert로 덮음) 주소도 같다 — ?v=를 붙이지 않으면 브라우저·CDN
+      // 캐시가 옛 사진을 계속 보여 준다(B13).
+      avatarUrl = `${supabase.storage.from("avatars").getPublicUrl(path).data.publicUrl}?v=${Date.now()}`;
     }
 
     // 공개 명함이 읽는 profiles를 먼저 커밋한다. metadata부터 쓰면 반쪽 실패 시
     // 대시보드(새 이름)와 명함(옛 이름)이 갈라진 채 남는다.
     const { error: profileErr } = await supabase.from("profiles").upsert({
       id: user.id,
-      username: form.username,
+      username,
       name: form.name,
       bio: form.bio,
       avatar_url: avatarUrl,
@@ -171,7 +186,7 @@ export default function CardTab({ user, profile }: { user: User; profile: Dashbo
       .updateUser({
         data: {
           name: form.name,
-          username: form.username,
+          username,
           bio: form.bio,
           avatar_url: avatarUrl,
           social_links: filteredLinks,
@@ -179,9 +194,9 @@ export default function CardTab({ user, profile }: { user: User; profile: Dashbo
       })
       .catch(() => {});
 
-    setForm((prev) => ({ ...prev, avatarUrl }));
+    setForm((prev) => ({ ...prev, username, avatarUrl }));
     setAvatarFile(null);
-    setSavedUsername(form.username);
+    setSavedUsername(username);
     setLoading(false);
     setSaved(true);
     // 헤더는 서버가 내려준 profiles 값을 그리므로, 같은 값을 보도록 재렌더.
@@ -264,7 +279,7 @@ export default function CardTab({ user, profile }: { user: User; profile: Dashbo
       <div>
         <label className="vf-label">{t.card.nameLabel}</label>
         <input className="vf-input" name="name" type="text"
-          placeholder={t.signup.namePlaceholder} value={form.name} onChange={handleChange} />
+          placeholder={t.signup.namePlaceholder} value={form.name} onChange={handleChange} maxLength={NAME_MAX} />
       </div>
 
       {/* Username */}
@@ -276,11 +291,18 @@ export default function CardTab({ user, profile }: { user: User; profile: Dashbo
           <input className="vf-input vf-mono" style={{ paddingLeft: "1.75rem" }}
             name="username" type="text" placeholder="alexvibe"
             value={form.username} onChange={handleChange}
-            pattern="[a-zA-Z0-9_-]+" title={t.auth.usernamePattern} />
+            pattern={USERNAME_PATTERN} title={t.auth.usernamePattern} maxLength={USERNAME_MAX}
+            autoCapitalize="none" autoCorrect="off" spellCheck={false} autoComplete="off" />
         </div>
         <p className="text-xs mt-2 vf-mono" style={{ color: "var(--text-muted)", letterSpacing: "0.02em" }}>
           nookframe.com/<span style={{ color: "var(--text-secondary)" }}>{form.username || "username"}</span>
         </p>
+        {/* 아이디를 바꾸면 옛 주소는 바로 404다(옛 주소 이어주기 없음) — 저장 전에 알린다(C11). */}
+        {savedUsername && form.username && form.username !== savedUsername && (
+          <p role="note" className="text-xs mt-2" style={{ color: "var(--danger)", fontFamily: "var(--font-nunito)", lineHeight: 1.5 }}>
+            {t.card.usernameChangeWarning(savedUsername)}
+          </p>
+        )}
       </div>
 
       {/* Bio */}
@@ -293,11 +315,11 @@ export default function CardTab({ user, profile }: { user: User; profile: Dashbo
           value={form.bio}
           onChange={handleChange}
           rows={3}
-          maxLength={140}
+          maxLength={BIO_MAX}
           style={{ resize: "vertical", lineHeight: 1.55 }}
         />
         <p className="text-xs mt-2 vf-mono text-right" style={{ color: "var(--text-muted)" }}>
-          {bioCount} / 140
+          {bioCount} / {BIO_MAX}
         </p>
       </div>
 

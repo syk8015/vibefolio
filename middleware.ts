@@ -47,6 +47,17 @@ export async function middleware(request: NextRequest) {
     return langResponse;
   }
 
+  // 대문자가 섞인 명함 주소(/Alexvibe, /Alexvibe/my-app) → 소문자 정식 주소로 308.
+  // 아이디는 소문자로만 저장된다(lib/username.ts) — 인스타 바이오에 대문자로 적힌
+  // 링크, 폰이 첫 글자를 올려 친 주소가 404가 되지 않게. 첫 칸만 접는다(작품 slug는
+  // 그대로). 앱 경로는 전부 소문자라 대문자 첫 칸은 아이디일 수밖에 없다.
+  const firstSeg = pathname.split("/")[1] ?? "";
+  if (/[A-Z]/.test(firstSeg) && /^[A-Za-z0-9_-]+$/.test(firstSeg)) {
+    const lower = request.nextUrl.clone();
+    lower.pathname = "/" + firstSeg.toLowerCase() + pathname.slice(firstSeg.length + 1);
+    return NextResponse.redirect(lower, 308);
+  }
+
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
@@ -73,14 +84,20 @@ export async function middleware(request: NextRequest) {
   // Refresh session — required for SSR auth to work
   const { data: { user } } = await supabase.auth.getUser();
 
+  // 원래 가려던 곳(경로+쿼리). 메일의 [대시보드] 링크·?review=<id> 딥링크가
+  // 로그인·온보딩을 거쳐도 살아남게 ?next=로 실어 보낸다.
+  const here = pathname + request.nextUrl.search;
+
   // 비로그인 유저가 /dashboard 접근 시 로그인으로
   if (!user && pathname.startsWith("/dashboard")) {
-    return NextResponse.redirect(new URL("/login", request.url));
+    const login = new URL("/login", request.url);
+    login.searchParams.set("next", here);
+    return NextResponse.redirect(login);
   }
 
-  // 로그인 유저가 /login, /signup 접근 시 홈으로 — ?next=가 있으면 거기로(/publish에서 온 사람).
+  // 로그인 유저가 /login, /signup 접근 시 대시보드로 — ?next=가 있으면 거기로(/publish에서 온 사람).
   if (user && (pathname === "/login" || pathname === "/signup")) {
-    return NextResponse.redirect(new URL(safeNext(request.nextUrl.searchParams.get("next")), request.url));
+    return NextResponse.redirect(new URL(safeNext(request.nextUrl.searchParams.get("next"), "/dashboard"), request.url));
   }
 
   // username 없는 로그인 유저 → 온보딩으로
@@ -91,7 +108,9 @@ export async function middleware(request: NextRequest) {
   const skipOnboarding = pathname.startsWith("/onboarding") || pathname.startsWith("/api")
     || pathname.startsWith("/auth") || pathname.startsWith("/.well-known");
   if (user && !user.user_metadata?.username && !skipOnboarding) {
-    return NextResponse.redirect(new URL("/onboarding", request.url));
+    const onboarding = new URL("/onboarding", request.url);
+    if (pathname !== "/") onboarding.searchParams.set("next", here);
+    return NextResponse.redirect(onboarding);
   }
 
   return supabaseResponse;
