@@ -22,6 +22,8 @@ export const DEMO_IN_FLIGHT: ReadonlySet<DemoBuildStatus> = new Set([
   "editing",
 ]);
 export const DEMO_POLL_MS = 10_000;
+// 일시정지(배치 모드) 중 전부 '대기'일 때의 느린 주기 — useDemoStatusSync 참고.
+export const DEMO_POLL_PAUSED_MS = 60_000;
 // 촬영이 이 시간을 넘기면 배지를 "예상보다 오래 걸려요"로 바꾼다. 실패 판정이
 // 아니라 안심 문구 — 유저를 화면 앞에 붙잡아두지 않는 게 목적이다. 운영 경보는
 // 별개 임계값(health 크론 STUCK_PENDING_MIN)이라 서로 간섭하지 않는다.

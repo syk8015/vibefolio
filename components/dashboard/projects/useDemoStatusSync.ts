@@ -1,6 +1,6 @@
 import { useState, useEffect, type Dispatch, type SetStateAction } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { type DBProject, DEMO_IN_FLIGHT, DEMO_POLL_MS } from "./types";
+import { type DBProject, DEMO_IN_FLIGHT, DEMO_POLL_MS, DEMO_POLL_PAUSED_MS } from "./types";
 
 // 촬영 상태 배지 동기화 훅. ProjectsTab에서 이동(분해 4/N) — realtime 구독과
 // 폴백 폴링이 한 쌍으로만 의미가 있어 함께 산다. 두 리스트(setProjects/setDrafts)
@@ -65,12 +65,20 @@ export function useDemoStatusSync(
 
     // 일시정지는 프로젝트별이 아니라 전역 — system_status는 서비스롤 전용이라
     // 클라이언트가 직접 못 읽고, 라우트를 거친다. 실패하면 조용히 스피너 경로 유지.
+    // 배치 모드(평소 일시정지)에선 대기가 하루 가까이 간다. 그동안 탭마다 10초에 한 번
+    // 서버를 부르면 한 사람당 시간당 ~360번이라, 일시정지 + 전부 '대기'면 60초로 늦춘다
+    // (2026-09-22 트래픽6). 배치가 돌기 시작하면 realtime이 먼저 알리고, 못 받아도 1분 안.
+    // 탭이 숨어 있으면 부르지 않는다 — 돌아오면 visibilitychange가 바로 한 번 부른다.
+    let pausedNow = false;
+    let allPending = true;
+
     async function syncPaused() {
       try {
         const res = await fetch("/api/demo/status");
         if (!res.ok || cancelled) return;
         const json = await res.json();
-        if (!cancelled) setDemoPaused(!!json?.paused);
+        pausedNow = !!json?.paused;
+        if (!cancelled) setDemoPaused(pausedNow);
       } catch {
         /* 네트워크 실패 → 기존 표시 유지 */
       }
@@ -86,6 +94,10 @@ export function useDemoStatusSync(
         .select("id, demo_build_status, demo_build_error, demo_video_url, demo_generated_at, demo_status_changed_at")
         .in("id", ids);
       if (cancelled || !data) return;
+      // 찍는 중(building·recording·editing)인 행이 하나라도 있으면 빠른 주기 유지.
+      allPending = !(data as Partial<DBProject>[]).some(
+        (r) => !!r.demo_build_status && r.demo_build_status !== "pending" && DEMO_IN_FLIGHT.has(r.demo_build_status),
+      );
       const fresh = new Map<string, Partial<DBProject>>(
         (data as Partial<DBProject>[]).map((r) => [r.id as string, r]),
       );
@@ -101,7 +113,15 @@ export function useDemoStatusSync(
     // 프로젝트 행은 방금 loadProjects가 실어왔으니 재조회가 불필요하지만, 일시정지
     // 여부는 아직 모른다 — 첫 10초를 스피너로 흘려보내지 않도록 지금 한 번.
     syncPaused();
-    const timer = setInterval(sync, DEMO_POLL_MS);
+    let timer: ReturnType<typeof setTimeout>;
+    const schedule = () => {
+      timer = setTimeout(tick, pausedNow && allPending ? DEMO_POLL_PAUSED_MS : DEMO_POLL_MS);
+    };
+    const tick = async () => {
+      if (document.visibilityState === "visible") await sync();
+      if (!cancelled) schedule();
+    };
+    schedule();
     // 탭을 다시 열면 즉시 한 번 — 절전으로 인터벌이 통째로 밀린 구간을 메운다.
     const onVisible = () => {
       if (document.visibilityState === "visible") sync();
@@ -109,7 +129,7 @@ export function useDemoStatusSync(
     document.addEventListener("visibilitychange", onVisible);
     return () => {
       cancelled = true;
-      clearInterval(timer);
+      clearTimeout(timer);
       document.removeEventListener("visibilitychange", onVisible);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
