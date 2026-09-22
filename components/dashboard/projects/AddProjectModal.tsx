@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import ConnectPanel from "@/components/dashboard/ConnectPanel";
 import { useT } from "@/lib/i18n/client";
 
@@ -13,6 +14,15 @@ import { useT } from "@/lib/i18n/client";
 export function AddProjectModal({ onClose }: { onClose: () => void }) {
   const { t } = useT();
 
+  // 공용 Modal을 안 쓰는 넓은 창이라 접근성 속성을 직접 단다(2026-09-22, 출시 점검
+  // 브라우저 #14) — role="dialog"가 없어 화면 읽기 프로그램이 창으로 알아보지 못했다.
+  // Esc로 닫기도 공용 Modal과 맞춘다.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-6"
@@ -20,6 +30,9 @@ export function AddProjectModal({ onClose }: { onClose: () => void }) {
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="add-project-title"
         className="relative flex flex-col overflow-hidden"
         style={{
           width: "min(46rem, calc(100vw - 2rem))",
@@ -34,7 +47,7 @@ export function AddProjectModal({ onClose }: { onClose: () => void }) {
         <div className="flex items-start gap-3 px-6 pt-5 pb-4"
           style={{ borderBottom: "1px solid var(--border)" }}>
           <div className="flex-1 min-w-0">
-            <h2 className="vf-serif-display" style={{ fontSize: "1.2rem", fontWeight: 500, margin: 0 }}>
+            <h2 id="add-project-title" className="vf-serif-display" style={{ fontSize: "1.2rem", fontWeight: 500, margin: 0 }}>
               {t.projects.connectTitle}
             </h2>
             <p className="text-xs mt-1" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", margin: 0 }}>
