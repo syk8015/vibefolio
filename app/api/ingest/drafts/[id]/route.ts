@@ -12,6 +12,7 @@ import {
 } from "@/lib/demoScript";
 import { probeSelectors, selectorsOf, composeProbeUrl, type SelectorCheck } from "@/lib/demoScriptReview";
 import { logger } from "@/lib/logger";
+import { listFilesDeep, removeFiles } from "@/lib/storageList";
 import {
   ingestAuth, publicUrlGate, strOrNull, type IngestDict, buildAccepted, buildScriptReview,
   descriptionTooLong, DESCRIPTION_MAX, missingOptionalColumn,
@@ -290,24 +291,9 @@ export async function DELETE(
     // 스토리지 정리 — 인제스트 초안의 파일은 전부 행 폴더 {uid}/{id}/ 아래에 있다
     // (zip 확장·_media·_upload — 행을 먼저 만들고 그 id 폴더에 올리는 설계라,
     // demo-assets 삭제 라우트의 M16 우회 폴더 문제가 초안엔 없다). R2는 발행 후
-    // 데모 산출물 전용이라 초안엔 없음. list는 한 겹만 보므로 BFS.
-    const root = `${userId}/${draft.id}`;
-    const files: string[] = [];
-    const queue = [root];
-    while (queue.length) {
-      const dir = queue.shift()!;
-      const { data } = await admin.storage.from("project-files").list(dir, { limit: 1000 });
-      for (const entry of data ?? []) {
-        const full = `${dir}/${entry.name}`;
-        if (entry.id === null) queue.push(full);
-        else files.push(full);
-      }
-    }
-    for (let i = 0; i < files.length; i += 100) {
-      const chunk = files.slice(i, i + 100);
-      const { error } = await admin.storage.from("project-files").remove(chunk);
-      if (error) throw new Error(`storage remove failed: ${error.message}`);
-    }
+    // 데모 산출물 전용이라 초안엔 없음. 폴더 BFS·페이지 넘김은 listFilesDeep.
+    const files = await listFilesDeep(admin, "project-files", `${userId}/${draft.id}`);
+    await removeFiles(admin, "project-files", files);
 
     const { error: delErr } = await admin.from("projects").delete().eq("id", draft.id);
     if (delErr) throw new Error(`row delete failed: ${delErr.message}`);

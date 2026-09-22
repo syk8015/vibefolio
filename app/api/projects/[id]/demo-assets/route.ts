@@ -5,6 +5,7 @@ import { requireUser } from "@/lib/routeAuth";
 import { getT } from "@/lib/i18n/server";
 import { logger } from "@/lib/logger";
 import { isR2Configured, deleteR2Prefix } from "@/lib/r2";
+import { listFilesDeep, removeFiles } from "@/lib/storageList";
 
 // Purge ALL of a project's storage when it is deleted:
 //   - Supabase project-files: the {userId}/{projectId}/ folder (uploaded source +
@@ -78,21 +79,8 @@ export async function DELETE(
 
     const admin = createAdminClient();
 
-    // list는 한 겹만 보므로 BFS. 디렉터리 플레이스홀더는 id === null로 돌아온다.
-    const listFolderFiles = async (root: string): Promise<string[]> => {
-      const files: string[] = [];
-      const queue = [root];
-      while (queue.length) {
-        const dir = queue.shift()!;
-        const { data } = await admin.storage.from(BUCKET).list(dir, { limit: 1000 });
-        for (const entry of data ?? []) {
-          const full = `${dir}/${entry.name}`;
-          if (entry.id === null) queue.push(full);
-          else files.push(full);
-        }
-      }
-      return files;
-    };
+    // 폴더 BFS·페이지 넘김(1000개 초과 폴더)은 listFilesDeep.
+    const listFolderFiles = (root: string) => listFilesDeep(admin, BUCKET, root);
 
     // Supabase: project folder + the uploaded-source folder (different id — see
     // uploadFolderFromPreviewUrl) + standalone video/thumbnail.
@@ -112,13 +100,7 @@ export async function DELETE(
     const thumbPath = storagePathFromPublicUrl(project.thumbnail);
     if (thumbPath && thumbPath.startsWith(ownerPrefix)) paths.push(thumbPath);
 
-    let sbRemoved = 0;
-    for (let i = 0; i < paths.length; i += 100) {
-      const chunk = paths.slice(i, i + 100);
-      const { error } = await admin.storage.from(BUCKET).remove(chunk);
-      if (error) throw new Error(`storage remove failed: ${error.message}`);
-      sbRemoved += chunk.length;
-    }
+    const sbRemoved = await removeFiles(admin, BUCKET, paths);
 
     // R2: demo mp4 + poster.
     let r2Removed = 0;

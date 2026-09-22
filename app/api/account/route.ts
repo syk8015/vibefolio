@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { apiError } from "@/lib/apiError";
 import { requireUser } from "@/lib/routeAuth";
 import { getT } from "@/lib/i18n/server";
 import { logger } from "@/lib/logger";
 import { isR2Configured, deleteR2Prefix } from "@/lib/r2";
+import { listFilesDeep, removeFiles } from "@/lib/storageList";
 
 // Self-serve account deletion — honours the privacy policy's "탈퇴 즉시 파기".
 //
@@ -19,37 +19,6 @@ import { isR2Configured, deleteR2Prefix } from "@/lib/r2";
 // Runs with the service-role key: RLS can't delete auth users, and storage RLS would
 // otherwise silently skip objects (same reason the per-project delete uses it).
 
-async function listUserObjects(
-  admin: SupabaseClient,
-  bucket: string,
-  rootDir: string,
-): Promise<string[]> {
-  const paths: string[] = [];
-  const queue = [rootDir];
-  while (queue.length) {
-    const dir = queue.shift()!;
-    const { data, error } = await admin.storage.from(bucket).list(dir, { limit: 1000 });
-    if (error) throw new Error(`list ${bucket}/${dir} failed: ${error.message}`);
-    for (const entry of data ?? []) {
-      const full = `${dir}/${entry.name}`;
-      if (entry.id === null) queue.push(full); // directory placeholder → descend
-      else paths.push(full);
-    }
-  }
-  return paths;
-}
-
-async function removeAll(admin: SupabaseClient, bucket: string, paths: string[]): Promise<number> {
-  let removed = 0;
-  for (let i = 0; i < paths.length; i += 100) {
-    const chunk = paths.slice(i, i + 100);
-    const { error } = await admin.storage.from(bucket).remove(chunk);
-    if (error) throw new Error(`remove ${bucket} failed: ${error.message}`);
-    removed += chunk.length;
-  }
-  return removed;
-}
-
 export async function DELETE() {
   const { t } = await getT();
   try {
@@ -62,8 +31,8 @@ export async function DELETE() {
 
     // 1) Supabase Storage — everything under the user's prefix in both buckets.
     //    project-files/{uid}/…  and  avatars/{uid}/avatar.ext (+ legacy {uid}.ext at root).
-    const projectFiles = await listUserObjects(admin, "project-files", uid);
-    const avatarFolder = await listUserObjects(admin, "avatars", uid);
+    const projectFiles = await listFilesDeep(admin, "project-files", uid);
+    const avatarFolder = await listFilesDeep(admin, "avatars", uid);
     const { data: avatarRoot } = await admin.storage
       .from("avatars")
       .list("", { limit: 1000, search: uid });
@@ -72,8 +41,8 @@ export async function DELETE() {
       .map((e) => e.name);
 
     const sbRemoved =
-      (await removeAll(admin, "project-files", projectFiles)) +
-      (await removeAll(admin, "avatars", [...avatarFolder, ...avatarLegacy]));
+      (await removeFiles(admin, "project-files", projectFiles)) +
+      (await removeFiles(admin, "avatars", [...avatarFolder, ...avatarLegacy]));
 
     // 2) Cloudflare R2 — demo assets under the user prefix.
     let r2Removed = 0;
