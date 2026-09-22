@@ -391,6 +391,11 @@ export function DraftReviewModal({ draft, onClose, onPublish, onEdit, onDelete, 
             <p className="vf-mono" style={{ ...smallText, fontSize: 12, textAlign: "center", fontVariantNumeric: "tabular-nums" }}>
               {device === "mobile" ? `${PHONE_VIEW.w} × ${PHONE_VIEW.h}` : `${DESKTOP_VIEW.w} × ${DESKTOP_VIEW.h}`}
             </p>
+            {/* 배포 주소 없이 파일(실행 코드 묶음)로 올린 작품은 라이브 체험 칸이 안
+                켜진다 — 공개 뒤 "왜 영상만 있지?"가 되지 않게 미리 말해 둔다. */}
+            {isFile && !isEmbeddableFile && (
+              <p style={{ ...smallText, fontSize: 12.5 }}>{t.projects.reviewNoLiveNote}</p>
+            )}
             {externalSrc && !directVideo && !videoEmbed && embedState !== "checking" && (
               <p style={{ ...smallText, fontSize: 12.5 }}>
                 {embedState === "blocked"

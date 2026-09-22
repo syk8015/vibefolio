@@ -171,15 +171,42 @@ function DemoBuildBadge({
     // '[moderation]' 마커 = 게시 전 콘텐츠 검토 격리(모더레이션 파이프라인).
     // 마커 없는 held는 기존 쿼터/크레딧 보류 — 카피가 서로 다르다.
     const isModeration = !!error?.startsWith("[moderation]");
+    const tip = isModeration ? t.projects.heldModerationTip : t.projects.heldQuotaTip;
+    // 이유는 눌러서 연다 — title(마우스 올림)뿐이면 폰에서는 왜 멈췄는지 볼 길이 없었다.
     return (
-      <span
-        className="shrink-0"
-        style={{ ...line, color: "var(--text-secondary)", cursor: "help" }}
-        title={isModeration ? t.projects.heldModerationTip : t.projects.heldQuotaTip}
-      >
-        {dot({ boxShadow: "inset 0 0 0 1.5px var(--text-secondary)" })}
-        {isModeration ? t.projects.heldModerationLabel : t.projects.heldQuotaLabel}
-      </span>
+      <>
+        <button
+          type="button"
+          className="shrink-0"
+          aria-expanded={!!anchor}
+          onClick={(e) => {
+            const r = e.currentTarget.getBoundingClientRect();
+            setAnchor(a => (a ? null : popoverAnchor(r, { width: 248, estHeight: 120, align: "right" })));
+          }}
+          style={{ ...line, color: "var(--text-secondary)", cursor: "pointer" }}
+          title={tip}
+        >
+          {dot({ boxShadow: "inset 0 0 0 1.5px var(--text-secondary)" })}
+          {isModeration ? t.projects.heldModerationLabel : t.projects.heldQuotaLabel}
+        </button>
+        {anchor && (
+          <Popover>
+            <div style={{ position: "fixed", inset: 0, zIndex: 40 }} onClick={() => setAnchor(null)} />
+            <div
+              role="dialog"
+              className="rounded-2xl"
+              style={{
+                position: "fixed", top: anchor.top, left: anchor.left, zIndex: 50,
+                width: 248, maxHeight: anchor.maxHeight, overflowY: "auto",
+                padding: "0.9rem 1rem", background: "var(--surface)", boxShadow: "var(--shadow-card-small)", textAlign: "left",
+                fontFamily: "var(--font-nunito)", fontSize: "0.78rem", lineHeight: 1.55, color: "var(--text-secondary)",
+              }}
+            >
+              {tip}
+            </div>
+          </Popover>
+        )}
+      </>
     );
   }
 

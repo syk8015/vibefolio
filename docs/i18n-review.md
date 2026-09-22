@@ -164,6 +164,7 @@
 | 키 | 한국어 | English | 비고 |
 |---|---|---|---|
 | pendingReview | 검토 대기 {n} | {n} awaiting review | ⚠️ 숫자 위치가 언어별로 다름(함수) |
+| projectsCount | 작품 {n}개 | {n} project(s) | 대시보드 맨 위 개수. 전엔 사전 없이 영어 고정이었다(B1) |
 | addProject | 프로젝트 추가 | Add project | |
 | emptyTitle | 아직 프로젝트가 없어요 | No projects yet | |
 | emptyBody | 위 버튼으로 첫 프로젝트를 추가해보세요 | Use the button above to add your first one | |
@@ -173,7 +174,11 @@
 | editTitle | 프로젝트 수정 | Edit project | |
 | submitAdd | 추가하기 | Add | |
 | submitSave | 저장하기 | Save | |
-| deleteConfirm | 이 프로젝트를 삭제할까요? | Delete this project? | |
+| deleteConfirm | 이 작품을 삭제할까요? | Delete this project? | 삭제 확인 모달 제목(B19) |
+| deleteBody | 영상과 올린 파일까지 모두 지워지고, 되돌릴 수 없어요. | Its video and uploaded files are deleted too. This can't be undone. | |
+| deleteCta | 삭제하기 | Delete | |
+| deleteCancel | 취소 | Cancel | |
+| featuredFailed | 대표 작품 지정에 실패했어요. 잠시 후 다시 시도해 주세요. | Couldn't set the featured project. Please try again shortly. | |
 | orderSaveFailed | 순서 저장에 실패했어요. 잠시 후 다시 시도해 주세요. | Couldn't save the new order. Please try again shortly. | |
 | deleteFailed | 프로젝트 삭제에 실패했어요. 잠시 후 다시 시도해 주세요. | Couldn't delete the project. Please try again shortly. | |
 | demoStartFailed | 자동 시연 생성을 시작하지 못했어요. 프로젝트는 저장됐어요 — 카드에서 다시 시도할 수 있어요. | Couldn't start the auto demo. Your project is saved — you can retry from its card. | |
@@ -201,7 +206,8 @@
 | slowTip | 창을 닫으셔도 돼요 — 촬영이 끝나면 메일로 알려드릴게요. | Feel free to close this window — we'll email you when filming is done. | 툴팁 |
 | slowLabel | 예상보다 오래 걸려요 | Taking longer than expected | |
 | more | 더 보기 | More | ⋯ 메뉴 툴팁 |
-| draftBadge | AI 초안 | AI draft | |
+| draftBadge | 공개 전 · 나만 보여요 | Not public · only you | ⚠️ '초안'이 나만 보인다는 뜻인지 모른다는 첫인상 지적으로 교체 |
+| reviewNoLiveNote | 배포 주소 없이 파일로 올린 작품이라, 공개하면 라이브 체험 없이 영상만 보여요. 배포한 주소로 올리면 체험도 켜져요. | This was uploaded as files with no deployed address, so once public it shows the video only, with no live try-out. Upload a deployed address to turn the try-out on. | 검토 창, 실행 코드 묶음으로 올린 작품만 |
 | untitled | 제목 없음 | Untitled | |
 | publishing | 공개 중… | Publishing… | |
 | confirmPublish | 확인하고 공개 | Review & publish | |

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import { RerecordRequestModal } from "@/components/dashboard/RerecordRequestModal";
+import Modal from "@/components/Modal";
 import { detectDemoSource } from "@/lib/demoSource";
 import { AnalyticsEvent, trackClientEvent } from "@/lib/analytics-client";
 
@@ -56,6 +57,9 @@ export default function ProjectsTab({
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [rerecordModal, setRerecordModal] = useState<DBProject | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // 삭제 확인은 브라우저 confirm 대신 모달 — 디자인이 끊기고, 인앱 브라우저에선
+  // confirm 창 자체가 막히기도 한다(B19).
+  const [deleteTarget, setDeleteTarget] = useState<DBProject | null>(null);
   // 촬영 상태 배지의 realtime 구독 + 폴백 폴링 (projects/useDemoStatusSync.ts).
   const { demoPaused, nowMs } = useDemoStatusSync(user.id, projects, drafts, setProjects, setDrafts);
 
@@ -182,7 +186,6 @@ export default function ProjectsTab({
   }
 
   async function handleDelete(id: string) {
-    if (!confirm(t.projects.deleteConfirm)) return;
 
     // Optimistic: drop the row from the list immediately so the click feels instant.
     // The delete takes a few seconds (BFS storage listing + chunked removes + R2),
@@ -276,7 +279,11 @@ export default function ProjectsTab({
       .from("projects")
       .update({ ...form, demo_user_hint: form.demo_user_hint?.trim() || null })
       .eq("id", id).select().single();
-    if (error) throw new Error(error.message);
+    if (error) {
+      // DB 원문("new row violates …")을 화면에 그대로 띄우지 않는다(B16).
+      console.error("project edit failed", error);
+      throw new Error(t.projectForm.saveFailed);
+    }
     if (data) {
       const updated = data as DBProject;
       const apply = (prev: DBProject[]) => prev.map(p => (p.id === id ? updated : p));
@@ -329,13 +336,25 @@ export default function ProjectsTab({
 
     // Persist: unset all other featured for this user first, then set target.
     // The partial unique index requires no two rows with is_featured=true.
+    let failed = false;
     if (next) {
-      await supabase.from("projects")
+      const { error } = await supabase.from("projects")
         .update({ is_featured: false })
         .eq("user_id", user.id)
         .neq("id", id);
+      failed = !!error;
     }
-    await supabase.from("projects").update({ is_featured: next }).eq("id", id);
+    if (!failed) {
+      const { error } = await supabase.from("projects").update({ is_featured: next }).eq("id", id);
+      failed = !!error;
+    }
+    // 실패하면 화면만 대표로 보이고 공개 명함엔 반영 안 된 채 남는다 — 서버 값으로
+    // 되돌리고 알린다(B18).
+    if (failed) {
+      setNotice(t.projects.featuredFailed);
+      loadProjects();
+      return;
+    }
     syncPublic();
   }
 
@@ -413,7 +432,7 @@ export default function ProjectsTab({
         {/* 초안도 세어서 보여준다 — "0 projects" 바로 밑에 초안 카드가 깔리면
             카운터가 거짓말이 된다. */}
         <p className="text-sm vf-mono" style={{ color: "var(--text-secondary)", letterSpacing: "0.02em" }}>
-          {projects.length} project{projects.length === 1 ? "" : "s"}
+          {t.projects.projectsCount(projects.length)}
           {drafts.length > 0 && ` · ${t.projects.pendingReview(drafts.length)}`}
         </p>
         <button
@@ -457,7 +476,7 @@ export default function ProjectsTab({
                 highlight={d.id === reviewProjectId}
                 isLast={projects.length === 0 && i === drafts.length - 1}
                 onEdit={() => setEditProject(d)}
-                onDelete={() => handleDelete(d.id)}
+                onDelete={() => setDeleteTarget(d)}
                 onPublish={() => handlePublishDraft(d)}
                 onReview={() => setReviewDraftId(d.id)}
               />
@@ -469,7 +488,7 @@ export default function ProjectsTab({
                 username={username}
                 demoPaused={demoPaused}
                 nowMs={nowMs}
-                onDelete={() => handleDelete(project.id)}
+                onDelete={() => setDeleteTarget(project)}
                 onEdit={() => setEditProject(project)}
                 onToggleFeatured={() => handleToggleFeatured(project.id)}
                 onRerecord={() => handleRerecord(project.id)}
@@ -506,7 +525,7 @@ export default function ProjectsTab({
           onClose={() => setReviewDraftId(null)}
           onPublish={() => { const d = reviewDraft; setReviewDraftId(null); handlePublishDraft(d); }}
           onEdit={() => { setEditProject(reviewDraft); setReviewDraftId(null); }}
-          onDelete={() => { const d = reviewDraft; setReviewDraftId(null); handleDelete(d.id); }}
+          onDelete={() => { setDeleteTarget(reviewDraft); setReviewDraftId(null); }}
           onSave={(patch) => handleSaveDraft(reviewDraft.id, patch)}
         />
       )}
@@ -538,6 +557,33 @@ export default function ProjectsTab({
             void loadProjects();
           }}
         />
+      )}
+
+      {deleteTarget && (
+        <Modal onClose={() => setDeleteTarget(null)} ariaLabel={t.projects.deleteConfirm} maxWidth="24rem">
+          <h2 className="text-lg font-semibold" style={{ color: "var(--text-primary)", margin: 0 }}>
+            {t.projects.deleteConfirm}
+          </h2>
+          <p className="text-sm mt-1 vf-mono truncate" style={{ color: "var(--text-secondary)" }}>
+            {deleteTarget.title || t.projects.untitled}
+          </p>
+          <p className="text-sm mt-3" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", lineHeight: 1.6 }}>
+            {t.projects.deleteBody}
+          </p>
+          <div className="flex justify-end gap-2 mt-5">
+            <button type="button" className="vf-button-ghost" onClick={() => setDeleteTarget(null)}>
+              {t.projects.deleteCancel}
+            </button>
+            <button
+              type="button"
+              className="vf-button-primary"
+              style={{ background: "var(--danger)" }}
+              onClick={() => { const id = deleteTarget.id; setDeleteTarget(null); void handleDelete(id); }}
+            >
+              {t.projects.deleteCta}
+            </button>
+          </div>
+        </Modal>
       )}
 
       {notice && (
