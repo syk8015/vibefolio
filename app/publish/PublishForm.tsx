@@ -32,6 +32,10 @@ export default function PublishForm() {
   const [shotFile, setShotFile] = useState<File | null>(null);
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [stage, setStage] = useState<"idle" | "zipping" | "uploading">("idle");
+  // 이 화면에서 이미 만든 초안(B5, 2026-09-22). 서버는 파일 업로드보다 초안 행을 먼저
+  // 만든다 — 파일 PUT·finalize가 실패한 뒤 다시 누르면 새 초안이 또 생겨 대시보드에 빈
+  // 초안이 쌓였다. 첫 응답의 id를 들고 있다가 재시도 때 draftId로 그 초안을 갱신한다.
+  const [draftId, setDraftId] = useState<string | null>(null);
   const router = useRouter();
   const { t, locale } = useT();
 
@@ -87,11 +91,19 @@ export default function PublishForm() {
       if (videoFile) kinds.push("video");
       setStage("idle");
 
-      const res = await fetch("/api/ingest", {
+      // AI가 draftId·newDraft를 직접 적었으면 그 뜻을 따른다(둘을 같이 보내면 400).
+      const reuse = draftId && payload.draftId === undefined && payload.newDraft === undefined ? draftId : null;
+      const send = (withDraft: string | null) => fetch("/api/ingest", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(kinds.length ? { ...payload, uploads: kinds } : payload),
+        body: JSON.stringify({ ...payload, ...(withDraft ? { draftId: withDraft } : {}), ...(kinds.length ? { uploads: kinds } : {}) }),
       });
+      let res = await send(reuse);
+      // 들고 있던 초안을 그사이 대시보드에서 지웠거나 공개했다 — 잊고 새로 만든다.
+      if (reuse && (res.status === 404 || res.status === 409)) {
+        setDraftId(null);
+        res = await send(null);
+      }
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
         const reason = body.error || t.publish.errors.submitFailed;
@@ -102,6 +114,8 @@ export default function PublishForm() {
         setSubmitting(false);
         return;
       }
+
+      if (typeof body.projectId === "string") setDraftId(body.projectId);
 
       if (body.uploads && body.finalizeUrl) {
         setStage("uploading");
@@ -200,32 +214,11 @@ export default function PublishForm() {
           {t.publish.promptHintAfter}
         </p>
 
-        {/* 1순위: 버튼 하나 */}
-        <div className="rounded-2xl mb-5" style={{ background: "var(--surface-soft)", padding: "16px 18px" }}>
-          <button onClick={fromClipboard} disabled={submitting} className="vf-button-primary" style={{ opacity: submitting ? 0.6 : 1 }}>
-            {submitting ? t.publish.submitting : t.publish.clipboardButton}
-          </button>
-          <p className="text-xs" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", lineHeight: 1.7, margin: "10px 0 0" }}>
-            {t.publish.clipboardHint}
-          </p>
-        </div>
-
-        {/* 2순위: 붙여넣기 = 제출 */}
-        <p className="text-xs mb-2" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
-          {t.publish.pasteHint}
-        </p>
-        <textarea
-          className="vf-input w-full"
-          style={{ minHeight: 180, fontFamily: "var(--font-mono), monospace", fontSize: "0.85rem", lineHeight: 1.6 }}
-          placeholder={'{\n  "title": "...",\n  "description": "...",\n  "demoScript": { "steps": [{ "goal": "...", "selector": "...", "action": "click", "expect": "..." }] },\n  "demoAccess": { "noLogin": true, "note": "..." },\n  "tags": ["Claude Code"],\n  "contentType": "web-app",\n  "deployUrl": "https://..."\n}'}
-          value={raw}
-          onChange={(e) => setRaw(e.target.value)}
-          onPaste={onPaste}
-        />
-
-        {/* 파일 첨부 — 인터넷에 안 올린 작품용. 조사(2026-09-17): 바이브코딩 프로젝트의
+        {/* 파일 첨부 — 인터넷에 안 올린 작품용. 맨 위에 두는 이유(B4, 2026-09-22): 아래 두 칸은
+            붙여넣는 순간 바로 올린다. 파일 칸이 그 아래 있으면 위에서부터 따라 한 사람은 JSON만
+            먼저 올라가 파일 없는 초안이 생겼다. 조사(2026-09-17): 바이브코딩 프로젝트의
             60%가 배포 전에 버려지고, 막히는 지점이 "로컬에선 되는데 올리는 법을 모르겠다"였다. */}
-        <div className="rounded-2xl mt-5" style={{ background: "var(--surface-soft)", padding: "16px 18px" }}>
+        <div className="rounded-2xl mb-5" style={{ background: "var(--surface-soft)", padding: "16px 18px" }}>
           <p className="text-sm" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontWeight: 600, margin: 0 }}>
             {t.publish.filesTitle}
           </p>
@@ -271,6 +264,29 @@ export default function PublishForm() {
             </div>
           ))}
         </div>
+
+        {/* 1순위: 버튼 하나 */}
+        <div className="rounded-2xl mb-5" style={{ background: "var(--surface-soft)", padding: "16px 18px" }}>
+          <button onClick={fromClipboard} disabled={submitting} className="vf-button-primary" style={{ opacity: submitting ? 0.6 : 1 }}>
+            {submitting ? t.publish.submitting : t.publish.clipboardButton}
+          </button>
+          <p className="text-xs" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", lineHeight: 1.7, margin: "10px 0 0" }}>
+            {t.publish.clipboardHint}
+          </p>
+        </div>
+
+        {/* 2순위: 붙여넣기 = 제출 */}
+        <p className="text-xs mb-2" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
+          {t.publish.pasteHint}
+        </p>
+        <textarea
+          className="vf-input w-full"
+          style={{ minHeight: 180, fontFamily: "var(--font-mono), monospace", fontSize: "0.85rem", lineHeight: 1.6 }}
+          placeholder={t.publish.pastePlaceholder}
+          value={raw}
+          onChange={(e) => setRaw(e.target.value)}
+          onPaste={onPaste}
+        />
 
         {error && (
           <div className="mt-3">
