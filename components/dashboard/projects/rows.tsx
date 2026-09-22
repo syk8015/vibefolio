@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import Image from "next/image";
 import ShareKit from "@/components/dashboard/ShareKit";
 import { parseDemoFailure } from "@/lib/demo-failure";
+import { detectDemoSource } from "@/lib/demoSource";
 import { placeholderThumbnail } from "@/lib/placeholder";
 import { CONTENT_TYPES } from "@/lib/projectTaxonomy";
 import { popoverAnchor, formatUploadedAt, type PopoverAnchor } from "./helpers";
@@ -504,8 +505,11 @@ export function ProjectRow({ project, username, demoPaused, nowMs, onDelete, onE
   // 있는 게 없어 메뉴에서 아예 뺀다(옛 RerecordButton의 노출 규칙 그대로).
   const status = project.demo_build_status;
   const demoInFlight = !!status && DEMO_IN_FLIGHT.has(status);
+  // 촬영 소스는 request_demo가 돌아야 채워진다 — 공개 때 트리거가 빠졌거나
+  // 실패한 행도 주소만 있으면 여기서 다시 시작할 길을 남긴다.
+  const canShoot = !!project.demo_source_value || !!detectDemoSource(project.demo_url);
   const rerecordLabel =
-    !project.demo_source_value || demoInFlight || status === "held"
+    !canShoot || demoInFlight || status === "held"
       ? null
       : project.pending_demo_script
         ? t.projects.reviewPendingScript
@@ -594,7 +598,7 @@ export function ProjectRow({ project, username, demoPaused, nowMs, onDelete, onE
           statusChangedAt={project.demo_status_changed_at}
           paused={demoPaused}
           nowMs={nowMs}
-          onRetry={project.demo_source_value ? onRerecord : undefined}
+          onRetry={canShoot ? onRerecord : undefined}
         />
 
         <div className="flex items-center gap-1.5 md:gap-2">

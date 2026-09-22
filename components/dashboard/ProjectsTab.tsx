@@ -27,7 +27,11 @@ export default function ProjectsTab({ user, username, reviewProjectId }: { user:
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editProject, setEditProject] = useState<DBProject | null>(null);
-  const [reviewDraft, setReviewDraft] = useState<DBProject | null>(null);
+  // 검토 창은 id만 들고 drafts에서 그린다 — 열린 순간의 사본을 들고 있으면
+  // 뒤이은 UPDATE(파일 업로드 후 demo_url, AI가 고친 대본)가 창에 안 닿아,
+  // 빈 주소로 공개돼 촬영이 빠지거나 옛 대본으로 덮어쓰게 된다.
+  const [reviewDraftId, setReviewDraftId] = useState<string | null>(null);
+  const reviewDraft = reviewDraftId ? drafts.find((d) => d.id === reviewDraftId) ?? null : null;
   // ?review 딥링크는 첫 매칭 때 한 번만 모달을 연다 — 닫은 뒤 drafts가 갱신될
   // 때마다 다시 열리면 안 되니까.
   const reviewLinkConsumed = useRef(false);
@@ -48,7 +52,7 @@ export default function ProjectsTab({ user, username, reviewProjectId }: { user:
       setDrafts((prev) => (prev.some((d) => d.id === draft.id) ? prev : [draft, ...prev]));
       if (showAddModal) {
         setShowAddModal(false);
-        setReviewDraft(draft);
+        setReviewDraftId(draft.id);
       } else {
         // 모달이 닫힌 채로 도착하면 화면을 가로채지 않고 토스트로만 알린다.
         setNotice(t.projects.draftArrived(draft.title || t.projects.untitled));
@@ -93,7 +97,7 @@ export default function ProjectsTab({ user, username, reviewProjectId }: { user:
         reviewLinkConsumed.current = true;
         // URL 딥링크 1회 소비 — 캐스케이드 없는 단발 오픈이라 보수 판정만 억제.
         // eslint-disable-next-line react-hooks/set-state-in-effect
-        setReviewDraft(match);
+        setReviewDraftId(match.id);
       }
     }
   }, [reviewProjectId, drafts]);
@@ -255,7 +259,6 @@ export default function ProjectsTab({ user, username, reviewProjectId }: { user:
     if (error) throw new Error(error.message);
     const updated = data as DBProject;
     setDrafts(prev => prev.map(p => (p.id === id ? updated : p)));
-    setReviewDraft(prev => (prev && prev.id === id ? updated : prev));
   }
 
   function handleMoveUp(index: number) {
@@ -297,10 +300,15 @@ export default function ProjectsTab({ user, username, reviewProjectId }: { user:
     await supabase.from("projects").update({ is_featured: next }).eq("id", id);
   }
 
-  async function handlePublishDraft(project: DBProject) {
+  async function handlePublishDraft(stale: DBProject) {
     // 초안 → 공개: is_draft=false로 내리고 published 리스트로 옮긴 뒤, 기존 추가
     // 플로우와 동일하게 자동 시연을 트리거한다(쿼터·모더레이션·held 전부 상속).
     const supabase = createClient();
+    // 화면의 행은 realtime이 놓친 UPDATE(2단계 업로드의 demo_url 등)를 모를 수
+    // 있다 — 촬영 판정은 DB의 지금 값으로 한다. 못 읽으면 화면 값으로 진행.
+    const { data: fresh } = await supabase
+      .from("projects").select("*").eq("id", stale.id).maybeSingle();
+    const project = (fresh as DBProject | null) ?? stale;
     // 인제스트로 들어온 수동 시연 영상(video_url)이 있으면 자동 촬영 생략 — 위
     // handleAdd와 같은 이유(노출 순위상 촬영본이 보이지 않음).
     const source = project.video_url ? null : detectDemoSource(project.demo_url);
@@ -399,7 +407,7 @@ export default function ProjectsTab({ user, username, reviewProjectId }: { user:
                 onEdit={() => setEditProject(d)}
                 onDelete={() => handleDelete(d.id)}
                 onPublish={() => handlePublishDraft(d)}
-                onReview={() => setReviewDraft(d)}
+                onReview={() => setReviewDraftId(d.id)}
               />
             ))}
             {projects.map((project, i) => (
@@ -440,12 +448,13 @@ export default function ProjectsTab({ user, username, reviewProjectId }: { user:
         <DraftReviewModal
           // 초안마다 새 인스턴스 — 미리보기 임베드 판정이 초안별 초기값이라,
           // 인스턴스가 재사용되면 앞 초안의 판정이 잠깐 남는다.
-          key={reviewDraft.id}
+          // 파일 업로드가 끝나 주소가 늦게 채워지면 미리보기 판정도 다시 한다.
+          key={`${reviewDraft.id}:${reviewDraft.demo_url}`}
           draft={reviewDraft}
-          onClose={() => setReviewDraft(null)}
-          onPublish={() => { const d = reviewDraft; setReviewDraft(null); handlePublishDraft(d); }}
-          onEdit={() => { setEditProject(reviewDraft); setReviewDraft(null); }}
-          onDelete={() => { const d = reviewDraft; setReviewDraft(null); handleDelete(d.id); }}
+          onClose={() => setReviewDraftId(null)}
+          onPublish={() => { const d = reviewDraft; setReviewDraftId(null); handlePublishDraft(d); }}
+          onEdit={() => { setEditProject(reviewDraft); setReviewDraftId(null); }}
+          onDelete={() => { const d = reviewDraft; setReviewDraftId(null); handleDelete(d.id); }}
           onSave={(patch) => handleSaveDraft(reviewDraft.id, patch)}
         />
       )}
