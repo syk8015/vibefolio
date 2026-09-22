@@ -1,7 +1,9 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import type { Metadata } from "next";
-import { getProfileByUsername, getProjectById, posterFromDemo, watchVideo } from "@/lib/portfolio";
+import { getProfileByUsername, getProjectById, posterFromDemo, watchVideo, watchTryHref } from "@/lib/portfolio";
+import { getT } from "@/lib/i18n/server";
+import WatchPlayer from "./WatchPlayer";
 import WatchPing from "@/components/WatchPing";
 import ReportButton from "@/components/ReportButton";
 import Logo from "@/components/Logo";
@@ -11,7 +13,9 @@ import JsonLd from "@/components/JsonLd";
 
 // The public per-project watch page. Its whole job is to unfurl the demo mp4 as
 // og:video (Discord/Slack/Telegram/iMessage inline-play it) and hand the viewer a
-// door into the owner's Nookframe. English by design — it's a viral surface.
+// door into the owner's Nookframe. 화면 글자는 방문자 언어를 따른다(2026-09-22
+// 결정 D2 — 예전 "English by design"은 결정 목록에 없던 주석이었다). 링크 미리보기
+// (meta·OG)는 크롤러가 읽는 자리라 영어 그대로, 신고 창도 en 고정(의도).
 //
 // slug = the project uuid (no separate slug column; approved id-as-slug). This
 // route nests under the existing [username] theater page and never touches it, so
@@ -20,6 +24,28 @@ import JsonLd from "@/components/JsonLd";
 const SITE = "https://nookframe.com";
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const CAPTION = "No human recorded this — filmed straight from the live app";
+
+// 화면 문구. 이 페이지에만 쓰는 몇 줄이라 공용 사전 대신 여기 둔다.
+const COPY = {
+  ko: {
+    caption: "사람이 아니라 AI가 실제 앱을 직접 조작하며 찍은 영상",
+    rendering: "시연 영상을 찍는 중…",
+    showMore: "더 보기",
+    showLess: "접기",
+    viewFrame: (name: string) => `${name}의 Nookframe 보기`,
+    makeYourOwn: "내 작품도 올리기",
+    madeWith: "Nookframe으로 만든 페이지",
+  },
+  en: {
+    caption: CAPTION,
+    rendering: "Demo is rendering…",
+    showMore: "Show more",
+    showLess: "Show less",
+    viewFrame: (name: string) => `View ${name}'s Nookframe`,
+    makeYourOwn: "Put your own work up",
+    madeWith: "Made with Nookframe",
+  },
+};
 // 영상이 없는 작품은 둘로 갈린다: 지금 찍는 중(곧 생긴다)과 영상이 올 일이 없는
 // 것(이미지형·실패·보류·요청 안 함). 앞의 것만 "rendering"이라 말할 수 있다 —
 // 나머지에 그 문구를 띄우면 영원히 멈춘 화면이 되고, CAPTION은 없는 영상을
@@ -92,9 +118,11 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 
 export default async function WatchPage({ params }: Params) {
   const { username, slug } = await params;
-  const data = await load(username, slug);
+  const [data, { locale, t }] = await Promise.all([load(username, slug), getT()]);
   if (!data) notFound();
   const { profile, project } = data;
+  const c = COPY[locale === "en" ? "en" : "ko"];
+  const tryIt = watchTryHref(project.demo_url);
 
   const handle = `@${profile.username}`;
   const name = profile.name || profile.username;
@@ -179,16 +207,7 @@ export default async function WatchPage({ params }: Params) {
             style={{ padding: 0, borderRadius: 18, aspectRatio: "16 / 9", background: "#0b0b0f" }}
           >
             {video ? (
-              <video
-                src={video}
-                poster={poster}
-                controls
-                autoPlay
-                muted
-                loop
-                playsInline
-                style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
-              />
+              <WatchPlayer src={video} poster={poster} />
             ) : (
               <div className="relative w-full h-full flex items-center justify-center">
                 {poster && (
@@ -209,7 +228,7 @@ export default async function WatchPage({ params }: Params) {
                     className="absolute vf-chip"
                     style={{ fontFamily: "var(--font-nunito)", color: "var(--text-secondary)" }}
                   >
-                    Demo is rendering…
+                    {c.rendering}
                   </span>
                 )}
               </div>
@@ -224,7 +243,7 @@ export default async function WatchPage({ params }: Params) {
             className="mt-4 text-center vf-mono"
             style={{ color: "var(--text-primary)", opacity: 0.5, fontSize: "0.8rem", letterSpacing: "0.01em" }}
           >
-            {CAPTION}
+            {c.caption}
           </p>
         )}
 
@@ -282,8 +301,8 @@ export default async function WatchPage({ params }: Params) {
           <ClampText
             text={project.description}
             lines={8}
-            moreLabel="Show more"
-            lessLabel="Show less"
+            moreLabel={c.showMore}
+            lessLabel={c.showLess}
             className="mt-3"
             style={{
               color: "var(--text-primary)",
@@ -296,13 +315,46 @@ export default async function WatchPage({ params }: Params) {
           />
         )}
 
-        {/* Door into the owner's Nookframe */}
+        {/* 공유 링크로 온 사람이 제일 먼저 하고 싶은 건 앱을 만져보는 것 —
+            체험이 첫 버튼, 주인의 Nookframe은 두 번째. 체험 주소가 없으면
+            Nookframe 버튼이 첫 자리로 올라온다. iframe이 아니라 새 탭 링크라
+            05-21 결정(명함 외 임베드 금지)과 부딪히지 않는다. */}
+        <div className="flex flex-wrap items-center gap-3 mt-8">
+          {tryIt && (
+            <a
+              href={tryIt.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="vf-button-primary inline-flex items-center gap-2"
+              style={{ textDecoration: "none" }}
+            >
+              {tryIt.isFile ? t.theater.ctaFullscreen : t.theater.ctaVisit}
+              <span aria-hidden>↗</span>
+            </a>
+          )}
+          <Link
+            href={`/${profile.username}`}
+            className={`${tryIt ? "vf-button-ghost" : "vf-button-primary"} inline-flex items-center gap-2`}
+            style={{ textDecoration: "none" }}
+          >
+            {c.viewFrame(name)}
+            <span aria-hidden>→</span>
+          </Link>
+        </div>
+
+        {/* 링크로 들어온 방문자를 가입으로 — 버튼이 아니라 흐린 글자 링크. */}
         <Link
-          href={`/${profile.username}`}
-          className="vf-button-primary inline-flex items-center gap-2 mt-8"
-          style={{ textDecoration: "none" }}
+          href="/signup"
+          className="flex w-fit items-center gap-1.5 mt-6"
+          style={{
+            color: "var(--text-primary)",
+            opacity: 0.6,
+            fontFamily: "var(--font-nunito)",
+            fontSize: "0.875rem",
+            textDecoration: "none",
+          }}
         >
-          View {name}&apos;s Nookframe
+          {c.makeYourOwn}
           <span aria-hidden>→</span>
         </Link>
       </div>
@@ -312,7 +364,7 @@ export default async function WatchPage({ params }: Params) {
         style={{ borderTop: "1px solid var(--border)" }}
       >
         <Link href="/" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem", textDecoration: "none" }}>
-          Made with Nookframe
+          {c.madeWith}
         </Link>
         <span style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem" }}>
           © {new Date().getFullYear()} Nookframe

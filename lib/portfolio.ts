@@ -1,6 +1,7 @@
 import { unstable_cache } from "next/cache";
 import { createPublicClient, throwIfReadFailed } from "@/lib/supabase/public";
 import { detectVideoKind } from "@/lib/video";
+import { toPreviewUrl } from "@/lib/previewOrigin";
 
 // Shared public reads for the per-project watch page (/{username}/{id}). Kept
 // separate from the theater page's own private copies in app/[username]/page.tsx
@@ -20,6 +21,7 @@ export type WatchProject = {
   title: string;
   description: string | null;
   content_type: string | null;
+  demo_url: string | null;
   video_url: string | null;
   demo_video_url: string | null;
   demo_generated_at: string | null;
@@ -70,6 +72,19 @@ export function watchVideo(
   return null;
 }
 
+// 작품 페이지의 "체험하러 가기" 주소. 명함(TheaterStage safeHref)과 같은 규칙 —
+// 외부 http(s)는 그대로, 올린 파일은 HTML일 때만 격리 도메인으로(실행형 코드
+// zip은 소스 원문이 뜨므로 링크 없음). 그 밖의 값은 링크를 만들지 않는다.
+export function watchTryHref(demoUrl: string | null): { href: string; isFile: boolean } | null {
+  if (!demoUrl) return null;
+  if (demoUrl.startsWith("https://") || demoUrl.startsWith("http://")) return { href: demoUrl, isFile: false };
+  if (demoUrl.startsWith("/api/preview/") && /\.html?$/i.test(demoUrl.split(/[?#]/)[0])) {
+    const href = toPreviewUrl(demoUrl);
+    return href ? { href, isFile: true } : null;
+  }
+  return null;
+}
+
 export const getProfileByUsername = unstable_cache(
   async (username: string): Promise<WatchProfile | null> => {
     const supabase = createPublicClient();
@@ -91,7 +106,7 @@ export const getProjectById = unstable_cache(
     const { data, error } = await supabase
       .from("projects")
       .select(
-        "id, title, description, content_type, video_url, demo_video_url, demo_generated_at, thumbnail, demo_build_status",
+        "id, title, description, content_type, demo_url, video_url, demo_video_url, demo_generated_at, thumbnail, demo_build_status",
       )
       .eq("user_id", userId)
       .eq("id", projectId)
