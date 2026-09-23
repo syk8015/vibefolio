@@ -50,7 +50,9 @@ export function AddProjectModal({ onClose }: { onClose: () => void }) {
             <h2 id="add-project-title" className="vf-serif-display" style={{ fontSize: "1.25rem", fontWeight: 500, margin: 0 }}>
               {t.projects.connectTitle}
             </h2>
-            <p className="text-sm" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", margin: "2px 0 0", lineHeight: 1.5, wordBreak: "keep-all" }}>
+            {/* keep-all은 단어 '안'에서 끊기는 것만 막는다 — 폰에서 끝 단어("돼요.")만
+                둘째 줄로 떨어지는 건 balance가 두 줄 길이를 고르게 맞춰서 막는다. */}
+            <p className="text-sm" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", margin: "2px 0 0", lineHeight: 1.5, wordBreak: "keep-all", textWrap: "balance" }}>
               {t.projects.connectSubtitle}
             </p>
           </div>
