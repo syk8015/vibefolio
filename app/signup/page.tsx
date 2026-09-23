@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useSyncExternalStore } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import TurnstileWidget, { turnstileEnabled, resetTurnstile } from "@/components/TurnstileWidget";
@@ -11,6 +12,8 @@ import type { Dictionary } from "@/lib/i18n/dictionaries";
 import { safeNext } from "@/lib/safeNext";
 import { firstTouch } from "@/lib/analytics-client";
 import InAppBrowserNotice from "@/components/InAppBrowserNotice";
+import SocialSignInButtons from "@/components/SocialSignInButtons";
+import EmailCodeForm, { CodeVerify, LinkButton } from "@/components/EmailCodeForm";
 
 type Step = "form" | "check-email";
 // 이름·아이디는 여기서 받지 않는다 — 인증 뒤 온보딩에서 한 번만 받는다(구글 가입과
@@ -46,7 +49,10 @@ function fieldError(field: FieldName, value: string, t: Dictionary): string | nu
 
 export default function SignupPage() {
   const { t, locale } = useT();
+  const router = useRouter();
   const [show, setShow] = useState(false);
+  // 비밀번호 없이 메일 코드로 가입하는 모드(EmailCodeForm — 로그인 화면과 같은 폼).
+  const [mode, setMode] = useState<"password" | "code">("password");
   const [step, setStep] = useState<Step>("form");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -147,12 +153,11 @@ export default function SignupPage() {
     setResend(error ? "failed" : "sent");
   }
 
-  async function handleGoogle() {
-    const supabase = createClient();
-    await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: callbackUrl() },
-    });
+  // 코드로 인증을 끝냈으면 세션이 이 브라우저에 있다 — 가던 길로 보내면 미들웨어가
+  // 프로필 없는 계정을 온보딩(?next= 유지)으로 돌린다.
+  function finishSignIn() {
+    router.push(nextFromUrl());
+    router.refresh();
   }
 
   if (step === "check-email") {
@@ -196,6 +201,12 @@ export default function SignupPage() {
           >
             {t.auth.toLogin}
           </Link>
+          <div className="text-left mt-8 pt-6" style={{ borderTop: "1px solid var(--border)" }}>
+            <p className="text-xs leading-relaxed mb-3" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
+              {t.signup.orEnterCode}
+            </p>
+            <CodeVerify email={form.email} onVerified={finishSignIn} />
+          </div>
           <p className="text-xs mt-6 leading-relaxed" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
             {t.auth.resendPrompt}{" "}
             <button type="button" onClick={backToForm}
@@ -234,15 +245,7 @@ export default function SignupPage() {
 
           <InAppBrowserNotice />
 
-          <button
-            type="button"
-            onClick={handleGoogle}
-            className="w-full flex items-center justify-center gap-3 py-3 rounded-xl font-bold text-sm mb-6 transition-opacity hover:opacity-80"
-            style={{ border: "1px solid var(--border-bright)", background: "var(--surface)", color: "var(--text-primary)", fontFamily: "var(--font-nunito)", cursor: "pointer" }}
-          >
-            <GoogleIcon />
-            {t.auth.googleContinue}
-          </button>
+          <SocialSignInButtons redirectTo={callbackUrl} />
 
           <div className="flex items-center gap-3 mb-6">
             <div className="flex-1 h-px" style={{ background: "var(--border)" }} />
@@ -250,6 +253,10 @@ export default function SignupPage() {
             <div className="flex-1 h-px" style={{ background: "var(--border)" }} />
           </div>
 
+          {mode === "code" ? (
+            <EmailCodeForm initialEmail={form.email} redirectTo={callbackUrl}
+              onVerified={finishSignIn} onUsePassword={() => setMode("password")} />
+          ) : (
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <Field label={t.auth.emailLabel}>
               <input className="vf-input" type="email" name="email" placeholder="hello@example.com"
@@ -287,7 +294,11 @@ export default function SignupPage() {
               style={{ background: "var(--blue)", color: "var(--bg)", fontFamily: "var(--font-nunito)", cursor: loading ? "not-allowed" : "pointer", border: "none", boxShadow: "0 0 20px var(--blue-glow)" }}>
               {loading ? t.signup.submitting : t.signup.submit}
             </button>
+            <p className="text-center text-xs" style={{ fontFamily: "var(--font-nunito)" }}>
+              <LinkButton onClick={() => { setMode("code"); setError(""); }}>{t.auth.codeInsteadSignup}</LinkButton>
+            </p>
           </form>
+          )}
 
           <p className="text-center text-xs mt-6 leading-relaxed" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
             {t.signup.agreePrefix}
@@ -329,16 +340,6 @@ function errorMessage(msg: string, t: Dictionary) {
   return t.auth.errors.generic;
 }
 
-function GoogleIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-      <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
-      <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z" fill="#34A853"/>
-      <path d="M3.964 10.71c-.18-.54-.282-1.117-.282-1.71s.102-1.17.282-1.71V4.958H.957C.347 6.173 0 7.548 0 9s.347 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>
-      <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
-    </svg>
-  );
-}
 function Eye() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

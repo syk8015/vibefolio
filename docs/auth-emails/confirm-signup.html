@@ -1,7 +1,8 @@
 <!-- Supabase Dashboard → Authentication → Email Templates → "Confirm signup" 본문에
      그대로 붙여넣기. 제목(Subject) 필드도 Go 템플릿이 돌므로 아래 한 줄을 통째로:
      {{ if eq (printf "%v" .Data.locale) "en" }}Confirm your email to finish signing up{{ else }}메일 주소만 확인하면 가입이 끝나요{{ end }}
-     {{ .ConfirmationURL }} 변수는 반드시 유지. 시각 언어는 lib/email-templates.ts 셸과 동일.
+     {{ .ConfirmationURL }}·{{ .Token }} 변수는 반드시 유지 — 메일 코드 가입(components/EmailCodeForm)의
+     새 계정도 이 템플릿으로 받고, 비밀번호 가입의 "메일 확인" 화면도 코드를 받는다(2026-09-23). 시각 언어는 lib/email-templates.ts 셸과 동일.
      언어 분기: $en = user_metadata.locale == "en" (가입 폼 options.data.locale, app/signup/page.tsx).
      printf "%v" 경유가 필수 — locale 키가 없는 옛 계정에서 eq nil "en"은 렌더 자체가 죽는다. -->
 {{ $en := eq (printf "%v" .Data.locale) "en" }}<!doctype html>
@@ -23,6 +24,8 @@
         <p style="margin:0 0 20px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;font-size:14px;line-height:1.7;color:#1a1612;">{{ if $en }}Press the button below and your signup is complete. If this wasn't you, feel free to ignore this email.{{ else }}아래 버튼을 누르면 가입이 완료돼요. 본인이 요청한 게 아니라면 이 메일은 무시해도 돼요.{{ end }}</p>
         <a href="{{ .ConfirmationURL }}" target="_blank"
           style="display:inline-block;background:#1a1612;color:#fdfaf3;text-decoration:none;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;font-size:14px;font-weight:700;line-height:1;padding:13px 26px;border-radius:999px;">{{ if $en }}Verify email{{ else }}이메일 인증하기{{ end }}</a>
+        <p style="margin:24px 0 8px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;font-size:13px;line-height:1.6;color:#6a5e4e;">{{ if $en }}Or enter this code on the page you signed up from:{{ else }}또는 가입하던 화면에 이 코드를 넣어 주세요.{{ end }}</p>
+        <div style="display:inline-block;background:#f3ecd9;border-radius:12px;padding:12px 20px;font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;font-size:26px;font-weight:800;letter-spacing:0.3em;color:#1a1612;">{{ .Token }}</div>
         <p style="margin:20px 0 0;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;font-size:12.5px;line-height:1.7;color:#6a5e4e;">{{ if $en }}If the button doesn't open, paste this link into your browser.{{ else }}버튼이 열리지 않으면 이 링크를 브라우저에 붙여넣어 주세요.{{ end }}<br>
         <a href="{{ .ConfirmationURL }}" style="color:#6a5e4e;word-break:break-all;">{{ .ConfirmationURL }}</a></p>
       </td></tr>

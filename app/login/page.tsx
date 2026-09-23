@@ -10,6 +10,8 @@ import LanguageToggle from "@/components/LanguageToggle";
 import { useT } from "@/lib/i18n/client";
 import { safeNext } from "@/lib/safeNext";
 import InAppBrowserNotice from "@/components/InAppBrowserNotice";
+import SocialSignInButtons from "@/components/SocialSignInButtons";
+import EmailCodeForm, { LinkButton } from "@/components/EmailCodeForm";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
 
 const RETURNING_USER_KEY = "vf-returning-user";
@@ -24,13 +26,16 @@ export default function LoginPage() {
   const router = useRouter();
   const { t } = useT();
   const [show, setShow] = useState(false);
+  // 비밀번호 대신 메일 코드로 들어가는 모드(EmailCodeForm). 처음 보는 주소면 계정이 생긴다.
+  const [mode, setMode] = useState<"password" | "code">("password");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [form, setForm] = useState({ email: "", password: "" });
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [isReturning, setIsReturning] = useState<boolean | null>(null);
   // 인증 콜백 실패(?error=auth)로 왔을 때의 안내 — 재설정 링크였는지 가입 인증이었는지로 가른다.
-  const [callbackError, setCallbackError] = useState<"reset" | "confirm" | null>(null);
+  // oauth = 구글·깃허브 화면에서 취소했거나 공급자가 거절(콜백에 ?error=가 실려 온 경우).
+  const [callbackError, setCallbackError] = useState<"reset" | "confirm" | "oauth" | null>(null);
   // "이메일 미인증"으로 막힌 사람에게 인증 메일을 다시 보내는 버튼 상태.
   const [unconfirmed, setUnconfirmed] = useState(false);
   const [resend, setResend] = useState<"idle" | "sending" | "sent" | "failed">("idle");
@@ -40,7 +45,8 @@ export default function LoginPage() {
   useEffect(() => {
     setIsReturning(localStorage.getItem(RETURNING_USER_KEY) === "1");
     const params = new URLSearchParams(location.search);
-    if (params.get("error") === "auth") {
+    if (params.get("error") === "oauth") setCallbackError("oauth");
+    else if (params.get("error") === "auth") {
       setCallbackError(safeNext(params.get("next")).startsWith("/reset-password") ? "reset" : "confirm");
     }
     const next = params.get("next");
@@ -73,9 +79,7 @@ export default function LoginPage() {
       setResend("idle");
       setError(errorMessage(error.message, t));
     } else {
-      localStorage.setItem(RETURNING_USER_KEY, "1");
-      router.push(nextFromUrl());
-      router.refresh();
+      finishSignIn();
     }
   }
 
@@ -96,19 +100,17 @@ export default function LoginPage() {
     setResend(error ? "failed" : "sent");
   }
 
-  async function handleGoogle() {
+  function finishSignIn() {
     localStorage.setItem(RETURNING_USER_KEY, "1");
-    const supabase = createClient();
-    // ?next=를 콜백에 실어 보낸다. Supabase 허용 목록이 쿼리까지 매칭하므로
-    // `…/auth/callback?**` 와일드카드가 있어야 한다(비밀번호 재설정이 이미 같은 모양을 쓴다).
-    // 없으면 Site URL(홈)로 떨어질 뿐이라 지금보다 나빠지진 않는다.
-    const next = nextFromUrl();
-    await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
-      },
-    });
+    router.push(nextFromUrl());
+    router.refresh();
+  }
+
+  // ?next=를 콜백에 실어 보낸다. Supabase 허용 목록이 쿼리까지 매칭하므로
+  // `…/auth/callback?**` 와일드카드가 있어야 한다(비밀번호 재설정이 이미 같은 모양을 쓴다).
+  // 없으면 Site URL(홈)로 떨어질 뿐이라 지금보다 나빠지진 않는다.
+  function callbackUrl() {
+    return `${location.origin}/auth/callback?next=${encodeURIComponent(nextFromUrl())}`;
   }
 
   return (
@@ -138,7 +140,7 @@ export default function LoginPage() {
           {callbackError && (
             <div role="alert" className="mb-6 rounded-xl px-4 py-3 text-xs leading-relaxed"
               style={{ background: "var(--blue-tint)", color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}>
-              {callbackError === "reset" ? (
+              {callbackError === "oauth" ? t.login.callbackOauthFailed : callbackError === "reset" ? (
                 <>
                   {t.login.callbackResetFailed}{" "}
                   <Link href="/forgot-password" style={{ color: "var(--blue)", fontWeight: 700 }}>{t.login.callbackResetAgain}</Link>
@@ -151,12 +153,8 @@ export default function LoginPage() {
 
           <InAppBrowserNotice />
 
-          <button type="button" onClick={handleGoogle}
-            className="w-full flex items-center justify-center gap-3 py-3 rounded-xl font-bold text-sm mb-6 transition-opacity hover:opacity-80"
-            style={{ border: "1px solid var(--border-bright)", background: "var(--surface)", color: "var(--text-primary)", fontFamily: "var(--font-nunito)", cursor: "pointer" }}>
-            <GoogleIcon />
-            {t.auth.googleContinue}
-          </button>
+          <SocialSignInButtons redirectTo={callbackUrl}
+            onBeforeRedirect={() => localStorage.setItem(RETURNING_USER_KEY, "1")} />
 
           <div className="flex items-center gap-3 mb-6">
             <div className="flex-1 h-px" style={{ background: "var(--border)" }} />
@@ -164,6 +162,10 @@ export default function LoginPage() {
             <div className="flex-1 h-px" style={{ background: "var(--border)" }} />
           </div>
 
+          {mode === "code" ? (
+            <EmailCodeForm initialEmail={form.email} redirectTo={callbackUrl}
+              onVerified={finishSignIn} onUsePassword={() => setMode("password")} />
+          ) : (
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div>
               <label className="block text-xs font-bold mb-1.5"
@@ -225,7 +227,11 @@ export default function LoginPage() {
               style={{ background: "var(--blue)", color: "var(--bg)", fontFamily: "var(--font-nunito)", cursor: loading ? "not-allowed" : "pointer", border: "none", boxShadow: "0 0 20px var(--blue-glow)" }}>
               {loading ? t.login.submitting : t.login.submit}
             </button>
+            <p className="text-center text-xs" style={{ fontFamily: "var(--font-nunito)" }}>
+              <LinkButton onClick={() => { setMode("code"); setError(""); }}>{t.auth.codeInstead}</LinkButton>
+            </p>
           </form>
+          )}
         </div>
       </div>
     </main>
@@ -240,16 +246,6 @@ function errorMessage(msg: string, t: Dictionary) {
   return t.auth.errors.generic;
 }
 
-function GoogleIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-      <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
-      <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z" fill="#34A853"/>
-      <path d="M3.964 10.71c-.18-.54-.282-1.117-.282-1.71s.102-1.17.282-1.71V4.958H.957C.347 6.173 0 7.548 0 9s.347 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>
-      <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
-    </svg>
-  );
-}
 function Eye() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

@@ -27,6 +27,19 @@ export const ko = {
   // 인증 화면들(로그인·회원가입·비밀번호 찾기/재설정)이 공유하는 문구
   auth: {
     googleContinue: "Google로 계속하기",
+    githubContinue: "GitHub로 계속하기",
+    // 메일 6자리 코드로 들어가기(components/EmailCodeForm) — 처음 보는 주소면 계정이 생긴다
+    codeInstead: "비밀번호 없이 메일 코드로 로그인",
+    codeInsteadSignup: "비밀번호 없이 메일 코드로 가입",
+    passwordInstead: "비밀번호로 하기",
+    codeNewAccountHint: "처음이면 이 주소로 계정이 새로 만들어져요.",
+    codeSend: "코드 받기",
+    codeSentTo: "6자리 코드를 보냈어요. 스팸함도 확인해 주세요.",
+    codeLabel: "코드",
+    codeVerify: "확인",
+    codeVerifying: "확인 중...",
+    codeResend: "코드 다시 받기",
+    codeChangeEmail: "다른 이메일 쓰기",
     or: "또는",
     emailLabel: "이메일",
     passwordLabel: "비밀번호",
@@ -42,7 +55,7 @@ export const ko = {
     usernamePattern: "영문 소문자, 숫자, _-만 쓸 수 있어요",
     // 인스타·스레드 등 앱 안 브라우저 안내(구글이 웹뷰 로그인을 막는다)
     inAppTitle: "앱 안 브라우저에서는 구글 로그인이 막혀요",
-    inAppBody: "오른쪽 위 ⋯ 메뉴에서 '외부 브라우저로 열기'를 눌러 주세요. 이메일 가입은 여기서도 돼요.",
+    inAppBody: "GitHub와 이메일은 여기서도 돼요. 구글을 쓰려면 오른쪽 위 ⋯ 메뉴에서 '외부 브라우저로 열기'를 눌러 주세요.",
     inAppCopy: "주소 복사",
     inAppCopied: "복사했어요 — 사파리·크롬에 붙여 넣어 주세요",
     inAppCopyFailed: "복사하지 못했어요 — ⋯ 메뉴를 써 주세요",
@@ -57,6 +70,8 @@ export const ko = {
       tooMany: "잠시 후 다시 시도해주세요.",
       invalidEmail: "올바른 이메일 형식을 입력해주세요.",
       passwordTooShort: "비밀번호는 8자 이상이어야 해요.",
+      codeInvalid: "코드가 맞지 않거나 만료됐어요. 새 코드를 받아 주세요.",
+      codeWait: "코드는 1분에 한 번만 보낼 수 있어요. 잠시 뒤에 다시 눌러 주세요.",
     },
   },
   login: {
@@ -77,6 +92,7 @@ export const ko = {
     callbackConfirmFailed: "이 브라우저에서는 링크를 이어서 열 수 없었어요. 메일 인증은 끝났으니 아래에서 로그인해 주세요.",
     callbackResetFailed: "재설정 링크가 만료됐거나 다른 브라우저에서 열렸어요.",
     callbackResetAgain: "재설정 메일 다시 받기 →",
+    callbackOauthFailed: "로그인이 취소됐거나 끝나지 못했어요. 다시 해 보거나 다른 방법으로 들어와 주세요.",
   },
   signup: {
     haveAccount: "이미 계정이 있나요?",
@@ -96,8 +112,9 @@ export const ko = {
     agreeSuffix: "에 동의하게 됩니다.",
     checkEmailTitle: "이메일을 확인해주세요",
     checkEmailBody: "위 주소로 인증 링크를 보냈어요. 메일함을 확인해주세요.",
+    orEnterCode: "메일에 적힌 6자리 코드를 여기 넣어도 돼요. 다른 기기에서 메일을 열었을 때 편해요.",
     errors: {
-      emailTaken: "이미 가입된 이메일이에요. 로그인하거나, 구글로 가입했다면 [Google로 계속하기]를 눌러 주세요.",
+      emailTaken: "이미 가입된 이메일이에요. 로그인하거나, 구글·GitHub로 가입했다면 그 버튼을 눌러 주세요.",
     },
   },
   forgotPassword: {
@@ -815,6 +832,8 @@ export const ko = {
             : "htmlBody가 중간에 잘린 것 같아요 — 닫는 </html>도 </body>도 없어요. 답변이 끊겼다면 이어서 받은 뒤 **전체를 한 번에** 보내세요. 반쪽짜리 작품이 그대로 발행되지 않게 여기서 막는 거예요.",
     badUrl: "임베드·시연할 수 있는 URL이 아니에요.",
     demoAccessBadUrl: "demoAccess.url은 http(s) 주소이거나 /로 시작하는 경로여야 해요.",
+    demoAccessSecretParam: (name: string): string =>
+      `demoAccess에 비밀값처럼 보이는 이름("${name}")이 있어요 — 토큰·비밀번호·키는 받지 않아요. 공개된 작품의 이 칸은 누구나 읽을 수 있어서 넣는 순간 새어 나갑니다. 비밀 없이 들어가는 게스트/데모 경로({ "url": "/demo", "params": {"guest":"1"} })를 주세요.`,
     demoAccessRequired:
       "demoAccess가 필요해요 — 로그인 질문에 반드시 답해야 발행됩니다. 시연 로봇은 절대 로그인하지 않아요. 그래서 로그인해야 화면이 보이거나, **로그인한 뒤에야 기능이 도는** 앱을 그냥 올리면 로그인 화면이나 텅 빈 화면만 찍힙니다. 아래 셋 중 하나를 반드시 주세요. ①로그인 없이 들어갈 길이 있으면: { \"url\": \"/demo\", \"params\": {\"guest\":\"1\"}, \"note\": \"거기서 데모 모드를 보는 법\" } — 데모/게스트 모드가 없다면 가짜 데이터로 작게 하나 만드는 게 이 영상에 가장 좋은 투자예요. 다만 주인의 앱을 고치는 일이니 코드를 쓰거나 배포하기 전에 주인에게 먼저 물어보세요. ②로그인이 정말 아예 필요 없고 첫 화면부터 전 기능이 눌리면: { \"noLogin\": true }. ③게스트 경로가 원천 불가능하면(E2E 암호화·기기 페어링 등): { \"impossible\": true, \"note\": \"이유\" } — 이 경우 랜딩만 찍히니 직접 만든 영상(video) 첨부를 강하게 권해요. 계정 아이디·비밀번호는 절대 넣지 마세요 — 받지 않습니다.",
     demoAccessEvidence: (which: "noLogin" | "impossible"): string =>
@@ -834,8 +853,6 @@ export const ko = {
       "demoScript(촬영 대본)가 필요해요 — 이 대본이 곧 시연 영상입니다. 없으면 로봇이 화면을 픽셀로 더듬어 추측 촬영하게 되고, 느리고 비싸고 품질도 낮아요. { \"steps\": [ { \"goal\": …, \"selector\": …, \"where\": …, \"action\": \"click|type|drag|scroll|hover|draw|focus\", \"text\": …, \"expect\": …, \"hold\": … } ] } 형태로 5~8스텝(최소 4, 최대 10)을 중요한 순서대로 주세요. 이 앱을 만든 당신은 각 컨트롤의 정확한 CSS 셀렉터를 알고 있습니다(화면만 아는 경우엔 `where`에 눈으로 찾는 법을 적으면 폴백으로 씁니다). 유일한 예외: 직접 만든 시연 영상을 `video`로 첨부하면 자동 촬영을 건너뛰므로 대본이 필요 없어요.",
     scriptTooThin: (n: number) =>
       `demoScript가 ${n}스텝뿐이라 영상이 되기엔 부실해요. 최소 4스텝(권장 5~8, 최대 10)을 중요한 순서대로 주세요 — 1번은 이 작품에서 절대 빠지면 안 되는 기능이어야 합니다.`,
-    demoAccessSecretParam: (name: string): string =>
-      `demoAccess에 비밀값처럼 보이는 이름("${name}")이 있어요 — 토큰·비밀번호·키는 받지 않아요. 공개된 작품의 이 칸은 누구나 읽을 수 있어서 넣는 순간 새어 나갑니다. 비밀 없이 들어가는 게스트/데모 경로({ "url": "/demo", "params": {"guest":"1"} })를 주세요.`,
     scriptStepsVague: (solid: number, total: number) =>
       `demoScript의 스텝 ${total}개 중 실제로 찍을 수 있는 건 ${solid}개뿐이에요. 스텝마다 **무엇을 하는지**(action: click|type|drag|scroll|hover|draw|focus)와 **어디서 하는지**(selector — 이 앱을 만든 당신은 정확한 CSS 셀렉터를 알고 있습니다. 화면만 안다면 where에 눈으로 찾는 법)를 둘 다 넣어 주세요. goal만 적힌 줄은 대본이 아니라 목차라서, 로봇이 결국 화면을 픽셀로 더듬어 추측하게 됩니다 — 영상이 망가지는 가장 흔한 경로예요. 최소 3개 스텝이 이 조건을 채워야 저장합니다.`,
     // 대본 점검표(2026-09-04) — 저장은 됐지만 더 좋아질 수 있는 곳. 거절이 아니라

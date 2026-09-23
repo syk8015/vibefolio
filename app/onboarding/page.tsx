@@ -83,9 +83,11 @@ export default function OnboardingPage() {
       // row) wins, then a fresh signup's pending choice, then the email prefix (Google).
       const existing = normalizeUsername(String(meta?.username ?? ""));
       const pending = normalizeUsername(String(meta?.pending_username ?? ""));
+      // GitHub 가입이면 깃허브 아이디가 제일 그럴듯한 후보다(user_name — `username`이 아니라
+      // 미들웨어 온보딩 표식과 안 겹친다).
+      const github = normalizeUsername(String(meta?.user_name ?? ""));
       const emailPrefix = normalizeUsername(user.email?.split("@")[0] ?? "");
-      const suggestedUsername =
-        existing.length >= 2 ? existing : pending.length >= 2 ? pending : (emailPrefix.length >= 2 ? emailPrefix : "");
+      const suggestedUsername = [existing, pending, github, emailPrefix].find((u) => u.length >= 2) ?? "";
       setAvatarUrl(meta?.avatar_url ?? null);
       setForm((prev) => ({
         ...prev,

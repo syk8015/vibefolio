@@ -23,6 +23,18 @@ export const en: Dictionary = {
   },
   auth: {
     googleContinue: "Continue with Google",
+    githubContinue: "Continue with GitHub",
+    codeInstead: "Sign in with an email code instead",
+    codeInsteadSignup: "Sign up with an email code instead",
+    passwordInstead: "Use a password instead",
+    codeNewAccountHint: "New here? This creates your account.",
+    codeSend: "Email me a code",
+    codeSentTo: "We sent a 6-digit code to this address. Check spam too.",
+    codeLabel: "Code",
+    codeVerify: "Verify",
+    codeVerifying: "Checking...",
+    codeResend: "Send a new code",
+    codeChangeEmail: "Use a different email",
     or: "or",
     emailLabel: "Email",
     passwordLabel: "Password",
@@ -37,7 +49,7 @@ export const en: Dictionary = {
     resendFailed: "Can't send right now. Try again in a minute.",
     usernamePattern: "Lowercase letters, numbers, _ and - only",
     inAppTitle: "Google sign-in is blocked inside in-app browsers",
-    inAppBody: "Tap the ⋯ menu (top right) and choose 'Open in external browser'. Email sign-up works here too.",
+    inAppBody: "GitHub and email work right here. For Google, tap the ⋯ menu (top right) and choose 'Open in external browser'.",
     inAppCopy: "Copy link",
     inAppCopied: "Copied — paste it into Safari or Chrome",
     inAppCopyFailed: "Couldn't copy — use the ⋯ menu instead",
@@ -52,6 +64,8 @@ export const en: Dictionary = {
       tooMany: "Too many attempts — please try again shortly.",
       invalidEmail: "Please enter a valid email address.",
       passwordTooShort: "Password must be at least 8 characters.",
+      codeInvalid: "That code is wrong or expired. Send a new one.",
+      codeWait: "You can request a code once a minute. Try again shortly.",
     },
   },
   login: {
@@ -71,6 +85,7 @@ export const en: Dictionary = {
     callbackConfirmFailed: "That link couldn't finish in this browser. Your email is verified — log in below.",
     callbackResetFailed: "That reset link expired or was opened in a different browser.",
     callbackResetAgain: "Send a new reset link →",
+    callbackOauthFailed: "Sign-in was cancelled or didn't finish. Try again, or use another option.",
   },
   signup: {
     haveAccount: "Already have an account?",
@@ -90,8 +105,9 @@ export const en: Dictionary = {
     agreeSuffix: ".",
     checkEmailTitle: "Check your email",
     checkEmailBody: "We sent a verification link to this address. Check your inbox.",
+    orEnterCode: "Or type the 6-digit code from the email here — handy if you opened it on another device.",
     errors: {
-      emailTaken: "This email already has an account. Log in, or use Continue with Google if you signed up that way.",
+      emailTaken: "This email already has an account. Log in, or use Google or GitHub if you signed up that way.",
     },
   },
   forgotPassword: {
@@ -753,6 +769,8 @@ export const en: Dictionary = {
             : "htmlBody looks cut off — there is no closing </html> and no </body>. If your answer was truncated, continue it and then send the WHOLE document in one go. This check exists so a half-written app is not published as if it were finished.",
     badUrl: "This URL can't be embedded or filmed for a demo.",
     demoAccessBadUrl: "demoAccess.url must be an http(s) URL or a path starting with /.",
+    demoAccessSecretParam: (name: string): string =>
+      `demoAccess contains a name that looks like a secret ("${name}") — tokens, passwords and keys are not accepted. On a published work this field is readable by anyone, so a secret placed here leaks. Send a guest/demo path that needs no secret instead ({ "url": "/demo", "params": {"guest":"1"} }).`,
     demoAccessRequired:
       "demoAccess is required — you must answer the login question to publish. The demo robot never logs in, so an app that hides its screen behind a login, or that **only comes alive after you log in**, gets filmed as a login form or an empty shell. Send exactly one of these. (1) There is a way in without logging in: { \"url\": \"/demo\", \"params\": {\"guest\":\"1\"}, \"note\": \"how to reach demo mode from there\" } — if no demo/guest mode exists yet, a small one with fake data is the single best thing for this film, but it changes the owner's app: ask the owner before writing that code or deploying. (2) Login genuinely isn't needed and every feature works from the first screen: { \"noLogin\": true }. (3) A guest path is fundamentally impossible (E2E encryption, device pairing…): { \"impossible\": true, \"note\": \"why\" } — only the landing page gets filmed, so attaching your own video is strongly recommended. Never send account IDs or passwords; they are not accepted.",
     demoAccessEvidence: (which: "noLogin" | "impossible"): string =>
@@ -769,8 +787,6 @@ export const en: Dictionary = {
     rerecordDefaultReason: "The owner asked for a re-record with a new script.",
     scriptRequired:
       "demoScript is required — it IS the demo film. Without it the robot has to guess from pixels, which is slower, pricier and worse. Send { \"steps\": [ { \"goal\": …, \"selector\": …, \"where\": …, \"action\": \"click|type|drag|scroll|hover|draw|focus\", \"text\": …, \"expect\": …, \"hold\": … } ] } with 5–8 steps (min 4, max 10), most important first: you built this app, so give the exact CSS selector for each control (a `where` label is the fallback when you only know the UI). Only exception: attach your own demo `video`, which skips auto-recording entirely.",
-    demoAccessSecretParam: (name: string): string =>
-      `demoAccess contains a name that looks like a secret ("${name}") — tokens, passwords and keys are not accepted. On a published work this field is readable by anyone, so a secret placed here leaks. Send a guest/demo path that needs no secret instead ({ "url": "/demo", "params": {"guest":"1"} }).`,
     scriptTooThin: (n: number) =>
       `demoScript has only ${n} step(s) — too thin to be a film. Send at least 4 (5–8 is the sweet spot, max 10), ordered by importance: step 1 must be the feature this project cannot be shown without.`,
     scriptStepsVague: (solid: number, total: number) =>

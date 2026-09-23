@@ -48,8 +48,16 @@ export async function GET(request: NextRequest) {
   // "가입 인증이었다"를 구분해 안내하고(B8), 로그인하면 그 길을 이어 간다.
   // (다른 브라우저에서 연 가입 인증 링크가 대표 사례: 코드 교환은 실패해도 Supabase가
   // 메일 인증 자체는 이미 끝냈다 — 비밀번호로 로그인하면 된다.)
+  // 구글·깃허브 화면에서 취소했거나 공급자가 거절하면 code 대신 ?error=가 실려 온다 —
+  // "메일 인증은 끝났다" 안내가 틀리므로 따로 표시한다(깃허브 대표 사례: 확인된 메일 없음).
+  const providerError = searchParams.get("error");
+  if (!code && providerError) {
+    logger.warn("auth/callback: provider returned error", {
+      error: providerError, description: searchParams.get("error_description"),
+    });
+  }
   const fail = new URL("/login", origin);
-  fail.searchParams.set("error", "auth");
+  fail.searchParams.set("error", !code && providerError ? "oauth" : "auth");
   fail.searchParams.set("next", next);
   return NextResponse.redirect(fail);
 }
