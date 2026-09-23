@@ -250,4 +250,31 @@ export function adminAlertEmail(input: {
   };
 }
 
+// ── 폰 → 컴퓨터 넘기기 (2026-09-23, docs/desktop-handoff.md) ────────────────
+// 본인이 폰에서 요청한 거래성 메일 — 제목·첫 줄이 요청한 링크이고 광고 문구는 없다.
+// reminder=true는 "(선택) 내일 알려주기"에 동의한 사람에게만 가는 1회 알림.
+export function handoffEmail(input: {
+  link: string;
+  reminder?: boolean;
+  locale?: Locale;
+}): RenderedEmail {
+  const locale = input.locale ?? DEFAULT_LOCALE;
+  const t = getDictionary(locale).email;
+  const r = input.reminder === true;
+  return {
+    subject: r ? t.handoffRemindSubject : t.handoffSubject,
+    html: shell(
+      r ? t.handoffRemindPreheader : t.handoffPreheader,
+      [
+        heading(r ? t.handoffRemindHeading : t.handoffHeading),
+        paragraph(escapeHtml(r ? t.handoffRemindBody : t.handoffBody)),
+        button(t.handoffCta, input.link),
+        mutedLine(escapeHtml(t.handoffTypeHint)),
+        mutedLine(escapeHtml(r ? t.handoffRemindLast : t.handoffNotYou)),
+      ].join("\n"),
+      locale,
+    ),
+  };
+}
+
 export { SITE_URL };

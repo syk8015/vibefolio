@@ -190,6 +190,7 @@ export default function OnboardingPage() {
             utm_medium: ft.utm_medium,
             utm_campaign: ft.utm_campaign,
             landing: ft.landing,
+            handoff: ft.handoff ?? null,
           }
         : undefined,
     );

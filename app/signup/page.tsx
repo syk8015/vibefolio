@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
@@ -10,7 +10,7 @@ import LanguageToggle from "@/components/LanguageToggle";
 import { useT } from "@/lib/i18n/client";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
 import { safeNext } from "@/lib/safeNext";
-import { firstTouch } from "@/lib/analytics-client";
+import { firstTouch, adoptHandoffTouch } from "@/lib/analytics-client";
 import InAppBrowserNotice from "@/components/InAppBrowserNotice";
 import SocialSignInButtons from "@/components/SocialSignInButtons";
 import EmailCodeForm, { CodeVerify, LinkButton } from "@/components/EmailCodeForm";
@@ -62,6 +62,30 @@ export default function SignupPage() {
   const [resend, setResend] = useState<"idle" | "sending" | "sent" | "failed">("idle");
   // 로그인 링크에도 ?next=를 이어 붙인다(이미 계정이 있던 사람이 /publish로 돌아가게).
   const loginHref = useSyncExternalStore(noopSubscribe, loginHrefFromUrl, () => "/login");
+
+  // 폰 → 컴퓨터 넘기기(docs/desktop-handoff.md): 폰에서 보낸 메일의 링크 /signup?h=<id>.
+  // 이메일을 채우고 코드 가입으로 연다(같은 컴퓨터 브라우저에서 요청하고 받으니 끊기지
+  // 않는다). 폰의 광고 출처를 이 브라우저 first-touch로 옮겨 가입까지 잇는다.
+  // 모르는·만료된 id면 조용히 평소 화면 그대로.
+  useEffect(() => {
+    const h = new URLSearchParams(location.search).get("h");
+    if (!h) return;
+    let cancelled = false;
+    fetch("/api/handoff/open", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ id: h }),
+    })
+      .then((r) => r.json())
+      .then((d: { ok?: boolean; email?: string; firstTouch?: Record<string, string | null> | null }) => {
+        if (cancelled || !d?.ok || typeof d.email !== "string") return;
+        adoptHandoffTouch(h, d.firstTouch ?? null);
+        setForm((prev) => (prev.email ? prev : { ...prev, email: d.email! }));
+        setMode("code");
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
