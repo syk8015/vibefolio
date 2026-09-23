@@ -50,7 +50,7 @@ export function AddProjectModal({ onClose }: { onClose: () => void }) {
             <h2 id="add-project-title" className="vf-serif-display" style={{ fontSize: "1.25rem", fontWeight: 500, margin: 0 }}>
               {t.projects.connectTitle}
             </h2>
-            <p className="text-sm" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", margin: "2px 0 0", lineHeight: 1.5 }}>
+            <p className="text-sm" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", margin: "2px 0 0", lineHeight: 1.5, wordBreak: "keep-all" }}>
               {t.projects.connectSubtitle}
             </p>
           </div>
