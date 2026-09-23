@@ -806,7 +806,7 @@ body::before {
     gap: 8px;
     margin-bottom: 10px;
     font-family: var(--font-mono), monospace;
-    font-size: 10px;
+    font-size: 12px;
     letter-spacing: 0.14em;
     text-transform: uppercase;
     color: var(--text-secondary);
@@ -821,7 +821,7 @@ body::before {
     margin-top: 10px;
     padding: 4px 0;
     font-family: var(--font-nunito), sans-serif;
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 700;
     letter-spacing: 0.02em;
     color: var(--text-secondary);

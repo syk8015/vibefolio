@@ -375,7 +375,7 @@ export function MeishiInline({
           <div className="vf-serif-display" style={{ fontWeight: 700, fontSize: 18, lineHeight: 1.1 }}>
             {displayName(profile)}
           </div>
-          <div style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 2, fontWeight: 500 }}>
+          <div style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 2, fontWeight: 500 }}>
             @{profile.username}
           </div>
         </div>
@@ -389,7 +389,7 @@ export function MeishiInline({
           style={{
             position: "relative",
             margin: 0,
-            fontSize: 12.5,
+            fontSize: 14,
             lineHeight: 1.6,
             color: "var(--text-secondary)",
             fontFamily: "var(--font-nunito)",
@@ -421,12 +421,12 @@ export function MeishiInline({
       >
         <div style={{ flex: 1, minWidth: 0 }}>
           {hasSocials ? (
-            <SocialHandleList urls={socialLinks} dotSize={20} fontSize={12} gap={6} />
+            <SocialHandleList urls={socialLinks} dotSize={20} fontSize={14} gap={6} />
           ) : (
             <span
               style={{
                 fontFamily: "var(--font-mono)",
-                fontSize: 10,
+                fontSize: 12,
                 letterSpacing: "0.12em",
                 color: "var(--text-secondary)",
                 textTransform: "uppercase",
@@ -459,7 +459,7 @@ export function MeishiInline({
           <span
             style={{
               fontFamily: "var(--font-mono)",
-              fontSize: 8,
+              fontSize: 11,
               letterSpacing: "0.2em",
               color: "var(--text-muted)",
               textTransform: "uppercase",

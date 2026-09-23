@@ -10,14 +10,15 @@ import { MeishiBig, MeishiInline, type MeishiProfile } from "./Meishi";
 
 // A horizontal divider with a centered label — used to break the body
 // into sections without resorting to heavy headers.
-function SectionHeader({ label, className = "" }: { label: string; className?: string }) {
+// size: 데스크탑 Up Next는 기본값 10 그대로, 폰만 12를 넘긴다(PC byte-identical).
+function SectionHeader({ label, className = "", size = 10 }: { label: string; className?: string; size?: number }) {
   return (
     <div className={`flex items-center gap-3 ${className}`}>
       <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
       <span
         style={{
           fontFamily: "var(--font-nunito)",
-          fontSize: 10,
+          fontSize: size,
           letterSpacing: "0.28em",
           textTransform: "uppercase",
           fontWeight: 800,
@@ -122,7 +123,7 @@ function ReelTile({
         <span
           style={{
             fontFamily: "var(--font-mono)",
-            fontSize: 9,
+            fontSize: 11,
             color: "var(--text-muted)",
             letterSpacing: "0.12em",
           }}
@@ -132,7 +133,7 @@ function ReelTile({
         <span
           style={{
             fontWeight: 700,
-            fontSize: 11,
+            fontSize: 13,
             color: "var(--text-primary)",
             lineHeight: 1.15,
             flex: 1,
@@ -147,7 +148,7 @@ function ReelTile({
       <div
         style={{
           fontFamily: "var(--font-mono)",
-          fontSize: 9,
+          fontSize: 11,
           letterSpacing: "0.12em",
           color: "var(--text-muted)",
           textTransform: "uppercase",
@@ -347,6 +348,9 @@ export default function TheaterShell({ profile, profileUrl, projects, initialAct
   return (
     <>
       {/* ───────────────────── MOBILE ───────────────────── */}
+      {/* 폰 글자 크기(09-24 B안): 14 버튼·소개글·링크 / 13 아이디·도구·목록 작품 이름 /
+          12 작품 정보 줄·섹션 머리·주소 / 11 번호·연도·SCAN — 11px 미만은 두지 않는다.
+          TheaterStage의 MobileStage·Meishi의 MeishiInline·globals.css .vf-mhero-*도 같은 규칙. */}
       <div className="md:hidden">
         {/* Stage runs full-bleed under the nav — 풀블리드 앵비언트 히어로 + 자동 한 줄. */}
         <TheaterStage
@@ -363,7 +367,7 @@ export default function TheaterShell({ profile, profileUrl, projects, initialAct
         {total > 1 && (
           <>
             <div className="px-5 pt-7">
-              <SectionHeader label={t.theater.screenings(total)} />
+              <SectionHeader label={t.theater.screenings(total)} size={12} />
             </div>
             <div
               className="flex gap-2.5 px-4 pt-4 pb-2 overflow-x-auto"
@@ -388,7 +392,7 @@ export default function TheaterShell({ profile, profileUrl, projects, initialAct
         {/* About — 정체성 한 줄은 이미 히어로에 있으므로 압축: 슬림 명함 카드 한 장
             (짧은 bio 2줄 말줄임 + 소셜 + QR). */}
         <div className="px-5 pt-10 pb-8">
-          <SectionHeader label={t.theater.aboutLabel} />
+          <SectionHeader label={t.theater.aboutLabel} size={12} />
           <div className="mt-5">
             <MeishiInline
               profile={profile}

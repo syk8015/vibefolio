@@ -900,7 +900,7 @@ function MobileStage({
               <div
                 style={{
                   fontFamily: "var(--font-mono)",
-                  fontSize: 10,
+                  fontSize: 13,
                   letterSpacing: "0.06em",
                   color: "var(--text-secondary)",
                   marginTop: 2,
@@ -937,7 +937,7 @@ function MobileStage({
               gap: 7,
               flexWrap: "wrap",
               fontFamily: "var(--font-mono)",
-              fontSize: 11,
+              fontSize: 13,
               letterSpacing: "0.04em",
               color: "var(--text-secondary)",
             }}
@@ -994,7 +994,7 @@ function MobileStage({
                 borderRadius: 999,
                 border: "none",
                 fontFamily: "var(--font-nunito)",
-                fontSize: 12,
+                fontSize: 14,
                 fontWeight: 800,
                 letterSpacing: "0.02em",
                 cursor: "pointer",
