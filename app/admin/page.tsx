@@ -341,6 +341,9 @@ export default async function AdminPage() {
   const funnelSteps = [
     // 비로그인 랜딩 방문(세션당 1회). 09-22에 계측 시작 — 그 전 기간은 0으로 보인다.
     { label: "랜딩 방문", value: counts[AnalyticsEvent.LandingView] ?? 0 },
+    // 폰 → 컴퓨터 넘기기(docs/desktop-handoff.md). 폰에서 링크 메일을 보낸 수 → 컴퓨터에서 연 수.
+    { label: "폰→PC 메일 요청", value: counts[AnalyticsEvent.HandoffRequested] ?? 0 },
+    { label: "PC에서 메일 열림", value: counts[AnalyticsEvent.HandoffOpened] ?? 0 },
     { label: "가입", value: counts[AnalyticsEvent.SignupCompleted] ?? 0 },
     { label: "프로젝트 생성", value: counts[AnalyticsEvent.ProjectCreated] ?? 0 },
     { label: "시연 요청", value: requested },

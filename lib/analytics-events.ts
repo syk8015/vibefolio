@@ -20,6 +20,12 @@ export const AnalyticsEvent = {
   // props.source: zip|github). 해결이 아니라 수요 계측 — 클라우드 폰(Appetize)에
   // 월 구독을 쓸 만큼 요청이 있는지 /admin에서 본다. 2026-08-26.
   NativeAppRejected: "native_app_rejected",
+  // 폰 → 컴퓨터 넘기기(docs/desktop-handoff.md, 2026-09-23). 요청=폰에서 메일을 보냄
+  // (props: utm_*·referrer), 열림=컴퓨터에서 메일 링크로 가입 화면이 열림, 알림=다음 날
+  // 알림 메일을 보냄. 모두 서버가 적는다 — 이메일은 싣지 않는다.
+  HandoffRequested: "handoff_requested",
+  HandoffOpened: "handoff_opened",
+  HandoffReminded: "handoff_reminded",
   // ── client-reported ─────────────────────────────────────────────────────
   SignupCompleted: "signup_completed",
   ProjectCreated: "project_created",

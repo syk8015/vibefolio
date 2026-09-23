@@ -686,6 +686,21 @@ export const ko = {
     send: "요청 보내기",
   },
   // /publish — 셸 없는 AI(챗봇)가 준 JSON을 붙여넣는 페이지
+  // 폰 → 컴퓨터 넘기기 화면 /send (2026-09-23, docs/desktop-handoff.md).
+  handoff: {
+    pageTitle: "컴퓨터로 보내기 | Nookframe",
+    title: "컴퓨터에서 이어서 하세요",
+    body: "Nookframe은 컴퓨터의 AI 도구로 작품을 올려요. 이메일을 넣으면 컴퓨터에서 바로 열 링크를 보내 드려요.",
+    emailLabel: "이메일",
+    remindLabel: "내일 한 번 더 알려주기 (선택)",
+    submit: "내 컴퓨터로 보내기",
+    sending: "보내는 중…",
+    sentTitle: "보냈어요!",
+    sentBody: "컴퓨터에서 메일을 열고 버튼을 누르세요. 안 보이면 스팸함도 확인해 주세요.",
+    sendAgain: "다른 주소로 보내기",
+    signupHere: "지금 여기서 가입할래요 →",
+    privacyNote: "링크 메일은 1통만 보내요. 알림을 고르면 내일 1통 더. 주소는 30일 뒤 지워요.",
+  },
   publish: {
     backToDashboard: "← 대시보드",
     title: "AI가 준 걸 붙여넣기",
@@ -952,6 +967,10 @@ export const ko = {
     // 신고 (report)
     badReport: "잘못된 신고 요청이에요.",
     reportRateLimited: "신고가 너무 잦아요. 잠시 후 다시 시도해 주세요.",
+    handoffBadEmail: "이메일 주소를 확인해 주세요.",
+    handoffCaptcha: "보안 확인을 다시 해 주세요.",
+    handoffRateLimited: "요청이 너무 잦아요. 잠시 후 다시 시도해 주세요.",
+    handoffSendFailed: "메일을 보내지 못했어요. 잠시 후 다시 시도해 주세요.",
     targetNotFound: "대상을 찾을 수 없어요.",
     reportSaveFailed: "신고를 저장하지 못했어요. 잠시 후 다시 시도해 주세요.",
     // 계정 (account)
@@ -1050,6 +1069,20 @@ export const ko = {
     declinedNote: (note: string) => `운영자 메모: ${note}`,
     declinedNext: "내용을 고친 뒤 대시보드에서 다시 요청할 수 있어요. 궁금한 점은 이 메일에 회신해 주세요.",
     declinedCta: "대시보드에서 보기",
+    // 폰 → 컴퓨터 넘기기(2026-09-23). 본인이 폰에서 요청한 메일이라 광고 문구를 섞지 않는다
+    // (섞으면 광고 메일로 분류돼 규제가 달라진다). 알림은 동의한 사람에게만 딱 1번.
+    handoffSubject: "폰에서 보낸 Nookframe 링크",
+    handoffPreheader: "컴퓨터에서 이 메일을 열고 버튼을 누르세요.",
+    handoffHeading: "컴퓨터에서 이어서 하세요",
+    handoffBody: "Nookframe은 컴퓨터의 AI 도구(Claude Code·Cursor·ChatGPT 같은 것)로 작품을 올려요. 아래 버튼을 누르면 이메일이 채워진 가입 화면이 열리고, 3분이면 첫 작품까지 올릴 수 있어요.",
+    handoffCta: "Nookframe 열기",
+    handoffTypeHint: "버튼이 안 되면 브라우저에 nookframe.com 을 직접 쳐도 돼요.",
+    handoffNotYou: "요청한 적이 없다면 이 메일은 무시하세요. 더 보내지 않아요.",
+    handoffRemindSubject: "어제 폰에서 보낸 Nookframe 링크예요",
+    handoffRemindPreheader: "컴퓨터 앞이라면 지금 이어서 할 수 있어요.",
+    handoffRemindHeading: "컴퓨터 앞이세요?",
+    handoffRemindBody: "어제 폰에서 알림을 요청하셔서 한 번 더 보내요. 버튼을 누르면 가입 화면이 열리고, AI에 한 줄만 붙여넣으면 첫 작품이 올라가요.",
+    handoffRemindLast: "알림은 이번이 마지막이에요.",
   },
 };
 

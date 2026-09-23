@@ -198,7 +198,14 @@ export default async function LandingPage() {
                 {t.landing.login}
               </Link>
             </div>
-            <Link href="/signup"
+            {/* 폰 폭의 [시작하기]는 /send(컴퓨터로 링크 보내기)로 간다 — 올리기는 컴퓨터의
+                AI 도구에서 하니까, 폰에서는 이메일 하나만 받아 컴퓨터까지 찾아간다
+                (docs/desktop-handoff.md, 2026-09-23). 자리·글자는 그대로, 가는 곳만 다르다. */}
+            <Link href="/signup" className="hidden md:inline"
+              style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontSize: "0.875rem", fontWeight: 600, textDecoration: "none" }}>
+              {t.landing.getStarted}
+            </Link>
+            <Link href="/send" className="md:hidden"
               style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontSize: "0.875rem", fontWeight: 600, textDecoration: "none" }}>
               {t.landing.getStarted}
             </Link>

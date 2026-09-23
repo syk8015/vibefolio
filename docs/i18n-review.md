@@ -780,3 +780,6 @@ SNS/검색 로봇은 JS를 안 돌려 OG·크롤러 노출 문구(루트 descrip
 | email.declinedNext | 내용을 고친 뒤 대시보드에서 다시 요청할 수 있어요. 궁금한 점은 이 메일에 회신해 주세요. | You can make changes and request again from your dashboard. Questions? Just reply to this email. | 신규 · R4 |
 | email.declinedCta | 대시보드에서 보기 | Open dashboard | 신규 · R4 |
 | projects.pausedTip · publishedNoticePaused · progressPausedBody | …보통 24시간 안에 찍혀요 / 보통 24시간 안에 차례가 와서… | …usually within 24 hours… | 교체 · 촬영 대기 기대치(D3, 사용자 09-22 "24시간") |
+| handoff.* (/send 화면 12개) | 컴퓨터에서 이어서 하세요 / 내 컴퓨터로 보내기 / 내일 한 번 더 알려주기 (선택) / 보냈어요! … | Continue on your computer / Email me the link / Remind me tomorrow (optional) / Sent! … | 신규 · 폰→컴퓨터 넘기기(docs/desktop-handoff.md, 09-23). en 버튼 문구는 Framer·Ableton 관례 |
+| api.handoffBadEmail · handoffCaptcha · handoffRateLimited · handoffSendFailed | 이메일 주소를 확인해 주세요. / 보안 확인을 다시 해 주세요. / 요청이 너무 잦아요… / 메일을 보내지 못했어요… | Please check your email address. / Please complete the security check again. / Too many requests… / We couldn't send the email… | 신규 · /api/handoff |
+| email.handoff* (첫 메일 7 + 알림 5) | 폰에서 보낸 Nookframe 링크 / 컴퓨터에서 이어서 하세요 / Nookframe 열기 / 요청한 적이 없다면 무시하세요 / 알림은 이번이 마지막이에요 | Your Nookframe link — from your phone / Pick up where you left off / Open Nookframe / Didn't ask for this? Ignore this email / This is the only reminder we'll send | 신규 · 거래성 메일이라 광고 문구 없음(CAN-SPAM), 알림은 동의자 1회(PECR) |
