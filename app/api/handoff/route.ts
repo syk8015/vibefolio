@@ -39,7 +39,12 @@ export async function POST(req: NextRequest) {
     }
 
     const ip = req.headers.get("x-vercel-forwarded-for") ?? req.headers.get("x-real-ip");
-    if (!(await verifyTurnstile(body?.captchaToken, ip))) {
+    const captcha = await verifyTurnstile(body?.captchaToken, ip);
+    if (captcha === "misconfigured") {
+      // 우리 쪽 설정 문제(비밀값이 틀림) — 사용자 탓처럼 "다시 확인하세요"를 띄우지 않는다.
+      return apiError({ status: 500, message: t.api.handoffSendFailed, code: "CAPTCHA_MISCONFIGURED" });
+    }
+    if (captcha !== "ok") {
       return apiError({ status: 400, message: t.api.handoffCaptcha, code: "CAPTCHA" });
     }
 
