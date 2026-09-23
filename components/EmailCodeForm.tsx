@@ -15,6 +15,7 @@ import { firstTouch } from "@/lib/analytics-client";
 //    {{ .Token }}을 보여줘야 한다 — 원본 docs/auth-emails/*.html.
 //  - Email OTP Length = OTP_LENGTH(6). 다르면 자동 제출이 엉뚱한 길이에서 불린다.
 //  - 보내기는 Turnstile을 요구한다(signInWithOtp도 캡차 대상). 확인(verifyOtp)은 아니다.
+//    그래서 코드 단계의 보안 확인 칸은 [코드 다시 받기]를 누를 때만 뜬다.
 export const OTP_LENGTH = 6;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -36,11 +37,14 @@ export default function EmailCodeForm({
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  // 코드 단계에선 보안 확인 칸을 [코드 다시 받기]를 눌렀을 때만 띄운다 — 늘 떠 있으면
+  // [확인] 버튼 아래에서 "이것도 해야 하나" 헷갈린다(2026-09-24 실브라우저 확인).
+  const [resendOpen, setResendOpen] = useState(false);
+  const [resent, setResent] = useState(false);
 
-  async function send(e?: React.FormEvent) {
-    e?.preventDefault();
+  async function send(token: string | null): Promise<boolean> {
     const target = email.trim();
-    if (!EMAIL_RE.test(target)) { setError(t.auth.errors.invalidEmail); return; }
+    if (!EMAIL_RE.test(target)) { setError(t.auth.errors.invalidEmail); return false; }
     setSending(true);
     setError("");
     const { error } = await createClient().auth.signInWithOtp({
@@ -48,7 +52,7 @@ export default function EmailCodeForm({
       options: {
         shouldCreateUser: true,
         emailRedirectTo: redirectTo(),
-        captchaToken: captchaToken ?? undefined,
+        captchaToken: token ?? undefined,
         // 새 계정일 때만 user_metadata로 들어간다(기존 계정은 무시). 가입 폼과 같은 이유 —
         // 메일 템플릿 언어 분기와 온보딩의 유입 경로 집계. username은 넣지 말 것(온보딩 표식).
         data: { locale, first_touch: firstTouch() },
@@ -58,8 +62,23 @@ export default function EmailCodeForm({
     resetTurnstile();
     setCaptchaToken(null);
     setSending(false);
-    if (error) { setError(sendErrorMessage(error.message, t)); return; }
+    if (error) { setError(sendErrorMessage(error.message, t)); return false; }
     setSentTo(target);
+    return true;
+  }
+
+  // 보안 확인이 풀리는 순간 바로 보낸다 — 칸이 떴다가 한 번 더 누르게 하지 않는다.
+  async function resend(token: string | null) {
+    const ok = await send(token);
+    setResendOpen(false);
+    setResent(ok);
+  }
+
+  function requestResend() {
+    setResent(false);
+    setError("");
+    if (turnstileEnabled) setResendOpen(true);
+    else void resend(null);
   }
 
   if (sentTo) {
@@ -71,19 +90,26 @@ export default function EmailCodeForm({
         </p>
         <CodeVerify email={sentTo} onVerified={onVerified} autoFocus />
         {error && <ErrorLine text={error} />}
-        <TurnstileWidget onToken={setCaptchaToken} />
         <div className="flex items-center justify-between text-xs font-bold" style={{ fontFamily: "var(--font-nunito)" }}>
-          <LinkButton onClick={() => { setSentTo(null); setError(""); }}>{t.auth.codeChangeEmail}</LinkButton>
-          <LinkButton onClick={() => send()} disabled={sending || (turnstileEnabled && !captchaToken)}>
-            {sending ? t.auth.resending : t.auth.codeResend}
+          <LinkButton onClick={() => { setSentTo(null); setError(""); setResendOpen(false); setResent(false); }}>
+            {t.auth.codeChangeEmail}
+          </LinkButton>
+          <LinkButton onClick={requestResend} disabled={sending || resendOpen}>
+            {sending || resendOpen ? t.auth.resending : t.auth.codeResend}
           </LinkButton>
         </div>
+        {resendOpen && <TurnstileWidget onToken={(token) => { if (token) void resend(token); }} />}
+        {resent && (
+          <p className="text-xs text-center" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
+            {t.auth.codeResent}
+          </p>
+        )}
       </div>
     );
   }
 
   return (
-    <form onSubmit={send} className="flex flex-col gap-4">
+    <form onSubmit={(e) => { e.preventDefault(); void send(captchaToken); }} className="flex flex-col gap-4">
       <div>
         <label className="block text-xs font-bold mb-1.5"
           style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", letterSpacing: "0.05em" }}>

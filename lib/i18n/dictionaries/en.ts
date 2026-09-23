@@ -34,6 +34,7 @@ export const en: Dictionary = {
     codeVerify: "Verify",
     codeVerifying: "Checking...",
     codeResend: "Send a new code",
+    codeResent: "New code sent — the earlier one no longer works.",
     codeChangeEmail: "Use a different email",
     or: "or",
     emailLabel: "Email",

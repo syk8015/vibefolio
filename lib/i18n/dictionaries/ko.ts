@@ -39,6 +39,7 @@ export const ko = {
     codeVerify: "확인",
     codeVerifying: "확인 중...",
     codeResend: "코드 다시 받기",
+    codeResent: "새 코드를 보냈어요. 먼저 받은 코드는 이제 안 돼요.",
     codeChangeEmail: "다른 이메일 쓰기",
     or: "또는",
     emailLabel: "이메일",
