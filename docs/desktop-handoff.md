@@ -22,7 +22,7 @@
 **컴퓨터 (나중에, 약 3분)**
 5. 메일 제목 "Your Nookframe link — from your phone"(ko: "폰에서 보낸 Nookframe 링크"). 본문은 버튼 하나 +
    "nookframe.com 을 직접 쳐도 돼요" + "요청한 적 없으면 무시하세요".
-6. 버튼 → `/signup?h=<handoff id>` (이메일·utm은 주소에 싣지 않는다 — 서버가 id로 돌려준다)
+6. 버튼 → `/signup?h=<handoff id>&utm_source=…&utm_medium=…&utm_campaign=…`
    - 이메일이 채워진 가입 화면. 기본은 **6자리 코드 가입**(`EmailCodeForm`, 01b0bac) — 같은 컴퓨터 브라우저에서
      요청하고 여니 끊길 일이 없다. 비밀번호 가입도 그대로 고를 수 있다.
 7. 가입 → 온보딩(아이디) → 연결 창 → AI에 한 줄 붙여넣기 → 초안 → [공개하기]. 기존 흐름 그대로.
@@ -32,10 +32,10 @@
 
 - 폰에서 보낼 때: 폰의 first-touch(utm·referrer, `lib/analytics-client.ts`)를 요청과 같이 저장 +
   서버 이벤트 `handoff_requested`.
-- 컴퓨터에서 링크가 열리면 `POST /api/handoff/open`이 폰의 first-touch를 돌려주고, 가입 화면이
-  `adoptHandoffTouch()`로 이 브라우저의 `nf_first_touch`를 **폰 값으로 덮어쓴다**(+`handoff` id).
-  그래서 가입 메타데이터와 온보딩 `signup_completed`가 폰의 광고 출처를 싣는다 — 컴퓨터가 예전에
-  사이트를 본 적 있어도 폰 쪽이 이긴다. 서버는 이때 `handoff_opened`를 센다(처음 한 번).
+- 메일 링크에 utm을 다시 붙인다 → 컴퓨터가 처음 온 브라우저면 `FirstTouch`가 그대로 잡는다.
+- 링크의 `h`는 컴퓨터 localStorage `nf_handoff`에 저장 + `handoff_opened`(서버에서 opened_at 기록).
+  컴퓨터가 예전에 사이트를 본 적 있어 first-touch가 이미 있어도, 온보딩의 `signup_completed`에
+  `handoff` id와 폰 쪽 utm을 실어 보내 이어진다(폰 출처가 우선).
 - 관제탑: "폰→PC  요청 N · 메일 열림 N · 가입 N"을 캠페인별로.
 
 ## 서버
@@ -47,11 +47,10 @@
 - 30일 지난 행은 알림 크론이 지운다(이메일을 오래 들고 있지 않는다).
 
 **주소**
-- `POST /api/handoff` — 이메일·remind·first_touch·Turnstile 토큰(언어는 쿠키). 검사: IP당 1시간 5번, Turnstile(`lib/turnstile.ts`),
-  같은 이메일 24시간 1통(표에서 직접 확인). 메일이 실패하면 행을 지우고 502 — 다시 누를 수 있게. 같은 이메일 재요청이면 **새로 보내지 않고 성공처럼** 답한다
+- `POST /api/handoff` — 이메일·remind·first_touch·locale·Turnstile 토큰. 검사: Turnstile, IP당 1시간 5번,
+  같은 이메일 24시간 1번(해시로 rl 버킷). 같은 이메일 재요청이면 **새로 보내지 않고 성공처럼** 답한다
   (남의 주소로 메일 폭탄 방지 + 가입 여부 새지 않게).
-- `POST /api/handoff/open` `{id}` — 가입 화면이 이메일을 채우려고 부른다. 30일 안 된 행만, 모르는 id는 `ok:false` 한 모양.
-  처음 열릴 때만 opened_at 기록. IP당 분당 20번.
+- `GET /api/handoff/[id]` — 가입 화면이 이메일을 채우려고 부른다. 30일 안 된 행만. 부르면 opened_at 기록.
 - `GET /api/cron/handoff-reminders` — 크론 비밀값 확인(기존 health 크론과 같은 방식). 1시간마다.
   remind=true·opened_at 없음·reminded_at 없음·20~44시간 전 → 알림 1통 + reminded_at. 30일 지난 행 삭제.
 - 실패 응답은 `apiError()`.
@@ -69,15 +68,13 @@
 ## 사용자가 직접 해야 하는 것
 
 1. Supabase SQL 편집기에서 `migration_desktop_handoffs.sql` 실행.
-2. Vercel env에 `TURNSTILE_SECRET_KEY`(Supabase CAPTCHA에 넣은 것과 같은 값). 없으면 서버 확인을 건너뛰고 IP·이메일 한도만 남는다.
-3. cron-job.org에 `/api/cron/handoff-reminders` 1시간 간격 등록.
-4. Resend 한도 확인 — 인증 메일과 같은 계정을 쓴다(무료 요금제는 하루 100통).
+2. cron-job.org에 `/api/cron/handoff-reminders` 1시간 간격 등록.
+3. Resend 한도 확인 — 인증 메일과 같은 계정을 쓴다(무료 요금제는 하루 100통).
 
 ## 검증
 
-- `scripts/probe-handoff-unit.mts`(`npm test`): 이메일 정리·알림 창·링크에 이메일 없음·메일 문구.
-- `scripts/probe-handoff.mjs`(prod E2E, 실제 메일은 안 보냄): 익명 키 읽기 거부, 400, open 채움·opened_at 1회,
-  30일 지난 행 거부, 크론 401·오래된 행 삭제. 실제 메일 발송은 육안 확인으로.
+- `scripts/probe-handoff.mjs`(prod E2E): 요청→행 생성·메일 1통, 같은 이메일 재요청=조용한 성공·메일 0,
+  IP 한도, `GET` 채움·opened_at, 익명 키로 표 읽기 거부, 크론 비밀값 없으면 401.
 - `npm test`·typecheck·lint·`npm run font:subset`.
 - 육안: 폰(인스타 앱 안 브라우저 포함)에서 `/send` → 컴퓨터에서 메일 열기 → 가입까지 nookframe.com으로.
 

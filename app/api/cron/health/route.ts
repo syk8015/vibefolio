@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { apiError } from "@/lib/apiError";
-import { authorizeCron } from "@/lib/cronAuth";
 import { logger, hasErrorReporter } from "@/lib/logger";
 import { trackServerEvent } from "@/lib/analytics";
 import { AnalyticsEvent } from "@/lib/analytics-events";
@@ -44,8 +43,17 @@ const REAP_MESSAGE = formatDemoFailure(
   "시연 생성이 예상보다 오래 걸려 중단됐어요. 다시 시도해 주세요.",
 );
 
+function authorize(req: NextRequest): "ok" | "unconfigured" | "denied" {
+  const secret = process.env.CRON_SECRET;
+  if (!secret) return "unconfigured";
+  const auth = req.headers.get("authorization");
+  if (auth === `Bearer ${secret}`) return "ok";
+  if (req.nextUrl.searchParams.get("key") === secret) return "ok";
+  return "denied";
+}
+
 export async function GET(req: NextRequest) {
-  const gate = authorizeCron(req);
+  const gate = authorize(req);
   if (gate === "unconfigured") {
     return apiError({ status: 503, message: "CRON_SECRET not configured", code: "CRON_UNCONFIGURED" });
   }
