@@ -47,10 +47,10 @@ export function AddProjectModal({ onClose }: { onClose: () => void }) {
         <div className="flex items-start gap-3 px-6 pt-5 pb-4"
           style={{ borderBottom: "1px solid var(--border)" }}>
           <div className="flex-1 min-w-0">
-            <h2 id="add-project-title" className="vf-serif-display" style={{ fontSize: "1.2rem", fontWeight: 500, margin: 0 }}>
+            <h2 id="add-project-title" className="vf-serif-display" style={{ fontSize: "1.25rem", fontWeight: 500, margin: 0 }}>
               {t.projects.connectTitle}
             </h2>
-            <p className="text-xs mt-1" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", margin: 0 }}>
+            <p className="text-sm" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", margin: "2px 0 0", lineHeight: 1.5 }}>
               {t.projects.connectSubtitle}
             </p>
           </div>

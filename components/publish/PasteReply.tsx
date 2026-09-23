@@ -212,6 +212,9 @@ export function PasteReply({
 
   const [showFiles, setShowFiles] = useState(false);
   // 연결 창의 카드 안에 들어가면 바탕색이 겹쳐 칸이 묻힌다 — compact는 상자 없이 편다.
+  // 글꼴(2026-09-24, 연결 창 먼저): compact에서만 펼친 설명 14px·이름표 13px. /publish(비-compact)는 그대로.
+  const hintSize: React.CSSProperties = compact ? { fontSize: "0.875rem" } : {};
+  const labelSize: React.CSSProperties = compact ? { fontSize: "0.8125rem" } : {};
   const boxStyle: React.CSSProperties = compact
     ? { padding: 0 }
     : { background: "var(--surface-soft)", padding: "16px 18px" };
@@ -225,7 +228,7 @@ export function PasteReply({
       <p className="text-sm" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontWeight: 600, margin: 0 }}>
         {t.publish.filesTitle}
       </p>
-      <p className="text-xs" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", lineHeight: 1.7, margin: "6px 0 12px" }}>
+      <p className="text-xs" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", lineHeight: 1.7, margin: "6px 0 12px", ...hintSize }}>
         {t.publish.filesHint}
       </p>
       {([
@@ -234,12 +237,12 @@ export function PasteReply({
         { label: t.publish.pickVideo, accept: "video/*", file: videoFile, set: setVideoFile, mb: 20 },
       ] as { label: string; accept: string; file: File | null; set: (f: File | null) => void; mb: number }[]).map((row) => (
         <div key={row.label} style={{ marginBottom: 10 }}>
-          <label className="text-xs block" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", marginBottom: 4 }}>
+          <label className="text-xs block" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", marginBottom: 4, ...labelSize }}>
             {row.label}
           </label>
           {row.file ? (
             <div className="flex items-center gap-2">
-              <span className="text-xs" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}>
+              <span className="text-xs" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", ...labelSize }}>
                 {t.publish.fileChosen(row.file.name)}
               </span>
               <button type="button" onClick={() => row.set(null)} className="vf-button-ghost" style={{ fontSize: "0.75rem", padding: "0.2rem 0.6rem" }}>
@@ -249,7 +252,7 @@ export function PasteReply({
           ) : (
             <input
               type="file" accept={row.accept} disabled={submitting}
-              className="text-xs" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}
+              className="text-xs" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", ...labelSize }}
               onChange={(e) => {
                 const f = e.target.files?.[0] ?? null;
                 // 서버 캡과 같은 값으로 미리 막는다 — 20MB를 올려놓고 finalize에서
@@ -272,7 +275,7 @@ export function PasteReply({
   const textarea = (
     <textarea
       className="vf-input w-full"
-      style={{ minHeight: compact ? 110 : 180, fontFamily: "var(--font-mono), monospace", fontSize: "0.85rem", lineHeight: 1.6 }}
+      style={{ minHeight: compact ? 110 : 180, fontFamily: "var(--font-mono), monospace", fontSize: compact ? "0.875rem" : "0.85rem", lineHeight: 1.6 }}
       placeholder={t.publish.pastePlaceholder}
       value={raw}
       onChange={(e) => setRaw(e.target.value)}
@@ -300,7 +303,7 @@ export function PasteReply({
           <button onClick={copyFix} className="vf-button-ghost" style={{ fontSize: "0.85rem" }}>
             {copied ? t.publish.fixCopied : t.publish.fixWithAi}
           </button>
-          <span className="text-xs" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
+          <span className="text-xs" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", ...labelSize }}>
             {t.publish.fixHint}
           </span>
         </div>
@@ -319,7 +322,7 @@ export function PasteReply({
           onClick={fromClipboard}
           disabled={submitting}
           className={`${emphasis === "ghost" ? "vf-button-ghost" : "vf-button-primary"} w-full sm:w-auto sm:self-start`}
-          style={{ fontSize: "0.9rem", padding: "0.7rem 1.5rem", opacity: submitting ? 0.6 : 1 }}
+          style={{ fontSize: "0.9375rem", padding: "0.7rem 1.5rem", opacity: submitting ? 0.6 : 1 }}
         >
           {submitting ? t.publish.submitting : t.publish.clipboardButton}
         </button>

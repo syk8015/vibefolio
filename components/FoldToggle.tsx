@@ -19,12 +19,12 @@ export function FoldToggle({
       aria-expanded={open}
       style={{
         color: "var(--text-muted)", fontFamily: "var(--font-nunito)",
-        fontSize: "0.75rem", fontWeight: 600, cursor: "pointer",
+        fontSize: "0.8125rem", fontWeight: 600, cursor: "pointer",
         background: "none", border: "none", padding: 0, textAlign: "left",
         display: "inline-flex", alignItems: "center", gap: 5,
       }}
     >
-      <svg width="9" height="9" viewBox="0 0 12 12" fill="none" aria-hidden="true"
+      <svg width="10" height="10" viewBox="0 0 12 12" fill="none" aria-hidden="true"
         style={{ flexShrink: 0, transform: open ? "rotate(90deg)" : "none", transition: "transform 0.15s" }}>
         <path d="M4 2l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
       </svg>

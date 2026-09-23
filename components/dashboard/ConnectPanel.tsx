@@ -56,19 +56,37 @@ const TOOL_KEY = "nf.connect.tool";
 const AGENT_TOOLS: ToolId[] = ["claude-code", "codex", "cursor", "copilot", "antigravity", "other-cli"];
 const CHAT_TOOLS: ToolId[] = ["claude-chat", "chatgpt", "gemini", "other-chat"];
 
-/** 칩 앞 로고 — 단색 경로. 로고가 없는 것은 흉내 내지 않고 중립 기호로 둔다. */
+// 칩 앞 로고(2026-09-22) + 브랜드 색(2026-09-24 사용자 요청 — 한눈에 알아보게).
+// 공식 로고가 단색인 곳(OpenAI·Cursor·GitHub Copilot)은 글자색을 그대로 따른다 — 없는 색을
+// 지어내지 않는다. 로고가 없는 것(Antigravity·그 밖의)은 흉내 내지 않고 중립 기호로 둔다.
+// Claude = 공식 #D97757(simple-icons). Gemini = 2025 새 로고의 네 가지 색(위 빨강·오른쪽 파랑·
+// 아래 초록·왼쪽 노랑) — SVG엔 원뿔 그라데이션이 없어, 로고 모양으로 도려낸 칸을 CSS로 칠한다.
+const CLAUDE_ORANGE = "#D97757";
+const GEMINI_FILL = "conic-gradient(from 0deg, #EE5257 0deg, #3A8BFF 70deg, #3A8BFF 150deg, #4CC88B 215deg, #D0C42E 285deg, #EE5257 360deg)";
+const GEMINI_MASK = `url("data:image/svg+xml,${encodeURIComponent(
+  `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='${AI_TOOL_PATHS.gemini}'/></svg>`,
+)}") center / contain no-repeat`;
+
 function ToolIcon({ id }: { id: ToolId }) {
+  if (id === "gemini") {
+    return (
+      <span aria-hidden="true" style={{
+        width: 16, height: 16, flexShrink: 0, display: "inline-block",
+        background: GEMINI_FILL, mask: GEMINI_MASK, WebkitMask: GEMINI_MASK,
+      }} />
+    );
+  }
   const d =
     id === "claude-code" || id === "claude-chat" ? AI_TOOL_PATHS.claude
       : id === "codex" || id === "chatgpt" ? AI_TOOL_PATHS.openai
         : id === "cursor" ? AI_TOOL_PATHS.cursor
           : id === "copilot" ? AI_TOOL_PATHS.copilot
-          : id === "gemini" ? AI_TOOL_PATHS.gemini
             : null;
   if (d) {
+    const fill = id === "claude-code" || id === "claude-chat" ? CLAUDE_ORANGE : "currentColor";
     return (
       <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" style={{ flexShrink: 0 }}>
-        <path d={d} fill="currentColor" />
+        <path d={d} fill={fill} />
       </svg>
     );
   }
@@ -238,7 +256,7 @@ export default function ConnectPanel() {
   });
   const preStyle: React.CSSProperties = {
     background: "var(--surface-soft)", color: "var(--text-secondary)", fontFamily: "var(--font-mono), monospace",
-    whiteSpace: "pre-wrap", lineHeight: 1.6, margin: 0, wordBreak: "break-all",
+    whiteSpace: "pre-wrap", lineHeight: 1.6, margin: 0, wordBreak: "break-all", fontSize: "0.8125rem",
   };
   // 창 안에서 바로 올린다(D6, 2026-09-22). 새 초안이면 ProjectsTab의 도착 감지가 이 창을
   // 닫고 확인 화면을 연다. 같은 주소의 기존 초안을 **갱신**한 경우엔 새 행이 없어 도착
@@ -265,7 +283,7 @@ export default function ConnectPanel() {
                     : t.connect.toolOtherChat;
   const group = (title: string, ids: ToolId[], cols: string) => (
     <div className="w-full">
-      <p className="text-xs" style={smallText("var(--text-primary)", { fontWeight: 600 })}>{title}</p>
+      <p className="text-xs" style={smallText("var(--text-primary)", { fontWeight: 600, fontSize: "0.8125rem" })}>{title}</p>
       <div role="radiogroup" aria-label={title} className={`grid grid-cols-2 gap-2 mt-2 ${cols}`}>
         {ids.map((id) => {
           const on = tool === id;
@@ -286,7 +304,7 @@ export default function ConnectPanel() {
               }}
             >
               <ToolIcon id={id} />
-              <span className="text-sm" style={{ fontFamily: "var(--font-nunito)", fontWeight: 600, lineHeight: 1.3 }}>{toolName(id)}</span>
+              <span className="text-sm" style={{ fontFamily: "var(--font-nunito)", fontWeight: 600, lineHeight: 1.3, fontSize: "0.9375rem" }}>{toolName(id)}</span>
             </button>
           );
         })}
@@ -295,7 +313,7 @@ export default function ConnectPanel() {
   );
   const num = (n: number) => (
     <span aria-hidden="true" className="vf-mono shrink-0 inline-flex items-center justify-center rounded-full" style={{
-      width: 20, height: 20, fontSize: "0.7rem", fontWeight: 700,
+      width: 22, height: 22, fontSize: "0.75rem", fontWeight: 700,
       background: "var(--surface-soft)", color: "var(--text-secondary)",
     }}>{n}</span>
   );
@@ -306,9 +324,9 @@ export default function ConnectPanel() {
       {items.map((line, i) => (
         <li key={i} className="flex items-start gap-2.5">
           {num(i + 1)}
-          <span className="text-sm" style={smallText("var(--text-secondary)", { lineHeight: 1.6, paddingTop: 1 })}>
+          <span className="text-sm" style={smallText("var(--text-secondary)", { lineHeight: 1.6, paddingTop: 1, fontSize: "0.9375rem" })}>
             {line}
-            {tags[i] && <span className="text-xs" style={{ color: "var(--text-muted)", marginLeft: 6 }}>{tags[i]}</span>}
+            {tags[i] && <span className="text-xs" style={{ color: "var(--text-muted)", marginLeft: 6, fontSize: "0.8125rem" }}>{tags[i]}</span>}
           </span>
         </li>
       ))}
@@ -319,7 +337,7 @@ export default function ConnectPanel() {
   const waiting = (text: string) => (
     <div className="flex items-center gap-2.5" role="status">
       <span className="vf-spinner shrink-0" style={{ width: "0.9rem", height: "0.9rem" }} />
-      <p className="text-sm" style={smallText("var(--text-secondary)")}>{text}</p>
+      <p className="text-sm" style={smallText("var(--text-secondary)", { fontSize: "0.9375rem" })}>{text}</p>
     </div>
   );
   // 프롬프트 복사 버튼. 채팅 AI의 두 단계에서는 복사를 마치면 옅어지고 다음 단계가 진해진다.
@@ -331,7 +349,7 @@ export default function ConnectPanel() {
       disabled={copying}
       className={`${look === "primary" ? "vf-button-primary" : "vf-button-ghost"} w-full sm:w-auto sm:self-start`}
       style={{
-        fontSize: big ? "0.95rem" : "0.9rem", padding: big ? "0.85rem 2.2rem" : "0.7rem 1.5rem", opacity: copying ? 0.6 : 1,
+        fontSize: big ? "1rem" : "0.9375rem", padding: big ? "0.85rem 2.2rem" : "0.7rem 1.5rem", opacity: copying ? 0.6 : 1,
         // 복사됐다는 걸 버튼 스스로 말하게 한다(2026-09-05 사용자 지적) —
         // 라벨이 ✓로 바뀌고 살짝 커진다. 아래 작은 문구만으로는 눌린 티가 안 났다.
         transform: big && copiedOnce ? "scale(1.03)" : "scale(1)",
@@ -352,7 +370,7 @@ export default function ConnectPanel() {
       {/* 첫 질문 — 두 줄(할 수 있는 일)로 나눈 도구 칩. 두 줄의 설명은 헷갈리는 사람만 편다. */}
       {showChooser && (
         <>
-          <p className="text-base" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontWeight: 600, margin: 0 }}>
+          <p className="text-base" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontWeight: 600, margin: 0, fontSize: "1.0625rem", lineHeight: 1.5 }}>
             {t.connect.ask}
           </p>
           {group(t.connect.groupAgent, AGENT_TOOLS, "sm:grid-cols-3")}
@@ -361,10 +379,10 @@ export default function ConnectPanel() {
             <FoldToggle open={showWhich} onToggle={() => setShowWhich((v) => !v)}>{t.connect.whichToggle}</FoldToggle>
             {showWhich && (
               <div className="mt-2 flex flex-col gap-1">
-                <p className="text-xs" style={smallText("var(--text-secondary)", { lineHeight: 1.7 })}>
+                <p className="text-sm" style={smallText("var(--text-secondary)", { lineHeight: 1.7 })}>
                   <strong style={{ color: "var(--text-primary)", fontWeight: 600 }}>{t.connect.groupAgent}</strong> — {t.connect.groupAgentNote}
                 </p>
-                <p className="text-xs" style={smallText("var(--text-secondary)", { lineHeight: 1.7 })}>
+                <p className="text-sm" style={smallText("var(--text-secondary)", { lineHeight: 1.7 })}>
                   <strong style={{ color: "var(--text-primary)", fontWeight: 600 }}>{t.connect.groupChat}</strong> — {t.connect.groupChatNote}
                 </p>
               </div>
@@ -378,13 +396,13 @@ export default function ConnectPanel() {
         <div className="w-full rounded-xl flex items-center justify-between gap-3" style={{ minHeight: 48, padding: "0.5rem 0.5rem 0.5rem 0.85rem", background: "var(--surface-soft)" }}>
           <span className="flex items-center gap-2 min-w-0" style={{ color: "var(--text-primary)" }}>
             <ToolIcon id={tool} />
-            <span className="text-sm truncate" style={{ fontFamily: "var(--font-nunito)", fontWeight: 600, lineHeight: 1.3 }}>{toolName(tool)}</span>
+            <span className="text-sm truncate" style={{ fontFamily: "var(--font-nunito)", fontWeight: 600, lineHeight: 1.3, fontSize: "0.9375rem" }}>{toolName(tool)}</span>
           </span>
           <button
             type="button"
             onClick={() => setChooserOpen(true)}
             className="rounded-full shrink-0"
-            style={{ padding: "0.45rem 0.9rem", background: "var(--surface)", color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem", fontWeight: 600, border: "none", cursor: "pointer" }}
+            style={{ padding: "0.45rem 0.9rem", background: "var(--surface)", color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", fontSize: "0.8125rem", fontWeight: 600, border: "none", cursor: "pointer" }}
           >
             {t.connect.changeTool}
           </button>
@@ -419,7 +437,7 @@ export default function ConnectPanel() {
       {showPath && path === "claude" && (
         <div className="w-full flex flex-col gap-4">
           {steps(t.connect.stepsClaude, { 1: t.connect.claudeOnceTag })}
-          <button type="button" onClick={() => void copyRemoteUrl()} className="vf-button-primary w-full sm:w-auto sm:self-start" style={{ fontSize: "0.95rem", padding: "0.85rem 2.2rem" }}>
+          <button type="button" onClick={() => void copyRemoteUrl()} className="vf-button-primary w-full sm:w-auto sm:self-start" style={{ fontSize: "1rem", padding: "0.85rem 2.2rem" }}>
             {urlCopied ? t.connect.copiedButton : t.connect.mcpRemoteCopy}
           </button>
           {urlCopyFailed && <ManualCopyBox text={remoteMcpUrl(origin)} rows={1} />}
@@ -428,11 +446,11 @@ export default function ConnectPanel() {
             <FoldToggle open={showHelp} onToggle={() => setShowHelp((v) => !v)}>{t.connect.claudeHelpToggle}</FoldToggle>
             {showHelp && (
               <div className="mt-2 flex flex-col gap-1">
-                <p className="text-xs" style={smallText("var(--text-secondary)", { lineHeight: 1.7 })}>{t.connect.claudeAllowHint}</p>
-                <p className="text-xs" style={smallText("var(--text-secondary)", { lineHeight: 1.7 })}>{t.connect.mcpRemoteCaveat}</p>
-                <p className="text-xs" style={smallText("var(--text-secondary)", { lineHeight: 1.7 })}>
+                <p className="text-sm" style={smallText("var(--text-secondary)", { lineHeight: 1.7 })}>{t.connect.claudeAllowHint}</p>
+                <p className="text-sm" style={smallText("var(--text-secondary)", { lineHeight: 1.7 })}>{t.connect.mcpRemoteCaveat}</p>
+                <p className="text-sm" style={smallText("var(--text-secondary)", { lineHeight: 1.7 })}>
                   {t.connect.claudeFallback}
-                  <button type="button" onClick={() => setPromptInstead(true)} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem", fontWeight: 600, textDecoration: "underline", display: "inline" }}>
+                  <button type="button" onClick={() => setPromptInstead(true)} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontSize: "0.875rem", fontWeight: 600, textDecoration: "underline", display: "inline" }}>
                     {t.connect.claudeFallbackLink}
                   </button>
                 </p>
@@ -449,7 +467,7 @@ export default function ConnectPanel() {
           <li className="flex items-start gap-2.5">
             {num(1)}
             <div className="flex-1 min-w-0 flex flex-col gap-2.5">
-              <span className="text-sm" style={smallText("var(--text-secondary)", { paddingTop: 1 })}>{t.connect.chatStep1}</span>
+              <span className="text-sm" style={smallText("var(--text-secondary)", { paddingTop: 1, fontSize: "0.9375rem" })}>{t.connect.chatStep1}</span>
               {copyButton(prompted ? "ghost" : "primary", false)}
               {manualPrompt && <ManualCopyBox text={manualPrompt} />}
             </div>
@@ -457,7 +475,7 @@ export default function ConnectPanel() {
           <li className="flex items-start gap-2.5">
             {num(2)}
             <div className="flex-1 min-w-0 flex flex-col gap-2.5">
-              <span className="text-sm" style={smallText("var(--text-secondary)", { paddingTop: 1 })}>{t.connect.chatStep2}</span>
+              <span className="text-sm" style={smallText("var(--text-secondary)", { paddingTop: 1, fontSize: "0.9375rem" })}>{t.connect.chatStep2}</span>
               <PasteReply compact emphasis={prompted ? "primary" : "ghost"} onSuccess={onPasted} />
             </div>
           </li>
@@ -465,7 +483,7 @@ export default function ConnectPanel() {
       )}
 
       {error && (
-        <p className="text-xs" style={{ color: "var(--danger)", fontFamily: "var(--font-nunito)", margin: 0 }}>{error}</p>
+        <p className="text-sm" style={{ color: "var(--danger)", fontFamily: "var(--font-nunito)", margin: 0 }}>{error}</p>
       )}
 
       {/* 접힘: 프롬프트 전문 + MCP 연결(터미널 AI는 붙여넣기 자체가 없어지는 길, 인터뷰 ⑦) */}
@@ -477,20 +495,20 @@ export default function ConnectPanel() {
               <pre className="text-xs p-3 rounded-lg" style={{ ...preStyle, wordBreak: "normal", maxHeight: 220, overflowY: "auto" }}>
                 {pastePrompt(origin, locale)}
               </pre>
-              <p className="text-xs" style={smallText("var(--text-secondary)", { lineHeight: 1.7 })}>{t.connect.mcpLead}</p>
+              <p className="text-sm" style={smallText("var(--text-secondary)", { lineHeight: 1.7 })}>{t.connect.mcpLead}</p>
               {([
                 { kind: "claude-code" as const, label: t.connect.mcpClaudeCode, text: mcpClaudeCodeCommand(t.connect.mcpKeyPlaceholder) },
                 { kind: "json" as const, label: t.connect.mcpJson, text: mcpConfigJson(t.connect.mcpKeyPlaceholder) },
               ]).map(({ kind, label, text }) => (
                 <div key={kind}>
-                  <p className="text-xs" style={smallText("var(--text-primary)", { fontWeight: 600, marginBottom: 6 })}>{label}</p>
+                  <p className="text-xs" style={smallText("var(--text-primary)", { fontWeight: 600, marginBottom: 6, fontSize: "0.8125rem" })}>{label}</p>
                   <pre className="text-xs p-3 rounded-lg" style={preStyle}>{text}</pre>
                   <div className="flex items-center gap-3 flex-wrap mt-2">
-                    <button type="button" onClick={() => copyMcp(kind)} disabled={mcpBusy} className="vf-button-ghost" style={{ fontSize: "0.75rem", padding: "0.35rem 0.8rem", opacity: mcpBusy ? 0.6 : 1 }}>
+                    <button type="button" onClick={() => copyMcp(kind)} disabled={mcpBusy} className="vf-button-ghost" style={{ fontSize: "0.8125rem", padding: "0.35rem 0.8rem", opacity: mcpBusy ? 0.6 : 1 }}>
                       {mcpBusy ? t.connect.mcpCopying : t.connect.mcpCopy}
                     </button>
                     {mcpCopied === kind && (
-                      <span className="text-xs" style={smallText("var(--text-secondary)")}>{t.connect.mcpCopied}</span>
+                      <span className="text-xs" style={smallText("var(--text-secondary)", { fontSize: "0.8125rem" })}>{t.connect.mcpCopied}</span>
                     )}
                   </div>
                   {manualMcp?.kind === kind && <div className="mt-2"><ManualCopyBox text={manualMcp.text} rows={4} /></div>}
@@ -526,11 +544,11 @@ export default function ConnectPanel() {
                     <p className="text-sm" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontWeight: 500 }}>
                       {row.name === AUTO_TOKEN_NAME ? t.connect.autoTokenName : row.name === MCP_TOKEN_NAME ? t.connect.mcpTokenName : row.name || t.connect.unnamed}
                     </p>
-                    <p className="text-xs" style={{ color: "var(--text-muted)", fontFamily: "var(--font-mono), monospace" }}>
+                    <p className="text-xs" style={{ color: "var(--text-muted)", fontFamily: "var(--font-mono), monospace", fontSize: "0.8125rem" }}>
                       {row.token_prefix} · {row.last_used_at ? t.connect.lastUsed(new Date(row.last_used_at).toLocaleDateString(locale === "ko" ? "ko-KR" : "en-US")) : t.connect.neverUsed}
                     </p>
                   </div>
-                  <button onClick={() => revoke(row.id)} className="vf-button-ghost" style={{ fontSize: "0.75rem", padding: "0.35rem 0.7rem", whiteSpace: "nowrap" }}>
+                  <button onClick={() => revoke(row.id)} className="vf-button-ghost" style={{ fontSize: "0.8125rem", padding: "0.35rem 0.7rem", whiteSpace: "nowrap" }}>
                     {t.connect.revoke}
                   </button>
                 </div>
