@@ -5,6 +5,7 @@ import { useT } from "@/lib/i18n/client";
 import { buildPublishFixPrompt } from "@/lib/publishFixPrompt";
 import { copyText } from "@/lib/clipboard";
 import { extractPublishJson } from "@/lib/extractPublishJson";
+import { FoldToggle } from "@/components/FoldToggle";
 
 // AI 답 붙여넣기 본체 — /publish 페이지와 연결 창(ConnectPanel) 두 곳에서 쓴다.
 //
@@ -16,12 +17,16 @@ import { extractPublishJson } from "@/lib/extractPublishJson";
 // 붙여넣은 글은 JSON으로 **읽기만** 한다(extractPublishJson — 실행하지 않음). 올라간 것은
 // 내 계정의 초안이 될 뿐이고, 공개는 내가 확인 화면에서 누를 때만 된다.
 //
-// compact: 연결 창용. 파일 칸은 접어 두고(누르면 맨 위에 펼침 — B4 순서 유지), 글상자를 줄인다.
+// compact: 연결 창용. 버튼 하나만 보이고 파일 칸·글상자는 접힌 줄 뒤에 둔다(2026-09-23 "원할
+// 때만 보여준다"). 파일 줄은 버튼 **위**에 둔다 — 붙여넣는 순간 올라가서 파일은 먼저 골라야
+// 같이 간다(B4). emphasis: 연결 창의 두 단계 중 지금 차례가 아니면 버튼을 옅게(ghost) 그린다.
 export function PasteReply({
   compact = false,
+  emphasis = "primary",
   onSuccess,
 }: {
   compact?: boolean;
+  emphasis?: "primary" | "ghost";
   onSuccess: (projectId: string) => void;
 }) {
   const { t, locale } = useT();
@@ -45,6 +50,8 @@ export function PasteReply({
   // 만든다 — 파일 PUT·finalize가 실패한 뒤 다시 누르면 새 초안이 또 생겨 대시보드에 빈
   // 초안이 쌓였다. 첫 응답의 id를 들고 있다가 재시도 때 draftId로 그 초안을 갱신한다.
   const [draftId, setDraftId] = useState<string | null>(null);
+  // compact의 접힌 글상자. 클립보드 읽기를 브라우저가 막으면 저절로 펼친다 — 실패는 숨기지 않는다.
+  const [showType, setShowType] = useState(false);
 
   async function copyFix() {
     if (!bounce) return;
@@ -181,6 +188,7 @@ export function PasteReply({
       text = await navigator.clipboard.readText();
     } catch {
       setError(t.publish.clipboardDenied);
+      setShowType(true);
       return;
     }
     const r = extractPublishJson(text);
@@ -208,14 +216,12 @@ export function PasteReply({
     ? { padding: 0 }
     : { background: "var(--surface-soft)", padding: "16px 18px" };
 
-  return (
-    <div>
-    {/* 파일 첨부 — 인터넷에 안 올린 작품용. 맨 위에 두는 이유(B4, 2026-09-22): 아래 두 칸은
-        붙여넣는 순간 바로 올린다. 파일 칸이 그 아래 있으면 위에서부터 따라 한 사람은 JSON만
-        먼저 올라가 파일 없는 초안이 생겼다. 조사(2026-09-17): 바이브코딩 프로젝트의
-        60%가 배포 전에 버려지고, 막히는 지점이 "로컬에선 되는데 올리는 법을 모르겠다"였다. */}
-    {(!compact || showFiles) && (
-    <div className="rounded-2xl mb-5" style={boxStyle}>
+  // 파일 첨부 — 인터넷에 안 올린 작품용. 맨 위에 두는 이유(B4, 2026-09-22): 아래 두 칸은
+  // 붙여넣는 순간 바로 올린다. 파일 칸이 그 아래 있으면 위에서부터 따라 한 사람은 JSON만
+  // 먼저 올라가 파일 없는 초안이 생겼다. 조사(2026-09-17): 바이브코딩 프로젝트의
+  // 60%가 배포 전에 버려지고, 막히는 지점이 "로컬에선 되는데 올리는 법을 모르겠다"였다.
+  const filesBox = (
+    <div className={compact ? "rounded-2xl" : "rounded-2xl mb-5"} style={boxStyle}>
       <p className="text-sm" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontWeight: 600, margin: 0 }}>
         {t.publish.filesTitle}
       </p>
@@ -261,12 +267,79 @@ export function PasteReply({
         </div>
       ))}
     </div>
-    )}
-    {compact && !showFiles && (
-      <button type="button" onClick={() => setShowFiles(true)} className="text-xs mb-3" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", background: "none", border: "none", padding: 0, cursor: "pointer", textDecoration: "underline" }}>
-        {t.publish.filesToggle}
-      </button>
-    )}
+  );
+
+  const textarea = (
+    <textarea
+      className="vf-input w-full"
+      style={{ minHeight: compact ? 110 : 180, fontFamily: "var(--font-mono), monospace", fontSize: "0.85rem", lineHeight: 1.6 }}
+      placeholder={t.publish.pastePlaceholder}
+      value={raw}
+      onChange={(e) => setRaw(e.target.value)}
+      onPaste={onPaste}
+    />
+  );
+
+  const submitButton = (
+    <button onClick={() => void submit()} disabled={submitting} className="vf-soft-fill rounded-full"
+      style={{ padding: "0.6rem 1.3rem", fontFamily: "var(--font-nunito)", fontSize: "0.85rem", fontWeight: 500, cursor: "pointer", opacity: submitting ? 0.6 : 1 }}>
+      {submitting
+        ? stage === "zipping" ? t.publish.zipping
+          : stage === "uploading" ? t.publish.uploadingFiles
+            : t.publish.submitting
+        : t.publish.submit}
+    </button>
+  );
+
+  // 실패는 접지 않는다 — 어느 모드든 늘 보인다.
+  const errorBlock = error && (
+    <div className={compact ? "" : "mt-3"}>
+      <p className="text-sm" style={{ color: "var(--danger, #c0392b)", fontFamily: "var(--font-nunito)", lineHeight: 1.7, margin: 0 }}>{error}</p>
+      {bounce && (
+        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+          <button onClick={copyFix} className="vf-button-ghost" style={{ fontSize: "0.85rem" }}>
+            {copied ? t.publish.fixCopied : t.publish.fixWithAi}
+          </button>
+          <span className="text-xs" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
+            {t.publish.fixHint}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+
+  if (compact) {
+    return (
+      <div className="w-full flex flex-col gap-2.5">
+        <div className="w-full">
+          <FoldToggle open={showFiles} onToggle={() => setShowFiles((v) => !v)}>{t.publish.filesToggle}</FoldToggle>
+          {showFiles && <div className="mt-2.5">{filesBox}</div>}
+        </div>
+        <button
+          onClick={fromClipboard}
+          disabled={submitting}
+          className={`${emphasis === "ghost" ? "vf-button-ghost" : "vf-button-primary"} w-full sm:w-auto sm:self-start`}
+          style={{ fontSize: "0.9rem", padding: "0.7rem 1.5rem", opacity: submitting ? 0.6 : 1 }}
+        >
+          {submitting ? t.publish.submitting : t.publish.clipboardButton}
+        </button>
+        <div className="w-full">
+          <FoldToggle open={showType} onToggle={() => setShowType((v) => !v)}>{t.publish.typeToggle}</FoldToggle>
+          {showType && (
+            <div className="mt-2">
+              {textarea}
+              <div className="mt-3">{submitButton}</div>
+            </div>
+          )}
+        </div>
+        {errorBlock}
+      </div>
+    );
+  }
+
+  return (
+    <div>
+    {filesBox}
 
     {/* 1순위: 버튼 하나 */}
     <div className="rounded-2xl mb-5" style={boxStyle}>
@@ -282,40 +355,12 @@ export function PasteReply({
     <p className="text-xs mb-2" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
       {t.publish.pasteHint}
     </p>
-    <textarea
-      className="vf-input w-full"
-      style={{ minHeight: compact ? 110 : 180, fontFamily: "var(--font-mono), monospace", fontSize: "0.85rem", lineHeight: 1.6 }}
-      placeholder={t.publish.pastePlaceholder}
-      value={raw}
-      onChange={(e) => setRaw(e.target.value)}
-      onPaste={onPaste}
-    />
+    {textarea}
 
-    {error && (
-      <div className="mt-3">
-        <p className="text-sm" style={{ color: "var(--danger, #c0392b)", fontFamily: "var(--font-nunito)", lineHeight: 1.7 }}>{error}</p>
-        {bounce && (
-          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
-            <button onClick={copyFix} className="vf-button-ghost" style={{ fontSize: "0.85rem" }}>
-              {copied ? t.publish.fixCopied : t.publish.fixWithAi}
-            </button>
-            <span className="text-xs" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
-              {t.publish.fixHint}
-            </span>
-          </div>
-        )}
-      </div>
-    )}
+    {errorBlock}
 
     <div className="flex items-center gap-3 mt-5">
-      <button onClick={() => void submit()} disabled={submitting} className="vf-soft-fill rounded-full"
-        style={{ padding: "0.6rem 1.3rem", fontFamily: "var(--font-nunito)", fontSize: "0.85rem", fontWeight: 500, cursor: "pointer", opacity: submitting ? 0.6 : 1 }}>
-        {submitting
-          ? stage === "zipping" ? t.publish.zipping
-            : stage === "uploading" ? t.publish.uploadingFiles
-              : t.publish.submitting
-          : t.publish.submit}
-      </button>
+      {submitButton}
       <span className="text-xs" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
         {t.publish.reviewNote}
       </span>

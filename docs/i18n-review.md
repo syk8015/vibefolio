@@ -169,7 +169,7 @@
 | emptyTitle | 아직 프로젝트가 없어요 | No projects yet | |
 | emptyBody | 위 버튼으로 첫 프로젝트를 추가해보세요 | Use the button above to add your first one | |
 | connectTitle | AI로 한 줄에 올리기 | Publish in one line with AI | |
-| connectSubtitle | 클로드코드·커서·챗봇을 연결하면, 그 작업을 만든 AI가 여기에 초안으로 올려줘요 | Connect Claude Code, Cursor, or a chatbot — the AI that built the work will post it here as a draft | 검수 반영: 미래 동작이라 will post로 수정 |
+| connectSubtitle | 초안으로 올라와요. 공개는 내가 확인한 뒤에만 돼요. | It arrives as a draft. Nothing goes public until you review it. | 2026-09-23 축약 — 공개 범위만 남김(늘 보이는 예외) |
 | addTitle | 새 프로젝트 추가 | Add a new project | |
 | editTitle | 프로젝트 수정 | Edit project | |
 | submitAdd | 추가하기 | Add | |
@@ -386,6 +386,26 @@
 | neverUsed | 사용 전 | Not used yet | |
 | revoke | 폐기 | Revoke | |
 
+2026-09-23 "원할 때만 보여준다" 개편(브랜드 철학, 사용자 확정) — 고르면 칩이 한 줄로 접히고, 이유·세부·다른 방법은 접힌 줄 뒤로.
+삭제된 키: stepsChat, claudeOnce, copiedNote, waitingTitle, waitingBody, chatNextTitle, chatNextBody, pasteJsonCta, pasteJsonHint, copyFailed, mcpToggle, mcpRemoteCopied.
+
+| 키 | 한국어 | English | 비고 |
+|---|---|---|---|
+| ask | 어떤 AI로 만들었나요? | Which AI did you build this with? | 한국어만 축약 |
+| whichToggle | 어느 쪽인지 헷갈려요 | Not sure which one? | 접힌 줄 — 두 줄 설명(groupAgentNote·groupChatNote)을 편다 |
+| changeTool | 바꾸기 | Change | 고른 도구 줄의 버튼 |
+| stepsTerminal | [프롬프트 복사]를 눌러요. / {도구}에 그대로 붙여넣어요. | Press Copy prompt. / Paste it into {tool} as is. | ⚠️ 함수 — 도구 이름이 없으면 "작품을 만든 AI에게"/"the AI that built your work" |
+| chatStep1 | 프롬프트를 복사해서 작품을 만든 대화에 붙여넣어요. | Copy the prompt and paste it into the chat where you built the work. | |
+| chatStep2 | AI 답을 통째로 복사해 온 뒤 눌러요. | Copy the AI's whole reply, then press this. | 아래 [클립보드에서 가져와 올리기] 버튼을 가리킴 |
+| stepsClaude | 주소를 복사해요. / Claude 설정 → 커넥터 → [커스텀 커넥터 추가]에 붙여넣어요. / 작품을 만든 대화에서 "Nookframe에 올려줘"라고 말해요. | Copy the URL. / In Claude: Settings → Connectors → Add custom connector, and paste it. / In the chat where you built the work, say "publish this to Nookframe". | 3단계 배열 |
+| claudeOnceTag | 처음 한 번만 | first time only | 2단계 끝 꼬리표 |
+| claudeHelpToggle | 잘 안 되나요? | Not working? | 접힌 줄 |
+| claudeAllowHint | 연결 방식을 물으면 추천된 쪽을 그대로 두세요. | If it asks how to connect, keep the recommended option. | 옛 stepsClaude 2단계에서 옮김 |
+| waitingAi | AI가 올리기를 기다리는 중이에요. 도착하면 확인 화면이 저절로 열려요. | Waiting for your AI to upload it. The review screen opens by itself when it lands. | |
+| waitingClaude | Claude가 올리기를 기다리는 중이에요. 도착하면 확인 화면이 저절로 열려요. | Waiting for Claude to upload it. The review screen opens by itself when it lands. | |
+| previewToggle | 프롬프트 내용 보기 | See the prompt | 채팅 AI |
+| moreToggle | 프롬프트 내용 보기 · MCP로 연결 | See the prompt · Connect with MCP | 터미널 AI — 옛 previewToggle+mcpToggle 합침 |
+
 ## share (공유 팝오버)
 
 | 키 | 한국어 | English | 비고 |
@@ -421,6 +441,7 @@
 | submitting | 올리는 중… | Uploading… | |
 | submit | 초안으로 올리기 | Upload as draft | |
 | reviewNote | 공개 전에 대시보드에서 확인할 수 있어요 | You can review it on the dashboard before it goes public | |
+| typeToggle | 직접 붙여넣을래요 | I'll paste it myself | 2026-09-23 연결 창(compact) 전용 접힌 줄 — 클립보드 읽기가 막히면 저절로 펼침 |
 | errors.empty | AI가 준 JSON을 붙여넣어 주세요. | Paste the JSON your AI gave you. | |
 | errors.urlOnly | URL만으로는 부족해요 — 제목·설명이 담긴 JSON을 붙여넣어 주세요. | A URL alone isn't enough — paste the JSON with a title and description. | |
 | errors.invalidJson | JSON을 읽을 수 없어요. AI가 준 { ... } 형식 그대로 붙여넣어 주세요. | Couldn't read that JSON. Paste the { ... } exactly as your AI gave it. | |

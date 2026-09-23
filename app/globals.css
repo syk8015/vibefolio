@@ -75,6 +75,8 @@
      (measured: a 34/255 ramp ~470px wide) that reads as a smudge rather than
      lift. Stacked contact + mid + ambient layers keep the phone crisp. */
   --shadow-device: 0 2px 4px rgba(0,0,0,0.10), 0 8px 16px rgba(0,0,0,0.10), 0 22px 38px rgba(0,0,0,0.13);
+  /* 큰 창(연결·수정·초안 확인)의 그림자. 뒤는 --overlay-strong 막이 덮는다. */
+  --shadow-modal: 0 20px 60px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.04);
 }
 
 /* Dark theme — deep ink */
@@ -98,7 +100,9 @@
   --text-secondary: #b8a98a;
   --text-muted: #6a5e4e;
   --nav-bg: rgba(26, 22, 18, 0.85);
-  --overlay-strong: rgba(26, 22, 18, 0.85);
+  /* 큰 창 뒤의 막 — 다크에선 페이지(--bg)보다 **더 어둡게**(2026-09-23 사용자 지적). 페이지색
+     그대로면 창(--bg)과 뒷배경이 같은 색이 돼 창이 떠 보이지 않았다. */
+  --overlay-strong: rgba(6, 5, 4, 0.78);
   --overlay-mid: rgba(26, 22, 18, 0.6);
   --badge-bg: rgba(26, 22, 18, 0.78);
   --paper-blend: overlay;
@@ -109,6 +113,8 @@
   /* Dark paper: a black drop shadow barely registers, so lean on contact
      shadow only and let the shell's hairline ring carry the separation. */
   --shadow-device: 0 2px 6px rgba(0,0,0,0.55), 0 10px 22px rgba(0,0,0,0.45);
+  /* 다크에선 검은 그림자가 안 보인다 — 창 가장자리의 옅은 빛(위 1px + 둘레 1px)이 대신 떠 보이게 한다. */
+  --shadow-modal: inset 0 1px 0 rgba(244,237,224,0.08), 0 0 0 1px rgba(244,237,224,0.06), 0 24px 64px rgba(0,0,0,0.5);
 }
 
 * { box-sizing: border-box; }
@@ -1140,7 +1146,7 @@ body::before {
   overflow: hidden;
   border-radius: 22px;
   background: var(--surface);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.04);
+  box-shadow: var(--shadow-modal);
   /* 한글이 줄 끝에서 "돼/요"처럼 음절 단위로 쪼개지지 않게 — 단어 단위로 접고, 긴 주소만 어디서든 끊는다 */
   word-break: keep-all;
   overflow-wrap: break-word;

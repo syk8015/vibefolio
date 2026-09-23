@@ -6,6 +6,7 @@ import { copyText, copyTextLater } from "@/lib/clipboard";
 import { ManualCopyBox } from "@/components/dashboard/ManualCopyBox";
 import { AI_TOOL_PATHS } from "@/components/dashboard/aiToolPaths";
 import { PasteReply } from "@/components/publish/PasteReply";
+import { FoldToggle } from "@/components/FoldToggle";
 import { pastePrompt, AUTO_TOKEN_NAME, MCP_TOKEN_NAME, mcpClaudeCodeCommand, mcpConfigJson, remoteMcpUrl } from "@/lib/connectSnippets";
 import { useT } from "@/lib/i18n/client";
 
@@ -40,6 +41,12 @@ interface TokenRow {
 // Code·Codex가 두 줄에 겹치고, Claude 데스크탑 앱은 대화와 Code 탭이 한 앱이라 또
 // 갈라야 했다. 각 줄 안은 도구 로고 칩이고, 줄이 곧 누른 뒤 나오는 길이다(Claude 채팅만
 // 커넥터라는 예외).
+//
+// 원할 때만 보여준다(2026-09-23 사용자 확정 — 브랜드 철학): 바이브코더는 AI의 중간 과정을
+// 하나하나 읽지 않는다. 지금 할 일 하나만 보이고, 이유·세부·다른 방법은 접힌 줄(FoldToggle)
+// 뒤에 둔다. 도구를 고르면 칩 10개는 한 줄로 접히고([바꾸기]로 다시 연다) 그 길의 단계만
+// 남는다. 채팅 AI는 두 단계(프롬프트 복사 → 클립보드에서 올리기)이고 지금 차례인 버튼만
+// 진하게 그린다. 예외 — 공개 범위(창 부제)와 실패(직접 복사 칸·오류 문구)는 늘 보인다.
 type AiPath = "terminal" | "claude" | "chat";
 type ToolId =
   | "claude-code" | "codex" | "cursor" | "copilot" | "antigravity" | "other-cli"
@@ -94,7 +101,6 @@ export default function ConnectPanel() {
   const [showPrompt, setShowPrompt] = useState(false);
   const [showTokens, setShowTokens] = useState(false);
   // MCP 연결(2026-09-04, 인터뷰 ⑦): 토큰을 채운 명령/설정을 복사한다.
-  const [showMcp, setShowMcp] = useState(false);
   const [mcpBusy, setMcpBusy] = useState(false);
   const [mcpCopied, setMcpCopied] = useState<"claude-code" | "json" | null>(null);
   // 원격 커넥터 주소 복사(2026-09-17). 위 둘과 달리 **토큰을 발급하지 않는다** —
@@ -102,6 +108,12 @@ export default function ConnectPanel() {
   const [urlCopied, setUrlCopied] = useState(false);
   // 터미널 AI가 답만 주고 끝났을 때 펼치는 붙여넣기 칸.
   const [showPaste, setShowPaste] = useState(false);
+  // 도구를 고른 뒤 [바꾸기]로 칩을 다시 편 상태. 고르면 다시 접힌다.
+  const [chooserOpen, setChooserOpen] = useState(false);
+  const [showWhich, setShowWhich] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
+  // 주소 자동 복사가 막힌 브라우저 — 주소를 직접 복사 칸에 펼친다.
+  const [urlCopyFailed, setUrlCopyFailed] = useState(false);
   // 창 안 붙여넣기 성공 뒤의 폴백 타이머(아래 onPasted).
   const pastedTimer = useRef<number | null>(null);
   useEffect(() => () => { if (pastedTimer.current) window.clearTimeout(pastedTimer.current); }, []);
@@ -130,8 +142,17 @@ export default function ConnectPanel() {
   }, []);
 
   function choose(id: ToolId) {
-    setTool(id);
-    setPromptInstead(false);
+    setChooserOpen(false);
+    // 같은 칩을 다시 누른 것(바꾸기를 잘못 누른 경우)이면 진행 표시를 지우지 않는다.
+    if (id !== tool) {
+      setTool(id);
+      setPromptInstead(false);
+      setCopiedOnce(false);
+      setManualPrompt(null);
+      setUrlCopied(false);
+      setUrlCopyFailed(false);
+      setShowPaste(false);
+    }
     setError(null);
     try { localStorage.setItem(TOOL_KEY, id); } catch { /* 위와 같음 */ }
   }
@@ -140,9 +161,10 @@ export default function ConnectPanel() {
     setError(null);
     const ok = await copyText(remoteMcpUrl(origin));
     if (!ok) {
-      setError(t.connect.copyFailed);
+      setUrlCopyFailed(true);
       return;
     }
+    setUrlCopyFailed(false);
     setUrlCopied(true);
   }
 
@@ -211,19 +233,6 @@ export default function ConnectPanel() {
     }
   }
 
-  const toggleStyle: React.CSSProperties = {
-    color: "var(--text-muted)", fontFamily: "var(--font-nunito)",
-    fontSize: "0.75rem", fontWeight: 600, cursor: "pointer",
-    background: "none", border: "none", padding: 0,
-    display: "inline-flex", alignItems: "center", gap: 5,
-  };
-  const chevron = (open: boolean) => (
-    <svg width="9" height="9" viewBox="0 0 12 12" fill="none"
-      style={{ transform: open ? "rotate(90deg)" : "none", transition: "transform 0.15s" }}>
-      <path d="M4 2l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-    </svg>
-  );
-  const cardStyle: React.CSSProperties = { background: "var(--surface-soft)" };
   const smallText = (color: string, extra: React.CSSProperties = {}): React.CSSProperties => ({
     color, fontFamily: "var(--font-nunito)", lineHeight: 1.6, margin: 0, ...extra,
   });
@@ -254,10 +263,9 @@ export default function ConnectPanel() {
                 : id === "chatgpt" ? "ChatGPT"
                   : id === "gemini" ? "Gemini"
                     : t.connect.toolOtherChat;
-  const group = (title: string, note: string, ids: ToolId[], cols: string) => (
+  const group = (title: string, ids: ToolId[], cols: string) => (
     <div className="w-full">
       <p className="text-xs" style={smallText("var(--text-primary)", { fontWeight: 600 })}>{title}</p>
-      <p className="text-xs" style={smallText("var(--text-muted)", { marginTop: 2 })}>{note}</p>
       <div role="radiogroup" aria-label={title} className={`grid grid-cols-2 gap-2 mt-2 ${cols}`}>
         {ids.map((id) => {
           const on = tool === id;
@@ -285,147 +293,188 @@ export default function ConnectPanel() {
       </div>
     </div>
   );
+  const num = (n: number) => (
+    <span aria-hidden="true" className="vf-mono shrink-0 inline-flex items-center justify-center rounded-full" style={{
+      width: 20, height: 20, fontSize: "0.7rem", fontWeight: 700,
+      background: "var(--surface-soft)", color: "var(--text-secondary)",
+    }}>{n}</span>
+  );
   // 번호 단계 — 화살표 한 줄은 폰에서 가운데 정렬로 쪼개져 읽기 어려웠다(2026-09-22 사용자 지적).
-  const steps = (items: string[]) => (
+  // tags: 단계 끝에 붙는 옅은 꼬리표(예: "처음 한 번만").
+  const steps = (items: string[], tags: Record<number, string> = {}) => (
     <ol className="w-full flex flex-col gap-2" style={{ listStyle: "none", padding: 0, margin: 0 }}>
       {items.map((line, i) => (
         <li key={i} className="flex items-start gap-2.5">
-          <span aria-hidden="true" className="vf-mono shrink-0 inline-flex items-center justify-center rounded-full" style={{
-            width: 20, height: 20, fontSize: "0.7rem", fontWeight: 700,
-            background: "var(--surface-soft)", color: "var(--text-secondary)",
-          }}>{i + 1}</span>
-          <span className="text-sm" style={smallText("var(--text-secondary)", { lineHeight: 1.6, paddingTop: 1 })}>{line}</span>
+          {num(i + 1)}
+          <span className="text-sm" style={smallText("var(--text-secondary)", { lineHeight: 1.6, paddingTop: 1 })}>
+            {line}
+            {tags[i] && <span className="text-xs" style={{ color: "var(--text-muted)", marginLeft: 6 }}>{tags[i]}</span>}
+          </span>
         </li>
       ))}
     </ol>
   );
+  // 복사한 뒤 = AI가 올려주기를 기다리는 시간. 초안이 도착하면 ProjectsTab이 이 모달을 닫고
+  // 검토 화면을 연다(useDraftArrival) — 그때까지의 한 줄.
+  const waiting = (text: string) => (
+    <div className="flex items-center gap-2.5" role="status">
+      <span className="vf-spinner shrink-0" style={{ width: "0.9rem", height: "0.9rem" }} />
+      <p className="text-sm" style={smallText("var(--text-secondary)")}>{text}</p>
+    </div>
+  );
+  // 프롬프트 복사 버튼. 채팅 AI의 두 단계에서는 복사를 마치면 옅어지고 다음 단계가 진해진다.
+  const prompted = copiedOnce || manualPrompt !== null;
+  const copyButton = (look: "primary" | "ghost", big: boolean) => (
+    <button
+      type="button"
+      onClick={copyPromptWithCode}
+      disabled={copying}
+      className={`${look === "primary" ? "vf-button-primary" : "vf-button-ghost"} w-full sm:w-auto sm:self-start`}
+      style={{
+        fontSize: big ? "0.95rem" : "0.9rem", padding: big ? "0.85rem 2.2rem" : "0.7rem 1.5rem", opacity: copying ? 0.6 : 1,
+        // 복사됐다는 걸 버튼 스스로 말하게 한다(2026-09-05 사용자 지적) —
+        // 라벨이 ✓로 바뀌고 살짝 커진다. 아래 작은 문구만으로는 눌린 티가 안 났다.
+        transform: big && copiedOnce ? "scale(1.03)" : "scale(1)",
+        transition: "transform 0.22s cubic-bezier(0.34, 1.4, 0.64, 1)",
+      }}
+    >
+      {copying ? t.connect.copying : copiedOnce ? t.connect.copiedButton : t.connect.copyPrompt}
+    </button>
+  );
+
+  const showChooser = !tool || chooserOpen;
+  const showPath = path !== null && !showChooser;
 
   return (
     <div className="flex flex-col items-stretch text-left gap-5">
-      {/* 첫 질문 — 두 줄(할 수 있는 일)로 나눈 도구 칩. 누른 칩의 길 하나만 아래에 편다. */}
-      <p className="text-base" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontWeight: 600, margin: 0 }}>
-        {t.connect.ask}
-      </p>
-      {group(t.connect.groupAgent, t.connect.groupAgentNote, AGENT_TOOLS, "sm:grid-cols-3")}
-      {group(t.connect.groupChat, t.connect.groupChatNote, CHAT_TOOLS, "sm:grid-cols-4")}
-
-      {path && (
-        <div style={{ borderTop: "1px solid var(--border)" }} />
+      {/* 첫 질문 — 두 줄(할 수 있는 일)로 나눈 도구 칩. 두 줄의 설명은 헷갈리는 사람만 편다. */}
+      {showChooser && (
+        <>
+          <p className="text-base" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontWeight: 600, margin: 0 }}>
+            {t.connect.ask}
+          </p>
+          {group(t.connect.groupAgent, AGENT_TOOLS, "sm:grid-cols-3")}
+          {group(t.connect.groupChat, CHAT_TOOLS, "sm:grid-cols-4")}
+          <div className="w-full">
+            <FoldToggle open={showWhich} onToggle={() => setShowWhich((v) => !v)}>{t.connect.whichToggle}</FoldToggle>
+            {showWhich && (
+              <div className="mt-2 flex flex-col gap-1">
+                <p className="text-xs" style={smallText("var(--text-secondary)", { lineHeight: 1.7 })}>
+                  <strong style={{ color: "var(--text-primary)", fontWeight: 600 }}>{t.connect.groupAgent}</strong> — {t.connect.groupAgentNote}
+                </p>
+                <p className="text-xs" style={smallText("var(--text-secondary)", { lineHeight: 1.7 })}>
+                  <strong style={{ color: "var(--text-primary)", fontWeight: 600 }}>{t.connect.groupChat}</strong> — {t.connect.groupChatNote}
+                </p>
+              </div>
+            )}
+          </div>
+        </>
       )}
 
-      {path === "terminal" && steps(t.connect.stepsTerminal)}
-      {path === "chat" && steps(t.connect.stepsChat)}
-
-      {/* Claude 채팅 — 원격 커넥터가 첫 화면(2026-09-17 원격 커넥터). 이 단계들은 Claude 앱
-          자체의 화면이라 줄일 수 없고, 대신 처음 한 번뿐이다. */}
-      {path === "claude" && (
-        <div className="w-full flex flex-col gap-3">
-          {steps(t.connect.stepsClaude)}
-          <pre className="text-xs p-3 rounded-lg" style={preStyle}>{remoteMcpUrl(origin)}</pre>
-          <div className="flex items-center gap-3 flex-wrap">
-            <button type="button" onClick={() => void copyRemoteUrl()} className="vf-button-primary" style={{ fontSize: "0.9rem", padding: "0.6rem 1.3rem" }}>
-              {t.connect.mcpRemoteCopy}
-            </button>
-            {urlCopied && <span className="text-xs" style={smallText("var(--text-secondary)")}>{t.connect.mcpRemoteCopied}</span>}
-          </div>
-          <p className="text-xs" style={smallText("var(--text-muted)", { lineHeight: 1.7 })}>{t.connect.claudeOnce}</p>
-          <p className="text-xs" style={smallText("var(--text-muted)", { lineHeight: 1.7 })}>{t.connect.mcpRemoteCaveat}</p>
-          <p className="text-xs" style={smallText("var(--text-muted)", { lineHeight: 1.7 })}>
-            {t.connect.claudeFallback}
-            <button type="button" onClick={() => setPromptInstead(true)} style={{ ...toggleStyle, color: "var(--text-primary)", textDecoration: "underline", fontWeight: 500, display: "inline" }}>
-              {t.connect.claudeFallbackLink}
-            </button>
-          </p>
+      {/* 고른 뒤 — 칩 10개 대신 고른 것 한 줄. 지난번 답을 기억해 두었다면 창을 열자마자 이 줄이다. */}
+      {tool && !showChooser && (
+        <div className="w-full rounded-xl flex items-center justify-between gap-3" style={{ minHeight: 48, padding: "0.5rem 0.5rem 0.5rem 0.85rem", background: "var(--surface-soft)" }}>
+          <span className="flex items-center gap-2 min-w-0" style={{ color: "var(--text-primary)" }}>
+            <ToolIcon id={tool} />
+            <span className="text-sm truncate" style={{ fontFamily: "var(--font-nunito)", fontWeight: 600, lineHeight: 1.3 }}>{toolName(tool)}</span>
+          </span>
+          <button
+            type="button"
+            onClick={() => setChooserOpen(true)}
+            className="rounded-full shrink-0"
+            style={{ padding: "0.45rem 0.9rem", background: "var(--surface)", color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem", fontWeight: 600, border: "none", cursor: "pointer" }}
+          >
+            {t.connect.changeTool}
+          </button>
         </div>
       )}
 
-      {/* 터미널·채팅 AI — 프롬프트 복사가 첫 동작 */}
-      {(path === "terminal" || path === "chat") && (
-        <div className="flex flex-col gap-3">
-          <button
-            type="button"
-            onClick={copyPromptWithCode}
-            disabled={copying}
-            className="vf-button-primary w-full sm:w-auto sm:self-start"
-            style={{
-              fontSize: "0.95rem", padding: "0.85rem 2.2rem", opacity: copying ? 0.6 : 1,
-              // 복사됐다는 걸 버튼 스스로 말하게 한다(2026-09-05 사용자 지적) —
-              // 라벨이 ✓로 바뀌고 살짝 커진다. 아래 작은 문구만으로는 눌린 티가 안 났다.
-              transform: copiedOnce ? "scale(1.03)" : "scale(1)",
-              transition: "transform 0.22s cubic-bezier(0.34, 1.4, 0.64, 1)",
-            }}
-          >
-            {copying ? t.connect.copying : copiedOnce ? t.connect.copiedButton : t.connect.copyPrompt}
-          </button>
+      {/* 명령을 직접 실행하는 AI — 프롬프트 복사가 첫 동작. 복사하면 기다리는 한 줄로 바뀐다. */}
+      {showPath && path === "terminal" && (
+        <div className="w-full flex flex-col gap-4">
+          {steps(t.connect.stepsTerminal(tool && tool !== "other-cli" ? toolName(tool) : null))}
+          {copyButton("primary", true)}
           {manualPrompt && <ManualCopyBox text={manualPrompt} />}
-          {(copiedOnce || manualPrompt) && (
-            <p className="text-xs" style={smallText("var(--text-muted)")}>{t.connect.copiedNote}</p>
+          {prompted && (
+            <div className="flex flex-col gap-2.5">
+              {waiting(t.connect.waitingAi)}
+              {/* 터미널 AI가 예상과 달리 답만 주고 끝났을 때의 출구(2026-09-18). */}
+              <div className="w-full">
+                <FoldToggle open={showPaste} onToggle={() => setShowPaste((v) => !v)}>{t.connect.pasteJsonLead}</FoldToggle>
+                {showPaste && (
+                  <div className="mt-2.5">
+                    <PasteReply compact onSuccess={onPasted} />
+                  </div>
+                )}
+              </div>
+            </div>
           )}
         </div>
       )}
 
-      {/* 터미널 AI: 복사 후 = AI가 올려주기를 기다리는 시간. 초안이 도착하면 ProjectsTab이
-          이 모달을 닫고 검토 화면을 연다(useDraftArrival) — 그때까지의 안내. */}
-      {path === "terminal" && (copiedOnce || manualPrompt) && (
-        <div className="w-full rounded-2xl px-4 py-3.5 flex items-start gap-3" style={cardStyle}>
-          <span className="vf-spinner shrink-0" style={{ width: "0.9rem", height: "0.9rem", marginTop: 2 }} />
-          <div className="min-w-0">
-            <p className="text-xs" style={smallText("var(--text-primary)", { fontWeight: 600 })}>{t.connect.waitingTitle}</p>
-            <p className="text-xs" style={smallText("var(--text-secondary)", { marginTop: 4 })}>{t.connect.waitingBody}</p>
-            {/* 터미널 AI가 예상과 달리 답만 주고 끝났을 때의 출구(2026-09-18). */}
-            <div style={{ borderTop: "1px solid var(--border)", margin: "12px 0 0", paddingTop: 12 }}>
-              <p className="text-xs" style={smallText("var(--text-primary)", { fontWeight: 600 })}>{t.connect.pasteJsonLead}</p>
-              {showPaste ? (
-                <div className="mt-2">
-                  <p className="text-xs mb-2" style={smallText("var(--text-secondary)")}>{t.connect.pasteJsonHint}</p>
-                  <PasteReply compact onSuccess={onPasted} />
-                </div>
-              ) : (
-                <button type="button" onClick={() => setShowPaste(true)} className="vf-button-ghost" style={{ fontSize: "0.8rem", padding: "0.4rem 0.9rem", marginTop: 8 }}>
-                  {t.connect.pasteJsonCta}
-                </button>
-              )}
-            </div>
+      {/* Claude 채팅 — 원격 커넥터(2026-09-17). 단계는 Claude 앱 자체의 화면이라 줄일 수 없고,
+          대신 처음 한 번뿐이다. 막힐 때의 이야기(요금제·계정 제한·프롬프트로 하기)는 접어 둔다. */}
+      {showPath && path === "claude" && (
+        <div className="w-full flex flex-col gap-4">
+          {steps(t.connect.stepsClaude, { 1: t.connect.claudeOnceTag })}
+          <button type="button" onClick={() => void copyRemoteUrl()} className="vf-button-primary w-full sm:w-auto sm:self-start" style={{ fontSize: "0.95rem", padding: "0.85rem 2.2rem" }}>
+            {urlCopied ? t.connect.copiedButton : t.connect.mcpRemoteCopy}
+          </button>
+          {urlCopyFailed && <ManualCopyBox text={remoteMcpUrl(origin)} rows={1} />}
+          {urlCopied && waiting(t.connect.waitingClaude)}
+          <div className="w-full">
+            <FoldToggle open={showHelp} onToggle={() => setShowHelp((v) => !v)}>{t.connect.claudeHelpToggle}</FoldToggle>
+            {showHelp && (
+              <div className="mt-2 flex flex-col gap-1">
+                <p className="text-xs" style={smallText("var(--text-secondary)", { lineHeight: 1.7 })}>{t.connect.claudeAllowHint}</p>
+                <p className="text-xs" style={smallText("var(--text-secondary)", { lineHeight: 1.7 })}>{t.connect.mcpRemoteCaveat}</p>
+                <p className="text-xs" style={smallText("var(--text-secondary)", { lineHeight: 1.7 })}>
+                  {t.connect.claudeFallback}
+                  <button type="button" onClick={() => setPromptInstead(true)} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem", fontWeight: 600, textDecoration: "underline", display: "inline" }}>
+                    {t.connect.claudeFallbackLink}
+                  </button>
+                </p>
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      {/* 채팅 AI: 스스로 못 올리니 "기다리는 중" 대신 붙여넣을 칸을 처음부터 보여준다 —
-          답을 들고 창을 다시 연 사람이 또 복사를 누르지 않아도 되게(D6, 창 안에서 바로). */}
-      {path === "chat" && (
-        <div className="w-full rounded-2xl px-4 py-3.5" style={cardStyle}>
-          <p className="text-sm" style={smallText("var(--text-primary)", { fontWeight: 600 })}>{t.connect.chatNextTitle}</p>
-          <p className="text-xs" style={smallText("var(--text-secondary)", { marginTop: 4, marginBottom: 12 })}>{t.connect.chatNextBody}</p>
-          <PasteReply compact onSuccess={onPasted} />
-        </div>
+      {/* 채팅만 하는 AI — 스스로 못 올리니 두 단계. 답을 들고 창을 다시 연 사람이 또 복사를
+          누르지 않아도 되게 2단계 버튼도 처음부터 누를 수 있다(D6). */}
+      {showPath && path === "chat" && (
+        <ol className="w-full flex flex-col" style={{ listStyle: "none", padding: 0, margin: 0, gap: 22 }}>
+          <li className="flex items-start gap-2.5">
+            {num(1)}
+            <div className="flex-1 min-w-0 flex flex-col gap-2.5">
+              <span className="text-sm" style={smallText("var(--text-secondary)", { paddingTop: 1 })}>{t.connect.chatStep1}</span>
+              {copyButton(prompted ? "ghost" : "primary", false)}
+              {manualPrompt && <ManualCopyBox text={manualPrompt} />}
+            </div>
+          </li>
+          <li className="flex items-start gap-2.5">
+            {num(2)}
+            <div className="flex-1 min-w-0 flex flex-col gap-2.5">
+              <span className="text-sm" style={smallText("var(--text-secondary)", { paddingTop: 1 })}>{t.connect.chatStep2}</span>
+              <PasteReply compact emphasis={prompted ? "primary" : "ghost"} onSuccess={onPasted} />
+            </div>
+          </li>
+        </ol>
       )}
 
       {error && (
         <p className="text-xs" style={{ color: "var(--danger)", fontFamily: "var(--font-nunito)", margin: 0 }}>{error}</p>
       )}
 
-      {/* 접힘: 프롬프트 전문 */}
-      {(path === "terminal" || path === "chat") && (
+      {/* 접힘: 프롬프트 전문 + MCP 연결(터미널 AI는 붙여넣기 자체가 없어지는 길, 인터뷰 ⑦) */}
+      {showPath && path === "terminal" && (
         <div className="w-full">
-          <button type="button" onClick={() => setShowPrompt(v => !v)} aria-expanded={showPrompt} style={toggleStyle}>
-            {chevron(showPrompt)}{t.connect.previewToggle}
-          </button>
+          <FoldToggle open={showPrompt} onToggle={() => setShowPrompt((v) => !v)}>{t.connect.moreToggle}</FoldToggle>
           {showPrompt && (
-            <pre className="text-xs p-3 rounded-lg mt-2" style={{ ...preStyle, wordBreak: "normal", maxHeight: 220, overflowY: "auto" }}>
-              {pastePrompt(origin, locale)}
-            </pre>
-          )}
-        </div>
-      )}
-
-      {/* 접힘: MCP 연결 — 터미널 AI는 붙여넣기 자체가 없어진다(인터뷰 ⑦) */}
-      {path === "terminal" && (
-        <div className="w-full" style={{ marginTop: -8 }}>
-          <button type="button" onClick={() => setShowMcp(v => !v)} aria-expanded={showMcp} style={toggleStyle}>
-            {chevron(showMcp)}{t.connect.mcpToggle}
-          </button>
-          {showMcp && (
             <div className="mt-2 flex flex-col gap-3">
+              <pre className="text-xs p-3 rounded-lg" style={{ ...preStyle, wordBreak: "normal", maxHeight: 220, overflowY: "auto" }}>
+                {pastePrompt(origin, locale)}
+              </pre>
               <p className="text-xs" style={smallText("var(--text-secondary)", { lineHeight: 1.7 })}>{t.connect.mcpLead}</p>
               {([
                 { kind: "claude-code" as const, label: t.connect.mcpClaudeCode, text: mcpClaudeCodeCommand(t.connect.mcpKeyPlaceholder) },
@@ -450,12 +499,23 @@ export default function ConnectPanel() {
         </div>
       )}
 
-      {/* 접힘: 연결 관리(발급된 토큰) — 없으면 아예 안 그린다. 답과 상관없이 맨 아래. */}
+      {/* 접힘: 프롬프트 전문(채팅 AI) */}
+      {showPath && path === "chat" && (
+        <div className="w-full">
+          <FoldToggle open={showPrompt} onToggle={() => setShowPrompt((v) => !v)}>{t.connect.previewToggle}</FoldToggle>
+          {showPrompt && (
+            <pre className="text-xs p-3 rounded-lg mt-2" style={{ ...preStyle, wordBreak: "normal", maxHeight: 220, overflowY: "auto" }}>
+              {pastePrompt(origin, locale)}
+            </pre>
+          )}
+        </div>
+      )}
+
+      {/* 접힘: 연결 관리(발급된 토큰) — 없으면 아예 안 그린다. 답과 상관없이 맨 아래,
+          바로 위 접힌 줄과 붙여 둔다. */}
       {tokens.length > 0 && (
-        <div className="w-full" style={{ marginTop: path ? -8 : 0 }}>
-          <button type="button" onClick={() => setShowTokens(v => !v)} aria-expanded={showTokens} style={toggleStyle}>
-            {chevron(showTokens)}{t.connect.tokensToggle(tokens.length)}
-          </button>
+        <div className="w-full" style={{ marginTop: -8 }}>
+          <FoldToggle open={showTokens} onToggle={() => setShowTokens((v) => !v)}>{t.connect.tokensToggle(tokens.length)}</FoldToggle>
           {showTokens && (
             <div className="flex flex-col gap-2 mt-2">
               {tokens.map((row) => (

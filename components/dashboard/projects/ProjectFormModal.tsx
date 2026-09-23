@@ -269,7 +269,7 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
           maxHeight: "92vh",
           background: "var(--surface)",
           borderRadius: 20,
-          boxShadow: "0 20px 60px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.04)",
+          boxShadow: "var(--shadow-modal)",
         }}
       >
 

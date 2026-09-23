@@ -41,7 +41,7 @@ export function AddProjectModal({ onClose }: { onClose: () => void }) {
           // 아니라 bg를 깐다 — surface면 내부 카드가 면에 묻힌다.
           background: "var(--bg)",
           borderRadius: 20,
-          boxShadow: "0 20px 60px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.04)",
+          boxShadow: "var(--shadow-modal)",
         }}
       >
         <div className="flex items-start gap-3 px-6 pt-5 pb-4"
