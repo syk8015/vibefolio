@@ -346,7 +346,9 @@ export default function ConnectPanel() {
   const showPath = path !== null && !showChooser;
 
   return (
-    <div className="flex flex-col items-stretch text-left gap-5">
+    // keep-all: 폰에서 "붙여넣어/요."처럼 한 글자만 다음 줄로 떨어지지 않게 단어 단위로 접는다
+    // (.vf-review와 같은 처방). 주소·명령 <pre>는 각자 break-all이라 영향 없다.
+    <div className="flex flex-col items-stretch text-left gap-5" style={{ wordBreak: "keep-all", overflowWrap: "break-word" }}>
       {/* 첫 질문 — 두 줄(할 수 있는 일)로 나눈 도구 칩. 두 줄의 설명은 헷갈리는 사람만 편다. */}
       {showChooser && (
         <>
