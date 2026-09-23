@@ -237,11 +237,12 @@ export default async function WatchPage({ params }: Params) {
         )}
 
         {/* Caption — the source claim. 자동 촬영 영상일 때만 참이다
-            (직접 올린 영상은 사람이 찍은 것). */}
+            (직접 올린 영상은 사람이 찍은 것).
+            투명도 0.6이 캡션 단계의 하한 — 라이트 바탕에서 대비 4.5배(0.5는 3.4배로 미달). */}
         {clip?.auto && (
           <p
             className="mt-4 text-center vf-mono"
-            style={{ color: "var(--text-primary)", opacity: 0.5, fontSize: "0.8rem", letterSpacing: "0.01em" }}
+            style={{ color: "var(--text-primary)", opacity: 0.6, fontSize: "0.8rem", letterSpacing: "0.01em" }}
           >
             {c.caption}
           </p>
@@ -281,7 +282,7 @@ export default async function WatchPage({ params }: Params) {
             >
               {name}
             </div>
-            <div className="vf-mono truncate" style={{ color: "var(--text-primary)", opacity: 0.5, fontSize: "0.8rem" }}>
+            <div className="vf-mono truncate" style={{ color: "var(--text-primary)", opacity: 0.6, fontSize: "0.8rem" }}>
               {handle}
             </div>
           </div>
