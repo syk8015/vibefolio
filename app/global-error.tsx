@@ -52,7 +52,7 @@ const STYLES = `
     --ge-surface: #ffffff;
     --ge-text: #1a1612;
     --ge-secondary: #6a5e4e;
-    --ge-muted: #a89b87;
+    --ge-muted: #7d705f;
     --ge-border: #ece4d2;
   }
   @media (prefers-color-scheme: dark) {
@@ -61,7 +61,7 @@ const STYLES = `
       --ge-surface: #221d18;
       --ge-text: #f4ede0;
       --ge-secondary: #b8a98a;
-      --ge-muted: #6a5e4e;
+      --ge-muted: #968970;
       --ge-border: #2e2620;
     }
   }
