@@ -97,6 +97,10 @@ export default function TurnstileWidget({
         widgetId = window.turnstile.render(el, {
           sitekey: TURNSTILE_SITE_KEY,
           theme: stamped === "dark" || stamped === "light" ? stamped : "auto",
+          // 평소엔 칸을 안 보인다 — 확인은 뒤에서 저절로 끝나고, 사람 확인이 정말 필요할
+          // 때(의심스러운 방문)만 체크박스가 뜬다. 늘 보이는 Cloudflare 칸이 사이트 톤과
+          // 안 맞아 숨김(2026-09-24 사용자 요청). 봇 차단 고지는 /privacy에 있다.
+          appearance: "interaction-only",
           callback: (token: string) => cbRef.current(token),
           "expired-callback": () => cbRef.current(null),
           "error-callback": () => cbRef.current(null),
