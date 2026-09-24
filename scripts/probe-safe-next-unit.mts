@@ -1,11 +1,13 @@
 // 로그인 뒤 돌아갈 곳(?next=) 거르기(2026-09-22). 네트워크 없음.
 // 지키는 것: 같은 사이트 경로는 살리고, 밖으로 튕기는 모양은 전부 "/"로.
 // 같은 가입·로그인 흐름의 순수 함수도 여기서 본다: 아이디 소문자 접기(lib/username)
-// · 앱 안 브라우저 판별(lib/traffic-source — 구글 로그인 차단 안내의 근거).
+// · 앱 안 브라우저 판별(lib/traffic-source — 구글 로그인 차단 안내의 근거)
+// · 로그인 방법 연결(lib/identityLink — 콜백이 싣는 결과·[해제] 규칙).
 import { safeNext } from "../lib/safeNext";
 import { normalizeUsername, isValidUsername, usernameIlikePattern, USERNAME_MAX } from "../lib/username";
 import { isInAppBrowser } from "../lib/traffic-source";
 import { hasBlockedTerm } from "../lib/nameFilter";
+import { canUnlink, linkErrorResult, linkRedirectTo, linkReturnUrl } from "../lib/identityLink";
 import { execFileSync } from "node:child_process";
 
 let failed = 0;
@@ -93,6 +95,45 @@ blk("Claude Monet", "name", false);
 blk("안성기", "name", false);
 blk("lwk207088", "username", false);
 blk("alexvibe", "username", false);
+
+// 로그인 방법 연결(lib/identityLink, 09-25) — 콜백이 결과를 명함 탭으로 싣는 모양과 [해제] 규칙
+{
+  const O = "https://nookframe.com";
+  const back = linkRedirectTo(O, "github");
+  const bu = new URL(back);
+  ok("연결 redirectTo: 콜백 + link=1", bu.pathname === "/auth/callback" && bu.searchParams.get("link") === "1", back);
+  ok("연결 redirectTo: next=명함 탭", bu.searchParams.get("next") === "/dashboard?tab=card", bu.searchParams.get("next") ?? "");
+  ok("연결 redirectTo: via=공급자(지난번에 사용)", bu.searchParams.get("via") === "github");
+
+  const q = (s: string) => new URLSearchParams(s);
+  const er = (s: string, want: string) => ok(`연결 실패 ${JSON.stringify(s)} → ${want}`, linkErrorResult(q(s)) === want, linkErrorResult(q(s)));
+  er("error=server_error&error_code=identity_already_exists&error_description=Identity+is+already+linked+to+another+user", "taken");
+  er("error=server_error&error_code=identity_already_exists&error_description=Identity+is+already+linked", "linked");
+  er("error=server_error&error_code=identity_already_exists", "taken");
+  er("error=access_denied&error_description=The+user+has+denied", "failed");
+  er("", "failed");
+
+  const ru = (next: string, result: "linked" | "taken" | "failed", provider: string | null, want: string) =>
+    ok(`돌아갈 주소 ${next} ${result} ${provider}`, linkReturnUrl(O, next, result, provider) === want, linkReturnUrl(O, next, result, provider));
+  ru("/dashboard?tab=card", "taken", "github", `${O}/dashboard?tab=card&link=taken&provider=github`);
+  ru("/dashboard?tab=card", "linked", "google", `${O}/dashboard?tab=card&link=linked&provider=google`);
+  ru("/dashboard?tab=card", "failed", "code", `${O}/dashboard?tab=card&link=failed`); // 소셜이 아닌 via는 안 싣는다
+  ru("/dashboard?tab=card", "failed", null, `${O}/dashboard?tab=card&link=failed`);
+
+  // [해제] — 떼도 계정 메일을 다른 방법이 쥐고 있을 때만(아니면 Supabase가 계정 메일을 바꿔 버린다)
+  const id = (identity_id: string, email?: string) => ({ identity_id, identity_data: email ? { email } : {} });
+  const E = "me@gmail.com";
+  const mail = id("e", E), goog = id("g", E), gh = id("h", "me@work.dev"), gh2 = id("h2", "other@x.dev");
+  ok("해제: 이메일+깃허브(다른 메일) → 깃허브 가능", canUnlink(gh, [mail, gh], E));
+  ok("해제: 이메일 방법은 불가(계정 메일)", !canUnlink(mail, [mail, gh], E));
+  ok("해제: 구글(계정 메일)+깃허브 → 구글 불가", !canUnlink(goog, [goog, gh], E));
+  ok("해제: 구글(계정 메일)+깃허브 → 깃허브 가능", canUnlink(gh, [goog, gh], E));
+  ok("해제: 계정 메일과 같은 메일의 깃허브는 불가(다음 로그인에 저절로 다시 붙음)", !canUnlink(id("h", E), [mail, id("h", E)], E));
+  ok("해제: 하나뿐이면 불가", !canUnlink(goog, [goog], E));
+  ok("해제: 계정 메일을 쥔 방법이 없으면 전부 불가", !canUnlink(gh, [gh, gh2], E) && !canUnlink(gh2, [gh, gh2], E));
+  ok("해제: 대소문자 무시", canUnlink(gh, [id("e", "Me@Gmail.com"), gh], "ME@gmail.com"));
+  ok("해제: 계정 메일 없음 → 불가", !canUnlink(gh, [mail, gh], ""));
+}
 
 // DB 금지어 검사(supabase/migration_name_filter.sql)가 목록과 어긋나지 않았는지
 try {

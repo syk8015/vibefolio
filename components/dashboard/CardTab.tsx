@@ -15,6 +15,7 @@ import {
 // 넓게 인식해주면 "확인됐다"고 보여놓고 명함에선 조용히 버려진다.
 import { getSocialMeta } from "@/components/SocialBadge";
 import type { DashboardProfile } from "./DashboardClient";
+import LoginMethods from "./LoginMethods";
 import { useT } from "@/lib/i18n/client";
 
 // 회원 탈퇴 칸(옅은 빨강 채움) 위의 빨간 글자 — 이유는 아래 "계정" 칸 주석에.
@@ -407,6 +408,9 @@ export default function CardTab({ user, profile }: { user: User; profile: Dashbo
         )}
       </div>
       </form>
+
+      {/* 로그인 방법 — 구글·깃허브를 이 계정에 붙이고 떼기(메일이 달라 계정이 갈리는 것 예방). */}
+      <LoginMethods accountEmail={user.email ?? ""} />
 
       {/* 계정 — 명함 내용과 분리된 계정 자체의 작업(탈퇴). soft-fill 언어:
           경고는 테두리가 아니라 옅은 채움으로. (privacy: 탈퇴 즉시 파기)

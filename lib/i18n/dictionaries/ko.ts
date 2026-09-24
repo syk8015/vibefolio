@@ -477,6 +477,32 @@ export const ko = {
     deleteForever: "영구 삭제",
     usernameChangeWarning: (old: string) => `저장하면 옛 주소 nookframe.com/${old}는 바로 열리지 않아요. 이미 공유한 링크가 끊겨요.`,
   },
+  // 명함 탭 "로그인 방법" — 구글·깃허브 연결/해제(components/dashboard/LoginMethods, 09-25).
+  // p = 공급자 이름(Google·GitHub). 조사는 받침이 갈리는 "은/는·이에요"를 피해 "계정은"·"로" 앞에만 붙인다.
+  loginMethods: {
+    label: "로그인 방법",
+    intro: "여기 연결한 방법이면 어느 것으로 로그인해도 이 계정이에요.",
+    email: "이메일",
+    notLinked: "연결 안 됨",
+    link: "연결",
+    linking: "이동 중…",
+    unlink: "해제",
+    unlinkConfirm: (p: string) => `해제하면 이 ${p} 계정으로는 여기 들어올 수 없어요.`,
+    unlinkYes: "해제하기",
+    unlinking: "해제 중…",
+    cancel: "취소",
+    loadFailed: "로그인 방법을 불러오지 못했어요.",
+    retry: "다시 시도",
+    linked: (p: string) => `${p} 계정을 연결했어요. 이제 ${p}로도 들어올 수 있어요.`,
+    unlinked: (p: string) => `${p} 계정 연결을 해제했어요.`,
+    // 그 깃허브가 이미 다른 계정에 붙어 있다(identity_already_exists) — 합치기는 운영자가 손으로 한다.
+    takenTitle: (p: string) => `이 ${p} 계정은 이미 다른 Nookframe 계정에 연결돼 있어요.`,
+    takenBody: "그 Nookframe 계정을 지우거나 두 계정을 합치려면 문의해 주세요.",
+    contact: "메일 보내기",
+    failed: "연결이 취소됐거나 끝나지 못했어요. 다시 눌러 주세요.",
+    startFailed: "연결을 시작하지 못했어요. 잠시 뒤에 다시 눌러 주세요.",
+    unlinkFailed: "해제하지 못했어요. 잠시 뒤에 다시 눌러 주세요.",
+  },
   visits: {
     justNow: "방금 전",
     minsAgo: (n: number) => `${n}분 전`,

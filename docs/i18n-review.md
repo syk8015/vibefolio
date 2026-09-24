@@ -818,3 +818,25 @@ SNS/검색 로봇은 JS를 안 돌려 OG·크롤러 노출 문구(루트 descrip
 | magic-link 본문 | 로그인 코드예요 / 로그인하던 화면에 이 코드를 넣어 주세요. 본인이 요청한 게 아니라면 무시해도 돼요 — 코드 없이는 아무도 들어갈 수 없어요. / 같은 브라우저라면 이 링크로도 들어갈 수 있어요. | Your sign-in code / Enter this code on the sign-in page. If this wasn't you, ignore this email — nobody can get in without the code. / Or sign in with this link in the same browser: | 신규 |
 | handoff.accountTitle · accountBody · browseFirst | 가입 완료! 이제 컴퓨터에서 이어서 해요 / 작품은 컴퓨터의 AI 도구로 올려요… / 폰으로 먼저 둘러볼게요 → | You're in! Now continue on your computer / Projects go up through the AI tool on your computer… / Look around on my phone first → | 신규 · 폰에서 막 가입한 사람의 /send(09-25) |
 | signup.handoffSubtitle · email.handoffBody · email.handoffRemindBody | 폰에서 이어서 왔어요. 메일로 코드를 받아 들어가세요. / …이메일이 채워진 화면이 열리고, 메일로 받은 코드로 들어가면… | Picking up from your phone — get a code by email to continue. / …opens Nookframe with your email filled in… | 교체 · "가입" 대신 새 계정·있는 계정 둘 다 맞는 말로(09-25) |
+
+## 로그인 방법 연결 — 명함 탭 (2026-09-25)
+
+명함 탭 "계정" 위에 새 칸. 이 계정에 붙은 로그인 방법 목록 + 구글·깃허브 [연결]/[해제](`components/dashboard/LoginMethods.tsx`, 규칙 `lib/identityLink.ts`). `{p}`는 공급자 이름(Google·GitHub) — 받침에 따라 갈리는 조사(은/는·이에요)를 피해 "계정은"·"로" 앞에만 붙였다.
+
+| 키 | 한국어 | English | 비고 |
+|---|---|---|---|
+| loginMethods.label | 로그인 방법 | Sign-in methods | 신규 · 칸 이름표 |
+| loginMethods.intro | 여기 연결한 방법이면 어느 것으로 로그인해도 이 계정이에요. | Any method linked here signs you in to this same account. | 신규 ⚠️ 영어는 "같은 계정으로 들어온다"로 풀어 씀 |
+| loginMethods.email | 이메일 | Email | 신규 · 맨 위 줄(계정 메일, 버튼 없음) |
+| loginMethods.notLinked | 연결 안 됨 | Not linked | 신규 |
+| loginMethods.link / linking | 연결 / 이동 중… | Link / Opening… | 신규 · 누르면 구글·깃허브 화면으로 넘어간다 |
+| loginMethods.unlink / unlinkYes / unlinking / cancel | 해제 / 해제하기 / 해제 중… / 취소 | Unlink / Unlink / Unlinking… / Cancel | 신규 · 줄 안에서 펼치는 확인 |
+| loginMethods.unlinkConfirm | 해제하면 이 {p} 계정으로는 여기 들어올 수 없어요. | Once unlinked, this {p} account can't sign you in here. | 신규 · 함수(p) |
+| loginMethods.loadFailed / retry | 로그인 방법을 불러오지 못했어요. / 다시 시도 | Couldn't load your sign-in methods. / Try again | 신규 |
+| loginMethods.linked | {p} 계정을 연결했어요. 이제 {p}로도 들어올 수 있어요. | {p} linked. You can now sign in with {p} too. | 신규 · 함수(p) · 공급자 화면에서 돌아온 뒤 |
+| loginMethods.unlinked | {p} 계정 연결을 해제했어요. | {p} unlinked. | 신규 · 함수(p) |
+| loginMethods.takenTitle | 이 {p} 계정은 이미 다른 Nookframe 계정에 연결돼 있어요. | This {p} account is already linked to another Nookframe account. | 신규 · 함수(p) · Supabase identity_already_exists |
+| loginMethods.takenBody / contact | 그 Nookframe 계정을 지우거나 두 계정을 합치려면 문의해 주세요. / 메일 보내기 | To delete that account or merge the two, contact us. / Email us | 신규 · 합치기는 운영자가 손으로. contact는 아래 줄의 mailto 링크("문의"가 겹치지 않게 동작으로) |
+| loginMethods.failed | 연결이 취소됐거나 끝나지 못했어요. 다시 눌러 주세요. | Linking was cancelled or didn't finish. Please try again. | 신규 · 공급자 화면에서 취소·거절 |
+| loginMethods.startFailed | 연결을 시작하지 못했어요. 잠시 뒤에 다시 눌러 주세요. | Couldn't start linking. Please try again in a moment. | 신규 · 대표 사례: 대시보드 "Allow manual linking" 꺼짐 |
+| loginMethods.unlinkFailed | 해제하지 못했어요. 잠시 뒤에 다시 눌러 주세요. | Couldn't unlink. Please try again in a moment. | 신규 |

@@ -3,6 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 import { logger } from "@/lib/logger";
 import { safeNext } from "@/lib/safeNext";
 import { LAST_LOGIN_COOKIE, LAST_LOGIN_MAX_AGE, isLoginMethod } from "@/lib/lastLogin";
+import { linkErrorResult, linkReturnUrl } from "@/lib/identityLink";
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
@@ -10,11 +11,16 @@ export async function GET(request: NextRequest) {
   // Open-redirect guard: `next` is user-controlled and concatenated onto origin.
   // lib/safeNext keeps only a same-origin relative path (login page shares it).
   const next = safeNext(searchParams.get("next"), "/dashboard");
+  // 명함 탭 "로그인 방법"의 [연결]에서 돌아온 길(lib/identityLink) — 결과를 그 화면에 link=로 싣는다.
+  const linking = searchParams.get("link") === "1";
+  const via = searchParams.get("via");
 
   if (code) {
     try {
       // Create the redirect response first so we can set cookies on it
-      const response = NextResponse.redirect(`${origin}${next}`);
+      const response = NextResponse.redirect(
+        linking ? linkReturnUrl(origin, next, "linked", via) : `${origin}${next}`,
+      );
 
       const supabase = createServerClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -38,7 +44,6 @@ export async function GET(request: NextRequest) {
       if (!error) {
         // 로그인 화면의 "지난번에 사용" 표시(lib/lastLogin). 성공했을 때만 심는다 —
         // 버튼만 누르고 취소한 방법이 "지난번"으로 남지 않게.
-        const via = searchParams.get("via");
         if (isLoginMethod(via)) {
           response.cookies.set(LAST_LOGIN_COOKIE, via, {
             path: "/", maxAge: LAST_LOGIN_MAX_AGE, sameSite: "lax", secure: origin.startsWith("https:"),
@@ -62,8 +67,15 @@ export async function GET(request: NextRequest) {
   const providerError = searchParams.get("error");
   if (!code && providerError) {
     logger.warn("auth/callback: provider returned error", {
-      error: providerError, description: searchParams.get("error_description"),
+      error: providerError, errorCode: searchParams.get("error_code"),
+      description: searchParams.get("error_description"), linking,
     });
+  }
+  // 연결 왕복의 실패는 로그인 화면이 아니라 연결을 누른 화면으로 — 이미 로그인한 사람이라
+  // /login은 미들웨어가 대시보드로 튕겨 사유가 사라진다. 대표 사례: 그 깃허브가 이미 다른
+  // Nookframe 계정에 붙어 있다(identity_already_exists → "taken", 합치기는 수동 운영 일).
+  if (linking) {
+    return NextResponse.redirect(linkReturnUrl(origin, next, code ? "failed" : linkErrorResult(searchParams), via));
   }
   const fail = new URL("/login", origin);
   fail.searchParams.set("error", !code && providerError ? "oauth" : "auth");
