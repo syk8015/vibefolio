@@ -117,7 +117,7 @@ function BarChart({ days, counts }: { days: Date[]; counts: number[] }) {
             <div key={i} style={{ flex: 1, minWidth: 0, display: "flex", justifyContent: edge }}>
               <span style={{
                 whiteSpace: "nowrap",
-                fontSize: "0.55rem",
+                fontSize: "0.75rem",
                 fontFamily: "var(--font-mono), monospace",
                 fontWeight: isToday ? 600 : 400,
                 color: isToday ? "var(--text-primary)" : "var(--text-muted)",
@@ -146,6 +146,24 @@ function ViewGroup({
   const { t, locale } = useT();
   const [open, setOpen] = useState(defaultOpen);
 
+  // 같은 줄은 한 줄로 — 출처·나라·"N시간 전"이 모두 같은 방문을 묶고 개수만 붙인다.
+  // 링크 한 번 돌면 "직접/알 수 없음 · 한국 · 8시간 전"이 열몇 줄 그대로 반복됐다.
+  const merged = useMemo(() => {
+    const out: { key: string; v: ViewRow; source: string; ago: string; count: number }[] = [];
+    const byKey = new Map<string, (typeof out)[number]>();
+    for (const v of rows) {
+      const source = sourceLabel(v, t);
+      const ago = timeAgo(v.viewed_at, t, locale);
+      const key = `${source}|${v.country ?? ""}|${ago}`;
+      const hit = byKey.get(key);
+      if (hit) { hit.count += 1; continue; }
+      const row = { key, v, source, ago, count: 1 };
+      byKey.set(key, row);
+      out.push(row);
+    }
+    return out;
+  }, [rows, t, locale]);
+
   return (
     <div style={{ borderBottom: "1px solid var(--border)" }}>
       <button
@@ -160,13 +178,13 @@ function ViewGroup({
           >
             <path d="M4 2l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
-          <span className="text-xs" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", fontWeight: 500 }}>
+          <span className="text-xs" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", fontWeight: 500, fontSize: "0.8125rem" }}>
             {label}
           </span>
         </div>
         <span
           className="text-xs vf-mono"
-          style={{ color: "var(--text-secondary)", letterSpacing: "0.04em" }}
+          style={{ color: "var(--text-secondary)", letterSpacing: "0.04em", fontSize: "0.8125rem" }}
         >
           {rows.length}
         </span>
@@ -174,9 +192,9 @@ function ViewGroup({
 
       {open && (
         <div>
-          {rows.map((v) => (
+          {merged.map(({ key, v, source, ago, count }) => (
             <div
-              key={v.id}
+              key={key}
               className="flex items-center justify-between px-5 py-2.5"
               style={{
                 borderTop: "1px solid var(--border)",
@@ -188,18 +206,26 @@ function ViewGroup({
                   {v.country ? (COUNTRY_EMOJI[v.country] ?? "🌐") : "🌐"}
                 </span>
                 <div>
-                  <p className="text-xs" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontWeight: 500 }}>
-                    {sourceLabel(v, t)}
+                  <p className="text-sm" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontWeight: 500 }}>
+                    {source}
+                    {count > 1 && (
+                      <span
+                        className="vf-mono"
+                        style={{ marginLeft: 8, padding: "1px 7px", borderRadius: 999, background: "var(--surface-soft)", color: "var(--text-secondary)", fontSize: "0.8125rem", fontWeight: 400 }}
+                      >
+                        ×{count}
+                      </span>
+                    )}
                   </p>
                   {v.country && (
-                    <p className="text-xs" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
+                    <p className="text-xs" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.8125rem" }}>
                       {countryName(v.country, t)}
                     </p>
                   )}
                 </div>
               </div>
-              <span className="text-xs vf-mono" style={{ color: "var(--text-muted)" }}>
-                {timeAgo(v.viewed_at, t, locale)}
+              <span className="text-xs vf-mono" style={{ color: "var(--text-muted)", fontSize: "0.8125rem" }}>
+                {ago}
               </span>
             </div>
           ))}
@@ -344,13 +370,13 @@ export default function VisitsTab({ user }: { user: User }) {
           </p>
           {!noData && (
             <span className="text-xs vf-mono"
-              style={{ color: "var(--text-secondary)", letterSpacing: "0.04em" }}>
+              style={{ color: "var(--text-secondary)", letterSpacing: "0.04em", fontSize: "0.8125rem" }}>
               {capped ? t.visits.cappedPrefix : ""}{t.visits.dailyMax(Math.max(...chartCounts).toLocaleString())}
             </span>
           )}
         </div>
         {noData ? (
-          <p className="text-xs text-center py-6" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
+          <p className="text-sm text-center py-6" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
             {t.visits.noData}
           </p>
         ) : (
@@ -372,10 +398,10 @@ export default function VisitsTab({ user }: { user: User }) {
                 {topReferrers.map(([ref, count]) => (
                   <div key={ref}>
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs truncate" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontWeight: 500 }}>
+                      <span className="text-sm truncate" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontWeight: 500 }}>
                         {ref}
                       </span>
-                      <span className="text-xs vf-mono ml-2 shrink-0" style={{ color: "var(--text-secondary)", letterSpacing: "0.04em" }}>
+                      <span className="text-sm vf-mono ml-2 shrink-0" style={{ color: "var(--text-secondary)", letterSpacing: "0.04em" }}>
                         {count}
                       </span>
                     </div>
@@ -400,11 +426,11 @@ export default function VisitsTab({ user }: { user: User }) {
                 {topCountries.map(([code, count]) => (
                   <div key={code}>
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs flex items-center gap-1.5" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontWeight: 500 }}>
+                      <span className="text-sm flex items-center gap-1.5" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontWeight: 500 }}>
                         <span>{COUNTRY_EMOJI[code] ?? "🌐"}</span>
                         <span>{countryName(code, t)}</span>
                       </span>
-                      <span className="text-xs vf-mono ml-2 shrink-0" style={{ color: "var(--text-secondary)", letterSpacing: "0.04em" }}>
+                      <span className="text-sm vf-mono ml-2 shrink-0" style={{ color: "var(--text-secondary)", letterSpacing: "0.04em" }}>
                         {count}
                       </span>
                     </div>
@@ -432,7 +458,7 @@ export default function VisitsTab({ user }: { user: User }) {
             {t.visits.history}
           </p>
           {capped && (
-            <span className="text-xs vf-mono" style={{ color: "var(--text-muted)" }}>
+            <span className="text-xs vf-mono" style={{ color: "var(--text-muted)", fontSize: "0.8125rem" }}>
               {t.visits.capped}
             </span>
           )}

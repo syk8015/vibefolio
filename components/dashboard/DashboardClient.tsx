@@ -124,7 +124,7 @@ export default function DashboardClient({ user, profile, publishedCount, totalCo
           <ThemeToggle />
           <button
             onClick={handleLogout}
-            className="text-xs px-3 py-1.5 rounded-full transition-opacity hover:opacity-70"
+            className="text-sm px-3 py-1.5 rounded-full transition-opacity hover:opacity-70"
             style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", background: "none", border: "none", cursor: "pointer" }}
           >
             {t.dashboard.logout}
@@ -189,10 +189,10 @@ export default function DashboardClient({ user, profile, publishedCount, totalCo
             <p className="vf-serif-display" style={{ fontSize: "1.3rem", fontWeight: 600, margin: 0, lineHeight: 1.2 }}>
               {name}
             </p>
-            <p className="vf-mono" style={{ fontSize: "0.7rem", color: "var(--text-secondary)", margin: "3px 0 0", letterSpacing: "0.02em" }}>
+            <p className="vf-mono" style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", margin: "3px 0 0", letterSpacing: "0.02em" }}>
               @{username}
             </p>
-            <p className="vf-mono" style={{ fontSize: "0.58rem", color: "var(--text-muted)", margin: "14px 0 0", letterSpacing: "0.12em", textTransform: "uppercase" }}>
+            <p className="vf-mono" style={{ fontSize: "0.75rem", color: "var(--text-muted)", margin: "14px 0 0", letterSpacing: "0.12em", textTransform: "uppercase" }}>
               No. {String(publishedCount).padStart(2, "0")} · {new Date().getFullYear()}
             </p>
             <StampSeal size={26} label={name.charAt(0).toUpperCase()} style={{ position: "absolute", right: 14, bottom: 12 }} />
@@ -208,7 +208,7 @@ export default function DashboardClient({ user, profile, publishedCount, totalCo
                 border: "none",
                 cursor: "pointer",
                 padding: "0.35rem 0.8rem",
-                fontSize: "0.72rem",
+                fontSize: "0.8125rem",
                 color: "var(--text-secondary)",
               }}
             >
@@ -225,7 +225,7 @@ export default function DashboardClient({ user, profile, publishedCount, totalCo
             <Link
               href={`/${username}`}
               className="vf-button-ghost"
-              style={{ padding: "0.45rem 0.9rem", fontSize: "0.78rem" }}
+              style={{ padding: "0.45rem 0.9rem", fontSize: "0.875rem" }}
             >
               {t.dashboard.viewFrame}
               <svg width="11" height="11" viewBox="0 0 13 13" fill="none">
@@ -249,7 +249,7 @@ export default function DashboardClient({ user, profile, publishedCount, totalCo
             >
               {TAB_LABEL[t]}
               {t === "projects" && totalCount > 0 && (
-                <span className="vf-mono" style={{ fontSize: "0.65rem", color: "var(--text-muted)", marginLeft: 5 }}>
+                <span className="vf-mono" style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginLeft: 5 }}>
                   {totalCount}
                 </span>
               )}

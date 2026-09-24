@@ -660,7 +660,7 @@ body::before {
 
 .vf-label {
   font-family: var(--font-mono), monospace;
-  font-size: 0.72rem;
+  font-size: 0.8125rem; /* 13px — 글꼴 크기 규칙(09-24)의 칸 이름표. 대시보드·수정 창·관제탑 공통 */
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-secondary);
