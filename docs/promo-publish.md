@@ -131,4 +131,4 @@
 1. 한국어 클립 8편을 영어 소개 계정에 그대로 올릴지(`promo_clips.tagline_locale`은 `en`도 받는다).
 2. ~~게시 시각~~ → 09-25 결정: 영어 한국 11시 · 한국어 한국 21시(§2.4).
 3. 밈 저작권 기준(§4.2 제안 기본값).
-4. 1단계 DB 구조 바꾸기 실행(`supabase/migration_promo_queue.sql`) — 09-25 사용자에게 전달, 적용 전 코드는 `hold/promo-queue` 브랜치.
+4. ~~1단계 DB 구조 바꾸기~~ → 09-25 적용·main 반영, `node scripts/probe-promo-queue.mjs` 통과.
