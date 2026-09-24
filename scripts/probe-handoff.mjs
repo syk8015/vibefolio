@@ -1,6 +1,7 @@
 // 폰 → 컴퓨터 넘기기(docs/desktop-handoff.md) prod E2E. 실제 메일은 보내지 않는다.
 //
-// 검증: (0) 표 존재 (1) 익명 키로 표 못 읽음(이메일이 든 표) (2) 이메일 모양 틀리면 400
+// 검증: (0) 표 존재 (0b) 메일 링크 가입 화면 — 서버가 이메일을 채움·소셜 버튼 접힘·열림 안 찍음
+// (1) 익명 키로 표 못 읽음(이메일이 든 표) (2) 이메일 모양 틀리면 400
 // (3) 모르는 id로 open → ok:false (4) 심은 행 open → 이메일·first-touch 돌려줌 + opened_at
 // (5) 두 번째 open은 opened_at 그대로 (6) 30일 지난 행은 안 채움 (7) 크론 비밀값 없으면 401
 // (8) 크론이 30일 지난 행을 지운다(CRON_SECRET이 있을 때만)
@@ -52,6 +53,19 @@ try {
     .select("id")
     .single();
   planted.push(row.id);
+
+  {
+    // 메일 링크 가입 화면(/signup?h=)은 서버가 이메일을 채워 보낸다 — 첫 HTML에 이미 들어
+    // 있어야 "평소 화면이 한 번 보였다가 바뀌는" 일이 없다(09-24). 소셜 버튼은 접혀 있고,
+    // 서버 렌더는 "열림"을 찍지 않는다(메일 검사기가 링크를 미리 열어도 안 세게).
+    const html = await (await fetch(`${ORIGIN}/signup?h=${row.id}`)).text();
+    ok("메일 링크 가입 화면: 첫 HTML에 이메일이 채워져 있음", html.includes(`value="${EMAIL}"`));
+    ok("메일 링크 가입 화면: 소셜 버튼 접힘", !html.includes("Continue with GitHub") && !html.includes("GitHub로 계속하기"));
+    const plain = await (await fetch(`${ORIGIN}/signup`)).text();
+    ok("평소 가입 화면: 소셜 버튼 그대로", plain.includes("Continue with GitHub") || plain.includes("GitHub로 계속하기"));
+    const { data: st } = await svc.from("desktop_handoffs").select("opened_at").eq("id", row.id).single();
+    ok("서버 렌더는 '열림'을 안 찍음", st?.opened_at === null, String(st?.opened_at));
+  }
 
   {
     const { data, error } = await anon.from("desktop_handoffs").select("email").limit(5);
