@@ -94,6 +94,8 @@ export const en: Dictionary = {
     loginLink: "Log in",
     title: "Get started",
     subtitle: "Create your own frame for free.",
+    handoffSubtitle: "Picking up from your phone — finish signing up with this email.",
+    otherWays: "Sign up with Google or GitHub instead",
     nameLabel: "Name",
     namePlaceholder: "Alex Kim",
     usernameLabel: "Username",

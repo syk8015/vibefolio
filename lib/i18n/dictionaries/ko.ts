@@ -101,6 +101,9 @@ export const ko = {
     loginLink: "로그인",
     title: "시작하기",
     subtitle: "무료로 나만의 프레임을 만들어보세요.",
+    // 폰 → 컴퓨터 넘기기 메일 링크로 왔을 때(09-24). 소셜 버튼은 접히고 아래 링크로 펼친다.
+    handoffSubtitle: "폰에서 보낸 이메일로 이어서 가입해요.",
+    otherWays: "Google·GitHub로 가입하기",
     nameLabel: "이름",
     namePlaceholder: "홍길동",
     usernameLabel: "사용자 이름",
