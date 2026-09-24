@@ -19,10 +19,13 @@ type UsernameStatus = "idle" | "checking" | "available" | "taken" | "invalid" | 
 
 // 온보딩이 끝나면 갈 곳. 미들웨어가 원래 가려던 주소를 ?next=로 실어 보낸다
 // (/publish에서 가입한 사람은 JSON을 들고 왔으니 거기로 돌려보낸다). 없거나
-// 대시보드면 환영 배너가 뜨는 대시보드로.
+// 대시보드면 환영 배너가 뜨는 대시보드로 — 단 **폰 폭이면 /send**(컴퓨터로 링크 보내기,
+// 09-25). 작품은 컴퓨터의 AI 도구로 올리는데 폰에서 막 가입한 사람은 여기서 이어지지
+// 않는다(docs/desktop-handoff.md). 폭 기준은 랜딩의 폰 [시작하기]와 같은 md(768px).
 function destination(): string {
   const next = safeNext(new URLSearchParams(location.search).get("next"));
-  return next === "/" || next.startsWith("/dashboard") ? "/dashboard?welcome=1" : next;
+  if (next !== "/" && !next.startsWith("/dashboard")) return next;
+  return window.matchMedia("(max-width: 767px)").matches ? "/send" : "/dashboard?welcome=1";
 }
 
 // 아이디 겹침 검사 — DB 유일 인덱스가 lower(username)이라 대소문자를 가리지 않고

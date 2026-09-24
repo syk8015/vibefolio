@@ -103,7 +103,7 @@ export const ko = {
     title: "시작하기",
     subtitle: "무료로 나만의 프레임을 만들어보세요.",
     // 폰 → 컴퓨터 넘기기 메일 링크로 왔을 때(09-24). 소셜 버튼은 접히고 아래 링크로 펼친다.
-    handoffSubtitle: "폰에서 보낸 이메일로 이어서 가입해요.",
+    handoffSubtitle: "폰에서 이어서 왔어요. 메일로 코드를 받아 들어가세요.",
     otherWays: "Google·GitHub로 가입하기",
     nameLabel: "이름",
     namePlaceholder: "홍길동",
@@ -708,6 +708,10 @@ export const ko = {
     sendAgain: "다른 주소로 보내기",
     signupHere: "지금 여기서 가입할래요 →",
     privacyNote: "링크 메일은 1통만 보내요. 알림을 고르면 내일 1통 더. 주소는 30일 뒤 지워요.",
+    // 폰에서 막 가입한 사람(로그인 상태)에게 보이는 얼굴(09-25). 이메일 입력 없이 버튼 하나.
+    accountTitle: "가입 완료! 이제 컴퓨터에서 이어서 해요",
+    accountBody: "작품은 컴퓨터의 AI 도구로 올려요. 버튼을 누르면 아래 주소로 컴퓨터에서 열 링크를 보내 드려요.",
+    browseFirst: "폰으로 먼저 둘러볼게요 →",
   },
   publish: {
     backToDashboard: "← 대시보드",
@@ -1084,14 +1088,14 @@ export const ko = {
     handoffSubject: "폰에서 보낸 Nookframe 링크",
     handoffPreheader: "컴퓨터에서 이 메일을 열고 버튼을 누르세요.",
     handoffHeading: "컴퓨터에서 이어서 하세요",
-    handoffBody: "Nookframe은 컴퓨터의 AI 도구(Claude Code·Cursor·ChatGPT 같은 것)로 작품을 올려요. 아래 버튼을 누르면 이메일이 채워진 가입 화면이 열리고, 3분이면 첫 작품까지 올릴 수 있어요.",
+    handoffBody: "Nookframe은 컴퓨터의 AI 도구(Claude Code·Cursor·ChatGPT 같은 것)로 작품을 올려요. 아래 버튼을 누르면 이메일이 채워진 화면이 열리고, 메일로 받은 코드로 들어가면 3분이면 첫 작품까지 올릴 수 있어요.",
     handoffCta: "Nookframe 열기",
     handoffTypeHint: "버튼이 안 되면 브라우저에 nookframe.com 을 직접 쳐도 돼요.",
     handoffNotYou: "요청한 적이 없다면 이 메일은 무시하세요. 더 보내지 않아요.",
     handoffRemindSubject: "어제 폰에서 보낸 Nookframe 링크예요",
     handoffRemindPreheader: "컴퓨터 앞이라면 지금 이어서 할 수 있어요.",
     handoffRemindHeading: "컴퓨터 앞이세요?",
-    handoffRemindBody: "어제 폰에서 알림을 요청하셔서 한 번 더 보내요. 버튼을 누르면 가입 화면이 열리고, AI에 한 줄만 붙여넣으면 첫 작품이 올라가요.",
+    handoffRemindBody: "어제 폰에서 알림을 요청하셔서 한 번 더 보내요. 버튼을 누르면 이메일이 채워진 화면이 열리고, AI에 한 줄만 붙여넣으면 첫 작품이 올라가요.",
     handoffRemindLast: "알림은 이번이 마지막이에요.",
   },
 };
