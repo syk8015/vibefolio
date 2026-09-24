@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { apiError } from "@/lib/apiError";
 import { authorizeCron } from "@/lib/cronAuth";
 import { runHandoffReminders } from "@/lib/handoffReminders";
+import { runSitePatrol, type PatrolResult } from "@/lib/sitePatrol";
 import { logger, hasErrorReporter } from "@/lib/logger";
 import { trackServerEvent } from "@/lib/analytics";
 import { AnalyticsEvent } from "@/lib/analytics-events";
@@ -365,6 +366,28 @@ export async function GET(req: NextRequest) {
     logger.error("watchdog: handoff reminders failed", { error: err });
   }
 
+  // ── 4c. 사이트 순찰 — 조용히 깨지는 3곳(lib/sitePatrol.ts, docs/promo-publish.md §4.3).
+  // 요청마다 5초로 끊고 셋을 동시에 돈다. 순찰 자체가 터져도 점검은 계속한다. ─────────────
+  let patrol: PatrolResult | null = null;
+  try {
+    patrol = await runSitePatrol(admin, { origin: SITE_URL });
+    const ctx = { notes: patrol.notes, ownerVideoPage: patrol.ownerVideoPage };
+    if (patrol.oauthMeta === "fail") {
+      alertLog("patrol-oauth-meta", "watchdog: OAuth discovery document broken", ctx);
+      alerts.push("patrol-oauth-meta");
+    }
+    if (patrol.mcpChallenge === "fail") {
+      alertLog("patrol-mcp-401", "watchdog: /api/mcp unauthenticated challenge broken", ctx);
+      alerts.push("patrol-mcp-401");
+    }
+    if (patrol.ownerVideo === "fail") {
+      alertLog("patrol-owner-video", "watchdog: owner page lost its <video>", ctx);
+      alerts.push("patrol-owner-video");
+    }
+  } catch (err) {
+    logger.error("watchdog: site patrol failed", { error: err });
+  }
+
   // ── 5. Alert email (T4) — deduped so a persistent condition mails once per
   // window, not every cron tick ────────────────────────────────────────────────
   const emailed =
@@ -381,6 +404,7 @@ export async function GET(req: NextRequest) {
           visits3d,
           visits14d,
           signups14d,
+          patrolNotes: patrol?.notes ?? [],
         })
       : false;
 
@@ -400,6 +424,7 @@ export async function GET(req: NextRequest) {
     alerts,
     emailed,
     handoff,
+    patrol,
     healthy: alerts.length === 0,
     // Sentry wiring diagnostics — this route is the natural probe point since the
     // external cron exercises it anyway and it's secret-gated.
@@ -447,6 +472,7 @@ async function emailWatchdogAlert(
     visits3d: number;
     visits14d: number;
     signups14d: number;
+    patrolNotes: string[];
   },
 ): Promise<boolean> {
   if (!isEmailConfigured()) return false;
@@ -527,6 +553,18 @@ async function emailWatchdogAlert(
     );
   if (keys.includes("signups-zero"))
     lines.push(`지난 14일 방문 ${detail.visits14d}건, 가입 0건이에요 — 첫 화면이 가입까지 이어지는지 봐 주세요.`);
+  if (keys.includes("patrol-oauth-meta"))
+    lines.push(
+      "OAuth 발견 문서(/.well-known/oauth-authorization-server)가 깨졌어요 — Claude 커넥터 연결이 조용히 실패해요. CIMD 두 항목·rewrite를 봐 주세요.",
+    );
+  if (keys.includes("patrol-mcp-401"))
+    lines.push(
+      "로그인 없이 부른 /api/mcp가 401 + resource_metadata 안내를 안 돌려줘요 — 커넥터가 로그인 화면을 못 찾아요.",
+    );
+  if (keys.includes("patrol-owner-video"))
+    lines.push("영상 붙은 공개 작품의 명함 페이지에 영상이 안 그려져요 — 명함을 직접 열어 봐 주세요.");
+  if (keys.some((k) => k.startsWith("patrol-")))
+    for (const n of detail.patrolNotes) lines.push(`순찰: ${n}`);
   if (keys.includes("stuck-query-failed") || keys.includes("reap-update-failed"))
     lines.push("워치독 DB 쿼리/업데이트가 실패했어요 — Sentry를 확인해 주세요.");
   if (detail.paused) lines.push("demo_paused=true — 드레인이 멈춰 있는 상태예요.");

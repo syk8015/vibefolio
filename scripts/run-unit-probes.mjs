@@ -20,6 +20,7 @@ const PROBES = [
   "scripts/probe-ingest-store-unit.mts",    // zip 저장 — 동시 업로드(상한 8)·실패 뒤 늦은 업로드 없음·새 행 폴더 정리
   "scripts/probe-html-body-unit.mts",
   "scripts/probe-handoff-unit.mts",         // 폰→컴퓨터 넘기기 — 이메일 정리·알림 창·링크에 이메일 없음       // 채팅창이 글자로 넘긴 HTML — 잘림 감지·울타리·zip 변환
+  "scripts/probe-site-patrol-unit.mts",     // 점검 크론의 사이트 순찰 — 발견 문서 두 항목·MCP 401·명함 무대 영상 대상 고르기
   "scripts/probe-cli-input.mjs",            // CLI --file·표준입력·schema (127.0.0.1 가짜 서버, 네트워크 없음)
   "local-runner/probe-focus-coalesce.ts",   // 스크롤 병합·focus 카메라 산식
   "local-runner/probe-zoomexpr.ts",         // zoompan 식 가드
