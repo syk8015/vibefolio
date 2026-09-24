@@ -130,7 +130,8 @@ export default function LoginMethods({ accountEmail }: { accountEmail: string })
   const hasEmailRow = accountEmail !== "";
 
   return (
-    <div ref={sectionRef} className="pt-2">
+    // keep-all — 폰 폭에서 "이 계정이/에요"처럼 낱말 가운데가 끊겼다(09-25 360px 실측).
+    <div ref={sectionRef} className="pt-2" style={{ wordBreak: "keep-all" }}>
       <p className="vf-label">{tl.label}</p>
       <p className="text-sm mb-3" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", lineHeight: 1.6 }}>
         {tl.intro}
