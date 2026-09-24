@@ -52,19 +52,25 @@ function ProviderButton({ onClick, icon, label, lastUsed }: {
       style={{ border: "1px solid var(--border-bright)", background: "var(--surface)", color: "var(--text-primary)", fontFamily: "var(--font-nunito)", cursor: "pointer" }}>
       {icon}
       {label}
+      {/* 테두리 위 모서리에 걸친다 — 버튼 안 오른쪽에 두면 폭 360px 이하 폰에서 글자와 겹쳤다(09-24 측정). */}
       {lastUsed && (
-        <span className="absolute right-3 top-1/2 -translate-y-1/2"><LastUsedTag /></span>
+        <span className="absolute right-3 top-0 -translate-y-1/2"><LastUsedTag onBorder /></span>
       )}
     </button>
   );
 }
 
-/** "지난번에 사용" 알약 — 소셜 버튼 오른쪽, 로그인 화면의 메일 코드 링크·이메일 칸 옆에 붙는다. */
-export function LastUsedTag() {
+/** "지난번에 사용" 알약 — 소셜 버튼 테두리 위(onBorder), 로그인 화면의 메일 코드 링크·이메일 칸 옆.
+ *  onBorder는 테두리 선을 가려야 해서 불투명 바탕(--bg)+테두리, 나머지는 옅은 바탕(--blue-tint는 반투명). */
+export function LastUsedTag({ onBorder = false }: { onBorder?: boolean }) {
   const { t } = useT();
   return (
     <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-bold leading-none whitespace-nowrap"
-      style={{ background: "var(--blue-tint)", color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
+      style={{
+        background: onBorder ? "var(--bg)" : "var(--blue-tint)",
+        border: onBorder ? "1px solid var(--border-bright)" : undefined,
+        color: "var(--text-secondary)", fontFamily: "var(--font-nunito)",
+      }}>
       {t.auth.lastUsed}
     </span>
   );
