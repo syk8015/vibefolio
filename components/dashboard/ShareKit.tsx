@@ -102,7 +102,7 @@ export default function ShareKit({
     background: "transparent",
     color: "var(--text-primary)",
     fontFamily: "var(--font-nunito)",
-    fontSize: "0.8rem",
+    fontSize: "0.875rem",
     fontWeight: 600,
     cursor: "pointer",
     textAlign: "left",
@@ -183,7 +183,7 @@ export default function ShareKit({
             </button>
             {failedText && (
               <div role="alert" style={{ padding: "6px 8px 4px" }}>
-                <p style={{ margin: "0 0 6px", fontSize: "0.72rem", lineHeight: 1.45, color: "var(--danger)", fontFamily: "var(--font-nunito)" }}>
+                <p style={{ margin: "0 0 6px", fontSize: "0.875rem", lineHeight: 1.45, color: "var(--danger)", fontFamily: "var(--font-nunito)" }}>
                   {t.share.copyFailed}
                 </p>
                 <textarea
@@ -191,7 +191,7 @@ export default function ShareKit({
                   value={failedText}
                   rows={3}
                   onFocus={(e) => e.currentTarget.select()}
-                  style={{ width: "100%", resize: "none", fontSize: "0.72rem", padding: 6, borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface-soft)", color: "var(--text-primary)" }}
+                  style={{ width: "100%", resize: "none", fontSize: "0.8125rem", padding: 6, borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface-soft)", color: "var(--text-primary)" }}
                 />
               </div>
             )}

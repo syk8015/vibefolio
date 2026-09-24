@@ -582,6 +582,7 @@ export default function ProjectsTab({
         <button
           onClick={() => setShowAddModal(true)}
           className="vf-button-primary"
+          style={{ fontSize: "0.9375rem" }}
         >
           <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
             <path d="M7 1v12M1 7h12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
@@ -602,12 +603,12 @@ export default function ProjectsTab({
               {t.projects.emptyTitle}
             </p>
             <p
-              className="text-xs mx-auto"
+              className="text-sm mx-auto"
               style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", maxWidth: "26rem", lineHeight: 1.6 }}
             >
               {t.projects.emptyBody}
             </p>
-            <button onClick={() => setShowAddModal(true)} className="vf-button-primary mt-5">
+            <button onClick={() => setShowAddModal(true)} className="vf-button-primary mt-5" style={{ fontSize: "0.9375rem" }}>
               {t.projects.emptyCta}
             </button>
           </div>

@@ -53,7 +53,7 @@ function DemoBuildBadge({
   const line: React.CSSProperties = {
     display: "inline-flex", alignItems: "center", gap: 6,
     background: "none", border: "none", padding: 0,
-    fontFamily: "var(--font-nunito)", fontSize: "0.72rem", fontWeight: 600,
+    fontFamily: "var(--font-nunito)", fontSize: "0.8125rem", fontWeight: 600,
     whiteSpace: "nowrap",
   };
   const dot = (style: React.CSSProperties) => (
@@ -85,7 +85,7 @@ function DemoBuildBadge({
         <button
           onClick={e => {
             const r = e.currentTarget.getBoundingClientRect();
-            setAnchor(a => (a ? null : popoverAnchor(r, { width: 264, estHeight: 260 })));
+            setAnchor(a => (a ? null : popoverAnchor(r, { width: 264, estHeight: 320 })));
           }}
           style={{ ...line, color: "var(--danger)", cursor: "pointer" }}
         >
@@ -111,10 +111,10 @@ function DemoBuildBadge({
                 textAlign: "left",
               }}
             >
-              <p style={{ fontSize: "0.78rem", fontWeight: 700, color: "var(--text-primary)", fontFamily: "var(--font-nunito)", margin: 0 }}>
+              <p style={{ fontSize: "0.9375rem", fontWeight: 700, color: "var(--text-primary)", fontFamily: "var(--font-nunito)", margin: 0 }}>
                 {copy.title}
               </p>
-              <p style={{ fontSize: "0.7rem", color: "var(--text-secondary)", lineHeight: 1.6, fontFamily: "var(--font-nunito)", margin: "0.4rem 0 0" }}>
+              <p style={{ fontSize: "0.875rem", color: "var(--text-secondary)", lineHeight: 1.6, fontFamily: "var(--font-nunito)", margin: "0.4rem 0 0" }}>
                 {copy.body}
               </p>
               {onRetry && (
@@ -127,7 +127,7 @@ function DemoBuildBadge({
                     background: "var(--text-primary)",
                     color: "var(--bg)",
                     border: "none",
-                    fontSize: "0.68rem",
+                    fontSize: "0.875rem",
                     fontWeight: 600,
                     fontFamily: "var(--font-nunito)",
                     cursor: "pointer",
@@ -138,7 +138,7 @@ function DemoBuildBadge({
               )}
               {message && (
                 <details style={{ marginTop: "0.6rem" }}>
-                  <summary style={{ fontSize: "0.6rem", color: "var(--text-muted)", cursor: "pointer", fontFamily: "var(--font-nunito)" }}>
+                  <summary style={{ fontSize: "0.8125rem", color: "var(--text-muted)", cursor: "pointer", fontFamily: "var(--font-nunito)" }}>
                     {t.projects.techInfo}
                   </summary>
                   <pre
@@ -147,7 +147,7 @@ function DemoBuildBadge({
                       padding: "0.5rem 0.6rem",
                       background: "var(--surface-soft)",
                       borderRadius: 10,
-                      fontSize: "0.58rem",
+                      fontSize: "0.8125rem",
                       lineHeight: 1.5,
                       whiteSpace: "pre-wrap",
                       wordBreak: "break-word",
@@ -181,7 +181,7 @@ function DemoBuildBadge({
           aria-expanded={!!anchor}
           onClick={(e) => {
             const r = e.currentTarget.getBoundingClientRect();
-            setAnchor(a => (a ? null : popoverAnchor(r, { width: 248, estHeight: 120, align: "right" })));
+            setAnchor(a => (a ? null : popoverAnchor(r, { width: 248, estHeight: 160, align: "right" })));
           }}
           style={{ ...line, color: "var(--text-secondary)", cursor: "pointer" }}
           title={tip}
@@ -199,7 +199,7 @@ function DemoBuildBadge({
                 position: "fixed", top: anchor.top, left: anchor.left, zIndex: 50,
                 width: 248, maxHeight: anchor.maxHeight, overflowY: "auto",
                 padding: "0.9rem 1rem", background: "var(--surface)", boxShadow: "var(--shadow-card-small)", textAlign: "left",
-                fontFamily: "var(--font-nunito)", fontSize: "0.78rem", lineHeight: 1.55, color: "var(--text-secondary)",
+                fontFamily: "var(--font-nunito)", fontSize: "0.875rem", lineHeight: 1.55, color: "var(--text-secondary)",
               }}
             >
               {tip}
@@ -238,7 +238,7 @@ function DemoBuildBadge({
         type="button"
         onClick={e => {
           const r = e.currentTarget.getBoundingClientRect();
-          setAnchor(a => (a ? null : popoverAnchor(r, { width: 264, estHeight: 280 })));
+          setAnchor(a => (a ? null : popoverAnchor(r, { width: 264, estHeight: 320 })));
         }}
         className="shrink-0"
         style={{ ...line, color: "var(--text-primary)", cursor: "pointer" }}
@@ -266,7 +266,7 @@ function DemoBuildBadge({
               boxShadow: "var(--shadow-card-small)", textAlign: "left",
             }}
           >
-            <p style={{ fontSize: "0.78rem", fontWeight: 700, color: "var(--text-primary)", fontFamily: "var(--font-nunito)", margin: 0 }}>
+            <p style={{ fontSize: "0.9375rem", fontWeight: 700, color: "var(--text-primary)", fontFamily: "var(--font-nunito)", margin: 0 }}>
               {t.projects.progressTitle}
             </p>
             {/* 단계 트랙 — 지난 단계는 채움, 현재는 잉크, 남은 단계는 옅게 */}
@@ -275,7 +275,7 @@ function DemoBuildBadge({
                 const done = i < phaseIndex;
                 const now = i === phaseIndex;
                 return (
-                  <li key={name} style={{ display: "flex", alignItems: "center", gap: 8, fontFamily: "var(--font-nunito)", fontSize: "0.72rem", color: now ? "var(--text-primary)" : done ? "var(--text-secondary)" : "var(--text-muted)", fontWeight: now ? 700 : 500 }}>
+                  <li key={name} style={{ display: "flex", alignItems: "center", gap: 8, fontFamily: "var(--font-nunito)", fontSize: "0.8125rem", color: now ? "var(--text-primary)" : done ? "var(--text-secondary)" : "var(--text-muted)", fontWeight: now ? 700 : 500 }}>
                     <span style={{
                       width: 8, height: 8, borderRadius: 999, flexShrink: 0,
                       background: now || done ? "var(--text-primary)" : "transparent",
@@ -290,11 +290,11 @@ function DemoBuildBadge({
                 );
               })}
             </ol>
-            <p style={{ fontSize: "0.7rem", color: "var(--text-secondary)", lineHeight: 1.6, fontFamily: "var(--font-nunito)", margin: "0.7rem 0 0" }}>
+            <p style={{ fontSize: "0.875rem", color: "var(--text-secondary)", lineHeight: 1.6, fontFamily: "var(--font-nunito)", margin: "0.7rem 0 0" }}>
               {body}
             </p>
             {!paused && !isSlow && (
-              <p style={{ fontSize: "0.68rem", color: "var(--text-muted)", fontFamily: "var(--font-nunito)", margin: "0.35rem 0 0" }}>
+              <p style={{ fontSize: "0.8125rem", color: "var(--text-muted)", fontFamily: "var(--font-nunito)", margin: "0.35rem 0 0" }}>
                 {t.projects.usualTime}
               </p>
             )}
@@ -316,7 +316,7 @@ function MetaLine({ parts, title }: { parts: (string | null | undefined)[]; titl
       className="truncate"
       style={{
         color: "var(--text-muted)", fontFamily: "var(--font-nunito)",
-        fontSize: "0.7rem", lineHeight: 1.5, margin: 0,
+        fontSize: "0.8125rem", lineHeight: 1.5, margin: 0,
       }}
       title={title}
     >
@@ -339,9 +339,10 @@ function RowMenu({ items }: { items: RowMenuItem[] }) {
   const { t } = useT();
   const [anchor, setAnchor] = useState<PopoverAnchor | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-  const MENU_W = 152;
-  // 항목 하나 = 패딩 16 + 줄높이 ~17. 이 어림값으로 위/아래를 먼저 고른다.
-  const estHeight = items.length * 33 + 10;
+  // 184 = 가장 긴 항목("새 대본 확인하고 재촬영")이 14px에서 한 줄에 드는 폭.
+  const MENU_W = 184;
+  // 항목 하나 = 패딩 16 + 줄높이 ~20. 이 어림값으로 위/아래를 먼저 고른다.
+  const estHeight = items.length * 36 + 10;
 
   // 그린 뒤 **실제 높이**로 위치만 보정한다(2026-09-05 사용자 요청: 메뉴 안에서
   // 스크롤하지 말고 한 번에 다 보이게). setState 없이 style.top만 고쳐서
@@ -406,7 +407,7 @@ function RowMenu({ items }: { items: RowMenuItem[] }) {
                   padding: "8px 11px",
                   border: "none",
                   background: "transparent",
-                  fontSize: "0.78rem",
+                  fontSize: "0.875rem",
                   fontFamily: "var(--font-nunito)",
                   fontWeight: 500,
                   color: it.danger ? "var(--danger)" : "var(--text-primary)",
@@ -469,7 +470,7 @@ export function DraftRow({ draft, highlight, isLast, onEdit, onDelete, onPublish
               {draft.title || t.projects.untitled}
             </h3>
             <span className="px-2 py-0.5 rounded-full shrink-0"
-              style={{ background: "var(--surface-soft)", color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", fontSize: "0.6rem", fontWeight: 600 }}>
+              style={{ background: "var(--surface-soft)", color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", fontSize: "0.8125rem", fontWeight: 600 }}>
               {t.projects.draftBadge}
             </span>
           </div>
@@ -485,7 +486,7 @@ export function DraftRow({ draft, highlight, isLast, onEdit, onDelete, onPublish
           onClick={() => { setPublishing(true); onPublish(); }}
           disabled={publishing}
           className="vf-button-primary"
-          style={{ fontSize: "0.75rem", padding: "0.4rem 0.85rem", opacity: publishing ? 0.6 : 1 }}
+          style={{ fontSize: "0.875rem", padding: "0.4rem 0.85rem", opacity: publishing ? 0.6 : 1 }}
         >
           {publishing ? t.projects.publishing : t.projects.confirmPublish}
         </button>
@@ -589,7 +590,7 @@ export function ProjectRow({ project, username, demoPaused, nowMs, onDelete, onE
             </h3>
             {project.is_featured && (
               <span className="px-2 py-0.5 rounded-full shrink-0"
-                style={{ background: "var(--text-primary)", color: "var(--bg)", fontFamily: "var(--font-nunito)", fontSize: "0.6rem", fontWeight: 700 }}>
+                style={{ background: "var(--text-primary)", color: "var(--bg)", fontFamily: "var(--font-nunito)", fontSize: "0.8125rem", fontWeight: 700 }}>
                 {t.projects.featuredBadge}
               </span>
             )}
@@ -616,7 +617,7 @@ export function ProjectRow({ project, username, demoPaused, nowMs, onDelete, onE
             className="px-2 py-0.5 rounded-full text-xs shrink-0"
             style={{
               background: "var(--surface-soft)", color: "var(--text-primary)",
-              fontFamily: "var(--font-nunito)", fontWeight: 600, cursor: "pointer",
+              fontFamily: "var(--font-nunito)", fontWeight: 600, cursor: "pointer", fontSize: "0.8125rem",
             }}
           >
             {t.projects.pendingScriptBadge}
