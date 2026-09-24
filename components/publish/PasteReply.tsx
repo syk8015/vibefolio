@@ -213,7 +213,8 @@ export function PasteReply({
   const [showFiles, setShowFiles] = useState(false);
   // 연결 창의 카드 안에 들어가면 바탕색이 겹쳐 칸이 묻힌다 — compact는 상자 없이 편다.
   // 글꼴 크기(2026-09-24): 15 칸 제목·버튼 / 14 설명·파일 이름 / 13 버튼 옆 설명 — 연결 창 규칙을
-  // /publish에도 적용. 연결 창에서 이미 정한 크기(칸 제목 14·보조 버튼 13.6·입력칸 14)는 그대로 둔다.
+  // /publish에도 적용. 연결 창에서 이미 정한 크기(칸 제목 14·보조 버튼 13.6)는 그대로 둔다 — 입력칸만
+  // 아이폰 확대 때문에 .vf-input을 따른다(아래 textarea).
   const boxStyle: React.CSSProperties = compact
     ? { padding: 0 }
     : { background: "var(--surface-soft)", padding: "16px 18px" };
@@ -276,12 +277,12 @@ export function PasteReply({
     </div>
   );
 
-  // /publish는 글자 크기를 .vf-input에 맡긴다(PC 14.4 · 폰 16) — 인라인으로 16px 미만을 박으면
-  // 폰 규칙을 이겨서, 아이폰이 칸을 누르는 순간 화면을 확대했다(2026-09-24).
+  // 글자 크기는 두 곳 다 .vf-input에 맡긴다(PC 14.4 · 폰 16) — 인라인으로 16px 미만을 박으면
+  // 폰 규칙을 이겨서, 아이폰이 칸을 누르는 순간 화면을 확대했다(/publish 2026-09-24, 연결 창 09-25).
   const textarea = (
     <textarea
       className={compact ? "vf-input w-full" : "vf-input vf-placeholder-prose w-full"}
-      style={{ minHeight: compact ? 110 : 180, fontFamily: "var(--font-mono), monospace", lineHeight: 1.6, ...(compact ? { fontSize: "0.875rem" } : { wordBreak: "keep-all" }) }}
+      style={{ minHeight: compact ? 110 : 180, fontFamily: "var(--font-mono), monospace", lineHeight: 1.6, ...(compact ? {} : { wordBreak: "keep-all" }) }}
       placeholder={t.publish.pastePlaceholder}
       value={raw}
       onChange={(e) => setRaw(e.target.value)}
