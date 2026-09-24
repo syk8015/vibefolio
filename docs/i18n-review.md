@@ -761,14 +761,14 @@ SNS/검색 로봇은 JS를 안 돌려 OG·크롤러 노출 문구(루트 descrip
 | auth.resendSent | 인증 메일을 다시 보냈어요. 스팸함도 확인해 주세요. | Sent again. Check your spam folder too. | 신규 |
 | auth.resendFailed | 지금은 보낼 수 없어요. 1분 뒤에 다시 눌러 주세요. | Can't send right now. Try again in a minute. | 신규 · Supabase 같은 주소 60초 제한 |
 | auth.usernamePattern | 영문 소문자, 숫자, _-만 쓸 수 있어요 | Lowercase letters, numbers, _ and - only | 교체 · 아이디 소문자 저장(A7) |
-| auth.inAppTitle | 앱 안 브라우저에서는 구글 로그인이 막혀요 | Google sign-in is blocked inside in-app browsers | 신규 · 인스타·스레드 웹뷰(D5) |
-| auth.inAppBody | 오른쪽 위 ⋯ 메뉴에서 '외부 브라우저로 열기'를 눌러 주세요. 이메일 가입은 여기서도 돼요. | Tap the ⋯ menu (top right) and choose 'Open in external browser'. Email sign-up works here too. | 신규 |
+| auth.inAppTitle | 앱 안 브라우저에서는 구글 로그인이 막혀요 | Google sign-in is blocked inside in-app browsers | 신규 · 인스타·스레드 웹뷰(D5) → 09-24 교체(아래 "로그인 수단 추가" 절) |
+| auth.inAppBody | 오른쪽 위 ⋯ 메뉴에서 '외부 브라우저로 열기'를 눌러 주세요. 이메일 가입은 여기서도 돼요. | Tap the ⋯ menu (top right) and choose 'Open in external browser'. Email sign-up works here too. | 신규 → 09-24 교체(아래 절) |
 | auth.inAppCopy / inAppCopied / inAppCopyFailed | 주소 복사 / 복사했어요 — 사파리·크롬에 붙여 넣어 주세요 / 복사하지 못했어요 — ⋯ 메뉴를 써 주세요 | Copy link / Copied — paste it into Safari or Chrome / Couldn't copy — use the ⋯ menu instead | 신규 |
 | login.callbackConfirmFailed | 이 브라우저에서는 링크를 이어서 열 수 없었어요. 메일 인증은 끝났으니 아래에서 로그인해 주세요. | That link couldn't finish in this browser. Your email is verified — log in below. | 신규 · /login?error=auth(B8) |
 | login.callbackResetFailed / callbackResetAgain | 재설정 링크가 만료됐거나 다른 브라우저에서 열렸어요. / 재설정 메일 다시 받기 → | That reset link expired or was opened in a different browser. / Send a new reset link → | 신규 |
 | resetPassword.doneBody | 잠시 후 대시보드로 이동합니다. | Taking you to your dashboard in a moment. | 교체 · 목적지 홈→대시보드(C4) |
 | onboarding.usernameInvalid · errors.usernameInvalid | 영문 소문자, 숫자, _, -만 쓸 수 있어요 (2~30자) | Lowercase letters, numbers, _ and - only (2–30 characters) | 교체 · 소문자·30자(A7·B23) |
-| signup.errors.emailTaken | 이미 가입된 이메일이에요. 로그인하거나, 구글로 가입했다면 [Google로 계속하기]를 눌러 주세요. | This email already has an account. Log in, or use Continue with Google if you signed up that way. | 교체 · 이미 있는 주소면 Supabase가 가짜 성공을 돌려줘 "메일 보냈어요"만 뜨던 것(identities 빈 배열로 감지) |
+| signup.errors.emailTaken | 이미 가입된 이메일이에요. 로그인하거나, 구글로 가입했다면 [Google로 계속하기]를 눌러 주세요. | This email already has an account. Log in, or use Continue with Google if you signed up that way. | 교체 · 이미 있는 주소면 Supabase가 가짜 성공을 돌려줘 "메일 보냈어요"만 뜨던 것(identities 빈 배열로 감지) → 09-24 교체(아래 절) |
 | onboarding.errors.nameBlocked | 이 이름은 쓸 수 없어요. 다른 이름을 입력해 주세요. | This name can't be used. Please enter a different one. | 신규 · 금지어(욕설·성적인 말·혐오·회사 이름 사칭, lib/nameFilter.ts). 아이디는 기존 usernameReserved 문구를 같이 씀 |
 | onboarding.ageConfirm | 만 14세 이상이에요 | I'm 14 or older | 신규 · 약관 1조 가입 조건 체크(법무⑤) |
 | card.usernameChangeWarning | 저장하면 옛 주소 nookframe.com/{old}는 바로 열리지 않아요. 이미 공유한 링크가 끊겨요. | Once you save, nookframe.com/{old} stops working right away. Links you've already shared will break. | 신규 · 함수(old) · C11 |
@@ -785,3 +785,33 @@ SNS/검색 로봇은 JS를 안 돌려 OG·크롤러 노출 문구(루트 descrip
 | email.handoff* (첫 메일 7 + 알림 5) | 폰에서 보낸 Nookframe 링크 / 컴퓨터에서 이어서 하세요 / Nookframe 열기 / 요청한 적이 없다면 무시하세요 / 알림은 이번이 마지막이에요 | Your Nookframe link — from your phone / Pick up where you left off / Open Nookframe / Didn't ask for this? Ignore this email / This is the only reminder we'll send | 신규 · 거래성 메일이라 광고 문구 없음(CAN-SPAM), 알림은 동의자 1회(PECR) |
 | signup.handoffSubtitle · otherWays | 폰에서 보낸 이메일로 이어서 가입해요. / Google·GitHub로 가입하기 | Picking up from your phone — finish signing up with this email. / Sign up with Google or GitHub instead | 신규 · 메일 링크(/signup?h=)로 오면 소셜 버튼을 접고 이메일부터(09-24 사용자 지시) |
 | visits.sourceLabels (2개 추가) | Nookframe 안에서 / 로컬 테스트(localhost) | Within Nookframe / Local test (localhost) | 신규 · 자기 도메인(nookframe.com·옛 vibefolio-beta.vercel.app)과 localhost 유입을 주소 대신 이름으로(09-24). 분류기(lib/traffic-source.ts) 라벨이라 관제탑도 같은 한국어 이름 |
+
+## 로그인 수단 추가 — GitHub·메일 6자리 코드 (2026-09-24)
+
+| 키 | 한국어 | English | 비고 |
+|---|---|---|---|
+| auth.githubContinue | GitHub로 계속하기 | Continue with GitHub | 신규 |
+| auth.codeInstead / codeInsteadSignup | 비밀번호 없이 메일 코드로 로그인 / 비밀번호 없이 메일 코드로 가입 | Sign in with an email code instead / Sign up with an email code instead | 신규 · 링크 |
+| auth.passwordInstead | 비밀번호로 하기 | Use a password instead | 신규 |
+| auth.codeNewAccountHint | 처음이면 이 주소로 계정이 새로 만들어져요. | New here? This creates your account. | 신규 ⚠️ 질문형으로 바꿈 |
+| auth.codeSend | 코드 받기 | Email me a code | 신규 ⚠️ 직역(Get code) 대신 행동을 풀어 씀 |
+| auth.codeSentTo | 6자리 코드를 보냈어요. 스팸함도 확인해 주세요. | We sent a 6-digit code to this address. Check spam too. | 신규 · 아래 줄에 주소가 붙는다 |
+| auth.codeLabel / codeVerify / codeVerifying | 코드 / 확인 / 확인 중... | Code / Verify / Checking... | 신규 |
+| auth.codeResend / codeResent | 코드 다시 받기 / 새 코드를 보냈어요. 먼저 받은 코드는 이제 안 돼요. | Send a new code / New code sent — the earlier one no longer works. | 신규 |
+| auth.codeChangeEmail | 다른 이메일 쓰기 | Use a different email | 신규 |
+| auth.lastUsed | 지난번에 사용 | Last used | 신규 · 이 기기에서 지난번에 쓴 로그인 방법 옆 알약(lib/lastLogin) |
+| auth.errors.codeInvalid | 코드가 맞지 않거나 만료됐어요. 새 코드를 받아 주세요. | That code is wrong or expired. Send a new one. | 신규 |
+| auth.errors.codeWait | 코드는 1분에 한 번만 보낼 수 있어요. 잠시 뒤에 다시 눌러 주세요. | You can request a code once a minute. Try again shortly. | 신규 · Supabase 같은 주소 60초 제한 |
+| auth.inAppTitle | 구글 로그인이 안 되면 | If Google sign-in doesn't work | 교체 ⚠️ 단정("막혀요")→조건형. 09-24 사용자 실기기 인스타에선 구글이 됐다 |
+| auth.inAppBody | 오른쪽 위 ⋯ 메뉴에서 '외부 브라우저로 열기'를 눌러 주세요. 앱 안 브라우저에 따라 구글이 막힐 때가 있어요. GitHub·이메일은 여기서도 돼요. | Tap the ⋯ menu (top right) and choose 'Open in external browser' — some in-app browsers block Google. GitHub and email work right here. | 교체 · 같은 이유 |
+| login.callbackOauthFailed | 로그인이 취소됐거나 끝나지 못했어요. 다시 해 보거나 다른 방법으로 들어와 주세요. | Sign-in was cancelled or didn't finish. Try again, or use another option. | 신규 · /login?error=oauth(구글·깃허브 화면에서 취소·거절) |
+| signup.orEnterCode | 메일에 적힌 6자리 코드를 여기 넣어도 돼요. 다른 기기에서 메일을 열었을 때 편해요. | Or type the 6-digit code from the email here — handy if you opened it on another device. | 신규 · 비밀번호 가입의 "메일 확인" 화면 |
+| signup.errors.emailTaken | 이미 가입된 이메일이에요. 로그인하거나, 구글·GitHub로 가입했다면 그 버튼을 눌러 주세요. | This email already has an account. Log in, or use Google or GitHub if you signed up that way. | 교체 · GitHub 추가 |
+
+### 사전 밖 — 인증 메일(docs/auth-emails/*.html, Supabase 대시보드에 붙여넣음)
+
+| 자리 | 한국어 | English | 비고 |
+|---|---|---|---|
+| confirm-signup 코드 안내 | 또는 가입하던 화면에 이 코드를 넣어 주세요. | Or enter this code on the page you signed up from: | 신규 · 버튼 아래 6자리 코드 칸 |
+| magic-link 제목 | Nookframe 로그인 코드: {{ .Token }} | Your Nookframe sign-in code: {{ .Token }} | 신규 · 이미 있는 계정의 코드 로그인 |
+| magic-link 본문 | 로그인 코드예요 / 로그인하던 화면에 이 코드를 넣어 주세요. 본인이 요청한 게 아니라면 무시해도 돼요 — 코드 없이는 아무도 들어갈 수 없어요. / 같은 브라우저라면 이 링크로도 들어갈 수 있어요. | Your sign-in code / Enter this code on the sign-in page. If this wasn't you, ignore this email — nobody can get in without the code. / Or sign in with this link in the same browser: | 신규 |
