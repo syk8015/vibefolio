@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isAdminEmail } from "@/lib/routeAuth";
 import { AnalyticsEvent } from "@/lib/analytics-events";
-import { promoTrackingUrl } from "@/lib/promo";
+import { promoTrackingUrl, type PromoLocale, type PromoPostStatus } from "@/lib/promo";
 import { Panel, SectionTitle, MonoAside, Ledger, type LedgerEntry } from "../panels";
 import TaglinePicker, { type TaglineShots } from "./TaglinePicker";
 import ClipGallery, { type ClipData } from "./ClipGallery";
@@ -26,12 +26,12 @@ export default async function PromoPage() {
     admin
       .from("promo_clips")
       .select(
-        "id, status, tagline_text, tagline_reply, caption, format, opening, video_url, poster_url, error, created_at",
+        "id, status, tagline_text, tagline_reply, tagline_locale, caption, format, opening, video_url, poster_url, error, created_at",
       )
       .order("created_at", { ascending: false }),
     admin
       .from("promo_posts")
-      .select("id, clip_id, channel, status, created_at")
+      .select("id, clip_id, channel, status, scheduled_at, fail_reason, created_at")
       .order("created_at", { ascending: false }),
     // /admin/page.tsx와 같은 정책: 서버에서 event만 좁히고 나머지(campaign 매칭·
     // 그루핑)는 JS에서 처리한다 — JSON 연산자 필터 문법 실수 위험을 피한다.
@@ -64,11 +64,13 @@ export default async function PromoPage() {
   let totalVisits = 0;
   let totalSignups = 0;
   let postedCount = 0;
+  let queuedCount = 0;
   for (const p of posts) {
     const stats = statsByPostId.get(p.id) ?? { visits: 0, signups: 0 };
     totalVisits += stats.visits;
     totalSignups += stats.signups;
     if (p.status === "posted") postedCount++;
+    if (p.status === "queued" || p.status === "publishing") queuedCount++;
     const ch = channelStats.get(p.channel) ?? { visits: 0, signups: 0 };
     ch.visits += stats.visits;
     ch.signups += stats.signups;
@@ -84,7 +86,9 @@ export default async function PromoPage() {
       trackingUrl: promoTrackingUrl({ channel: p.channel, postId: p.id }),
       visits: stats.visits,
       signups: stats.signups,
-      posted: p.status === "posted",
+      status: p.status as PromoPostStatus,
+      scheduledAt: p.scheduled_at,
+      failReason: p.fail_reason,
     };
     const arr = postsByClipId.get(p.clip_id) ?? [];
     arr.push(row);
@@ -95,6 +99,7 @@ export default async function PromoPage() {
     id: c.id,
     taglineText: c.tagline_text,
     taglineReply: c.tagline_reply,
+    locale: c.tagline_locale as PromoLocale,
     caption: c.caption,
     status: c.status as ClipData["status"],
     format: c.format as ClipData["format"],
@@ -142,7 +147,12 @@ export default async function PromoPage() {
   const ledger: LedgerEntry[] = [
     { label: "클립", value: clips.length, sub: `완료 ${doneCount} · 대기 ${pendingCount}`, state: "plain" },
     // 값은 [올렸음]을 누른 것만. 링크 복사는 게시가 아니다(예전엔 복사=게시완료로 셌다).
-    { label: "올린 채널", value: postedCount, sub: `링크만 복사 ${posts.length - postedCount}`, state: "plain" },
+    {
+      label: "올린 채널",
+      value: postedCount,
+      sub: `예약 ${queuedCount} · 링크만 복사 ${posts.filter((p) => p.status === "draft").length}`,
+      state: "plain",
+    },
     { label: "유입", value: totalVisits, sub: "추적 링크 첫 방문 (30일 제한 없음)", state: "plain" },
     {
       label: "가입",

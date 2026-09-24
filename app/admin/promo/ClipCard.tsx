@@ -4,7 +4,16 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { copyText } from "@/lib/clipboard";
 import { getSocialBrand } from "@/components/SocialBadge";
-import { PROMO_CHANNELS, PROMO_OPENINGS, type PromoOpening } from "@/lib/promo";
+import {
+  PROMO_CHANNELS,
+  PROMO_OPENINGS,
+  formatKstSlot,
+  promoCaption,
+  promoScheduleChannels,
+  type PromoLocale,
+  type PromoOpening,
+  type PromoPostStatus,
+} from "@/lib/promo";
 
 export type ClipPost = {
   id: string;
@@ -15,13 +24,17 @@ export type ClipPost = {
   // 채널 버튼을 누르면 링크가 발급되고 캡션이 복사될 뿐이다(draft). 실제로 올렸는지는
   // 사람만 안다 — [올렸음]을 눌러야 posted. 예전엔 복사 순간 posted로 찍어서
   // "게시완료 3"이 떴는데 실업로드는 0이었다(2026-09-18 사용자 정정).
-  posted: boolean;
+  // queued = [예약]됨(scheduledAt), publishing·failed = 서버 게시(2단계)가 적는다.
+  status: PromoPostStatus;
+  scheduledAt: string | null;
+  failReason: string | null;
 };
 
 export type ClipData = {
   id: string;
   taglineText: string;
   taglineReply: string | null;
+  locale: PromoLocale;
   caption: string | null;
   status: "pending" | "recording" | "done" | "failed";
   format: "vertical" | "horizontal";
@@ -112,14 +125,28 @@ export default function ClipCard({ clip }: { clip: ClipData }) {
         });
         const body = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
-        post = { id: body.postId, channel, trackingUrl: body.trackingUrl, visits: 0, signups: 0, posted: false };
+        post = {
+          id: body.postId,
+          channel,
+          trackingUrl: body.trackingUrl,
+          visits: 0,
+          signups: 0,
+          status: "draft",
+          scheduledAt: null,
+          failReason: null,
+        };
       }
 
-      const payload = [caption.trim(), post.trackingUrl].filter(Boolean).join("\n\n");
+      const payload = promoCaption({ channel, caption, trackingUrl: post.trackingUrl, locale: clip.locale });
       const copied = await copyText(payload);
       if (copied) {
         setCopiedChannel(channel);
         setTimeout(() => setCopiedChannel(null), 2200);
+      }
+      // 예약된 채널은 서버가 올린다 — 업로드 화면을 열어 주면 손으로 한 번 더 올리게 된다.
+      if (post.status === "queued" || post.status === "publishing") {
+        router.refresh();
+        return;
       }
       // 새 탭이 팝업 차단에 걸릴 수 있어(비동기 뒤 open) 실패를 조용히 넘기지
       // 않고 알려준다 — 복사는 이미 됐으므로 주소만 직접 열면 된다.
@@ -128,6 +155,39 @@ export default function ClipCard({ clip }: { clip: ClipData }) {
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "실패했어요.");
+    } finally {
+      setBusyChannel(null);
+    }
+  }
+
+  // [예약] — 캡션을 먼저 저장하고(서버가 빈 캡션을 거절하므로) 이 클립 언어의 자동 채널에
+  // 하루 1편 칸으로 넣는다. 올리는 건 2단계 게시 크론이 한다.
+  async function handleSchedule() {
+    setBusyChannel("__schedule");
+    setError(null);
+    try {
+      if (caption !== (clip.caption ?? "")) await saveCaption(caption);
+      const res = await fetch(`/api/admin/promo/clips/${clip.id}/schedule`, { method: "POST" });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "예약에 실패했어요.");
+    } finally {
+      setBusyChannel(null);
+    }
+  }
+
+  async function handleUnschedule() {
+    setBusyChannel("__schedule");
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/promo/clips/${clip.id}/schedule`, { method: "DELETE" });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "예약 취소에 실패했어요.");
     } finally {
       setBusyChannel(null);
     }
@@ -170,6 +230,13 @@ export default function ClipCard({ clip }: { clip: ClipData }) {
       setBusyChannel(null);
     }
   }
+
+  // 예약 줄 — 이 클립 언어로 서버가 올리는 채널(영어=인스타, 한국어=스레드).
+  const autoChannels = promoScheduleChannels(clip.locale);
+  const autoPosts = autoChannels.map((ch) => ({ ch, post: clip.posts.find((p) => p.channel === ch) }));
+  const queued = autoPosts.filter(({ post }) => post?.status === "queued" || post?.status === "publishing");
+  const schedulable = autoPosts.filter(({ post }) => !post || post.status === "draft" || post.status === "failed");
+  const captionEmpty = !caption.trim();
 
   // 고정 4채널 + 옛 기록에만 있는 채널(이름이 다르게 저장된 것)을 뒤에 붙인다.
   const extraPosts = clip.posts.filter((p) => !PROMO_CHANNELS.some((c) => c.label === p.channel));
@@ -264,8 +331,59 @@ export default function ClipCard({ clip }: { clip: ClipData }) {
               rows={3}
               className="vf-input"
               style={{ resize: "vertical", fontSize: "0.82rem" }}
-              placeholder="캡션 — 올릴 때 이 글이 추적 링크와 함께 복사돼요."
+              placeholder="캡션 — 채널마다 꼬리가 자동으로 붙어요(스레드·X는 추적 링크, 인스타·유튜브는 '링크는 프로필에'+해시태그)."
             />
+
+            {autoChannels.length > 0 && (queued.length > 0 || schedulable.length > 0) && (
+              <div className="flex items-center gap-2 flex-wrap" style={{ fontSize: "0.72rem" }}>
+                {queued.map(({ ch, post }) => (
+                  <span key={ch} className="vf-mono" style={{ color: "var(--text-secondary)" }}>
+                    {post!.status === "publishing" ? "올리는 중" : "예약"} · {ch}{" "}
+                    {post!.scheduledAt ? formatKstSlot(Date.parse(post!.scheduledAt)) : ""}
+                  </span>
+                ))}
+                {schedulable.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleSchedule}
+                    disabled={captionEmpty || busyChannel !== null}
+                    title={captionEmpty ? "캡션을 먼저 써 주세요" : `${schedulable.map((s) => s.ch).join("·")}에 하루 1편 칸으로 예약`}
+                    className="font-semibold transition-opacity hover:opacity-80 disabled:opacity-40"
+                    style={{
+                      borderRadius: "999px",
+                      padding: "5px 12px",
+                      background: "var(--text-primary)",
+                      color: "var(--bg)",
+                      border: "none",
+                      cursor: captionEmpty ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    예약 · {schedulable.map((s) => s.ch).join("·")}
+                  </button>
+                )}
+                {queued.some(({ post }) => post!.status === "queued") && (
+                  <button
+                    type="button"
+                    onClick={handleUnschedule}
+                    disabled={busyChannel !== null}
+                    className="font-semibold transition-opacity hover:opacity-75 disabled:opacity-50"
+                    style={{
+                      borderRadius: "999px",
+                      padding: "5px 10px",
+                      background: "var(--surface-soft)",
+                      color: "var(--text-secondary)",
+                      border: "none",
+                      cursor: "pointer",
+                    }}
+                  >
+                    예약 취소
+                  </button>
+                )}
+                {captionEmpty && schedulable.length > 0 && (
+                  <span style={{ color: "var(--text-muted)" }}>캡션을 쓰면 예약할 수 있어요</span>
+                )}
+              </div>
+            )}
 
             <div className="flex items-center gap-1.5 flex-wrap">
               {PROMO_CHANNELS.map((ch) => {
@@ -292,7 +410,9 @@ export default function ClipCard({ clip }: { clip: ClipData }) {
                   post={post}
                   busy={busyChannel === post.channel}
                   copied={copiedChannel === post.channel}
-                  onClick={() => copyText([caption.trim(), post.trackingUrl].filter(Boolean).join("\n\n"))}
+                  onClick={() =>
+                    copyText(promoCaption({ channel: post.channel, caption, trackingUrl: post.trackingUrl, locale: clip.locale }))
+                  }
                   onMarkPosted={() => handleMarkPosted(post)}
                   onRemove={() => handleRemove(post)}
                 />
@@ -331,9 +451,12 @@ function ChannelPill({
 }) {
   const brand = host ? getSocialBrand(host) : null;
   const hasLink = !!post;
-  const posted = !!post?.posted;
+  const posted = post?.status === "posted";
+  const failed = post?.status === "failed";
+  // 예약·올리는 중은 서버 몫이라 [올렸음]을 숨긴다(손으로 올리면 같은 앱에 두 번 올라간다).
+  const serverOwned = post?.status === "queued" || post?.status === "publishing";
   // 숫자가 붙기 시작한 채널은 지우면 유입 기록이 같이 날아간다 — 0일 때만 취소.
-  const canRemove = !!onRemove && hasLink && post.visits === 0 && post.signups === 0;
+  const canRemove = !!onRemove && hasLink && post.status !== "publishing" && post.visits === 0 && post.signups === 0;
 
   return (
     <span className="relative inline-flex">
@@ -342,8 +465,12 @@ function ChannelPill({
         onClick={onClick}
         disabled={busy}
         title={
-          posted
+          failed
+            ? `${label} 자동 게시 실패 — ${post?.failReason ?? "이유 없음"}`
+            : posted
             ? `${label}에 올림 — 다시 누르면 캡션+링크를 또 복사해요`
+            : serverOwned
+            ? `${label} 예약됨(서버가 올려요) — 누르면 글만 복사해요`
             : hasLink
               ? `${label} 링크 복사함(아직 안 올림) — 다시 누르면 또 복사해요`
               : `${label}에 올리기`
@@ -374,6 +501,11 @@ function ChannelPill({
         >
           {copied ? "복사됨" : label}
         </span>
+        {(failed || serverOwned) && (
+          <span style={{ fontSize: "0.62rem", fontWeight: 600, color: failed ? "#8e3535" : "var(--text-secondary)" }}>
+            {failed ? "실패" : post?.status === "publishing" ? "올리는 중" : "예약"}
+          </span>
+        )}
         {hasLink && (
           <span
             className="vf-mono"
@@ -383,7 +515,7 @@ function ChannelPill({
           </span>
         )}
       </button>
-      {hasLink && !posted && onMarkPosted && (
+      {hasLink && !posted && !serverOwned && onMarkPosted && (
         <button
           type="button"
           onClick={onMarkPosted}

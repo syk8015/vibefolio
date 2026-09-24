@@ -32,6 +32,26 @@ export async function PATCH(
     }
 
     const admin = createAdminClient();
+    // 예약된 채널이 있으면 캡션을 비울 수 없다 — 빈 글이 예약 시각에 올라가면 안 된다
+    // ([예약] 버튼이 빈 캡션을 막는 것과 같은 규칙, docs/promo-publish.md §2.3).
+    if (!caption.trim()) {
+      const { count, error: qErr } = await admin
+        .from("promo_posts")
+        .select("id", { count: "exact", head: true })
+        .eq("clip_id", id)
+        .in("status", ["queued", "publishing"]);
+      if (qErr) {
+        return apiError({ status: 500, message: "조회에 실패했어요.", code: "DB_SELECT_FAILED", cause: qErr });
+      }
+      if ((count ?? 0) > 0) {
+        return apiError({
+          status: 409,
+          message: "예약된 채널이 있어서 캡션을 비울 수 없어요. 예약을 먼저 취소해 주세요.",
+          code: "CAPTION_REQUIRED_WHILE_QUEUED",
+        });
+      }
+    }
+
     const { data, error } = await admin
       .from("promo_clips")
       .update({ caption: caption || null })

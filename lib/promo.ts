@@ -84,10 +84,107 @@ export function promoTrackingUrl({ channel, postId }: { channel: string; postId:
 //   host      — components/SocialBadge.tsx의 브랜드(로고·색) 조회 키. 로고 SVG를
 //               여기 복제하지 않고 명함에 쓰는 것과 같은 것을 그대로 쓴다.
 //   uploadUrl — 버튼을 눌렀을 때 새 탭으로 여는 업로드 화면.
+//   feedLocale — 이 채널에 올리는 클립 언어(09-24 광고 계획 결정: 인스타·유튜브·X 피드는
+//               영어, 스레드는 한국어). [예약]이 클립 언어로 채널을 고를 때 쓴다.
+//   auto      — 서버가 예약 시각에 올리는 채널인가(docs/promo-publish.md §2).
+//               유튜브는 API 심사 전엔 올린 영상이 비공개로 잠겨 3단계까지 손으로,
+//               X는 링크 글 요금 때문에 계속 손으로(v1 결정).
 export const PROMO_CHANNELS = [
-  { label: "인스타", host: "instagram.com", uploadUrl: "https://www.instagram.com/" },
-  { label: "스레드", host: "threads.net", uploadUrl: "https://www.threads.net/" },
-  { label: "유튜브", host: "youtube.com", uploadUrl: "https://studio.youtube.com/" },
-  { label: "X", host: "x.com", uploadUrl: "https://x.com/compose/post" },
+  { label: "인스타", host: "instagram.com", uploadUrl: "https://www.instagram.com/", feedLocale: "en", auto: true },
+  { label: "스레드", host: "threads.net", uploadUrl: "https://www.threads.net/", feedLocale: "ko", auto: true },
+  { label: "유튜브", host: "youtube.com", uploadUrl: "https://studio.youtube.com/", feedLocale: "en", auto: false },
+  { label: "X", host: "x.com", uploadUrl: "https://x.com/compose/post", feedLocale: "en", auto: false },
 ] as const;
+
+export type PromoLocale = "ko" | "en";
+export type PromoChannelLabel = (typeof PROMO_CHANNELS)[number]["label"];
+
+/** [예약]이 이 언어의 클립을 싣는 채널 — 서버가 올리는 채널 중 피드 언어가 같은 것. */
+export function promoScheduleChannels(locale: PromoLocale): PromoChannelLabel[] {
+  return PROMO_CHANNELS.filter((c) => c.auto && c.feedLocale === locale).map((c) => c.label);
+}
+
+// ── 캡션 꼬리 ────────────────────────────────────────────────────────────
+// 캡션 본문은 사람이 클립당 하나 쓴다(AI 캡션 폐기, 08-19). 채널마다 다른 건 꼬리뿐이라
+// 여기서 붙인다 — 복사 버튼(손으로 올리기)과 서버 게시(2단계)가 같은 함수를 써야 글이 같다.
+//   스레드·X — 추적 링크(링크가 눌리는 곳). X는 해시태그 없음(09-25 조사).
+//   인스타·유튜브 — 캡션·설명 링크가 안 눌려서 "링크는 프로필에" + 해시태그.
+//                  인스타 해시태그 상한 5(09-25 조사), 유튜브는 #Shorts를 앞에.
+// 해시태그 목록은 사람이 정한 고정값이다 — 바꾸려면 여기만 고치면 된다.
+export const PROMO_HASHTAGS: Record<PromoLocale, string[]> = {
+  en: ["#vibecoding", "#buildinpublic", "#indiehacker", "#aicoding", "#nookframe"],
+  ko: ["#바이브코딩", "#사이드프로젝트", "#개발자", "#포트폴리오", "#nookframe"],
+};
+const LINK_IN_BIO: Record<PromoLocale, string> = {
+  en: "Link in bio.",
+  ko: "링크는 프로필에 있어요.",
+};
+const INSTAGRAM_HASHTAG_MAX = 5;
+
+export function promoCaption({
+  channel,
+  caption,
+  trackingUrl,
+  locale,
+}: {
+  channel: string;
+  caption: string | null;
+  trackingUrl: string;
+  locale: PromoLocale;
+}): string {
+  const body = (caption ?? "").trim();
+  let tail: string;
+  if (channel === "인스타") {
+    tail = `${LINK_IN_BIO[locale]}\n\n${PROMO_HASHTAGS[locale].slice(0, INSTAGRAM_HASHTAG_MAX).join(" ")}`;
+  } else if (channel === "유튜브") {
+    tail = `${LINK_IN_BIO[locale]}\n\n${["#Shorts", ...PROMO_HASHTAGS[locale]].join(" ")}`;
+  } else {
+    tail = trackingUrl;
+  }
+  return [body, tail].filter(Boolean).join("\n\n");
+}
+
+// ── 예약 시각 ────────────────────────────────────────────────────────────
+// 하루 1편, 채널마다 정해진 한국 시각에(사용자 09-25 결정). 한국은 서머타임이 없어
+// UTC+9 고정으로 센다 — 미국 쪽 시각은 11/1 서머타임이 끝나면 한 시간 당겨진다.
+//   en 11시 = 미국 동부 전날 밤 10시·서부 저녁 7시(09-25 조사: 릴스는 현지 저녁이 낫다)
+//   ko 21시 = 한국 퇴근 뒤
+export const PROMO_SLOT_HOUR_KST: Record<PromoLocale, number> = { en: 11, ko: 21 };
+const KST_OFFSET_MS = 9 * 3_600_000;
+const DAY_MS = 24 * 3_600_000;
+// 누르자마자 올라가는 일이 없게 — 최소 이만큼 뒤의 칸부터 잡는다(마음 바꿀 틈).
+export const PROMO_SCHEDULE_LEAD_MS = 30 * 60_000;
+
+/** 한국 날짜 키(YYYY-MM-DD). */
+export function kstDay(ms: number): string {
+  return new Date(ms + KST_OFFSET_MS).toISOString().slice(0, 10);
+}
+
+/**
+ * 다음 빈 칸 — now+LEAD 이후 가장 이른 "한국 시각 hour시" 중, 이미 예약된 날(taken)이 아닌 첫날.
+ * 가운데 예약을 취소하면 빈 날부터 다시 채운다.
+ */
+export function nextPromoSlot(nowMs: number, hourKst: number, takenMs: number[]): number {
+  const taken = new Set(takenMs.map(kstDay));
+  const earliest = nowMs + PROMO_SCHEDULE_LEAD_MS;
+  const k = new Date(earliest + KST_OFFSET_MS);
+  let slot = Date.UTC(k.getUTCFullYear(), k.getUTCMonth(), k.getUTCDate(), hourKst) - KST_OFFSET_MS;
+  if (slot < earliest) slot += DAY_MS;
+  while (taken.has(kstDay(slot))) slot += DAY_MS;
+  return slot;
+}
+
+/** 화면 표시용 "9/26(금) 21:00". */
+export function formatKstSlot(ms: number): string {
+  const d = new Date(ms + KST_OFFSET_MS);
+  const wd = ["일", "월", "화", "수", "목", "금", "토"][d.getUTCDay()];
+  const hh = String(d.getUTCHours()).padStart(2, "0");
+  const mm = String(d.getUTCMinutes()).padStart(2, "0");
+  return `${d.getUTCMonth() + 1}/${d.getUTCDate()}(${wd}) ${hh}:${mm}`;
+}
+
+// ── 포스트 상태 ──────────────────────────────────────────────────────────
+// draft(링크만 복사) → queued(예약) → publishing(서버가 올리는 중, 2단계) → posted | failed.
+// 손으로 올린 채널은 [올렸음]으로 바로 posted.
+export type PromoPostStatus = "draft" | "queued" | "publishing" | "posted" | "failed";
 

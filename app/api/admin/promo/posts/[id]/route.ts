@@ -4,7 +4,8 @@ import { apiError } from "@/lib/apiError";
 import { requireAdmin } from "@/lib/routeAuth";
 
 // DELETE = 채널 기록 취소(채널 버튼의 ×). PATCH = [올렸음] — 사람이 실제로 올린 뒤
-// 누르는 게시 표시. 2026-08-27엔 "채널 버튼 = 게시"로 보고 PATCH를 없앴는데, 그
+// 누르는 게시 표시. 둘 다 서버가 올리는 중(publishing)인 행은 건드리지 않는다 — 게시
+// 크론(2단계)이 결과를 적기 전에 지우거나 posted로 덮으면 두 번 올라가거나 기록이 틀린다. 2026-08-27엔 "채널 버튼 = 게시"로 보고 PATCH를 없앴는데, 그
 // 버튼은 복사만 할 뿐이라 실업로드 0건이 "게시완료 3"으로 보였다(09-18 정정) →
 // 09-22 복원. 캡션 편집은 여전히 클립 쪽(PATCH /clips/[id]).
 //
@@ -29,13 +30,14 @@ export async function PATCH(
       .from("promo_posts")
       .update({ status: "posted", posted_at: new Date().toISOString() })
       .eq("id", id)
+      .neq("status", "publishing")
       .select("id")
       .maybeSingle();
     if (error) {
       return apiError({ status: 500, message: "게시 표시에 실패했어요.", code: "DB_UPDATE_FAILED", cause: error, context: { postId: id } });
     }
     if (!data) {
-      return apiError({ status: 404, message: "포스트를 찾을 수 없어요.", code: "NOT_FOUND" });
+      return apiError({ status: 404, message: "포스트를 찾을 수 없거나 서버가 올리는 중이에요.", code: "NOT_FOUND" });
     }
     return NextResponse.json({ ok: true });
   } catch (err) {
@@ -55,7 +57,7 @@ export async function DELETE(
     const admin = createAdminClient();
     const { data: post, error: findErr } = await admin
       .from("promo_posts")
-      .select("id")
+      .select("id, status")
       .eq("id", id)
       .maybeSingle();
     if (findErr) {
@@ -63,6 +65,9 @@ export async function DELETE(
     }
     if (!post) {
       return apiError({ status: 404, message: "포스트를 찾을 수 없어요.", code: "NOT_FOUND" });
+    }
+    if (post.status === "publishing") {
+      return apiError({ status: 409, message: "서버가 올리는 중이라 지울 수 없어요.", code: "PUBLISHING" });
     }
 
     // 유입/가입이 하나라도 붙었으면 기록을 지우지 않는다.
@@ -81,7 +86,7 @@ export async function DELETE(
       });
     }
 
-    const { error } = await admin.from("promo_posts").delete().eq("id", id);
+    const { error } = await admin.from("promo_posts").delete().eq("id", id).neq("status", "publishing");
     if (error) {
       return apiError({
         status: 500,
