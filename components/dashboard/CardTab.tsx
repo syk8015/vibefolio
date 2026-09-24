@@ -17,6 +17,9 @@ import { getSocialMeta } from "@/components/SocialBadge";
 import type { DashboardProfile } from "./DashboardClient";
 import { useT } from "@/lib/i18n/client";
 
+// 회원 탈퇴 칸(옅은 빨강 채움) 위의 빨간 글자 — 이유는 아래 "계정" 칸 주석에.
+const DANGER_ON_TINT = "color-mix(in srgb, var(--danger) 85%, var(--text-primary))";
+
 function migrateOldLinks(profile: DashboardProfile): string[] {
   const links: string[] = [];
   if (profile.twitter) links.push(`https://twitter.com/${profile.twitter.replace("@", "")}`);
@@ -406,11 +409,13 @@ export default function CardTab({ user, profile }: { user: User; profile: Dashbo
       </form>
 
       {/* 계정 — 명함 내용과 분리된 계정 자체의 작업(탈퇴). soft-fill 언어:
-          경고는 테두리가 아니라 옅은 채움으로. (privacy: 탈퇴 즉시 파기) */}
+          경고는 테두리가 아니라 옅은 채움으로. (privacy: 탈퇴 즉시 파기)
+          빨간 글자에 글자색을 15% 섞는다(2026-09-25) — 옅은 빨강 채움 위에서 --danger 그대로는
+          라이트 버튼이 대비 4.1이었다. 섞으면 라이트는 더 진하게, 다크는 더 밝게 바탕에서 멀어진다. */}
       <div className="pt-2">
         <p className="vf-label">{t.card.accountLabel}</p>
         <div className="rounded-2xl p-5" style={{ background: "rgba(179,71,71,0.06)" }}>
-          <h3 className="text-sm font-black mb-1.5" style={{ color: "var(--danger)", fontFamily: "var(--font-nunito)" }}>{t.card.deleteTitle}</h3>
+          <h3 className="text-sm font-black mb-1.5" style={{ color: DANGER_ON_TINT, fontFamily: "var(--font-nunito)" }}>{t.card.deleteTitle}</h3>
           <p className="text-sm mb-4" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", lineHeight: 1.65 }}>
             {t.card.deleteBody1}
             <strong style={{ color: "var(--text-primary)" }}>{t.card.deleteBodyStrong}</strong>{t.card.deleteBody2}
@@ -419,7 +424,7 @@ export default function CardTab({ user, profile }: { user: User; profile: Dashbo
             type="button"
             onClick={() => { setShowDeleteModal(true); setDeleteConfirm(""); setDeleteError(""); }}
             className="text-sm font-bold px-4 py-2.5 rounded-xl transition-opacity hover:opacity-80"
-            style={{ color: "var(--danger)", background: "rgba(179,71,71,0.12)", border: "none", cursor: "pointer", fontFamily: "var(--font-nunito)" }}
+            style={{ color: DANGER_ON_TINT, background: "rgba(179,71,71,0.12)", border: "none", cursor: "pointer", fontFamily: "var(--font-nunito)" }}
           >
             {t.card.deleteBtn}
           </button>

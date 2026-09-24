@@ -58,11 +58,11 @@ function ReelTile({
         border: "none",
         cursor: "pointer",
         textAlign: "left",
-        opacity: active ? 1 : 0.7,
-        transition: "opacity 0.2s",
         fontFamily: "var(--font-nunito)",
       }}
     >
+      {/* 고르지 않은 칸은 그림만 흐리게 한다(2026-09-25). 칸 전체를 0.7로 흐리면 번호·연도가
+          대비 2.7(라이트)·3.2(다크)로 읽기 어려웠다. 고른 칸은 굵은 테두리와 재생 표시로 구분된다. */}
       <div
         style={{
           position: "relative",
@@ -73,6 +73,8 @@ function ReelTile({
           background: "#0a0a0a",
           outline: active ? "2px solid var(--text-primary)" : "1px solid var(--border)",
           outlineOffset: active ? 2 : 0,
+          opacity: active ? 1 : 0.7,
+          transition: "opacity 0.2s",
         }}
       >
         <Image

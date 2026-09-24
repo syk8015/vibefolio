@@ -134,7 +134,7 @@ export default function UploadAnythingSection({ locale }: { locale: Locale }) {
 
         {/* 오른쪽: 결과. 무엇을 넣든 이건 안 바뀐다 — 대신 안에서 시연이 돈다. */}
         <div className="vf-ua-band vf-ua-band-film" style={{ width: 400, maxWidth: "100%", borderRadius: 16, padding: "22px 24px", boxSizing: "border-box", display: "flex", flexDirection: "column", gap: 12 }}>
-          <p style={{ ...mono(11), margin: 0, letterSpacing: "0.06em", color: "var(--text-muted)" }}>{t.filmLabel}</p>
+          <p style={{ ...mono(11), margin: 0, letterSpacing: "0.06em", color: "var(--text-secondary)" }}>{t.filmLabel}</p>
           <div className="vf-ua-filmbox"><Film t={t} /></div>
         </div>
       </div>
@@ -224,8 +224,10 @@ function Film({ t }: { t: ReturnType<typeof getDictionary>["uploadAnything"] }) 
 
 /* ── 조각들 ─────────────────────────────────────────────────────────── */
 
+// 밴드 이름(과 오른쪽 "자동 시연 영상")은 secondary — 밴드 바탕(soft) 위에서 muted는 대비 4.1이라
+// 11px 글자가 흐렸다(2026-09-25). secondary는 라이트 5.4·다크 6.1.
 function SlideLabel({ children }: { children: React.ReactNode }) {
-  return <p style={{ ...mono(11), margin: "0 0 14px", letterSpacing: "0.06em", color: "var(--text-muted)" }}>{children}</p>;
+  return <p style={{ ...mono(11), margin: "0 0 14px", letterSpacing: "0.06em", color: "var(--text-secondary)" }}>{children}</p>;
 }
 
 const mono = (size: number): React.CSSProperties => ({
