@@ -204,7 +204,8 @@ export default function OnboardingPage() {
   // other way out. Let them sign out and pick a different account.
   async function handleSignOut() {
     const supabase = createClient();
-    await supabase.auth.signOut();
+    // 이 기기만 — 기본값 global은 다른 기기 세션까지 푼다(app/api/auth/logout 참고).
+    await supabase.auth.signOut({ scope: "local" });
     router.push("/login");
     router.refresh();
   }

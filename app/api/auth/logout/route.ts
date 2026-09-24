@@ -14,8 +14,10 @@ export async function POST(request: NextRequest) {
     return apiError({ status: 403, message: "잘못된 요청입니다.", code: "FORBIDDEN" });
   }
 
+  // scope "local" = 이 기기 세션만 끝낸다. supabase-js 기본값("global")은 폰·컴퓨터에
+  // 로그인해 둔 다른 세션까지 전부 푼다(폰→컴퓨터 넘기기로 두 기기를 쓰는 사람이 있다).
   const supabase = await createClient();
-  const { error } = await supabase.auth.signOut();
+  const { error } = await supabase.auth.signOut({ scope: "local" });
   if (error) return apiError({ status: 500, message: "로그아웃에 실패했습니다.", code: "INTERNAL", cause: error });
 
   return NextResponse.json({ ok: true });
