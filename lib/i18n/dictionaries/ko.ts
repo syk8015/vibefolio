@@ -741,6 +741,8 @@ export const ko = {
     pickHtml: "작품 파일 (.html 또는 .zip, 25MB까지)",
     pickShot: "스크린샷 (5MB까지)",
     pickVideo: "직접 만든 시연 영상 (20MB까지)",
+    // 브라우저 기본 파일 칸 대신 쓰는 버튼(2026-09-24) — 기본 칸은 글자로만 보여 누르는 곳인 줄 몰랐다.
+    pickFile: "파일 고르기",
     fileChosen: (name: string) => `${name} 선택됨`,
     fileClear: "빼기",
     fileTooLarge: (name: string, mb: number) => `${name}이(가) 너무 커요 — ${mb}MB까지만 올릴 수 있어요.`,

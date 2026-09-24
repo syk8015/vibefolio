@@ -203,6 +203,9 @@ body::before {
   transition: background-color 0.18s ease, border-color 0.18s ease;
 }
 .vf-input::placeholder { color: var(--text-muted); }
+/* 붙여넣기 칸(/publish)의 안내문 — 칸은 JSON이라 고정폭 글꼴이지만, 한글 안내문은 고정폭 글꼴의
+   넓은 띄어쓰기 때문에 벌어져 보였다(2026-09-24). 안내문만 본문 글꼴로. */
+.vf-placeholder-prose::placeholder { font-family: var(--font-nunito), sans-serif; }
 /* 촘촘한 목록 안에서 쓰는 입력칸(예: /admin/promo 업로드 기록) — 한 줄이
    차지하는 세로 공간을 줄이려고 패딩·글자만 줄인 같은 채움 스타일. */
 .vf-input-compact {
@@ -496,6 +499,32 @@ body::before {
   color: var(--text-primary);
 }
 .vf-button-ghost:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* 파일 고르기·빼기 버튼 — /publish와 연결 창의 파일 칸(components/publish/PasteReply).
+   브라우저 기본 파일 칸은 "파일 선택 선택된 파일 없음"이 글자로만 보여 누르는 곳인 줄 몰랐다(2026-09-24).
+   /publish의 채움 상자(soft)와 연결 창의 흰 바탕 둘 다에서 보이도록 한 단계 진한 active 톤으로 채운다.
+   진짜 <input type="file">은 이 라벨 안에 sr-only로 숨긴다 — 키보드 초점은 그 입력칸이 받으므로 :has로 테두리를 그린다. */
+.vf-file-pick {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding: 0.4rem 0.95rem;
+  border: none;
+  border-radius: 999px;
+  background: var(--surface-active);
+  color: var(--text-primary);
+  font-family: var(--font-nunito), sans-serif;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: opacity 0.18s ease;
+}
+.vf-file-pick:not([data-disabled]):hover { opacity: 0.8; }
+.vf-file-pick:focus-visible,
+.vf-file-pick:has(input:focus-visible) { outline: 2px solid var(--text-primary); outline-offset: 2px; }
+.vf-file-pick[data-disabled] { opacity: 0.5; cursor: not-allowed; }
 
 .vf-button-danger {
   display: inline-flex;

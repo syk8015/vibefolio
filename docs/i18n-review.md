@@ -442,6 +442,7 @@
 | submit | 초안으로 올리기 | Upload as draft | |
 | reviewNote | 공개 전에 대시보드에서 확인할 수 있어요 | You can review it on the dashboard before it goes public | |
 | typeToggle | 직접 붙여넣을래요 | I'll paste it myself | 2026-09-23 연결 창(compact) 전용 접힌 줄 — 클립보드 읽기가 막히면 저절로 펼침 |
+| pickFile | 파일 고르기 | Choose file | 2026-09-24 신규 · 브라우저 기본 파일 칸("파일 선택 선택된 파일 없음") 대신 쓰는 버튼. /publish와 연결 창 파일 칸 공통 |
 | errors.empty | AI가 준 JSON을 붙여넣어 주세요. | Paste the JSON your AI gave you. | |
 | errors.urlOnly | URL만으로는 부족해요 — 제목·설명이 담긴 JSON을 붙여넣어 주세요. | A URL alone isn't enough — paste the JSON with a title and description. | |
 | errors.invalidJson | JSON을 읽을 수 없어요. AI가 준 { ... } 형식 그대로 붙여넣어 주세요. | Couldn't read that JSON. Paste the { ... } exactly as your AI gave it. | |

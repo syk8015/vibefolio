@@ -212,9 +212,8 @@ export function PasteReply({
 
   const [showFiles, setShowFiles] = useState(false);
   // 연결 창의 카드 안에 들어가면 바탕색이 겹쳐 칸이 묻힌다 — compact는 상자 없이 편다.
-  // 글꼴(2026-09-24, 연결 창 먼저): compact에서만 펼친 설명 14px·이름표 13px. /publish(비-compact)는 그대로.
-  const hintSize: React.CSSProperties = compact ? { fontSize: "0.875rem" } : {};
-  const labelSize: React.CSSProperties = compact ? { fontSize: "0.8125rem" } : {};
+  // 글꼴 크기(2026-09-24): 15 칸 제목·버튼 / 14 설명·파일 이름 / 13 버튼 옆 설명 — 연결 창 규칙을
+  // /publish에도 적용. 연결 창에서 이미 정한 크기(칸 제목 14·보조 버튼 13.6·입력칸 14)는 그대로 둔다.
   const boxStyle: React.CSSProperties = compact
     ? { padding: 0 }
     : { background: "var(--surface-soft)", padding: "16px 18px" };
@@ -225,57 +224,64 @@ export function PasteReply({
   // 60%가 배포 전에 버려지고, 막히는 지점이 "로컬에선 되는데 올리는 법을 모르겠다"였다.
   const filesBox = (
     <div className={compact ? "rounded-2xl" : "rounded-2xl mb-5"} style={boxStyle}>
-      <p className="text-sm" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontWeight: 600, margin: 0 }}>
+      <p className="text-sm" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontWeight: 600, margin: 0, wordBreak: "keep-all", textWrap: "balance", ...(compact ? {} : { fontSize: "0.9375rem" }) }}>
         {t.publish.filesTitle}
       </p>
-      <p className="text-xs" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", lineHeight: 1.7, margin: "6px 0 12px", ...hintSize }}>
+      <p className="text-sm" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", lineHeight: 1.7, margin: "6px 0 14px", wordBreak: "keep-all" }}>
         {t.publish.filesHint}
       </p>
+      {/* 한 줄에 "이름 … [파일 고르기]"(2026-09-24) — 브라우저 기본 파일 칸은 "파일 선택 선택된 파일 없음"이
+          글자로만 보여 누르는 곳인 줄 몰랐다. 진짜 입력칸은 버튼 모양 라벨(.vf-file-pick) 안에 숨긴다. */}
       {([
         { label: t.publish.pickHtml, accept: ".html,.htm,.zip", file: workFile, set: setWorkFile, mb: 25 },
         { label: t.publish.pickShot, accept: "image/*", file: shotFile, set: setShotFile, mb: 5 },
         { label: t.publish.pickVideo, accept: "video/*", file: videoFile, set: setVideoFile, mb: 20 },
-      ] as { label: string; accept: string; file: File | null; set: (f: File | null) => void; mb: number }[]).map((row) => (
-        <div key={row.label} style={{ marginBottom: 10 }}>
-          <label className="text-xs block" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", marginBottom: 4, ...labelSize }}>
+      ] as { label: string; accept: string; file: File | null; set: (f: File | null) => void; mb: number }[]).map((row, i, rows) => (
+        <div key={row.label} className="flex items-center justify-between gap-3" style={{ marginBottom: i === rows.length - 1 ? 0 : 10 }}>
+          <span style={{ flex: "1 1 0", minWidth: 0, color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontSize: "0.875rem", lineHeight: 1.5, wordBreak: "keep-all" }}>
             {row.label}
-          </label>
+          </span>
           {row.file ? (
-            <div className="flex items-center gap-2">
-              <span className="text-xs" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", ...labelSize }}>
+            <div className="flex items-center gap-2" style={{ flexShrink: 0, maxWidth: "60%" }}>
+              <span title={row.file.name} style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", fontSize: "0.8125rem" }}>
                 {t.publish.fileChosen(row.file.name)}
               </span>
-              <button type="button" onClick={() => row.set(null)} className="vf-button-ghost" style={{ fontSize: "0.75rem", padding: "0.2rem 0.6rem" }}>
+              <button type="button" onClick={() => row.set(null)} className="vf-file-pick" style={{ fontSize: "0.8125rem", fontWeight: 500, padding: "0.3rem 0.8rem" }}>
                 {t.publish.fileClear}
               </button>
             </div>
           ) : (
-            <input
-              type="file" accept={row.accept} disabled={submitting}
-              className="text-xs" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", ...labelSize }}
-              onChange={(e) => {
-                const f = e.target.files?.[0] ?? null;
-                // 서버 캡과 같은 값으로 미리 막는다 — 20MB를 올려놓고 finalize에서
-                // 거절당하면 사람은 왜 안 되는지 모른다.
-                if (f && f.size > row.mb * 1024 * 1024) {
-                  setError(t.publish.fileTooLarge(f.name, row.mb));
-                  e.target.value = "";
-                  return;
-                }
-                reset();
-                row.set(f);
-              }}
-            />
+            <label className="vf-file-pick" data-disabled={submitting || undefined}>
+              {t.publish.pickFile}
+              <input
+                type="file" accept={row.accept} disabled={submitting}
+                className="sr-only" aria-label={row.label}
+                onChange={(e) => {
+                  const f = e.target.files?.[0] ?? null;
+                  // 서버 캡과 같은 값으로 미리 막는다 — 20MB를 올려놓고 finalize에서
+                  // 거절당하면 사람은 왜 안 되는지 모른다.
+                  if (f && f.size > row.mb * 1024 * 1024) {
+                    setError(t.publish.fileTooLarge(f.name, row.mb));
+                    e.target.value = "";
+                    return;
+                  }
+                  reset();
+                  row.set(f);
+                }}
+              />
+            </label>
           )}
         </div>
       ))}
     </div>
   );
 
+  // /publish는 글자 크기를 .vf-input에 맡긴다(PC 14.4 · 폰 16) — 인라인으로 16px 미만을 박으면
+  // 폰 규칙을 이겨서, 아이폰이 칸을 누르는 순간 화면을 확대했다(2026-09-24).
   const textarea = (
     <textarea
-      className="vf-input w-full"
-      style={{ minHeight: compact ? 110 : 180, fontFamily: "var(--font-mono), monospace", fontSize: compact ? "0.875rem" : "0.85rem", lineHeight: 1.6 }}
+      className={compact ? "vf-input w-full" : "vf-input vf-placeholder-prose w-full"}
+      style={{ minHeight: compact ? 110 : 180, fontFamily: "var(--font-mono), monospace", lineHeight: 1.6, ...(compact ? { fontSize: "0.875rem" } : { wordBreak: "keep-all" }) }}
       placeholder={t.publish.pastePlaceholder}
       value={raw}
       onChange={(e) => setRaw(e.target.value)}
@@ -285,7 +291,7 @@ export function PasteReply({
 
   const submitButton = (
     <button onClick={() => void submit()} disabled={submitting} className="vf-soft-fill rounded-full"
-      style={{ padding: "0.6rem 1.3rem", fontFamily: "var(--font-nunito)", fontSize: "0.85rem", fontWeight: 500, cursor: "pointer", opacity: submitting ? 0.6 : 1 }}>
+      style={{ padding: "0.6rem 1.3rem", fontFamily: "var(--font-nunito)", fontSize: compact ? "0.85rem" : "0.9375rem", fontWeight: 500, cursor: "pointer", opacity: submitting ? 0.6 : 1, whiteSpace: "nowrap", flexShrink: 0 }}>
       {submitting
         ? stage === "zipping" ? t.publish.zipping
           : stage === "uploading" ? t.publish.uploadingFiles
@@ -300,10 +306,10 @@ export function PasteReply({
       <p className="text-sm" style={{ color: "var(--danger, #c0392b)", fontFamily: "var(--font-nunito)", lineHeight: 1.7, margin: 0 }}>{error}</p>
       {bounce && (
         <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
-          <button onClick={copyFix} className="vf-button-ghost" style={{ fontSize: "0.85rem" }}>
+          <button onClick={copyFix} className="vf-button-ghost" style={{ fontSize: compact ? "0.85rem" : "0.9375rem" }}>
             {copied ? t.publish.fixCopied : t.publish.fixWithAi}
           </button>
-          <span className="text-xs" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", ...labelSize }}>
+          <span className="text-xs" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.8125rem" }}>
             {t.publish.fixHint}
           </span>
         </div>
@@ -346,16 +352,16 @@ export function PasteReply({
 
     {/* 1순위: 버튼 하나 */}
     <div className="rounded-2xl mb-5" style={boxStyle}>
-      <button onClick={fromClipboard} disabled={submitting} className="vf-button-primary" style={{ opacity: submitting ? 0.6 : 1 }}>
+      <button onClick={fromClipboard} disabled={submitting} className="vf-button-primary" style={{ fontSize: "0.9375rem", opacity: submitting ? 0.6 : 1 }}>
         {submitting ? t.publish.submitting : t.publish.clipboardButton}
       </button>
-      <p className="text-xs" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", lineHeight: 1.7, margin: "10px 0 0" }}>
+      <p className="text-sm" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", lineHeight: 1.7, margin: "10px 0 0", wordBreak: "keep-all" }}>
         {t.publish.clipboardHint}
       </p>
     </div>
 
     {/* 2순위: 붙여넣기 = 제출 */}
-    <p className="text-xs mb-2" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
+    <p className="text-sm mb-2" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
       {t.publish.pasteHint}
     </p>
     {textarea}
@@ -364,7 +370,7 @@ export function PasteReply({
 
     <div className="flex items-center gap-3 mt-5">
       {submitButton}
-      <span className="text-xs" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
+      <span style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.8125rem", lineHeight: 1.5, wordBreak: "keep-all", textWrap: "balance" }}>
         {t.publish.reviewNote}
       </span>
     </div>

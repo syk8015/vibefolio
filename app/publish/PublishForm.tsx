@@ -30,7 +30,7 @@ export default function PublishForm() {
         <h1 className="vf-serif-display mt-6 mb-2" style={{ fontSize: "clamp(1.6rem, 4vw, 2rem)", fontWeight: 500 }}>
           {t.publish.title}
         </h1>
-        <p className="text-sm mb-6" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", lineHeight: 1.7 }}>
+        <p className="text-sm mb-6" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", lineHeight: 1.7, wordBreak: "keep-all" }}>
           {t.publish.intro} {t.publish.promptHintBefore}
           <Link href="/dashboard" style={{ color: "var(--text-primary)", textDecoration: "underline" }}>{t.publish.promptHintLink}</Link>
           {t.publish.promptHintAfter}

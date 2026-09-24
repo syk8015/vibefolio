@@ -685,6 +685,7 @@ export const en: Dictionary = {
     pickHtml: "The work itself (.html or .zip, up to 25MB)",
     pickShot: "Screenshot (up to 5MB)",
     pickVideo: "Your own demo video (up to 20MB)",
+    pickFile: "Choose file",
     fileChosen: (name: string) => `${name} selected`,
     fileClear: "Remove",
     fileTooLarge: (name: string, mb: number) => `${name} is too large — ${mb}MB is the limit.`,
