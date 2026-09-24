@@ -4,7 +4,7 @@
 // (1) 익명 키로 표 못 읽음(이메일이 든 표) (2) 이메일 모양 틀리면 400
 // (3) 모르는 id로 open → ok:false (4) 심은 행 open → 이메일·first-touch 돌려줌 + opened_at
 // (5) 두 번째 open은 opened_at 그대로 (6) 30일 지난 행은 안 채움 (7) 크론 비밀값 없으면 401
-// (8) 크론이 30일 지난 행을 지운다(CRON_SECRET이 있을 때만)
+// (8) 크론이 30일 지난 행을 지운다 + 점검 크론(health)이 알림을 같이 돌린다(CRON_SECRET이 있을 때만)
 // (9) 가짜 보안 확인 토큰 → 400 CAPTCHA. 500 CAPTCHA_MISCONFIGURED면 Vercel의
 //     TURNSTILE_SECRET_KEY가 틀림(Site Key를 넣었을 가능성), 200이면 비밀값이 없음(확인 꺼짐).
 //     혹시 확인이 꺼져 있어도 메일이 나가지 않게, Resend 테스트 주소 행을 먼저 심어
@@ -114,6 +114,12 @@ try {
       const cj = await c.json().catch(() => ({}));
       const { data: gone } = await svc.from("desktop_handoffs").select("id").eq("id", stale.id).maybeSingle();
       ok("크론이 30일 지난 행을 지움", c.status === 200 && !gone, JSON.stringify(cj));
+      // 알림은 따로 등록한 크론이 아니라 5분마다 도는 점검 크론이 같이 돌린다(09-24).
+      const hc = await fetch(`${ORIGIN}/api/cron/health`, {
+        headers: { authorization: `Bearer ${process.env.CRON_SECRET}` },
+      });
+      const hj = await hc.json().catch(() => ({}));
+      ok("점검 크론이 넘기기 알림도 같이 돌림", hc.status === 200 && typeof hj.handoff?.sent === "number", JSON.stringify(hj.handoff));
     } else {
       console.log("- CRON_SECRET 없음 — 크론 삭제 검사 건너뜀");
     }

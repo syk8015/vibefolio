@@ -52,8 +52,10 @@
   (남의 주소로 메일 폭탄 방지 + 가입 여부 새지 않게).
 - `POST /api/handoff/open` `{id}` — 가입 화면이 이메일을 채우려고 부른다. 30일 안 된 행만, 모르는 id는 `ok:false` 한 모양.
   처음 열릴 때만 opened_at 기록. IP당 분당 20번.
-- `GET /api/cron/handoff-reminders` — 크론 비밀값 확인(기존 health 크론과 같은 방식). 1시간마다.
-  remind=true·opened_at 없음·reminded_at 없음·20~44시간 전 → 알림 1통 + reminded_at. 30일 지난 행 삭제.
+- 알림·정리 = `lib/handoffReminders.ts` 한 벌. **5분마다 도는 점검 크론(`/api/cron/health`)이 같이 부른다**
+  (틱당 5통) — 따로 크론을 등록하지 않는다(09-24). remind=true·opened_at 없음·reminded_at 없음·20~44시간 전
+  → 알림 1통 + reminded_at(먼저 찍고 보내 두 통 방지). 30일 지난 행 삭제.
+- `GET /api/cron/handoff-reminders` — 같은 함수를 손으로 한 번 돌리는 주소(크론 비밀값 필요, 찔러보기가 쓴다).
 - 실패 응답은 `apiError()`.
 
 **메일** — `lib/email.ts` `sendEmail`, 템플릿은 `lib/email-templates.ts` 옆에 ko/en.
@@ -70,7 +72,7 @@
 
 1. Supabase SQL 편집기에서 `migration_desktop_handoffs.sql` 실행.
 2. Vercel env에 `TURNSTILE_SECRET_KEY`(Supabase CAPTCHA에 넣은 것과 같은 값). 없으면 서버 확인을 건너뛰고 IP·이메일 한도만 남는다.
-3. cron-job.org에 `/api/cron/handoff-reminders` 1시간 간격 등록.
+3. ~~cron-job.org 등록~~ — 필요 없다. 기존 점검 크론이 같이 돌린다(09-24).
 4. Resend 한도 확인 — 인증 메일과 같은 계정을 쓴다(무료 요금제는 하루 100통).
 
 ## 검증

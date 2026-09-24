@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { apiError } from "@/lib/apiError";
 import { authorizeCron } from "@/lib/cronAuth";
+import { runHandoffReminders } from "@/lib/handoffReminders";
 import { logger, hasErrorReporter } from "@/lib/logger";
 import { trackServerEvent } from "@/lib/analytics";
 import { AnalyticsEvent } from "@/lib/analytics-events";
@@ -354,6 +355,16 @@ export async function GET(req: NextRequest) {
     .lt("window_start", new Date(now - 24 * 3_600_000).toISOString());
   if (rlErr) logger.warn("watchdog: rate_limits sweep failed", { error: rlErr });
 
+  // ── 4b. 폰 → 컴퓨터 넘기기 알림·30일 정리(docs/desktop-handoff.md). 이 크론이 이미
+  // 5분마다 돌아서 따로 크론을 등록하지 않는다. 틱당 5통까지 — 5분마다 도니 시간당 60통이면 충분하고,
+  // 메일 서버가 느려도(한 통 최대 10초) 점검 본업이 함수 시간 안에 끝나게. 실패해도 점검은 계속한다. ─────────────
+  let handoff: { sent: number; failed: number; deleted: number } | null = null;
+  try {
+    handoff = await runHandoffReminders(admin, { now, maxSend: 5 });
+  } catch (err) {
+    logger.error("watchdog: handoff reminders failed", { error: err });
+  }
+
   // ── 5. Alert email (T4) — deduped so a persistent condition mails once per
   // window, not every cron tick ────────────────────────────────────────────────
   const emailed =
@@ -388,6 +399,7 @@ export async function GET(req: NextRequest) {
     demand: { visits3d, visits14d, signups14d },
     alerts,
     emailed,
+    handoff,
     healthy: alerts.length === 0,
     // Sentry wiring diagnostics — this route is the natural probe point since the
     // external cron exercises it anyway and it's secret-gated.
