@@ -499,6 +499,8 @@ export const en: Dictionary = {
       "(구글 로그인 리턴)": "(Google sign-in return)",
       "구글 검색": "Google Search",
       "공유 링크(앱 미상)": "Share link (unknown app)",
+      "Nookframe 안에서": "Within Nookframe",
+      "로컬 테스트(localhost)": "Local test (localhost)",
       "직접/알 수 없음": "Direct / unknown",
     },
   },

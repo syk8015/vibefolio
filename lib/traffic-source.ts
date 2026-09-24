@@ -42,6 +42,13 @@ const REF_HOST_MAP: [string, string][] = [
   ["notion.so", "Notion"],
   ["accounts.google.com", "(구글 로그인 리턴)"],
   ["google.com", "구글 검색"],
+  // 우리 사이트 안에서 넘어온 방문(작품 페이지 → 명함 등). 옛 도메인도 같은 곳이다 —
+  // 도메인 그대로 두면 주인 화면에 "nookframe.com"이 외부 유입처처럼 떴다.
+  ["nookframe.com", "Nookframe 안에서"],
+  ["vibefolio-beta.vercel.app", "Nookframe 안에서"],
+  // 개발 서버 화면에서 누른 링크 — 방문자가 아니라 만드는 사람의 테스트.
+  ["localhost", "로컬 테스트(localhost)"],
+  ["127.0.0.1", "로컬 테스트(localhost)"],
 ];
 
 const VIA_LABEL: Record<string, string> = {
