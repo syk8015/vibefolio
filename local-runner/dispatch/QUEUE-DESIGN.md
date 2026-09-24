@@ -17,7 +17,7 @@ Dispatch도 같은 구조로 간다(2026-09-20 결정, 사용자 제안).
 ## 모양
 
 ```
-관제탑(허브 PWA) / 폰 버튼  ──┐
+관제탑(/admin) / 폰 버튼     ──┐
                               ├──► dispatch_jobs (Supabase)  ──►  맥의 dispatchd
 CLI `dispatch add`          ──┘        상태 기계                     20초 폴링
 ```
@@ -77,8 +77,12 @@ returning *;
 
 ## 권한
 
-`dispatch_jobs`는 **Vive 본인만** 읽고 쓴다. 러너는 관리자 권한 열쇠를 키체인에서 읽는다
-(`scripts/_keychain.mjs`). 잡을 넣는 통로가 허브 PWA면 그쪽은 로그인한 본인 세션으로 넣는다.
+`dispatch_jobs`는 **Vive 본인만** 읽고 쓴다. 잡을 넣는 통로는 관제탑(`/admin`)이고 `requireAdmin` 라우트로 넣는다.
+
+🔴 **러너는 관리자 권한 열쇠를 갖지 않는다**(2026-09-24 정정 — 처음 안은 키체인에서 읽는 것이었다).
+맥엔 `WORKER_SECRET` 하나만 두고 서비스롤·R2·RESEND 키는 서버에만 두는 게 워커 호스트 보안의 불변식이다(서버 중계).
+→ 집기·끝내기는 `/api/worker/dispatch/{claim,finish}`(`requireWorker`)로 서버에 부탁하고, 표는 서비스롤 전용으로 둔다.
+전체 구상은 `docs/promo-publish.md` §4.1.
 
 ## 옮기는 순서
 
@@ -92,4 +96,4 @@ returning *;
 
 - 맥이 며칠 자면 큐가 쌓인다. 깨어날 때 **몇 개까지** 몰아 돌릴지는 아직 안 정했다.
   하루 예산 게이트가 어차피 막긴 하지만, 그러면 "보류" 푸시만 여러 발 간다.
-- 폰에서 잡을 넣는 화면은 허브 PWA **P3 지령 탭**이다. 그게 이 설계의 입구다.
+- 폰에서 잡을 넣는 화면은 허브 PWA 대신 nookframe 관제탑(`/admin`, 폰 대응됨)으로 구상 중이다(2026-09-24 사용자 요청, `docs/promo-publish.md` §4.1).
