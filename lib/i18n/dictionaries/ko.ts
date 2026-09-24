@@ -28,6 +28,7 @@ export const ko = {
   auth: {
     googleContinue: "Google로 계속하기",
     githubContinue: "GitHub로 계속하기",
+    lastUsed: "지난번에 사용",
     // 메일 6자리 코드로 들어가기(components/EmailCodeForm) — 처음 보는 주소면 계정이 생긴다
     codeInstead: "비밀번호 없이 메일 코드로 로그인",
     codeInsteadSignup: "비밀번호 없이 메일 코드로 가입",

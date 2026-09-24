@@ -14,6 +14,7 @@ import { firstTouch, adoptHandoffTouch } from "@/lib/analytics-client";
 import InAppBrowserNotice from "@/components/InAppBrowserNotice";
 import SocialSignInButtons from "@/components/SocialSignInButtons";
 import EmailCodeForm, { CodeVerify, LinkButton } from "@/components/EmailCodeForm";
+import { rememberLoginMethod, withVia, type LoginMethod } from "@/lib/lastLogin";
 
 type Step = "form" | "check-email";
 // 이름·아이디는 여기서 받지 않는다 — 인증 뒤 온보딩에서 한 번만 받는다(구글 가입과
@@ -118,7 +119,7 @@ export default function SignupPage() {
       options: {
         // 인증 링크가 돌아올 곳. 없으면 Supabase Site URL(랜딩)로 떨어져 코드 교환이
         // 안 되고, 인증은 됐는데 로그아웃된 랜딩만 보인다(2026-09-22 A3).
-        emailRedirectTo: callbackUrl(),
+        emailRedirectTo: withVia(callbackUrl(), "password"),
         // user_metadata에 username을 넣지 말 것 — 미들웨어의 "온보딩 끝" 표식이라
         // 넣는 순간 온보딩을 건너뛰어 profiles 행이 안 생긴다.
         data: {
@@ -170,7 +171,7 @@ export default function SignupPage() {
     const { error } = await supabase.auth.resend({
       type: "signup",
       email: form.email,
-      options: { emailRedirectTo: callbackUrl(), captchaToken: captchaToken ?? undefined },
+      options: { emailRedirectTo: withVia(callbackUrl(), "password"), captchaToken: captchaToken ?? undefined },
     });
     resetTurnstile();
     setCaptchaToken(null);
@@ -179,7 +180,8 @@ export default function SignupPage() {
 
   // 코드로 인증을 끝냈으면 세션이 이 브라우저에 있다 — 가던 길로 보내면 미들웨어가
   // 프로필 없는 계정을 온보딩(?next= 유지)으로 돌린다.
-  function finishSignIn() {
+  function finishSignIn(method: LoginMethod) {
+    rememberLoginMethod(method);
     router.push(nextFromUrl());
     router.refresh();
   }
@@ -229,7 +231,7 @@ export default function SignupPage() {
             <p className="text-xs leading-relaxed mb-3" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
               {t.signup.orEnterCode}
             </p>
-            <CodeVerify email={form.email} onVerified={finishSignIn} />
+            <CodeVerify email={form.email} onVerified={() => finishSignIn("password")} />
           </div>
           <p className="text-xs mt-6 leading-relaxed" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
             {t.auth.resendPrompt}{" "}
@@ -278,8 +280,8 @@ export default function SignupPage() {
           </div>
 
           {mode === "code" ? (
-            <EmailCodeForm initialEmail={form.email} redirectTo={callbackUrl}
-              onVerified={finishSignIn} onUsePassword={() => setMode("password")} />
+            <EmailCodeForm initialEmail={form.email} redirectTo={() => withVia(callbackUrl(), "code")}
+              onVerified={() => finishSignIn("code")} onUsePassword={() => setMode("password")} />
           ) : (
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <Field label={t.auth.emailLabel}>

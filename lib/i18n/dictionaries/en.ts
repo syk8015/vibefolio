@@ -24,6 +24,7 @@ export const en: Dictionary = {
   auth: {
     googleContinue: "Continue with Google",
     githubContinue: "Continue with GitHub",
+    lastUsed: "Last used",
     codeInstead: "Sign in with an email code instead",
     codeInsteadSignup: "Sign up with an email code instead",
     passwordInstead: "Use a password instead",

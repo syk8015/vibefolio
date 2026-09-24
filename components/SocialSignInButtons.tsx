@@ -1,15 +1,19 @@
 "use client";
 
+import { useSyncExternalStore } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useT } from "@/lib/i18n/client";
+import { readLastLoginMethod, withVia } from "@/lib/lastLogin";
 
 // 로그인·가입 화면이 같이 쓰는 소셜 버튼(구글·깃허브). 둘 다 콜백으로 돌아와
 // 코드 교환 → 프로필이 없으면 미들웨어가 온보딩으로 보낸다.
-// 깃허브는 인스타·스레드 앱 안 브라우저에서도 막히지 않는다(구글만 403
-// disallowed_useragent) — InAppBrowserNotice 문구가 이걸 전제로 한다.
+// 구글은 앱 안 브라우저(웹뷰)를 403 disallowed_useragent로 막는다고 알려져 있지만, 09-24
+// 사용자 실기기(인스타 앱 안)에선 구글도 됐다 — 막힘은 앱·기기마다 다르다. 깃허브는 막는 정책이 없다.
+// 지난번에 이 기기에서 쓴 방법엔 "지난번에 사용" 표시(lib/lastLogin — 콜백 주소의 via=).
 // Supabase 대시보드 Redirect URLs에 `…/auth/callback?**`가 있어야 ?next=가 산다
 // (없으면 Site URL=홈으로 떨어질 뿐).
 type Provider = "google" | "github";
+const noopSubscribe = () => () => {};
 
 export default function SocialSignInButtons({
   redirectTo,
@@ -20,31 +24,49 @@ export default function SocialSignInButtons({
   onBeforeRedirect?: () => void;
 }) {
   const { t } = useT();
+  // 쿠키는 브라우저에서만 읽는다 — 서버 렌더엔 표시가 없고 하이드레이션 뒤에 붙는다.
+  const last = useSyncExternalStore(noopSubscribe, readLastLoginMethod, () => null);
 
   async function signIn(provider: Provider) {
     onBeforeRedirect?.();
     await createClient().auth.signInWithOAuth({
       provider,
-      options: { redirectTo: redirectTo() },
+      options: { redirectTo: withVia(redirectTo(), provider) },
     });
   }
 
   return (
     <div className="flex flex-col gap-3 mb-6">
-      <ProviderButton onClick={() => signIn("google")} icon={<GoogleIcon />} label={t.auth.googleContinue} />
-      <ProviderButton onClick={() => signIn("github")} icon={<GitHubIcon />} label={t.auth.githubContinue} />
+      <ProviderButton onClick={() => signIn("google")} icon={<GoogleIcon />} label={t.auth.googleContinue} lastUsed={last === "google"} />
+      <ProviderButton onClick={() => signIn("github")} icon={<GitHubIcon />} label={t.auth.githubContinue} lastUsed={last === "github"} />
     </div>
   );
 }
 
-function ProviderButton({ onClick, icon, label }: { onClick: () => void; icon: React.ReactNode; label: string }) {
+function ProviderButton({ onClick, icon, label, lastUsed }: {
+  onClick: () => void; icon: React.ReactNode; label: string; lastUsed: boolean;
+}) {
   return (
     <button type="button" onClick={onClick}
-      className="w-full flex items-center justify-center gap-3 py-3 rounded-xl font-bold text-sm transition-opacity hover:opacity-80"
+      className="relative w-full flex items-center justify-center gap-3 py-3 rounded-xl font-bold text-sm transition-opacity hover:opacity-80"
       style={{ border: "1px solid var(--border-bright)", background: "var(--surface)", color: "var(--text-primary)", fontFamily: "var(--font-nunito)", cursor: "pointer" }}>
       {icon}
       {label}
+      {lastUsed && (
+        <span className="absolute right-3 top-1/2 -translate-y-1/2"><LastUsedTag /></span>
+      )}
     </button>
+  );
+}
+
+/** "지난번에 사용" 알약 — 소셜 버튼 오른쪽, 로그인 화면의 메일 코드 링크·이메일 칸 옆에 붙는다. */
+export function LastUsedTag() {
+  const { t } = useT();
+  return (
+    <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-bold leading-none whitespace-nowrap"
+      style={{ background: "var(--blue-tint)", color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
+      {t.auth.lastUsed}
+    </span>
   );
 }
 

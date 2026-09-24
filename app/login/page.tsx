@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -10,11 +10,13 @@ import LanguageToggle from "@/components/LanguageToggle";
 import { useT } from "@/lib/i18n/client";
 import { safeNext } from "@/lib/safeNext";
 import InAppBrowserNotice from "@/components/InAppBrowserNotice";
-import SocialSignInButtons from "@/components/SocialSignInButtons";
+import SocialSignInButtons, { LastUsedTag } from "@/components/SocialSignInButtons";
 import EmailCodeForm, { LinkButton } from "@/components/EmailCodeForm";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
+import { readLastLoginMethod, rememberLoginMethod, withVia, type LoginMethod } from "@/lib/lastLogin";
 
 const RETURNING_USER_KEY = "vf-returning-user";
+const noopSubscribe = () => () => {};
 
 // 로그인 뒤 돌아갈 곳. useSearchParams는 Suspense 경계를 요구해서, 클릭 시점에 주소를 읽는다.
 // 기본은 대시보드 — 홈("/")은 로그인한 사람에겐 버튼 두 개짜리 중간 화면이다.
@@ -28,6 +30,8 @@ export default function LoginPage() {
   const [show, setShow] = useState(false);
   // 비밀번호 대신 메일 코드로 들어가는 모드(EmailCodeForm). 처음 보는 주소면 계정이 생긴다.
   const [mode, setMode] = useState<"password" | "code">("password");
+  // 이 기기에서 지난번에 쓴 방법(lib/lastLogin) — 그 입구에 "지난번에 사용"을 붙인다.
+  const lastMethod = useSyncExternalStore(noopSubscribe, readLastLoginMethod, () => null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [form, setForm] = useState({ email: "", password: "" });
@@ -79,7 +83,7 @@ export default function LoginPage() {
       setResend("idle");
       setError(errorMessage(error.message, t));
     } else {
-      finishSignIn();
+      finishSignIn("password");
     }
   }
 
@@ -91,7 +95,7 @@ export default function LoginPage() {
       type: "signup",
       email: form.email,
       options: {
-        emailRedirectTo: `${location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
+        emailRedirectTo: withVia(`${location.origin}/auth/callback?next=${encodeURIComponent(next)}`, "password"),
         captchaToken: captchaToken ?? undefined,
       },
     });
@@ -100,7 +104,8 @@ export default function LoginPage() {
     setResend(error ? "failed" : "sent");
   }
 
-  function finishSignIn() {
+  function finishSignIn(method: LoginMethod) {
+    rememberLoginMethod(method);
     localStorage.setItem(RETURNING_USER_KEY, "1");
     router.push(nextFromUrl());
     router.refresh();
@@ -163,15 +168,18 @@ export default function LoginPage() {
           </div>
 
           {mode === "code" ? (
-            <EmailCodeForm initialEmail={form.email} redirectTo={callbackUrl}
-              onVerified={finishSignIn} onUsePassword={() => setMode("password")} />
+            <EmailCodeForm initialEmail={form.email} redirectTo={() => withVia(callbackUrl(), "code")}
+              onVerified={() => finishSignIn("code")} onUsePassword={() => setMode("password")} />
           ) : (
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div>
-              <label className="block text-xs font-bold mb-1.5"
-                style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", letterSpacing: "0.05em" }}>
-                {t.auth.emailLabel}
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-bold"
+                  style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", letterSpacing: "0.05em" }}>
+                  {t.auth.emailLabel}
+                </label>
+                {lastMethod === "password" && <LastUsedTag />}
+              </div>
               <input className="vf-input" type="email" name="email" placeholder="hello@example.com"
                 value={form.email} onChange={handleChange} required autoComplete="email" autoFocus />
             </div>
@@ -229,6 +237,7 @@ export default function LoginPage() {
             </button>
             <p className="text-center text-xs" style={{ fontFamily: "var(--font-nunito)" }}>
               <LinkButton onClick={() => { setMode("code"); setError(""); }}>{t.auth.codeInstead}</LinkButton>
+              {lastMethod === "code" && <span className="ml-2 align-middle"><LastUsedTag /></span>}
             </p>
           </form>
           )}

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { logger } from "@/lib/logger";
 import { safeNext } from "@/lib/safeNext";
+import { LAST_LOGIN_COOKIE, LAST_LOGIN_MAX_AGE, isLoginMethod } from "@/lib/lastLogin";
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
@@ -35,6 +36,14 @@ export async function GET(request: NextRequest) {
 
       const { error } = await supabase.auth.exchangeCodeForSession(code);
       if (!error) {
+        // 로그인 화면의 "지난번에 사용" 표시(lib/lastLogin). 성공했을 때만 심는다 —
+        // 버튼만 누르고 취소한 방법이 "지난번"으로 남지 않게.
+        const via = searchParams.get("via");
+        if (isLoginMethod(via)) {
+          response.cookies.set(LAST_LOGIN_COOKIE, via, {
+            path: "/", maxAge: LAST_LOGIN_MAX_AGE, sameSite: "lax", secure: origin.startsWith("https:"),
+          });
+        }
         return response;
       }
     } catch (err) {

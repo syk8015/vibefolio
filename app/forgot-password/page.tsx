@@ -8,6 +8,7 @@ import Logo from "@/components/Logo";
 import LanguageToggle from "@/components/LanguageToggle";
 import { useT } from "@/lib/i18n/client";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
+import { withVia } from "@/lib/lastLogin";
 
 type Step = "form" | "sent";
 
@@ -26,7 +27,8 @@ export default function ForgotPasswordPage() {
 
     const supabase = createClient();
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${location.origin}/auth/callback?next=/reset-password`,
+      // via=password — 재설정을 마치면 로그인 화면이 "지난번에 사용"을 이메일 칸에 붙인다(lib/lastLogin).
+      redirectTo: withVia(`${location.origin}/auth/callback?next=/reset-password`, "password"),
       captchaToken: captchaToken ?? undefined,
     });
 
