@@ -1,6 +1,6 @@
 // 홍보 예약 대기열 1단계 prod E2E (docs/promo-publish.md §2.3·§2.4, 2026-09-25).
 //
-// 검증: (0) 새 칸 존재(migration_promo_queue.sql) (1) 로그인 없이 [예약] → 401
+// 검증: (0) 새 칸 존재(migration_promo_queue.sql) (1) 로그인 없이 [예약] → 404(관리자 라우트는 숨긴다)
 // (2) 캡션이 비면 400 CAPTION_REQUIRED (3) 예약 → 한국어 클립은 스레드 한 채널, 한국 21시 칸,
 //     지금+30분 뒤, 다른 예약과 같은 날 아님 (4) 다시 눌러도 같은 행·같은 칸
 // (5) 예약 중 캡션 비우기 → 409 (6) 서버가 올리는 중(publishing)이면 [올렸음]·지우기 거절
@@ -64,7 +64,8 @@ const sched = `/api/admin/promo/clips/${clip.id}/schedule`;
 try {
   {
     const r = await call("POST", sched, undefined, false);
-    ok("(1) 로그인 없이 [예약] → 401", r.status === 401, r.status);
+    // requireAdmin은 관리자 아닌 요청에 404를 준다 — 관리자 주소가 있다는 것도 숨긴다.
+    ok("(1) 로그인 없이 [예약] → 404", r.status === 404, r.status);
   }
   {
     const r = await call("POST", sched);
@@ -98,7 +99,7 @@ try {
   {
     const r = await call("POST", sched);
     const j = await r.json().catch(() => ({}));
-    ok("(4) 다시 눌러도 같은 행·같은 칸", j.posts?.[0]?.postId === postId && j.posts?.[0]?.scheduledAt === slot, JSON.stringify(j));
+    ok("(4) 다시 눌러도 같은 행·같은 칸", j.posts?.[0]?.postId === postId && Date.parse(j.posts?.[0]?.scheduledAt) === Date.parse(slot), JSON.stringify(j));
   }
   {
     const r = await call("PATCH", `/api/admin/promo/clips/${clip.id}`, { caption: "" });

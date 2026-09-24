@@ -70,7 +70,9 @@ export async function POST(
       const post = existing?.find((p) => p.channel === channel);
       const status = post?.status as PromoPostStatus | undefined;
       if (post && (status === "posted" || status === "queued" || status === "publishing")) {
-        result.push({ channel, postId: post.id, status: status!, scheduledAt: post.scheduled_at });
+        // DB는 "+00:00" 꼴로 돌려준다 — 새로 잡은 칸과 같은 모양(ISO Z)으로 맞춘다.
+        const at = post.scheduled_at ? new Date(post.scheduled_at).toISOString() : null;
+        result.push({ channel, postId: post.id, status: status!, scheduledAt: at });
         continue;
       }
 
