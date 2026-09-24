@@ -279,10 +279,11 @@ export function PasteReply({
 
   // 글자 크기는 두 곳 다 .vf-input에 맡긴다(PC 14.4 · 폰 16) — 인라인으로 16px 미만을 박으면
   // 폰 규칙을 이겨서, 아이폰이 칸을 누르는 순간 화면을 확대했다(/publish 2026-09-24, 연결 창 09-25).
+  // 안내문 모양도 두 곳이 같다 — 본문 글꼴(.vf-placeholder-prose) + 낱말 단위 줄바꿈(keep-all).
   const textarea = (
     <textarea
-      className={compact ? "vf-input w-full" : "vf-input vf-placeholder-prose w-full"}
-      style={{ minHeight: compact ? 110 : 180, fontFamily: "var(--font-mono), monospace", lineHeight: 1.6, ...(compact ? {} : { wordBreak: "keep-all" }) }}
+      className="vf-input vf-placeholder-prose w-full"
+      style={{ minHeight: compact ? 110 : 180, fontFamily: "var(--font-mono), monospace", lineHeight: 1.6, wordBreak: "keep-all" }}
       placeholder={t.publish.pastePlaceholder}
       value={raw}
       onChange={(e) => setRaw(e.target.value)}
