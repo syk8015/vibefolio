@@ -54,7 +54,11 @@ const identityEmail = (i: IdentityLike) =>
 /** [해제]를 보여 줄지. Supabase는 계정 메일을 가진 방법을 떼면 계정 메일을 남은 방법의 메일로
  *  바꿔 버린다(UpdateUserEmailFromIdentities) — 메일 코드·비밀번호 로그인 주소와 알림 메일이
  *  말없이 바뀐다. 그래서 떼도 계정 메일을 다른 방법이 붙들고 있을 때만 허락한다. 계정 메일과 같은
- *  메일의 방법도 막는다 — 떼도 다음 로그인 때 같은 메일이라 저절로 다시 붙어 뗀 의미가 없다. */
+ *  메일의 방법도 막는다 — 떼도 다음 로그인 때 같은 메일이라 저절로 다시 붙어 뗀 의미가 없다.
+ *  ⚠️ 자동 연결은 공급자의 **확인된 메일 전부**를 본다(DetermineAccountLinking — 대표 메일만이 아니다).
+ *  identity_data엔 대표 메일만 있어 여기선 못 가린다: 보조 메일에 계정 메일이 있는 깃허브는 떼도
+ *  다음 로그인에 다시 붙는다(09-25 관리자 깃허브로 로그인했을 때 새 계정이 안 생겼다 — 보조 메일로 추정).
+ *  그래서 해제 확인 문구는 "새 계정이 생길 수 있어요"로 단정하지 않는다. */
 export function canUnlink(target: IdentityLike, all: readonly IdentityLike[], accountEmail: string | null | undefined): boolean {
   const account = (accountEmail ?? "").toLowerCase();
   if (!account || identityEmail(target) === account) return false;

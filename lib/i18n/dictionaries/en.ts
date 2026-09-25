@@ -465,7 +465,7 @@ export const en: Dictionary = {
     link: "Link",
     linking: "Opening…",
     unlink: "Unlink",
-    unlinkConfirm: (p: string) => `Once unlinked, this ${p} account can't sign you in here.`,
+    unlinkConfirm: (p: string) => `After unlinking, signing in with ${p} may create a separate account.`,
     unlinkYes: "Unlink",
     unlinking: "Unlinking…",
     cancel: "Cancel",

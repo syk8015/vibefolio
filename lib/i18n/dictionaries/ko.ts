@@ -488,7 +488,9 @@ export const ko = {
     link: "연결",
     linking: "이동 중…",
     unlink: "해제",
-    unlinkConfirm: (p: string) => `해제하면 이 ${p} 계정으로는 여기 들어올 수 없어요.`,
+    // 단정하지 않는다 — Supabase 자동 연결은 공급자의 확인된 메일 전부를 봐서, 같은 메일이 등록된
+    // 깃허브면 다음 로그인에 저절로 다시 붙는다(lib/identityLink canUnlink 주석).
+    unlinkConfirm: (p: string) => `해제한 뒤 ${p}로 로그인하면 새 계정이 생길 수 있어요.`,
     unlinkYes: "해제하기",
     unlinking: "해제 중…",
     cancel: "취소",

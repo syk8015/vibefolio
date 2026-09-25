@@ -831,7 +831,7 @@ SNS/검색 로봇은 JS를 안 돌려 OG·크롤러 노출 문구(루트 descrip
 | loginMethods.notLinked | 연결 안 됨 | Not linked | 신규 |
 | loginMethods.link / linking | 연결 / 이동 중… | Link / Opening… | 신규 · 누르면 구글·깃허브 화면으로 넘어간다 |
 | loginMethods.unlink / unlinkYes / unlinking / cancel | 해제 / 해제하기 / 해제 중… / 취소 | Unlink / Unlink / Unlinking… / Cancel | 신규 · 줄 안에서 펼치는 확인 |
-| loginMethods.unlinkConfirm | 해제하면 이 {p} 계정으로는 여기 들어올 수 없어요. | Once unlinked, this {p} account can't sign you in here. | 신규 · 함수(p) |
+| loginMethods.unlinkConfirm | 해제한 뒤 {p}로 로그인하면 새 계정이 생길 수 있어요. | After unlinking, signing in with {p} may create a separate account. | 신규 · 함수(p) · 09-25 교체: 옛 "여기 들어올 수 없어요"는 틀릴 수 있었다 — Supabase가 공급자의 확인된 메일 전부로 저절로 다시 붙인다 |
 | loginMethods.loadFailed / retry | 로그인 방법을 불러오지 못했어요. / 다시 시도 | Couldn't load your sign-in methods. / Try again | 신규 |
 | loginMethods.linked | {p} 계정을 연결했어요. 이제 {p}로도 들어올 수 있어요. | {p} linked. You can now sign in with {p} too. | 신규 · 함수(p) · 공급자 화면에서 돌아온 뒤 |
 | loginMethods.unlinked | {p} 계정 연결을 해제했어요. | {p} unlinked. | 신규 · 함수(p) |
