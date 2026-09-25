@@ -60,9 +60,6 @@ export const ko = {
     inAppTitle: "구글 로그인이 안 되면",
     // 제목이 이유("안 되면")를 이미 말하고, GitHub·이메일 버튼은 바로 아래 보인다 — 할 일 한 문장만(09-25 사용자 지시).
     inAppBody: "오른쪽 위 ⋯ 메뉴에서 '외부 브라우저로 열기'를 눌러 주세요.",
-    inAppCopy: "주소 복사",
-    inAppCopied: "복사했어요 — 사파리·크롬에 붙여 넣어 주세요",
-    inAppCopyFailed: "복사하지 못했어요 — ⋯ 메뉴를 써 주세요",
     // Turnstile 위젯 로드 실패 문구 — "…끄거나 [다시 시도]해 주세요." 순서로 조립
     turnstileFailed: "보안 확인을 불러오지 못했어요.",
     turnstileFixPrefix: "광고 차단을 끄거나",

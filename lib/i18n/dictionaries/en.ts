@@ -52,9 +52,6 @@ export const en: Dictionary = {
     usernamePattern: "Lowercase letters, numbers, _ and - only",
     inAppTitle: "If Google sign-in doesn't work",
     inAppBody: "Tap the ⋯ menu (top right) and choose 'Open in external browser'.",
-    inAppCopy: "Copy link",
-    inAppCopied: "Copied — paste it into Safari or Chrome",
-    inAppCopyFailed: "Couldn't copy — use the ⋯ menu instead",
     // Turnstile 위젯 로드 실패 문구 — "… or [try again]." 순서로 조립
     turnstileFailed: "Couldn't load the security check.",
     turnstileFixPrefix: "Turn off your ad blocker or",
