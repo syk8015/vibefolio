@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 import { oneLine } from "@/lib/text";
 import Link from "next/link";
-import Image from "next/image";
 import { unstable_cache } from "next/cache";
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
@@ -321,25 +320,16 @@ export default async function UserPortfolioPage({
                 background: "var(--surface)",
               }}
             >
-              {currentUser.user_metadata?.avatar_url ? (
-                <Image
-                  src={currentUser.user_metadata.avatar_url as string}
-                  alt=""
-                  width={16}
-                  height={16}
-                  unoptimized
-                  style={{ borderRadius: "50%", display: "block", flexShrink: 0 }}
-                />
-              ) : (
-                <div style={{
-                  width: 16, height: 16, borderRadius: "50%", flexShrink: 0,
-                  background: "linear-gradient(135deg, var(--blue), var(--blue-bright))",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: "0.55rem", fontWeight: 900, color: "#fff",
-                }}>
-                  {(currentUser.user_metadata?.name as string || currentUser.email || "?").charAt(0).toUpperCase()}
-                </div>
-              )}
+              {/* 구글·깃허브 사진(user_metadata.avatar_url)은 쓰지 않는다 — 고른 적 없는 사진(09-25 사용자, app/page.tsx 참고).
+                  글자는 var(--bg) — 다크에선 --blue가 크림색이라 흰 글자가 묻힌다. */}
+              <div style={{
+                width: 16, height: 16, borderRadius: "50%", flexShrink: 0,
+                background: "linear-gradient(135deg, var(--blue), var(--blue-bright))",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: "0.55rem", fontWeight: 900, color: "var(--bg)",
+              }}>
+                {(currentUser.user_metadata?.name as string || currentUser.email || "?").charAt(0).toUpperCase()}
+              </div>
               {t.theater.myFrame}
             </Link>
           ) : isEmbed ? (

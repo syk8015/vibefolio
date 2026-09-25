@@ -111,7 +111,9 @@ export default async function LandingPage() {
   const meta = user?.user_metadata || {};
   const username = ownProfile?.username || meta.username || user?.email?.split("@")[0] || "";
   const name = ownProfile?.name || meta.name || username;
-  const avatarUrl = (ownProfile?.avatar_url || meta.avatar_url || undefined) as string | undefined;
+  // 사진은 명함 탭에서 올린 것만 — metadata의 구글·깃허브 사진으로 떨어지지 않는다. 고른 적 없는
+  // 사진이 머리에 떠 어색했고(09-25 사용자), 그 값은 마지막으로 로그인한 공급자 것으로 바뀐다.
+  const avatarUrl = (ownProfile?.avatar_url || undefined) as string | undefined;
 
   // Only profiles with enough projects (≥3) make a convincing interactive
   // showcase, so the PiP section draws from that pool.

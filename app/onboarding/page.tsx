@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { AnalyticsEvent, trackClientEvent, firstTouch, type FirstTouchData } from "@/lib/analytics-client";
@@ -42,7 +41,6 @@ export default function OnboardingPage() {
   const router = useRouter();
   const { t } = useT();
   const [form, setForm] = useState({ name: "", username: "", bio: "" });
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [initLoading, setInitLoading] = useState(true);
   const [error, setError] = useState("");
@@ -91,7 +89,6 @@ export default function OnboardingPage() {
       const github = normalizeUsername(String(meta?.user_name ?? ""));
       const emailPrefix = normalizeUsername(user.email?.split("@")[0] ?? "");
       const suggestedUsername = [existing, pending, github, emailPrefix].find((u) => u.length >= 2) ?? "";
-      setAvatarUrl(meta?.avatar_url ?? null);
       setForm((prev) => ({
         ...prev,
         name: (name || prev.name).slice(0, NAME_MAX),
@@ -247,16 +244,11 @@ export default function OnboardingPage() {
 
         {/* Avatar + heading */}
         <div className="mb-8 text-center">
-          {avatarUrl ? (
-            <Image src={avatarUrl} alt="" width={64} height={64} unoptimized
-              className="w-16 h-16 rounded-full mx-auto mb-4 object-cover"
-              style={{ border: "2px solid var(--border-bright)" }} />
-          ) : (
-            <div className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center text-2xl font-black"
-              style={{ background: "var(--blue-tint)", border: "2px solid var(--border-bright)", color: "var(--blue)", fontFamily: "var(--font-nunito)" }}>
-              {form.name ? form.name.charAt(0).toUpperCase() : "V"}
-            </div>
-          )}
+          {/* 구글·깃허브 사진은 쓰지 않는다 — 고른 적 없는 사진(09-25 사용자, app/page.tsx 참고). 이름 첫 글자만. */}
+          <div className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center text-2xl font-black"
+            style={{ background: "var(--blue-tint)", border: "2px solid var(--border-bright)", color: "var(--blue)", fontFamily: "var(--font-nunito)" }}>
+            {form.name ? form.name.charAt(0).toUpperCase() : "V"}
+          </div>
           <h1 className="text-3xl font-black mb-2" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", letterSpacing: "-0.02em" }}>
             {t.onboarding.title}
           </h1>

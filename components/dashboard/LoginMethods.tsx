@@ -87,9 +87,14 @@ export default function LoginMethods({ accountEmail }: { accountEmail: string })
     setNotice(null);
     setConfirmId(null);
     try {
+      // prompt=select_account — 붙일 계정을 직접 고르게 한다. 없으면 이미 승인한 앱이라 구글·깃허브가
+      // 창 없이 바로 돌아와, 브라우저에 로그인돼 있던 계정이 말없이 붙었다(09-25 사용자 시험).
       const { error } = await createClient().auth.linkIdentity({
         provider,
-        options: { redirectTo: linkRedirectTo(window.location.origin, provider) },
+        options: {
+          redirectTo: linkRedirectTo(window.location.origin, provider),
+          queryParams: { prompt: "select_account" },
+        },
       });
       // 성공이면 linkIdentity가 공급자 화면으로 보낸다. 실패 대표 사례: 대시보드의
       // "Allow manual linking"이 꺼져 있다(manual_linking_disabled).

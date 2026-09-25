@@ -2,6 +2,7 @@
 //
 // (1) Supabase "Allow manual linking" 켜짐 — 로그인한 임시 계정으로 연결 주소를 받아 본다.
 //     꺼져 있으면 404 manual_linking_disabled라 앱의 [연결]이 "연결을 시작하지 못했어요"로 끝난다.
+//     앱이 싣는 prompt=select_account(계정 고르는 창)가 구글·깃허브 주소까지 전달되는지도 본다.
 // (2) 방법이 하나뿐인 계정의 해제는 거절(single_identity_not_deletable) — 앱은 버튼부터 안 보인다.
 // (3) 콜백(/auth/callback)이 연결 왕복의 결과를 명함 탭에 싣는다(lib/identityLink): 남의 계정 →
 //     taken, 취소·코드 교환 실패 → failed. 연결이 아닌 로그인 실패는 예전 그대로 /login?error=oauth.
@@ -47,7 +48,7 @@ try {
     for (const [provider, host] of [["github", "github.com"], ["google", "accounts.google.com"]]) {
       const r = await fetch(
         `${URL_}/auth/v1/user/identities/authorize?provider=${provider}` +
-          `&redirect_to=${encodeURIComponent(linkBack(provider))}&skip_http_redirect=true`,
+          `&redirect_to=${encodeURIComponent(linkBack(provider))}&prompt=select_account&skip_http_redirect=true`,
         { headers: { apikey: ANON, Authorization: `Bearer ${jwt}` } },
       );
       const body = await r.json().catch(() => ({}));
@@ -57,6 +58,7 @@ try {
       }
       const u = body.url ? new URL(body.url) : null;
       ok(`연결 주소 → ${host} (${provider})`, r.ok && u?.host === host, `${r.status} ${u?.host ?? JSON.stringify(body)}`);
+      ok(`계정 고르는 창 요청 전달(${provider})`, u?.searchParams.get("prompt") === "select_account", u?.searchParams.get("prompt") ?? "(없음)");
     }
 
     // (2) 하나뿐인 방법(이메일)은 뗄 수 없다.
