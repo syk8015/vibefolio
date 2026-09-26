@@ -40,7 +40,10 @@ const REF_HOST_MAP: [string, string][] = [
   ["disquiet.io", "Disquiet"],
   ["slack.com", "Slack"],
   ["notion.so", "Notion"],
-  ["accounts.google.com", "(구글 로그인 리턴)"],
+  // 구글 로그인 창에서 돌아온 방문 — 명함에서 로그인하러 잠깐 나갔다 온 것이라 밖에서 새로
+  // 들어온 유입이 아니다. 따로 "(구글 로그인 리턴)"이라 적었더니 주인 화면에서 뜻을 몰라
+  // 안에서 넘어온 방문으로 합친다(2026-09-27 사용자 결정 2C). google.com보다 먼저 와야 한다.
+  ["accounts.google.com", "Nookframe 안에서"],
   ["google.com", "구글 검색"],
   // 우리 사이트 안에서 넘어온 방문(작품 페이지 → 명함 등). 옛 도메인도 같은 곳이다 —
   // 도메인 그대로 두면 주인 화면에 "nookframe.com"이 외부 유입처처럼 떴다.

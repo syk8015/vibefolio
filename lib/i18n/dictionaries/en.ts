@@ -516,7 +516,6 @@ export const en: Dictionary = {
       "카카오": "Kakao",
       "네이버": "Naver",
       "유튜브": "YouTube",
-      "(구글 로그인 리턴)": "(Google sign-in return)",
       "구글 검색": "Google Search",
       "공유 링크(앱 미상)": "Share link (unknown app)",
       "Nookframe 안에서": "Within Nookframe",

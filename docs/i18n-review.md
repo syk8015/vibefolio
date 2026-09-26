@@ -842,3 +842,9 @@ SNS/검색 로봇은 JS를 안 돌려 OG·크롤러 노출 문구(루트 descrip
 | loginMethods.unlinkFailed | 해제하지 못했어요. 잠시 뒤에 다시 눌러 주세요. | Couldn't unlink. Please try again in a moment. | 신규 |
 | auth.inAppBody | 오른쪽 위 ⋯ 메뉴에서 '외부 브라우저로 열기'를 눌러 주세요. | Tap the ⋯ menu (top right) and choose 'Open in external browser'. | 교체 · 뒤 두 문장(구글이 막힐 때가 있어요 / GitHub·이메일은 여기서도 돼요) 삭제 — 제목이 이유를 말하고 버튼이 바로 아래 보여 군더더기(09-25 사용자 지시) |
 | auth.inAppCopy · inAppCopied · inAppCopyFailed | (삭제) 주소 복사 / 복사했어요… / 복사하지 못했어요… | (removed) Copy link / Copied… / Couldn't copy… | 삭제 · 앱 안 브라우저 안내의 [주소 복사] 버튼을 뺌 — ⋯ 메뉴 안내 한 문장만(09-25 사용자 지시) |
+
+## 대시보드 작은 결정 3건 (2026-09-27)
+
+| 키 | 한국어 | English | 비고 |
+|---|---|---|---|
+| visits.sourceLabels | (삭제) (구글 로그인 리턴) | (removed) (Google sign-in return) | 삭제 · accounts.google.com 유입을 `Nookframe 안에서`로 합침(09-27 사용자 결정 2C) — 명함에서 로그인하러 나갔다 온 방문이라. 분류기 라벨이라 관제탑도 같이 바뀜(옛 WatchView 이벤트에 이미 찍힌 채널 문자열은 그대로) |
