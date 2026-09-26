@@ -132,3 +132,25 @@
 2. ~~게시 시각~~ → 09-25 결정: 영어 한국 11시 · 한국어 한국 21시(§2.4).
 3. 밈 저작권 기준(§4.2 제안 기본값).
 4. ~~1단계 DB 구조 바꾸기~~ → 09-25 적용·main 반영, `node scripts/probe-promo-queue.mjs` 통과.
+
+## 7. 사람 할 일 체크리스트 (09-25 정리 — 아직 하나도 안 함)
+
+기다림이 긴 건 **유튜브 심사 하나**다. 그런데 신청서(support.google.com/youtube/contact/yt_api_form)가
+OAuth 로그인 화면·업로드 화면·개인정보처리방침 유튜브 절·홈 화면 **스크린샷**과 GCP 프로젝트 번호를 요구한다
+(09-25 확인, 영상은 불필요) → 프로그램이 먼저 있어야 신청된다. 기간은 공식 문서에 없음(경험담 몇 주~몇 달).
+그래서 **유튜브 연결·업로드를 메타보다 먼저 만드는 순서 변경을 제안**했다(사용자 답 대기).
+
+1. 유튜브(구글) — `nookframehq@gmail.com`으로
+   1. console.cloud.google.com → 새 프로젝트(예: `nookframe-publish`, 로그인용 프로젝트와 분리)
+   2. API 라이브러리 → `YouTube Data API v3` 사용
+   3. OAuth 동의 화면: 외부 · 앱 이름 Nookframe · 개인정보처리방침 `https://nookframe.com/privacy` · 약관 `https://nookframe.com/terms`
+      → **앱 게시(프로덕션)**(테스트 상태면 7일마다 토큰 만료. "확인되지 않은 앱" 경고는 본인 1명이라 무관)
+   4. 사용자 인증 정보 → OAuth 클라이언트 ID(웹) → 리디렉션 `https://nookframe.com/api/admin/promo/connect/youtube/callback`
+   5. ID·비밀값은 채팅 금지 → Vercel env `YOUTUBE_CLIENT_ID`·`YOUTUBE_CLIENT_SECRET`. 프로젝트 번호는 비밀 아님(알려주기).
+   - Claude 몫: 연결·업로드 화면 + 개인정보처리방침 유튜브 절(YouTube API 약관·구글 개인정보처리방침 링크·삭제 방법) → 스크린샷 → 신청서 답안 준비.
+2. 메타(인스타·스레드) — 기다림 없음. **페이스북 계정 필수**(09-25 공식 문서 developers.facebook.com/docs/development/register:
+   "While logged into your Facebook account…" + 전화·이메일 인증) → 사용자 개인 페북 계정으로 `developers.facebook.com/async/registration`.
+   앱 만들기·테스터 초대는 등록 뒤 화면 보며 같이(인스타·스레드를 앱 하나로 묶을 수 있는지 미확인).
+3. 워밍업(날짜가 흘러야 끝나는 일) — 새 계정은 처음 며칠 손으로. 스레드는 한국어 클립 8편으로 지금 가능:
+   `/admin/promo`에서 캡션 쓰기 → [스레드] 버튼(복사+새 탭) → 올리고 [올렸음], 하루 1편. 인스타·유튜브는 영어 클립 제작 뒤.
+
