@@ -144,6 +144,31 @@ export function popoverAnchor(
   };
 }
 
+// 안에서 펼치는 칸이 있는 팝오버(촬영 실패 창의 [기술 정보])는 처음 정한 최대 높이에 걸려
+// 아래가 잘리고 창 안에서 또 스크롤해야 했다(2026-09-27 사용자 결정 1B). 펼치면 실제 높이를
+// 재서 화면 안에 다 들어오게 자리만 옮긴다 — 위로 연 창은 트리거에 붙인 채 위로 늘리고,
+// 아래로 연 창은 화면을 넘칠 때만 올린다. 접으면 처음 자리로 돌아간다. RowMenu처럼
+// setState 없이 style만 고쳐 재렌더를 만들지 않는다.
+export function fitPopover(
+  el: HTMLElement | null,
+  anchor: PopoverAnchor,
+  trigger: DOMRect | null,
+  expanded: boolean,
+  { gap = 6, pad = 8 }: { gap?: number; pad?: number } = {},
+) {
+  if (!el) return;
+  if (!expanded || !trigger) {
+    el.style.top = `${anchor.top}px`;
+    el.style.maxHeight = `${anchor.maxHeight}px`;
+    return;
+  }
+  const h = Math.min(el.scrollHeight, window.innerHeight - 2 * pad);
+  const above = anchor.top < trigger.top;
+  const top = above ? trigger.top - gap - h : Math.min(anchor.top, window.innerHeight - pad - h);
+  el.style.maxHeight = `${h}px`;
+  el.style.top = `${Math.max(pad, top)}px`;
+}
+
 // 업로드 시각 — 같은 작품을 여러 번 올리면 제목만으로는 구분이 안 돼서
 // 행에 날짜+분까지 보여준다(2026-09-05 사용자 요청). title 속성엔 초까지.
 export function formatUploadedAt(iso: string | null | undefined, locale: "ko" | "en") {

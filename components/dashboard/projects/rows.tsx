@@ -7,7 +7,7 @@ import { detectDemoSource } from "@/lib/demoSource";
 import { detectVideoKind } from "@/lib/video";
 import { placeholderThumbnail } from "@/lib/placeholder";
 import { CONTENT_TYPES } from "@/lib/projectTaxonomy";
-import { popoverAnchor, formatUploadedAt, type PopoverAnchor } from "./helpers";
+import { popoverAnchor, fitPopover, formatUploadedAt, type PopoverAnchor } from "./helpers";
 import { type DBProject, type DemoBuildStatus, DEMO_IN_FLIGHT, DEMO_SLOW_MS } from "./types";
 import { useT } from "@/lib/i18n/client";
 
@@ -46,6 +46,9 @@ function DemoBuildBadge({
   // 팝오버는 fixed + 버튼 rect 앵커 — 리스트 카드(vf-card overflow-hidden)가
   // absolute 팝오버를 클리핑하는 것을 실측으로 확인(2026-07-13), fixed로 탈출.
   const [anchor, setAnchor] = useState<PopoverAnchor | null>(null);
+  // 실패 창의 [기술 정보]를 펼칠 때 창을 화면 안으로 다시 맞추는 데 쓴다(fitPopover).
+  const popRef = useRef<HTMLDivElement>(null);
+  const triggerRect = useRef<DOMRect | null>(null);
   if (!status) return null;
 
   // 상태는 오른쪽 끝의 조용한 한 줄이다(시안 1). 알약을 벗겨 낸 대신 색 점이
@@ -85,6 +88,7 @@ function DemoBuildBadge({
         <button
           onClick={e => {
             const r = e.currentTarget.getBoundingClientRect();
+            triggerRect.current = r;
             setAnchor(a => (a ? null : popoverAnchor(r, { width: 264, estHeight: 320 })));
           }}
           style={{ ...line, color: "var(--danger)", cursor: "pointer" }}
@@ -96,6 +100,7 @@ function DemoBuildBadge({
           <Popover>
             <div style={{ position: "fixed", inset: 0, zIndex: 40 }} onClick={() => setAnchor(null)} />
             <div
+              ref={popRef}
               className="rounded-2xl"
               style={{
                 position: "fixed",
@@ -137,7 +142,10 @@ function DemoBuildBadge({
                 </button>
               )}
               {message && (
-                <details style={{ marginTop: "0.6rem" }}>
+                <details
+                  style={{ marginTop: "0.6rem" }}
+                  onToggle={e => fitPopover(popRef.current, anchor, triggerRect.current, e.currentTarget.open)}
+                >
                   <summary style={{ fontSize: "0.8125rem", color: "var(--text-muted)", cursor: "pointer", fontFamily: "var(--font-nunito)" }}>
                     {t.projects.techInfo}
                   </summary>
