@@ -26,7 +26,9 @@ export default function LanguageToggle() {
         color: "var(--text-secondary)",
         transition: "border-color 0.2s, color 0.2s, background 0.2s",
         flexShrink: 0,
-        fontSize: 11,
+        // 13px(2026-09-27 사용자 결정 3C) — 번호 숫자가 아닌 글자는 13px 이상(글꼴 크기 규칙).
+        // 11px에선 영어 화면의 '한'이 특히 뭉개졌다. 동그라미(34px)는 그대로.
+        fontSize: 13,
         fontWeight: 800,
         fontFamily: "var(--font-nunito)",
         letterSpacing: "0.02em",
