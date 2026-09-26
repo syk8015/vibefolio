@@ -21,9 +21,10 @@ const CREAM = "#f4ede0";
 // ── Scene timing ──────────────────────────────────────────────────────────────
 const BLUR_RAMP_SEC = 0.9; // body → blurred-still crossfade ("blur strengthens")
 const LEAD_SEC = 0.35; // blinking cursor beat before typing starts
-const TYPE_MIN_MS = 60, TYPE_JIT_MS = 40; // per keystroke
+// 치기·지우기 속도 = 메인 화면 타이핑(components/TypingTagline.tsx) — 2026-09-26 사용자 결정 "전부 메인화면 속도로".
+const TYPE_MIN_MS = 90, TYPE_JIT_MS = 60; // per keystroke (avg 8.3 chars/s)
 const HOLD_FULL_SEC = 0.8; // full URL on screen
-const ERASE_MIN_MS = 35, ERASE_JIT_MS = 20; // per deleted char
+const ERASE_MIN_MS = 50, ERASE_JIT_MS = 35; // per deleted char (avg 14.8 chars/s)
 const LAND_BLINK_SEC = 0.95; // one full blink cycle after landing on "n"
 const LAND_HOLD_SEC = 1.0; // then solid n+block to the end
 const BLINK_PERIOD_SEC = 0.95; // .vf-cursor: 0.95s steps(1) — first half ON

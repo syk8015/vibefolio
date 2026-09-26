@@ -22,7 +22,10 @@ const PRECLICK_PAUSE_MS = 120; // tiny beat before a no-zoom click
 // 900ms), so the camera was leaving for the next beat before the thing the click
 // did appeared on film. Also the cheapest length lever — pacing costs no API fee.
 const HOLD_MS = 900;
-const TYPE_DELAY_MS = 55; // per-keystroke (human-like)
+// Keystroke pacing = the main page typing (components/TypingTagline.tsx): 90 + rand·60 ms (avg 8.3 chars/s).
+// 2026-09-26 user decision "전부 메인화면 속도로" — it was a fixed 55 ms (2.1× faster than the site).
+// lib/demoScriptReview.ts TYPE_CHAR_SEC mirrors the average; change both together.
+const TYPE_MIN_MS = 90, TYPE_JIT_MS = 60;
 const DRAG_MIN_MS = 520; // even a short slider pull should read as a deliberate gesture
 const DRAG_STEP_MS = 25; // real-mouse update cadence along the drag ease
 // Freehand stroke pacing: per-SEGMENT, snappier than a UI drag — a sketch is a
@@ -316,10 +319,28 @@ async function runAction(
   await settleAndClick(page, cam, to);
 
   if (act.kind === "type") {
-    if (act.text) await page.keyboard.type(act.text, { delay: TYPE_DELAY_MS });
+    if (act.text) await typeLikeSite(page, act.text);
     if (act.submit) await page.keyboard.press("Enter");
   }
   await sleep(hold);
+}
+
+// One keystroke at a time with the site's typing gaps. The gaps come from a seed made from the
+// text itself, so the same script always types with the same rhythm (retakes encode alike).
+async function typeLikeSite(page: Page, text: string): Promise<void> {
+  let seed = 0;
+  for (const c of text) seed = (seed * 31 + c.charCodeAt(0)) >>> 0;
+  let a = seed || 1;
+  const rnd = () => {
+    a |= 0; a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  for (const ch of text) {
+    await page.keyboard.type(ch);
+    await sleep(TYPE_MIN_MS + rnd() * TYPE_JIT_MS);
+  }
 }
 
 // Press at `from`, ease to `to`, release. Three layers ride ONE cubic in-out

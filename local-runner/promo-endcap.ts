@@ -21,9 +21,12 @@ const INK = "#1a1612";
 
 const WORD = "nookframe.com";
 const LEAD_SEC = 0.35; // 깜빡이는 커서로 시작하는 리드
-const TYPE_MIN_MS = 60, TYPE_JIT_MS = 40; // 글자당
+// 치기·지우기 속도 = 메인 화면 타이핑(components/TypingTagline.tsx)과 같다 — 2026-09-26 사용자 결정
+// "전부 메인화면 속도로 맞추자". 전엔 60+40 / 35+20ms라 본편(메인 화면 속도)보다 1.5배 빨라
+// 클립 이음매에서 속도가 한 번 튀었다. 멈춤(0.8초)·착지는 엔드캡 규칙 그대로.
+const TYPE_MIN_MS = 90, TYPE_JIT_MS = 60; // 글자당(평균 1초 8.3타)
 const HOLD_FULL_SEC = 0.8; // 다 쓴 상태로 유지
-const ERASE_MIN_MS = 35, ERASE_JIT_MS = 20; // 지워지는 글자당
+const ERASE_MIN_MS = 50, ERASE_JIT_MS = 35; // 지워지는 글자당(평균 1초 14.8자)
 const LAND_BLINK_SEC = 0.95; // n에 착지한 뒤 한 번 깜빡
 const LAND_HOLD_SEC = 1.0; // 그 다음 고정 유지
 const BLINK_PERIOD_SEC = 0.95;

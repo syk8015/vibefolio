@@ -60,13 +60,13 @@ export function scriptStats(script: DemoScript): ScriptStats {
 // ── 예상 필름 길이(2026-09-16, 외부 AI 피드백 NF-05/17) ──────────────────────
 // "5~8스텝이 알맞다"는 말만으로는 9스텝 대본이 30초를 넘는지 알 수 없었다(외부 AI는
 // hold 합이 20초인 9스텝을 넘는지 모른 채 골랐다). 러너의 페이싱 상수를 옮겨 온 어림
-// 계산이다 — local-runner/replay.ts(HOLD_MS 900 · TYPE_DELAY_MS 55 · FOCUS_MOVE_MS 700 ·
+// 계산이다 — local-runner/replay.ts(HOLD_MS 900 · 타자 90+랜덤 60ms · FOCUS_MOVE_MS 700 ·
 // SETTLE_MS 180)와 camera.ts(glideMsFor × CURSOR_SLOWDOWN 1.67 = 커서 활강 0.7~1.5초).
 // 셀렉터를 기다리거나 페이지가 느리면 실제는 더 걸린다 — **하한**으로 읽어야 하는 숫자다.
 // lib은 러너를 import 하지 않으므로(런타임이 다름) 상수가 바뀌면 여기도 손으로 맞춘다.
 const CURSOR_MOVE_SEC = 1.0; // 커서 활강 평균(짧은 이동 0.7 · 화면 횡단 1.5)
 const SETTLE_SEC = 0.18; // 클릭 직전 정지
-const TYPE_CHAR_SEC = 0.055; // 글자당 타이핑
+const TYPE_CHAR_SEC = 0.12; // 글자당 타이핑 — 메인 화면 속도(평균 120ms, 2026-09-26 통일)
 const FOCUS_MOVE_SEC = 0.7; // focus 카메라 이동
 const SCROLL_SEC = 0.75; // 부드러운 스크롤 한 번
 const DRAG_SEC = 0.6; // 드래그 제스처 최소

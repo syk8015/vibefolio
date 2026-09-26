@@ -976,8 +976,9 @@ body::before {
 }
 /* 타이핑은 **글자 하나씩** 연다. 예전엔 글상자 폭을 steps()로 잘라 열었는데,
    한 칸의 폭이 글자 폭과 안 맞아 글자가 반쯤 잘려 보였다(한글·영문 둘 다).
-   글자마다 제 차례에 열리면 어떤 언어든 정확하다. 한 글자당 1.3%(0.195초),
-   최대 12글자까지 — 마지막 글자가 [추가] 클릭(40%)보다 먼저 끝난다. */
+   글자마다 제 차례에 열리면 어떤 언어든 정확하다. 간격은 메인 화면 타이핑(TypingTagline)과
+   같은 90~150ms(15초 고리의 0.6~1.0%, 평균 1초 8.3타 — 2026-09-26 "전부 메인화면 속도로"; 전엔
+   1.3% 고정이라 0.62배 느렸다), 최대 12글자까지 — 마지막 글자가 [추가] 클릭(40%)보다 먼저 끝난다. */
 .vf-ua-ch {
   display: inline-block;
   overflow: hidden;
@@ -1001,18 +1002,18 @@ body::before {
 .vf-ua-ch11 { animation-name: vf-ua-ch11; }
 .vf-ua-ch12 { animation-name: vf-ua-ch12; }
 
-@keyframes vf-ua-ch1 { 0%, 16.2% { max-width: 0; } 16.3%, 40.9% { max-width: 3em; } 41%, 100% { max-width: 0; } }
-@keyframes vf-ua-ch2 { 0%, 17.5% { max-width: 0; } 17.6%, 40.9% { max-width: 3em; } 41%, 100% { max-width: 0; } }
-@keyframes vf-ua-ch3 { 0%, 18.8% { max-width: 0; } 18.9%, 40.9% { max-width: 3em; } 41%, 100% { max-width: 0; } }
-@keyframes vf-ua-ch4 { 0%, 20.1% { max-width: 0; } 20.2%, 40.9% { max-width: 3em; } 41%, 100% { max-width: 0; } }
-@keyframes vf-ua-ch5 { 0%, 21.4% { max-width: 0; } 21.5%, 40.9% { max-width: 3em; } 41%, 100% { max-width: 0; } }
-@keyframes vf-ua-ch6 { 0%, 22.7% { max-width: 0; } 22.8%, 40.9% { max-width: 3em; } 41%, 100% { max-width: 0; } }
-@keyframes vf-ua-ch7 { 0%, 24.0% { max-width: 0; } 24.1%, 40.9% { max-width: 3em; } 41%, 100% { max-width: 0; } }
-@keyframes vf-ua-ch8 { 0%, 25.3% { max-width: 0; } 25.4%, 40.9% { max-width: 3em; } 41%, 100% { max-width: 0; } }
-@keyframes vf-ua-ch9 { 0%, 26.6% { max-width: 0; } 26.7%, 40.9% { max-width: 3em; } 41%, 100% { max-width: 0; } }
-@keyframes vf-ua-ch10 { 0%, 27.9% { max-width: 0; } 28.0%, 40.9% { max-width: 3em; } 41%, 100% { max-width: 0; } }
-@keyframes vf-ua-ch11 { 0%, 29.2% { max-width: 0; } 29.3%, 40.9% { max-width: 3em; } 41%, 100% { max-width: 0; } }
-@keyframes vf-ua-ch12 { 0%, 30.5% { max-width: 0; } 30.6%, 40.9% { max-width: 3em; } 41%, 100% { max-width: 0; } }
+@keyframes vf-ua-ch1 { 0%, 16.20% { max-width: 0; } 16.30%, 40.9% { max-width: 3em; } 41%, 100% { max-width: 0; } }
+@keyframes vf-ua-ch2 { 0%, 16.92% { max-width: 0; } 17.02%, 40.9% { max-width: 3em; } 41%, 100% { max-width: 0; } }
+@keyframes vf-ua-ch3 { 0%, 17.55% { max-width: 0; } 17.65%, 40.9% { max-width: 3em; } 41%, 100% { max-width: 0; } }
+@keyframes vf-ua-ch4 { 0%, 18.38% { max-width: 0; } 18.48%, 40.9% { max-width: 3em; } 41%, 100% { max-width: 0; } }
+@keyframes vf-ua-ch5 { 0%, 19.35% { max-width: 0; } 19.45%, 40.9% { max-width: 3em; } 41%, 100% { max-width: 0; } }
+@keyframes vf-ua-ch6 { 0%, 20.02% { max-width: 0; } 20.12%, 40.9% { max-width: 3em; } 41%, 100% { max-width: 0; } }
+@keyframes vf-ua-ch7 { 0%, 20.62% { max-width: 0; } 20.72%, 40.9% { max-width: 3em; } 41%, 100% { max-width: 0; } }
+@keyframes vf-ua-ch8 { 0%, 21.50% { max-width: 0; } 21.60%, 40.9% { max-width: 3em; } 41%, 100% { max-width: 0; } }
+@keyframes vf-ua-ch9 { 0%, 22.36% { max-width: 0; } 22.46%, 40.9% { max-width: 3em; } 41%, 100% { max-width: 0; } }
+@keyframes vf-ua-ch10 { 0%, 23.18% { max-width: 0; } 23.28%, 40.9% { max-width: 3em; } 41%, 100% { max-width: 0; } }
+@keyframes vf-ua-ch11 { 0%, 24.07% { max-width: 0; } 24.17%, 40.9% { max-width: 3em; } 41%, 100% { max-width: 0; } }
+@keyframes vf-ua-ch12 { 0%, 24.68% { max-width: 0; } 24.78%, 40.9% { max-width: 3em; } 41%, 100% { max-width: 0; } }
 @keyframes vf-ua-caret {
   0%, 13%   { opacity: 0; }
   14%, 40%  { opacity: 1; }

@@ -170,7 +170,7 @@ const fe1 = estimateFilm({ steps: [{ goal: "a", selector: "#a", action: "click" 
 ok("click 한 스텝 = 커서 1.0 + 정지 0.18 + 기본 hold 0.9 → 2.1", fe1.seconds === 2.1, JSON.stringify(fe1));
 ok("예산 30초·안 넘으면 cutFromStep 없음", fe1.budget === 30 && fe1.cutFromStep === null, JSON.stringify(fe1));
 const fe2 = estimateFilm({ steps: [{ goal: "t", selector: "#t", action: "type", text: "선크림", hold: 2 }] });
-ok("type: 글자당 0.055초 + 준 hold(1.0+0.18+0.165+2 → 3.3)", fe2.seconds === 3.3, JSON.stringify(fe2));
+ok("type: 글자당 0.12초(메인 화면 타자 속도) + 준 hold(1.0+0.18+0.36+2 → 3.5)", fe2.seconds === 3.5, JSON.stringify(fe2));
 const fe3 = estimateFilm({ steps: [{ goal: "s", selector: "#s", action: "scroll" }] });
 ok("scroll은 hold를 안 주면 0.75 → 0.8", fe3.seconds === 0.8, JSON.stringify(fe3));
 const fe4 = estimateFilm({ steps: [{ goal: "f", selector: "#f", action: "focus", hold: 9 }] });
