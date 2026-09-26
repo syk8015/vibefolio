@@ -83,10 +83,15 @@ export default function AiConnections() {
         />
         {open && tokens?.map((row) => (
           <Row key={row.id} divider name={tokenName(row.name, t)}
+            // 앞자리만 고정폭 — 날짜까지 고정폭이면 폰에서 "2026. 9. / 22."처럼 날짜 가운데가 끊겼다.
             detail={
-              <span className="vf-mono" style={{ fontSize: "0.8125rem" }}>
-                {row.token_prefix} · {row.last_used_at ? t.connect.lastUsed(dateFmt(row.last_used_at)) : t.connect.neverUsed}
-              </span>
+              <>
+                <span className="vf-mono">{row.token_prefix}</span>
+                {" · "}
+                <span style={{ whiteSpace: "nowrap" }}>
+                  {row.last_used_at ? t.connect.lastUsed(dateFmt(row.last_used_at)) : t.connect.neverUsed}
+                </span>
+              </>
             }
             action={confirmId === row.id ? undefined : (
               <button type="button" className="vf-button-text shrink-0" disabled={locked}

@@ -495,7 +495,7 @@ export const en: Dictionary = {
     logoutHereBtn: "Log out",
     logoutAll: "Log out everywhere",
     logoutAllBody: "Signs you out on every phone and computer.",
-    logoutAllBtn: "Log out everywhere",
+    logoutAllBtn: "Log out all",
     logoutAllConfirm: "Log out on every device? This one goes back to the sign-in page too.",
     loggingOut: "Logging out…",
     logoutFailed: "Couldn't log out. Please try again in a moment.",

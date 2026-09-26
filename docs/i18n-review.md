@@ -859,7 +859,7 @@ SNS/검색 로봇은 JS를 안 돌려 OG·크롤러 노출 문구(루트 descrip
 | settings.displayLabel · language · theme · light · dark | 화면 · 언어 · 테마 · 라이트 · 다크 | Display · Language · Theme · Light · Dark | 신규 · 언어는 한국어/English 이름 그대로 |
 | settings.sessionsLabel | 로그인 관리 | Sign-in sessions | 신규 ⚠️ 영어는 "세션"으로 풀어 씀 |
 | settings.logoutHere / logoutHereBody / logoutHereBtn | 이 기기에서 로그아웃 / 지금 쓰는 기기만 나가요. / 로그아웃 | Log out on this device / Only the device you're using now. / Log out | 신규 |
-| settings.logoutAll / logoutAllBody / logoutAllBtn | 모든 기기에서 로그아웃 / 폰·컴퓨터 등 로그인된 기기에서 모두 나가요. / 모두 로그아웃 | Log out everywhere / Signs you out on every phone and computer. / Log out everywhere | 신규 · supabase signOut scope global |
+| settings.logoutAll / logoutAllBody / logoutAllBtn | 모든 기기에서 로그아웃 / 폰·컴퓨터 등 로그인된 기기에서 모두 나가요. / 모두 로그아웃 | Log out everywhere / Signs you out on every phone and computer. / Log out all | 신규 · supabase signOut scope global · 버튼은 짧게(360px 폰에서 줄 제목이 두 줄로 밀렸다) |
 | settings.logoutAllConfirm | 모든 기기에서 로그아웃할까요? 이 기기도 로그인 화면으로 돌아가요. | Log out on every device? This one goes back to the sign-in page too. | 신규 · 줄 안 확인 |
 | settings.loggingOut / logoutFailed | 로그아웃 중… / 로그아웃하지 못했어요. 잠시 뒤에 다시 눌러 주세요. | Logging out… / Couldn't log out. Please try again in a moment. | 신규 |
 | settings.aiLabel / aiTitle | AI 연결 / AI 도구 연결 | AI connections / Connected AI tools | 신규 |
