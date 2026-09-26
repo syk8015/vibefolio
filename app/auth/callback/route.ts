@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
   // Open-redirect guard: `next` is user-controlled and concatenated onto origin.
   // lib/safeNext keeps only a same-origin relative path (login page shares it).
   const next = safeNext(searchParams.get("next"), "/dashboard");
-  // 명함 탭 "로그인 방법"의 [연결]에서 돌아온 길(lib/identityLink) — 결과를 그 화면에 link=로 싣는다.
+  // 설정 화면 "로그인 방법"의 [연결]에서 돌아온 길(lib/identityLink) — 결과를 그 화면에 link=로 싣는다.
   const linking = searchParams.get("link") === "1";
   const via = searchParams.get("via");
 

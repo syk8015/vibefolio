@@ -1,4 +1,5 @@
-// 명함 탭 "로그인 방법"의 구글·깃허브 연결/해제(2026-09-25, components/dashboard/LoginMethods).
+// 설정 화면 "로그인 방법"의 구글·깃허브 연결/해제(2026-09-25, components/settings/LoginMethods).
+// 09-26에 명함 탭에서 설정 화면(/settings)으로 옮겼다 — 명함 탭엔 남에게 보여줄 명함만 둔다.
 // 왜: 깃허브 대표 메일 ≠ 구글 메일이면 다른 버튼으로 들어오는 순간 계정이 하나 더 생긴다
 // (09-24 실제로 겪음, lib/lastLogin 머리 주석). 쓰는 방법을 미리 이 계정에 붙여 두는 길이다.
 //
@@ -13,8 +14,8 @@ export type LinkProvider = (typeof LINK_PROVIDERS)[number];
 export const LINK_RESULTS = ["linked", "taken", "failed"] as const;
 export type LinkResult = (typeof LINK_RESULTS)[number];
 
-/** 연결을 마치고 돌아올 곳 — 로그인 방법 목록이 있는 명함 탭. */
-export const LINK_RETURN_PATH = "/dashboard?tab=card";
+/** 연결을 마치고 돌아올 곳 — 로그인 방법 목록이 있는 설정 화면. */
+export const LINK_RETURN_PATH = "/settings";
 
 export function isLinkProvider(v: unknown): v is LinkProvider {
   return typeof v === "string" && (LINK_PROVIDERS as readonly string[]).includes(v);

@@ -15,11 +15,17 @@ import {
 // 넓게 인식해주면 "확인됐다"고 보여놓고 명함에선 조용히 버려진다.
 import { getSocialMeta } from "@/components/SocialBadge";
 import type { DashboardProfile } from "./DashboardClient";
-import LoginMethods from "./LoginMethods";
 import { useT } from "@/lib/i18n/client";
 
-// 회원 탈퇴 칸(옅은 빨강 채움) 위의 빨간 글자 — 이유는 아래 "계정" 칸 주석에.
-const DANGER_ON_TINT = "color-mix(in srgb, var(--danger) 85%, var(--text-primary))";
+// 칸 이름표·도움말 — 이름표는 본문 글꼴 14px. 고정폭 글꼴(.vf-label)은 한글 사이를 벌려
+// "표 시 이 름"처럼 띄엄띄엄 읽혔다(09-26 사용자 "가독성이 떨어지는 느낌").
+const FIELD_LABEL: React.CSSProperties = {
+  display: "block", fontSize: "0.875rem", fontWeight: 600, color: "var(--text-primary)",
+  fontFamily: "var(--font-nunito)", marginBottom: 8,
+};
+const HELP: React.CSSProperties = {
+  marginTop: 8, fontSize: "0.8125rem", lineHeight: 1.5, color: "var(--text-secondary)", fontFamily: "var(--font-nunito)",
+};
 
 function migrateOldLinks(profile: DashboardProfile): string[] {
   const links: string[] = [];
@@ -28,8 +34,9 @@ function migrateOldLinks(profile: DashboardProfile): string[] {
   return links;
 }
 
-// 명함 탭(옛 ProfileTab) — 명함에 인쇄되는 것들을 편집한다. 상단 아이덴티티
-// 미리보기는 헤더의 미니 명함(실물 문법)이 대체해서 여기선 폼만 남았다.
+// 명함 탭(옛 ProfileTab) — 남에게 보여줄 명함에 찍히는 것만 고친다. 로그인 방법·회원 탈퇴는
+// 09-26에 설정 화면(/settings)으로 옮겼다. 상단 아이덴티티 미리보기는 헤더의 미니 명함(실물
+// 문법)이 대체해서 여기선 폼만 남았다.
 export default function CardTab({ user, profile }: { user: User; profile: DashboardProfile }) {
   const { t } = useT();
   // 폼의 초기값도 공개 명함이 읽는 profiles 행 — auth metadata는 표시 값의
@@ -45,7 +52,7 @@ export default function CardTab({ user, profile }: { user: User; profile: Dashbo
     avatarUrl: profile.avatar_url || "",
     socialLinks: existingLinks.length > 0 ? existingLinks : [""],
   });
-  // 탈퇴 확인 등 "저장된 username"이 필요한 곳에 쓴다 — 폼의 미저장 입력과 분리.
+  // 아이디 변경 경고 등 "저장된 username"이 필요한 곳에 쓴다 — 폼의 미저장 입력과 분리.
   const [savedUsername, setSavedUsername] = useState(profile.username || "");
   // 아바타는 선택 시 로컬 미리보기만 만들고, 실제 업로드는 저장 시점에 한다 —
   // 선택 즉시 올리면 저장 없이 떠났을 때 스토리지에 고아 파일이 남는다.
@@ -62,10 +69,6 @@ export default function CardTab({ user, profile }: { user: User; profile: Dashbo
       if (avatarPreview) URL.revokeObjectURL(avatarPreview);
     };
   }, [avatarPreview]);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [deleteConfirm, setDeleteConfirm] = useState("");
-  const [deleting, setDeleting] = useState(false);
-  const [deleteError, setDeleteError] = useState("");
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
     const { name } = e.target;
@@ -215,284 +218,183 @@ export default function CardTab({ user, profile }: { user: User; profile: Dashbo
     router.refresh();
   }
 
-  async function handleDelete() {
-    setDeleting(true);
-    setDeleteError("");
-    try {
-      const res = await fetch("/api/account", { method: "DELETE" });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.message || t.card.deleteFailed);
-      }
-      // Account + data are gone — drop the local session and leave.
-      await createClient().auth.signOut();
-      router.push("/");
-      router.refresh();
-    } catch (err) {
-      setDeleting(false);
-      setDeleteError(err instanceof Error ? err.message : t.card.deleteFailed);
-    }
-  }
-
   const avatarInitial = (form.name || form.username || "?").charAt(0).toUpperCase();
   const bioCount = form.bio.length;
   const displayAvatar = avatarPreview ?? form.avatarUrl;
 
   return (
-    // 좌측 정렬 — 헤더(미니 명함)·탭·작품 리스트가 전부 좌측 기준인 흐름에 맞춘다.
-    <div className="flex flex-col gap-8 max-w-lg w-full">
-      <form onSubmit={handleSave} className="flex flex-col gap-8">
-
-      {/* Avatar upload — 큰 아이덴티티 미리보기는 헤더의 미니 명함이 맡는다.
-          (예전 112px 원형 미리보기는 데스크탑 명함에 없는 아바타를 크게 보여줘
-          실물과 어긋났다 — 감사 A10.) */}
-      <div>
-        <label className="vf-label">
-          {t.card.avatarLabel}
-          <span className="ml-1.5" style={{ color: "var(--text-muted)", textTransform: "none", letterSpacing: 0, fontWeight: 400 }}>
-            {t.card.avatarNote}
-          </span>
-        </label>
-        <div className="flex items-center gap-3 flex-wrap">
-          <div
-            className="relative w-12 h-12 rounded-full flex items-center justify-center overflow-hidden shrink-0"
-            style={{
-              background: "var(--surface-soft)",
-              color: "var(--text-primary)",
-              fontFamily: "var(--font-serif), 'Noto Serif KR', serif",
-              fontSize: "1.1rem",
-              fontWeight: 500,
-            }}
-          >
-            {displayAvatar
-              ? <Image src={displayAvatar} alt="avatar" fill sizes="48px" unoptimized className="object-cover" />
-              : avatarInitial}
-          </div>
-          <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImagePick} />
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="vf-button-ghost"
-          >
-            {displayAvatar ? t.card.changeImage : t.card.uploadImage}
-          </button>
-          <p className="text-xs vf-mono" style={{ color: "var(--text-muted)" }}>
-            {t.card.avatarFormats}
-          </p>
-          {avatarFile && (
-            <p className="text-xs" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
-              {t.card.avatarPendingNote}
-            </p>
-          )}
-        </div>
-      </div>
-
-      {/* Name */}
-      <div>
-        <label className="vf-label">{t.card.nameLabel}</label>
-        <input className="vf-input" name="name" type="text"
-          placeholder={t.signup.namePlaceholder} value={form.name} onChange={handleChange} maxLength={NAME_MAX} />
-      </div>
-
-      {/* Username */}
-      <div>
-        <label className="vf-label">{t.card.usernameLabel}</label>
-        <div className="relative">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm pointer-events-none"
-            style={{ color: "var(--text-muted)", fontFamily: "var(--font-mono), monospace" }}>@</span>
-          <input className="vf-input vf-mono" style={{ paddingLeft: "1.75rem" }}
-            name="username" type="text" placeholder="alexvibe"
-            value={form.username} onChange={handleChange}
-            pattern={USERNAME_PATTERN} title={t.auth.usernamePattern} maxLength={USERNAME_MAX}
-            autoCapitalize="none" autoCorrect="off" spellCheck={false} autoComplete="off" />
-        </div>
-        <p className="text-xs mt-2 vf-mono" style={{ color: "var(--text-muted)", letterSpacing: "0.02em" }}>
-          nookframe.com/<span style={{ color: "var(--text-secondary)" }}>{form.username || "username"}</span>
-        </p>
-        {/* 아이디를 바꾸면 옛 주소는 바로 404다(옛 주소 이어주기 없음) — 저장 전에 알린다(C11). */}
-        {savedUsername && form.username && form.username !== savedUsername && (
-          <p role="note" className="text-xs mt-2" style={{ color: "var(--danger)", fontFamily: "var(--font-nunito)", lineHeight: 1.5 }}>
-            {t.card.usernameChangeWarning(savedUsername)}
-          </p>
-        )}
-      </div>
-
-      {/* Bio */}
-      <div>
-        <label className="vf-label">{t.card.bioLabel}</label>
-        <textarea
-          className="vf-input"
-          name="bio"
-          placeholder={t.onboarding.bioPlaceholder}
-          value={form.bio}
-          onChange={handleChange}
-          rows={3}
-          maxLength={BIO_MAX}
-          style={{ resize: "vertical", lineHeight: 1.55 }}
-        />
-        <p className="text-xs mt-2 vf-mono text-right" style={{ color: "var(--text-muted)" }}>
-          {bioCount} / {BIO_MAX}
-        </p>
-      </div>
-
-      {/* Social Links */}
-      <div>
-        <label className="vf-label">{t.card.socialLabel}</label>
-        <div className="flex flex-col gap-3">
-          {form.socialLinks.map((link, i) => {
-            const detected = link.trim() ? getSocialMeta(link) : null;
-            return (
-              <div key={i} className="flex flex-col gap-1">
-                <div className="flex items-center gap-2">
-                  <input
-                    className="vf-input flex-1"
-                    type="text"
-                    placeholder="https://instagram.com/username"
-                    value={link}
-                    onChange={(e) => handleLinkChange(i, e.target.value)}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removeLink(i)}
-                    className="vf-icon-button w-9 h-9 text-base flex-shrink-0"
-                    style={{ color: "var(--text-muted)" }}
-                    aria-label={t.card.removeLink}
-                  >
-                    ×
-                  </button>
-                </div>
-                {link.trim() && (detected ? (
-                  <p className="text-xs pl-1 vf-mono" style={{ color: "var(--text-secondary)", letterSpacing: "0.02em" }}>
-                    · {detected.name} {detected.handle}
-                  </p>
-                ) : (
-                  <p className="text-xs pl-1" style={{ color: "var(--danger)", fontFamily: "var(--font-nunito)", lineHeight: 1.6 }}>
-                    {t.card.unrecognizedLink}
-                  </p>
-                ))}
+    // 제목 있는 카드 두 장(09-26 사용자 확정 "B안 수정", 시안=claude.ai/artifact/JG1rHep7VpWvfWbBBJo6og).
+    // 한 폼을 두 칸으로 반씩 자르면 칸 높이가 달라 눈이 지그재그로 움직였다 — 무리마다 카드로 묶고
+    // PC는 나란히(스크롤이 거의 없다), 폰은 위아래로.
+    <form onSubmit={handleSave} className="flex flex-col gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
+        <Panel title={t.card.basicTitle} body={t.card.basicBody}>
+          {/* 사진 — 큰 아이덴티티 미리보기는 헤더의 미니 명함이 맡는다(감사 A10). */}
+          <div>
+            <span style={FIELD_LABEL}>{t.card.avatarLabel}</span>
+            <div className="flex items-center gap-3">
+              <div
+                className="relative w-12 h-12 rounded-full flex items-center justify-center overflow-hidden shrink-0"
+                style={{
+                  background: "var(--surface-soft)",
+                  color: "var(--text-primary)",
+                  fontFamily: "var(--font-serif), 'Noto Serif KR', serif",
+                  fontSize: "1.1rem",
+                  fontWeight: 500,
+                }}
+              >
+                {displayAvatar
+                  ? <Image src={displayAvatar} alt="avatar" fill sizes="48px" unoptimized className="object-cover" />
+                  : avatarInitial}
               </div>
-            );
-          })}
-          <button
-            type="button"
-            onClick={addLink}
-            className="vf-button-text w-fit"
-          >
-            <span style={{ fontSize: "1.1rem", lineHeight: 1 }}>+</span> {t.card.addLink}
-          </button>
-        </div>
+              <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImagePick} />
+              <button type="button" onClick={() => fileInputRef.current?.click()} className="vf-button-ghost" style={{ fontSize: "0.875rem" }}>
+                {displayAvatar ? t.card.changeImage : t.card.uploadImage}
+              </button>
+            </div>
+            <p style={HELP}>{avatarFile ? t.card.avatarPendingNote : t.card.photoHelp}</p>
+          </div>
+
+          <div>
+            <label htmlFor="card-name" style={FIELD_LABEL}>{t.card.nameLabel}</label>
+            <input id="card-name" className="vf-input" name="name" type="text"
+              placeholder={t.signup.namePlaceholder} value={form.name} onChange={handleChange} maxLength={NAME_MAX} />
+          </div>
+
+          <div>
+            <label htmlFor="card-username" style={FIELD_LABEL}>{t.card.usernameLabel}</label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm pointer-events-none"
+                style={{ color: "var(--text-muted)", fontFamily: "var(--font-mono), monospace" }}>@</span>
+              <input id="card-username" className="vf-input vf-mono" style={{ paddingLeft: "1.75rem" }}
+                name="username" type="text" placeholder="alexvibe"
+                value={form.username} onChange={handleChange}
+                pattern={USERNAME_PATTERN} title={t.auth.usernamePattern} maxLength={USERNAME_MAX}
+                autoCapitalize="none" autoCorrect="off" spellCheck={false} autoComplete="off" />
+            </div>
+            <p style={HELP}>
+              {t.card.cardAddress}{" "}
+              <span className="vf-mono" style={{ color: "var(--text-primary)", overflowWrap: "anywhere" }}>nookframe.com/{form.username || "username"}</span>
+            </p>
+            {/* 아이디를 바꾸면 옛 주소는 바로 404다(옛 주소 이어주기 없음) — 저장 전에 알린다(C11). */}
+            {savedUsername && form.username && form.username !== savedUsername && (
+              <p role="note" style={{ ...HELP, color: "var(--danger)" }}>
+                {t.card.usernameChangeWarning(savedUsername)}
+              </p>
+            )}
+          </div>
+        </Panel>
+
+        <Panel title={t.card.aboutTitle} body={t.card.aboutBody}>
+          <div>
+            <div className="flex items-baseline justify-between gap-3">
+              <label htmlFor="card-bio" style={FIELD_LABEL}>{t.card.bioLabel}</label>
+              <span className="vf-mono" style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>{bioCount}/{BIO_MAX}</span>
+            </div>
+            <textarea
+              id="card-bio"
+              className="vf-input"
+              name="bio"
+              placeholder={t.onboarding.bioPlaceholder}
+              value={form.bio}
+              onChange={handleChange}
+              rows={3}
+              maxLength={BIO_MAX}
+              style={{ resize: "vertical", lineHeight: 1.55 }}
+            />
+          </div>
+
+          <div>
+            <span style={FIELD_LABEL}>{t.card.socialLabel}</span>
+            <div className="flex flex-col gap-3">
+              {form.socialLinks.map((link, i) => {
+                const detected = link.trim() ? getSocialMeta(link) : null;
+                return (
+                  <div key={i} className="flex flex-col gap-1">
+                    <div className="flex items-center gap-2">
+                      <input
+                        className="vf-input flex-1 min-w-0"
+                        type="text"
+                        placeholder="https://instagram.com/username"
+                        aria-label={t.card.socialLabel}
+                        value={link}
+                        onChange={(e) => handleLinkChange(i, e.target.value)}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeLink(i)}
+                        className="vf-icon-button w-9 h-9 text-base flex-shrink-0"
+                        style={{ color: "var(--text-muted)" }}
+                        aria-label={t.card.removeLink}
+                      >
+                        ×
+                      </button>
+                    </div>
+                    {link.trim() && (detected ? (
+                      <p className="pl-1 vf-mono" style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", letterSpacing: "0.02em" }}>
+                        · {detected.name} {detected.handle}
+                      </p>
+                    ) : (
+                      <p className="pl-1" style={{ ...HELP, marginTop: 0, color: "var(--danger)" }}>
+                        {t.card.unrecognizedLink}
+                      </p>
+                    ))}
+                  </div>
+                );
+              })}
+              <button type="button" onClick={addLink} className="vf-button-text w-fit">
+                <span style={{ fontSize: "1.1rem", lineHeight: 1 }}>+</span> {t.card.addLink}
+              </button>
+            </div>
+          </div>
+        </Panel>
       </div>
 
-      {/* Save */}
-      <div className="flex items-center gap-3 pt-2 flex-wrap">
+      {/* 저장 — PC는 오른쪽 아래(결과 문구는 버튼 왼쪽). 폰은 화면 아래에 붙는다(토스 BottomCTA) —
+          카드 두 장이 위아래로 쌓여 길어서, 끝까지 내려가야 버튼이 보였다. */}
+      <div
+        className="flex flex-col-reverse md:flex-row-reverse md:items-center gap-3 max-md:sticky max-md:bottom-0 max-md:-mx-6 max-md:px-6 max-md:py-3 max-md:border-t"
+        style={{ background: "var(--bg)", borderColor: "var(--border)" }}
+      >
         <button
           type="submit"
           disabled={loading}
-          className="vf-button-primary"
-          style={{ cursor: loading ? "not-allowed" : "pointer" }}
+          className="vf-button-primary max-md:w-full"
+          style={{ fontSize: "0.9375rem", cursor: loading ? "not-allowed" : "pointer" }}
         >
           {loading ? t.card.saving : t.card.save}
         </button>
         {saved && (
-          <span className="text-sm flex items-center gap-1.5" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <span role="status" className="text-sm flex items-center gap-1.5" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
               <path d="M2.5 7l3 3 6-6.5" stroke="var(--text-primary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
             {t.card.savedMsg}
           </span>
         )}
         {error && (
-          <span className="text-sm" style={{ color: "#b34747", fontFamily: "var(--font-nunito)" }}>
+          <span role="alert" className="text-sm" style={{ color: "var(--danger)", fontFamily: "var(--font-nunito)" }}>
             {error}
           </span>
         )}
       </div>
-      </form>
+    </form>
+  );
+}
 
-      {/* 로그인 방법 — 구글·깃허브를 이 계정에 붙이고 떼기(메일이 달라 계정이 갈리는 것 예방). */}
-      <LoginMethods accountEmail={user.email ?? ""} />
-
-      {/* 계정 — 명함 내용과 분리된 계정 자체의 작업(탈퇴). soft-fill 언어:
-          경고는 테두리가 아니라 옅은 채움으로. (privacy: 탈퇴 즉시 파기)
-          빨간 글자에 글자색을 15% 섞는다(2026-09-25) — 옅은 빨강 채움 위에서 --danger 그대로는
-          라이트 버튼이 대비 4.1이었다. 섞으면 라이트는 더 진하게, 다크는 더 밝게 바탕에서 멀어진다. */}
-      <div className="pt-2">
-        <p className="vf-label">{t.card.accountLabel}</p>
-        <div className="rounded-2xl p-5" style={{ background: "rgba(179,71,71,0.06)" }}>
-          <h3 className="text-sm font-black mb-1.5" style={{ color: DANGER_ON_TINT, fontFamily: "var(--font-nunito)" }}>{t.card.deleteTitle}</h3>
-          <p className="text-sm mb-4" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", lineHeight: 1.65 }}>
-            {t.card.deleteBody1}
-            <strong style={{ color: "var(--text-primary)" }}>{t.card.deleteBodyStrong}</strong>{t.card.deleteBody2}
-          </p>
-          <button
-            type="button"
-            onClick={() => { setShowDeleteModal(true); setDeleteConfirm(""); setDeleteError(""); }}
-            className="text-sm font-bold px-4 py-2.5 rounded-xl transition-opacity hover:opacity-80"
-            style={{ color: DANGER_ON_TINT, background: "rgba(179,71,71,0.12)", border: "none", cursor: "pointer", fontFamily: "var(--font-nunito)" }}
-          >
-            {t.card.deleteBtn}
-          </button>
-        </div>
-      </div>
-
-      {/* Confirmation modal */}
-      {showDeleteModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ background: "rgba(0,0,0,0.55)" }}
-          onClick={() => { if (!deleting) setShowDeleteModal(false); }}
-        >
-          <div
-            className="w-full max-w-sm rounded-2xl p-6"
-            style={{ background: "var(--surface)", border: "1px solid var(--border-bright)" }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="text-lg font-black mb-2" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}>
-              {t.card.deleteModalTitle}
-            </h3>
-            <p className="text-sm mb-4" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", lineHeight: 1.65 }}>
-              <strong style={{ color: "var(--text-primary)" }}>@{savedUsername}</strong>{t.card.deleteModalBody}
-            </p>
-            {/* 확인 문자열은 "저장된" username — 폼에 고쳐 쓰고 저장 안 한 값과
-                비교하면 존재하지 않는 이름을 타이핑하라고 요구하게 된다. */}
-            <label className="vf-label">
-              {t.card.confirmPrefix}<span style={{ color: "var(--text-primary)" }}>{savedUsername}</span>{t.card.confirmSuffix}
-            </label>
-            <input
-              className="vf-input"
-              value={deleteConfirm}
-              onChange={(e) => { setDeleteConfirm(e.target.value); setDeleteError(""); }}
-              placeholder={savedUsername}
-              autoComplete="off"
-              disabled={deleting}
-              autoFocus
-            />
-            {deleteError && (
-              <p className="text-sm mt-2" style={{ color: "#b34747", fontFamily: "var(--font-nunito)" }}>{deleteError}</p>
-            )}
-            <div className="flex gap-2 mt-5">
-              <button
-                type="button"
-                onClick={() => setShowDeleteModal(false)}
-                disabled={deleting}
-                className="flex-1 py-2.5 rounded-xl text-sm font-bold transition-opacity hover:opacity-80"
-                style={{ background: "var(--surface-soft)", color: "var(--text-primary)", border: "none", cursor: deleting ? "not-allowed" : "pointer", fontFamily: "var(--font-nunito)" }}
-              >
-                {t.card.cancel}
-              </button>
-              <button
-                type="button"
-                onClick={handleDelete}
-                disabled={deleting || deleteConfirm.trim() !== savedUsername}
-                className="flex-1 py-2.5 rounded-xl text-sm font-bold transition-opacity"
-                style={{ background: "#b34747", color: "#fff", border: "none", cursor: (deleting || deleteConfirm.trim() !== savedUsername) ? "not-allowed" : "pointer", opacity: (deleting || deleteConfirm.trim() !== savedUsername) ? 0.5 : 1, fontFamily: "var(--font-nunito)" }}
-              >
-                {deleting ? t.card.deleting : t.card.deleteForever}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+// 무리 하나 — 흰 카드 + 제목·설명(토스 ListHeader). 크림 바탕 위라 --shadow-panel로 띄운다.
+function Panel({ title, body, children }: { title: string; body: string; children: React.ReactNode }) {
+  return (
+    <section className="rounded-2xl p-6 flex flex-col gap-6" style={{ background: "var(--surface)", boxShadow: "var(--shadow-panel)" }}>
+      <header className="flex flex-col gap-1">
+        <h2 style={{ margin: 0, fontSize: "1.0625rem", fontWeight: 700, letterSpacing: "-0.01em", color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}>
+          {title}
+        </h2>
+        <p style={{ margin: 0, fontSize: "0.8125rem", lineHeight: 1.5, color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
+          {body}
+        </p>
+      </header>
+      {children}
+    </section>
   );
 }

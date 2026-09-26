@@ -88,8 +88,8 @@ export async function middleware(request: NextRequest) {
   // 로그인·온보딩을 거쳐도 살아남게 ?next=로 실어 보낸다.
   const here = pathname + request.nextUrl.search;
 
-  // 비로그인 유저가 /dashboard 접근 시 로그인으로
-  if (!user && pathname.startsWith("/dashboard")) {
+  // 비로그인 유저가 /dashboard·/settings 접근 시 로그인으로
+  if (!user && (pathname.startsWith("/dashboard") || pathname.startsWith("/settings"))) {
     const login = new URL("/login", request.url);
     login.searchParams.set("next", here);
     return NextResponse.redirect(login);

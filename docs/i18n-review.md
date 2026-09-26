@@ -848,3 +848,29 @@ SNS/검색 로봇은 JS를 안 돌려 OG·크롤러 노출 문구(루트 descrip
 | 키 | 한국어 | English | 비고 |
 |---|---|---|---|
 | visits.sourceLabels | (삭제) (구글 로그인 리턴) | (removed) (Google sign-in return) | 삭제 · accounts.google.com 유입을 `Nookframe 안에서`로 합침(09-27 사용자 결정 2C) — 명함에서 로그인하러 나갔다 온 방문이라. 분류기 라벨이라 관제탑도 같이 바뀜(옛 WatchView 이벤트에 이미 찍힌 채널 문자열은 그대로) |
+
+## 설정 화면 + 명함 탭 정리 (2026-09-26)
+
+홈 프로필 메뉴·대시보드 위쪽 [설정]으로 여는 새 화면(`/settings`, `components/settings/*`). 명함 탭엔 남에게 보여줄 명함만 남기고 로그인 방법(`loginMethods.*`)·회원 탈퇴(`card.accountLabel`·`card.delete*` — 키는 그대로)를 이리로 옮겼다. 명함 탭은 제목 있는 카드 두 장(기본 정보 / 소개와 링크)으로 다시 짰다.
+
+| 키 | 한국어 | English | 비고 |
+|---|---|---|---|
+| settings.title / back | 설정 / 대시보드 | Settings / Dashboard | 신규 · 제목과 돌아가기 링크 |
+| settings.displayLabel · language · theme · light · dark | 화면 · 언어 · 테마 · 라이트 · 다크 | Display · Language · Theme · Light · Dark | 신규 · 언어는 한국어/English 이름 그대로 |
+| settings.sessionsLabel | 로그인 관리 | Sign-in sessions | 신규 ⚠️ 영어는 "세션"으로 풀어 씀 |
+| settings.logoutHere / logoutHereBody / logoutHereBtn | 이 기기에서 로그아웃 / 지금 쓰는 기기만 나가요. / 로그아웃 | Log out on this device / Only the device you're using now. / Log out | 신규 |
+| settings.logoutAll / logoutAllBody / logoutAllBtn | 모든 기기에서 로그아웃 / 폰·컴퓨터 등 로그인된 기기에서 모두 나가요. / 모두 로그아웃 | Log out everywhere / Signs you out on every phone and computer. / Log out everywhere | 신규 · supabase signOut scope global |
+| settings.logoutAllConfirm | 모든 기기에서 로그아웃할까요? 이 기기도 로그인 화면으로 돌아가요. | Log out on every device? This one goes back to the sign-in page too. | 신규 · 줄 안 확인 |
+| settings.loggingOut / logoutFailed | 로그아웃 중… / 로그아웃하지 못했어요. 잠시 뒤에 다시 눌러 주세요. | Logging out… / Couldn't log out. Please try again in a moment. | 신규 |
+| settings.aiLabel / aiTitle | AI 연결 / AI 도구 연결 | AI connections / Connected AI tools | 신규 |
+| settings.aiBody | Claude Code·Cursor 같은 도구에 준 연결 {n}개를 보고 끊을 수 있어요. | See and disconnect the {n} connection(s) you gave tools like Claude Code or Cursor. | 신규 · 함수(n) · 영어는 단수/복수 |
+| settings.aiEmpty / aiLoadFailed | 아직 연결한 AI 도구가 없어요. / 연결 목록을 불러오지 못했어요. | No AI tools connected yet. / Couldn't load your connections. | 신규 |
+| settings.aiManage / aiClose / revoking / cancel | 관리 / 접기 / 끊는 중… / 취소 | Manage / Hide / Disconnecting… / Cancel | 신규 · 끊기 확인 문구는 기존 connect.revokeConfirm |
+| settings.oauthTokenName | {host} 커넥터 | {host} connector | 신규 · 함수(host) · 원격 MCP 연결 이름(lib/oauth가 `oauth:<호스트>`로 적는다) |
+| card.basicTitle / basicBody | 기본 정보 / 명함에 크게 찍히는 이름과 주소예요. | Basics / The name and address printed big on your card. | 신규 · 명함 탭 첫 카드 |
+| card.aboutTitle / aboutBody | 소개와 링크 / 명함 아래쪽에 한 줄 소개와 링크 아이콘으로 보여요. | Bio & links / Shown at the bottom of your card as a one-line bio and link icons. | 신규 · 둘째 카드 |
+| card.avatarLabel | 사진 | Photo | 교체 · 옛 "프로필 이미지 / Profile image" |
+| card.uploadImage / changeImage | 사진 올리기 / 사진 바꾸기 | Upload photo / Change photo | 교체 · 옛 "이미지 업로드·이미지 변경" |
+| card.photoHelp | 모바일 명함과 공유 카드에 쓰여요. JPG·PNG·GIF, 5MB까지. | Used on your mobile card and share cards. JPG, PNG or GIF, up to 5MB. | 신규 · 옛 avatarNote·avatarFormats 두 줄을 합침(둘은 삭제) |
+| card.usernameLabel | 아이디 | Username | 교체(한국어만) · 옛 "사용자 이름" |
+| card.cardAddress | 명함 주소 | Card address | 신규 · 아이디 칸 아래 "명함 주소 nookframe.com/…" |

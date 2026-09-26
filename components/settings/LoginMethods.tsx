@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import type { UserIdentity } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
@@ -10,11 +10,12 @@ import {
   LINK_PROVIDERS, LINK_RETURN_PATH, canUnlink, isLinkProvider, isLinkResult, linkRedirectTo,
   type LinkProvider,
 } from "@/lib/identityLink";
+import { InlineConfirm, List, Row, Section, TEXT, pillStyle } from "./ui";
 
-// 명함 탭 "로그인 방법"(2026-09-25) — 이 계정에 붙은 방법 목록 + 구글·깃허브 [연결]/[해제].
-// 왜·함정은 lib/identityLink 머리 주석. 이메일 줄은 늘 맨 위이고 버튼이 없다 — 메일 코드 로그인은
-// 계정 메일로 언제나 되고(구글로 가입한 계정도), 계정 메일을 쥔 방법은 떼지 않는다(canUnlink).
-// 줄 모양은 토스 ListRow(아이콘 · 이름/메일 · 오른쪽 조작), 글자는 15 이름 · 14 설명 · 13 메일.
+// 설정 "로그인 방법"(2026-09-25, 09-26 명함 탭에서 옮김) — 이 계정에 붙은 방법 목록 + 구글·깃허브
+// [연결]/[해제]. 왜·함정은 lib/identityLink 머리 주석. 이메일 줄은 늘 맨 위이고 버튼이 없다 —
+// 메일 코드 로그인은 계정 메일로 언제나 되고(구글로 가입한 계정도), 계정 메일을 쥔 방법은
+// 떼지 않는다(canUnlink).
 const NAME: Record<LinkProvider, string> = { google: "Google", github: "GitHub" };
 const ICON: Record<LinkProvider, () => React.ReactElement> = { google: GoogleIcon, github: GitHubIcon };
 const CONTACT = "mailto:vivestarter@gmail.com";
@@ -32,16 +33,6 @@ function noticeFromUrl(params: { get(name: string): string | null }): Notice | n
   return isLinkProvider(provider) ? { kind: result, provider } : null;
 }
 
-// 조작 버튼 — soft 목록 위라 한 단계 진한 채움(--surface-active). 14px = 창 안 보조 버튼.
-const pill: React.CSSProperties = {
-  fontSize: "0.875rem", fontWeight: 600, lineHeight: 1.4, padding: "0.4rem 0.95rem",
-  borderRadius: 999, border: "none", background: "var(--surface-active)", color: "var(--text-primary)",
-  fontFamily: "var(--font-nunito)", whiteSpace: "nowrap", cursor: "pointer",
-};
-
-// 줄 사이 구분 — soft 채움 위에 바탕색 1px(테두리 색은 다크에서 채움과 거의 같아 안 보였다).
-const DIVIDER: React.CSSProperties = { borderTop: "1px solid var(--bg)" };
-
 export default function LoginMethods({ accountEmail }: { accountEmail: string }) {
   const { t } = useT();
   const tl = t.loginMethods;
@@ -53,7 +44,6 @@ export default function LoginMethods({ accountEmail }: { accountEmail: string })
   // 누른 공급자(연결 — 곧 공급자 화면으로 넘어간다) 또는 해제 중인 identity_id. 있으면 버튼을 다 잠근다.
   const [busy, setBusy] = useState<string | null>(null);
   const [confirmId, setConfirmId] = useState<string | null>(null);
-  const sectionRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let alive = true;
@@ -67,12 +57,9 @@ export default function LoginMethods({ accountEmail }: { accountEmail: string })
     return () => { alive = false; };
   }, [reloadKey]);
 
-  // 결과 표식은 읽었으면 주소에서 지우고(새로고침에 다시 뜨지 않게), 이 칸이 보이게 내려 준다 —
-  // 명함 탭 아래쪽이라 돌아온 첫 화면엔 안 보인다.
+  // 결과 표식은 읽었으면 주소에서 지운다 — 새로고침에 같은 안내가 다시 뜨지 않게.
   useEffect(() => {
-    if (!searchParams.get("link")) return;
-    window.history.replaceState({}, "", LINK_RETURN_PATH);
-    sectionRef.current?.scrollIntoView({ block: "center" });
+    if (searchParams.get("link")) window.history.replaceState({}, "", LINK_RETURN_PATH);
   }, [searchParams]);
 
   // 공급자 화면에서 뒤로 가기로 돌아오면 페이지가 캐시째 되살아나 "이동 중…"에 멈춰 있다.
@@ -135,20 +122,14 @@ export default function LoginMethods({ accountEmail }: { accountEmail: string })
   const hasEmailRow = accountEmail !== "";
 
   return (
-    // keep-all — 폰 폭에서 "이 계정이/에요"처럼 낱말 가운데가 끊겼다(09-25 360px 실측).
-    <div ref={sectionRef} className="pt-2" style={{ wordBreak: "keep-all" }}>
-      <p className="vf-label">{tl.label}</p>
-      <p className="text-sm mb-3" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", lineHeight: 1.6 }}>
-        {tl.intro}
-      </p>
-
+    <Section label={tl.label} intro={tl.intro}>
       {notice && <NoticeView notice={notice} />}
 
-      <ul className="rounded-2xl overflow-hidden" style={{ background: "var(--surface-soft)" }}>
+      <List>
         {hasEmailRow && <Row icon={<MailIcon />} name={tl.email} detail={accountEmail} />}
 
         {identities === null ? (
-          <li className="px-4 py-3.5 flex items-center gap-3 flex-wrap" style={hasEmailRow ? DIVIDER : undefined}>
+          <li className="px-4 py-3.5 flex items-center gap-3 flex-wrap" style={hasEmailRow ? { borderTop: "1px solid var(--bg)" } : undefined}>
             {loadFailed ? (
               <>
                 <span className="text-sm" style={{ color: "var(--danger)", fontFamily: "var(--font-nunito)" }}>{tl.loadFailed}</span>
@@ -168,8 +149,7 @@ export default function LoginMethods({ accountEmail }: { accountEmail: string })
             return (
               <Row key={provider} divider={divider} icon={<Icon />} name={NAME[provider]} detail={tl.notLinked}
                 action={
-                  <button type="button" onClick={() => link(provider)} disabled={locked}
-                    style={{ ...pill, opacity: locked ? 0.5 : 1, cursor: locked ? "not-allowed" : "pointer" }}>
+                  <button type="button" onClick={() => link(provider)} disabled={locked} style={pillStyle(locked)}>
                     {busy === provider ? tl.linking : tl.link}
                   </button>
                 } />
@@ -188,67 +168,32 @@ export default function LoginMethods({ accountEmail }: { accountEmail: string })
                 </button>
               ) : undefined}>
               {confirming && (
-                // 줄 안에서 펼친다 — 되돌릴 수 있는 일(다시 연결하면 된다)이라 창을 띄우지 않는다.
-                <div className="mt-3 pl-8">
-                  <p className="text-sm" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", lineHeight: 1.6 }}>
-                    {tl.unlinkConfirm(NAME[provider])}
-                  </p>
-                  <div className="flex items-center gap-4 mt-2.5">
-                    <button type="button" onClick={() => unlink(identity, provider)} disabled={locked}
-                      style={{ ...pill, opacity: locked ? 0.5 : 1, cursor: locked ? "not-allowed" : "pointer" }}>
-                      {busy === identity.identity_id ? tl.unlinking : tl.unlinkYes}
-                    </button>
-                    <button type="button" className="vf-button-text" disabled={locked} onClick={() => setConfirmId(null)}>
-                      {tl.cancel}
-                    </button>
-                  </div>
-                </div>
+                <InlineConfirm indent locked={locked}
+                  text={tl.unlinkConfirm(NAME[provider])}
+                  yes={busy === identity.identity_id ? tl.unlinking : tl.unlinkYes}
+                  no={tl.cancel}
+                  onYes={() => unlink(identity, provider)}
+                  onNo={() => setConfirmId(null)} />
               )}
             </Row>
           );
         })}
-      </ul>
-    </div>
-  );
-}
-
-function Row({ icon, name, detail, action, divider = false, children }: {
-  icon: React.ReactNode; name: string; detail?: string; action?: React.ReactNode;
-  divider?: boolean; children?: React.ReactNode;
-}) {
-  return (
-    <li className="px-4 py-3.5" style={divider ? DIVIDER : undefined}>
-      <div className="flex items-center gap-3">
-        <span className="shrink-0 w-5 flex justify-center" style={{ color: "var(--text-primary)" }}>{icon}</span>
-        <div className="min-w-0 flex-1">
-          <p style={{ fontSize: "0.9375rem", fontWeight: 600, lineHeight: 1.4, color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}>
-            {name}
-          </p>
-          {detail && (
-            <p className="truncate" style={{ fontSize: "0.8125rem", lineHeight: 1.45, color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
-              {detail}
-            </p>
-          )}
-        </div>
-        {action}
-      </div>
-      {children}
-    </li>
+      </List>
+    </Section>
   );
 }
 
 function NoticeView({ notice }: { notice: Notice }) {
   const { t } = useT();
   const tl = t.loginMethods;
-  const text = { fontFamily: "var(--font-nunito)", lineHeight: 1.6 } as const;
 
   if (notice.kind === "taken") {
     return (
       <div role="alert" className="mb-3 rounded-2xl px-4 py-3.5" style={{ background: "var(--blue-tint)" }}>
-        <p className="text-sm font-bold" style={{ ...text, color: "var(--text-primary)" }}>{tl.takenTitle(NAME[notice.provider])}</p>
-        <p className="text-sm mt-1" style={{ ...text, color: "var(--text-secondary)" }}>{tl.takenBody}</p>
+        <p className="text-sm font-bold" style={{ ...TEXT, color: "var(--text-primary)" }}>{tl.takenTitle(NAME[notice.provider])}</p>
+        <p className="text-sm mt-1" style={{ ...TEXT, color: "var(--text-secondary)" }}>{tl.takenBody}</p>
         <a href={CONTACT} className="inline-block text-sm mt-2"
-          style={{ ...text, color: "var(--text-primary)", fontWeight: 600, textDecoration: "underline", textUnderlineOffset: 3 }}>
+          style={{ ...TEXT, color: "var(--text-primary)", fontWeight: 600, textDecoration: "underline", textUnderlineOffset: 3 }}>
           {tl.contact}
         </a>
       </div>
@@ -257,7 +202,7 @@ function NoticeView({ notice }: { notice: Notice }) {
   if (notice.kind === "linked" || notice.kind === "unlinked") {
     const msg = notice.kind === "linked" ? tl.linked(NAME[notice.provider]) : tl.unlinked(NAME[notice.provider]);
     return (
-      <p role="status" className="text-sm mb-3 flex items-start gap-1.5" style={{ ...text, color: "var(--text-secondary)" }}>
+      <p role="status" className="text-sm mb-3 flex items-start gap-1.5" style={{ ...TEXT, color: "var(--text-secondary)" }}>
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="shrink-0" style={{ marginTop: "0.3rem" }} aria-hidden="true">
           <path d="M2.5 7l3 3 6-6.5" stroke="var(--text-primary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
@@ -266,7 +211,7 @@ function NoticeView({ notice }: { notice: Notice }) {
     );
   }
   const msg = notice.kind === "failed" ? tl.failed : notice.kind === "startFailed" ? tl.startFailed : tl.unlinkFailed;
-  return <p role="alert" className="text-sm mb-3" style={{ ...text, color: "var(--danger)" }}>{msg}</p>;
+  return <p role="alert" className="text-sm mb-3" style={{ ...TEXT, color: "var(--danger)" }}>{msg}</p>;
 }
 
 function MailIcon() {

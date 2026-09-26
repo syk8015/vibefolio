@@ -96,13 +96,13 @@ blk("안성기", "name", false);
 blk("lwk207088", "username", false);
 blk("alexvibe", "username", false);
 
-// 로그인 방법 연결(lib/identityLink, 09-25) — 콜백이 결과를 명함 탭으로 싣는 모양과 [해제] 규칙
+// 로그인 방법 연결(lib/identityLink, 09-25) — 콜백이 결과를 돌아갈 화면(09-26부터 설정)에 싣는 모양과 [해제] 규칙
 {
   const O = "https://nookframe.com";
   const back = linkRedirectTo(O, "github");
   const bu = new URL(back);
   ok("연결 redirectTo: 콜백 + link=1", bu.pathname === "/auth/callback" && bu.searchParams.get("link") === "1", back);
-  ok("연결 redirectTo: next=명함 탭", bu.searchParams.get("next") === "/dashboard?tab=card", bu.searchParams.get("next") ?? "");
+  ok("연결 redirectTo: next=설정 화면", bu.searchParams.get("next") === "/settings", bu.searchParams.get("next") ?? "");
   ok("연결 redirectTo: via=공급자(지난번에 사용)", bu.searchParams.get("via") === "github");
 
   const q = (s: string) => new URLSearchParams(s);

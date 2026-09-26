@@ -65,8 +65,9 @@ export default function HomeProfileMenu({ username, name, avatarUrl, locale }: P
             minWidth: "140px",
           }}
         >
+          {/* 설정 화면(/settings, 09-26) — 전엔 메뉴만 닫혀 아무 일도 없었다(09-25 사용자 지적). */}
           <button
-            onClick={() => { setOpen(false); }}
+            onClick={() => { setOpen(false); router.push("/settings"); }}
             className="w-full text-left px-4 py-3 text-sm font-bold transition-colors hover:opacity-70"
             style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", background: "none", border: "none", cursor: "pointer", display: "block" }}
           >

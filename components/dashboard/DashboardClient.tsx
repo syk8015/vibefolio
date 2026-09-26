@@ -4,13 +4,11 @@ import { useState, useEffect, useCallback } from "react";
 import type { User } from "@supabase/supabase-js";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { createClient } from "@/lib/supabase/client";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { copyText } from "@/lib/clipboard";
 import { StampSeal } from "@/components/theater/Meishi";
 import ProjectsTab from "./ProjectsTab";
-import ThemeToggle from "@/components/ThemeToggle";
-import LanguageToggle from "@/components/LanguageToggle";
+import AppNav from "@/components/AppNav";
 import { useT } from "@/lib/i18n/client";
 
 // "projects" is the default tab, so it stays in the initial bundle. The other
@@ -47,7 +45,6 @@ export default function DashboardClient({ user, profile, publishedCount, totalCo
   publishedCount: number;
   totalCount: number;
 }) {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const { t } = useT();
   const TAB_LABEL: Record<Tab, string> = {
@@ -88,14 +85,6 @@ export default function DashboardClient({ user, profile, publishedCount, totalCo
   const name = profile.name || username;
   const cardUrl = `nookframe.com/${username}`;
 
-  async function handleLogout() {
-    const supabase = createClient();
-    // 이 기기만 — 기본값 global은 다른 기기 세션까지 푼다(app/api/auth/logout 참고).
-    await supabase.auth.signOut({ scope: "local" });
-    router.push("/");
-    router.refresh();
-  }
-
   async function copyAddress() {
     if (await copyText(`https://${cardUrl}`)) {
       setAddrCopied(true);
@@ -106,32 +95,8 @@ export default function DashboardClient({ user, profile, publishedCount, totalCo
   return (
     <div className="min-h-screen" style={{ background: "var(--bg)" }}>
 
-      {/* Top nav — 계정 유틸만. 아이덴티티는 아래 미니 명함이 맡는다. */}
-      <nav
-        className="sticky top-0 z-40 flex items-center justify-between px-4 md:px-6 py-3 md:py-4"
-        style={{
-          background: "var(--nav-bg)",
-          backdropFilter: "blur(16px)",
-          borderBottom: "1px solid var(--border)",
-        }}
-      >
-        <Link href="/" style={{ textDecoration: "none", display: "flex", alignItems: "center" }}>
-          <span style={{ color: "var(--text-primary)", fontFamily: "var(--font-mono), monospace", fontWeight: 500, fontSize: "0.95rem", letterSpacing: "-0.01em" }}>
-            nookframe
-          </span>
-        </Link>
-        <div className="flex items-center gap-2 md:gap-3">
-          <LanguageToggle />
-          <ThemeToggle />
-          <button
-            onClick={handleLogout}
-            className="text-sm px-3 py-1.5 rounded-full transition-opacity hover:opacity-70"
-            style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", background: "none", border: "none", cursor: "pointer" }}
-          >
-            {t.dashboard.logout}
-          </button>
-        </div>
-      </nav>
+      {/* Top nav — 계정 유틸만(설정 화면과 같은 줄). 아이덴티티는 아래 미니 명함이 맡는다. */}
+      <AppNav />
 
       <div className="max-w-4xl mx-auto px-6 py-10">
 
