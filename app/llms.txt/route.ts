@@ -10,6 +10,9 @@ import { createPublicClient, throwIfReadFailed } from "@/lib/supabase/public";
 // 질문은 어느 언어로든 들어오기 때문.
 
 const SITE = "https://nookframe.com";
+// 주소 "모양"을 보여주는 예시는 https:// 없이 쓴다. 검색 로봇이 `https://…/{username}`을
+// 진짜 링크로 따라가 404를 쌓는다(2026-09-28 서치 콘솔 알림).
+const HOST = "nookframe.com";
 
 // 크롤러가 부를 때마다 DB를 때리지 않게 1시간 캐시. 쿠키를 안 읽는
 // 공개 클라이언트라 정적 캐시가 그대로 먹는다.
@@ -21,7 +24,7 @@ const HEAD = `# Nookframe
 > 방문자는 멈춘 스크린샷이 아니라 실제로 도는 화면을 만난다.
 
 Nookframe is a live portfolio for people who build things with AI ("vibe coders").
-Each person gets one page — ${SITE}/{username} — where the work leads instead of the
+Each person gets one page — ${HOST}/<username> — where the work leads instead of the
 profile. Uploaded builds run live inside the page; projects that live at a deployed URL
 get an auto-recorded demo video plus a one-tap door to the real site. The product is
 Korean-first with an English UI toggle.
@@ -31,12 +34,12 @@ Korean-first with an English UI toggle.
 
 ## 어떻게 동작하나
 
-- 프레임: 사람 한 명당 페이지 하나(${SITE}/{username}). 소개보다 작품이 먼저 온다.
+- 프레임: 사람 한 명당 페이지 하나(${HOST}/<username>). 소개보다 작품이 먼저 온다.
 - 올린 파일은 페이지 안에서 실행: 정적 빌드를 통째로 올리면 방문자가 그 자리에서 직접 만져본다.
 - 배포된 URL은 시연 영상 + 새 탭: 남의 사이트는 임베드를 막는 경우가 많아, 움직이는 화면은
   자동 시연 영상이 맡고 실물은 새 탭에서 연다.
 - 자동 시연 영상: 작품에 따라 시스템이 앱을 실제로 조작하며 녹화한 시연 영상이 붙는다.
-- 작품별 주소: 작품마다 전용 페이지(${SITE}/{username}/{project-id})가 있고,
+- 작품별 주소: 작품마다 전용 페이지(${HOST}/<username>/<project-id>)가 있고,
   메신저에 붙여넣으면 시연 영상이 바로 재생된다.
 
 ## 자주 묻는 것
