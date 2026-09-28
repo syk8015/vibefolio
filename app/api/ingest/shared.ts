@@ -13,6 +13,7 @@ import {
 } from "@/lib/demoScriptReview";
 import { liveUrlIssue } from "@/lib/demoSource";
 import { assertSafePublicUrl, SsrfError } from "@/lib/ssrf";
+import type { OwnerInterview, OwnerInterviewIssue } from "@/lib/ownerInterview";
 
 // PAT(외부 AI) 호출은 영어 고정, 쿠키 세션은 유저 로케일 — 인제스트 라우트 전부가
 // 같은 규칙을 쓴다(catch 블록 포함).
@@ -113,6 +114,9 @@ export type AcceptedEcho = {
   // 대상 화면(2026-09-15) — 초안 미리보기를 폰 틀/PC 틀로 나누는 답. 필수 게이트라
   // 조용한 폐기는 없다 — null은 "컬럼 마이그레이션 전이라 저장 못 함"뿐이다.
   targetDevice: "mobile" | "desktop" | null;
+  // 주인 인터뷰(2026-09-29, 필수 게이트) — 답 개수와 가릴 것 개수만. 답 글은 되돌려주지 않는다
+  // (가릴 것은 비공개 칸이고, 에코는 CLI 화면·채팅 기록에 남는다). null = 컬럼 마이그레이션 전이라 저장 못 함.
+  ownerInterview: { answered: number; hidden: number } | null;
   // 대본 점검표(2026-09-04) — 게이트는 통과했지만 약한 대본이 어디가 약한지.
   // 자동 촬영이 없는 경우(영상 동봉·대본 없음)엔 아예 싣지 않는다.
   scriptReview?: ScriptReviewEcho;
@@ -168,6 +172,7 @@ const DEMO_HIGHLIGHTS_MAX = 500;
 export const OPTIONAL_COLUMN_MIGRATION = {
   demo_script: "migration_demo_script.sql",
   target_device: "migration_target_device.sql",
+  owner_interview: "migration_owner_interview.sql",
 } as const;
 export type OptionalColumn = keyof typeof OPTIONAL_COLUMN_MIGRATION;
 
@@ -191,6 +196,17 @@ export {
   DESCRIPTION_MAX, DESCRIPTION_MIN_LINES, DESCRIPTION_MAX_LINES, DESCRIPTION_LINE_COLS_MAX,
   descriptionTooLong, descriptionShapeIssue, type DescriptionIssue,
 } from "@/lib/descriptionShape";
+
+/** 주인 인터뷰 사유 → 400 응답. 생성·수정 두 라우트가 같은 문구·코드를 쓰도록 한 곳에서. */
+export function ownerInterviewRejection(issue: OwnerInterviewIssue, t: IngestDict): NextResponse {
+  if (issue.kind === "incomplete") {
+    return apiError({ status: 400, message: t.api.ownerInterviewIncomplete(issue.keys), code: "OWNER_INTERVIEW_INCOMPLETE" });
+  }
+  if (issue.kind === "too-long") {
+    return apiError({ status: 400, message: t.api.ownerInterviewTooLong(issue.key, issue.max), code: "OWNER_INTERVIEW_TOO_LONG" });
+  }
+  return apiError({ status: 400, message: t.api.ownerInterviewRequired, code: "OWNER_INTERVIEW_REQUIRED" });
+}
 
 /** 사유 → locale 카피. 라우트 두 곳이 같은 문구를 쓰도록 여기서 한 번만 분기한다. */
 export function descriptionShapeMessage(issue: DescriptionIssue, t: IngestDict): string {
@@ -228,6 +244,7 @@ export function buildAccepted(
     demoAccess: { url?: string; params?: Record<string, string>; impossible?: boolean; noLogin?: boolean; altUrl?: string } | null;
     entryUrl: string | null;
     targetDevice: string | null;
+    ownerInterview: OwnerInterview | null;
   },
   normalizeTags: (v: unknown) => string[],
   scriptReview?: ScriptReviewEcho,
@@ -267,5 +284,8 @@ export function buildAccepted(
     // 거짓말을 했다 — 외부 AI가 멀쩡한 답을 고치려 들게 만드는 오보였다.
     demoAccessDropped: !!raw?.demoAccess && !access?.url && !access?.impossible && !access?.noLogin,
     targetDevice: stored.targetDevice === "mobile" || stored.targetDevice === "desktop" ? stored.targetDevice : null,
+    ownerInterview: stored.ownerInterview
+      ? { answered: 3, hidden: stored.ownerInterview.hide.length }
+      : null,
   };
 }

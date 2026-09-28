@@ -328,7 +328,30 @@ export const ko = {
     confirmPublish: "확인하고 공개",
     // 초안 검토 창 재편(2026-09-15, 시안 2판): 두 칸·질문 제목·촬영 계획·필름 띠.
     reviewAsk: (title: string, particle: string) => `${title}${particle} 공개할까요?`,
-    reviewIntroShort: "AI가 올린 초안이에요. 명함과 촬영 계획만 확인하면 돼요",
+    reviewIntroShort: "AI가 올린 초안이에요. 인터뷰 답과 명함, 촬영 계획을 확인해 주세요",
+    // 주인 인터뷰(2026-09-29, 필수) — 올리는 AI가 먼저 묻고 받은 답. 작품 페이지엔 안 나간다.
+    reviewInterviewTitle: "주인 인터뷰",
+    reviewInterviewLead: "AI가 물어서 받은 내 답이에요. 내 말과 다르면 눌러서 고쳐 주세요",
+    reviewInterviewQ: {
+      proudMoment: "제일 자랑하고 싶은 장면",
+      howIUse: "실제로 쓰는 법",
+      mustSee: "꼭 봐야 할 곳",
+      hide: "가릴 것 · 공개 안 됨",
+    },
+    reviewInterviewUse: {
+      proudMoment: "→ AI가 촬영 대본에서 이 장면을 오래 보여줘요",
+      howIUse: "→ 명함 말풍선 한 줄의 재료가 돼요",
+      mustSee: "→ 소개글과 촬영 대본에 반영돼요",
+      hide: "→ 이게 보이는 장면은 대본에서 빼요",
+    },
+    reviewInterviewHideNone: "없음",
+    reviewInterviewHidePlaceholder: "쉼표로 나눠 적어요 (예: 금액, 폴더 경로)",
+    reviewInterviewConfirm: "내 말이 맞아요 — AI가 지어낸 답이 없어요",
+    reviewInterviewConfirmFirst: "인터뷰 답을 확인하면 공개할 수 있어요",
+    reviewInterviewMissing: "이 초안은 인터뷰 없이 올라왔어요. 아래 [AI에게 고쳐달라기]로 다시 올려 달라고 하면 AI가 먼저 물어봐요",
+    reviewInterviewLoading: "인터뷰 답을 불러오는 중…",
+    reviewInterviewEmpty: "비울 수 없어요 — 짧게라도 적어 주세요",
+    reviewInterviewTooLong: (max: number) => `${max}자 안으로 적어 주세요`,
     reviewShootTitle: "이렇게 찍어요",
     reviewShootAllWired: (n: number) => `${n}장면 모두 정확한 위치를 알아요`,
     reviewShootPartWired: (wired: number, n: number) => `${n}장면 중 ${wired}장면만 위치를 정확히 알아요`,
@@ -936,6 +959,13 @@ export const ko = {
     // 값은 왔는데 목록 밖일 때 — "필요해요"라고 하면 AI는 "넣었는데?" 하고 같은 값을 또 보낸다.
     targetDeviceInvalid: (got: string) =>
       `targetDevice는 "mobile" 또는 "desktop"만 돼요 — 받은 값: ${got}. 폰 화면에 맞춰 만든 앱이면 "mobile", 컴퓨터 브라우저에 맞춰 만든 앱이면 "desktop"으로 바꿔 다시 보내 주세요.`,
+    // 주인 인터뷰 게이트(2026-09-29 사용자 확정: 필수). 받는 쪽은 AI라 "주인에게 물어라"가 곧 지시문이다.
+    ownerInterviewRequired:
+      'ownerInterview가 필요해요. 다른 걸 쓰기 전에 주인에게 채팅으로 아래를 묻고 답을 기다리세요 — AI가 대신 답하면 안 돼요. 1) 제일 자랑하고 싶은 장면(proudMoment) 2) 실제로 어떻게 쓰는지: 언제·얼마나 자주·왜(howIUse) 3) 처음 보는 사람이 꼭 봐야 할 것 하나(mustSee) 4) 선택: 절대 보여주면 안 되는 것(hide, 목록). 주인의 말 그대로 보내세요: { "ownerInterview": { "proudMoment": "…", "howIUse": "…", "mustSee": "…", "hide": ["…"] } }. 받은 답으로 대본에서 proudMoment·mustSee 장면을 앞에 두고 오래 보여주고, builderNote는 howIUse에서 한 줄로 뽑고, hide가 보이는 장면은 대본에서 빼세요.',
+    ownerInterviewIncomplete: (keys: string[]) =>
+      `ownerInterview에 답이 빠졌어요: ${keys.join(", ")}. 주인에게 묻고 그 말 그대로 보내세요 — "없음"·"N/A" 같은 자리 채우기는 빈 답으로 봐요.`,
+    ownerInterviewTooLong: (key: string, max: number) =>
+      `ownerInterview.${key}가 너무 길어요 — 답마다 ${max}자 안으로 주인의 말을 옮기세요(설명을 덧붙이지 마세요).`,
     rerecordPendingNext: "새 대본을 접수했어요. 작품 주인이 대시보드에서 확인하고 [이 대본으로 재촬영]을 눌러야 촬영이 시작돼요.",
     rerecordNoPendingScript: "대기 중인 새 대본이 없어요. 재촬영 프롬프트를 AI에게 주고, AI가 새 대본을 제출한 뒤에 눌러 주세요.",
     rerecordAlreadyUsed: "이 작품의 셀프 재촬영 1회는 이미 썼어요. 다음부터는 관리자 승인이 필요해요.",

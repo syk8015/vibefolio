@@ -8,7 +8,9 @@ import {
   ingestAuth, publicUrlGate, strOrNull, buildAccepted, descriptionTooLong, DESCRIPTION_MAX,
   descriptionShapeIssue, descriptionShapeMessage,
   missingOptionalColumn, OPTIONAL_COLUMN_MIGRATION, buildScriptReview, pickApiT,
+  ownerInterviewRejection,
 } from "./shared";
+import { normalizeOwnerInterview } from "@/lib/ownerInterview";
 import { probeSelectors, selectorsOf, composeProbeUrl, type SelectorCheck } from "@/lib/demoScriptReview";
 import { normalizeTags, normalizeContentType, normalizeTargetDevice } from "@/lib/projectTaxonomy";
 import {
@@ -57,6 +59,8 @@ interface IngestPayload {
   deployUrl?: unknown;
   appUrl?: unknown;
   demoAccess?: unknown;
+  // 주인 인터뷰(2026-09-29, 필수) — { proudMoment, howIUse, mustSee, hide? }. lib/ownerInterview.ts.
+  ownerInterview?: unknown;
   uploads?: unknown;
   // 파일 하나짜리 작품의 HTML 전문(2026-09-17) — 셸 없는 채팅창 AI가 파일 대신 넘기는 길.
   htmlBody?: unknown;
@@ -361,6 +365,17 @@ export async function POST(req: NextRequest) {
       return apiError({ status: 400, message: t.api.targetDeviceRequired, code: "TARGET_DEVICE_REQUIRED" });
     }
 
+    // 주인 인터뷰 게이트(2026-09-29 사용자 확정: "인터뷰는 필수로 하자"). 데모는 진짜 앱과
+    // 같지 않고, 어디가 중요한지는 만든 사람만 안다 — 그래서 올리는 AI가 초안을 쓰기 전에
+    // 주인에게 묻고 그 말 그대로 보내게 한다(docs/owner-interview-real-record.md §2). 영상
+    // 동봉도 면제가 아니다: 촬영 조건이 아니라 "주인의 말이 들어갔나"의 질문이다. 마지막
+    // 자리인 이유 — 대본·로그인·대상 화면처럼 AI 혼자 고칠 결함을 먼저 되돌려보내고, 사람을
+    // 불러야 하는 이 질문은 그 뒤에 한 번만 묻게.
+    const interviewCheck = normalizeOwnerInterview(payload?.ownerInterview);
+    if (interviewCheck.issue) return ownerInterviewRejection(interviewCheck.issue, t);
+    const ownerInterview = interviewCheck.value;
+    let interviewStored = true; // 컬럼 부재 디그레이드 시 false로 — 에코가 진실을 말하게
+
     // 5. URL 경로면 여기서 demo_url·thumbnail 확정(파일 경로는 행 생성 후).
     // 랜딩(/)과 실제 앱(/app)이 나뉜 제품은 deployUrl(랜딩)만 받으면 시연 로봇이
     // 랜딩만 찍는다 → appUrl(앱 화면 진입 URL)이 있으면 그걸 임베드·촬영 대상으로
@@ -464,7 +479,7 @@ export async function POST(req: NextRequest) {
         // "보낸 값이 저장된다"고 답한다 — 그 상황이면 발행 응답이 진실을 말한다.
         accepted: buildAccepted(payload as unknown as Record<string, unknown>, {
           title, description, comment, demoHint, tags, demoScript,
-          contentTypeId, demoAccess, entryUrl: demoUrl, targetDevice,
+          contentTypeId, demoAccess, entryUrl: demoUrl, targetDevice, ownerInterview,
         }, normalizeTags, review),
       });
     }
@@ -486,6 +501,7 @@ export async function POST(req: NextRequest) {
         tags,
         content_type: contentTypeId,
         target_device: targetDevice,
+        owner_interview: ownerInterview,
       };
       // 대본·로그인 답은 **영상이 아직 안 온 2단계 발행에서는 덮지 않는다**(2026-09-16).
       // 게이트가 `uploads:["video"]` 선언만 보고 면제해 주므로 이런 요청엔 대본이 없는
@@ -514,6 +530,7 @@ export async function POST(req: NextRequest) {
         delete upd[col];
         if (col === "demo_script") scriptStored = false;
         if (col === "target_device") deviceStored = false;
+        if (col === "owner_interview") interviewStored = false;
         ({ data: updRows, error: updErr } = await updateDraftRow());
       }
       if (updErr) {
@@ -561,6 +578,7 @@ export async function POST(req: NextRequest) {
         tags,
         content_type: contentTypeId,
         target_device: targetDevice,
+        owner_interview: ownerInterview,
         type: videoBuf ? "video" : "image",
         year: new Date().getFullYear().toString(),
         demo_url: demoUrl,
@@ -575,6 +593,7 @@ export async function POST(req: NextRequest) {
         delete row[col];
         if (col === "demo_script") scriptStored = false;
         if (col === "target_device") deviceStored = false;
+        if (col === "owner_interview") interviewStored = false;
         ({ data: created, error: insErr } = await admin
           .from("projects").insert(row).select("id").single());
       }
@@ -695,6 +714,7 @@ export async function POST(req: NextRequest) {
         demoScript: scriptStored ? demoScript : null,
         contentTypeId, demoAccess, entryUrl: demoUrl,
         targetDevice: deviceStored ? targetDevice : null,
+        ownerInterview: interviewStored ? ownerInterview : null,
       }, normalizeTags, scriptReview),
       ...(upserted ? { upserted: true } : {}),
       // 안전상 빼고 저장한 파일(.env·.git/ 등). accepted가 "무엇이 들어갔나"라면

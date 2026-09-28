@@ -10,6 +10,11 @@ export const dynamic = "force-dynamic";
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_IDS = 200;
 
+// 마이그레이션 전 디그레이드(2026-09-29): 나중에 생긴 비공개 칸(주인 인터뷰)은 그 SQL을
+// 돌리기 전엔 DB에 없다. 칸 하나 때문에 select 전체가 실패하면 대본·로그인 답까지 못 받아
+// 초안 검토 창이 "대본 없음"으로 거짓말을 한다 — 없는 칸만 빼고 다시 묻는다.
+const LATE_PRIVATE_COLUMNS = ["owner_interview", "owner_interview_confirmed_at"];
+
 // GET /api/projects/private[?ids=a,b] — 로그인한 주인의 작품들의 비공개 칸
 // (lib/projectColumns.ts PRIVATE_PROJECT_COLUMNS). 이 칸들은 사용자 키로 SELECT가 막혀
 // 있어서(supabase/migration_private_columns.sql) 대시보드가 여기서 받아 합친다.
@@ -31,9 +36,20 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ rows: [] }, { headers: { "Cache-Control": "no-store" } });
     }
 
-    let q = createAdminClient().from("projects").select(PRIVATE_PROJECT_SELECT).eq("user_id", user.id);
-    if (ids) q = q.in("id", ids);
-    const { data, error } = await q;
+    const admin = createAdminClient();
+    const run = (select: string) => {
+      let q = admin.from("projects").select(select).eq("user_id", user.id);
+      if (ids) q = q.in("id", ids);
+      return q;
+    };
+    let { data, error } = await run(PRIVATE_PROJECT_SELECT);
+    if (
+      error && (error.code === "42703" || error.code === "PGRST204") &&
+      LATE_PRIVATE_COLUMNS.some((c) => (error?.message ?? "").includes(c))
+    ) {
+      const without = PRIVATE_PROJECT_SELECT.split(", ").filter((c) => !LATE_PRIVATE_COLUMNS.includes(c)).join(", ");
+      ({ data, error } = await run(without));
+    }
     if (error) {
       return apiError({ status: 500, message: t.api.retryLater, code: "INTERNAL", cause: error });
     }

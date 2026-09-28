@@ -193,7 +193,7 @@ export const DEMO_ACCESS_SCHEMA = {
   }
 };
 
-export const PUBLISH_DESCRIPTION = "Upload this project to Nookframe (a portfolio for vibe-coded work) as a draft. You are the AI that built it, so write title/description/demoScript yourself from the repo (README, routes, git log) and pass them in. The description must NOT be one paragraph: it is 2-3 lines separated by newlines (\\n) — it is the first-impression copy laid over the work on the card, and a long line wraps and gets cut off on phones (a single paragraph, or any line over 52 columns where a CJK character counts as 2, is rejected). Give either deployUrl (a deployed public URL) or dir (absolute path to a local folder — static build output for web apps, the source folder itself for Python/CLI projects). If it is not deployed and needs a server or DB so a file upload will not do, you may pass a public GitHub repo URL as deployUrl instead (a last resort: the repo is cloned and run — JS repos via npm run dev/start, Python web apps by detecting Streamlit/Gradio/Dash/Django/Flask/FastAPI then pip install + run (Django also gets migrate run for it), and projects with no web screen (CLI tools, bots, backends) are filmed as a live terminal session where the robot types the commands (put the exact commands in demoScript and it gets much better). Private repos fail; apps needing a remote DB get a read-only demo). If the landing page and the actual app screen are different URLs, also pass appUrl (the demo and the embed open appUrl). demoAccess is REQUIRED — the filming robot never logs in, so decide 'what actually works before login' and answer with exactly one of: { url, params, note } if there is a way in without login; { noLogin: true, note: \"one line on what you checked\" } if no login is needed at all and every feature is usable from the first screen (noLogin without note is rejected); { impossible: true, note: \"why\" } if a guest path is fundamentally impossible (E2E encryption, mandatory device pairing). In that last case only the landing page gets filmed, so attaching a video is strongly recommended. Without one of the three the server rejects with 400. Account credentials are not accepted. The film and card are public, so screens the robot opens must show fake or sample data, never real people's records; if the app needs a demo mode to be filmable, ask the human before changing their code or deploying. targetDevice is REQUIRED too: \"mobile\" if the app was designed mainly for phone screens, \"desktop\" if for computer browsers (not the same as contentType) — the owner's draft preview is framed from it, while the robot always films a 1280x720 desktop browser. If you have your own screenshot or demo video, pass absolute paths in screenshot/video (supplying a video skips automatic filming). Order demoScript.steps by importance — step 1 is the feature that absolutely cannot be missing. Uploading the same URL again does not create a new draft, it updates the existing one (use this to edit content); a draft made from an uploaded file has no URL to match, so to replace its files — or to change the URL — pass draftId, the draft id from the publish result. When you report back, tell the human it is a DRAFT: nothing is public until they open the review link and press publish.";
+export const PUBLISH_DESCRIPTION = "Upload this project to Nookframe (a portfolio for vibe-coded work) as a draft. Before anything else, interview the owner: ask them the ownerInterview questions in the chat and wait for their answers — it is REQUIRED (the server rejects the upload without it) and it must be their own words, not yours. You are the AI that built it, so write title/description/demoScript yourself from the repo (README, routes, git log) and pass them in, shaped by those answers. The description must NOT be one paragraph: it is 2-3 lines separated by newlines (\\n) — it is the first-impression copy laid over the work on the card, and a long line wraps and gets cut off on phones (a single paragraph, or any line over 52 columns where a CJK character counts as 2, is rejected). Give either deployUrl (a deployed public URL) or dir (absolute path to a local folder — static build output for web apps, the source folder itself for Python/CLI projects). If it is not deployed and needs a server or DB so a file upload will not do, you may pass a public GitHub repo URL as deployUrl instead (a last resort: the repo is cloned and run — JS repos via npm run dev/start, Python web apps by detecting Streamlit/Gradio/Dash/Django/Flask/FastAPI then pip install + run (Django also gets migrate run for it), and projects with no web screen (CLI tools, bots, backends) are filmed as a live terminal session where the robot types the commands (put the exact commands in demoScript and it gets much better). Private repos fail; apps needing a remote DB get a read-only demo). If the landing page and the actual app screen are different URLs, also pass appUrl (the demo and the embed open appUrl). demoAccess is REQUIRED — the filming robot never logs in, so decide 'what actually works before login' and answer with exactly one of: { url, params, note } if there is a way in without login; { noLogin: true, note: \"one line on what you checked\" } if no login is needed at all and every feature is usable from the first screen (noLogin without note is rejected); { impossible: true, note: \"why\" } if a guest path is fundamentally impossible (E2E encryption, mandatory device pairing). In that last case only the landing page gets filmed, so attaching a video is strongly recommended. Without one of the three the server rejects with 400. Account credentials are not accepted. The film and card are public, so screens the robot opens must show fake or sample data, never real people's records; if the app needs a demo mode to be filmable, ask the human before changing their code or deploying. targetDevice is REQUIRED too: \"mobile\" if the app was designed mainly for phone screens, \"desktop\" if for computer browsers (not the same as contentType) — the owner's draft preview is framed from it, while the robot always films a 1280x720 desktop browser. If you have your own screenshot or demo video, pass absolute paths in screenshot/video (supplying a video skips automatic filming). Order demoScript.steps by importance — step 1 is the feature that absolutely cannot be missing. Uploading the same URL again does not create a new draft, it updates the existing one (use this to edit content); a draft made from an uploaded file has no URL to match, so to replace its files — or to change the URL — pass draftId, the draft id from the publish result. When you report back, tell the human it is a DRAFT: nothing is public until they open the review link and press publish.";
 
 export const PUBLISH_INPUT_SCHEMA = {
   "type": "object",
@@ -208,11 +208,41 @@ export const PUBLISH_INPUT_SCHEMA = {
     },
     "builderNote": {
       "type": "string",
-      "description": "(optional) Short one-liner shown as a speech bubble on the public card. One line, not a paragraph — e.g. \"my first side project!\""
+      "description": "(optional) Short one-liner shown as a speech bubble on the public card, drawn from ownerInterview.howIUse in the owner's voice. One line, not a paragraph — e.g. \"I check it every Monday morning\""
     },
     "demoHighlights": {
       "type": "string",
       "description": "(legacy — can be omitted when demoScript is present) 3-5 highlights in prose, max 500 chars"
+    },
+    "ownerInterview": {
+      "type": "object",
+      "description": "Required. Ask the OWNER these questions in the chat BEFORE you write anything else, and wait for their answers — never answer them yourself (placeholders like \"none\" or \"N/A\" are rejected). A demo is not the real app, and only the person who built and uses it knows what matters. Put their own words here (max 300 characters each), then use them: open or linger on the proudMoment/mustSee scenes in demoScript, draw builderNote from howIUse (one line, in their voice), and keep any screen that shows a hide item out of the script. The answers are not printed on the public page, and hide stays private.",
+      "properties": {
+        "proudMoment": {
+          "type": "string",
+          "description": "The moment the owner is proudest of — the scene they most want people to see"
+        },
+        "howIUse": {
+          "type": "string",
+          "description": "How the owner actually uses it: when, how often, what for"
+        },
+        "mustSee": {
+          "type": "string",
+          "description": "The one thing a first-time viewer must notice"
+        },
+        "hide": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "(optional) Anything that must never be shown — people's names, amounts, places, health details (max 12 items, 80 characters each)"
+        }
+      },
+      "required": [
+        "proudMoment",
+        "howIUse",
+        "mustSee"
+      ]
     },
     "demoScript": {
       "type": "object",
@@ -415,7 +445,8 @@ export const PUBLISH_INPUT_SCHEMA = {
   },
   "required": [
     "title",
-    "targetDevice"
+    "targetDevice",
+    "ownerInterview"
   ]
 };
 
@@ -423,7 +454,7 @@ export const PUBLISH_INPUT_SCHEMA = {
 export const TOOLS = [
   {
     "name": "publish_to_nookframe",
-    "description": "Upload this project to Nookframe (a portfolio for vibe-coded work) as a draft. You are the AI that built it, so write title/description/demoScript yourself from the repo (README, routes, git log) and pass them in. The description must NOT be one paragraph: it is 2-3 lines separated by newlines (\\n) — it is the first-impression copy laid over the work on the card, and a long line wraps and gets cut off on phones (a single paragraph, or any line over 52 columns where a CJK character counts as 2, is rejected). Give either deployUrl (a deployed public URL) or dir (absolute path to a local folder — static build output for web apps, the source folder itself for Python/CLI projects). If it is not deployed and needs a server or DB so a file upload will not do, you may pass a public GitHub repo URL as deployUrl instead (a last resort: the repo is cloned and run — JS repos via npm run dev/start, Python web apps by detecting Streamlit/Gradio/Dash/Django/Flask/FastAPI then pip install + run (Django also gets migrate run for it), and projects with no web screen (CLI tools, bots, backends) are filmed as a live terminal session where the robot types the commands (put the exact commands in demoScript and it gets much better). Private repos fail; apps needing a remote DB get a read-only demo). If the landing page and the actual app screen are different URLs, also pass appUrl (the demo and the embed open appUrl). demoAccess is REQUIRED — the filming robot never logs in, so decide 'what actually works before login' and answer with exactly one of: { url, params, note } if there is a way in without login; { noLogin: true, note: \"one line on what you checked\" } if no login is needed at all and every feature is usable from the first screen (noLogin without note is rejected); { impossible: true, note: \"why\" } if a guest path is fundamentally impossible (E2E encryption, mandatory device pairing). In that last case only the landing page gets filmed, so attaching a video is strongly recommended. Without one of the three the server rejects with 400. Account credentials are not accepted. The film and card are public, so screens the robot opens must show fake or sample data, never real people's records; if the app needs a demo mode to be filmable, ask the human before changing their code or deploying. targetDevice is REQUIRED too: \"mobile\" if the app was designed mainly for phone screens, \"desktop\" if for computer browsers (not the same as contentType) — the owner's draft preview is framed from it, while the robot always films a 1280x720 desktop browser. If you have your own screenshot or demo video, pass absolute paths in screenshot/video (supplying a video skips automatic filming). Order demoScript.steps by importance — step 1 is the feature that absolutely cannot be missing. Uploading the same URL again does not create a new draft, it updates the existing one (use this to edit content); a draft made from an uploaded file has no URL to match, so to replace its files — or to change the URL — pass draftId, the draft id from the publish result. When you report back, tell the human it is a DRAFT: nothing is public until they open the review link and press publish.",
+    "description": "Upload this project to Nookframe (a portfolio for vibe-coded work) as a draft. Before anything else, interview the owner: ask them the ownerInterview questions in the chat and wait for their answers — it is REQUIRED (the server rejects the upload without it) and it must be their own words, not yours. You are the AI that built it, so write title/description/demoScript yourself from the repo (README, routes, git log) and pass them in, shaped by those answers. The description must NOT be one paragraph: it is 2-3 lines separated by newlines (\\n) — it is the first-impression copy laid over the work on the card, and a long line wraps and gets cut off on phones (a single paragraph, or any line over 52 columns where a CJK character counts as 2, is rejected). Give either deployUrl (a deployed public URL) or dir (absolute path to a local folder — static build output for web apps, the source folder itself for Python/CLI projects). If it is not deployed and needs a server or DB so a file upload will not do, you may pass a public GitHub repo URL as deployUrl instead (a last resort: the repo is cloned and run — JS repos via npm run dev/start, Python web apps by detecting Streamlit/Gradio/Dash/Django/Flask/FastAPI then pip install + run (Django also gets migrate run for it), and projects with no web screen (CLI tools, bots, backends) are filmed as a live terminal session where the robot types the commands (put the exact commands in demoScript and it gets much better). Private repos fail; apps needing a remote DB get a read-only demo). If the landing page and the actual app screen are different URLs, also pass appUrl (the demo and the embed open appUrl). demoAccess is REQUIRED — the filming robot never logs in, so decide 'what actually works before login' and answer with exactly one of: { url, params, note } if there is a way in without login; { noLogin: true, note: \"one line on what you checked\" } if no login is needed at all and every feature is usable from the first screen (noLogin without note is rejected); { impossible: true, note: \"why\" } if a guest path is fundamentally impossible (E2E encryption, mandatory device pairing). In that last case only the landing page gets filmed, so attaching a video is strongly recommended. Without one of the three the server rejects with 400. Account credentials are not accepted. The film and card are public, so screens the robot opens must show fake or sample data, never real people's records; if the app needs a demo mode to be filmable, ask the human before changing their code or deploying. targetDevice is REQUIRED too: \"mobile\" if the app was designed mainly for phone screens, \"desktop\" if for computer browsers (not the same as contentType) — the owner's draft preview is framed from it, while the robot always films a 1280x720 desktop browser. If you have your own screenshot or demo video, pass absolute paths in screenshot/video (supplying a video skips automatic filming). Order demoScript.steps by importance — step 1 is the feature that absolutely cannot be missing. Uploading the same URL again does not create a new draft, it updates the existing one (use this to edit content); a draft made from an uploaded file has no URL to match, so to replace its files — or to change the URL — pass draftId, the draft id from the publish result. When you report back, tell the human it is a DRAFT: nothing is public until they open the review link and press publish.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -437,11 +468,41 @@ export const TOOLS = [
         },
         "builderNote": {
           "type": "string",
-          "description": "(optional) Short one-liner shown as a speech bubble on the public card. One line, not a paragraph — e.g. \"my first side project!\""
+          "description": "(optional) Short one-liner shown as a speech bubble on the public card, drawn from ownerInterview.howIUse in the owner's voice. One line, not a paragraph — e.g. \"I check it every Monday morning\""
         },
         "demoHighlights": {
           "type": "string",
           "description": "(legacy — can be omitted when demoScript is present) 3-5 highlights in prose, max 500 chars"
+        },
+        "ownerInterview": {
+          "type": "object",
+          "description": "Required. Ask the OWNER these questions in the chat BEFORE you write anything else, and wait for their answers — never answer them yourself (placeholders like \"none\" or \"N/A\" are rejected). A demo is not the real app, and only the person who built and uses it knows what matters. Put their own words here (max 300 characters each), then use them: open or linger on the proudMoment/mustSee scenes in demoScript, draw builderNote from howIUse (one line, in their voice), and keep any screen that shows a hide item out of the script. The answers are not printed on the public page, and hide stays private.",
+          "properties": {
+            "proudMoment": {
+              "type": "string",
+              "description": "The moment the owner is proudest of — the scene they most want people to see"
+            },
+            "howIUse": {
+              "type": "string",
+              "description": "How the owner actually uses it: when, how often, what for"
+            },
+            "mustSee": {
+              "type": "string",
+              "description": "The one thing a first-time viewer must notice"
+            },
+            "hide": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "(optional) Anything that must never be shown — people's names, amounts, places, health details (max 12 items, 80 characters each)"
+            }
+          },
+          "required": [
+            "proudMoment",
+            "howIUse",
+            "mustSee"
+          ]
         },
         "demoScript": {
           "type": "object",
@@ -644,13 +705,14 @@ export const TOOLS = [
       },
       "required": [
         "title",
-        "targetDevice"
+        "targetDevice",
+        "ownerInterview"
       ]
     }
   },
   {
     "name": "check_nookframe_payload",
-    "description": "Dry run a Nookframe publish payload: the server runs every gate it would run for real (demo script minimum, the login question, the description's 2-3 line shape, targetDevice, the entry URL, selector existence, estimated film length) and answers whether this payload would be accepted — without creating a draft or uploading anything. Call it before publish_to_nookframe whenever you are unsure, and after fixing a rejection. Same input as publish_to_nookframe. The answer also says whether publishing would UPDATE the draft already at that URL or create a new one. What it cannot check: the uploaded files themselves and the draft count limit.",
+    "description": "Dry run a Nookframe publish payload: the server runs every gate it would run for real (demo script minimum, the login question, the description's 2-3 line shape, targetDevice, the owner interview, the entry URL, selector existence, estimated film length) and answers whether this payload would be accepted — without creating a draft or uploading anything. Call it before publish_to_nookframe whenever you are unsure, and after fixing a rejection. Same input as publish_to_nookframe. The answer also says whether publishing would UPDATE the draft already at that URL or create a new one. What it cannot check: the uploaded files themselves and the draft count limit.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -664,11 +726,41 @@ export const TOOLS = [
         },
         "builderNote": {
           "type": "string",
-          "description": "(optional) Short one-liner shown as a speech bubble on the public card. One line, not a paragraph — e.g. \"my first side project!\""
+          "description": "(optional) Short one-liner shown as a speech bubble on the public card, drawn from ownerInterview.howIUse in the owner's voice. One line, not a paragraph — e.g. \"I check it every Monday morning\""
         },
         "demoHighlights": {
           "type": "string",
           "description": "(legacy — can be omitted when demoScript is present) 3-5 highlights in prose, max 500 chars"
+        },
+        "ownerInterview": {
+          "type": "object",
+          "description": "Required. Ask the OWNER these questions in the chat BEFORE you write anything else, and wait for their answers — never answer them yourself (placeholders like \"none\" or \"N/A\" are rejected). A demo is not the real app, and only the person who built and uses it knows what matters. Put their own words here (max 300 characters each), then use them: open or linger on the proudMoment/mustSee scenes in demoScript, draw builderNote from howIUse (one line, in their voice), and keep any screen that shows a hide item out of the script. The answers are not printed on the public page, and hide stays private.",
+          "properties": {
+            "proudMoment": {
+              "type": "string",
+              "description": "The moment the owner is proudest of — the scene they most want people to see"
+            },
+            "howIUse": {
+              "type": "string",
+              "description": "How the owner actually uses it: when, how often, what for"
+            },
+            "mustSee": {
+              "type": "string",
+              "description": "The one thing a first-time viewer must notice"
+            },
+            "hide": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "(optional) Anything that must never be shown — people's names, amounts, places, health details (max 12 items, 80 characters each)"
+            }
+          },
+          "required": [
+            "proudMoment",
+            "howIUse",
+            "mustSee"
+          ]
         },
         "demoScript": {
           "type": "object",
@@ -871,7 +963,8 @@ export const TOOLS = [
       },
       "required": [
         "title",
-        "targetDevice"
+        "targetDevice",
+        "ownerInterview"
       ]
     }
   },
@@ -986,7 +1079,7 @@ export const TOOLS = [
   },
   {
     "name": "update_nookframe_draft",
-    "description": "Edit a Nookframe draft's metadata (title/description/builderNote/demoHighlights/demoScript/tags/contentType/targetDevice/demoAccess). Only the fields you send change. This tool cannot swap the URL or the files — call publish_to_nookframe with draftId set to this draft's id (publishing the same URL again also works). Published projects cannot be edited.",
+    "description": "Edit a Nookframe draft's metadata (title/description/builderNote/demoHighlights/demoScript/tags/contentType/targetDevice/demoAccess/ownerInterview). Only the fields you send change. This tool cannot swap the URL or the files — call publish_to_nookframe with draftId set to this draft's id (publishing the same URL again also works). Published projects cannot be edited.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -1093,6 +1186,36 @@ export const TOOLS = [
               "description": "Declares that no login is needed at all and every feature is usable from the first screen. Do not set it just because the landing page looks fine — only after checking the actual routes and guards."
             }
           }
+        },
+        "ownerInterview": {
+          "type": "object",
+          "description": "Required. Ask the OWNER these questions in the chat BEFORE you write anything else, and wait for their answers — never answer them yourself (placeholders like \"none\" or \"N/A\" are rejected). A demo is not the real app, and only the person who built and uses it knows what matters. Put their own words here (max 300 characters each), then use them: open or linger on the proudMoment/mustSee scenes in demoScript, draw builderNote from howIUse (one line, in their voice), and keep any screen that shows a hide item out of the script. The answers are not printed on the public page, and hide stays private.",
+          "properties": {
+            "proudMoment": {
+              "type": "string",
+              "description": "The moment the owner is proudest of — the scene they most want people to see"
+            },
+            "howIUse": {
+              "type": "string",
+              "description": "How the owner actually uses it: when, how often, what for"
+            },
+            "mustSee": {
+              "type": "string",
+              "description": "The one thing a first-time viewer must notice"
+            },
+            "hide": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "(optional) Anything that must never be shown — people's names, amounts, places, health details (max 12 items, 80 characters each)"
+            }
+          },
+          "required": [
+            "proudMoment",
+            "howIUse",
+            "mustSee"
+          ]
         }
       },
       "required": [

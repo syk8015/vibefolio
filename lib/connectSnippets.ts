@@ -90,15 +90,22 @@ You're the AI that built this project, so read the repo yourself and describe it
 1) If you have a shell, first run this once to pair with my account (skip if you have no shell):
    ${login}
    That argument is a ONE-TIME pairing code, not a token: the command trades it at the server for the real token and saves that on this machine. It works once and dies 30 minutes after I copied this prompt, so putting it in an Authorization header will fail — if it's already used or expired, ask me to press "Copy prompt" again for a fresh one.
-2) Investigate from the README, package.json, the actual routes/screens, and git log. If it's still half-built, also work out what it was going to be.
-3) Build a publish payload (JSON) with these fields (${NPX_SCHEMA} prints the same list as a JSON Schema, if you want it machine-readable):
+2) Interview me BEFORE you write anything — this is required: the server rejects an upload without it. Ask me these in this chat, in the language I write to you in, and WAIT for my answers — never answer for me:
+   a. What's the moment you're proudest of in this app?
+   b. How do you actually use it — when, how often, what for?
+   c. What's the one thing a first-time viewer must notice?
+   d. (optional) Is there anything that must never be shown — people's names, amounts, places, health details?
+   A demo is not the real app, and only I know what matters. My answers go into ownerInterview (step 4) and shape the rest: open or linger on (a) and (c) in the demoScript, draw builderNote from (b), and leave any screen that shows (d) out of the script.
+3) Investigate from the README, package.json, the actual routes/screens, and git log. If it's still half-built, also work out what it was going to be.
+4) Build a publish payload (JSON) with these fields (${NPX_SCHEMA} prints the same list as a JSON Schema, if you want it machine-readable):
+   • ownerInterview — REQUIRED: { "proudMoment": "…", "howIUse": "…", "mustSee": "…", "hide": ["…"] } — my answers from step 2 in my own words (max 300 characters each; placeholders like "none" or "N/A" are rejected). They are not printed on the public page, and hide stays private
    • title — a short, clear product name
    • description — the intro that sits ON TOP of the work on your public card, so first impressions live or die here. Do NOT write a paragraph. Write THREE short lines separated by newlines (\\n), where the first two modify and the last one names what it is:
        For people who create with AI
        with demo videos recorded automatically
        a live portfolio you can actually touch
      Keep each line short (~20 CJK / ~40 Latin characters) so it doesn't wrap on a phone. Only 3 lines show on the card. A single paragraph is rejected (it must be 2–3 lines), and so is any line over 52 columns (a CJK character counts as 2) or anything over 200 characters
-   • builderNote — (optional) a short one-liner shown as a speech bubble on the public card. One line, not a paragraph — e.g. "This is my first side project!"
+   • builderNote — (optional) a short one-liner shown as a speech bubble on the public card, drawn from my answer (b) in my voice. One line, not a paragraph — e.g. "I check it every Monday morning"
    • demoScript — **REQUIRED** (the one exception: attaching your own demo "video", which skips auto-recording). A publish without it is rejected with an error telling you to write one. The filming script the auto-demo robot follows. You BUILT this app, so you know which screen shows what and which control proves the core value — don't make the robot guess from pixels. Shape:
        { "steps": [ { "goal": "what this beat proves", "selector": "the control's CSS selector — you know the code, give the exact one", "where": "how to FIND it by eye (visible label/position) — the fallback when a selector misses", "action": "click|type|drag|scroll|hover|draw|focus|navigate", "toSelector": "(drag only) CSS selector of the drop target", "text": "what to type (type only)", "expect": "what the screen should show right after", "hold": 2 } ],
          "skip": ["things NOT worth a beat because every app has them — e.g. a dark-mode or language toggle"],
@@ -114,8 +121,8 @@ You're the AI that built this project, so read the repo yourself and describe it
      – login genuinely isn't needed AND every feature works from the first screen → { "noLogin": true, "note": "one line of evidence — e.g. no auth guard in middleware or the first screen; the list renders from seed data" }. Only claim this after opening the actual routes/guards, not from the landing page looking nice — a bare noLogin with no note is rejected
      – a guest path is fundamentally impossible (E2E-encrypted, device pairing, real payments) → { "impossible": true, "note": "why" } (rejected without the note). Only the landing page gets filmed, so attach your own "video" as well
      NEVER include account IDs or passwords — they are not accepted, and publishing is rejected without one of the three answers above. The film and the card are PUBLIC, so every screen the robot opens must show fake or sample data — never real people's names, emails, messages, health or payment records
-4) If you have a shell: before uploading anything, write the JSON above to a file and run ${NPX_CHECK} --file <that file>. That asks the server the exact questions publishing would ask — the script, the description shape, targetDevice, demoAccess, the estimated film length — and prints either the precise rejection reason or a summary of what would be accepted. Nothing is stored and nothing is uploaded. If it rejects, fix the JSON and check again until it passes; reading the reason here is far cheaper than publishing and getting a 400.
-5) If you have a shell: publish it — ${NPX_PUBLISH} --file <that file> (step 1 already paired this machine). Then tell the owner it went up as a DRAFT — nothing is public until they open the review link it prints and press publish.
+5) If you have a shell: before uploading anything, write the JSON above to a file and run ${NPX_CHECK} --file <that file>. That asks the server the exact questions publishing would ask — the script, the description shape, targetDevice, demoAccess, the owner interview, the estimated film length — and prints either the precise rejection reason or a summary of what would be accepted. Nothing is stored and nothing is uploaded. If it rejects, fix the JSON and check again until it passes; reading the reason here is far cheaper than publishing and getting a 400.
+6) If you have a shell: publish it — ${NPX_PUBLISH} --file <that file> (step 1 already paired this machine). Then tell the owner it went up as a DRAFT — nothing is public until they open the review link it prints and press publish.
    If you have a screenshot or a demo video you made, add --screenshot <path> / --video <path> (image png/jpg/webp/gif ≤5MB; video mp4/webm ≤20MB — providing a video replaces the auto-recorded demo).
    If you don't have a shell: print the JSON in one \`\`\`json code block, then put this link on its own line right after it so I can click straight through: ${origin}/publish — I'll paste the JSON there.
    To revise something already pushed, publish again with --id <the draft id it printed> — that draft is updated in place, no duplicates.`;

@@ -70,6 +70,7 @@ const post = async (extra) => {
       deployUrl: `https://example.com/probe-access-${n}`,
       demoScript: SCRIPT,
       targetDevice: "desktop",
+      ownerInterview: { proudMoment: "프로브가 만든 장면", howIUse: "프로브가 확인용으로 씀", mustSee: "프로브 확인 문구" }, // 주인 인터뷰(09-29 필수 게이트)
       ...extra,
     }),
   });

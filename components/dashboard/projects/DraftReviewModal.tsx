@@ -12,8 +12,10 @@ import { copyText } from "@/lib/clipboard";
 import { useMediaQuery } from "@/lib/useMediaQuery";
 import { AiToolLogo } from "./helpers";
 import { DemoScriptPanel } from "./DemoScriptPanel";
+import { OwnerInterviewPanel } from "./OwnerInterviewPanel";
 import { PreviewDevice, PHONE_VIEW, DESKTOP_VIEW } from "./PreviewDevice";
 import { type DBProject } from "./types";
+import { readOwnerInterview, type OwnerInterview } from "@/lib/ownerInterview";
 import { useT } from "@/lib/i18n/client";
 
 // 초안 검토 모달 — [공개하기]의 "확인"을 실제로 할 수 있는 화면.
@@ -24,6 +26,7 @@ import { useT } from "@/lib/i18n/client";
 // - 미리보기 틀(폰 402×874 / PC 1280×800)은 업로드한 AI가 답한 targetDevice로만 정한다.
 //   사람이 바꾸는 스위치는 일부러 없다. 답이 없는 예전 초안은 분류로 짐작(previewDevice).
 // - 판단 칸은 질문 하나("…를 공개할까요?") 아래에 명함 → 촬영 계획(시작 주소 한 줄 + 필름 띠).
+//   2026-09-29: 맨 위에 주인 인터뷰 칸(필수) — "내 말이 맞아요"에 체크해야 [공개하기]가 눌린다.
 //   촬영 주소를 명함 옆에 나란히 두지 않는다(어색하다는 사용자 판정).
 // - 채운 버튼은 [공개하기] 하나. 직접 고치기·삭제는 ⋯ 안으로(폰에서 버튼이 두 줄로 접히던 문제도 해소).
 //
@@ -39,7 +42,7 @@ function objectParticle(word: string): string {
   return "을(를)";
 }
 
-export function DraftReviewModal({ draft, privateReady = true, onClose, onPublish, onEdit, onDelete, onSave }: {
+export function DraftReviewModal({ draft, privateReady = true, onClose, onPublish, onEdit, onDelete, onSave, onSaveInterview }: {
   draft: DBProject;
   // 비공개 칸(대본·로그인 답·로봇 메모)을 서버에서 받았나. 못 받은 동안엔 "대본 없음"이라
   // 거짓으로 보이거나, 빈 값으로 AI 수정 프롬프트를 만들어 AI가 멀쩡한 대본을 덮게 된다.
@@ -49,6 +52,8 @@ export function DraftReviewModal({ draft, privateReady = true, onClose, onPublis
   onEdit: () => void;
   onDelete: () => void;
   onSave: (patch: DraftPatch) => Promise<void>;
+  // 주인 인터뷰 고치기(2026-09-29) — 비공개 칸이라 서버 PATCH를 거친다(ProjectsTab).
+  onSaveInterview: (next: OwnerInterview) => Promise<void>;
 }) {
   const { t, locale } = useT();
   const uid = useId();
@@ -192,11 +197,18 @@ export function DraftReviewModal({ draft, privateReady = true, onClose, onPublis
     }
   };
 
+  // ── 주인 인터뷰(2026-09-29 사용자 확정: 필수) ─────────────────────────────
+  // 답이 있고 주인이 "내 말이 맞아요"에 체크해야 공개된다. 비공개 칸을 아직 못 받았으면
+  // 답을 볼 수 없으니 공개도 기다린다. 인터뷰 없이 올라온 옛 초안은 AI에게 다시 올려 달라고 한다.
+  const interview = privateReady ? readOwnerInterview(draft.owner_interview) : null;
+  const [interviewConfirmed, setInterviewConfirmed] = useState(false);
+  const canPublish = !!interview && interviewConfirmed;
+
   // 공개 — 글을 고치던 중이면 먼저 저장하고, 저장이 안 되면 공개하지 않는다.
   // 전엔 편집 칸이 열린 채 [공개]를 누르면 고친 내용이 조용히 버려졌다(B9).
   const [publishing, setPublishing] = useState(false);
   const publish = async () => {
-    if (publishing || saving || scriptSaving > 0) return;
+    if (publishing || saving || scriptSaving > 0 || !canPublish) return;
     setPublishing(true);
     const ok = await save();
     setPublishing(false);
@@ -234,6 +246,7 @@ export function DraftReviewModal({ draft, privateReady = true, onClose, onPublis
         deployUrl: isFile ? null : draft.demo_url,
         demoScript: draft.demo_script,
         demoAccess: draft.demo_access,
+        ownerInterview: interview,
         note: fixNote.trim(),
         code: body.code,
         origin: window.location.origin,
@@ -503,6 +516,16 @@ export function DraftReviewModal({ draft, privateReady = true, onClose, onPublis
                 </a>
               )}
 
+              {/* ⓪ 주인 인터뷰 — 공개 전에 주인이 확인해야 한다(2026-09-29, 필수) */}
+              <OwnerInterviewPanel
+                interview={interview}
+                loading={!privateReady}
+                confirmed={interviewConfirmed}
+                onConfirmChange={setInterviewConfirmed}
+                onSave={onSaveInterview}
+                headId={`${uid}-interview`}
+              />
+
               {/* ① 명함 렌더 — 글자를 누르면 그 자리에서 고친다 */}
               <section aria-labelledby={`${uid}-card`}>
                 <SectionHead id={`${uid}-card`} title={t.projects.reviewCardLabel}
@@ -698,7 +721,9 @@ export function DraftReviewModal({ draft, privateReady = true, onClose, onPublis
           {/* 아래 버튼 줄 — 채운 버튼은 공개하기 하나 */}
           <footer className="vf-review-foot" data-at-end={edges.atEnd ? "true" : "false"}>
             <p className="vf-review-foot-note">
-              {hasOwnVideo ? t.projects.reviewPublishNoteVideo : t.projects.reviewPublishNote}
+              {!canPublish
+                ? t.projects.reviewInterviewConfirmFirst
+                : hasOwnVideo ? t.projects.reviewPublishNoteVideo : t.projects.reviewPublishNote}
             </p>
             <div className="flex items-center gap-2">
               <button
@@ -716,7 +741,7 @@ export function DraftReviewModal({ draft, privateReady = true, onClose, onPublis
               <button
                 type="button"
                 onClick={() => void publish()}
-                disabled={publishing || saving || scriptSaving > 0}
+                disabled={publishing || saving || scriptSaving > 0 || !canPublish}
                 className="vf-button-primary"
                 style={{ fontSize: "0.92rem", padding: "0.72rem 1.4rem", minWidth: 120 }}
               >

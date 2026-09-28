@@ -69,6 +69,7 @@ const base = (n) => ({
   demoScript: SCRIPT,
   demoAccess: ACCESS,
   targetDevice: "desktop",
+  ownerInterview: { proudMoment: "프로브가 만든 장면", howIUse: "프로브가 확인용으로 씀", mustSee: "프로브 확인 문구" }, // 주인 인터뷰(09-29 필수 게이트)
 });
 
 /** dryRun 호출 — 쿼리로 보내는 게 정규 경로(검사 버킷을 쓰려면 파싱 전에 알아야 한다). */

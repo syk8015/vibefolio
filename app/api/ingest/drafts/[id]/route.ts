@@ -17,8 +17,9 @@ import {
   ingestAuth, publicUrlGate, strOrNull, type IngestDict, buildAccepted, buildScriptReview,
   descriptionTooLong, DESCRIPTION_MAX, missingOptionalColumn,
   descriptionShapeIssue, descriptionShapeMessage,
-  pickApiT,
+  pickApiT, ownerInterviewRejection,
 } from "../../shared";
+import { normalizeOwnerInterview, readOwnerInterview } from "@/lib/ownerInterview";
 
 // PATCH·DELETE /api/ingest/drafts/[id] — Nookframe Connect 초안 수정·삭제(요청4).
 // is_draft=true 행만 허용: 공개된 프로젝트는 409로 거부해 PAT의 폭발반경(자기
@@ -198,6 +199,13 @@ export async function PATCH(
       }
       upd.demo_access = norm.access;
     }
+    if ("ownerInterview" in payload) {
+      // 생성 게이트와 같은 규칙 — 고치는 건 되고, 비우거나 자리만 채운 답으로 바꾸는 건 안 된다
+      // (초안 검토 창에서 주인이 고칠 때도 이 경로다: 쿠키 인증).
+      const next = normalizeOwnerInterview(payload.ownerInterview);
+      if (next.issue) return ownerInterviewRejection(next.issue, t);
+      upd.owner_interview = next.value;
+    }
     if (!Object.keys(upd).length) {
       return apiError({ status: 400, message: t.api.draftNoFields, code: "NO_FIELDS" });
     }
@@ -214,7 +222,7 @@ export async function PATCH(
     // 갱신된 행을 그대로 돌려받아 에코를 만든다(C-1) — 보낸 키만 바뀌므로
     // "요청 payload"로는 최종 상태를 알 수 없다. 저장된 행이 유일한 진실.
     const AFTER_COLS =
-      "title, description, comment, demo_user_hint, demo_script, tags, content_type, target_device, demo_access, demo_url";
+      "title, description, comment, demo_user_hint, demo_script, tags, content_type, target_device, demo_access, demo_url, owner_interview";
     let { data: after, error: updErr } = await admin
       .from("projects")
       .update(upd)
@@ -261,6 +269,7 @@ export async function PATCH(
         demoAccess: after?.demo_access ?? null,
         entryUrl: after?.demo_url ?? null,
         targetDevice: after?.target_device ?? null,
+        ownerInterview: readOwnerInterview((after as { owner_interview?: unknown } | null)?.owner_interview),
       }, normalizeTags, scriptReview),
     });
   } catch (err) {

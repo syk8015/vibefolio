@@ -309,7 +309,29 @@ export const en: Dictionary = {
     publishing: "Publishing…",
     confirmPublish: "Review & publish",
     reviewAsk: (title: string) => `Publish ${title}?`,
-    reviewIntroShort: "Your AI posted this draft. Just check the card and the filming plan.",
+    reviewIntroShort: "Your AI posted this draft. Check your interview answers, the card and the filming plan.",
+    reviewInterviewTitle: "Owner interview",
+    reviewInterviewLead: "Your answers, as your AI asked them. If anything isn't what you said, click it to fix it",
+    reviewInterviewQ: {
+      proudMoment: "The moment you're proudest of",
+      howIUse: "How you actually use it",
+      mustSee: "What viewers must notice",
+      hide: "Keep hidden · never shown",
+    },
+    reviewInterviewUse: {
+      proudMoment: "→ Your AI lingers on this scene in the filming script",
+      howIUse: "→ Becomes your one-line card bubble",
+      mustSee: "→ Shapes the description and the filming script",
+      hide: "→ Scenes that show these stay out of the script",
+    },
+    reviewInterviewHideNone: "Nothing",
+    reviewInterviewHidePlaceholder: "Separate with commas (e.g. amounts, folder paths)",
+    reviewInterviewConfirm: "These are my words — nothing made up by the AI",
+    reviewInterviewConfirmFirst: "Confirm your interview answers to publish",
+    reviewInterviewMissing: "This draft came in without your interview. Use [Ask AI to fix it] below — your AI will ask you first, then resubmit",
+    reviewInterviewLoading: "Loading your interview answers…",
+    reviewInterviewEmpty: "Can't be empty — a few words is fine",
+    reviewInterviewTooLong: (max: number) => `Keep it under ${max} characters`,
     reviewShootTitle: "How it gets filmed",
     reviewShootAllWired: (n: number) => `All ${n} scenes have exact targets`,
     reviewShootPartWired: (wired: number, n: number) => `Only ${wired} of ${n} scenes have exact targets`,
@@ -856,6 +878,12 @@ export const en: Dictionary = {
       'targetDevice is required — answer which screen this app was mainly designed for: "mobile" (built for phone screens — a narrow single column, a bottom tab bar, touch-first) or "desktop" (built for a computer browser — wide layouts, sidebars, hover). If it works on both, pick the one it was designed for first. This is a different question from contentType ("mobile" there is the phone-app category). The answer decides whether the draft preview is framed as a phone or a desktop screen.',
     targetDeviceInvalid: (got: string) =>
       `targetDevice must be "mobile" or "desktop" — got ${got}. Use "mobile" if the app was designed for phone screens, "desktop" if it was designed for a computer browser, and send it again.`,
+    ownerInterviewRequired:
+      'ownerInterview is required. Before writing anything else, ask the owner these in the chat and WAIT for their answers — do not answer them yourself: 1) the moment they are proudest of (proudMoment) 2) how they actually use it — when, how often, why (howIUse) 3) the one thing a first-time viewer must notice (mustSee) 4) optional: anything that must never be shown (hide, a list). Send their own words: { "ownerInterview": { "proudMoment": "…", "howIUse": "…", "mustSee": "…", "hide": ["…"] } }. Then use them: put the proudMoment/mustSee scenes early in demoScript and hold on them, draw builderNote from howIUse (one line), and leave any scene that shows a hide item out of the script.',
+    ownerInterviewIncomplete: (keys: string[]) =>
+      `ownerInterview is missing an answer for: ${keys.join(", ")}. Ask the owner and send their own words — placeholders like "none" or "N/A" count as missing.`,
+    ownerInterviewTooLong: (key: string, max: number) =>
+      `ownerInterview.${key} is too long — keep each answer under ${max} characters and quote the owner instead of adding your own explanation.`,
     rerecordPendingNext: "New script received. It starts nothing yet — the owner reviews it in their dashboard and presses re-record.",
     rerecordNoPendingScript: "No new script is waiting. Hand the re-record prompt to your AI first — press this once it has submitted a new script.",
     rerecordAlreadyUsed: "This project already used its one self-serve re-record. Further takes need admin approval.",

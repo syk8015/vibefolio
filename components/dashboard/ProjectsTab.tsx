@@ -9,6 +9,7 @@ import Modal from "@/components/Modal";
 import { detectDemoSource } from "@/lib/demoSource";
 import { AnalyticsEvent, trackClientEvent } from "@/lib/analytics-client";
 import { PUBLIC_PROJECT_SELECT } from "@/lib/projectColumns";
+import type { OwnerInterview } from "@/lib/ownerInterview";
 
 import { useT } from "@/lib/i18n/client";
 import { deleteSwappedAssets } from "./projects/helpers";
@@ -446,6 +447,20 @@ export default function ProjectsTab({
     setDrafts(prev => prev.map(p => (p.id === id ? { ...mergeRow(p, updated), ...patch } : p)));
   }
 
+  // 주인 인터뷰 고치기(2026-09-29). 비공개 칸이라 서버를 거친다 — /api/ingest/drafts/[id] PATCH가
+  // 생성 게이트와 같은 판정(lib/ownerInterview)으로 한 번 더 보고 저장한다(쿠키 인증).
+  async function handleSaveInterview(id: string, next: OwnerInterview) {
+    const res = await fetch(`/api/ingest/drafts/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ownerInterview: next }),
+    });
+    if (!res.ok) throw new Error(`interview save failed: ${res.status}`);
+    // 방금 쓴 답보다 먼저 출발한 비공개 칸 응답이 늦게 와서 되돌리지 않게.
+    bumpPrivGen(id);
+    setDrafts(prev => prev.map(p => (p.id === id ? { ...p, owner_interview: next } : p)));
+  }
+
   function handleMoveUp(index: number) {
     if (index <= 0) return;
     const next = [...projects];
@@ -524,7 +539,15 @@ export default function ProjectsTab({
     setProjects(prev => [published, ...prev]);
     void loadPrivate([project.id]);
 
-    const { error } = await supabase.from("projects").update({ is_draft: false, sort_order: sortOrder }).eq("id", project.id);
+    // 공개는 초안 검토 창에서 주인 인터뷰를 확인해야만 여기로 온다(2026-09-29) — 그 순간을 남긴다.
+    const publishRow = { is_draft: false, sort_order: sortOrder };
+    let { error } = await supabase.from("projects")
+      .update({ ...publishRow, owner_interview_confirmed_at: new Date().toISOString() })
+      .eq("id", project.id);
+    // SQL(migration_owner_interview.sql) 적용 전이면 칸이 없다 — 기록 한 칸 때문에 공개를 막지 않는다.
+    if (error && (error.code === "PGRST204" || error.code === "42703") && (error.message ?? "").includes("owner_interview_confirmed_at")) {
+      ({ error } = await supabase.from("projects").update(publishRow).eq("id", project.id));
+    }
     if (error) {
       // 롤백 — 다시 초안으로.
       setProjects(prev => prev.filter(p => p.id !== project.id));
@@ -622,7 +645,6 @@ export default function ProjectsTab({
                 isLast={projects.length === 0 && i === drafts.length - 1}
                 onEdit={() => openEdit(d)}
                 onDelete={() => setDeleteTarget(d)}
-                onPublish={() => handlePublishDraft(d)}
                 onReview={() => setReviewDraftId(d.id)}
               />
             ))}
@@ -673,6 +695,7 @@ export default function ProjectsTab({
           onEdit={() => { openEdit(reviewDraft); setReviewDraftId(null); }}
           onDelete={() => { setDeleteTarget(reviewDraft); setReviewDraftId(null); }}
           onSave={(patch) => handleSaveDraft(reviewDraft.id, patch)}
+          onSaveInterview={(next) => handleSaveInterview(reviewDraft.id, next)}
         />
       )}
 

@@ -175,7 +175,7 @@ MCP 규격이 2026-07-28에 갈아엎였다: `initialize`·세션·`ping`이 사
 
 - 인증: `Authorization: Bearer nf_live_…` (우선) 또는 쿠키 세션(`/publish` 경로).
 - 본문:
-  - `application/json` — `{ title, description?, builderNote?, demoHighlights?, demoScript?, tags?, contentType?, targetDevice, deployUrl?, appUrl?, demoAccess? }`
+  - `application/json` — `{ title, description?, builderNote?, demoHighlights?, demoScript?, tags?, contentType?, targetDevice, deployUrl?, appUrl?, demoAccess?, ownerInterview }`
     (`demoScript`·`demoAccess`·`targetDevice`는 **필수 게이트** — 자세한 건 아래 "발행 게이트 3종")
     (`targetDevice` = 작품이 주로 맞춘 화면 `"mobile"`|`"desktop"`(2026-09-15) → `projects.target_device`. 초안 검토 창이 이 답으로
     미리보기 틀(폰 402×874 / PC 1280×800)을 고르고, 사람이 바꾸는 스위치는 없다. contentType의 `mobile`(분류)과 다른 질문 —
@@ -404,9 +404,9 @@ MCP 규격이 2026-07-28에 갈아엎였다: `initialize`·세션·`ping`이 사
 - 검증: `scripts/probe-api-ingest.mjs`
 
 
-## 발행 게이트 3종 (인제스트가 저장 전에 되돌려보내는 것)
+## 발행 게이트 4종 (인제스트가 저장 전에 되돌려보내는 것)
 
-`/api/ingest` POST와 `PATCH /api/ingest/drafts/:id`는 zip·URL 처리보다 **먼저** 세 가지를
+`/api/ingest` POST와 `PATCH /api/ingest/drafts/:id`는 zip·URL 처리보다 **먼저** 네 가지를
 검사한다. 대본·로그인의 면제 조건은 하나뿐 — 직접 만든 시연 영상(`video` 파트 또는
 `uploads: ["video"]`)을 준 경우다(자동 촬영 자체를 건너뛴다). 대상 화면은 촬영이 아니라
 "어떻게 보여줄까"의 질문이라 **영상 동봉도 면제가 아니고**, 대본·로그인 게이트 뒤에 검사한다.
@@ -416,6 +416,7 @@ MCP 규격이 2026-07-28에 갈아엎였다: `initialize`·세션·`ping`이 사
 | 촬영 대본 (2026-08-25) | `SCRIPT_REQUIRED` · `SCRIPT_TOO_THIN` | `demoScript.steps` ≥ 3 |
 | 로그인 답변 (2026-08-27) | `DEMO_ACCESS_REQUIRED` | `demoAccess`가 `url` · `noLogin` · `impossible` 중 하나 |
 | 대상 화면 (2026-09-15) | `TARGET_DEVICE_REQUIRED` | `targetDevice`가 `mobile` · `desktop` 중 하나(대소문자 무시). 수정 경로로 비우기도 400. 검증: `node scripts/probe-target-device-gate.mjs` |
+| 주인 인터뷰 (2026-09-29) | `OWNER_INTERVIEW_REQUIRED` · `_INCOMPLETE` · `_TOO_LONG` | `ownerInterview`에 주인의 답 3개(`proudMoment` · `howIUse` · `mustSee`, 각 ≤300자) + 선택 `hide`(≤12개·≤80자). "없음"·"N/A" 같은 자리 채우기는 빈 답. 영상 동봉도 면제 아님, 마지막에 검사. 비공개 칸 `projects.owner_interview`(+ 공개 때 찍는 `owner_interview_confirmed_at`). 초안 검토 창에서 주인이 "내 말이 맞아요"에 체크해야 공개된다. 설계 `docs/owner-interview-real-record.md`. 검증: `node scripts/probe-owner-interview-gate.mjs` |
 
 로그인 게이트를 만든 이유는 실패가 **실패로 보이지 않기 때문**이다. 로그인해야 기능이
 도는 앱을 그냥 올리면 로봇은 로그인 화면이나 빈 껍데기를 찍는데, 화면은 떴으므로

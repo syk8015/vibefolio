@@ -33,6 +33,7 @@ const LIST_TTL_MS = 300_000;
 const INSTRUCTIONS =
   "Nookframe is a portfolio for vibe-coded work. Uploading always creates a DRAFT: " +
   "nothing becomes public until the owner reviews it in their dashboard and presses publish. " +
+  "Before uploading, interview the owner (ownerInterview — required, in their own words). " +
   "Call check_nookframe_payload first when unsure — it runs every gate without storing anything.";
 
 type Json = Record<string, unknown>;

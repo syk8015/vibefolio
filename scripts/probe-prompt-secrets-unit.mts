@@ -27,13 +27,24 @@ ok("연결: login에 코드가 실린다", paste.includes(`login ${CODE}`));
 ok("연결: 1회용이라고 말한다", paste.includes("ONE-TIME pairing code"));
 ok("연결: check 단계가 있다", paste.includes("check --file"));
 ok("연결: 토큰이 없다", !paste.includes("nf_live_"));
+// 주인 인터뷰(2026-09-29, 필수) — 프롬프트가 먼저 묻게 하고, 필드 이름을 알려 준다.
+ok("연결: 주인 인터뷰를 먼저 묻는다", paste.includes("Interview me BEFORE you write anything"));
+ok("연결: ownerInterview 필드를 알려 준다", paste.includes("ownerInterview — REQUIRED"));
 
 // ── ② 고쳐달라기 프롬프트
 const fix = buildDraftFixPrompt({
   projectId: "p1", title: "t", description: "a\nb", builderNote: "", demoHighlights: null,
   tags: [], contentType: "web-app", targetDevice: "desktop", deployUrl: "https://example.com",
-  demoScript: null, demoAccess: null, note: "고쳐줘", code: CODE, origin: ORIGIN,
+  demoScript: null, demoAccess: null, ownerInterview: null, note: "고쳐줘", code: CODE, origin: ORIGIN,
 }, "ko");
+ok("고쳐달라기: 인터뷰가 없으면 먼저 묻게 한다", fix.includes('"ownerInterview" is missing'));
+const fixWith = buildDraftFixPrompt({
+  projectId: "p1", title: "t", description: "a\nb", builderNote: "", demoHighlights: null,
+  tags: [], contentType: "web-app", targetDevice: "desktop", deployUrl: "https://example.com",
+  demoScript: null, demoAccess: null, note: "고쳐줘", code: CODE, origin: ORIGIN,
+  ownerInterview: { proudMoment: "a", howIUse: "b", mustSee: "c", hide: ["금액"] },
+}, "ko");
+ok("고쳐달라기: 인터뷰가 있으면 그대로 싣는다", fixWith.includes('"proudMoment": "a"') && fixWith.includes("keep them word for word"));
 ok("고쳐달라기: login에 코드가 실린다", fix.includes(`login ${CODE}`));
 ok("고쳐달라기: check 단계가 있다", fix.includes("check --file"));
 ok("고쳐달라기: 토큰이 없다", !fix.includes("nf_live_"));

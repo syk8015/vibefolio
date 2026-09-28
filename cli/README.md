@@ -65,6 +65,25 @@ nookframe mcp                Run the MCP stdio server
 The payload is the same object the MCP tool `publish_to_nookframe` takes — `dir`, `screenshot` and `video` in the
 JSON are read as local paths, just like the flags.
 
+## The owner interview (ownerInterview) — required
+
+A demo is not the real app, and only the person who built and uses it knows what matters. So before
+writing anything, the AI asks the owner four questions in the chat and waits for the answers — it never
+answers them itself. The server rejects a payload without them.
+
+```json
+"ownerInterview": {
+  "proudMoment": "the moment the owner is proudest of",
+  "howIUse": "how they actually use it — when, how often, what for",
+  "mustSee": "the one thing a first-time viewer must notice",
+  "hide": ["optional: anything that must never be shown"]
+}
+```
+
+Use the answers: open or linger on the `proudMoment`/`mustSee` scenes in the demo script, draw `builderNote`
+from `howIUse`, and keep any screen that shows a `hide` item out of the script. The answers are not printed
+on the public page (and `hide` stays private); the owner confirms them in the draft review before publishing.
+
 ## The demo script (demoScript)
 
 Once you publish, a robot operates the app itself and films a demo video. **Do not leave it guessing from

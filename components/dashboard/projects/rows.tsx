@@ -433,19 +433,17 @@ function RowMenu({ items }: { items: RowMenuItem[] }) {
 }
 
 // AI가 인제스트로 보낸 "초안" 행. 공개 리스트와 같은 행 언어(시안 A 확정) —
-// 좌측 잉크 바 + "확인하고 공개" 1차 버튼만 다르다. AI가 쓴 카피를 확인 후
-// 공개하면 기존 추가 플로우처럼 자동 시연이 트리거된다.
-export function DraftRow({ draft, highlight, isLast, onEdit, onDelete, onPublish, onReview }: {
+// 좌측 잉크 바 + "확인하고 공개" 1차 버튼만 다르다. 그 버튼은 바로 공개하지 않고 검토
+// 창을 연다(2026-09-29): 주인 인터뷰를 확인해야 공개되므로 확인할 자리를 건너뛰는 길이 없어야 한다.
+export function DraftRow({ draft, highlight, isLast, onEdit, onDelete, onReview }: {
   draft: DBProject;
   highlight: boolean;
   isLast: boolean;
   onEdit: () => void;
   onDelete: () => void;
-  onPublish: () => void;
   onReview: () => void;
 }) {
   const { t, locale } = useT();
-  const [publishing, setPublishing] = useState(false);
   const thumbnail = draft.thumbnail || placeholderThumbnail(draft.id);
   const uploadedAt = formatUploadedAt(draft.created_at, locale);
   const ct = CONTENT_TYPES.find((c) => c.id === draft.content_type);
@@ -491,12 +489,11 @@ export function DraftRow({ draft, highlight, isLast, onEdit, onDelete, onPublish
       {/* 버튼 영역 클릭은 행의 검토 모달 열기로 번지지 않게 차단 */}
       <div className="flex items-center gap-1.5 md:gap-2 justify-end shrink-0" onClick={e => e.stopPropagation()}>
         <button
-          onClick={() => { setPublishing(true); onPublish(); }}
-          disabled={publishing}
+          onClick={onReview}
           className="vf-button-primary"
-          style={{ fontSize: "0.875rem", padding: "0.4rem 0.85rem", opacity: publishing ? 0.6 : 1 }}
+          style={{ fontSize: "0.875rem", padding: "0.4rem 0.85rem" }}
         >
-          {publishing ? t.projects.publishing : t.projects.confirmPublish}
+          {t.projects.confirmPublish}
         </button>
         <RowMenu
           items={[

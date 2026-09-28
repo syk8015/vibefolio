@@ -1,5 +1,6 @@
 import type { DemoScript } from "@/lib/demoScript";
 import type { DemoAccess } from "@/lib/demoAccess";
+import type { OwnerInterview } from "@/lib/ownerInterview";
 // Shared types + constants for the dashboard Projects tab. Extracted verbatim from
 // ProjectsTab.tsx (no behavior change) so the row components, hooks, and form modal
 // can share one definition instead of re-declaring it.
@@ -76,6 +77,11 @@ export interface DBProject {
   pending_script_at: string | null;
   // 작품당 셀프 재촬영 1회 소진 여부(서버 전용 — 가드 트리거가 유저 쓰기를 막는다).
   rerecord_self_used: boolean;
+  // 주인 인터뷰(2026-09-29, 필수) — 올리는 AI가 먼저 묻고 받은 주인의 답. 비공개 칸(가릴 것 목록).
+  // 인터뷰 게이트 이전 초안·SQL 적용 전엔 null. 모양은 lib/ownerInterview.ts.
+  owner_interview: OwnerInterview | null;
+  // 주인이 검토 창에서 "내 말이 맞아요"를 누르고 공개한 시각. 비공개 칸.
+  owner_interview_confirmed_at: string | null;
 }
 
 export type ProjectForm = Omit<
@@ -101,5 +107,8 @@ export type ProjectForm = Omit<
   | "pending_script_note"
   | "pending_script_at"
   | "rerecord_self_used"
+  // 주인 인터뷰는 초안 검토 창에서만 다룬다(수정 폼에 실리면 저장 때마다 통째로 덮는다).
+  | "owner_interview"
+  | "owner_interview_confirmed_at"
 >;
 

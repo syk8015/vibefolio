@@ -58,6 +58,11 @@ export function formatAccepted(accepted) {
         ? "declared no login required"
         : accepted.demoAccess));
   }
+  // 주인 인터뷰(2026-09-29, 필수) — 답 글은 서버가 돌려주지 않는다(가릴 것은 비공개). 구버전 서버는 키가 없다.
+  if (accepted.ownerInterview) {
+    const hidden = accepted.ownerInterview.hidden ?? 0;
+    lines.push(ROW("interview", `${accepted.ownerInterview.answered ?? 3} answers${hidden ? ` · ${hidden} thing(s) to keep hidden` : ""} (the owner confirms them before publishing)`));
+  }
 
   // 대본 점검표(2026-09-04) — 게이트는 통과했지만 어디가 약한지. 숫자로 한 줄,
   // 고칠 것은 아래 경고에 합류한다(같은 URL로 다시 publish하면 이 초안이 갱신됨).

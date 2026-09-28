@@ -101,6 +101,7 @@ const PAYLOAD = {
   description: "피부 기록을 매일 남기고\nit's the diary you'd actually keep\n사진으로 보는 변화 ✨",
   deployUrl: "https://example.com/app",
   targetDevice: "mobile",
+  ownerInterview: { proudMoment: "프로브가 만든 장면", howIUse: "프로브가 확인용으로 씀", mustSee: "프로브 확인 문구" }, // 주인 인터뷰(09-29 필수 게이트)
   demoAccess: { noLogin: true, note: "no auth guard — checked middleware" },
   demoScript: { steps: [{ goal: "기록 추가", selector: "#add", action: "click", expect: "폼이 열린다" }] },
 };

@@ -47,6 +47,9 @@ export const PRIVATE_PROJECT_COLUMNS = [
   "pending_script_note",
   "demo_build_error",
   "demo_source_value",
+  // 주인 인터뷰(2026-09-29) — 가릴 것 목록이 들어 있어 공개하지 않는다(migration_owner_interview.sql).
+  "owner_interview",
+  "owner_interview_confirmed_at",
 ] as const;
 
 export type PrivateProjectColumn = (typeof PRIVATE_PROJECT_COLUMNS)[number];

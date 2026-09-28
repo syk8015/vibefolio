@@ -92,6 +92,7 @@ const postZip = async (name, title) => {
     demoScript: SCRIPT,
     demoAccess: { noLogin: true, note: "프로브 픽스처 — 인증 가드 없는 정적 페이지" },
     targetDevice: "desktop",
+    ownerInterview: { proudMoment: "프로브가 만든 장면", howIUse: "프로브가 확인용으로 씀", mustSee: "프로브 확인 문구" }, // 주인 인터뷰(09-29 필수 게이트)
   }));
   form.set("bundle", new Blob([readFileSync(join(S, `${name}.zip`))], { type: "application/zip" }), "bundle.zip");
   const res = await fetch(`${ORIGIN}/api/ingest`, {
