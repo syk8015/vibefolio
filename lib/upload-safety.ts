@@ -137,8 +137,8 @@ export function sniffVideo(buf: Uint8Array): { ext: string; mime: string } | nul
 /** 비밀 파일 종류 — 언어별 라벨은 사전(t.api.secretFileKinds)이 붙인다.
  * PAT 인제스트 응답은 영어 고정이라 라벨을 코드에 박으면 어긋난다. */
 export type SecretKind =
-  | "env" | "envrc" | "git" | "sshDir" | "sshKey" | "cert"
-  | "npmrc" | "pypirc" | "netrc" | "aws" | "htpasswd" | "serviceAccount";
+  | "env" | "envrc" | "git" | "gitCredentials" | "sshDir" | "sshKey" | "cert"
+  | "npmrc" | "pypirc" | "netrc" | "aws" | "htpasswd" | "serviceAccount" | "secretsFile";
 
 const SECRET_FILE_RULES: ReadonlyArray<readonly [RegExp, SecretKind]> = [
   // `.env` `.env.local` `.env.production` … 그리고 `.env/` 디렉터리까지.
@@ -156,6 +156,13 @@ const SECRET_FILE_RULES: ReadonlyArray<readonly [RegExp, SecretKind]> = [
   [/(^|\/)\.htpasswd$/i, "htpasswd"],
   [/(^|\/)[^/]*(service[-_]?account|adminsdk)[^/]*\.json$/i, "serviceAccount"],
   [/(^|\/)credentials\.json$/i, "serviceAccount"],
+  [/(^|\/)\.git-credentials$/i, "gitCredentials"],
+  // 사람이 손으로 이름 붙인 비밀 파일(2026-09-28, 옆 프로젝트 인터뷰에서 실제로 나온 모양):
+  // `xiaomi-tokens.secret.txt`, `flash-values.secret.md`, ESPHome `secrets.yaml`.
+  // 점 뒤의 `secret`만 잡아 `secret.html`·`secret-room.html` 같은 페이지는 통과시키고,
+  // `secrets.js`·`secrets.ts` 같은 코드 파일은 빼면 앱이 깨지므로 설정·데이터 확장자만 막는다.
+  [/(^|\/)[^/]*\.secrets?(\.[^/.]+)?$/i, "secretsFile"],
+  [/(^|\/)secrets?\.(ya?ml|json|toml|ini|cfg|conf|txt|env)$/i, "secretsFile"],
 ];
 
 /** 비밀/내부 파일이면 종류, 아니면 null.

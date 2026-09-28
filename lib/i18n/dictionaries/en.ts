@@ -957,6 +957,7 @@ export const en: Dictionary = {
       sshDir: "SSH folder", sshKey: "SSH private key", cert: "certificate/keystore",
       npmrc: "npm auth config", pypirc: "PyPI auth config", netrc: "netrc credentials",
       aws: "AWS credentials", htpasswd: "htpasswd", serviceAccount: "service account key",
+      gitCredentials: "git credentials", secretsFile: "secrets file",
     },
     badReport: "Invalid report request.",
     reportRateLimited: "Too many reports. Please try again later.",

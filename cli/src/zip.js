@@ -19,7 +19,10 @@ function isSecretName(name) {
     /^\.env(\.|$)/i.test(name) ||        // .env, .env.local, .env.production ...
     /\.(pem|key|p12|pfx|keystore)$/i.test(name) ||
     /^id_(rsa|ecdsa|ed25519)(\.|$)/i.test(name) ||
-    name === ".git-credentials"
+    name === ".git-credentials" ||
+    // 손으로 이름 붙인 비밀 파일: `tokens.secret.txt`, ESPHome `secrets.yaml` (서버 규칙과 같은 모양)
+    /\.secrets?(\.[^.]+)?$/i.test(name) ||
+    /^secrets?\.(ya?ml|json|toml|ini|cfg|conf|txt|env)$/i.test(name)
   );
 }
 const MAX_BYTES = 25 * 1024 * 1024;

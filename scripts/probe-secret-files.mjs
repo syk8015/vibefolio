@@ -29,12 +29,17 @@ const MUST_BLOCK = [".env", ".env.local", "app/.env.production", ".env/lib/x", "
   ".git/config", ".git/objects/ab/cdef", "sub/.git/HEAD", ".ssh/id_rsa", "keys/id_ed25519",
   "certs/server.pem", "a/b.p12", "store.jks", ".npmrc", ".pypirc", ".netrc",
   ".aws/credentials", ".htpasswd", "firebase-adminsdk-abc.json",
-  "config/service_account.json", "x/serviceAccount.json", "credentials.json"];
+  "config/service_account.json", "x/serviceAccount.json", "credentials.json",
+  // 09-28 옆 프로젝트 인터뷰에서 실제로 나온 손 이름 비밀 파일
+  ".git-credentials", "xiaomi-tokens.secret.txt", "notes/flash-values.secret.md",
+  "esphome/secrets.yaml", "config/secrets.yml", "secrets.json", "api.secrets", ".secret"];
 // 오탐 방지 — 이름이 비슷하지만 비밀이 아닌 것들. 여기가 깨지면 멀쩡한 작품이 망가진다.
 const MUST_PASS = [".gitignore", ".github/workflows/ci.yml", "src/env.ts", "src/environment.js",
   "index.html", "assets/envelope.svg", "README.md", "package.json", "app.py",
   "src/gitlab.js", "data/credentials.md", "styles/main.css", "pubspec.yaml",
-  "lib/id_rsa_helper.js", "docs/environment.md"];
+  "lib/id_rsa_helper.js", "docs/environment.md",
+  "secret.html", "levels/secret-room.html", "my.secret-game.html", "assets/secret.png",
+  "src/secrets.ts", "js/secrets.js"];
 const missed = MUST_BLOCK.filter((p) => !secretFileKind(p));
 const falsePos = MUST_PASS.filter((p) => secretFileKind(p));
 ok(`(A) 비밀 경로 ${MUST_BLOCK.length}건 전부 차단`, missed.length === 0, missed.join(", "));

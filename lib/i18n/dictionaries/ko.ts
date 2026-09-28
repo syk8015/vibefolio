@@ -1038,6 +1038,7 @@ export const ko = {
       sshDir: "SSH 폴더", sshKey: "SSH 개인키", cert: "인증서·키스토어",
       npmrc: "npm 인증 설정", pypirc: "PyPI 인증 설정", netrc: "netrc 인증 정보",
       aws: "AWS 자격증명", htpasswd: "htpasswd 비밀번호", serviceAccount: "서비스 계정 키",
+      gitCredentials: "git 자격증명", secretsFile: "비밀값 파일",
     },
     // 신고 (report)
     badReport: "잘못된 신고 요청이에요.",
