@@ -18,6 +18,7 @@ import { readFileSync } from "node:fs";
 import { runJob } from "./job";
 import type { SafetyPolicy, SourceType } from "./safety";
 import { normalizeDemoScript, type DemoScript } from "../lib/demoScript";
+import { normalizeAppLanguages, normalizeLocale } from "../lib/workLanguages";
 
 const argv = process.argv.slice(2);
 const flag = (name: string, dflt?: string) => {
@@ -25,7 +26,7 @@ const flag = (name: string, dflt?: string) => {
   return i >= 0 && argv[i + 1] && !argv[i + 1].startsWith("--") ? argv[i + 1] : dflt;
 };
 
-const positionalUrl = argv.find((a) => !a.startsWith("--") && a !== flag("project") && a !== flag("policy") && a !== flag("type") && a !== flag("value") && a !== flag("hint") && a !== flag("access-url") && a !== flag("access-params") && a !== flag("access-note") && a !== flag("alt-url") && a !== flag("script-file"));
+const positionalUrl = argv.find((a) => !a.startsWith("--") && a !== flag("project") && a !== flag("policy") && a !== flag("type") && a !== flag("value") && a !== flag("hint") && a !== flag("access-url") && a !== flag("access-params") && a !== flag("access-note") && a !== flag("alt-url") && a !== flag("script-file") && a !== flag("languages") && a !== flag("primary"));
 const typeFlag = flag("type");
 const valueFlag = flag("value");
 
@@ -94,7 +95,15 @@ const demoAccess =
       }
     : undefined;
 
+// 작품 두 언어(2026-09-29) 시험: --languages ko,en(앱 화면 언어) --primary ko(기본 언어).
+// 둘 다면 두 번 찍고, 하나면 한 번 + 나머지 언어 자막(대본 caption 필요 — RUN REPORT에 수가 찍힌다).
+const languagesFlag = flag("languages");
+const appLocales = languagesFlag !== undefined ? normalizeAppLanguages(languagesFlag === "none" ? [] : languagesFlag) : null;
+const primaryLocale = normalizeLocale(flag("primary"));
+
 const outcome = await runJob({
+  appLocales,
+  primaryLocale,
   projectId,
   sourceType,
   sourceValue,

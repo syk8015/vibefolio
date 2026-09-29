@@ -192,3 +192,110 @@ export function judgeWorkLanguages(input: {
   }
   return { value: { language, appLanguages, translation: tr.value }, issue: null };
 }
+
+// ── 촬영 뒤: 자막 시간표(2026-09-29, 2단계) ──────────────────────────────────
+// 로봇이 장면마다 몇 초에 시작했는지 기록하고(local-runner/replay.ts), 그 시각으로 자막
+// 시간표를 만든다. 재생 화면이 영상 위에 얹는다 — 영상에 박지 않으니 글을 고치면 바로
+// 바뀐다. 저장은 공개 칸 projects.demo_captions(워커만 쓴다 — 가드 트리거).
+
+export type CaptionCue = { start: number; end: number; text: string };
+export type CaptionTrack = Partial<Record<SiteLocale, CaptionCue[]>>;
+/** 장면 시작 표시 — step은 대본 번호(1부터), atSec는 필름 시각(초). */
+export type StepMark = { step: number; atSec: number };
+
+const CUE_MAX = 20;
+const CUE_TEXT_MAX = CAPTION_STORE_MAX;
+const FILM_MAX_SEC = 60;
+const round1 = (n: number) => Math.round(n * 10) / 10;
+
+/**
+ * 장면 표시 + 대본 자막 → 언어별 시간표. 규칙:
+ *  - 자막은 다음 장면이 시작할 때 내려간다. 자막 없는 장면은 빈칸(앞 자막을 끈다).
+ *  - 뒤로가기(navigate) 장면은 경계가 아니다 — 앞 자막이 그대로 이어진다(자막 규칙과 같다).
+ *  - 첫 자막은 0초부터 — 첫 동작 전 인트로 동안에도 무엇을 보는지 알 수 있게.
+ *  - 필름 길이(clipSec) 밖은 자른다. 촬영 예산에 걸려 못 찍은 장면은 표시가 없어 자막도 없다.
+ */
+export function buildCaptionTrack(
+  marks: readonly StepMark[],
+  script: DemoScript | null,
+  locales: readonly SiteLocale[],
+  clipSec: number,
+): CaptionTrack {
+  const out: CaptionTrack = {};
+  if (!script || !locales.length) return out;
+  const seen = new Set<number>();
+  const bounds = [...marks]
+    .filter((m) => Number.isFinite(m.atSec) && m.step >= 1 && m.step <= script.steps.length)
+    .sort((a, b) => a.atSec - b.atSec)
+    .filter((m) => (seen.has(m.step) ? false : (seen.add(m.step), true)))
+    .filter((m) => script.steps[m.step - 1].action !== "navigate");
+  for (const locale of locales) {
+    const cues: CaptionCue[] = [];
+    for (let i = 0; i < bounds.length; i++) {
+      const text = script.steps[bounds[i].step - 1].caption?.[locale];
+      if (!text) continue;
+      const start = i === 0 ? 0 : Math.max(0, bounds[i].atSec);
+      const end = Math.min(clipSec, i + 1 < bounds.length ? bounds[i + 1].atSec : clipSec);
+      if (end - start < 0.3) continue;
+      cues.push({ start: round1(start), end: round1(end), text });
+      if (cues.length >= CUE_MAX) break;
+    }
+    if (cues.length) out[locale] = cues;
+  }
+  return out;
+}
+
+/** 서버가 받는 모양 검사(워커 → /api/worker/jobs) + 화면이 읽을 때. 어긋난 줄은 버린다. */
+export function normalizeCaptionTrack(raw: unknown): CaptionTrack | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const out: CaptionTrack = {};
+  for (const l of SITE_LOCALES) {
+    const list = (raw as Record<string, unknown>)[l];
+    if (!Array.isArray(list)) continue;
+    const cues: CaptionCue[] = [];
+    for (const c of list) {
+      if (!c || typeof c !== "object") continue;
+      const { start, end, text } = c as Record<string, unknown>;
+      if (typeof start !== "number" || typeof end !== "number" || typeof text !== "string") continue;
+      if (!(start >= 0 && end > start && end <= FILM_MAX_SEC)) continue;
+      const t = text.replace(/\s+/g, " ").trim();
+      if (!t) continue;
+      if (cues.length && start < cues[cues.length - 1].end - 0.05) continue; // 겹치면 버린다
+      cues.push({ start: round1(start), end: round1(end), text: [...t].slice(0, CUE_TEXT_MAX).join("") });
+      if (cues.length >= CUE_MAX) break;
+    }
+    if (cues.length) out[l] = cues;
+  }
+  return Object.keys(out).length ? out : null;
+}
+
+/** 다른 언어로 한 번 더 찍은 영상 주소 — { en: "https://…" }. https만 받는다. */
+export function normalizeLocaleVideos(raw: unknown): Partial<Record<SiteLocale, string>> | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const out: Partial<Record<SiteLocale, string>> = {};
+  for (const l of SITE_LOCALES) {
+    const v = (raw as Record<string, unknown>)[l];
+    if (typeof v === "string" && /^https:\/\/[^\s]+$/.test(v) && v.length <= 1000) out[l] = v;
+  }
+  return Object.keys(out).length ? out : null;
+}
+
+/**
+ * 촬영 계획 — 어떤 언어로 몇 번 찍고, 어떤 언어에 자막을 입히나.
+ *  - 앱 화면이 두 언어 다 되면: 기본 언어로 한 번(영상 칸), 다른 언어로 한 번 더(언어별 영상 칸).
+ *  - 한 언어만 되면: 그 언어로 한 번 + 나머지 언어 자막.
+ *  - 둘 다 아니면: 브라우저 영어로 한 번(옛 동작) + 두 언어 자막.
+ *  - 언어 칸이 없는 옛 작품: 옛 동작 그대로(영어 브라우저, 자막 없음).
+ */
+export function filmPlan(
+  primary: SiteLocale | null,
+  app: readonly SiteLocale[] | null,
+): { main: SiteLocale; extra: SiteLocale | null; captions: SiteLocale[] } {
+  if (!app) return { main: "en", extra: null, captions: [] };
+  const films = filmLocales(app);
+  if (films.length === 2) {
+    const main = primary && films.includes(primary) ? primary : films[0];
+    return { main, extra: otherLocale(main), captions: [] };
+  }
+  return { main: films[0] ?? "en", extra: null, captions: captionLocalesNeeded(app) };
+}

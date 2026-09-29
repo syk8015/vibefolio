@@ -251,6 +251,11 @@ export class CameraTrack {
     this.focal = { ...this.center };
   }
 
+  /** 벽시계(ms) → 필름 시각(초). 자막 시간표의 장면 시작 표시가 쓴다(replay.ts). */
+  filmSec(wallMs: number): number {
+    return Math.max(0, (wallMs - this.recStartTime) / 1000);
+  }
+
   private frameOf(wallMs: number): number {
     return Math.max(0, Math.round(((wallMs - this.recStartTime) / 1000) * FPS));
   }

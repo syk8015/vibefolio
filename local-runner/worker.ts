@@ -21,6 +21,7 @@ import { runJob, type JobPhase, type JobOutcome } from "./job";
 import type { SourceType } from "./safety";
 import { normalizeDemoAccess } from "../lib/demoAccess";
 import { normalizeDemoScript } from "../lib/demoScript";
+import { filmPlan, normalizeAppLanguages, normalizeLocale } from "../lib/workLanguages";
 import { AnalyticsEvent } from "../lib/analytics-events";
 import type { DemoFailureCode } from "../lib/demo-failure";
 import { apiPost, apiPostQuiet } from "./api";
@@ -72,6 +73,10 @@ const JOB_HARD_TIMEOUT_MS = 12 * 60_000;
 // ~8min explore+take+post (audit C-F3 — the old flat 10min killed slow installs
 // mid-npm). Still a hang-catcher, just sized to the real budget.
 const BUILD_JOB_HARD_TIMEOUT_MS = 25 * 60_000;
+// 작품 두 언어(2026-09-29): 앱 화면이 두 언어 다 되면 같은 빌드로 한 번 더 찍는다
+// (탐색+테이크+후처리 ~8분) — 그만큼 천장을 올린다. 둘째 테이크는 기본 영상 done 뒤라,
+// 여기 걸려 죽어도 기본 영상은 이미 공개돼 있다.
+const EXTRA_TAKE_MS = 10 * 60_000;
 
 class JobTimeoutError extends Error {}
 
@@ -223,6 +228,9 @@ type PendingRow = {
   demo_access?: unknown;
   // 만든 AI의 촬영 대본 jsonb — normalizeDemoScript()가 싱크에서 재정형.
   demo_script?: unknown;
+  // 작품 두 언어(2026-09-29) — 촬영 언어·자막 언어를 정한다(lib/workLanguages.ts filmPlan).
+  primary_locale?: unknown;
+  app_locales?: unknown;
 };
 
 // Ask the server for the next job. It owns the whole admission decision: the
@@ -270,12 +278,15 @@ async function processOne(row: PendingRow) {
         upload: true, // uploadAndMarkDone sets status=done on success
         userHint: row.demo_user_hint ?? undefined,
         demoScript: normalizeDemoScript(row.demo_script) ?? undefined,
+        primaryLocale: normalizeLocale(row.primary_locale),
+        appLocales: normalizeAppLanguages(row.app_locales),
         demoAccess: normalizeDemoAccess(row.demo_access).access ?? undefined,
         title: row.title ?? undefined,
         onPhase: (phase) => setStatus(row.id, phase),
       }),
       // Built sources get the E2B-sized ceiling; live_url keeps the tight one.
-      row.demo_source_type === "live_url" ? JOB_HARD_TIMEOUT_MS : BUILD_JOB_HARD_TIMEOUT_MS,
+      (row.demo_source_type === "live_url" ? JOB_HARD_TIMEOUT_MS : BUILD_JOB_HARD_TIMEOUT_MS) +
+        (filmPlan(normalizeLocale(row.primary_locale), normalizeAppLanguages(row.app_locales)).extra ? EXTRA_TAKE_MS : 0),
     );
     if (outcome.status === "moderation-held") {
       await holdForModeration(row, outcome);

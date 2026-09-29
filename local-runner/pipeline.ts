@@ -18,6 +18,8 @@ import {
   installCaptureCleanliness,
   parkPhysicalCursor,
   parkCursorOffPage,
+  browserLocaleOf,
+  type FilmLocale,
 } from "./browser";
 import { computeCropRect, startRecording, resolveScreenDevice, assertRawHasContent } from "./record";
 import { injectCursorOverlay, ensureCursor, cursorSetPos } from "./cursor";
@@ -34,8 +36,10 @@ import { assertFocusShortcuts, enableFocus } from "./focus";
 import { extractModerationFrames, moderateDemo, type DemoCoverage } from "./moderate";
 import { scoutEntry, surveyCandidates, type ScoutCandidate, type ScoutPick } from "./scout";
 import type { DemoScript } from "../lib/demoScript";
+import { buildCaptionTrack, type CaptionTrack, type SiteLocale, type StepMark } from "../lib/workLanguages";
 import {
   uploadAndMarkDone,
+  uploadLocaleVideo,
   uploadQuarantined,
   fetchUsername,
   type UploadResult,
@@ -90,6 +94,14 @@ export type RecordDemoOptions = {
   // Disables netguard (private-address blocking) — queue jobs never set this.
   allowPrivateHost?: boolean;
   onPhase?: (phase: PipelinePhase) => void | Promise<void>;
+  // 작품 두 언어(2026-09-29). locale = 페이지가 보는 브라우저 언어(없으면 옛 동작 en).
+  // captionLocales = 이 필름 위에 얹을 자막 언어(앱 화면이 못 보여주는 말) — 대본 장면의
+  // caption과 replay의 장면 시작 시각으로 시간표를 만들어 done과 함께 보낸다.
+  locale?: FilmLocale;
+  captionLocales?: SiteLocale[];
+  // 다른 언어로 한 번 더 찍는 테이크: done을 부르지 않고 그 언어 칸에만 붙인다. keepTs =
+  // 이미 올린 기본 영상의 저장 표식(지우기에서 살린다).
+  variant?: { locale: SiteLocale; keepTs: number[] };
 };
 
 export type RecordDemoResult =
@@ -128,6 +140,9 @@ export type RecordDemoResult =
       // Which entry URL the pre-flight scout chose, when there was a choice
       // (피드백 B-4). Absent when only one candidate existed.
       scout?: ScoutPick;
+      // 장면 시작 시각과 그걸로 만든 자막 시간표(2026-09-29).
+      stepMarks?: StepMark[];
+      captions?: CaptionTrack;
     };
 
 // Robust load for an arbitrary SPA: domcontentloaded (networkidle can hang on
@@ -222,7 +237,9 @@ export async function recordDemo(opts: RecordDemoOptions): Promise<RecordDemoRes
     const exploreCtx = await browser.newContext({
       viewport: { width: VIEW_W, height: VIEW_H },
       deviceScaleFactor: 1,
-      locale: "en-US", // no Translate offer (matches the page language)
+      // 촬영 언어(작품 두 언어) — 탐색과 녹화가 같은 언어 화면을 봐야 셀렉터·좌표가 맞는다.
+      // 번역 제안은 두 언어 다 막혀 있다(browser.ts 프로필).
+      locale: browserLocaleOf(opts.locale),
     });
     const explorePage = await exploreCtx.newPage();
     await installSafety(explorePage, policy, onBlocked, { allowPrivateHost: opts.allowPrivateHost });
@@ -350,7 +367,7 @@ export async function recordDemo(opts: RecordDemoOptions): Promise<RecordDemoRes
     }
 
     // ── 2) Reset (same footing) + 3) Record + intro ──────────────────────────────
-    const { context: recordingCtx, page } = await launchRecordingContext(storage0);
+    const { context: recordingCtx, page } = await launchRecordingContext(storage0, opts.locale);
     recCtx = recordingCtx;
     await installSafety(page, policy, onBlocked, { allowPrivateHost: opts.allowPrivateHost });
     await injectCursorOverlay(page);
@@ -392,6 +409,7 @@ export async function recordDemo(opts: RecordDemoOptions): Promise<RecordDemoRes
     // Which beats had to click raw coordinates (피드백 A-4) — read by the RUN
     // REPORT's confidence line far below, so it lives outside the take's try.
     let fallbacks: ReplayFallback[] = [];
+    let stepMarks: StepMark[] = [];
     try {
       await sleep(INTRO_MS); // hero beat
       // Budget the take so intro + actions + tail fit inside the clip cap — replay
@@ -399,6 +417,7 @@ export async function recordDemo(opts: RecordDemoOptions): Promise<RecordDemoRes
       const replayBudget = MAX_VIDEO_SEC * 1000 - INTRO_MS - TAIL_MS - 900; // fade slack
       const played = await replay(page, script, cam, replayBudget); // one-take, no AI loop
       fallbacks = played.fallbacks;
+      stepMarks = played.stepMarks;
       await sleep(TAIL_MS);
     } finally {
       clearInterval(frontGuard);
@@ -446,7 +465,7 @@ export async function recordDemo(opts: RecordDemoOptions): Promise<RecordDemoRes
           url, projectId, policy, username,
           rawW: crop.w, rawH: crop.h,
           logicalW: crop.logical.iw, logicalH: crop.logical.ih,
-          script, events: cam.events,
+          script, events: cam.events, stepMarks, locale: opts.locale ?? "en",
         },
         null,
         2,
@@ -462,6 +481,9 @@ export async function recordDemo(opts: RecordDemoOptions): Promise<RecordDemoRes
       logicalH: crop.logical.ih,
       username,
     });
+
+    // 자막 시간표 — 필름 길이(clipLen) 안의 장면만. 끝부분(엔드캡)엔 자막이 없다.
+    const captions = buildCaptionTrack(stepMarks, opts.demoScript ?? null, opts.captionLocales ?? [], clipLen);
 
     // ── Measure + contact sheet ───────────────────────────────────────────────────
     const dw = await ffprobeValue(demo, "stream=width");
@@ -517,8 +539,10 @@ export async function recordDemo(opts: RecordDemoOptions): Promise<RecordDemoRes
     // ── 6) Upload (optional) ────────────────────────────────────────────────────
     let uploaded: UploadResult | undefined;
     if (opts.upload) {
-      uploaded = await uploadAndMarkDone(projectId, demo, posterPath);
-      console.log(`[upload] ${uploaded.storagePath}`);
+      uploaded = opts.variant
+        ? await uploadLocaleVideo(projectId, opts.variant.locale, demo, posterPath, opts.variant.keepTs)
+        : await uploadAndMarkDone(projectId, demo, posterPath, Object.keys(captions).length ? captions : null);
+      console.log(`[upload] ${uploaded.storagePath}${opts.variant ? `  (${opts.variant.locale} version)` : ""}`);
     }
 
     // ── Report ────────────────────────────────────────────────────────────────────
@@ -537,6 +561,13 @@ export async function recordDemo(opts: RecordDemoOptions): Promise<RecordDemoRes
       }
     }
     console.log(`policy      : ${policy}`);
+    console.log(
+      `language    : browser ${browserLocaleOf(opts.locale)}` +
+        (opts.variant ? ` · extra ${opts.variant.locale} version` : "") +
+        (opts.captionLocales?.length
+          ? ` · captions ${opts.captionLocales.map((l) => `${l} ${captions[l]?.length ?? 0}`).join(", ")} (scene marks ${stepMarks.length})`
+          : ""),
+    );
     // Coverage honesty (피드백 A-1/B-3): a declared-impossible app is knowingly a
     // landing film; otherwise the moderation frames' vision read says whether any
     // app UI actually made it into the film — the failure mode where a green
@@ -594,6 +625,8 @@ export async function recordDemo(opts: RecordDemoOptions): Promise<RecordDemoRes
       coverage,
       fallbacks,
       scout,
+      stepMarks,
+      captions,
     };
   } finally {
     await restoreFocus();

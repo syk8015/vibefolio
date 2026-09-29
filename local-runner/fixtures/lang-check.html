@@ -1,0 +1,39 @@
+<!doctype html>
+<!-- 작품 두 언어(2026-09-29) 촬영 시험용 — 브라우저 언어(navigator.language)를 보고 스스로
+     한국어/영어로 바뀌는 앱 흉내. 로봇이 ko-KR·en-US로 각각 찍으면 두 화면이 달라야 한다. -->
+<html>
+<head>
+<meta charset="utf-8">
+<title>Lang check</title>
+<style>
+  body { margin: 0; font: 20px/1.5 -apple-system, "Apple SD Gothic Neo", sans-serif; background: #f6f3ec; color: #1a1612; }
+  main { max-width: 760px; margin: 80px auto; display: flex; flex-direction: column; gap: 24px; }
+  h1 { font-size: 44px; margin: 0; }
+  .row { display: flex; gap: 12px; }
+  button { font: inherit; padding: 14px 22px; border-radius: 999px; border: 0; background: #1a1612; color: #fdfaf3; cursor: pointer; }
+  #out { min-height: 64px; padding: 16px 20px; border-radius: 14px; background: #fff; }
+</style>
+</head>
+<body>
+<main>
+  <h1 id="title"></h1>
+  <div class="row">
+    <button id="b1"></button><button id="b2"></button><button id="b3"></button>
+  </div>
+  <div id="out"></div>
+</main>
+<script>
+  const ko = (navigator.language || "").toLowerCase().startsWith("ko");
+  const T = ko
+    ? { title: "우리 집 온습도", b1: "거실", b2: "안방", b3: "다용도실", r: ["거실 24.3° · 습도 48%", "안방 23.8° · 습도 51%", "다용도실 22.9° · 습도 71% — 곰팡이 주의"] }
+    : { title: "Home climate", b1: "Living room", b2: "Bedroom", b3: "Utility room", r: ["Living room 24.3° · 48% RH", "Bedroom 23.8° · 51% RH", "Utility room 22.9° · 71% RH — mold risk"] };
+  document.documentElement.lang = ko ? "ko" : "en";
+  document.getElementById("title").textContent = T.title;
+  ["b1", "b2", "b3"].forEach((id, i) => {
+    const b = document.getElementById(id);
+    b.textContent = T[id];
+    b.onclick = () => { document.getElementById("out").textContent = T.r[i]; };
+  });
+</script>
+</body>
+</html>

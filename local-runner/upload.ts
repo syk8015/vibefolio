@@ -9,8 +9,10 @@
 // project row.
 import { readFile } from "node:fs/promises";
 import { apiGet, apiPost, apiPostQuiet, putSigned, type SignedTarget } from "./api";
+import type { CaptionTrack, SiteLocale } from "../lib/workLanguages";
 
-export type UploadResult = { storagePath: string; publicUrl: string; posterUrl?: string };
+// ts = 이 테이크의 저장 표식. 다른 언어 영상을 뒤에 올릴 때 이 표식을 남기고 지우라고 알린다.
+export type UploadResult = { storagePath: string; publicUrl: string; posterUrl?: string; ts?: number };
 
 // A flagged take's artifacts: uploaded (so the admin can review in the browser)
 // but NEVER written to projects.demo_video_url — every public surface reads only
@@ -100,6 +102,9 @@ export async function uploadAndMarkDone(
   projectId: string,
   videoPath: string,
   posterPath?: string,
+  // 영상 위에 얹을 자막 시간표(2026-09-29, 작품 두 언어). done이 같이 저장한다 — 없으면 지난
+  // 테이크의 자막을 지운다(대본이 바뀌었을 수 있다).
+  captions?: CaptionTrack | null,
 ): Promise<UploadResult> {
   const buf = await readFile(videoPath);
   const posterBuf = posterPath ? await readFile(posterPath) : null;
@@ -125,8 +130,42 @@ export async function uploadAndMarkDone(
     await apiPost(`/api/worker/jobs/${encodeURIComponent(projectId)}`, {
       op: "done",
       videoUrl: sign.video.publicUrl,
+      captions: captions ?? null,
     });
   }
 
-  return { storagePath: sign.video.key, publicUrl: sign.video.publicUrl, posterUrl: poster.url ?? undefined };
+  return { storagePath: sign.video.key, publicUrl: sign.video.publicUrl, posterUrl: poster.url ?? undefined, ts: sign.ts };
+}
+
+// 다른 언어로 한 번 더 찍은 영상(2026-09-29) — 기본 영상은 이미 done이다. 여기선 올리고 그
+// 언어 칸에만 붙인다. 지우기(prune)는 두 테이크의 표식을 다 남긴다: 기본 영상 올릴 때의
+// 지우기가 이 파일을 모르는 것처럼, 이 지우기가 기본 영상을 지우면 안 된다.
+export async function uploadLocaleVideo(
+  projectId: string,
+  locale: SiteLocale,
+  videoPath: string,
+  posterPath: string | undefined,
+  keepTs: number[],
+): Promise<UploadResult> {
+  const buf = await readFile(videoPath);
+  const posterBuf = posterPath ? await readFile(posterPath) : null;
+  const sign = await apiPost<SignResponse>("/api/worker/assets", {
+    op: "sign-upload",
+    projectId,
+    variant: locale,
+    withPoster: !!posterBuf,
+  });
+  await putSigned(sign.video, buf);
+  const poster = await putPoster(sign.poster, posterBuf);
+  if (sign.backend === "r2") {
+    await apiPostQuiet("/api/worker/assets", { op: "prune", projectId, keepTs: [...keepTs, sign.ts] });
+  }
+  if (!projectId.startsWith("manual-")) {
+    await apiPost(`/api/worker/jobs/${encodeURIComponent(projectId)}`, {
+      op: "locale-video",
+      locale,
+      videoUrl: sign.video.publicUrl,
+    });
+  }
+  return { storagePath: sign.video.key, publicUrl: sign.video.publicUrl, posterUrl: poster.url ?? undefined, ts: sign.ts };
 }

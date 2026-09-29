@@ -5,7 +5,9 @@
 import {
   judgeWorkLanguages, normalizeLocale, normalizeAppLanguages, captionLocalesNeeded, filmLocales,
   captionIssue, readTranslations, CAPTION_MAX,
+  buildCaptionTrack, normalizeCaptionTrack, normalizeLocaleVideos, filmPlan,
 } from "../lib/workLanguages";
+import { coalesceScrolls } from "../local-runner/script";
 import { normalizeDemoScript } from "../lib/demoScript";
 import { PUBLIC_PROJECT_COLUMNS, PRIVATE_PROJECT_COLUMNS } from "../lib/projectColumns";
 
@@ -96,8 +98,53 @@ ok("translation 제목 없음 → title-missing", (() => {
   ok("저장된 번역 읽기: 모양 맞는 언어만", !!tr.en && !tr.ko && tr.en.builderNote === "I check it daily");
 }
 
+
+// ── 2단계: 촬영 계획·자막 시간표 ────────────────────────────────────────────
+{
+  const p = (a: Parameters<typeof filmPlan>[0], b: Parameters<typeof filmPlan>[1]) => JSON.stringify(filmPlan(a, b));
+  ok("계획: 옛 작품(칸 없음) → 영어 브라우저 한 번, 자막 없음", p(null, null) === JSON.stringify({ main: "en", extra: null, captions: [] }));
+  ok("계획: 한국어뿐 → ko로 한 번 + en 자막", p("ko", ["ko"]) === JSON.stringify({ main: "ko", extra: null, captions: ["en"] }));
+  ok("계획: 영어뿐(주인 ko) → en으로 한 번 + ko 자막", p("ko", ["en"]) === JSON.stringify({ main: "en", extra: null, captions: ["ko"] }));
+  ok("계획: 둘 다(주인 ko) → ko 기본 + en 한 번 더", p("ko", ["ko", "en"]) === JSON.stringify({ main: "ko", extra: "en", captions: [] }));
+  ok("계획: 둘 다(주인 en) → en 기본 + ko 한 번 더", p("en", ["ko", "en"]) === JSON.stringify({ main: "en", extra: "ko", captions: [] }));
+  ok("계획: 둘 다 아님 → en 한 번 + 두 언어 자막", p("ko", []) === JSON.stringify({ main: "en", extra: null, captions: ["ko", "en"] }));
+}
+{
+  const sc = script([
+    step("a", { en: "One" }), step("b", { en: "Two" }), { goal: "back", action: "navigate", to: "back" },
+    step("c"), step("d", { en: "Four" }),
+  ]);
+  const t = buildCaptionTrack(
+    [{ step: 1, atSec: 3.02 }, { step: 2, atSec: 7.4 }, { step: 3, atSec: 10 }, { step: 4, atSec: 12.1 }, { step: 5, atSec: 16 }, { step: 1, atSec: 30 }],
+    sc, ["en"], 20,
+  );
+  const cues = t.en ?? [];
+  ok("시간표: 첫 자막은 0초부터(인트로 동안에도)", cues[0]?.start === 0 && cues[0]?.end === 7.4, JSON.stringify(cues));
+  ok("시간표: 뒤로가기는 경계가 아니다(2번 자막이 4번 시작까지)", cues[1]?.text === "Two" && cues[1]?.end === 12.1);
+  ok("시간표: 자막 없는 장면은 빈칸, 마지막은 필름 끝까지", cues.length === 3 && cues[2]?.start === 16 && cues[2]?.end === 20);
+  ok("시간표: 같은 장면 두 번 표시는 첫 번째만", !cues.some((c) => c.start === 30));
+  const short = buildCaptionTrack([{ step: 1, atSec: 3 }, { step: 2, atSec: 25 }], sc, ["en"], 20);
+  ok("시간표: 필름 밖에서 시작한 장면은 자막 없음", short.en?.length === 1 && short.en[0].end === 20, JSON.stringify(short));
+  ok("시간표: 자막 언어가 없으면 빈 시간표", Object.keys(buildCaptionTrack([{ step: 1, atSec: 1 }], sc, [], 20)).length === 0);
+}
+{
+  const n = normalizeCaptionTrack({ en: [{ start: 0, end: 4, text: " Hi  there " }, { start: 3, end: 5, text: "overlap" }, { start: 5, end: 99, text: "too long film" }], fr: [{ start: 0, end: 1, text: "x" }] });
+  ok("서버 검사: 공백 정리·겹침·필름 밖·모르는 언어 버림", n?.en?.length === 1 && n.en[0].text === "Hi there" && !("fr" in (n ?? {})), JSON.stringify(n));
+  ok("서버 검사: 빈 값 → null", normalizeCaptionTrack({ en: [] }) === null && normalizeCaptionTrack("x") === null);
+  ok("다른 언어 영상: https만", JSON.stringify(normalizeLocaleVideos({ en: "https://cdn.x/demo-en-1.mp4", ko: "http://x" })) === JSON.stringify({ en: "https://cdn.x/demo-en-1.mp4" }));
+}
+{
+  // 스크롤 합치기가 장면 시작 표시를 삼키지 않는다(자막 시각이 앞 장면으로 새면 안 된다).
+  const merged = coalesceScrolls([
+    { kind: "scroll", dy: 300 }, { kind: "scroll", dy: 200, step: 2 }, { kind: "scroll", dy: 10 },
+    { kind: "click", selector: "#x" }, { kind: "scroll", dy: 5, step: 3 },
+  ]);
+  ok("스크롤 합치기: 장면 표시가 있는 스크롤은 새 묶음", merged.length === 4 && merged[1].kind === "scroll" && merged[1].step === 2 && (merged[1] as { dy: number }).dy === 210, JSON.stringify(merged));
+  ok("스크롤 합치기: 장면 표시가 있으면 짧은 스크롤도 남긴다", merged[3]?.step === 3);
+}
+
 // 칸 공개 여부 — 명함·작품 페이지가 익명 키로 읽어야 보는 사람 언어 판을 고른다.
-for (const c of ["primary_locale", "app_locales", "translations"]) {
+for (const c of ["primary_locale", "app_locales", "translations", "demo_captions", "demo_locale_videos"]) {
   ok(`${c}는 공개 칸`, (PUBLIC_PROJECT_COLUMNS as readonly string[]).includes(c) && !(PRIVATE_PROJECT_COLUMNS as readonly string[]).includes(c));
 }
 

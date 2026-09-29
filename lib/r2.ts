@@ -127,8 +127,10 @@ export async function deleteR2Prefix(prefix: string): Promise<number> {
 // project's prefix holds only the latest demo + poster.
 export async function pruneR2PrefixExcept(
   prefix: string,
-  keepMarker: string,
+  keepMarker: string | string[],
 ): Promise<void> {
+  const markers = Array.isArray(keepMarker) ? keepMarker : [keepMarker];
+  if (!markers.length || markers.some((m) => !m)) throw new Error("prune needs non-empty keep markers");
   const c = client();
   const bucket = env().bucket;
   let token: string | undefined;
@@ -137,7 +139,7 @@ export async function pruneR2PrefixExcept(
       new ListObjectsV2Command({ Bucket: bucket, Prefix: prefix, ContinuationToken: token }),
     );
     const objects = (list.Contents ?? [])
-      .filter((o) => o.Key && !o.Key.includes(keepMarker))
+      .filter((o) => o.Key && !markers.some((m) => o.Key!.includes(m)))
       .map((o) => ({ Key: o.Key! }));
     if (objects.length) {
       await c.send(

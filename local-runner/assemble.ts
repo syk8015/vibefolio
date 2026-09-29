@@ -77,6 +77,8 @@ export async function assembleScript(
 
   for (let i = 0; i < script.steps.length; i++) {
     const st = script.steps[i];
+    const firstOfStep = actions.length; // 이 장면의 첫 액션에 장면 번호를 붙인다(자막 시각)
+    const tagStep = () => { if (actions.length > firstOfStep) actions[firstOfStep].step = i + 1; };
     const holdMs = st.hold ? Math.round(st.hold * 1000) : undefined;
     const label = st.goal.slice(0, 40);
     // 뒤로가기 비트(NF-06)는 화면 안 요소를 쓰지 않는다 — 셀렉터 해석·중앙 정렬을
@@ -85,6 +87,7 @@ export async function assembleScript(
       actions.push({ kind: "navigate", to: "back", label, ...(holdMs ? { holdMs } : {}) });
       await page.goBack({ waitUntil: "domcontentloaded" }).catch(() => {});
       await sleep(500);
+      tagStep();
       continue;
     }
     const sel = st.selector!;
@@ -184,6 +187,7 @@ export async function assembleScript(
     } catch (e) {
       return fail(i, st, e instanceof Error ? e.message : String(e));
     }
+    tagStep();
   }
 
   if (!actions.length) return { ok: false, reason: "no actions assembled" };

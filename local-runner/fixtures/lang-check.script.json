@@ -1,0 +1,8 @@
+{
+  "steps": [
+    { "goal": "living room", "action": "click", "selector": "#b1", "expect": "reading shows", "hold": 1.5, "caption": { "en": "Every room, live — updated every minute." } },
+    { "goal": "bedroom", "action": "click", "selector": "#b2", "expect": "reading shows", "hold": 1.5, "caption": { "en": "Tap a room to see its reading." } },
+    { "goal": "utility room", "action": "click", "selector": "#b3", "expect": "mold warning", "hold": 2, "caption": { "en": "Humid rooms get a mold warning." } },
+    { "goal": "result", "action": "focus", "selector": "#out", "hold": 2, "caption": { "en": "That is the alert my phone gets." } }
+  ]
+}

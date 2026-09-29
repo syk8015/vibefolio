@@ -7,8 +7,9 @@ import {
 import {
   getJobBrief, ownerHandle, setPhase, markFailed, markDone, requeue,
   holdForCredit, holdForModeration, notifyDemoFailed, notifyDemoReady,
-  IN_FLIGHT_STATUSES,
+  IN_FLIGHT_STATUSES, setLocaleVideo,
 } from "@/lib/workerOps";
+import { normalizeCaptionTrack, normalizeLocale } from "@/lib/workLanguages";
 
 // Every state transition the recorder used to write directly with the service-role
 // key. One route, an `op` discriminator, so the auth gate and the "look the row up
@@ -66,7 +67,18 @@ export async function POST(
         if (typeof videoUrl !== "string" || !videoUrl) {
           return apiError({ status: 400, message: "videoUrl required", code: "BAD_REQUEST" });
         }
-        await markDone(id, videoUrl);
+        // 자막 시간표(작품 두 언어) — 모양이 어긋나면 자막 없이 영상만 공개한다(영상이 먼저).
+        await markDone(id, videoUrl, normalizeCaptionTrack(body?.captions));
+        return NextResponse.json({ ok: true });
+      }
+
+      case "locale-video": {
+        const locale = normalizeLocale(body?.locale);
+        const videoUrl = body?.videoUrl;
+        if (!locale || typeof videoUrl !== "string" || !/^https:\/\//.test(videoUrl)) {
+          return apiError({ status: 400, message: "locale and https videoUrl required", code: "BAD_REQUEST" });
+        }
+        await setLocaleVideo(id, locale, videoUrl);
         return NextResponse.json({ ok: true });
       }
 

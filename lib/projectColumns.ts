@@ -41,6 +41,9 @@ export const PUBLIC_PROJECT_COLUMNS = [
   "primary_locale",
   "app_locales",
   "translations",
+  // 작품 두 언어 2단계(2026-09-29) — 워커만 쓰는 자막 시간표·다른 언어 영상(migration_demo_captions.sql).
+  "demo_captions",
+  "demo_locale_videos",
 ] as const;
 
 export const PRIVATE_PROJECT_COLUMNS = [

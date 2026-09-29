@@ -950,11 +950,13 @@ export async function explore(page: Page, opts: ExploreOptions = {}): Promise<Ex
       // Collapse the aiming hover: a mouse_move onto the same element right
       // before a click is aim, not a hover beat.
       const prevA = actions[actions.length - 1];
+      let aimStep: number | undefined; // 조준 호버에 붙은 장면 시작 표시는 클릭이 물려받는다(자막 시각)
       if (prevA && prevA.kind === "hover" && prevA.selector === (selector ?? "")) {
+        aimStep = prevA.step;
         actions.pop();
         hovered.delete(selector ?? ""); // aim, so it never spent a hover beat
       }
-      actions.push({ kind: "click", selector: selector ?? "", x: state.x, y: state.y, label });
+      actions.push({ kind: "click", selector: selector ?? "", x: state.x, y: state.y, label, ...(aimStep ? { step: aimStep } : {}) });
       return true;
     }
 
@@ -975,6 +977,9 @@ export async function explore(page: Page, opts: ExploreOptions = {}): Promise<Ex
             x: prev.x,
             y: prev.y,
             label: prev.label ?? label,
+            // 합쳐진 클릭의 장면 표시·hold를 잃지 않는다(자막 시각·장면 멈춤).
+            ...(prev.holdMs ? { holdMs: prev.holdMs } : {}),
+            ...(prev.step ? { step: prev.step } : {}),
           };
         } else {
           actions.push({ kind: "type", selector: selector ?? "", text, x: state.x, y: state.y, label });
@@ -1039,7 +1044,9 @@ export async function explore(page: Page, opts: ExploreOptions = {}): Promise<Ex
         const { selector, label } = await evalCall<Resolved>(page, SELECTOR_SRC, s[0], s[1]);
         // Aiming hover onto the drag target is aim, not a hover beat.
         const prevD = actions[actions.length - 1];
+        let aimStepD: number | undefined; // 클릭과 같은 이유로 드래그가 물려받는다
         if (prevD && prevD.kind === "hover" && prevD.selector === (selector ?? "")) {
+          aimStepD = prevD.step;
           actions.pop();
           hovered.delete(selector ?? "");
         }
@@ -1071,6 +1078,7 @@ export async function explore(page: Page, opts: ExploreOptions = {}): Promise<Ex
           toX: state.x,
           toY: state.y,
           label,
+          ...(aimStepD ? { step: aimStepD } : {}),
         });
         return true;
       }
@@ -1260,6 +1268,8 @@ export async function explore(page: Page, opts: ExploreOptions = {}): Promise<Ex
   const markedSteps = new Set<number>();
   // 방금 마킹된 스텝의 hold(ms) — 다음 생존 기록 액션에 부착 후 비운다.
   let pendingHoldMs: number | null = null;
+  // 장면 시작 표시(자막 시각, 2026-09-29) — mark_step(n)이 예고하고, 그 장면의 첫 생존 기록 액션에 붙는다.
+  let pendingStep: number | null = null;
   // 비용 실측: 성공 응답의 usage만 집계된다(재시도 실패분은 usage가 없어 자연 제외).
   const usage = emptyUsage();
   let apiCalls = 0;
@@ -1309,6 +1319,7 @@ export async function explore(page: Page, opts: ExploreOptions = {}): Promise<Ex
           markedSteps.add(n);
           const h = script.steps[n - 1].hold;
           pendingHoldMs = h ? Math.round(h * 1000) : null;
+          pendingStep = n;
           console.log(`[explore] shot-list step ${n}/${script.steps.length} — ${script.steps[n - 1].goal}`);
           ack = `Step ${n} noted.`;
         } else {
@@ -1349,6 +1360,10 @@ export async function explore(page: Page, opts: ExploreOptions = {}): Promise<Ex
               actions[actions.length - 1].holdMs = pendingHoldMs;
               pendingHoldMs = null;
             }
+            if (pendingStep !== null) {
+              actions[actions.length - 1].step = pendingStep;
+              pendingStep = null;
+            }
             note = "Region noted — the film's camera will magnify it for this beat. Continue.";
           } else {
             note = "Region too small — frame the full area to magnify (at least 60×40 px).";
@@ -1377,6 +1392,10 @@ export async function explore(page: Page, opts: ExploreOptions = {}): Promise<Ex
         if (out.recorded && pendingHoldMs !== null) {
           actions[actions.length - 1].holdMs = pendingHoldMs;
           pendingHoldMs = null;
+        }
+        if (out.recorded && pendingStep !== null) {
+          actions[actions.length - 1].step = pendingStep;
+          pendingStep = null;
         }
         // A stroke is never a click-to-type prelude nor a type: reset both guards.
         mergeableClick = false;
@@ -1531,6 +1550,10 @@ export async function explore(page: Page, opts: ExploreOptions = {}): Promise<Ex
       if (pendingHoldMs !== null && actions.length > lenBefore && !prunedThis) {
         actions[actions.length - 1].holdMs = pendingHoldMs;
         pendingHoldMs = null;
+      }
+      if (pendingStep !== null && actions.length > lenBefore && !prunedThis) {
+        actions[actions.length - 1].step = pendingStep;
+        pendingStep = null;
       }
 
       // Back-reference eligibility for the NEXT tool_use (see declarations above).

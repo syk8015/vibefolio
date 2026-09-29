@@ -15,6 +15,7 @@ import { recordDemo, type PipelinePhase } from "./pipeline";
 import type { QuarantineUpload } from "./upload";
 import type { DemoAccess } from "../lib/demoAccess";
 import type { DemoScript } from "../lib/demoScript";
+import { filmPlan, type SiteLocale } from "../lib/workLanguages";
 
 export type JobPhase = "building" | PipelinePhase;
 
@@ -59,6 +60,9 @@ export type JobInput = {
   // Explicit operator override (CLI only). The worker never sets this — the
   // policy gate must stay automatic on queue jobs.
   policyOverride?: SafetyPolicy;
+  // 작품 두 언어(2026-09-29) — projects.primary_locale·app_locales. 없으면(옛 작품) 옛 동작.
+  primaryLocale?: SiteLocale | null;
+  appLocales?: SiteLocale[] | null;
   // CLI only: the operator is deliberately recording something on this machine
   // (localhost fixtures, a dev server). The worker never sets this, so queue
   // rows keep the private/local-host SSRF backstop.
@@ -73,6 +77,8 @@ export type JobOutcome =
       demoPath: string;
       publicUrl?: string;
       moderationFailedOpen?: boolean;
+      // 다른 언어로 한 번 더 찍어 붙인 영상(없으면 한 번만 찍었거나 그 테이크가 실패).
+      localeVideo?: { locale: SiteLocale; publicUrl?: string };
     }
   | { status: "login-gated"; policy: SafetyPolicy }
   | {
@@ -224,7 +230,16 @@ export async function runJob(job: JobInput): Promise<JobOutcome> {
 
     console.log(`[job] ${job.sourceType} → ${url}  (policy: ${policy})`);
     if (altUrl) console.log(`[job] scout candidate → ${altUrl}`);
+    // 촬영 계획(작품 두 언어): 앱 화면이 두 언어 다 되면 기본 언어로 한 번 + 다른 언어로 한 번,
+    // 아니면 한 번 + 못 보여주는 언어 자막. 빌드(E2B)는 한 번만 — 같은 주소를 두 번 찍는다.
+    const plan = filmPlan(job.primaryLocale ?? null, job.appLocales ?? null);
+    console.log(
+      `[job] languages: film ${plan.main}${plan.extra ? ` + ${plan.extra}` : ""}` +
+        (plan.captions.length ? ` · captions ${plan.captions.join(", ")}` : ""),
+    );
     const result = await recordDemo({
+      locale: plan.main,
+      captionLocales: plan.captions,
       url,
       altUrl,
       projectId: job.projectId,
@@ -251,12 +266,43 @@ export async function runJob(job: JobInput): Promise<JobOutcome> {
         quarantine: result.quarantine,
       };
     }
+    // 다른 언어 테이크 — 기본 영상은 이미 올라가 done이다. 이 테이크가 실패하거나 걸려도
+    // 기본 영상은 그대로 두고 이 언어 판만 빠진다(한 언어 영상 + 없는 칸 = 옛 동작과 같다).
+    let localeVideo: { locale: SiteLocale; publicUrl?: string } | undefined;
+    if (plan.extra) {
+      try {
+        const extra = await recordDemo({
+          url,
+          altUrl,
+          projectId: job.projectId,
+          policy,
+          terminal: built?.terminal,
+          upload: job.upload,
+          userHint: job.userHint,
+          demoScript: job.demoScript,
+          accessNote: job.demoAccess?.note,
+          accessImpossible: job.demoAccess?.impossible,
+          projectTitle: job.title,
+          allowPrivateHost: job.allowPrivateHost,
+          locale: plan.extra,
+          variant: { locale: plan.extra, keepTs: result.uploaded?.ts !== undefined ? [result.uploaded.ts] : [] },
+        });
+        if (extra.kind === "ok") {
+          localeVideo = { locale: plan.extra, publicUrl: extra.uploaded?.publicUrl };
+        } else {
+          console.error(`[job] ${plan.extra} take skipped (${extra.kind}) — keeping the ${plan.main} film only`);
+        }
+      } catch (e) {
+        console.error(`[job] ${plan.extra} take failed — keeping the ${plan.main} film only:`, e instanceof Error ? e.message : e);
+      }
+    }
     return {
       status: "done",
       policy,
       demoPath: result.demoPath,
       publicUrl: result.uploaded?.publicUrl,
       moderationFailedOpen: result.moderationFailedOpen,
+      ...(localeVideo ? { localeVideo } : {}),
     };
   } finally {
     // Always tear the sandbox down — it bills by lifetime and serves user code.

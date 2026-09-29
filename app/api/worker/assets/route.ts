@@ -123,8 +123,11 @@ export async function POST(req: NextRequest) {
         const quarantine = body?.quarantine === true;
         const versioned = isR2Configured() || quarantine;
         const ts = Date.now();
-        const videoKey = versioned ? `${prefix}demo-${ts}.mp4` : `${prefix}demo.mp4`;
-        const posterKey = versioned ? `${prefix}poster-${ts}.jpg` : `${prefix}poster.jpg`;
+        // 다른 언어 판(2026-09-29 작품 두 언어) — 같은 폴더에 언어 표시를 붙인 이름. 기본 영상
+        // 이름(`demo(-ts).mp4`)과 안 겹쳐야 posterFromDemoUrl 등 기존 규칙이 그대로 산다.
+        const variant = body?.variant === "en" || body?.variant === "ko" ? `-${body.variant}` : "";
+        const videoKey = versioned ? `${prefix}demo${variant}-${ts}.mp4` : `${prefix}demo${variant}.mp4`;
+        const posterKey = versioned ? `${prefix}poster${variant}-${ts}.jpg` : `${prefix}poster${variant}.jpg`;
         const video = await signUpload(videoKey, "video/mp4");
         const poster = body?.withPoster === false ? null : await signUpload(posterKey, "image/jpeg");
         return NextResponse.json({
@@ -138,13 +141,18 @@ export async function POST(req: NextRequest) {
         // Drop every older object under the project's prefix, keeping the take we
         // just published. NEVER called for a quarantined take: the project's
         // previous GOOD take may still be live at this prefix.
-        const keepTs = body?.keepTs;
-        if (typeof keepTs !== "string" && typeof keepTs !== "number") {
+        // 여러 개(작품 두 언어: 기본 영상 + 다른 언어 영상)도 받는다 — 둘 다 살려야 한다.
+        const raw = Array.isArray(body?.keepTs) ? body.keepTs : [body?.keepTs];
+        const keep = raw
+          .filter((v: unknown): v is string | number => typeof v === "string" || typeof v === "number")
+          .map(String)
+          .filter((v: string) => /^\d{10,}$/.test(v));
+        if (!keep.length) {
           return apiError({ status: 400, message: "keepTs required", code: "BAD_REQUEST" });
         }
         if (!isR2Configured()) return NextResponse.json({ ok: true, skipped: "r2-unconfigured" });
         try {
-          await pruneR2PrefixExcept(prefix, String(keepTs));
+          await pruneR2PrefixExcept(prefix, keep);
         } catch (err) {
           // Non-fatal, exactly as before: the film is already published.
           logger.error("worker: R2 prune failed (non-fatal)", { error: err, projectId });

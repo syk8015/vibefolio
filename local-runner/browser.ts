@@ -71,7 +71,15 @@ export async function launchChromium(): Promise<Browser> {
 // translate on a Korean-locale macOS. A profile pref is the only reliable kill,
 // and chromium.launch rejects --user-data-dir, so the recording pass must use
 // launchPersistentContext with this profile. Wiped each run for clean footing.
-function ensureEnglishProfile(): string {
+// 촬영 언어(2026-09-29, 작품 두 언어): 페이지가 보는 언어(navigator.language·Accept-Language)만
+// 바꾼다 — 크롬 자체 화면은 영어 그대로(번역 제안 끄기가 이 프로필에 걸려 있다). 방문자 언어를
+// 보고 스스로 바뀌는 앱은 코드를 안 고쳐도 그 언어 화면이 찍힌다.
+export type FilmLocale = "ko" | "en";
+const BCP47: Record<FilmLocale, string> = { en: "en-US", ko: "ko-KR" };
+const ACCEPT: Record<FilmLocale, string> = { en: "en-US,en", ko: "ko-KR,ko,en-US,en" };
+export const browserLocaleOf = (l: FilmLocale = "en") => BCP47[l];
+
+function ensureEnglishProfile(filmLocale: FilmLocale = "en"): string {
   const dir = join(OUT_DIR, "chrome-profile");
   rmSync(dir, { recursive: true, force: true }); // clean state + no stale SingletonLock
   mkdirSync(join(dir, "Default"), { recursive: true });
@@ -79,8 +87,8 @@ function ensureEnglishProfile(): string {
     join(dir, "Default", "Preferences"),
     JSON.stringify({
       translate: { enabled: false },
-      translate_blocked_languages: ["en", "en-US"],
-      intl: { accept_languages: "en-US,en", selected_languages: "en-US,en" },
+      translate_blocked_languages: ["en", "en-US", "ko", "ko-KR"],
+      intl: { accept_languages: ACCEPT[filmLocale], selected_languages: ACCEPT[filmLocale] },
       bookmark_bar: { show_on_all_tabs: false }, // no bookmark strip eating window height
     }),
   );
@@ -95,12 +103,13 @@ function ensureEnglishProfile(): string {
 // before any navigation.
 export async function launchRecordingContext(
   storageState?: StorageState,
+  filmLocale: FilmLocale = "en",
 ): Promise<{ context: BrowserContext; page: Page }> {
-  const context = await chromium.launchPersistentContext(ensureEnglishProfile(), {
+  const context = await chromium.launchPersistentContext(ensureEnglishProfile(filmLocale), {
     headless: false,
     channel: "chrome",
     viewport: null,
-    locale: "en-US",
+    locale: BCP47[filmLocale],
     env: ENGLISH_ENV,
     args: baseChromeArgs(),
     // Playwright suppresses the "controlled by automated test software" infobar on

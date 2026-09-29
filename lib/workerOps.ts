@@ -8,6 +8,7 @@ import {
   type DemoFailureCode,
 } from "@/lib/demo-failure";
 import { recipientLocale } from "@/lib/i18n/user-locale";
+import { normalizeLocaleVideos, type CaptionTrack, type SiteLocale } from "@/lib/workLanguages";
 import { getDictionary } from "@/lib/i18n/dictionaries";
 import { sendEmail, isEmailConfigured, alertRecipients } from "@/lib/email";
 import {
@@ -32,10 +33,13 @@ type JobRow = {
   demo_user_hint?: string | null;
   demo_access?: unknown;
   demo_script?: unknown;
+  primary_locale?: unknown;
+  app_locales?: unknown;
 };
 
 const BASE_COLS = "id, user_id, title, demo_source_type, demo_source_value";
-const FULL_COLS = `${BASE_COLS}, demo_user_hint, demo_access, demo_script`;
+// primary_locale·app_locales(2026-09-29 작품 두 언어) — 워커가 촬영 언어·자막 언어를 정한다.
+const FULL_COLS = `${BASE_COLS}, demo_user_hint, demo_access, demo_script, primary_locale, app_locales`;
 
 // ── heartbeat / kill switch ─────────────────────────────────────────────────
 // Stamp liveness and read demo_paused back in ONE round-trip (the worker polls
@@ -187,24 +191,50 @@ export async function markFailed(projectId: string, message: string): Promise<vo
 
 // The video is already uploaded by the time this runs — a transient DB blip must
 // not strand a finished film as "failed" (audit C-D1). Retry briefly.
-export async function markDone(projectId: string, videoUrl: string): Promise<void> {
+//
+// 자막 시간표·다른 언어 영상(2026-09-29 작품 두 언어): 새 테이크가 끝나면 둘 다 이 테이크 것으로
+// 바꾼다 — 자막은 받은 값(없으면 지운다), 다른 언어 영상은 일단 비운다(그 테이크가 끝나면
+// setLocaleVideo가 붙인다). 지난 테이크의 것이 남으면 새 영상에 옛 자막이 얹힌다.
+export async function markDone(projectId: string, videoUrl: string, captions: CaptionTrack | null = null): Promise<void> {
   const admin = createAdminClient();
   let lastErr: { message: string } | null = null;
+  const upd: Record<string, unknown> = {
+    demo_video_url: videoUrl,
+    demo_build_status: "done",
+    demo_generated_at: new Date().toISOString(),
+    demo_captions: captions,
+    demo_locale_videos: null,
+  };
   for (let i = 0; i < 3; i++) {
     const { error } = await admin
       .from("projects")
-      .update({
-        demo_video_url: videoUrl,
-        demo_build_status: "done",
-        demo_generated_at: new Date().toISOString(),
-      })
+      .update(upd)
       .eq("id", projectId);
     if (!error) return;
+    // 마이그레이션 전(migration_demo_captions.sql) — 그 두 칸만 빼고 다시(영상이 먼저다).
+    if ((error.code === "42703" || error.code === "PGRST204") && "demo_captions" in upd) {
+      logger.error("worker: demo_captions/demo_locale_videos missing — apply migration_demo_captions.sql", { error });
+      delete upd.demo_captions;
+      delete upd.demo_locale_videos;
+      continue;
+    }
     lastErr = error;
     logger.error(`worker: projects update failed (try ${i + 1}/3) for ${projectId}`, { error });
     await new Promise((r) => setTimeout(r, 1500 * (i + 1)));
   }
   throw new Error(`projects update failed after retries: ${lastErr?.message} (video at ${videoUrl})`);
+}
+
+// 다른 언어로 한 번 더 찍은 영상 붙이기(2026-09-29). 기본 영상은 이미 done이다 — 여기가
+// 실패해도 기본 영상은 공개된 채로 두고 기록만 남긴다.
+export async function setLocaleVideo(projectId: string, locale: SiteLocale, videoUrl: string): Promise<void> {
+  const admin = createAdminClient();
+  const { data, error: readErr } = await admin
+    .from("projects").select("demo_locale_videos").eq("id", projectId).maybeSingle();
+  if (readErr) throw new Error(`locale video read failed: ${readErr.message}`);
+  const next = { ...(normalizeLocaleVideos(data?.demo_locale_videos) ?? {}), [locale]: videoUrl };
+  const { error } = await admin.from("projects").update({ demo_locale_videos: next }).eq("id", projectId);
+  if (error) throw new Error(`locale video write failed: ${error.message}`);
 }
 
 // ── holds ───────────────────────────────────────────────────────────────────

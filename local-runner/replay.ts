@@ -6,6 +6,7 @@
 import type { Page } from "playwright-core";
 import { CameraTrack, glideMsFor } from "./camera";
 import type { Script, ScriptAction } from "./script";
+import type { StepMark } from "../lib/workLanguages";
 import {
   cursorDown, cursorHide, cursorMoveTo, cursorPos, cursorPress,
   cursorSetPos, cursorShow, cursorUp, cursorVisible,
@@ -51,6 +52,9 @@ export type ReplayResult = {
   actionsDone: number;
   actionsTotal: number;
   fallbacks: ReplayFallback[];
+  // 대본 장면이 필름 몇 초에 시작했나(2026-09-29) — 자막 시간표의 재료. 예산에 걸려 못 찍은
+  // 장면은 표시가 없다(그 자막도 안 나간다).
+  stepMarks: StepMark[];
 };
 
 // Selector-first, coordinate-fallback target resolution. The selector is primary
@@ -165,6 +169,7 @@ export async function replay(
   const t0 = Date.now();
   let done = 0;
   const fallbacks: ReplayFallback[] = [];
+  const stepMarks: StepMark[] = [];
   for (const act of script.actions) {
     if (Date.now() - t0 > budgetMs) {
       console.log(
@@ -173,12 +178,13 @@ export async function replay(
       );
       break;
     }
+    if (act.step) stepMarks.push({ step: act.step, atSec: cam.filmSec(Date.now()) });
     await runAction(page, cam, act, fallbacks);
     done++;
   }
   cam.finish(); // settle to 1× so the tail hold frames the whole window
   await cursorHide(page, CURSOR_FADE_MS); // 마지막 홀드·엔드캡엔 커서를 남기지 않는다
-  return { actionsDone: done, actionsTotal: script.actions.length, fallbacks };
+  return { actionsDone: done, actionsTotal: script.actions.length, fallbacks, stepMarks };
 }
 
 async function runAction(

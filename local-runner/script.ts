@@ -10,7 +10,10 @@
 // holdMs: 촬영 대본(demoScript)의 스텝별 hold(결과를 몇 초 보여줄지)가 explore의
 // mark_step 매핑을 타고 그 스텝의 첫 기록 액션에 붙는다. 없으면 replay 기본
 // HOLD_MS. 대본이 없던 시절의 스크립트와 완전 호환(전부 optional).
-export type ScriptAction = ScriptActionBase & { holdMs?: number };
+// step: 이 액션이 대본 몇 번 장면의 **첫** 액션인지(1부터, 2026-09-29 작품 두 언어). replay가
+// 그 순간의 필름 시각을 적어 자막 시간표(lib/workLanguages.ts buildCaptionTrack)를 만든다.
+// holdMs와 같은 길(assemble 조립·explore mark_step)로 붙는다.
+export type ScriptAction = ScriptActionBase & { holdMs?: number; step?: number };
 type ScriptActionBase =
   | { kind: "click"; selector: string; x?: number; y?: number; label?: string }
   | { kind: "type"; selector: string; text: string; submit?: boolean; x?: number; y?: number; label?: string }
@@ -72,7 +75,8 @@ export function coalesceScrolls(actions: ScriptAction[]): ScriptAction[] {
     if (
       act.kind === "scroll" &&
       prev?.kind === "scroll" &&
-      act.holdMs === undefined
+      act.holdMs === undefined &&
+      act.step === undefined // 장면 시작 표시도 새 그룹 — 합치면 자막 시각이 앞 장면으로 샌다
     ) {
       prev.dy += act.dy;
       if (act.dx) prev.dx = (prev.dx ?? 0) + act.dx;
@@ -80,7 +84,7 @@ export function coalesceScrolls(actions: ScriptAction[]): ScriptAction[] {
     }
     out.push({ ...act });
   }
-  return out.filter((a) => a.kind !== "scroll" || a.holdMs !== undefined || !isWash(a));
+  return out.filter((a) => a.kind !== "scroll" || a.holdMs !== undefined || a.step !== undefined || !isWash(a));
 }
 
 // M0 target — TodoMVC React (no login, no server/DB, deterministic, rich client
