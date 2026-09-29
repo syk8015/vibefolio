@@ -58,6 +58,10 @@ export type DemoScriptStep = {
   // 이 비트의 결과를 몇 초 보여줄지(0.5~4초 클램프). 없으면 리플레이 기본
   // 페이싱(HOLD_MS). 만든 AI가 "여긴 천천히"를 지정하는 채널.
   hold?: number;
+  // 이 장면의 자막(2026-09-29, 작품 두 언어 — lib/workLanguages.ts). 앱 화면이 못 보여주는
+  // 언어로 쓴다(한국어뿐인 앱이면 en). 재생 화면이 영상 위에 얹는다 — 영상에 박지 않는다.
+  // 다음 장면 자막이 나올 때까지 이어진다.
+  caption?: Partial<Record<"ko" | "en", string>>;
 };
 
 export type DemoScript = {
@@ -175,7 +179,23 @@ function normStep(raw: unknown): DemoScriptStep | null {
       Math.min(DEMO_SCRIPT_HOLD_MAX, Math.max(DEMO_SCRIPT_HOLD_MIN, holdRaw)) * 10,
     ) / 10;
   }
+  const caption = normCaption(r.caption ?? r.captions);
+  if (caption) step.caption = caption;
   return step;
+}
+
+// 자막: { en: "…", ko: "…" }만 받는다. 글자 하나("…")는 어느 언어인지 몰라 버린다 —
+// 추측해 넣으면 영어 방문자에게 한국어 자막이 뜬다. 길이 판정은 게이트(captionIssue)가 한다.
+const CAPTION_STORE_MAX = 200; // lib/workLanguages.ts와 같은 값(순환 import를 피해 사본)
+function normCaption(raw: unknown): DemoScriptStep["caption"] | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const r = raw as Record<string, unknown>;
+  const out: NonNullable<DemoScriptStep["caption"]> = {};
+  for (const l of ["ko", "en"] as const) {
+    const v = typeof r[l] === "string" ? (r[l] as string).replace(/[\u0000-\u001F\u007F]/g, " ").replace(/\s+/g, " ").trim() : "";
+    if (v) out[l] = [...v].slice(0, CAPTION_STORE_MAX).join("");
+  }
+  return Object.keys(out).length ? out : null;
 }
 
 // Shape-only 정규화(네트워크 없음): unknown → 저장 가능한 DemoScript | null.

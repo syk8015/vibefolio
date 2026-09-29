@@ -11,6 +11,7 @@ import { loginCommand, NPX_CHECK, NPX_PUBLISH, outputLanguageLine } from "@/lib/
 import type { DemoScript } from "@/lib/demoScript";
 import type { DemoAccess } from "@/lib/demoAccess";
 import type { OwnerInterview } from "@/lib/ownerInterview";
+import { otherLocale, readTranslations, type SiteLocale } from "@/lib/workLanguages";
 
 export interface DraftFixContext {
   /** 초안 id — JSON의 draftId로 실어야 다시 올릴 때 이 초안이 갱신된다(URL로 못 찾는 폴더 업로드 초안 포함, 09-15). */
@@ -29,6 +30,10 @@ export interface DraftFixContext {
   demoAccess: DemoAccess | null;
   /** 주인 인터뷰 답(2026-09-29, 필수). 재발행이 모든 필드를 덮으므로 그대로 실어 보낸다. 없으면(옛 초안) AI가 먼저 물어야 한다. */
   ownerInterview: OwnerInterview | null;
+  /** 작품 두 언어(2026-09-29, 필수) — 재발행이 덮으므로 그대로 싣는다. 이 기능 이전 초안은 null → AI가 채운다. */
+  language: SiteLocale | null;
+  appLanguages: SiteLocale[] | null;
+  translations: unknown;
   /** 사람이 쓴 수정 요청 원문 */
   note: string;
   /**
@@ -58,6 +63,10 @@ export function buildDraftFixPrompt(c: DraftFixContext, locale: "ko" | "en" = "k
     demoAccess: c.demoAccess ?? {},
     // 재발행은 이 칸도 필수라 빠지면 400이다 — 답이 없던 옛 초안은 null로 보여 주고 아래에서 묻게 한다.
     ownerInterview: c.ownerInterview ?? null,
+    // 두 언어 칸도 재발행에 필수 — 없던 옛 초안은 null로 보여 주고 아래에서 채우게 한다.
+    language: c.language ?? null,
+    appLanguages: c.appLanguages ?? null,
+    translation: (c.language ? readTranslations(c.translations)[otherLocale(c.language)] : undefined) ?? null,
   };
   const json = JSON.stringify(payload, null, 2);
   const login = loginCommand(c.code);
@@ -79,7 +88,9 @@ ${json}
 \`\`\`
 ${c.targetDevice ? "" : `\n"targetDevice" is still unanswered (null above) — set it to "mobile" or "desktop": the screen this app was mainly designed for (not the same as contentType). The server rejects the draft without it.\n`}${c.ownerInterview
   ? `\n"ownerInterview" holds the owner's own answers — keep them word for word unless the owner changes them.\n`
-  : `\n"ownerInterview" is missing (null above) and the server rejects the draft without it. Before anything else, ask the owner in this chat and WAIT for their answers — do not answer for them: 1) the moment they are proudest of (proudMoment) 2) how they actually use it — when, how often, why (howIUse) 3) the one thing a first-time viewer must notice (mustSee) 4) optional: anything that must never be shown (hide, a list). Put their own words in ownerInterview.\n`}
+  : `\n"ownerInterview" is missing (null above) and the server rejects the draft without it. Before anything else, ask the owner in this chat and WAIT for their answers — do not answer for them: 1) the moment they are proudest of (proudMoment) 2) how they actually use it — when, how often, why (howIUse) 3) the one thing a first-time viewer must notice (mustSee) 4) optional: anything that must never be shown (hide, a list). Put their own words in ownerInterview.\n`}${payload.language && payload.appLanguages && payload.translation
+  ? `\nKeep "language", "appLanguages" and "translation" in step with your changes: if you edit the title or description, edit the translation the same way, and every demoScript step keeps its caption in each language the app's screens can't show.\n`
+  : `\nThe two-language fields are missing (null above) and the server rejects the draft without them: "language" ("ko" or "en" — the language title/description are in), "translation" (the same title/description/builderNote in the other language, written naturally) and "appLanguages" (which of ko/en the app's own screens can show, e.g. ["ko"]). For each of ko/en the app can't show, give every demoScript step "caption": { "<that language>": "…" } (max 90 characters). If the app has no English, ask the owner first whether to add an English version — their app, their call.\n`}
 
 HOW TO RESUBMIT — keep "draftId" in the JSON: publishing it again updates this draft in place (no duplicate):
 - If you have a shell: pair once (that argument is a ONE-TIME code, good for 30 minutes and a single use — it is not a token and cannot go in an Authorization header), write the revised JSON to a file, check it, then publish again —

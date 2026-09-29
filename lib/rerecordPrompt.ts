@@ -101,6 +101,7 @@ RULES (the robot follows the script literally)
 - "hold" (0.5–4s) keeps that step's result on screen; "focus" magnifies an area without touching it.
 - The robot films a 1280×720 desktop browser, so selectors must match the layout at that size.
 - It has no account (it can't log in) and never opens file pickers; clicks that save, send or delete are skipped or answered with a fake success — don't build a beat on a result only the server can produce (an AI reply, data reloaded from the database).
+- Keep each step's "caption" (and write one for every new step) in the same language(s) as the current script — a language the app's screens can't show is carried by these captions, and the server rejects a script that drops them.
 - Re-check the live page if you can: selectors that no longer exist are the most common reason a beat goes missing.
 
 HOW TO SUBMIT — pick whichever fits you (this replaces nothing until the owner approves it in their dashboard)

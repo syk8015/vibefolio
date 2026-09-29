@@ -84,6 +84,24 @@ Use the answers: open or linger on the `proudMoment`/`mustSee` scenes in the dem
 from `howIUse`, and keep any screen that shows a `hide` item out of the script. The answers are not printed
 on the public page (and `hide` stays private); the owner confirms them in the draft review before publishing.
 
+## Two languages (language · appLanguages · translation) — required
+
+Every work on Nookframe is shown in Korean and English; each visitor sees their own language's version.
+
+```json
+"language": "ko",
+"translation": { "title": "Home Climate Monitor", "description": "Every room, live\nPings my phone when something's off", "builderNote": "I check it every morning" },
+"appLanguages": ["ko"]
+```
+
+- `language` — the language `title`/`description`/`builderNote` are written in (the owner's language).
+- `translation` — the same copy in the other language, written naturally. Same 2–3 line rule for the description.
+- `appLanguages` — which of `ko`/`en` the app's **own screens** can show. The robot films once per language listed.
+  For each language missing, every demo-script step (except `navigate`) needs `"caption": { "<that language>": "…" }`
+  (max 90 characters). The player lays captions over the video; they are never burned into the film.
+- If the app has no English, the AI asks the owner first: "Should I add an English version of the app?" —
+  yes → add it, deploy, list both; no → English captions. If only Korean is missing, it just writes Korean captions.
+
 ## The demo script (demoScript)
 
 Once you publish, a robot operates the app itself and films a demo video. **Do not leave it guessing from

@@ -966,6 +966,26 @@ export const ko = {
       `ownerInterview에 답이 빠졌어요: ${keys.join(", ")}. 주인에게 묻고 그 말 그대로 보내세요 — "없음"·"N/A" 같은 자리 채우기는 빈 답으로 봐요.`,
     ownerInterviewTooLong: (key: string, max: number) =>
       `ownerInterview.${key}가 너무 길어요 — 답마다 ${max}자 안으로 주인의 말을 옮기세요(설명을 덧붙이지 마세요).`,
+    // 작품 두 언어(2026-09-29) — 받는 쪽은 AI라 문장이 곧 지시문이다. lib/workLanguages.ts.
+    languageRequired:
+      'language가 필요해요 — 제목·소개·builderNote를 쓴 말, 곧 주인이 쓰는 말이에요: "ko"(한국어) 또는 "en"(영어). Nookframe의 모든 작품은 다른 언어 판도 translation에 함께 갖고, 보는 사람은 자기 언어 판을 봐요.',
+    languageInvalid: (got: string) =>
+      `language는 "ko" 또는 "en"만 돼요 — 받은 값: ${got}. 주인이 당신에게 쓰는 말로 정하고, 다른 언어는 translation에 넣으세요.`,
+    appLanguagesRequired:
+      'appLanguages가 필요해요 — 앱 화면이 스스로 보여줄 수 있는 말을 "ko"·"en" 중에서 적어 주세요(언어 전환 버튼, 번역 파일, 코드에 박힌 글을 확인). 예: 한국어뿐이면 ["ko"], 둘 다면 ["ko","en"], 둘 다 아니면 []. 로봇은 적힌 언어마다 한 번씩 찍고, 빠진 언어는 대본의 모든 장면에 그 언어 자막이 있어야 해요. 영어가 빠졌다면 먼저 주인에게 물어보세요: "앱에 영어판도 만들어 드릴까요?" — 주인의 앱을 고치고 다시 배포하는 일이라 주인이 정해요. 좋다면 영어를 넣고 배포한 뒤 둘 다 적고, 싫다면 영어 자막을 쓰세요. 한국어만 빠졌다면 묻지 말고 한국어 자막만 쓰세요.',
+    translationIssue: (kind: "missing" | "title-missing" | "title-too-long" | "description-too-long", locale: "ko" | "en", max: number) => {
+      const name = locale === "ko" ? "한국어" : "영어";
+      if (kind === "title-missing") return `translation.title이 필요해요 — ${name}로 읽는 사람이 볼 제품 이름이에요.`;
+      if (kind === "title-too-long") return `translation.title이 너무 길어요 — ${max}자 안으로 줄여 주세요.`;
+      if (kind === "description-too-long") return "translation.description이 너무 길어요 — 200자 안, 짧은 2~3줄로 써 주세요.";
+      return `translation이 필요해요 — 같은 제목·소개·builderNote를 ${name}("${locale}")로: { "translation": { "title": "…", "description": "1줄\\n2줄", "builderNote": "…" } }. 글자 그대로 옮기지 말고 ${name}를 쓰는 사람이 쓰듯이 쓰세요. 소개글은 같은 2~3줄 규칙(한 줄 52칸 이하)을 따라요.`;
+    },
+    captionsRequired: (locale: "ko" | "en", steps: number[]) => {
+      const name = locale === "ko" ? "한국어" : "영어";
+      return `demoScript의 ${steps.join(", ")}번 장면에 ${name} 자막(caption.${locale})이 없어요. 앱 화면이 ${name}를 못 보여주니, ${name}로 보는 사람에게 장면마다 짧은 자막 하나를 붙여요: "caption": { "${locale}": "이 장면이 보여주는 것, 쉬운 말로" } (90자 이하, navigate 장면은 필요 없어요). 주인 인터뷰 답에서 뽑으세요 — 자막은 다음 자막이 나올 때까지 떠 있어요.`;
+    },
+    captionTooLong: (locale: "ko" | "en", step: number, max: number) =>
+      `${step}번 장면의 caption.${locale}이 너무 길어요 — 자막마다 ${max}자 안으로 써 주세요(영상 위에 두 줄 안으로 얹혀요).`,
     rerecordPendingNext: "새 대본을 접수했어요. 작품 주인이 대시보드에서 확인하고 [이 대본으로 재촬영]을 눌러야 촬영이 시작돼요.",
     rerecordNoPendingScript: "대기 중인 새 대본이 없어요. 재촬영 프롬프트를 AI에게 주고, AI가 새 대본을 제출한 뒤에 눌러 주세요.",
     rerecordAlreadyUsed: "이 작품의 셀프 재촬영 1회는 이미 썼어요. 다음부터는 관리자 승인이 필요해요.",

@@ -82,6 +82,9 @@ const post = async (extra, { dryRun = false } = {}) => {
       demoScript: SCRIPT,
       demoAccess: { noLogin: true, note: "프로브 픽스처 — 인증 가드 없는 정적 페이지" },
       targetDevice: "desktop",
+      // 작품 두 언어(09-29 필수 게이트) — 둘 다 되는 앱이라 자막 불필요.
+      language: "ko", appLanguages: ["ko", "en"],
+      translation: { title: "Probe", description: "A temporary row made by a probe\nDeleted right away" },
       ...extra,
     }),
   });

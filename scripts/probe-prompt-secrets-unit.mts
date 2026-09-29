@@ -36,6 +36,7 @@ const fix = buildDraftFixPrompt({
   projectId: "p1", title: "t", description: "a\nb", builderNote: "", demoHighlights: null,
   tags: [], contentType: "web-app", targetDevice: "desktop", deployUrl: "https://example.com",
   demoScript: null, demoAccess: null, ownerInterview: null, note: "고쳐줘", code: CODE, origin: ORIGIN,
+  language: null, appLanguages: null, translations: null,
 }, "ko");
 ok("고쳐달라기: 인터뷰가 없으면 먼저 묻게 한다", fix.includes('"ownerInterview" is missing'));
 const fixWith = buildDraftFixPrompt({
@@ -43,8 +44,15 @@ const fixWith = buildDraftFixPrompt({
   tags: [], contentType: "web-app", targetDevice: "desktop", deployUrl: "https://example.com",
   demoScript: null, demoAccess: null, note: "고쳐줘", code: CODE, origin: ORIGIN,
   ownerInterview: { proudMoment: "a", howIUse: "b", mustSee: "c", hide: ["금액"] },
+  language: "ko", appLanguages: ["ko"],
+  translations: { en: { title: "T", description: "line one\nline two", builderNote: "" } },
 }, "ko");
 ok("고쳐달라기: 인터뷰가 있으면 그대로 싣는다", fixWith.includes('"proudMoment": "a"') && fixWith.includes("keep them word for word"));
+// 작품 두 언어(2026-09-29, 필수) — 없던 초안은 채우게, 있던 초안은 그대로 싣고 맞춰 고치게.
+ok("연결: 두 언어 칸을 알려 준다", paste.includes("language — REQUIRED") && paste.includes("appLanguages — REQUIRED") && paste.includes("translation — REQUIRED"));
+ok("연결: 영어가 없으면 영어판을 물어본다", paste.includes("Should I add an English version of the app?"));
+ok("고쳐달라기: 두 언어 칸이 없으면 채우게 한다", fix.includes("two-language fields are missing"));
+ok("고쳐달라기: 있으면 다른 언어 판을 싣는다", fixWith.includes('"title": "T"') && fixWith.includes('"appLanguages": [') && fixWith.includes("in step with your changes"));
 ok("고쳐달라기: login에 코드가 실린다", fix.includes(`login ${CODE}`));
 ok("고쳐달라기: check 단계가 있다", fix.includes("check --file"));
 ok("고쳐달라기: 토큰이 없다", !fix.includes("nf_live_"));

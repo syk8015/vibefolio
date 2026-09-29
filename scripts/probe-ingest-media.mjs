@@ -42,6 +42,8 @@ const SCRIPT = {
 const ACCESS = { noLogin: true, note: "프로브 픽스처 — 인증 가드 없는 정적 페이지" };
 // 주인 인터뷰(2026-09-29 필수 게이트) — 성공해야 하는 요청마다 싣는다.
 const OI = { proudMoment: "프로브가 만든 장면", howIUse: "프로브가 확인용으로 씀", mustSee: "프로브 확인 문구" };
+// 작품 두 언어(09-29 필수 게이트) — 둘 다 되는 앱이라 자막 불필요.
+const LANG = { language: "ko", appLanguages: ["ko", "en"], translation: { title: "Probe", description: "A temporary row made by a probe\nDeleted right away" } };
 
 let failed = 0;
 const ok = (name, pass, detail = "") => {
@@ -83,7 +85,7 @@ try {
   // (1) 배포 대기 — uploads 선언 응답에 서명 URL이 실리면 신코드.
   let live = false, probe;
   for (let i = 0; i < 30; i++) {
-    const res = await jsonPost("/api/ingest", { title: "__probe_deploy2__", description: "프로브가 만든 임시 행\n곧 지워집니다", uploads: ["video"], deployUrl: "https://example.com", targetDevice: "desktop", ownerInterview: OI });
+    const res = await jsonPost("/api/ingest", { title: "__probe_deploy2__", description: "프로브가 만든 임시 행\n곧 지워집니다", uploads: ["video"], deployUrl: "https://example.com", targetDevice: "desktop", ownerInterview: OI, ...LANG });
     probe = await res.json().catch(() => ({}));
     if (probe.projectId) {
       if (probe.uploads?.video) { live = true; break; }
@@ -98,7 +100,7 @@ try {
 
   // (2) 10MB 영상 + 스크린샷 — CLI 2단계 경로 그대로.
   const r2 = await runPublish({
-    payload: { title: "__probe_2step_media__", targetDevice: "desktop", ownerInterview: OI, description: "프로브가 만든 임시 행\n곧 지워집니다", deployUrl: "https://example.com" },
+    payload: { title: "__probe_2step_media__", targetDevice: "desktop", ownerInterview: OI, ...LANG, description: "프로브가 만든 임시 행\n곧 지워집니다", deployUrl: "https://example.com" },
     screenshotPath: `${S}/tiny.png`,
     videoPath: `${S}/big.mp4`,
     token: raw,
@@ -128,7 +130,7 @@ try {
   // (3) 6MB zip 2단계 — 인라인로는 불가능했던 크기.
   const r3 = await runPublish({
     // zip은 영상 면제가 없으니 대본·demoAccess를 실어야 게이트를 지나 zip 처리까지 닿는다.
-    payload: { title: "__probe_2step_zip__", targetDevice: "desktop", ownerInterview: OI, description: "프로브가 만든 임시 행\n곧 지워집니다", demoScript: SCRIPT, demoAccess: ACCESS },
+    payload: { title: "__probe_2step_zip__", targetDevice: "desktop", ownerInterview: OI, ...LANG, description: "프로브가 만든 임시 행\n곧 지워집니다", demoScript: SCRIPT, demoAccess: ACCESS },
     dir: `${S}/zipproj`,
     token: raw,
     origin: ORIGIN,
@@ -144,7 +146,7 @@ try {
   // (4) 불량 영상(가짜 바이트) → finalize 400 BAD_MEDIA + 행 삭제.
   // 고유 URL — (2)와 같은 URL이면 upsert(이미 있던 초안)라 교체 표식 때문에 행이 남는다(09-15 draftId).
   // 여기서 보려는 건 "이번 발행이 새로 만든 행"의 고아 정리다.
-  const d = await (await jsonPost("/api/ingest", { title: "__probe_badfinal__", targetDevice: "desktop", ownerInterview: OI, description: "프로브가 만든 임시 행\n곧 지워집니다", deployUrl: `https://example.com/probe-badfinal-${Date.now()}`, uploads: ["video"] })).json();
+  const d = await (await jsonPost("/api/ingest", { title: "__probe_badfinal__", targetDevice: "desktop", ownerInterview: OI, ...LANG, description: "프로브가 만든 임시 행\n곧 지워집니다", deployUrl: `https://example.com/probe-badfinal-${Date.now()}`, uploads: ["video"] })).json();
   await fetch(d.uploads.video, { method: "PUT", headers: { "Content-Type": "application/octet-stream" }, body: new TextEncoder().encode("definitely not a video") });
   const fin = await jsonPost("/api/ingest/finalize", { projectId: d.projectId });
   const finBody = await fin.json().catch(() => ({}));
@@ -155,7 +157,7 @@ try {
   // (5) 영상을 선언해 대본 게이트를 면제받고서 **영상을 끝내 안 올린** 경우(2026-09-16).
   // 영상+스크린샷을 선언하고 스크린샷만 올린다 — 아무것도 안 올리면 NOTHING_TO_FINALIZE가
   // 먼저 잡으므로, 새 게이트가 실제로 걸리는 건 이 모양이다.
-  const noFilm = await (await jsonPost("/api/ingest", { title: "__probe_nofilm__", targetDevice: "desktop", ownerInterview: OI, description: "프로브가 만든 임시 행\n곧 지워집니다", deployUrl: `https://example.com/probe-nofilm-${Date.now()}`, uploads: ["video", "screenshot"] })).json();
+  const noFilm = await (await jsonPost("/api/ingest", { title: "__probe_nofilm__", targetDevice: "desktop", ownerInterview: OI, ...LANG, description: "프로브가 만든 임시 행\n곧 지워집니다", deployUrl: `https://example.com/probe-nofilm-${Date.now()}`, uploads: ["video", "screenshot"] })).json();
   ok("영상 선언만으로 발행은 통과(대본 없이)", !!noFilm.projectId, JSON.stringify(noFilm).slice(0, 100));
   if (noFilm.projectId) {
     await fetch(noFilm.uploads.screenshot, { method: "PUT", headers: { "Content-Type": "image/png" }, body: readFileSync(`${S}/tiny.png`) });
@@ -170,10 +172,10 @@ try {
   // 예전엔 demo_script를 payload 값으로 그대로 덮어서, 영상이 안 오면 대본도 영상도 없는
   // 초안이 남았다(교체 표식 때문에 행은 안 지워진다).
   const keepUrl = `https://example.com/probe-keepscript-${Date.now()}`;
-  const first = await (await jsonPost("/api/ingest", { title: "__probe_keepscript__", targetDevice: "desktop", ownerInterview: OI, description: "프로브가 만든 임시 행\n곧 지워집니다", deployUrl: keepUrl, demoScript: SCRIPT, demoAccess: ACCESS })).json();
+  const first = await (await jsonPost("/api/ingest", { title: "__probe_keepscript__", targetDevice: "desktop", ownerInterview: OI, ...LANG, description: "프로브가 만든 임시 행\n곧 지워집니다", deployUrl: keepUrl, demoScript: SCRIPT, demoAccess: ACCESS })).json();
   ok("대본 있는 초안 발행 성공", !!first.projectId, JSON.stringify(first).slice(0, 100));
   if (first.projectId) {
-    const again = await (await jsonPost("/api/ingest", { title: "__probe_keepscript__", targetDevice: "desktop", ownerInterview: OI, description: "프로브가 만든 임시 행\n곧 지워집니다", deployUrl: keepUrl, uploads: ["video"] })).json();
+    const again = await (await jsonPost("/api/ingest", { title: "__probe_keepscript__", targetDevice: "desktop", ownerInterview: OI, ...LANG, description: "프로브가 만든 임시 행\n곧 지워집니다", deployUrl: keepUrl, uploads: ["video"] })).json();
     ok("같은 초안을 영상 선언으로 재발행", again.projectId === first.projectId, `${again.projectId} vs ${first.projectId}`);
     const { data: kept } = await svc.from("projects").select("demo_script, demo_access").eq("id", first.projectId).single();
     ok("옛 대본이 살아 있다", (kept?.demo_script?.steps?.length ?? 0) === SCRIPT.steps.length, `steps=${kept?.demo_script?.steps?.length}`);

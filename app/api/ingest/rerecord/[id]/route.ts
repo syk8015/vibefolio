@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { apiError } from "@/lib/apiError";
-import { ingestAuth, buildScriptReview } from "@/app/api/ingest/shared";
+import {
+  ingestAuth, buildScriptReview, missingOptionalColumn, workLanguageRejection,
+} from "@/app/api/ingest/shared";
+import { captionIssue, captionLocalesNeeded, normalizeAppLanguages } from "@/lib/workLanguages";
 import {
   normalizeDemoScript, substantialStepCount,
   DEMO_SCRIPT_MIN_STEPS, DEMO_SCRIPT_MIN_SUBSTANTIAL,
@@ -79,6 +82,18 @@ export async function POST(
     // 서비스롤로 읽었으니 소유권은 여기서 직접 본다(RLS가 안 걸린다).
     if (project.user_id !== userId) {
       return apiError({ status: 403, message: t.api.projectForbidden, code: "FORBIDDEN" });
+    }
+
+    // 자막(2026-09-29, 작품 두 언어) — 발행 게이트와 같은 판정. 앱 화면 언어가 저장된 작품만
+    // 본다(칸이 생기기 전 작품·마이그레이션 전은 건너뛴다). 재촬영 입구로 자막 없는 대본을
+    // 들이면 영어 방문자에게 설명 없는 한국어 영상이 다시 나간다.
+    {
+      const { data: langRow, error: langErr } = await admin
+        .from("projects").select("app_locales").eq("id", id).maybeSingle();
+      if (langErr && !missingOptionalColumn(langErr)) throw new Error(`app_locales read failed: ${langErr.message}`);
+      const app = normalizeAppLanguages(langRow?.app_locales);
+      const cap = app ? captionIssue(script, captionLocalesNeeded(app)) : null;
+      if (cap) return workLanguageRejection({ kind: "captions", issue: cap }, t);
     }
 
     // 대본 점검표(발행 경로와 같은 규칙) — 재촬영 대본이야말로 "고쳐 쓴" 대본이라

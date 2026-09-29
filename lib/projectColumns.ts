@@ -37,6 +37,10 @@ export const PUBLIC_PROJECT_COLUMNS = [
   "pending_script_at",
   "rerecord_self_used",
   "target_device",
+  // 작품 두 언어(2026-09-29) — 명함·작품 페이지가 보는 사람 언어 판을 고르는 칸(migration_work_languages.sql).
+  "primary_locale",
+  "app_locales",
+  "translations",
 ] as const;
 
 export const PRIVATE_PROJECT_COLUMNS = [

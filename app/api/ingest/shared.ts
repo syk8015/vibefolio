@@ -14,6 +14,10 @@ import {
 import { liveUrlIssue } from "@/lib/demoSource";
 import { assertSafePublicUrl, SsrfError } from "@/lib/ssrf";
 import type { OwnerInterview, OwnerInterviewIssue } from "@/lib/ownerInterview";
+import {
+  captionCounts, captionLocalesNeeded, filmLocales, otherLocale,
+  type SiteLocale, type WorkLanguageIssue, type WorkLanguages,
+} from "@/lib/workLanguages";
 
 // PAT(외부 AI) 호출은 영어 고정, 쿠키 세션은 유저 로케일 — 인제스트 라우트 전부가
 // 같은 규칙을 쓴다(catch 블록 포함).
@@ -117,6 +121,16 @@ export type AcceptedEcho = {
   // 주인 인터뷰(2026-09-29, 필수 게이트) — 답 개수와 가릴 것 개수만. 답 글은 되돌려주지 않는다
   // (가릴 것은 비공개 칸이고, 에코는 CLI 화면·채팅 기록에 남는다). null = 컬럼 마이그레이션 전이라 저장 못 함.
   ownerInterview: { answered: number; hidden: number } | null;
+  // 작품 두 언어(2026-09-29, 필수 게이트) — 무엇이 몇 번 찍히고 어디에 자막이 붙는지. 다른 언어 판은
+  // 소개글 줄별 칸 수까지(기본 언어와 같은 52칸 규격). null = 컬럼 마이그레이션 전이라 저장 못 함.
+  languages: {
+    language: SiteLocale;
+    appLanguages: SiteLocale[];
+    film: SiteLocale[];
+    captionLanguages: SiteLocale[];
+    captionSteps: Partial<Record<SiteLocale, number>>;
+    translation: { locale: SiteLocale; title: string; descriptionLineCols: number[] };
+  } | null;
   // 대본 점검표(2026-09-04) — 게이트는 통과했지만 약한 대본이 어디가 약한지.
   // 자동 촬영이 없는 경우(영상 동봉·대본 없음)엔 아예 싣지 않는다.
   scriptReview?: ScriptReviewEcho;
@@ -173,6 +187,9 @@ export const OPTIONAL_COLUMN_MIGRATION = {
   demo_script: "migration_demo_script.sql",
   target_device: "migration_target_device.sql",
   owner_interview: "migration_owner_interview.sql",
+  primary_locale: "migration_work_languages.sql",
+  app_locales: "migration_work_languages.sql",
+  translations: "migration_work_languages.sql",
 } as const;
 export type OptionalColumn = keyof typeof OPTIONAL_COLUMN_MIGRATION;
 
@@ -206,6 +223,41 @@ export function ownerInterviewRejection(issue: OwnerInterviewIssue, t: IngestDic
     return apiError({ status: 400, message: t.api.ownerInterviewTooLong(issue.key, issue.max), code: "OWNER_INTERVIEW_TOO_LONG" });
   }
   return apiError({ status: 400, message: t.api.ownerInterviewRequired, code: "OWNER_INTERVIEW_REQUIRED" });
+}
+
+/** 작품 두 언어 사유 → 400 응답. 생성·수정 두 라우트가 같은 문구·코드를 쓰도록 한 곳에서. */
+export function workLanguageRejection(issue: WorkLanguageIssue, t: IngestDict): NextResponse {
+  const a = t.api;
+  switch (issue.kind) {
+    case "language-missing":
+      return apiError({ status: 400, message: a.languageRequired, code: "LANGUAGE_REQUIRED" });
+    case "language-invalid":
+      return apiError({ status: 400, message: a.languageInvalid(issue.got), code: "LANGUAGE_INVALID" });
+    case "app-languages-missing":
+      return apiError({ status: 400, message: a.appLanguagesRequired, code: "APP_LANGUAGES_REQUIRED" });
+    case "translation": {
+      const tr = issue.issue;
+      if (tr.kind === "description-shape") {
+        return apiError({
+          status: 400,
+          message: `translation.description: ${descriptionShapeMessage(tr.issue, t)}`,
+          code: "TRANSLATION_SHAPE",
+        });
+      }
+      return apiError({
+        status: 400,
+        message: a.translationIssue(tr.kind, issue.locale, tr.kind === "title-too-long" ? tr.max : 0),
+        code: tr.kind === "missing" ? "TRANSLATION_REQUIRED" : "TRANSLATION_INVALID",
+      });
+    }
+    case "captions": {
+      const c = issue.issue;
+      if (c.kind === "too-long") {
+        return apiError({ status: 400, message: a.captionTooLong(c.locale, c.step, c.max), code: "CAPTION_TOO_LONG" });
+      }
+      return apiError({ status: 400, message: a.captionsRequired(c.locale, c.steps), code: "CAPTIONS_REQUIRED" });
+    }
+  }
 }
 
 /** 사유 → locale 카피. 라우트 두 곳이 같은 문구를 쓰도록 여기서 한 번만 분기한다. */
@@ -245,6 +297,7 @@ export function buildAccepted(
     entryUrl: string | null;
     targetDevice: string | null;
     ownerInterview: OwnerInterview | null;
+    languages: WorkLanguages | null;
   },
   normalizeTags: (v: unknown) => string[],
   scriptReview?: ScriptReviewEcho,
@@ -286,6 +339,22 @@ export function buildAccepted(
     targetDevice: stored.targetDevice === "mobile" || stored.targetDevice === "desktop" ? stored.targetDevice : null,
     ownerInterview: stored.ownerInterview
       ? { answered: 3, hidden: stored.ownerInterview.hide.length }
+      : null,
+    languages: stored.languages
+      ? {
+          language: stored.languages.language,
+          appLanguages: stored.languages.appLanguages,
+          film: filmLocales(stored.languages.appLanguages),
+          captionLanguages: captionLocalesNeeded(stored.languages.appLanguages),
+          captionSteps: captionCounts(stored.demoScript),
+          translation: {
+            locale: otherLocale(stored.languages.language),
+            title: stored.languages.translation.title,
+            descriptionLineCols: stored.languages.translation.description
+              ? stored.languages.translation.description.split("\n").map(lineCols)
+              : [],
+          },
+        }
       : null,
   };
 }

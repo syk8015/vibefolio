@@ -64,6 +64,21 @@ export function formatAccepted(accepted) {
     lines.push(ROW("interview", `${accepted.ownerInterview.answered ?? 3} answers${hidden ? ` · ${hidden} thing(s) to keep hidden` : ""} (the owner confirms them before publishing)`));
   }
 
+  // 작품 두 언어(2026-09-29, 필수) — 몇 번 찍히고 어느 말에 자막이 붙는지. 구버전 서버는 키가 없다.
+  const langs = accepted.languages;
+  if (langs && typeof langs === "object") {
+    const film = Array.isArray(langs.film) && langs.film.length ? `filmed in ${langs.film.join(" + ")}` : "filmed once";
+    const caps = Array.isArray(langs.captionLanguages) && langs.captionLanguages.length
+      ? ` · captions ${langs.captionLanguages.map((l) => `${l} ${langs.captionSteps?.[l] ?? 0} scenes`).join(", ")}`
+      : "";
+    lines.push(ROW("languages", `${langs.language} (main) · app shows ${langs.appLanguages?.length ? langs.appLanguages.join(", ") : "neither"} · ${film}${caps}`));
+    const tr = langs.translation;
+    if (tr) {
+      const cols = Array.isArray(tr.descriptionLineCols) && tr.descriptionLineCols.length ? ` · description ${tr.descriptionLineCols.join("·")} of 52 cols` : "";
+      lines.push(ROW(`in ${tr.locale}`, `${tr.title}${cols}`));
+    }
+  }
+
   // 대본 점검표(2026-09-04) — 게이트는 통과했지만 어디가 약한지. 숫자로 한 줄,
   // 고칠 것은 아래 경고에 합류한다(같은 URL로 다시 publish하면 이 초안이 갱신됨).
   const review = accepted.scriptReview;

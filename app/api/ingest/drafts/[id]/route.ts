@@ -17,9 +17,13 @@ import {
   ingestAuth, publicUrlGate, strOrNull, type IngestDict, buildAccepted, buildScriptReview,
   descriptionTooLong, DESCRIPTION_MAX, missingOptionalColumn,
   descriptionShapeIssue, descriptionShapeMessage,
-  pickApiT, ownerInterviewRejection,
+  pickApiT, ownerInterviewRejection, workLanguageRejection,
 } from "../../shared";
 import { normalizeOwnerInterview, readOwnerInterview } from "@/lib/ownerInterview";
+import {
+  judgeWorkLanguages, normalizeAppLanguages, normalizeLocale, otherLocale, readTranslations,
+  type SiteLocale, type WorkLanguages,
+} from "@/lib/workLanguages";
 
 // PATCH·DELETE /api/ingest/drafts/[id] — Nookframe Connect 초안 수정·삭제(요청4).
 // is_draft=true 행만 허용: 공개된 프로젝트는 409로 거부해 PAT의 폭발반경(자기
@@ -27,6 +31,37 @@ import { normalizeOwnerInterview, readOwnerInterview } from "@/lib/ownerIntervie
 // publish를 다시 실행하면 upsert가 그 초안을 갱신한다(검증 경로 단일화).
 
 type SupabaseAdmin = ReturnType<typeof createAdminClient>;
+
+const LANGUAGE_KEYS = ["language", "appLanguages", "translation"] as const;
+
+// 초안의 지금 언어 상태 + 대본(자막 판정은 둘을 합쳐서 본다). 마이그레이션 전이라 칸이 없으면
+// null — 그땐 저장할 곳도 없으니 언어 게이트를 건너뛴다(다른 칸의 디그레이드와 같은 정책).
+async function loadLanguageState(admin: SupabaseAdmin, id: string) {
+  const { data, error } = await admin
+    .from("projects")
+    .select("primary_locale, app_locales, translations, demo_script")
+    .eq("id", id)
+    .maybeSingle();
+  if (error || !data) {
+    if (missingOptionalColumn(error)) return null;
+    if (error) throw new Error(`language state read failed: ${error.message}`);
+    return null;
+  }
+  return {
+    language: normalizeLocale(data.primary_locale),
+    appLanguages: normalizeAppLanguages(data.app_locales),
+    translations: readTranslations(data.translations),
+    script: normalizeDemoScript(data.demo_script),
+  };
+}
+
+function languagesFromRow(row: Record<string, unknown> | null): WorkLanguages | null {
+  const language = normalizeLocale(row?.primary_locale);
+  const appLanguages = normalizeAppLanguages(row?.app_locales);
+  if (!language || !appLanguages) return null;
+  const translation = readTranslations(row?.translations)[otherLocale(language)];
+  return translation ? { language, appLanguages, translation } : null;
+}
 
 // 소유·초안 확인 공통부. NextResponse면 그대로 return.
 async function loadDraft(
@@ -206,6 +241,33 @@ export async function PATCH(
       if (next.issue) return ownerInterviewRejection(next.issue, t);
       upd.owner_interview = next.value;
     }
+    // 작품 두 언어(2026-09-29) — 생성 게이트와 같은 판정을 **합친 상태**에 건다: 보낸 칸은 새 값,
+    // 안 보낸 칸은 초안의 지금 값. 대본만 바꿔도 자막이 빠지면 거절이고, 기본 언어를 바꾸면 새
+    // 다른 언어 판 글이 있어야 한다. 언어 칸이 한 번도 없던 옛 초안은 대본·제목 수정을 막지 않는다
+    // (언어 칸을 보내는 순간부터 셋이 다 갖춰져야 한다).
+    const sendsLanguage = LANGUAGE_KEYS.some((k) => k in payload);
+    if (sendsLanguage || "demoScript" in payload) {
+      const cur = await loadLanguageState(admin, draft.id);
+      if (cur && (sendsLanguage || cur.language)) {
+        const language = "language" in payload ? payload.language : cur.language;
+        const nextLocale = normalizeLocale(language);
+        const check = judgeWorkLanguages({
+          language,
+          appLanguages: "appLanguages" in payload ? payload.appLanguages : cur.appLanguages,
+          translation: "translation" in payload
+            ? payload.translation
+            : nextLocale ? cur.translations[otherLocale(nextLocale)] : undefined,
+          script: "demo_script" in upd ? (upd.demo_script as DemoScript | null) : cur.script,
+          hasOwnVideo,
+        });
+        if (check.issue) return workLanguageRejection(check.issue, t);
+        if (sendsLanguage) {
+          upd.primary_locale = check.value.language;
+          upd.app_locales = check.value.appLanguages;
+          upd.translations = { [otherLocale(check.value.language)]: check.value.translation } as Record<SiteLocale, unknown>;
+        }
+      }
+    }
     if (!Object.keys(upd).length) {
       return apiError({ status: 400, message: t.api.draftNoFields, code: "NO_FIELDS" });
     }
@@ -222,7 +284,7 @@ export async function PATCH(
     // 갱신된 행을 그대로 돌려받아 에코를 만든다(C-1) — 보낸 키만 바뀌므로
     // "요청 payload"로는 최종 상태를 알 수 없다. 저장된 행이 유일한 진실.
     const AFTER_COLS =
-      "title, description, comment, demo_user_hint, demo_script, tags, content_type, target_device, demo_access, demo_url, owner_interview";
+      "title, description, comment, demo_user_hint, demo_script, tags, content_type, target_device, demo_access, demo_url, owner_interview, primary_locale, app_locales, translations";
     let { data: after, error: updErr } = await admin
       .from("projects")
       .update(upd)
@@ -270,6 +332,7 @@ export async function PATCH(
         entryUrl: after?.demo_url ?? null,
         targetDevice: after?.target_device ?? null,
         ownerInterview: readOwnerInterview((after as { owner_interview?: unknown } | null)?.owner_interview),
+        languages: languagesFromRow(after as Record<string, unknown> | null),
       }, normalizeTags, scriptReview),
     });
   } catch (err) {

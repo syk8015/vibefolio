@@ -1,6 +1,7 @@
 import type { DemoScript } from "@/lib/demoScript";
 import type { DemoAccess } from "@/lib/demoAccess";
 import type { OwnerInterview } from "@/lib/ownerInterview";
+import type { WorkTranslations } from "@/lib/workLanguages";
 // Shared types + constants for the dashboard Projects tab. Extracted verbatim from
 // ProjectsTab.tsx (no behavior change) so the row components, hooks, and form modal
 // can share one definition instead of re-declaring it.
@@ -82,6 +83,11 @@ export interface DBProject {
   owner_interview: OwnerInterview | null;
   // 주인이 검토 창에서 "내 말이 맞아요"를 누르고 공개한 시각. 비공개 칸.
   owner_interview_confirmed_at: string | null;
+  // 작품 두 언어(2026-09-29) — 공개 칸. 기본 언어·앱 화면 언어·다른 언어 판 글(lib/workLanguages.ts).
+  // 이 기능 이전 초안·SQL 적용 전엔 null.
+  primary_locale: "ko" | "en" | null;
+  app_locales: ("ko" | "en")[] | null;
+  translations: WorkTranslations | null;
 }
 
 export type ProjectForm = Omit<
@@ -110,5 +116,9 @@ export type ProjectForm = Omit<
   // 주인 인터뷰는 초안 검토 창에서만 다룬다(수정 폼에 실리면 저장 때마다 통째로 덮는다).
   | "owner_interview"
   | "owner_interview_confirmed_at"
+  // 두 언어 칸도 초안 검토 창에서만 다룬다(같은 이유).
+  | "primary_locale"
+  | "app_locales"
+  | "translations"
 >;
 

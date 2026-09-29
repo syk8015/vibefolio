@@ -175,7 +175,7 @@ MCP 규격이 2026-07-28에 갈아엎였다: `initialize`·세션·`ping`이 사
 
 - 인증: `Authorization: Bearer nf_live_…` (우선) 또는 쿠키 세션(`/publish` 경로).
 - 본문:
-  - `application/json` — `{ title, description?, builderNote?, demoHighlights?, demoScript?, tags?, contentType?, targetDevice, deployUrl?, appUrl?, demoAccess?, ownerInterview }`
+  - `application/json` — `{ title, description?, builderNote?, demoHighlights?, demoScript?, tags?, contentType?, targetDevice, deployUrl?, appUrl?, demoAccess?, ownerInterview, language, appLanguages, translation }`
     (`demoScript`·`demoAccess`·`targetDevice`는 **필수 게이트** — 자세한 건 아래 "발행 게이트 3종")
     (`targetDevice` = 작품이 주로 맞춘 화면 `"mobile"`|`"desktop"`(2026-09-15) → `projects.target_device`. 초안 검토 창이 이 답으로
     미리보기 틀(폰 402×874 / PC 1280×800)을 고르고, 사람이 바꾸는 스위치는 없다. contentType의 `mobile`(분류)과 다른 질문 —
@@ -417,6 +417,7 @@ MCP 규격이 2026-07-28에 갈아엎였다: `initialize`·세션·`ping`이 사
 | 로그인 답변 (2026-08-27) | `DEMO_ACCESS_REQUIRED` | `demoAccess`가 `url` · `noLogin` · `impossible` 중 하나 |
 | 대상 화면 (2026-09-15) | `TARGET_DEVICE_REQUIRED` | `targetDevice`가 `mobile` · `desktop` 중 하나(대소문자 무시). 수정 경로로 비우기도 400. 검증: `node scripts/probe-target-device-gate.mjs` |
 | 주인 인터뷰 (2026-09-29) | `OWNER_INTERVIEW_REQUIRED` · `_INCOMPLETE` · `_TOO_LONG` | `ownerInterview`에 주인의 답 3개(`proudMoment` · `howIUse` · `mustSee`, 각 ≤300자) + 선택 `hide`(≤12개·≤80자). "없음"·"N/A" 같은 자리 채우기는 빈 답. 영상 동봉도 면제 아님, 마지막에 검사. 비공개 칸 `projects.owner_interview`(+ 공개 때 찍는 `owner_interview_confirmed_at`). 초안 검토 창에서 주인이 "내 말이 맞아요"에 체크해야 공개된다. 설계 `docs/owner-interview-real-record.md`. 검증: `node scripts/probe-owner-interview-gate.mjs` |
+| 작품 두 언어 (2026-09-29) | `LANGUAGE_REQUIRED` · `_INVALID` · `APP_LANGUAGES_REQUIRED` · `TRANSLATION_REQUIRED` · `_INVALID` · `_SHAPE` · `CAPTIONS_REQUIRED` · `CAPTION_TOO_LONG` | `language`(기본 언어 ko·en) + `translation`(다른 언어 판 제목·소개·한마디, 소개는 같은 3줄 규격) + `appLanguages`(앱 화면이 보여주는 ko·en). 빠진 언어는 대본 장면마다 `caption.<언어>`(≤90자, navigate 면제, 영상 동봉은 자막 면제). 대상 화면 뒤·인터뷰 앞. 수정(PATCH)은 **합친 상태**로 판정하고, 재촬영 대본도 자막을 본다. 공개 칸 `primary_locale`·`app_locales`·`translations`(`supabase/migration_work_languages.sql`). 판정 한 벌 `lib/workLanguages.ts`. 검증: `npm test`의 `probe-work-languages-unit` |
 
 로그인 게이트를 만든 이유는 실패가 **실패로 보이지 않기 때문**이다. 로그인해야 기능이
 도는 앱을 그냥 올리면 로봇은 로그인 화면이나 빈 껍데기를 찍는데, 화면은 떴으므로

@@ -20,7 +20,7 @@ export type McpTool = {
 export const MCP_TOOLS: McpTool[] = [
   {
     "name": "publish_to_nookframe",
-    "description": "Upload this project to Nookframe (a portfolio for vibe-coded work) as a draft. Before anything else, interview the owner: ask them the ownerInterview questions in the chat and wait for their answers — it is REQUIRED (the server rejects the upload without it) and it must be their own words, not yours. You are the AI that built it, so write title/description/demoScript yourself from the repo (README, routes, git log) and pass them in, shaped by those answers. The description must NOT be one paragraph: it is 2-3 lines separated by newlines (\\n) — it is the first-impression copy laid over the work on the card, and a long line wraps and gets cut off on phones (a single paragraph, or any line over 52 columns where a CJK character counts as 2, is rejected). Give deployUrl — a public URL that opens without signing in. This tool talks to Nookframe over the web and cannot reach the owner's filesystem, so there is no dir here: if the work is not deployed, the owner attaches the file themselves at /publish on Nookframe (one .html page, or a .zip of the build output, up to 25MB). If you built this inside the chat, what to give depends on the tool. A tool that deploys to a real address (Qwen Web Dev, Bolt, Lovable, Replit) is fine — publish it and give that address. A Claude artifact share link is NOT: those pages sit behind a bot check the filming robot cannot pass. That is not a login — a person gets through and a robot does not — so do not ask the owner to fix their sharing settings. Send the artifact's whole HTML in htmlBody instead — that needs nothing from the owner and is the fastest route for a one-file work. Only if it is too big, or has separate CSS/JS/asset files, ask the owner to attach it as a zip at /publish. If it is not deployed and needs a server or DB so a file upload will not do, you may pass a public GitHub repo URL as deployUrl instead (a last resort: the repo is cloned and run — JS repos via npm run dev/start, Python web apps by detecting Streamlit/Gradio/Dash/Django/Flask/FastAPI then pip install + run (Django also gets migrate run for it), and projects with no web screen (CLI tools, bots, backends) are filmed as a live terminal session where the robot types the commands (put the exact commands in demoScript and it gets much better). Private repos fail; apps needing a remote DB get a read-only demo). If the landing page and the actual app screen are different URLs, also pass appUrl (the demo and the embed open appUrl). demoAccess is REQUIRED — the filming robot never logs in, so decide 'what actually works before login' and answer with exactly one of: { url, params, note } if there is a way in without login; { noLogin: true, note: \"one line on what you checked\" } if no login is needed at all and every feature is usable from the first screen (noLogin without note is rejected); { impossible: true, note: \"why\" } if a guest path is fundamentally impossible (E2E encryption, mandatory device pairing). In that last case only the landing page gets filmed, so attaching a video is strongly recommended. Without one of the three the server rejects with 400. Account credentials are not accepted. The film and card are public, so screens the robot opens must show fake or sample data, never real people's records; if the app needs a demo mode to be filmable, ask the human before changing their code or deploying. targetDevice is REQUIRED too: \"mobile\" if the app was designed mainly for phone screens, \"desktop\" if for computer browsers (not the same as contentType) — the owner's draft preview is framed from it, while the robot always films a 1280x720 desktop browser. You cannot attach a screenshot or a demo video through this tool — if the owner has one, tell them to add it at /publish on Nookframe (a video attached there replaces the automatic filming). Order demoScript.steps by importance — step 1 is the feature that absolutely cannot be missing. Uploading the same URL again does not create a new draft, it updates the existing one (use this to edit content); a draft made from an uploaded file has no URL to match, so to replace its files — or to change the URL — pass draftId, the draft id from the publish result. When you report back, tell the human it is a DRAFT: nothing is public until they open the review link and press publish.",
+    "description": "Upload this project to Nookframe (a portfolio for vibe-coded work) as a draft. Before anything else, interview the owner: ask them the ownerInterview questions in the chat and wait for their answers — it is REQUIRED (the server rejects the upload without it) and it must be their own words, not yours. Nookframe shows every work in Korean and English: set language (the owner's language, the one you write title/description in), put the same copy in the other language in translation, and list in appLanguages which of ko/en the app's own screens can show — the robot films once per language listed, and for a language the app cannot show, give every demoScript step a caption in it. If the app has no English, ask the owner whether to add an English version before you upload (their app, their call); if it has no Korean, just write Korean captions. You are the AI that built it, so write title/description/demoScript yourself from the repo (README, routes, git log) and pass them in, shaped by those answers. The description must NOT be one paragraph: it is 2-3 lines separated by newlines (\\n) — it is the first-impression copy laid over the work on the card, and a long line wraps and gets cut off on phones (a single paragraph, or any line over 52 columns where a CJK character counts as 2, is rejected). Give deployUrl — a public URL that opens without signing in. This tool talks to Nookframe over the web and cannot reach the owner's filesystem, so there is no dir here: if the work is not deployed, the owner attaches the file themselves at /publish on Nookframe (one .html page, or a .zip of the build output, up to 25MB). If you built this inside the chat, what to give depends on the tool. A tool that deploys to a real address (Qwen Web Dev, Bolt, Lovable, Replit) is fine — publish it and give that address. A Claude artifact share link is NOT: those pages sit behind a bot check the filming robot cannot pass. That is not a login — a person gets through and a robot does not — so do not ask the owner to fix their sharing settings. Send the artifact's whole HTML in htmlBody instead — that needs nothing from the owner and is the fastest route for a one-file work. Only if it is too big, or has separate CSS/JS/asset files, ask the owner to attach it as a zip at /publish. If it is not deployed and needs a server or DB so a file upload will not do, you may pass a public GitHub repo URL as deployUrl instead (a last resort: the repo is cloned and run — JS repos via npm run dev/start, Python web apps by detecting Streamlit/Gradio/Dash/Django/Flask/FastAPI then pip install + run (Django also gets migrate run for it), and projects with no web screen (CLI tools, bots, backends) are filmed as a live terminal session where the robot types the commands (put the exact commands in demoScript and it gets much better). Private repos fail; apps needing a remote DB get a read-only demo). If the landing page and the actual app screen are different URLs, also pass appUrl (the demo and the embed open appUrl). demoAccess is REQUIRED — the filming robot never logs in, so decide 'what actually works before login' and answer with exactly one of: { url, params, note } if there is a way in without login; { noLogin: true, note: \"one line on what you checked\" } if no login is needed at all and every feature is usable from the first screen (noLogin without note is rejected); { impossible: true, note: \"why\" } if a guest path is fundamentally impossible (E2E encryption, mandatory device pairing). In that last case only the landing page gets filmed, so attaching a video is strongly recommended. Without one of the three the server rejects with 400. Account credentials are not accepted. The film and card are public, so screens the robot opens must show fake or sample data, never real people's records; if the app needs a demo mode to be filmable, ask the human before changing their code or deploying. targetDevice is REQUIRED too: \"mobile\" if the app was designed mainly for phone screens, \"desktop\" if for computer browsers (not the same as contentType) — the owner's draft preview is framed from it, while the robot always films a 1280x720 desktop browser. You cannot attach a screenshot or a demo video through this tool — if the owner has one, tell them to add it at /publish on Nookframe (a video attached there replaces the automatic filming). Order demoScript.steps by importance — step 1 is the feature that absolutely cannot be missing. Uploading the same URL again does not create a new draft, it updates the existing one (use this to edit content); a draft made from an uploaded file has no URL to match, so to replace its files — or to change the URL — pass draftId, the draft id from the publish result. When you report back, tell the human it is a DRAFT: nothing is public until they open the review link and press publish.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -68,6 +68,47 @@ export const MCP_TOOLS: McpTool[] = [
             "proudMoment",
             "howIUse",
             "mustSee"
+          ]
+        },
+        "language": {
+          "type": "string",
+          "enum": [
+            "ko",
+            "en"
+          ],
+          "description": "Required. The owner's language — the one title, description and builderNote are written in (the language the owner writes to you in). Every work also carries the other language in translation, and each visitor sees their own language's version."
+        },
+        "appLanguages": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "ko",
+              "en"
+            ]
+          },
+          "description": "Required. Which of ko/en the app's OWN screens can show — check the code (a language switch, i18n files, hard-coded text): [\"ko\"] for a Korean-only app, [\"ko\",\"en\"] if it has both, [] if neither. The robot films once per language listed; for each language missing, every demoScript step needs caption.<that language>. If English is missing, ask the owner before anything else: \"Should I add an English version of the app?\" — it means changing and redeploying their app, so it is their call. Yes → add it, deploy it, list both. No → write English captions. If only Korean is missing, do not ask — just write Korean captions."
+        },
+        "translation": {
+          "type": "object",
+          "description": "Required. The same title, description and builderNote in the OTHER language (en if language is ko, ko if it is en). Write it the way a native speaker would, not word for word. The description follows the same 2-3 line rule (52 columns per line at most).",
+          "properties": {
+            "title": {
+              "type": "string",
+              "description": "Product name as a reader of that language should see it (max 80 characters)"
+            },
+            "description": {
+              "type": "string",
+              "description": "2-3 lines separated by newlines"
+            },
+            "builderNote": {
+              "type": "string",
+              "description": "(optional) The one-liner in that language"
+            }
+          },
+          "required": [
+            "title",
+            "description"
           ]
         },
         "demoScript": {
@@ -127,6 +168,18 @@ export const MCP_TOOLS: McpTool[] = [
                   "hold": {
                     "type": "number",
                     "description": "How many seconds to hold on this step's result (0.5-4). Only for beats that need a slow look"
+                  },
+                  "caption": {
+                    "type": "object",
+                    "properties": {
+                      "en": {
+                        "type": "string"
+                      },
+                      "ko": {
+                        "type": "string"
+                      }
+                    },
+                    "description": "Required for every language in ko/en that appLanguages does NOT list (a navigate step needs none): one short caption for this scene in that language (max 90 characters), drawn from the owner's interview answers — e.g. { \"en\": \"Every room, live — updated every minute.\" }. The player lays it over the video until the next caption; it is never burned into the film."
                   }
                 },
                 "required": [
@@ -260,13 +313,16 @@ export const MCP_TOOLS: McpTool[] = [
       "required": [
         "title",
         "targetDevice",
-        "ownerInterview"
+        "ownerInterview",
+        "language",
+        "appLanguages",
+        "translation"
       ]
     }
   },
   {
     "name": "check_nookframe_payload",
-    "description": "Dry run a Nookframe publish payload: the server runs every gate it would run for real (demo script minimum, the login question, the description's 2-3 line shape, targetDevice, the owner interview, the entry URL, selector existence, estimated film length) and answers whether this payload would be accepted — without creating a draft or uploading anything. Call it before publish_to_nookframe whenever you are unsure, and after fixing a rejection. Same input as publish_to_nookframe. The answer also says whether publishing would UPDATE the draft already at that URL or create a new one. What it cannot check: the uploaded files themselves and the draft count limit.",
+    "description": "Dry run a Nookframe publish payload: the server runs every gate it would run for real (demo script minimum, the login question, the description's 2-3 line shape, targetDevice, the owner interview, the two languages and captions, the entry URL, selector existence, estimated film length) and answers whether this payload would be accepted — without creating a draft or uploading anything. Call it before publish_to_nookframe whenever you are unsure, and after fixing a rejection. Same input as publish_to_nookframe. The answer also says whether publishing would UPDATE the draft already at that URL or create a new one. What it cannot check: the uploaded files themselves and the draft count limit.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -314,6 +370,47 @@ export const MCP_TOOLS: McpTool[] = [
             "proudMoment",
             "howIUse",
             "mustSee"
+          ]
+        },
+        "language": {
+          "type": "string",
+          "enum": [
+            "ko",
+            "en"
+          ],
+          "description": "Required. The owner's language — the one title, description and builderNote are written in (the language the owner writes to you in). Every work also carries the other language in translation, and each visitor sees their own language's version."
+        },
+        "appLanguages": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "ko",
+              "en"
+            ]
+          },
+          "description": "Required. Which of ko/en the app's OWN screens can show — check the code (a language switch, i18n files, hard-coded text): [\"ko\"] for a Korean-only app, [\"ko\",\"en\"] if it has both, [] if neither. The robot films once per language listed; for each language missing, every demoScript step needs caption.<that language>. If English is missing, ask the owner before anything else: \"Should I add an English version of the app?\" — it means changing and redeploying their app, so it is their call. Yes → add it, deploy it, list both. No → write English captions. If only Korean is missing, do not ask — just write Korean captions."
+        },
+        "translation": {
+          "type": "object",
+          "description": "Required. The same title, description and builderNote in the OTHER language (en if language is ko, ko if it is en). Write it the way a native speaker would, not word for word. The description follows the same 2-3 line rule (52 columns per line at most).",
+          "properties": {
+            "title": {
+              "type": "string",
+              "description": "Product name as a reader of that language should see it (max 80 characters)"
+            },
+            "description": {
+              "type": "string",
+              "description": "2-3 lines separated by newlines"
+            },
+            "builderNote": {
+              "type": "string",
+              "description": "(optional) The one-liner in that language"
+            }
+          },
+          "required": [
+            "title",
+            "description"
           ]
         },
         "demoScript": {
@@ -373,6 +470,18 @@ export const MCP_TOOLS: McpTool[] = [
                   "hold": {
                     "type": "number",
                     "description": "How many seconds to hold on this step's result (0.5-4). Only for beats that need a slow look"
+                  },
+                  "caption": {
+                    "type": "object",
+                    "properties": {
+                      "en": {
+                        "type": "string"
+                      },
+                      "ko": {
+                        "type": "string"
+                      }
+                    },
+                    "description": "Required for every language in ko/en that appLanguages does NOT list (a navigate step needs none): one short caption for this scene in that language (max 90 characters), drawn from the owner's interview answers — e.g. { \"en\": \"Every room, live — updated every minute.\" }. The player lays it over the video until the next caption; it is never burned into the film."
                   }
                 },
                 "required": [
@@ -506,7 +615,10 @@ export const MCP_TOOLS: McpTool[] = [
       "required": [
         "title",
         "targetDevice",
-        "ownerInterview"
+        "ownerInterview",
+        "language",
+        "appLanguages",
+        "translation"
       ]
     }
   },
@@ -577,6 +689,18 @@ export const MCP_TOOLS: McpTool[] = [
                   "hold": {
                     "type": "number",
                     "description": "How many seconds to hold on this step's result (0.5-4). Only for beats that need a slow look"
+                  },
+                  "caption": {
+                    "type": "object",
+                    "properties": {
+                      "en": {
+                        "type": "string"
+                      },
+                      "ko": {
+                        "type": "string"
+                      }
+                    },
+                    "description": "Required for every language in ko/en that appLanguages does NOT list (a navigate step needs none): one short caption for this scene in that language (max 90 characters), drawn from the owner's interview answers — e.g. { \"en\": \"Every room, live — updated every minute.\" }. The player lays it over the video until the next caption; it is never burned into the film."
                   }
                 },
                 "required": [
@@ -621,7 +745,7 @@ export const MCP_TOOLS: McpTool[] = [
   },
   {
     "name": "update_nookframe_draft",
-    "description": "Edit a Nookframe draft's metadata (title/description/builderNote/demoHighlights/demoScript/tags/contentType/targetDevice/demoAccess/ownerInterview). Only the fields you send change. This tool cannot swap the URL or the files — call publish_to_nookframe with draftId set to this draft's id (publishing the same URL again also works). Published projects cannot be edited.",
+    "description": "Edit a Nookframe draft's metadata (title/description/builderNote/demoHighlights/demoScript/tags/contentType/targetDevice/demoAccess/ownerInterview/language/appLanguages/translation). Only the fields you send change — but the language rules are judged on the result: changing language needs a translation in the new other language, and a demoScript must keep its captions. This tool cannot swap the URL or the files — call publish_to_nookframe with draftId set to this draft's id (publishing the same URL again also works). Published projects cannot be edited.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -757,6 +881,47 @@ export const MCP_TOOLS: McpTool[] = [
             "proudMoment",
             "howIUse",
             "mustSee"
+          ]
+        },
+        "language": {
+          "type": "string",
+          "enum": [
+            "ko",
+            "en"
+          ],
+          "description": "Required. The owner's language — the one title, description and builderNote are written in (the language the owner writes to you in). Every work also carries the other language in translation, and each visitor sees their own language's version."
+        },
+        "appLanguages": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "ko",
+              "en"
+            ]
+          },
+          "description": "Required. Which of ko/en the app's OWN screens can show — check the code (a language switch, i18n files, hard-coded text): [\"ko\"] for a Korean-only app, [\"ko\",\"en\"] if it has both, [] if neither. The robot films once per language listed; for each language missing, every demoScript step needs caption.<that language>. If English is missing, ask the owner before anything else: \"Should I add an English version of the app?\" — it means changing and redeploying their app, so it is their call. Yes → add it, deploy it, list both. No → write English captions. If only Korean is missing, do not ask — just write Korean captions."
+        },
+        "translation": {
+          "type": "object",
+          "description": "Required. The same title, description and builderNote in the OTHER language (en if language is ko, ko if it is en). Write it the way a native speaker would, not word for word. The description follows the same 2-3 line rule (52 columns per line at most).",
+          "properties": {
+            "title": {
+              "type": "string",
+              "description": "Product name as a reader of that language should see it (max 80 characters)"
+            },
+            "description": {
+              "type": "string",
+              "description": "2-3 lines separated by newlines"
+            },
+            "builderNote": {
+              "type": "string",
+              "description": "(optional) The one-liner in that language"
+            }
+          },
+          "required": [
+            "title",
+            "description"
           ]
         }
       },

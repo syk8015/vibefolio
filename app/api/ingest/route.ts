@@ -8,9 +8,10 @@ import {
   ingestAuth, publicUrlGate, strOrNull, buildAccepted, descriptionTooLong, DESCRIPTION_MAX,
   descriptionShapeIssue, descriptionShapeMessage,
   missingOptionalColumn, OPTIONAL_COLUMN_MIGRATION, buildScriptReview, pickApiT,
-  ownerInterviewRejection,
+  ownerInterviewRejection, workLanguageRejection,
 } from "./shared";
 import { normalizeOwnerInterview } from "@/lib/ownerInterview";
+import { judgeWorkLanguages, otherLocale } from "@/lib/workLanguages";
 import { probeSelectors, selectorsOf, composeProbeUrl, type SelectorCheck } from "@/lib/demoScriptReview";
 import { normalizeTags, normalizeContentType, normalizeTargetDevice } from "@/lib/projectTaxonomy";
 import {
@@ -61,6 +62,10 @@ interface IngestPayload {
   demoAccess?: unknown;
   // 주인 인터뷰(2026-09-29, 필수) — { proudMoment, howIUse, mustSee, hide? }. lib/ownerInterview.ts.
   ownerInterview?: unknown;
+  // 작품 두 언어(2026-09-29, 필수) — 기본 언어·앱 화면 언어·다른 언어 판 글. lib/workLanguages.ts.
+  language?: unknown;
+  appLanguages?: unknown;
+  translation?: unknown;
   uploads?: unknown;
   // 파일 하나짜리 작품의 HTML 전문(2026-09-17) — 셸 없는 채팅창 AI가 파일 대신 넘기는 길.
   htmlBody?: unknown;
@@ -365,6 +370,26 @@ export async function POST(req: NextRequest) {
       return apiError({ status: 400, message: t.api.targetDeviceRequired, code: "TARGET_DEVICE_REQUIRED" });
     }
 
+    // 작품 두 언어 게이트(2026-09-29 사용자 확정). 영미권이 주 대상인데 올라오는 앱은 대부분
+    // 한국어 화면뿐이라, 모든 작품이 두 언어 글을 갖고 앱이 못 보여주는 말은 장면 자막으로 채운다.
+    // 대상 화면처럼 "어떻게 보여줄까"의 질문이라 영상 동봉도 글은 면제가 아니다(자막만 면제 —
+    // 직접 만든 영상엔 장면 시각이 없다). 인터뷰 앞인 이유: AI 혼자 고칠 수 있는 결함이다.
+    const langCheck = judgeWorkLanguages({
+      language: payload?.language,
+      appLanguages: payload?.appLanguages,
+      translation: payload?.translation,
+      script: demoScript,
+      hasOwnVideo,
+    });
+    if (langCheck.issue) return workLanguageRejection(langCheck.issue, t);
+    const languages = langCheck.value;
+    const languageCols = {
+      primary_locale: languages.language,
+      app_locales: languages.appLanguages,
+      translations: { [otherLocale(languages.language)]: languages.translation },
+    };
+    let languagesStored = true; // 컬럼 부재 디그레이드 시 false로 — 에코가 진실을 말하게
+
     // 주인 인터뷰 게이트(2026-09-29 사용자 확정: "인터뷰는 필수로 하자"). 데모는 진짜 앱과
     // 같지 않고, 어디가 중요한지는 만든 사람만 안다 — 그래서 올리는 AI가 초안을 쓰기 전에
     // 주인에게 묻고 그 말 그대로 보내게 한다(docs/owner-interview-real-record.md §2). 영상
@@ -479,7 +504,7 @@ export async function POST(req: NextRequest) {
         // "보낸 값이 저장된다"고 답한다 — 그 상황이면 발행 응답이 진실을 말한다.
         accepted: buildAccepted(payload as unknown as Record<string, unknown>, {
           title, description, comment, demoHint, tags, demoScript,
-          contentTypeId, demoAccess, entryUrl: demoUrl, targetDevice, ownerInterview,
+          contentTypeId, demoAccess, entryUrl: demoUrl, targetDevice, ownerInterview, languages,
         }, normalizeTags, review),
       });
     }
@@ -502,6 +527,7 @@ export async function POST(req: NextRequest) {
         content_type: contentTypeId,
         target_device: targetDevice,
         owner_interview: ownerInterview,
+        ...languageCols,
       };
       // 대본·로그인 답은 **영상이 아직 안 온 2단계 발행에서는 덮지 않는다**(2026-09-16).
       // 게이트가 `uploads:["video"]` 선언만 보고 면제해 주므로 이런 요청엔 대본이 없는
@@ -531,6 +557,7 @@ export async function POST(req: NextRequest) {
         if (col === "demo_script") scriptStored = false;
         if (col === "target_device") deviceStored = false;
         if (col === "owner_interview") interviewStored = false;
+        if (col in languageCols) languagesStored = false;
         ({ data: updRows, error: updErr } = await updateDraftRow());
       }
       if (updErr) {
@@ -579,6 +606,7 @@ export async function POST(req: NextRequest) {
         content_type: contentTypeId,
         target_device: targetDevice,
         owner_interview: ownerInterview,
+        ...languageCols,
         type: videoBuf ? "video" : "image",
         year: new Date().getFullYear().toString(),
         demo_url: demoUrl,
@@ -594,6 +622,7 @@ export async function POST(req: NextRequest) {
         if (col === "demo_script") scriptStored = false;
         if (col === "target_device") deviceStored = false;
         if (col === "owner_interview") interviewStored = false;
+        if (col in languageCols) languagesStored = false;
         ({ data: created, error: insErr } = await admin
           .from("projects").insert(row).select("id").single());
       }
@@ -715,6 +744,7 @@ export async function POST(req: NextRequest) {
         contentTypeId, demoAccess, entryUrl: demoUrl,
         targetDevice: deviceStored ? targetDevice : null,
         ownerInterview: interviewStored ? ownerInterview : null,
+        languages: languagesStored ? languages : null,
       }, normalizeTags, scriptReview),
       ...(upserted ? { upserted: true } : {}),
       // 안전상 빼고 저장한 파일(.env·.git/ 등). accepted가 "무엇이 들어갔나"라면

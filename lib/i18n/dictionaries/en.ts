@@ -884,6 +884,26 @@ export const en: Dictionary = {
       `ownerInterview is missing an answer for: ${keys.join(", ")}. Ask the owner and send their own words — placeholders like "none" or "N/A" count as missing.`,
     ownerInterviewTooLong: (key: string, max: number) =>
       `ownerInterview.${key} is too long — keep each answer under ${max} characters and quote the owner instead of adding your own explanation.`,
+    // 작품 두 언어(2026-09-29) — 받는 쪽은 AI라 문장이 곧 지시문이다. lib/workLanguages.ts.
+    languageRequired:
+      'language is required — the owner\'s language, the one title/description/builderNote are written in: "ko" (Korean) or "en" (English). Every work on Nookframe also carries the other language in translation, and each visitor sees their own language\'s version.',
+    languageInvalid: (got: string) =>
+      `language must be "ko" or "en" — got ${got}. Use the language the owner writes to you in; the other one goes in translation.`,
+    appLanguagesRequired:
+      'appLanguages is required — which of "ko" and "en" the app\'s OWN screens can show (check the code: a language switch, i18n files, hard-coded text). e.g. ["ko"] for a Korean-only app, ["ko","en"] if it has both, [] if neither. The robot films once per language listed; for each language missing, every demoScript step needs a caption in that language. If English is missing, ask the owner first: "Should I add an English version of the app?" — that means changing and redeploying their app, so it is their call. Yes → add it, deploy it, and list both. No → write English captions. If only Korean is missing, do not ask — just write Korean captions.',
+    translationIssue: (kind: "missing" | "title-missing" | "title-too-long" | "description-too-long", locale: "ko" | "en", max: number) => {
+      const name = locale === "ko" ? "Korean" : "English";
+      if (kind === "title-missing") return `translation.title is required — the product name as a ${name} reader should see it.`;
+      if (kind === "title-too-long") return `translation.title is too long — keep it under ${max} characters.`;
+      if (kind === "description-too-long") return "translation.description is too long — keep it under 200 characters, in 2-3 short lines.";
+      return `translation is required — the same title, description and builderNote in ${name} ("${locale}"): { "translation": { "title": "…", "description": "line 1\\nline 2", "builderNote": "…" } }. Write it the way a ${name} speaker would, not word for word; the description follows the same 2-3 line rule (52 columns per line at most).`;
+    },
+    captionsRequired: (locale: "ko" | "en", steps: number[]) => {
+      const name = locale === "ko" ? "Korean" : "English";
+      return `demoScript is missing ${name} captions (caption.${locale}) on step ${steps.join(", ")}. The app's screens don't show ${name}, so a ${name} viewer gets one short caption per scene: "caption": { "${locale}": "what this scene shows, in plain words" } (max 90 characters; a navigate step needs none). Draw them from the owner's interview answers — each caption stays on screen until the next one.`;
+    },
+    captionTooLong: (locale: "ko" | "en", step: number, max: number) =>
+      `step ${step}'s caption.${locale} is too long — keep each caption under ${max} characters (it sits over the video in two lines at most).`,
     rerecordPendingNext: "New script received. It starts nothing yet — the owner reviews it in their dashboard and presses re-record.",
     rerecordNoPendingScript: "No new script is waiting. Hand the re-record prompt to your AI first — press this once it has submitted a new script.",
     rerecordAlreadyUsed: "This project already used its one self-serve re-record. Further takes need admin approval.",
