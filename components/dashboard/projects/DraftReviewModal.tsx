@@ -13,6 +13,8 @@ import { useMediaQuery } from "@/lib/useMediaQuery";
 import { AiToolLogo } from "./helpers";
 import { DemoScriptPanel } from "./DemoScriptPanel";
 import { OwnerInterviewPanel } from "./OwnerInterviewPanel";
+import { LanguagePanel } from "./LanguagePanel";
+import { normalizeLocale, otherLocale, readTranslations } from "@/lib/workLanguages";
 import { PreviewDevice, PHONE_VIEW, DESKTOP_VIEW } from "./PreviewDevice";
 import { type DBProject } from "./types";
 import { readOwnerInterview, type OwnerInterview } from "@/lib/ownerInterview";
@@ -33,7 +35,7 @@ import { useT } from "@/lib/i18n/client";
 // 살짝 고치기: 명함 렌더의 제목·소개글·한마디는 글자를 누르면 그 자리에서 고쳐진다
 // (서버 게이트와 같은 규칙으로 막는다 — lib/descriptionShape). 대본은 빼기·순서만.
 // 그 이상은 [AI에게 고쳐달라기] — 사람은 불만 한 줄, 고치는 건 AI(재촬영 루프와 동일).
-export type DraftPatch = Partial<Pick<DBProject, "title" | "description" | "comment" | "demo_script">>;
+export type DraftPatch = Partial<Pick<DBProject, "title" | "description" | "comment" | "demo_script" | "translations">>;
 
 // 목적격 조사 — 제목 끝 글자의 받침으로 을/를을 고른다(한글이 아니면 병기).
 function objectParticle(word: string): string {
@@ -115,8 +117,20 @@ export function DraftReviewModal({ draft, privateReady = true, onClose, onPublis
     return () => { cancelled = true; };
   }, [needsEmbedCheck, externalSrc]);
 
+  // ── 두 언어(2026-09-29) — 명함 위 탭으로 기본 언어 판·다른 언어 판을 번갈아 보고 고친다 ──
+  // 다른 언어 판은 공개 칸 translations[다른 언어]. 판이 없는 옛 초안은 탭을 그리지 않는다.
+  const primaryLoc = normalizeLocale(draft.primary_locale);
+  const otherLoc = primaryLoc ? otherLocale(primaryLoc) : null;
+  const otherTr = otherLoc ? readTranslations(draft.translations)[otherLoc] : undefined;
+  const [cardLang, setCardLang] = useState<"primary" | "other">("primary");
+  const onOther = cardLang === "other" && !!otherTr;
+
   // ── 인라인 편집 ─────────────────────────────────────────────────────────
   type Field = "title" | "description" | "comment";
+  // 지금 탭의 글 — 다른 언어 판의 한마디는 builderNote라는 이름으로 들어 있다.
+  const fieldValue = (f: Field): string => onOther && otherTr
+    ? (f === "title" ? otherTr.title : f === "description" ? otherTr.description : otherTr.builderNote)
+    : (f === "title" ? draft.title : f === "description" ? draft.description : draft.comment);
   const [editing, setEditing] = useState<Field | null>(null);
   const [value, setValue] = useState("");
   const [saving, setSaving] = useState(false);
@@ -130,7 +144,7 @@ export function DraftReviewModal({ draft, privateReady = true, onClose, onPublis
   const begin = (f: Field) => {
     if (saving) return;
     setSaveError(null);
-    setValue(f === "title" ? draft.title : f === "description" ? draft.description : draft.comment);
+    setValue(fieldValue(f));
     setEditing(f);
   };
   const cancel = () => { setEditing(null); setSaveError(null); };
@@ -157,11 +171,17 @@ export function DraftReviewModal({ draft, privateReady = true, onClose, onPublis
     const trimmed = value.trim();
     const problem = validate(f, trimmed);
     if (problem) { setSaveError(problem); return false; }
-    const current = f === "title" ? draft.title : f === "description" ? draft.description : draft.comment;
+    const current = fieldValue(f);
     if (trimmed === current) { cancel(); return true; }
     setSaving(true);
     try {
-      await onSave({ [f]: trimmed } as DraftPatch);
+      if (onOther && otherTr && otherLoc) {
+        const key = f === "comment" ? "builderNote" : f;
+        const base = draft.translations && typeof draft.translations === "object" ? draft.translations : {};
+        await onSave({ translations: { ...base, [otherLoc]: { ...otherTr, [key]: trimmed } } });
+      } else {
+        await onSave({ [f]: trimmed } as DraftPatch);
+      }
       setEditing(null);
       return true;
     } catch {
@@ -533,6 +553,26 @@ export function DraftReviewModal({ draft, privateReady = true, onClose, onPublis
               <section aria-labelledby={`${uid}-card`}>
                 <SectionHead id={`${uid}-card`} title={t.projects.reviewCardLabel}
                   right={<span style={smallText}>{t.projects.reviewEditHint}</span>} />
+                {/* 두 언어 탭(2026-09-29) — 보는 사람 언어마다 이 명함이 이렇게 뜬다 */}
+                {primaryLoc && otherLoc && (
+                  otherTr ? (
+                    <div className="vf-seg-track w-fit" role="tablist" aria-label={t.projects.reviewLangTitle} style={{ marginBottom: 10 }}>
+                      {(["primary", "other"] as const).map((k) => {
+                        const loc = k === "primary" ? primaryLoc : otherLoc;
+                        const active = cardLang === k;
+                        return (
+                          <button key={k} type="button" role="tab" aria-selected={active} data-active={active}
+                            onClick={() => { if (editing) cancel(); setCardLang(k); }}
+                            className="vf-selectable px-3.5 py-1.5 rounded-lg text-sm">
+                            {t.projects.langNames[loc]}{k === "primary" ? ` · ${t.projects.reviewLangMainTag}` : ""}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p style={{ ...smallText, margin: "0 0 10px", color: "#b34747" }}>{t.projects.reviewLangMissingTr(t.projects.langNames[otherLoc])}</p>
+                  )
+                )}
                 <div className="rounded-2xl" style={{ background: cardBg, padding: "20px 24px 18px" }}>
                   {editing === "title" ? (
                     <input ref={inputRef as React.RefObject<HTMLInputElement>} value={value} onChange={e => setValue(e.target.value)}
@@ -541,7 +581,7 @@ export function DraftReviewModal({ draft, privateReady = true, onClose, onPublis
                   ) : (
                     <h3 className="vf-serif-display" onClick={() => begin("title")} title={t.projects.reviewEditHint}
                       style={{ ...editableStyle, fontSize: "1.45rem", fontWeight: 500, margin: 0, color: "#fff", textShadow: "0 2px 16px rgba(0,0,0,0.55)", padding: "2px 4px", marginLeft: -4 }}>
-                      {title}
+                      {fieldValue("title") || t.projects.untitled}
                     </h3>
                   )}
 
@@ -557,13 +597,13 @@ export function DraftReviewModal({ draft, privateReady = true, onClose, onPublis
                   ) : (
                     <p onClick={() => begin("description")} title={t.projects.reviewEditHint}
                       style={{
-                        ...editableStyle, fontSize: 15, color: draft.description ? "rgba(255,255,255,0.84)" : "rgba(255,255,255,0.4)",
+                        ...editableStyle, fontSize: 15, color: fieldValue("description") ? "rgba(255,255,255,0.84)" : "rgba(255,255,255,0.4)",
                         marginTop: 8, lineHeight: 1.55, maxWidth: 460, fontFamily: "var(--font-nunito)",
                         textShadow: "0 1px 8px rgba(0,0,0,0.5)", whiteSpace: "pre-line",
                         display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 3, overflow: "hidden",
                         padding: "2px 4px", marginLeft: -4,
                       }}>
-                      {draft.description || t.projects.reviewDescEmpty}
+                      {fieldValue("description") || t.projects.reviewDescEmpty}
                     </p>
                   )}
 
@@ -576,10 +616,10 @@ export function DraftReviewModal({ draft, privateReady = true, onClose, onPublis
                       className="inline-block"
                       style={{
                         ...editableStyle, marginTop: 12, fontSize: 14, fontFamily: "var(--font-nunito)",
-                        background: "rgba(255,255,255,0.12)", color: draft.comment ? "#fff" : "rgba(255,255,255,0.45)",
+                        background: "rgba(255,255,255,0.12)", color: fieldValue("comment") ? "#fff" : "rgba(255,255,255,0.45)",
                         padding: "7px 14px", borderRadius: 14, maxWidth: 460,
                       }}>
-                      {draft.comment || t.projects.reviewNotePlaceholder}
+                      {fieldValue("comment") || t.projects.reviewNotePlaceholder}
                     </div>
                   )}
 
@@ -614,6 +654,17 @@ export function DraftReviewModal({ draft, privateReady = true, onClose, onPublis
                   )}
                 </div>
               </section>
+
+              {/* ①-2 언어 — 보는 사람 언어마다 무엇을 보나 + 자막(2026-09-29 작품 두 언어) */}
+              <LanguagePanel
+                primary={draft.primary_locale}
+                app={draft.app_locales}
+                script={privateReady ? draft.demo_script : null}
+                scriptLoading={!privateReady}
+                hasOwnVideo={hasOwnVideo}
+                headId={`${uid}-lang`}
+                onSaveScript={async (next) => { await onSave({ demo_script: next }); }}
+              />
 
               {/* ② 촬영 계획 — 어디서 시작해, 이 순서로 찍는다 */}
               <section aria-labelledby={`${uid}-shoot`}>

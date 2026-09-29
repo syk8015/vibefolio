@@ -299,3 +299,49 @@ export function filmPlan(
   }
   return { main: films[0] ?? "en", extra: null, captions: captionLocalesNeeded(app) };
 }
+
+// ── 보는 사람 언어로 고르기(2026-09-29, 3단계) ──────────────────────────────
+// 명함·작품 페이지·초안 검토가 같은 규칙을 쓴다:
+//  - 글: 보는 사람 언어가 기본 언어와 다르고 그 언어 판이 있으면 그 판(한마디가 비었으면 원래 한마디).
+//  - 영상: 그 언어로 따로 찍은 영상이 있으면 그것(자막 없음 — 화면이 이미 그 말이다).
+//    없으면 기본 영상 + 그 언어 자막(있으면).
+//  - 한 언어로만 올라간 작품은 그대로(09-29 결정 — 대신 보여줄 작품을 고르지 않는다).
+export type LocalizableWork = {
+  title: string;
+  description: string | null;
+  comment?: string | null;
+  primary_locale?: unknown;
+  translations?: unknown;
+  demo_video_url?: string | null;
+  demo_locale_videos?: unknown;
+  demo_captions?: unknown;
+};
+
+export function localizeWork(w: LocalizableWork, viewer: SiteLocale): {
+  title: string;
+  description: string;
+  comment: string;
+  demoVideoUrl: string | null;
+  captions: CaptionCue[] | null;
+  translated: boolean;
+} {
+  const primary = normalizeLocale(w.primary_locale);
+  const tr = primary && primary !== viewer ? readTranslations(w.translations)[viewer] : undefined;
+  const localeVideo = normalizeLocaleVideos(w.demo_locale_videos)?.[viewer];
+  const captions = localeVideo ? null : normalizeCaptionTrack(w.demo_captions)?.[viewer] ?? null;
+  return {
+    title: tr?.title ?? w.title,
+    description: tr?.description ?? w.description ?? "",
+    comment: (tr?.builderNote || w.comment) ?? "",
+    demoVideoUrl: localeVideo ?? w.demo_video_url ?? null,
+    captions,
+    translated: !!tr,
+  };
+}
+
+/** 재생 중 시각의 자막 한 줄(없으면 null). 끝 시각은 포함하지 않는다. */
+export function cueAt(captions: readonly CaptionCue[] | null | undefined, t: number): string | null {
+  if (!captions) return null;
+  for (const c of captions) if (t >= c.start && t < c.end) return c.text;
+  return null;
+}

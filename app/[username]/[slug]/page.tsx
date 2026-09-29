@@ -10,6 +10,7 @@ import Logo from "@/components/Logo";
 import ClampText from "@/components/ClampText";
 import { oneLine } from "@/lib/text";
 import JsonLd from "@/components/JsonLd";
+import { localizeWork } from "@/lib/workLanguages";
 
 // The public per-project watch page. Its whole job is to unfurl the demo mp4 as
 // og:video (Discord/Slack/Telegram/iMessage inline-play it) and hand the viewer a
@@ -29,6 +30,8 @@ const CAPTION = "No human recorded this — filmed straight from the live app";
 const COPY = {
   ko: {
     caption: "사람이 아니라 AI가 실제 앱을 직접 조작하며 찍은 영상",
+    // 작품 두 언어 — 앱 화면이 못 보여주는 말을 자막으로 얹었을 때 캡션 끝에 붙인다.
+    withCaptions: " · 한국어 자막",
     rendering: "시연 영상을 찍는 중…",
     showMore: "더 보기",
     showLess: "접기",
@@ -38,6 +41,7 @@ const COPY = {
   },
   en: {
     caption: CAPTION,
+    withCaptions: " · English captions",
     rendering: "Demo is rendering…",
     showMore: "Show more",
     showLess: "Show less",
@@ -120,8 +124,12 @@ export default async function WatchPage({ params }: Params) {
   const { username, slug } = await params;
   const [data, { locale, t }] = await Promise.all([load(username, slug), getT()]);
   if (!data) notFound();
-  const { profile, project } = data;
-  const c = COPY[locale === "en" ? "en" : "ko"];
+  const { profile } = data;
+  // 보는 사람 언어로 고른다(작품 두 언어) — 글·영상·자막. 메타데이터(검색·링크 미리보기)는 기본 언어 그대로.
+  const viewer = locale === "en" ? "en" : "ko";
+  const lw = localizeWork(data.project, viewer);
+  const project = { ...data.project, title: lw.title, description: lw.description, demo_video_url: lw.demoVideoUrl };
+  const c = COPY[viewer];
   const tryIt = watchTryHref(project.demo_url);
 
   const handle = `@${profile.username}`;
@@ -207,7 +215,7 @@ export default async function WatchPage({ params }: Params) {
             style={{ padding: 0, borderRadius: 18, aspectRatio: "16 / 9", background: "#0b0b0f" }}
           >
             {video ? (
-              <WatchPlayer src={video} poster={poster} />
+              <WatchPlayer src={video} poster={poster} captions={clip?.auto ? lw.captions : null} />
             ) : (
               <div className="relative w-full h-full flex items-center justify-center">
                 {poster && (
@@ -244,7 +252,7 @@ export default async function WatchPage({ params }: Params) {
             className="mt-4 text-center vf-mono"
             style={{ color: "var(--text-primary)", opacity: 0.6, fontSize: "0.8rem", letterSpacing: "0.01em" }}
           >
-            {c.caption}
+            {c.caption}{lw.captions?.length ? c.withCaptions : ""}
           </p>
         )}
 

@@ -1430,3 +1430,31 @@ body::before {
   .vf-scene-body { animation: none; }
   .vf-strip-cell[aria-selected="true"] .vf-strip-bar { animation: none; }
 }
+
+/* ── 영상 위 자막(2026-09-29 작품 두 언어, components/CaptionOverlay.tsx) ─────────────
+   영상 색과 상관없이 읽혀야 해서 테마 토큰이 아니라 고정 검정 띠 + 흰 글자(4.5:1 이상).
+   display는 여기서 정하지 않는다 — `hidden md:flex`가 PC에서만 켠다(폰은 재설계 때). */
+.vf-caption-overlay {
+  position: absolute;
+  left: 0;
+  right: 0;
+  justify-content: center;
+  padding: 0 8%;
+  pointer-events: none;
+  z-index: 2;
+}
+.vf-caption-overlay[data-placement="bottom"] { bottom: 56px; }
+.vf-caption-overlay[data-placement="top"] { top: 20px; }
+.vf-caption-line {
+  max-width: 720px;
+  padding: 7px 14px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.72);
+  color: #fff;
+  font-family: var(--font-nunito);
+  font-size: 15px;
+  line-height: 1.45;
+  text-align: center;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}

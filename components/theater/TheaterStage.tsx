@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { useT } from "@/lib/i18n/client";
 import Image from "next/image";
 import type { Project } from "@/lib/data";
+import type { CaptionCue } from "@/lib/workLanguages";
+import CaptionOverlay from "@/components/CaptionOverlay";
 import { detectVideoKind, getYouTubeEmbedUrl, getVimeoEmbedUrl } from "@/lib/video";
 import { toPreviewUrl } from "@/lib/previewOrigin";
 import type { MeishiProfile } from "./Meishi";
@@ -81,7 +83,8 @@ function LivePreview({ project, variant }: { project: Project; variant: "mobile"
     return <VideoBackground url={project.videoUrl!} kind={videoKind} poster={posterSrc} title={project.title} fit={videoFit} />;
   }
   if (project.demoVideoUrl) {
-    return <VideoBackground url={project.demoVideoUrl} kind="direct" poster={posterSrc} title={project.title} fit={videoFit} />;
+    // 자막(작품 두 언어)은 자동 촬영 영상에만 — 시각이 촬영 로봇이 적은 장면 시작이다.
+    return <VideoBackground url={project.demoVideoUrl} kind="direct" poster={posterSrc} title={project.title} fit={videoFit} captions={project.captions} />;
   }
   if (isEmbeddableUpload(project.demoUrl) && project.demoUrl) {
     return (
@@ -118,12 +121,14 @@ function VideoBackground({
   poster,
   title,
   fit,
+  captions,
 }: {
   url: string;
   kind: "youtube" | "vimeo" | "direct" | "unknown";
   poster: string;
   title: string;
   fit: "cover" | "contain";
+  captions?: CaptionCue[];
 }) {
   if (kind === "youtube") {
     const embed = getYouTubeEmbedUrl(url);
@@ -174,14 +179,14 @@ function VideoBackground({
       />
     );
   }
-  return <DirectVideo url={url} poster={poster} fit={fit} />;
+  return <DirectVideo url={url} poster={poster} fit={fit} captions={captions} />;
 }
 
 // React 19에서 `muted` JSX prop이 HTML 속성으로 안 렌더되는 케이스가 있음.
 // Chrome 자동재생 정책상 muted 속성이 없으면 음소거 안 된 영상으로 간주되어
 // autoplay 차단 → 포스터만 보이고 영상 멈춤. ref로 마운트 직후 강제로
 // .muted = true + .play() 호출해서 우회.
-function DirectVideo({ url, poster, fit }: { url: string; poster: string; fit: "cover" | "contain" }) {
+function DirectVideo({ url, poster, fit, captions }: { url: string; poster: string; fit: "cover" | "contain"; captions?: CaptionCue[] }) {
   const ref = useRef<HTMLVideoElement>(null);
   const src = useSrcWhenVisible(ref, url);
   useEffect(() => {
@@ -190,10 +195,10 @@ function DirectVideo({ url, poster, fit }: { url: string; poster: string; fit: "
     el.muted = true;
     el.play().catch(() => { /* 일부 브라우저는 사용자 인터랙션 전엔 거부 */ });
   }, [src]);
-  return (
-    // key={url} forces a remount when the active project changes — a plain
-    // <source src> swap does NOT reload an existing <video>, so without this
-    // the element keeps playing the first project's video.
+  // key={url} forces a remount when the active project changes — a plain
+  // <source src> swap does NOT reload an existing <video>, so without this
+  // the element keeps playing the first project's video.
+  const video = (
     <video
       key={url}
       ref={ref}
@@ -208,6 +213,14 @@ function DirectVideo({ url, poster, fit }: { url: string; poster: string; fit: "
       // <source> 대신 src prop — 나중에 붙는 주소로도 브라우저가 알아서 로드한다.
       src={src}
     />
+  );
+  // 자막이 없는 작품은 위 한 줄 그대로(옛 화면과 같다). 무대 아래쪽엔 제목·소개가 겹쳐 있어 위에 얹는다.
+  if (!captions?.length) return video;
+  return (
+    <>
+      {video}
+      <CaptionOverlay videoRef={ref} captions={captions} placement="top" mediaKey={url} />
+    </>
   );
 }
 

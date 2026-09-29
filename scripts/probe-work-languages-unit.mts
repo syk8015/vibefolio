@@ -5,8 +5,9 @@
 import {
   judgeWorkLanguages, normalizeLocale, normalizeAppLanguages, captionLocalesNeeded, filmLocales,
   captionIssue, readTranslations, CAPTION_MAX,
-  buildCaptionTrack, normalizeCaptionTrack, normalizeLocaleVideos, filmPlan,
+  buildCaptionTrack, normalizeCaptionTrack, normalizeLocaleVideos, filmPlan, localizeWork, cueAt,
 } from "../lib/workLanguages";
+import { posterFromDemo } from "../lib/portfolio";
 import { coalesceScrolls } from "../local-runner/script";
 import { normalizeDemoScript } from "../lib/demoScript";
 import { PUBLIC_PROJECT_COLUMNS, PRIVATE_PROJECT_COLUMNS } from "../lib/projectColumns";
@@ -141,6 +142,26 @@ ok("translation 제목 없음 → title-missing", (() => {
   ]);
   ok("스크롤 합치기: 장면 표시가 있는 스크롤은 새 묶음", merged.length === 4 && merged[1].kind === "scroll" && merged[1].step === 2 && (merged[1] as { dy: number }).dy === 210, JSON.stringify(merged));
   ok("스크롤 합치기: 장면 표시가 있으면 짧은 스크롤도 남긴다", merged[3]?.step === 3);
+}
+
+// ── 3단계: 보는 사람 언어로 고르기 ─────────────────────────────────────────
+{
+  const w = {
+    title: "온습도계", description: "방마다\n1분마다", comment: "매일 봐요", primary_locale: "ko",
+    translations: { en: { title: "Home Climate Monitor", description: "Every room\nEvery minute", builderNote: "" } },
+    demo_video_url: "https://cdn/x/demo-1.mp4",
+    demo_captions: { en: [{ start: 0, end: 3, text: "Every room, live." }] },
+  };
+  const en = localizeWork(w, "en"), ko = localizeWork(w, "ko");
+  ok("영어 방문자: 영어 판 글 + 기본 영상 + 영어 자막", en.title === "Home Climate Monitor" && en.demoVideoUrl === w.demo_video_url && en.captions?.[0].text === "Every room, live." && en.translated);
+  ok("영어 판 한마디가 비면 원래 한마디", en.comment === "매일 봐요");
+  ok("한국어 방문자: 기본 글, 자막 없음", ko.title === "온습도계" && ko.captions === null && !ko.translated);
+  const both = localizeWork({ ...w, demo_locale_videos: { en: "https://cdn/x/demo-en-2.mp4" } }, "en");
+  ok("영어로 따로 찍은 영상이 있으면 그 영상, 자막 없음", both.demoVideoUrl === "https://cdn/x/demo-en-2.mp4" && both.captions === null);
+  const legacy = localizeWork({ title: "Old", description: null, comment: null, demo_video_url: null }, "en");
+  ok("한 언어뿐인 옛 작품은 그대로", legacy.title === "Old" && legacy.description === "" && !legacy.translated);
+  ok("자막 시각: 끝 시각은 포함하지 않음", cueAt(en.captions, 2.9) === "Every room, live." && cueAt(en.captions, 3) === null);
+  ok("포스터 규약: 다른 언어 판도", posterFromDemo("https://cdn/x/demo-en-2.mp4") === "https://cdn/x/poster-en-2.jpg" && posterFromDemo("https://cdn/x/demo-2.mp4") === "https://cdn/x/poster-2.jpg");
 }
 
 // 칸 공개 여부 — 명함·작품 페이지가 익명 키로 읽어야 보는 사람 언어 판을 고른다.

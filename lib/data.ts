@@ -1,3 +1,4 @@
+import type { CaptionCue } from "@/lib/workLanguages";
 // Shared portfolio project shape. The `profile`/`projects` fixtures that once lived
 // here powered the /demo mockup page (fake "Alex Vibe" data). Both the page and the
 // fixtures were removed in the 2026-07-21 prelaunch cleanup; real project data now
@@ -23,4 +24,6 @@ export interface Project {
   // 영상과 색이 안 맞아 로딩 중 화면이 튀고, Supabase 경유라 3배 느리다
   // (실측 144KB/0.61s vs 40KB/0.20s). 없으면 thumbnail로 폴백.
   poster?: string;
+  // 영상 위에 얹을 자막(2026-09-29 작품 두 언어) — 보는 사람 언어로 이미 고른 것. 자동 촬영 영상에만.
+  captions?: CaptionCue[];
 }

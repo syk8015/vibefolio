@@ -22,6 +22,7 @@ import JsonLd from "@/components/JsonLd";
 import LanguageToggle from "@/components/LanguageToggle";
 import MobileNavMenu from "@/components/MobileNavMenu";
 import { getT } from "@/lib/i18n/server";
+import { localizeWork } from "@/lib/workLanguages";
 
 // Public portfolio data is identical for every visitor, so we cache the two
 // Supabase reads instead of hitting the DB on every pageview. A 60s window
@@ -121,6 +122,11 @@ interface DBProject {
   video_url: string | null;
   demo_video_url: string | null;
   demo_generated_at: string | null;
+  // 작품 두 언어(2026-09-29) — 보는 사람 언어 판을 고르는 공개 칸(lib/workLanguages.ts localizeWork).
+  primary_locale?: string | null;
+  translations?: unknown;
+  demo_locale_videos?: unknown;
+  demo_captions?: unknown;
 }
 
 export default async function UserPortfolioPage({
@@ -157,31 +163,33 @@ export default async function UserPortfolioPage({
     authPromise,
   ]);
 
-  const projects: Project[] = dbProjects.map((p, i) => ({
+  // 보는 사람 언어로 고른다(작품 두 언어) — 글·영상·자막. 한 언어로만 올라간 작품은 그대로.
+  const projects: Project[] = dbProjects.map((p) => ({ p, v: localizeWork(p, locale) })).map(({ p, v }, i) => ({
     id: i + 1,
     watchId: p.id,
-    title: p.title,
-    description: p.description ?? "",
+    title: v.title,
+    description: v.description,
     type: p.type,
     thumbnail: p.thumbnail || placeholderThumbnail(p.id),
     year: p.year ?? new Date().getFullYear().toString(),
     tags: p.tags ?? [],
     demoUrl: p.demo_url ?? undefined,
-    comment: p.comment ?? undefined,
+    comment: v.comment || undefined,
     contentType: p.content_type ?? null,
     isFeatured: p.is_featured ?? false,
     videoUrl: p.video_url ?? undefined,
     // Re-records overwrite the same storage path (upsert), so the URL is
     // stable and browsers serve a stale cached copy. Version the URL by the
     // generation time so every re-record is a fresh fetch.
-    demoVideoUrl: p.demo_video_url
+    demoVideoUrl: v.demoVideoUrl
       ? p.demo_generated_at
-        ? `${p.demo_video_url}?v=${encodeURIComponent(p.demo_generated_at)}`
-        : p.demo_video_url
+        ? `${v.demoVideoUrl}?v=${encodeURIComponent(p.demo_generated_at)}`
+        : v.demoVideoUrl
       : undefined,
     // 영상의 첫 프레임 포스터(R2, demo-{ts}.mp4 → poster-{ts}.jpg 규약).
     // 컬럼이 아니라 유도값이라 파일이 없을 수 있다 — 소비 측에서 thumbnail 폴백.
-    poster: posterFromDemo(p.demo_video_url, p.demo_generated_at),
+    poster: posterFromDemo(v.demoVideoUrl, p.demo_generated_at),
+    ...(v.captions ? { captions: v.captions } : {}),
   }));
 
   // Theater starts on the explicitly-featured project, falling back to

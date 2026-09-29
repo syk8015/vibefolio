@@ -27,6 +27,12 @@ export type WatchProject = {
   demo_generated_at: string | null;
   thumbnail: string | null;
   demo_build_status: string | null;
+  // 작품 두 언어(2026-09-29) — 보는 사람 언어 판(lib/workLanguages.ts localizeWork).
+  comment?: string | null;
+  primary_locale?: string | null;
+  translations?: unknown;
+  demo_locale_videos?: unknown;
+  demo_captions?: unknown;
 };
 
 // The poster JPG is uploaded next to the demo mp4 under a deterministic key
@@ -40,9 +46,10 @@ export function posterFromDemo(
   generatedAt?: string | null,
 ): string | undefined {
   if (!demoVideoUrl) return undefined;
-  const m = demoVideoUrl.match(/^(.*)\/demo(-\d+)?\.mp4/);
+  // 다른 언어 판(demo-en-{ts}.mp4 → poster-en-{ts}.jpg, 2026-09-29)도 같은 규약.
+  const m = demoVideoUrl.match(/^(.*)\/demo(-(?:en|ko))?(-\d+)?\.mp4/);
   if (!m) return undefined;
-  const url = `${m[1]}/poster${m[2] ?? ""}.jpg`;
+  const url = `${m[1]}/poster${m[2] ?? ""}${m[3] ?? ""}.jpg`;
   return generatedAt ? `${url}?v=${encodeURIComponent(generatedAt)}` : url;
 }
 
@@ -106,7 +113,7 @@ export const getProjectById = unstable_cache(
     const { data, error } = await supabase
       .from("projects")
       .select(
-        "id, title, description, content_type, demo_url, video_url, demo_video_url, demo_generated_at, thumbnail, demo_build_status",
+        "id, title, description, comment, content_type, demo_url, video_url, demo_video_url, demo_generated_at, thumbnail, demo_build_status, primary_locale, translations, demo_locale_videos, demo_captions",
       )
       .eq("user_id", userId)
       .eq("id", projectId)
