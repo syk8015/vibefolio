@@ -8,6 +8,7 @@ import { readdirSync } from "node:fs";
 const PROBES = [
   "scripts/probe-script-review-unit.mts",   // lib/demoScriptReview 대본 점검표
   "scripts/probe-embeddable-unit.mts",      // lib/embeddable 임베드 헤더 판정
+  "scripts/probe-ssrf-unit.mts",            // lib/ssrf 내부 주소 차단 — 숫자·IPv6 표기, localhost, 프로토콜
   "scripts/probe-prompt-secrets-unit.mts",  // 프롬프트 3종에 토큰이 안 실리는지(1회용 코드만)
   "scripts/probe-schema-drift.mts",         // 생성물(cli/src/schema.js·lib/mcpTools.ts)이 원본과 어긋났는지
   "scripts/probe-oauth-unit.mts",           // 원격 MCP OAuth — CIMD 두 항목·client_id 규칙·PKCE
