@@ -59,7 +59,11 @@ outbox 이름: `<타입>-<주제슬러그>-<잡id뒤4>.md`가 보고서, 나머�
 
 ## 되돌리기
 
+옛 사본 `~/Desktop/cluadehelp/claude-dispatch/`는 2026-09-29에 지워졌다(cluadehelp 커밋 `0b5755e`). 먼저 되살린 뒤 plist를 돌린다.
+
 ```bash
+git -C ~/Desktop/cluadehelp checkout 0b5755e^ -- claude-dispatch
+(cd ~/Desktop/cluadehelp/claude-dispatch && npm install)
 launchctl bootout gui/$(id -u)/com.nookframe.dispatch
 mv ~/Library/LaunchAgents/com.claudehelp.dispatch.plist.bak \
    ~/Library/LaunchAgents/com.claudehelp.dispatch.plist
