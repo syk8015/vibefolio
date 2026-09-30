@@ -4,6 +4,7 @@ import { apiError } from "@/lib/apiError";
 import { authorizeCron } from "@/lib/cronAuth";
 import { runHandoffReminders } from "@/lib/handoffReminders";
 import { runSitePatrol, type PatrolResult } from "@/lib/sitePatrol";
+import { runLinkPatrol, type LinkPatrolResult } from "@/lib/linkPatrol";
 import { logger, hasErrorReporter } from "@/lib/logger";
 import { trackServerEvent } from "@/lib/analytics";
 import { AnalyticsEvent } from "@/lib/analytics-events";
@@ -388,6 +389,20 @@ export async function GET(req: NextRequest) {
     logger.error("watchdog: site patrol failed", { error: err });
   }
 
+  // ── 4d. 공개 작품 링크 순찰(lib/linkPatrol.ts) — 틱마다 몇 개씩, 작품마다 하루 한 번.
+  // 딴 곳으로 넘김·3일째 죽음·구글 위험 목록이면 명함이 [체험하기]를 숨긴다. 새로 위험이 된
+  // 작품만 관리자에게 알린다(넘김·죽음은 주인 대시보드에 뜬다). 터져도 점검은 계속한다. ───────
+  let links: LinkPatrolResult | null = null;
+  try {
+    links = await runLinkPatrol(admin, { now });
+    if (links.newlyUnsafe.length > 0) {
+      alertLog("link-unsafe", "watchdog: public work link on Web Risk list", { projects: links.newlyUnsafe });
+      alerts.push("link-unsafe");
+    }
+  } catch (err) {
+    logger.error("watchdog: link patrol failed", { error: err });
+  }
+
   // ── 5. Alert email (T4) — deduped so a persistent condition mails once per
   // window, not every cron tick ────────────────────────────────────────────────
   const emailed =
@@ -405,6 +420,7 @@ export async function GET(req: NextRequest) {
           visits14d,
           signups14d,
           patrolNotes: patrol?.notes ?? [],
+          unsafeLinks: links?.newlyUnsafe ?? [],
         })
       : false;
 
@@ -425,6 +441,7 @@ export async function GET(req: NextRequest) {
     emailed,
     handoff,
     patrol,
+    links,
     healthy: alerts.length === 0,
     // Sentry wiring diagnostics — this route is the natural probe point since the
     // external cron exercises it anyway and it's secret-gated.
@@ -473,6 +490,7 @@ async function emailWatchdogAlert(
     visits14d: number;
     signups14d: number;
     patrolNotes: string[];
+    unsafeLinks: { id: string; detail: string | null }[];
   },
 ): Promise<boolean> {
   if (!isEmailConfigured()) return false;
@@ -563,6 +581,10 @@ async function emailWatchdogAlert(
     );
   if (keys.includes("patrol-owner-video"))
     lines.push("영상 붙은 공개 작품의 명함 페이지에 영상이 안 그려져요 — 명함을 직접 열어 봐 주세요.");
+  if (keys.includes("link-unsafe"))
+    lines.push(
+      `공개 작품 ${detail.unsafeLinks.length}개의 링크가 구글 위험 사이트 목록에 올랐어요 — [체험하기]는 이미 숨겼어요. 관제탑에서 작품을 보고 필요하면 비공개로 내려 주세요. (${detail.unsafeLinks.map((u) => `${u.id} ${u.detail ?? ""}`).join(" · ")})`,
+    );
   if (keys.some((k) => k.startsWith("patrol-")))
     for (const n of detail.patrolNotes) lines.push(`순찰: ${n}`);
   if (keys.includes("stuck-query-failed") || keys.includes("reap-update-failed"))

@@ -615,12 +615,18 @@ export function ProjectRow({ project, username, demoPaused, nowMs, onDelete, onE
       <div className="flex items-center gap-2.5 justify-between md:justify-end shrink-0" onDragStart={e => e.stopPropagation()}>
         {/* 재촬영 루프: AI가 새 대본을 제출해 두면 여기서 알린다. 누르면
             재촬영 모달이 검토 화면으로 열려 대본을 보고 실행할 수 있다. */}
-        {/* 주소를 바꿔 영상과 [체험하기]가 어긋난 작품 — 누르면 재촬영 요청 창. */}
-        {project.link_unverified && !demoInFlight && !project.pending_demo_script && (
+        {/* [체험하기]가 숨겨진 작품. 순찰이 막은 링크(넘김·죽음·위험)는 누르면 수정 창,
+            주소를 바꿔 영상과 어긋난 작품은 재촬영 요청 창. */}
+        {(project.link_state || (project.link_unverified && !demoInFlight && !project.pending_demo_script)) && (
           <button
             type="button"
-            onClick={onRerecord}
-            title={t.projects.linkHiddenHint}
+            onClick={project.link_state ? onEdit : onRerecord}
+            title={
+              project.link_state === "unsafe" ? t.projects.linkUnsafeHint
+              : project.link_state === "dead" ? t.projects.linkDeadHint
+              : project.link_state === "moved" ? t.projects.linkMovedHint(project.link_state_detail ?? null)
+              : t.projects.linkHiddenHint
+            }
             className="px-2 py-0.5 rounded-full text-xs shrink-0"
             style={{
               background: "var(--surface-soft)", color: "var(--danger)",

@@ -213,6 +213,11 @@ export const ko = {
     linkHiddenBadge: "체험 버튼 숨김",
     linkHiddenHint: "영상을 찍은 주소와 지금 주소가 달라서 명함의 [체험하기]를 숨겼어요. 새 주소로 다시 찍으면 돌아와요.",
     linkChangedNotice: "주소가 바뀌어서 명함의 [체험하기]를 숨겼어요. [재촬영 요청]으로 새 주소를 찍으면 돌아와요.",
+    // 링크 순찰(lib/linkPatrol.ts)이 막은 이유 — 배지 툴팁. 누르면 수정 창.
+    linkMovedHint: (host: string | null): string =>
+      `이 주소가 지금 다른 사이트${host ? `(${host})` : ""}로 넘어가서 명함의 [체험하기]를 숨겼어요. 주소를 고치면 몇 분 안에 다시 확인해요.`,
+    linkDeadHint: "이 주소가 3일째 열리지 않아서 명함의 [체험하기]를 숨겼어요. 사이트가 다시 열리면 하루 안에, 주소를 고치면 몇 분 안에 다시 확인해요.",
+    linkUnsafeHint: "구글이 이 주소를 위험한 사이트로 분류해서 명함의 [체험하기]를 숨겼어요. 사이트가 해킹당했을 수 있어요 — 구글 Search Console에서 확인해 보세요.",
     reviewPendingScript: "새 대본 확인하고 재촬영",
     scriptLabel: "촬영 대본",
     scriptSteps: (n: number) => `${n}스텝`,

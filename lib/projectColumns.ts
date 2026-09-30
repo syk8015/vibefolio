@@ -45,6 +45,7 @@ export const PUBLIC_PROJECT_COLUMNS = [
   "demo_captions",
   "demo_locale_videos",
   "link_unverified",
+  "link_state",
 ] as const;
 
 export const PRIVATE_PROJECT_COLUMNS = [
@@ -59,6 +60,11 @@ export const PRIVATE_PROJECT_COLUMNS = [
   "owner_interview",
   "owner_interview_confirmed_at",
   "demo_filmed_source",
+  "link_state_detail",
+  "link_checked_url",
+  "link_checked_at",
+  "link_baseline_host",
+  "link_fail_since",
 ] as const;
 
 export type PrivateProjectColumn = (typeof PRIVATE_PROJECT_COLUMNS)[number];

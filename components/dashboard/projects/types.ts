@@ -64,6 +64,13 @@ export interface DBProject {
   link_unverified?: boolean | null;
   // 지금 영상을 찍을 때의 촬영 소스(비공개 칸, 트리거가 채움 — 사용자 키로 못 씀).
   demo_filmed_source?: string | null;
+  // 링크 순찰(lib/linkPatrol.ts) — 공개 칸 link_state, 나머지는 비공개(순찰만 쓴다).
+  link_state?: "moved" | "dead" | "unsafe" | null;
+  link_state_detail?: string | null;
+  link_checked_url?: string | null;
+  link_checked_at?: string | null;
+  link_baseline_host?: string | null;
+  link_fail_since?: string | null;
   // 사용자 유도형 데모 변형①: 제작자가 쓴 "핵심 기능" 설명. 녹화 워커가 explore
   // 브리핑에 주입한다. 가드 트리거의 파이프라인 컬럼이 아니라 유저가 직접 수정 가능.
   demo_user_hint: string | null;

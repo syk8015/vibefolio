@@ -130,8 +130,8 @@ export default async function WatchPage({ params }: Params) {
   const lw = localizeWork(data.project, viewer);
   const project = { ...data.project, title: lw.title, description: lw.description, demo_video_url: lw.demoVideoUrl };
   const c = COPY[viewer];
-  // 검사받은 영상과 다른 주소로 바뀐 작품은 다시 찍을 때까지 체험 버튼을 숨긴다(migration_link_verified.sql).
-  const tryIt = project.link_unverified ? null : watchTryHref(project.demo_url);
+  // 검사받은 영상과 다른 주소로 바뀐 작품(migration_link_verified.sql), 순찰이 막은 링크(lib/linkPatrol.ts)는 체험 버튼을 숨긴다.
+  const tryIt = project.link_unverified || project.link_state ? null : watchTryHref(project.demo_url);
 
   const handle = `@${profile.username}`;
   const name = profile.name || profile.username;

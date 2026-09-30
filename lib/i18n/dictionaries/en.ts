@@ -200,6 +200,10 @@ export const en: Dictionary = {
     linkHiddenBadge: "Try button hidden",
     linkHiddenHint: "The link no longer matches the filmed video, so the Try button is hidden on your card. Film the new link to bring it back.",
     linkChangedNotice: "The link changed, so the Try button is hidden on your card. Use [Request re-record] to film the new link and bring it back.",
+    linkMovedHint: (host: string | null): string =>
+      `This link now sends visitors to a different site${host ? ` (${host})` : ""}, so the Try button is hidden on your card. Fix the link and we'll recheck within minutes.`,
+    linkDeadHint: "This link hasn't opened for 3 days, so the Try button is hidden on your card. We recheck within a day once the site is back, or within minutes after you fix the link.",
+    linkUnsafeHint: "Google lists this link as a dangerous site, so the Try button is hidden on your card. Your site may have been hacked — check it in Google Search Console.",
     reviewPendingScript: "Review new script",
     scriptLabel: "Demo script",
     scriptSteps: (n: number) => `${n} steps`,

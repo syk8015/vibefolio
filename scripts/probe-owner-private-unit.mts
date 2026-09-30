@@ -23,14 +23,17 @@ const base = {
   pending_demo_script: null, pending_script_note: null, demo_build_error: null, demo_source_value: null,
   owner_interview: { proudMoment: "a", howIUse: "b", mustSee: "c", hide: [] }, owner_interview_confirmed_at: null,
   demo_filmed_source: null,
+  link_state_detail: null, link_checked_url: null, link_checked_at: null, link_baseline_host: null, link_fail_since: null,
 } as unknown as DBProject;
 const publicOnly = (p: DBProject) => {
   const {
     demo_access, demo_user_hint, demo_script, pending_demo_script, pending_script_note, demo_build_error, demo_source_value,
-    owner_interview, owner_interview_confirmed_at, demo_filmed_source, ...rest
+    owner_interview, owner_interview_confirmed_at, demo_filmed_source,
+    link_state_detail, link_checked_url, link_checked_at, link_baseline_host, link_fail_since, ...rest
   } = p;
   void demo_access; void demo_user_hint; void demo_script; void pending_demo_script; void pending_script_note; void demo_build_error; void demo_source_value;
   void owner_interview; void owner_interview_confirmed_at; void demo_filmed_source;
+  void link_state_detail; void link_checked_url; void link_checked_at; void link_baseline_host; void link_fail_since;
   return rest;
 };
 
