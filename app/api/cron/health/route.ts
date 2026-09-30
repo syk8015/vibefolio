@@ -6,6 +6,7 @@ import { runHandoffReminders } from "@/lib/handoffReminders";
 import { runSitePatrol, type PatrolResult } from "@/lib/sitePatrol";
 import { runLinkPatrol, type LinkPatrolResult } from "@/lib/linkPatrol";
 import { runUploadSweep, type UploadSweepResult } from "@/lib/uploadSweep";
+import { runR2Sweep, type R2SweepResult } from "@/lib/r2Sweep";
 import { logger, hasErrorReporter } from "@/lib/logger";
 import { trackServerEvent } from "@/lib/analytics";
 import { AnalyticsEvent } from "@/lib/analytics-events";
@@ -413,6 +414,16 @@ export async function GET(req: NextRequest) {
     logger.error("watchdog: upload sweep failed", { error: err });
   }
 
+  // ── 4f. R2 남은 영상 청소(lib/r2Sweep.ts) — 하루 한 번(새벽 3시 틱), 행이 사라진 작품 폴더만.
+  // 조용한 정리라 경보는 없다. 터져도 점검은 계속한다. ─────────────────────────────────
+  let r2Sweep: R2SweepResult | null = null;
+  try {
+    r2Sweep = await runR2Sweep(admin, { now });
+    if (r2Sweep?.removed) logger.info("watchdog: r2 orphan folders removed", { ...r2Sweep });
+  } catch (err) {
+    logger.error("watchdog: r2 sweep failed", { error: err });
+  }
+
   // ── 5. Alert email (T4) — deduped so a persistent condition mails once per
   // window, not every cron tick ────────────────────────────────────────────────
   const emailed =
@@ -453,6 +464,7 @@ export async function GET(req: NextRequest) {
     patrol,
     links,
     uploadSweep,
+    r2Sweep,
     healthy: alerts.length === 0,
     // Sentry wiring diagnostics — this route is the natural probe point since the
     // external cron exercises it anyway and it's secret-gated.

@@ -84,6 +84,25 @@ export async function r2Usage(): Promise<{ objects: number; bytes: number }> {
   return { objects, bytes };
 }
 
+// Every key + its last write, for the orphan sweep (lib/r2Sweep.ts). Same scale
+// caveat as r2Usage.
+export async function listR2Objects(): Promise<{ key: string; lastModified: number }[]> {
+  const c = client();
+  const bucket = env().bucket;
+  const out: { key: string; lastModified: number }[] = [];
+  let token: string | undefined;
+  do {
+    const list = await c.send(
+      new ListObjectsV2Command({ Bucket: bucket, ContinuationToken: token }),
+    );
+    for (const o of list.Contents ?? []) {
+      if (o.Key) out.push({ key: o.Key, lastModified: o.LastModified?.getTime() ?? 0 });
+    }
+    token = list.IsTruncated ? list.NextContinuationToken : undefined;
+  } while (token);
+  return out;
+}
+
 // Delete specific keys (moderation reject path). Idempotent — S3 delete on a
 // missing key succeeds, so a quarantine already pruned by a newer take is fine.
 export async function deleteR2Objects(keys: string[]): Promise<void> {
