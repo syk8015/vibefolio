@@ -56,7 +56,8 @@ function client(): S3Client {
 }
 
 // Public URL for a stored object. R2_PUBLIC_URL_BASE is the bucket's public base
-// (r2.dev subdomain or a custom domain like https://cdn.nookframe.com).
+// Live: https://media.nookframe.com (custom domain → Cloudflare cache). Never r2.dev —
+// it is rate-limited and uncached, for development only.
 function r2PublicUrl(key: string): string {
   const base = (env().publicBase || "").replace(/\/+$/, "");
   return `${base}/${key.replace(/^\/+/, "")}`;
