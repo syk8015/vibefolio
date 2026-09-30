@@ -34,9 +34,10 @@ export async function POST(req: NextRequest) {
     // POSTs (view-count forging, row bloat) gets silently dropped past this.
     // Same silent {ok:false} as the validation failures above — no signal for
     // a prober, and the limiter fails open so tracking never breaks on infra.
+    const ipKey = clientIpKey(req);
     const allowed = await rateLimit({
       name: "track",
-      key: clientIpKey(req),
+      key: ipKey,
       windowSeconds: 60,
       max: 20,
     });
@@ -51,6 +52,18 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (!profile) return NextResponse.json({ ok: false });
+
+    // Same IP + same profile counts once per 30 min — the server-side twin of
+    // ViewTracker's localStorage window. The client window is only courtesy (a
+    // script skips it), so without this one IP could forge ~28.8k views/day on a
+    // single profile at the 20/min cap. NAT-shared IPs collapse too; accepted.
+    const firstVisit = await rateLimit({
+      name: "track-view",
+      key: `${ipKey}:${profile.id}`,
+      windowSeconds: 1800,
+      max: 1,
+    });
+    if (!firstVisit) return NextResponse.json({ ok: false });
 
     // portfolio_views is default-deny for anon/authenticated (the open insert
     // policy was dropped — migration_prelaunch_hardening.sql); this trusted,

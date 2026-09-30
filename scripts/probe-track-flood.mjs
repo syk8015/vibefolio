@@ -1,9 +1,10 @@
-// /api/track 요청 폭주 실서버 검사 (위협 목록 B1). 방문 기록은 한 IP당 분당 20번까지만 쌓여야 한다.
+// /api/track 요청 폭주 실서버 검사 (위협 목록 B1). 방문 기록은 한 IP당 분당 20번, 그리고
+// 같은 IP·같은 명함은 30분에 한 번만 쌓여야 한다(09-30 — 새로고침·스크립트로 방문 수 부풀리기 차단).
 //
-// 검증: (1) 한 IP에서 연달아 25번 → 기록은 정확히 20줄(나머지는 조용히 {ok:false})
-// (2) 동시에 25번(경쟁 상태)에도 20줄을 안 넘음 (3) 요청마다 IP 헤더(x-forwarded-for·x-real-ip·
-// x-vercel-forwarded-for)를 바꿔 끼워도 한도가 안 풀림 — Vercel이 진짜 IP로 덮어써야 한다
-// (4) 사용자명 모양이 아니면 데이터 저장소까지 안 감.
+// 검증: (1) 같은 명함에 연달아 25번 → 기록 1줄 (2) 그 25번으로 IP 창(분당 20)이 찼으니 다른
+// 명함도 0줄 (3) 요청마다 IP 헤더(x-forwarded-for·x-real-ip·x-vercel-forwarded-for)를 바꿔 끼워도
+// 0줄 — Vercel이 진짜 IP로 덮어써야 한다 (4) 사용자명 모양이 아니면 거절
+// (5) 1분 뒤 새 명함에 동시에 25번 → 1줄(30분 창도 경쟁 상태에 안 뚫림).
 //
 // 방문 기록은 probe 계정에만 쌓이고 끝나면 계정째 지운다(남의 방문 수를 안 건드린다).
 // 한 번 돌리면 이 IP의 track 창 1분이 가득 찬다 — 이어서 돌리려면 1분 기다릴 것.
@@ -48,18 +49,19 @@ try {
   const a = await makeUser("a");
   const b = await makeUser("b");
   const c = await makeUser("c");
+  const d = await makeUser("d");
 
-  // (1) 연달아 25번
+  // (1) 같은 명함 연달아 25번
   const seq = [];
   for (let i = 0; i < 25; i++) seq.push((await hit(a.username)).ok);
   const nA = await rows(a.id);
-  ok("연달아 25번 → 기록 20줄", nA === 20, `기록=${nA} 응답 ok=${seq.filter((x) => x === true).length}`);
+  ok("같은 명함 연달아 25번 → 기록 1줄(30분 창)", nA === 1, `기록=${nA} 응답 ok=${seq.filter((x) => x === true).length}`);
 
-  // 같은 IP라 창이 이미 찼다 — 다른 계정도 막혀야 한다(한도는 IP 기준, 계정 기준 아님)
+  // (2) 25번으로 IP 창이 찼다 — 처음 보는 명함도 막혀야 한다
   const other = await hit(b.username);
-  ok("창이 찬 IP는 다른 계정 기록도 막힘", other.ok === false && (await rows(b.id)) === 0, JSON.stringify(other));
+  ok("IP 창(분당 20)이 차면 다른 명함도 0줄", other.ok === false && (await rows(b.id)) === 0, JSON.stringify(other));
 
-  // (3) IP 헤더 바꿔 끼우기 — 창이 찬 상태에서 25번 더
+  // (3) IP 헤더 바꿔 끼우기 — 창이 찬 상태에서 25번 더(IP 한도가 풀리면 첫 방문 1줄이 생긴다)
   const spoofed = await Promise.all(Array.from({ length: 25 }, () => hit(c.username, true)));
   const nC = await rows(c.id);
   ok("IP 헤더를 바꿔 끼워도 한도 안 풀림", nC === 0, `기록=${nC} 응답 ok=${spoofed.filter((x) => x.ok === true).length}`);
@@ -70,10 +72,10 @@ try {
 
   console.log("- 1분 기다렸다가 동시 25번 검사…");
   await new Promise((r) => setTimeout(r, 62_000));
-  // (2) 동시에 25번
-  const par = await Promise.all(Array.from({ length: 25 }, () => hit(b.username)));
-  const nB = await rows(b.id);
-  ok("동시에 25번 → 기록 20줄 이하", nB <= 20 && nB > 0, `기록=${nB} 응답 ok=${par.filter((x) => x.ok === true).length}`);
+  // (5) 새 명함에 동시에 25번
+  const par = await Promise.all(Array.from({ length: 25 }, () => hit(d.username)));
+  const nD = await rows(d.id);
+  ok("새 명함에 동시에 25번 → 기록 1줄", nD === 1, `기록=${nD} 응답 ok=${par.filter((x) => x.ok === true).length}`);
 } finally {
   for (const id of users) {
     await svc.from("portfolio_views").delete().eq("profile_id", id);
