@@ -5,6 +5,7 @@ import { authorizeCron } from "@/lib/cronAuth";
 import { runHandoffReminders } from "@/lib/handoffReminders";
 import { runSitePatrol, type PatrolResult } from "@/lib/sitePatrol";
 import { runLinkPatrol, type LinkPatrolResult } from "@/lib/linkPatrol";
+import { runUploadSweep, type UploadSweepResult } from "@/lib/uploadSweep";
 import { logger, hasErrorReporter } from "@/lib/logger";
 import { trackServerEvent } from "@/lib/analytics";
 import { AnalyticsEvent } from "@/lib/analytics-events";
@@ -403,6 +404,15 @@ export async function GET(req: NextRequest) {
     logger.error("watchdog: link patrol failed", { error: err });
   }
 
+  // ── 4e. 끝맺음(finalize)이 안 온 업로드 청소(lib/uploadSweep.ts) — 하루 지난 빈 초안과
+  // `_upload/` 임시 파일. 조용한 정리라 경보는 없다. 터져도 점검은 계속한다. ─────────────
+  let uploadSweep: UploadSweepResult | null = null;
+  try {
+    uploadSweep = await runUploadSweep(admin, { now });
+  } catch (err) {
+    logger.error("watchdog: upload sweep failed", { error: err });
+  }
+
   // ── 5. Alert email (T4) — deduped so a persistent condition mails once per
   // window, not every cron tick ────────────────────────────────────────────────
   const emailed =
@@ -442,6 +452,7 @@ export async function GET(req: NextRequest) {
     handoff,
     patrol,
     links,
+    uploadSweep,
     healthy: alerts.length === 0,
     // Sentry wiring diagnostics — this route is the natural probe point since the
     // external cron exercises it anyway and it's secret-gated.
