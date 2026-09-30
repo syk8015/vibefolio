@@ -184,7 +184,14 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
     }
 
     if (indexHtmlStoragePath) {
-      setForm(prev => ({ ...prev, demo_url: `/api/preview/${indexHtmlStoragePath}` }));
+      // 옛 폴더를 찍은 자동 썸네일(thum.io)은 비운다 — 저장하면 옛 폴더가 지워져서
+      // 그 썸네일이 옛 화면이나 빈 페이지를 보여준다. 비우면 저장 때 새로 찍힌다.
+      setForm(prev => ({
+        ...prev,
+        demo_url: `/api/preview/${indexHtmlStoragePath}`,
+        thumbnail: prev.thumbnail?.startsWith(screenshotUrl("")) && prev.thumbnail.includes("/api/preview/")
+          ? "" : prev.thumbnail,
+      }));
       setUploading(false);
       setUploadDone(true);
     } else {

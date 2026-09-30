@@ -87,7 +87,7 @@ export async function expandUploadEntries(
 
 export { summarizeDropped };
 
-// 수정 저장 후, 교체·제거된 이전 업로드 영상/썸네일 객체를 청소한다.
+// 수정 저장 후, 교체·제거된 이전 업로드 영상/썸네일 객체와 옛 작품 폴더를 청소한다.
 // DB 업데이트가 커밋된 뒤 old↔new를 비교하므로(업로드 시점 X) 저장 안 하고
 // 닫는 footgun이 없다. thum.io·picsum 등 우리 객체가 아닌 값은 서버가 무시한다.
 //
@@ -95,17 +95,21 @@ export { summarizeDropped };
 // 조용히 막아 파일이 그대로 쌓인다(삭제 라우트가 서버로 간 것과 같은 이유, 감사 #18).
 export async function deleteSwappedAssets(
   projectId: string,
-  prev: Pick<DBProject, "video_url" | "thumbnail">,
-  next: Pick<DBProject, "video_url" | "thumbnail">,
+  prev: Pick<DBProject, "video_url" | "thumbnail" | "demo_url">,
+  next: Pick<DBProject, "video_url" | "thumbnail" | "demo_url">,
 ) {
   const prevVideoUrl = prev.video_url !== next.video_url ? prev.video_url : null;
   const prevThumbnail = prev.thumbnail !== next.thumbnail ? prev.thumbnail : null;
-  if (!prevVideoUrl && !prevThumbnail) return;
+  // 파일을 다시 올리면 새 무작위 폴더가 생긴다 — 옛 폴더는 공개 버킷이라 옛 주소로
+  // 계속 열리고, 작품을 지워도 남았다(삭제는 지금 demo_url의 폴더만 안다).
+  const prevDemoUrl = prev.demo_url !== next.demo_url && isUploadedProject(prev.demo_url)
+    ? prev.demo_url : null;
+  if (!prevVideoUrl && !prevThumbnail && !prevDemoUrl) return;
   try {
     await fetch(`/api/projects/${projectId}/demo-assets`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prevVideoUrl, prevThumbnail }),
+      body: JSON.stringify({ prevVideoUrl, prevThumbnail, prevDemoUrl }),
       keepalive: true,
     });
   } catch { /* 청소 실패가 저장 흐름을 막지는 않는다 — 서버 로그에 남는다 */ }

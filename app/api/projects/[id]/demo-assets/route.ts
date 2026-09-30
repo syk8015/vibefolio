@@ -6,6 +6,7 @@ import { getT } from "@/lib/i18n/server";
 import { logger } from "@/lib/logger";
 import { isR2Configured, deleteR2Prefix } from "@/lib/r2";
 import { listFilesDeep, removeFiles } from "@/lib/storageList";
+import { removeStaleFiles } from "@/lib/ingestStore";
 
 // Purge ALL of a project's storage when it is deleted:
 //   - Supabase project-files: the {userId}/{projectId}/ folder (uploaded source +
@@ -128,7 +129,7 @@ export async function DELETE(
   }
 }
 
-// 수정 저장 후 교체·제거된 이전 업로드 영상/썸네일을 청소한다. 예전엔 클라이언트가
+// 수정 저장 후 교체·제거된 이전 업로드 영상/썸네일과 옛 작품 폴더를 청소한다. 예전엔 클라이언트가
 // storage.remove()를 직접 불렀는데 스토리지 RLS가 조용히 막아(+catch{}) 파일이
 // 계속 쌓였다 — 삭제 라우트가 서버로 옮겨진 것과 같은 이유(감사 #18).
 //
@@ -137,6 +138,12 @@ export async function DELETE(
 //      남의 파일을 지우게 하는 크로스테넌트 삭제(선행 blocker와 같은 모양) 차단.
 //   ② 업데이트가 끝난 행을 다시 읽어, 지금도 쓰이는 경로면 버린다 — 사용 중인
 //      자기 파일을 지워 자기 프로젝트를 깨뜨리는 것도 막는다.
+// 옛 작품 폴더(prevDemoUrl)는 폴더째 지우므로 한 겹 더: 이름이 UUID(업로드 폴더·행
+// 폴더만 그렇다 — thumbnails/·videos/는 못 고른다)이고, 주인의 어느 작품도 그 폴더를
+// 쓰지 않을 때만. 행 폴더(`{uid}/{id}`, Connect 업로드)면 _media·_upload와 지금 쓰는
+// 영상·썸네일은 남긴다(인제스트가 파일→URL로 바꿀 때와 같은 청소).
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -152,11 +159,12 @@ export async function POST(
     const body = await req.json().catch(() => null);
     const candidates = [body?.prevVideoUrl, body?.prevThumbnail]
       .filter((u): u is string => typeof u === "string" && u.length > 0);
-    if (!candidates.length) return NextResponse.json({ ok: true, removed: 0 });
+    const prevDemoUrl = typeof body?.prevDemoUrl === "string" ? body.prevDemoUrl : null;
+    if (!candidates.length && !prevDemoUrl) return NextResponse.json({ ok: true, removed: 0 });
 
     const { data: project, error: selErr } = await supabase
       .from("projects")
-      .select("id, user_id, video_url, thumbnail")
+      .select("id, user_id, video_url, thumbnail, demo_url, demo_video_url")
       .eq("id", id)
       .single();
     if (selErr || !project) {
@@ -174,14 +182,41 @@ export async function POST(
     );
     const stale = [...new Set(candidates.map(storagePathFromPublicUrl))]
       .filter((p): p is string => !!p && p.startsWith(ownerPrefix) && !inUse.has(p));
-    if (!stale.length) return NextResponse.json({ ok: true, removed: 0 });
+
+    const oldDir = uploadFolderFromPreviewUrl(prevDemoUrl, user.id);
+    const oldFolder = oldDir?.slice(ownerPrefix.length) ?? null;
+    let folderGone = false;
+    if (oldDir && oldFolder && UUID_RE.test(oldFolder)
+      && oldDir !== uploadFolderFromPreviewUrl(project.demo_url, user.id)) {
+      // 주인의 다른 작품이 이 폴더를 행 폴더로 쓰거나 demo_url로 가리키면 손대지 않는다.
+      const [{ data: asRow, error: e1 }, { data: asUrl, error: e2 }] = await Promise.all([
+        supabase.from("projects").select("id").eq("user_id", user.id).eq("id", oldFolder).neq("id", id).limit(1),
+        supabase.from("projects").select("id").eq("user_id", user.id)
+          .like("demo_url", `${PREVIEW_PREFIX}${oldDir}/%`).limit(1),
+      ]);
+      if (e1 || e2) throw new Error(`folder use check failed: ${(e1 ?? e2)!.message}`);
+      folderGone = !asRow?.length && !asUrl?.length;
+    }
+    if (!stale.length && !folderGone) return NextResponse.json({ ok: true, removed: 0 });
 
     const admin = createAdminClient();
-    const { error } = await admin.storage.from(BUCKET).remove(stale);
-    if (error) throw new Error(`storage remove failed: ${error.message}`);
+    let removed = 0;
+    if (stale.length) {
+      const { error } = await admin.storage.from(BUCKET).remove(stale);
+      if (error) throw new Error(`storage remove failed: ${error.message}`);
+      removed += stale.length;
+    }
+    if (folderGone && oldFolder === id) {
+      const keep = new Set(
+        [...inUse, storagePathFromPublicUrl(project.demo_video_url)].filter((p): p is string => !!p),
+      );
+      removed += await removeStaleFiles(admin, user.id, id, keep);
+    } else if (folderGone) {
+      removed += await removeFiles(admin, BUCKET, await listFilesDeep(admin, BUCKET, oldDir!));
+    }
 
-    logger.info("swapped assets purged", { projectId: id, removed: stale.length });
-    return NextResponse.json({ ok: true, removed: stale.length });
+    logger.info("swapped assets purged", { projectId: id, removed, folder: folderGone });
+    return NextResponse.json({ ok: true, removed });
   } catch (err) {
     return apiError({
       status: 500,
