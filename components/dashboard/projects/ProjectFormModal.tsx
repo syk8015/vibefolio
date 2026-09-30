@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useId } from "react";
+import { useState, useRef, useCallback, useEffect, useId } from "react";
 import Image from "next/image";
 import Modal from "@/components/Modal";
 import { FoldToggle } from "@/components/FoldToggle";
@@ -86,10 +86,14 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
   const [videoError, setVideoError] = useState("");
   const [moreOpen, setMoreOpen] = useState(false);
   const [editing, setEditing] = useState<MoreKey | null>(null);
-  // 교체 창: 적은 주소와, 다 올라갔지만 아직 [바꾸기]를 안 누른 업로드.
+  // 교체 창: 적은 주소와, 방금 다 올라가 폼에 들어간 업로드(창에 ✓ 이름으로 보여 준다).
+  // 파일은 다 올라가는 순간 폼에 넣는다 — [바꾸기]를 한 번 더 눌러야 들어가게 했더니, ✓를 보고
+  // [닫기]를 누르거나 올리는 중에 창을 닫으면 조용히 옛 파일로 저장됐다(10-01 검토). 올리는 중엔 창을 못 닫는다.
   const [swapOpen, setSwapOpen] = useState(false);
   const [swapUrl, setSwapUrl] = useState("");
   const [staged, setStaged] = useState<{ demoUrl: string; name: string } | null>(null);
+  const uploadingRef = useRef(false);
+  useEffect(() => { uploadingRef.current = uploading; }, [uploading]);
   // 이번에 올린 파일 이름(작품 줄에 보여줄 것). 예전 업로드는 이름을 저장하지 않아 모른다.
   const [pickedName, setPickedName] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -229,8 +233,9 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
     }
 
     if (indexHtmlStoragePath) {
-      // 폼에는 교체 창의 [바꾸기]를 눌러야 들어간다(applySwap).
-      setStaged({ demoUrl: `/api/preview/${indexHtmlStoragePath}`, name });
+      const next = { demoUrl: `/api/preview/${indexHtmlStoragePath}`, name };
+      applyUpload(next);
+      setStaged(next);
       setUploading(false);
     } else {
       // No HTML → demo_url stays empty and the trigger silently no-ops. Tell the
@@ -243,7 +248,6 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
   function openSwap() {
     const uploadedNow = isUploadedProject(form.demo_url);
     setSwapUrl(uploadedNow ? "" : form.demo_url ?? "");
-    // 올리는 중에 닫았다 다시 열면 진행 상황을 그대로 보여준다.
     if (!uploading) {
       setUploadMode(uploadedNow ? "files" : "url");
       setStaged(null);
@@ -254,23 +258,27 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
   }
 
   // Modal은 onClose가 바뀔 때마다 창에 포커스를 다시 준다 — 입력 중에 포커스를 뺏기지 않게 고정.
-  const closeSwap = useCallback(() => setSwapOpen(false), []);
+  // 올리는 중엔 닫지 않는다(Esc·바깥 누르기 포함) — 다 올라가야 폼에 들어간다.
+  const closeSwap = useCallback(() => { if (!uploadingRef.current) setSwapOpen(false); }, []);
+
+  // 다 올라간 파일을 폼에 넣는다. 옛 폴더를 찍은 자동 썸네일(thum.io)은 비운다 — 저장하면 옛 폴더가
+  // 지워져서 그 썸네일이 옛 화면이나 빈 페이지를 보여준다. 비우면 저장 때 새로 찍힌다.
+  function applyUpload(next: { demoUrl: string; name: string }) {
+    setForm(prev => ({
+      ...prev,
+      demo_url: next.demoUrl,
+      thumbnail: prev.thumbnail?.startsWith(screenshotUrl("")) && prev.thumbnail.includes("/api/preview/")
+        ? "" : prev.thumbnail,
+    }));
+    setPickedName(next.name);
+  }
 
   function applySwap(e: React.FormEvent) {
     e.preventDefault();
     e.stopPropagation();
     if (uploadMode === "files") {
-      if (!staged || uploading) return;
-      const next = staged;
-      // 옛 폴더를 찍은 자동 썸네일(thum.io)은 비운다 — 저장하면 옛 폴더가 지워져서
-      // 그 썸네일이 옛 화면이나 빈 페이지를 보여준다. 비우면 저장 때 새로 찍힌다.
-      setForm(prev => ({
-        ...prev,
-        demo_url: next.demoUrl,
-        thumbnail: prev.thumbnail?.startsWith(screenshotUrl("")) && prev.thumbnail.includes("/api/preview/")
-          ? "" : prev.thumbnail,
-      }));
-      setPickedName(next.name);
+      // 파일은 다 올라가는 순간 이미 폼에 들어갔다(applyUpload) — 여기선 창만 닫는다.
+      if (uploading) return;
     } else {
       const url = swapUrl.trim();
       if (!url) return;
@@ -357,6 +365,8 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
     : null;
   const hint = form.demo_user_hint?.trim() || "";
   const canApplySwap = uploadMode === "files" ? !!staged && !uploading : swapUrl.trim() !== "";
+  // 파일 쪽은 올리면 바로 들어가서 [바꾸기]가 따로 없다 — 다 올라가면 [완료] 하나.
+  const filesDone = uploadMode === "files" && !!staged && !uploading;
 
   return (
     <div
@@ -713,12 +723,22 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
             </div>
 
             <div className="flex justify-center gap-2.5 px-6 py-4" style={{ borderTop: "1px solid var(--border)" }}>
-              <button type="button" onClick={closeSwap} className="vf-button-ghost" style={FOOT_BUTTON}>
-                {t.projectForm.close}
-              </button>
-              <button type="submit" disabled={!canApplySwap} className="vf-button-primary" style={FOOT_BUTTON}>
-                {t.projectForm.replace}
-              </button>
+              {filesDone ? (
+                <button type="submit" className="vf-button-primary" style={FOOT_BUTTON}>
+                  {t.projectForm.done}
+                </button>
+              ) : (
+                <>
+                  <button type="button" onClick={closeSwap} disabled={uploading} className="vf-button-ghost" style={FOOT_BUTTON}>
+                    {t.projectForm.close}
+                  </button>
+                  {uploadMode === "url" && (
+                    <button type="submit" disabled={!canApplySwap} className="vf-button-primary" style={FOOT_BUTTON}>
+                      {t.projectForm.replace}
+                    </button>
+                  )}
+                </>
+              )}
             </div>
           </form>
         </Modal>

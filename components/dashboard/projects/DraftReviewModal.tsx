@@ -691,8 +691,9 @@ export function DraftReviewModal({ draft, privateReady = true, onClose, onPublis
                 )}
               </div>
 
-              {mode === "review" ? (
-                <>
+              {/* 검토 칸들은 [고칠 점 적기]로 바꿔도 **숨기기만** 한다 — 내리면(unmount) 고치던 답·자막이
+                  말없이 사라졌다(10-01 검토). 돌아오면 하던 그대로다. */}
+              <div className="flex flex-col" style={{ gap: 16 }} hidden={mode !== "review"}>
                   {/* ② 주인 인터뷰 확인 — 체크해야 공개된다(2026-09-29, 필수) */}
                   <OwnerInterviewPanel
                     interview={interview}
@@ -740,8 +741,8 @@ export function DraftReviewModal({ draft, privateReady = true, onClose, onPublis
                       </div>
                     )}
                   </div>
-                </>
-              ) : mode === "fix" ? (
+              </div>
+              {mode === "fix" ? (
                 // 고칠 점 적기 — 이 창의 일이 "무엇을 고칠까요?" 하나로 바뀐다
                 <div ref={revealFix} className="rounded-2xl flex flex-col" style={{ gap: 12, padding: 18, background: "var(--surface-soft)" }}>
                   <label htmlFor={`${uid}-fix`} style={{ fontFamily: "var(--font-nunito)", fontSize: 15, fontWeight: 600, lineHeight: 1.5, color: "var(--text-primary)" }}>
@@ -756,14 +757,14 @@ export function DraftReviewModal({ draft, privateReady = true, onClose, onPublis
                   {fixFailed && <p style={{ ...smallText, fontSize: 14, color: "var(--danger)" }}>{t.projects.reviewFixFailed}</p>}
                   {manualFix && <ManualCopyBox text={manualFix} />}
                 </div>
-              ) : (
+              ) : mode === "copied" ? (
                 <div role="status" className="rounded-2xl" style={{ padding: 18, background: "var(--surface-soft)" }}>
                   <p style={{ margin: 0, fontFamily: "var(--font-nunito)", fontSize: 15, fontWeight: 600, color: "var(--text-primary)" }}>
                     <span aria-hidden>✓ </span>{t.projects.reviewFixCopied}
                   </p>
                   <p style={{ ...smallText, fontSize: 14, marginTop: 6 }}>{t.projects.reviewFixCopiedBody}</p>
                 </div>
-              )}
+              ) : null}
             </div>
           </div>
 

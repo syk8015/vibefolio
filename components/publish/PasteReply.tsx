@@ -20,9 +20,9 @@ import { extractPublishJson } from "@/lib/extractPublishJson";
 // - /publish: 칸이 비면 [클립보드에서 붙여넣기](칸만 채운다), 차면 [초안으로 올리기]. 올리기가 따로라
 //   파일은 붙여넣은 뒤에 골라도 같이 간다. 서버가 사유를 주고 거절한 글이 칸에 그대로면 다시 보내도
 //   또 거절되므로 버튼이 [클립보드에서 붙여넣기]로 돌아간다(AI가 고친 답을 받아 올 차례).
-// - compact(연결 창): [AI 답 붙여넣기] = 클립보드를 읽어 바로 올린다. 파일 칸은 "파일도 있어요"
-//   뒤에 두고, 펼치면 버튼 **위**에 선다 — 누르는 순간 올라가서 파일은 먼저 골라야 같이 간다(B4).
-//   글상자는 클립보드 읽기를 브라우저가 막았을 때만 펼친다 — 실패는 숨기지 않는다.
+// - compact(연결 창): [AI 답 붙여넣기] = 클립보드를 읽어 바로 올린다. "파일도 있어요"와 펼친 파일 칸은
+//   버튼 **위**에 선다 — 누르는 순간 올라가서 파일은 먼저 골라야 같이 간다(B4).
+//   글상자는 클립보드 읽기가 막혔거나 읽은 글이 올릴 답이 아닐 때 펼친다 — 실패는 숨기지 않는다.
 type Kind = "bundle" | "screenshot" | "video";
 const MB = 1024 * 1024;
 // 서버 캡과 같은 값으로 미리 막는다 — 20MB를 올려놓고 finalize에서 거절당하면 사람은 왜 안 되는지 모른다.
@@ -78,10 +78,12 @@ export function PasteReply({
   const [typing, setTyping] = useState(false);
   const boxRef = useRef<HTMLTextAreaElement>(null);
 
+  // 파일을 바꾸거나 새로 붙여넣으면 다음 보내기는 다른 요청이다 — 거절 표식(failedText)도 같이 지운다.
   function reset() {
     setError(null);
     setBounce(null);
     setFixCopied(false);
+    setFailedText(null);
   }
 
   async function copyFix() {
@@ -124,12 +126,14 @@ export function PasteReply({
     const stop = () => { setSubmitting(false); setStage("idle"); };
     // 서버가 사유를 준 거절(게이트·크기)은 같은 글로 또 보내면 또 거절된다 — 사유를 AI에게 넘길 수
     // 있게 붙잡는다. 로그인·속도 제한·서버 오류는 잠시 뒤 같은 글로 다시 보내면 되는 일이라 제외.
-    const reject = (status: number, reason: unknown, fallback: string) => {
+    // textIsBad: /api/ingest 거절은 글(JSON) 탓이라 같은 글로는 또 거절된다. finalize 거절은 거의 파일
+    // 탓(index.html 없음·용량)이라 파일만 바꾸면 같은 글로 다시 보내도 된다 — 버튼을 클립보드로 돌리지 않는다.
+    const reject = (status: number, reason: unknown, fallback: string, textIsBad = true) => {
       const text = typeof reason === "string" && reason ? reason : fallback;
       setError(text);
       if (text !== fallback && (status === 400 || status === 413 || status === 422)) {
         setBounce(text);
-        setFailedText(source);
+        if (textIsBad) setFailedText(source);
       }
       stop();
     };
@@ -190,7 +194,7 @@ export function PasteReply({
           body: JSON.stringify({ projectId: body.projectId }),
         });
         const finBody = await fin.json().catch(() => ({}));
-        if (!fin.ok) return reject(fin.status, finBody.error, tp.errors.uploadFailed);
+        if (!fin.ok) return reject(fin.status, finBody.error, tp.errors.uploadFailed, false);
       }
       const title = typeof payload.title === "string" && payload.title.trim() ? payload.title.trim() : null;
       onSuccess(body.projectId as string, title);
@@ -223,6 +227,14 @@ export function PasteReply({
     }
     const r = extractPublishJson(text);
     if (!r.ok) {
+      // 연결 창: 읽기는 됐는데 올릴 답이 아니다(잘린 답·쉼표 하나 등). 글상자를 그 글로 펼쳐 사유를
+      // 보여 준다 — 고쳐서 바로 올리거나 AI 답을 다시 붙여넣을 수 있게(전엔 '직접 붙여넣을래요'가 늘 있었다).
+      if (compact && r.reason !== "empty") {
+        setTyping(true);
+        setRaw(text);
+        parse(text);
+        return;
+      }
       setError(tp.clipboardEmpty);
       return;
     }
@@ -380,12 +392,11 @@ export function PasteReply({
     return (
       <>
         {!typing && lead}
-        {showFiles && picker}
+        {showFiles ? picker : !typing && filesLink}
         {errorBlock}
         {typing && textarea}
         {mainButton}
         {note}
-        {!showFiles && !typing && filesLink}
       </>
     );
   }

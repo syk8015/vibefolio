@@ -338,8 +338,9 @@ export default function ConnectPanel() {
       {copying ? tc.copying : label}
     </button>
   );
+  // 자동 복사가 막혀 직접 복사 칸을 편 경우에도 새 코드로 다시 받을 길을 남긴다(코드는 1회용·30분).
   const promptLead = (label: string) => manualPrompt
-    ? <ManualCopyBox text={manualPrompt} />
+    ? <><ManualCopyBox text={manualPrompt} />{smallLink(copying ? tc.copying : tc.copyAgain, copyPromptWithCode)}</>
     : copies > 0 ? copiedPill(label, copyPromptWithCode, copies) : null;
   // 기다림 한 줄 — 초안이 도착하면 ProjectsTab이 이 창을 닫고 확인 화면을 연다(useDraftArrival).
   const waiting = (text: string) => (
@@ -426,6 +427,7 @@ export default function ConnectPanel() {
             <p className="text-center" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", fontSize: "0.9375rem", lineHeight: 1.6, margin: 0 }}>{tc.claudeOnce}</p>
             {bigButton(tc.claudeCopyUrl, () => void copyRemoteUrl())}
             {visibility}
+            {smallLink(tc.claudeFallback, () => { setPromptInstead(true); setError(null); })}
           </>
         ) : (
           <>
@@ -453,7 +455,9 @@ export default function ConnectPanel() {
               {smallLink(tc.haveReply, () => { setHaveReply(true); setError(null); })}
             </>
           ) : (
-            <PasteReply compact lead={<>{errorLine}{promptLead(tc.copiedChat(named))}</>} note={visibility} onSuccess={onPasted} />
+            <PasteReply compact
+              lead={<>{errorLine}{prompted ? promptLead(tc.copiedChat(named)) : smallLink(copying ? tc.copying : tc.copyPrompt, copyPromptWithCode)}</>}
+              note={visibility} onSuccess={onPasted} />
           )
       )}
 

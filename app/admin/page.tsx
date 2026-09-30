@@ -570,6 +570,11 @@ export default async function AdminPage() {
   if (metricsMissing) {
     attention.push({ say: "analytics_events 테이블이 없어요", detail: "supabase/migration_analytics.sql 적용 필요" });
   }
+  // 하루 안에 울린 경보 — 지금은 회복됐어도 "손 볼 것 없음"으로 덮지 않는다. 경보 줄은 상태 칸을
+  // 눌러야 펼쳐지니, 판정에 한 줄로 올린다(10-01 검토).
+  if (alertFresh && latestAlert) {
+    attention.push({ say: `최근 경보 ${alertEntries.length}건`, detail: `마지막 ${latestAlert[0]} · ${ago(latestAlert[1], now)}` });
+  }
   const verdictNotes = paused
     ? [pendingCount > 0 ? `녹화 워커는 일부러 멈춰 둠 · 촬영 대기 ${pendingCount}건` : "녹화 워커는 일부러 멈춰 둠"]
     : [];
