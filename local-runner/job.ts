@@ -16,6 +16,7 @@ import type { QuarantineUpload } from "./upload";
 import { entryOnLinkedSite, type DemoAccess } from "../lib/demoAccess";
 import type { DemoScript } from "../lib/demoScript";
 import { filmPlan, type SiteLocale } from "../lib/workLanguages";
+import type { DemoReadyNotes } from "../lib/email-templates";
 
 export type JobPhase = "building" | PipelinePhase;
 
@@ -77,6 +78,8 @@ export type JobOutcome =
       demoPath: string;
       publicUrl?: string;
       moderationFailedOpen?: boolean;
+      // 완성 메일에 붙일 촬영 기록 — 소개 화면만 찍힘·버튼을 못 찾아 위치로 누른 장면 수.
+      notes: DemoReadyNotes;
       // 다른 언어로 한 번 더 찍어 붙인 영상(없으면 한 번만 찍었거나 그 테이크가 실패).
       localeVideo?: { locale: SiteLocale; publicUrl?: string };
     }
@@ -307,6 +310,11 @@ export async function runJob(job: JobInput): Promise<JobOutcome> {
       demoPath: result.demoPath,
       publicUrl: result.uploaded?.publicUrl,
       moderationFailedOpen: result.moderationFailedOpen,
+      notes: {
+        // 주인이 "앱 안쪽은 못 찍는다"고 먼저 밝힌 작품은 이미 알고 있으니 다시 말하지 않는다.
+        landingOnly: result.coverage === "landing-only" && !job.demoAccess?.impossible,
+        guessedBeats: result.fallbacks?.length ?? 0,
+      },
       ...(localeVideo ? { localeVideo } : {}),
     };
   } finally {

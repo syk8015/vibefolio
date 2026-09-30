@@ -111,11 +111,15 @@ export type RenderedEmail = { subject: string; html: string };
 // ── 시연 완성 — 바이럴 루프의 복귀 지점 ───────────────────────────────────────
 // 유저는 촬영을 요청하고 떠났다가 이 메일로 돌아온다. CTA는 watch 페이지(감상 +
 // 공유 대상 링크), 서브는 대시보드의 Share Kit(mp4 다운로드·문구 복사).
+// 촬영 기록이 짚은 것 — 워커가 보내고(jobs/[id] notify-ready) 메일 본문 아래에 한 줄씩 붙는다.
+export type DemoReadyNotes = { landingOnly?: boolean; guessedBeats?: number };
+
 export function demoReadyEmail(input: {
   projectTitle: string;
   watchUrl: string;
   posterUrl?: string;
   locale?: Locale;
+  notes?: DemoReadyNotes;
 }): RenderedEmail {
   const locale = input.locale ?? DEFAULT_LOCALE;
   const t = getDictionary(locale).email;
@@ -133,6 +137,8 @@ export function demoReadyEmail(input: {
       [
         heading(t.readyHeading),
         paragraph(t.readyBody(`<strong>${title}</strong>`)),
+        input.notes?.landingOnly ? paragraph(escapeHtml(t.readyLandingOnly)) : "",
+        input.notes?.guessedBeats ? paragraph(escapeHtml(t.readyGuessedBeats(input.notes.guessedBeats))) : "",
         poster,
         button(t.readyCta, input.watchUrl),
         mutedLine(

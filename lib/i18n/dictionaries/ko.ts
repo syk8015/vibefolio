@@ -1199,6 +1199,11 @@ export const ko = {
       `${titleHtml}의 자동 시연 영상이 방금 완성됐어요. 사람 손 없이, 배포된 화면 그대로 촬영됐어요.`,
     readyPosterAlt: (title: string) => `${title} 시연 영상 첫 장면`,
     readyCta: "영상 보러 가기",
+    // 촬영 기록이 짚은 두 가지(2026-09-30) — 해당할 때만 본문 아래에 붙는다.
+    readyLandingOnly:
+      "로봇이 앱 안쪽까지 들어가지 못해 소개 화면만 찍혔어요. 앱이 돌아가는 모습을 보여주려면 대시보드에서 직접 찍은 영상으로 바꾸거나 재촬영을 요청해 주세요.",
+    readyGuessedBeats: (n: number) =>
+      `${n}개 장면은 버튼을 찾지 못해 화면 위치로 눌렀어요. 엉뚱한 곳을 눌렀을 수 있으니 영상을 한 번 봐 주세요.`,
     // 공유 안내줄: intro + <a>readyShareLink</a> + outro 로 조립된다.
     readyShareIntro: "링크를 그대로 공유하면 Discord·Slack에서 영상이 바로 재생돼요. mp4 다운로드와 공유 문구는 ",
     readyShareLink: "대시보드의 공유 버튼",

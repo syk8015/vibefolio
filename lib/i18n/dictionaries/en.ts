@@ -1106,6 +1106,10 @@ export const en: Dictionary = {
       `The auto demo video for ${titleHtml} just finished — filmed straight from your deployed screen, no human hands involved.`,
     readyPosterAlt: (title: string) => `Opening frame of the ${title} demo video`,
     readyCta: "Watch the video",
+    readyLandingOnly:
+      "The robot couldn't get past your intro page, so the video only shows that page. To show the app itself, swap in a video you recorded or request a re-record from your dashboard.",
+    readyGuessedBeats: (n: number) =>
+      `In ${n} ${n === 1 ? "scene" : "scenes"} the robot couldn't find the button and clicked by screen position. It may have hit the wrong spot — give the video a quick look.`,
     readyShareIntro: "Share the link as-is and the video plays right inside Discord or Slack. The mp4 download and ready-made captions live in ",
     readyShareLink: "the share button on your dashboard",
     readyShareOutro: ".",

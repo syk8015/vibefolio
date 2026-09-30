@@ -12,7 +12,7 @@ import { normalizeLocaleVideos, type CaptionTrack, type SiteLocale } from "@/lib
 import { getDictionary } from "@/lib/i18n/dictionaries";
 import { sendEmail, isEmailConfigured, alertRecipients } from "@/lib/email";
 import {
-  demoReadyEmail, demoFailedEmail, adminAlertEmail, posterFromDemoUrl, SITE_URL,
+  demoReadyEmail, type DemoReadyNotes, demoFailedEmail, adminAlertEmail, posterFromDemoUrl, SITE_URL,
 } from "@/lib/email-templates";
 
 // Server half of the recording worker. Every DB write the worker used to make with
@@ -402,6 +402,7 @@ export async function ownerHandle(projectId: string): Promise<string | null> {
 export async function notifyDemoReady(
   job: { id: string; user_id: string; title: string | null },
   videoUrl?: string,
+  notes?: DemoReadyNotes,
 ): Promise<void> {
   if (!isEmailConfigured()) return;
   try {
@@ -424,6 +425,7 @@ export async function notifyDemoReady(
       watchUrl,
       posterUrl,
       locale,
+      notes,
     });
     await sendEmail({ to, ...mail });
   } catch (err) {

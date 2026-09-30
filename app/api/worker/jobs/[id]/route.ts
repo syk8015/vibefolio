@@ -85,7 +85,12 @@ export async function POST(
       case "notify-ready": {
         const job = await getJobBrief(id);
         if (!job) return apiError({ status: 404, message: "job not found", code: "NOT_FOUND" });
-        await notifyDemoReady(job, typeof body?.videoUrl === "string" ? body.videoUrl : undefined);
+        const notes = body?.notes;
+        await notifyDemoReady(job, typeof body?.videoUrl === "string" ? body.videoUrl : undefined, {
+          landingOnly: notes?.landingOnly === true,
+          guessedBeats: Number.isInteger(notes?.guessedBeats) && notes.guessedBeats > 0
+            ? Math.min(notes.guessedBeats, 99) : 0,
+        });
         return NextResponse.json({ ok: true });
       }
 

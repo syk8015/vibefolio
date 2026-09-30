@@ -132,7 +132,7 @@ export type RecordDemoResult =
       // Scan couldn't run and the take shipped unscanned — worker Sentry-flags it.
       moderationFailedOpen?: boolean;
       // Vision read of what the film shows (피드백 A-1) — "unclear" when the scan
-      // didn't run (dry-runs) or failed open. For future completion-email copy.
+      // didn't run (dry-runs) or failed open. Feeds the completion-mail note (job.ts).
       coverage?: DemoCoverage;
       // Beats that clicked raw coordinates because their selector missed at replay
       // time (피드백 A-4) — non-empty means a lower-confidence film.

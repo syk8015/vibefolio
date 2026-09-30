@@ -320,7 +320,7 @@ async function processOne(row: PendingRow) {
       });
     }
     await apiPostQuiet(`/api/worker/jobs/${encodeURIComponent(row.id)}`, {
-      op: "notify-ready", videoUrl: outcome.publicUrl,
+      op: "notify-ready", videoUrl: outcome.publicUrl, notes: outcome.notes,
     });
     console.log(`[worker] job ${row.id} done → ${outcome.publicUrl ?? "(no upload)"}`);
   } catch (err) {
