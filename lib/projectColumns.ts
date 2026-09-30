@@ -44,6 +44,7 @@ export const PUBLIC_PROJECT_COLUMNS = [
   // 작품 두 언어 2단계(2026-09-29) — 워커만 쓰는 자막 시간표·다른 언어 영상(migration_demo_captions.sql).
   "demo_captions",
   "demo_locale_videos",
+  "link_unverified",
 ] as const;
 
 export const PRIVATE_PROJECT_COLUMNS = [
@@ -57,6 +58,7 @@ export const PRIVATE_PROJECT_COLUMNS = [
   // 주인 인터뷰(2026-09-29) — 가릴 것 목록이 들어 있어 공개하지 않는다(migration_owner_interview.sql).
   "owner_interview",
   "owner_interview_confirmed_at",
+  "demo_filmed_source",
 ] as const;
 
 export type PrivateProjectColumn = (typeof PRIVATE_PROJECT_COLUMNS)[number];

@@ -22,14 +22,15 @@ const base = {
   demo_access: { url: "/demo" }, demo_user_hint: "메모", demo_script: { steps: [{ action: "click" }] },
   pending_demo_script: null, pending_script_note: null, demo_build_error: null, demo_source_value: null,
   owner_interview: { proudMoment: "a", howIUse: "b", mustSee: "c", hide: [] }, owner_interview_confirmed_at: null,
+  demo_filmed_source: null,
 } as unknown as DBProject;
 const publicOnly = (p: DBProject) => {
   const {
     demo_access, demo_user_hint, demo_script, pending_demo_script, pending_script_note, demo_build_error, demo_source_value,
-    owner_interview, owner_interview_confirmed_at, ...rest
+    owner_interview, owner_interview_confirmed_at, demo_filmed_source, ...rest
   } = p;
   void demo_access; void demo_user_hint; void demo_script; void pending_demo_script; void pending_script_note; void demo_build_error; void demo_source_value;
-  void owner_interview; void owner_interview_confirmed_at;
+  void owner_interview; void owner_interview_confirmed_at; void demo_filmed_source;
   return rest;
 };
 

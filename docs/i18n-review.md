@@ -882,3 +882,12 @@ SNS/검색 로봇은 JS를 안 돌려 OG·크롤러 노출 문구(루트 descrip
 | projects.reviewInterviewConfirm / reviewInterviewConfirmFirst | 내 말이 맞아요 — AI가 지어낸 답이 없어요 / 인터뷰 답을 확인하면 공개할 수 있어요 | These are my words — nothing made up by the AI / Confirm your interview answers to publish | 신규 · 체크해야 [공개하기]가 눌린다 |
 | projects.reviewInterviewMissing / Loading / Empty / TooLong | 이 초안은 인터뷰 없이 올라왔어요. 아래 [AI에게 고쳐달라기]로 다시 올려 달라고 하면 AI가 먼저 물어봐요 / 인터뷰 답을 불러오는 중… / 비울 수 없어요 — 짧게라도 적어 주세요 / {max}자 안으로 적어 주세요 | This draft came in without your interview. Use [Ask AI to fix it] below — your AI will ask you first, then resubmit / Loading your interview answers… / Can't be empty — a few words is fine / Keep it under {max} characters | 신규 · 함수(max) |
 | api.ownerInterviewRequired / Incomplete / TooLong | (AI에게 주는 지시문 — 세 질문·주인에게 묻고 기다리기·JSON 모양) | (AI-facing instruction — the three questions, ask and WAIT, the JSON shape) | 신규 · PAT 응답은 영어 고정 |
+
+## 심사 뒤 주소 바꿔치기 차단 (2026-09-30)
+
+| 키 | 한국어 | English | 비고 |
+|---|---|---|---|
+| projects.linkHiddenBadge | 체험 버튼 숨김 | Try button hidden | 신규 · 작품 행 배지(누르면 재촬영 요청 창) |
+| projects.linkHiddenHint | 영상을 찍은 주소와 지금 주소가 달라서 명함의 [체험하기]를 숨겼어요. 새 주소로 다시 찍으면 돌아와요. | The link no longer matches the filmed video, so the Try button is hidden on your card. Film the new link to bring it back. | 신규 · 배지 툴팁 |
+| projects.linkChangedNotice | 주소가 바뀌어서 명함의 [체험하기]를 숨겼어요. [재촬영 요청]으로 새 주소를 찍으면 돌아와요. | The link changed, so the Try button is hidden on your card. Use [Request re-record] to film the new link and bring it back. | 신규 · 수정 저장 직후 토스트. [재촬영 요청]=rerecordRequest와 용어 일치 |
+| api.demoAccessOffSite | 데모 진입 주소는 작품 주소와 같은 사이트여야 해요({host}는 다른 사이트예요). 찍는 곳과 [체험하기]가 가는 곳이 같아야 검사가 뜻이 있어요. | The demo entry URL must be on the same site as the work's link ({host} is a different site). What we film has to be where the Try button goes. | 신규 · 400 DEMO_ACCESS_OFFSITE, 함수(host) |

@@ -2,7 +2,7 @@
 // 지키는 것: 공개 작품의 demo_access는 anon REST로 읽힐 수 있으니 토큰·비번처럼
 // 보이는 이름은 params·진입 URL 쿼리 어디로 와도 400(issue "secret-param")으로
 // 돌려보내고, 무해한 이름("keyword"·"monkey"·"guest")은 그대로 받는다.
-import { normalizeDemoAccess, secretLikeName } from "../lib/demoAccess";
+import { normalizeDemoAccess, secretLikeName, entryOnLinkedSite } from "../lib/demoAccess";
 
 let failed = 0;
 const ok = (name: string, pass: boolean, detail = "") => {
@@ -49,6 +49,22 @@ for (const [label, v] of [
 }
 const inner = normalizeDemoAccess({ url: "/demo//nested?x=1#y" });
 ok("경로 안쪽의 // 는 그대로 통과", !inner.issue && inner.access?.url === "/demo//nested?x=1#y");
+
+// 데모 진입은 링크한 사이트 안에서만(2026-09-30, D3) — 찍는 곳 = [체험하기]가 가는 곳.
+for (const [entry, linked, want] of [
+  ["/demo", "https://a.com", true],
+  ["https://a.com/demo", "https://a.com", true],
+  ["https://www.a.com/demo", "https://a.com/x", true],
+  ["https://app.a.com/demo", "https://a.com", true],
+  ["https://A.COM./demo", "https://a.com", true],
+  ["https://b.com/demo", "https://a.com", false],
+  ["https://evil-a.com/demo", "https://a.com", false],
+  ["https://a.com.evil.com/demo", "https://a.com", false],
+  ["https://b.vercel.app/", "https://a.vercel.app/", false],
+  ["https://a.com/demo", "https://app.a.com", false],
+] as const) {
+  ok(`진입 ${entry} ↔ 링크 ${linked} → ${want}`, entryOnLinkedSite(entry, linked) === want);
+}
 
 console.log(failed ? `\n${failed} FAILED` : "\nall passed");
 process.exit(failed ? 1 : 0);

@@ -127,6 +127,8 @@ interface DBProject {
   translations?: unknown;
   demo_locale_videos?: unknown;
   demo_captions?: unknown;
+  // 영상이 찍은 주소와 지금 demo_url이 다르면 true(심사 뒤 주소 바꿔치기, migration_link_verified.sql).
+  link_unverified?: boolean | null;
 }
 
 export default async function UserPortfolioPage({
@@ -173,7 +175,8 @@ export default async function UserPortfolioPage({
     thumbnail: p.thumbnail || placeholderThumbnail(p.id),
     year: p.year ?? new Date().getFullYear().toString(),
     tags: p.tags ?? [],
-    demoUrl: p.demo_url ?? undefined,
+    // 검사받은 영상과 다른 주소로 바뀐 작품은 다시 찍을 때까지 체험 버튼·라이브 화면을 숨긴다.
+    demoUrl: p.link_unverified ? undefined : p.demo_url ?? undefined,
     comment: v.comment || undefined,
     contentType: p.content_type ?? null,
     isFeatured: p.is_featured ?? false,

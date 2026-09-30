@@ -13,7 +13,7 @@ import { buildAndServe, type BuiltApp } from "./build";
 import { decidePolicy, type SafetyPolicy, type SourceType } from "./safety";
 import { recordDemo, type PipelinePhase } from "./pipeline";
 import type { QuarantineUpload } from "./upload";
-import type { DemoAccess } from "../lib/demoAccess";
+import { entryOnLinkedSite, type DemoAccess } from "../lib/demoAccess";
 import type { DemoScript } from "../lib/demoScript";
 import { filmPlan, type SiteLocale } from "../lib/workLanguages";
 
@@ -150,6 +150,11 @@ function resolveEntry(baseUrl: string, entry: string | undefined, job: JobInput)
       const parsed = new URL(entry);
       if (job.sourceType === "live_url") {
         assertRecordableUrl(parsed, job);
+        // 찍는 곳 = [체험하기]가 가는 곳이어야 그림 검사가 뜻이 있다(trigger-demo가 먼저 막고,
+        // 여기는 큐에 들어간 뒤 주인이 demo_access를 바꾼 경우의 마지막 그물).
+        if (!entryOnLinkedSite(parsed.toString(), baseUrl)) {
+          throw new Error(`demo entry must stay on the linked site: ${parsed.host} is not ${new URL(baseUrl).host}`);
+        }
         target = parsed.toString();
       } else {
         target = resolveSameOrigin(parsed.pathname + parsed.search + parsed.hash, baseUrl);

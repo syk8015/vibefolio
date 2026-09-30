@@ -48,12 +48,13 @@ grant select (
   app_locales,
   translations,
   demo_captions,
-  demo_locale_videos
+  demo_locale_videos,
+  link_unverified
 ) on table public.projects to anon, authenticated;
 
 commit;
 
--- 확인 1 — 2행(anon·authenticated)이 나오고 각각 count = 30여야 한다:
+-- 확인 1 — 2행(anon·authenticated)이 나오고 각각 count = 31이어야 한다:
 --   select grantee, count(*) from information_schema.column_privileges
 --   where table_schema = 'public' and table_name = 'projects' and privilege_type = 'SELECT'
 --     and grantee in ('anon', 'authenticated') group by grantee;

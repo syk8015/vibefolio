@@ -201,3 +201,21 @@ export function demoAccessEvidenceMissing(
   if (access.noLogin && thin) return "noLogin";
   return null;
 }
+
+// 절대 주소로 준 데모 진입(url·altUrl)이 링크한 사이트 안인가(2026-09-30, 위협 목록 D3).
+// 로봇은 live_url 작품의 절대 진입 주소를 그대로 연다(local-runner/job.ts resolveEntry) —
+// 막지 않으면 멀쩡한 사이트를 찍어 그림 검사를 통과시키고, [체험하기]는 전혀 다른
+// 사이트로 걸 수 있다. 같은 호스트(앞의 www. 무시)이거나 링크한 호스트의 하위 도메인만
+// 허락한다(example.com → app.example.com은 되고, a.vercel.app → b.vercel.app은 안 된다).
+// 경로("/…") 진입은 늘 같은 사이트라 true.
+export function entryOnLinkedSite(entry: string, linkedUrl: string): boolean {
+  if (!/^https?:\/\//i.test(entry)) return true;
+  try {
+    const host = (u: string) => new URL(u).hostname.toLowerCase().replace(/\.$/, "").replace(/^www\./, "");
+    const e = host(entry);
+    const l = host(linkedUrl);
+    return e === l || e.endsWith(`.${l}`);
+  } catch {
+    return false;
+  }
+}

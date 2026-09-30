@@ -615,6 +615,21 @@ export function ProjectRow({ project, username, demoPaused, nowMs, onDelete, onE
       <div className="flex items-center gap-2.5 justify-between md:justify-end shrink-0" onDragStart={e => e.stopPropagation()}>
         {/* 재촬영 루프: AI가 새 대본을 제출해 두면 여기서 알린다. 누르면
             재촬영 모달이 검토 화면으로 열려 대본을 보고 실행할 수 있다. */}
+        {/* 주소를 바꿔 영상과 [체험하기]가 어긋난 작품 — 누르면 재촬영 요청 창. */}
+        {project.link_unverified && !demoInFlight && !project.pending_demo_script && (
+          <button
+            type="button"
+            onClick={onRerecord}
+            title={t.projects.linkHiddenHint}
+            className="px-2 py-0.5 rounded-full text-xs shrink-0"
+            style={{
+              background: "var(--surface-soft)", color: "var(--danger)",
+              fontFamily: "var(--font-nunito)", fontWeight: 600, cursor: "pointer", fontSize: "0.8125rem",
+            }}
+          >
+            {t.projects.linkHiddenBadge}
+          </button>
+        )}
         {project.pending_demo_script && (
           <button
             type="button"

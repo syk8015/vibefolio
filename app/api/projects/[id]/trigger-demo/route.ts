@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { detectDemoSource, liveUrlIssue } from "@/lib/demoSource";
-import { normalizeDemoAccess } from "@/lib/demoAccess";
+import { normalizeDemoAccess, entryOnLinkedSite } from "@/lib/demoAccess";
 import { resolveBuildPayload, DemoSourceError, type BuildPayload } from "@/lib/demoPayload";
 import { assertSafePublicUrl, SsrfError } from "@/lib/ssrf";
 import { apiError } from "@/lib/apiError";
@@ -124,8 +124,18 @@ export async function POST(
     }
     // url = 데모 진입, altUrl = 촬영 전 정찰의 두 번째 후보(피드백 B-4). 워커가
     // 실제로 여는 주소라는 점에서 둘의 위험은 같으므로 같은 게이트를 태운다.
+    // 절대 진입 주소는 링크한 사이트 안이어야 한다(D3, lib/demoAccess entryOnLinkedSite) —
+    // 로봇이 찍는 곳과 [체험하기]가 가는 곳이 다르면 그림 검사가 딴 사이트를 본다.
+    // 업로드(/api/preview)는 워커가 받는 주소(resolveBuildPayload: 이 요청의 origin + 경로)로
+    // 비교한다 — 워커가 같은 기준으로 한 번 더 막는다.
+    const linked = source.value.startsWith("/api/preview/") ? `${req.nextUrl.origin}${source.value}` : source.value;
     for (const accessUrl of [demoAccess.access?.url, demoAccess.access?.altUrl]) {
       if (!accessUrl || accessUrl.startsWith("/")) continue;
+      if (source.type === "live_url" && !entryOnLinkedSite(accessUrl, linked)) {
+        let host = accessUrl;
+        try { host = new URL(accessUrl).host; } catch { /* 모양은 normalizeDemoAccess가 이미 봤다 */ }
+        return apiError({ status: 400, code: "DEMO_ACCESS_OFFSITE", message: t.api.demoAccessOffSite(host) });
+      }
       const issue = liveUrlIssue(accessUrl);
       if (issue?.kind === "content-host") {
         return apiError({

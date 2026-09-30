@@ -197,6 +197,9 @@ export const en: Dictionary = {
   projects: {
     draftArrived: (title: string) => `Draft "${title}" just landed`,
     pendingScriptBadge: "New script",
+    linkHiddenBadge: "Try button hidden",
+    linkHiddenHint: "The link no longer matches the filmed video, so the Try button is hidden on your card. Film the new link to bring it back.",
+    linkChangedNotice: "The link changed, so the Try button is hidden on your card. Use [Request re-record] to film the new link and bring it back.",
     reviewPendingScript: "Review new script",
     scriptLabel: "Demo script",
     scriptSteps: (n: number) => `${n} steps`,
@@ -883,6 +886,8 @@ export const en: Dictionary = {
             : "htmlBody looks cut off — there is no closing </html> and no </body>. If your answer was truncated, continue it and then send the WHOLE document in one go. This check exists so a half-written app is not published as if it were finished.",
     badUrl: "This URL can't be embedded or filmed for a demo.",
     demoAccessBadUrl: "demoAccess.url must be an http(s) URL or a path starting with /.",
+    demoAccessOffSite: (host: string): string =>
+      `The demo entry URL must be on the same site as the work's link (${host} is a different site). What we film has to be where the Try button goes.`,
     demoAccessSecretParam: (name: string): string =>
       `demoAccess contains a name that looks like a secret ("${name}") — tokens, passwords and keys are not accepted. On a published work this field is readable by anyone, so a secret placed here leaks. Send a guest/demo path that needs no secret instead ({ "url": "/demo", "params": {"guest":"1"} }).`,
     demoAccessRequired:

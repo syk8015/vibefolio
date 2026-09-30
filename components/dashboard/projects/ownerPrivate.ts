@@ -29,6 +29,7 @@ const EMPTY_PRIVATE: Pick<DBProject, PrivateProjectColumn> = {
   demo_source_value: null,
   owner_interview: null,
   owner_interview_confirmed_at: null,
+  demo_filmed_source: null,
 };
 
 // 라우트의 ?ids= 상한(app/api/projects/private MAX_IDS). 넘으면 ids 없이 전부 받는다.

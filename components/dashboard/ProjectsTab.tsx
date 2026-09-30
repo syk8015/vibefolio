@@ -425,6 +425,8 @@ export default function ProjectsTab({
       else setProjects(apply);
       if (before) await deleteSwappedAssets(id, before, updated);
       if (!updated.is_draft) syncPublic();
+      // 검사받은 영상이 있는 작품의 주소를 바꾸면 명함이 [체험하기]를 숨긴다(DB가 판정).
+      if (updated.link_unverified && !before?.link_unverified) setNotice(t.projects.linkChangedNotice);
     }
     setEditProject(null);
   }

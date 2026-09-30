@@ -59,6 +59,11 @@ export interface DBProject {
   demo_generated_at: string | null;
   // DB 트리거가 모든 상태 전이마다 찍는다 (migration_stuck_watchdog.sql).
   demo_status_changed_at: string | null;
+  // 영상을 찍은 주소와 지금 demo_url이 다르면 true — 명함이 [체험하기]를 숨긴다(DB 계산 칸,
+  // migration_link_verified.sql). 새 주소로 다시 찍으면 저절로 false.
+  link_unverified?: boolean | null;
+  // 지금 영상을 찍을 때의 촬영 소스(비공개 칸, 트리거가 채움 — 사용자 키로 못 씀).
+  demo_filmed_source?: string | null;
   // 사용자 유도형 데모 변형①: 제작자가 쓴 "핵심 기능" 설명. 녹화 워커가 explore
   // 브리핑에 주입한다. 가드 트리거의 파이프라인 컬럼이 아니라 유저가 직접 수정 가능.
   demo_user_hint: string | null;

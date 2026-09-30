@@ -209,6 +209,10 @@ export const ko = {
     // AI가 올린 초안이 실시간으로 도착했을 때 뜨는 토스트(2026-09-05).
     draftArrived: (title: string) => `"${title}" 초안이 도착했어요`,
     pendingScriptBadge: "새 대본 도착",
+    // 영상을 찍은 주소와 지금 주소가 다를 때(심사 뒤 주소 바꿔치기 차단, 2026-09-30).
+    linkHiddenBadge: "체험 버튼 숨김",
+    linkHiddenHint: "영상을 찍은 주소와 지금 주소가 달라서 명함의 [체험하기]를 숨겼어요. 새 주소로 다시 찍으면 돌아와요.",
+    linkChangedNotice: "주소가 바뀌어서 명함의 [체험하기]를 숨겼어요. [재촬영 요청]으로 새 주소를 찍으면 돌아와요.",
     reviewPendingScript: "새 대본 확인하고 재촬영",
     scriptLabel: "촬영 대본",
     scriptSteps: (n: number) => `${n}스텝`,
@@ -963,6 +967,8 @@ export const ko = {
             : "htmlBody가 중간에 잘린 것 같아요 — 닫는 </html>도 </body>도 없어요. 답변이 끊겼다면 이어서 받은 뒤 **전체를 한 번에** 보내세요. 반쪽짜리 작품이 그대로 발행되지 않게 여기서 막는 거예요.",
     badUrl: "임베드·시연할 수 있는 URL이 아니에요.",
     demoAccessBadUrl: "demoAccess.url은 http(s) 주소이거나 /로 시작하는 경로여야 해요.",
+    demoAccessOffSite: (host: string): string =>
+      `데모 진입 주소는 작품 주소와 같은 사이트여야 해요(${host}는 다른 사이트예요). 찍는 곳과 [체험하기]가 가는 곳이 같아야 검사가 뜻이 있어요.`,
     demoAccessSecretParam: (name: string): string =>
       `demoAccess에 비밀값처럼 보이는 이름("${name}")이 있어요 — 토큰·비밀번호·키는 받지 않아요. 공개된 작품의 이 칸은 누구나 읽을 수 있어서 넣는 순간 새어 나갑니다. 비밀 없이 들어가는 게스트/데모 경로({ "url": "/demo", "params": {"guest":"1"} })를 주세요.`,
     demoAccessRequired:
