@@ -1,4 +1,7 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback, useId } from "react";
+import Image from "next/image";
+import Modal from "@/components/Modal";
+import { FoldToggle } from "@/components/FoldToggle";
 import { createClient } from "@/lib/supabase/client";
 import { screenshotUrl } from "@/lib/thumbnail";
 import { MAX_UPLOAD_BYTES, getMimeType } from "@/lib/upload-safety";
@@ -12,11 +15,45 @@ import {
 import { type ProjectForm, AI_TOOLS_INITIAL } from "./types";
 import { useT } from "@/lib/i18n/client";
 
-// 대시보드 프로젝트 **수정** 폼(평면 레이아웃 오버레이 모달).
+// 대시보드 작품 **수정** 창 '작품 고치기'(2026-10-01 덜어내기 · 라안).
 //
-// 2026-08-25: 단계식 추가 위저드(7~8스텝) 삭제 — 새로 올리는 길은 AI 하나로
-// 통일했다(사용자 확정). 이미 올린 작품의 제목·설명·파일 교체는 여전히 사람이
-// 해야 하므로 이 수정 폼은 남는다. 추가 진입점은 AddProjectModal → ConnectPanel.
+// 자주 고치는 세 칸(이름·설명·한 마디)과 작품 주소 한 줄만 먼저 보인다. 나머지(유형·연도·
+// AI 도구·썸네일·직접 만든 영상·핵심 기능 소개)는 '더 보기' 목록에 한 줄씩 있고, 줄의 작은
+// 버튼을 누르면 그 자리에서 편집 칸이 열린다. 핵심 기능 소개(demo_user_hint)는 촬영 워커가
+// 아직 읽는다(local-runner explore 브리핑) — 빼지 말 것.
+//
+// 작품 주소·파일 교체는 [바꾸기] → 작은 창. 거기서 올린 파일·적은 주소는 창의 [바꾸기]를
+// 눌러야 폼에 들어가고, 닫으면 버린다. DB 저장은 예전처럼 [저장하기] 한 번이고, 업로드 경로·
+// 검사·저장 로직은 그대로다.
+//
+// 2026-08-25: 단계식 추가 위저드 삭제 — 새로 올리는 길은 AI 하나로 통일(사용자 확정).
+// 이미 올린 작품의 제목·설명·파일 교체는 여전히 사람이 해야 하므로 이 창은 남는다.
+// 추가 진입점은 AddProjectModal → ConnectPanel.
+
+type MoreKey = "type" | "year" | "tools" | "thumb" | "video" | "hint";
+
+// 칸 이름표 — 명함 탭과 같은 본문 글꼴 14px(고정폭 .vf-label은 한글이 띄엄띄엄 읽혔다, 09-26).
+const LABEL: React.CSSProperties = {
+  display: "block", fontSize: "0.875rem", fontWeight: 600, color: "var(--text-primary)",
+  fontFamily: "var(--font-nunito)", marginBottom: 8,
+};
+// 채움 상자(soft) 줄 안의 작은 버튼 — 한 단계 밝은 바탕이라 줄 위에서 떠 보인다.
+const MINI: React.CSSProperties = {
+  flexShrink: 0, padding: "0.375rem 0.875rem", borderRadius: 999, border: "none",
+  background: "var(--surface)", color: "var(--text-primary)",
+  fontFamily: "var(--font-nunito)", fontSize: "0.8125rem", fontWeight: 600,
+  whiteSpace: "nowrap", cursor: "pointer",
+};
+const SMALL: React.CSSProperties = {
+  margin: 0, fontSize: "0.8125rem", color: "var(--text-secondary)", fontFamily: "var(--font-nunito)",
+  wordBreak: "keep-all",
+};
+const ERROR: React.CSSProperties = {
+  margin: 0, fontSize: "0.875rem", color: "var(--danger)", fontFamily: "var(--font-nunito)", lineHeight: 1.5,
+  wordBreak: "keep-all",
+};
+const FOOT_BUTTON: React.CSSProperties = { padding: "0.7rem 1.6rem", fontSize: "0.9375rem" };
+
 export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, userId }: {
   title: string;
   initialForm: ProjectForm;
@@ -26,9 +63,9 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
   userId: string;
 }) {
   const { t } = useT();
-  // 업로드로 만든 프로젝트의 demo_url은 내부 preview 경로다 — "url"로 시작하면
-  // 수정 모달의 데모 URL 칸에 /api/preview/… 가 그대로 찍힌다(게다가 type=url
-  // 검증에 걸려 저장도 안 된다). 파일 모드에서 시작해 연결 상태로 보여준다.
+  const uid = useId();
+  // 교체 창의 주소/파일 선택. 업로드로 만든 작품의 demo_url은 내부 preview 경로라 파일 쪽으로
+  // 열고, 주소 칸엔 그 경로를 채우지 않는다(openSwap — type=url 검증에도 걸린다).
   const [uploadMode, setUploadMode] = useState<"url" | "files">(
     isUploadedProject(initialForm.demo_url) ? "files" : "url",
   );
@@ -41,13 +78,20 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadError, setUploadError] = useState("");
-  const [uploadDone, setUploadDone] = useState(false);
   // 안전상 저장하지 않은 비밀 파일 요약(.env·.git/ 등). 조용히 버리면 "왜 내
   // 앱이 안 도나"가 되므로 업로드 결과 옆에 그대로 보여준다.
   const [droppedFiles, setDroppedFiles] = useState<string[]>([]);
   const [videoMode, setVideoMode] = useState<"file" | "url">("file");
   const [videoUploading, setVideoUploading] = useState(false);
   const [videoError, setVideoError] = useState("");
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [editing, setEditing] = useState<MoreKey | null>(null);
+  // 교체 창: 적은 주소와, 다 올라갔지만 아직 [바꾸기]를 안 누른 업로드.
+  const [swapOpen, setSwapOpen] = useState(false);
+  const [swapUrl, setSwapUrl] = useState("");
+  const [staged, setStaged] = useState<{ demoUrl: string; name: string } | null>(null);
+  // 이번에 올린 파일 이름(작품 줄에 보여줄 것). 예전 업로드는 이름을 저장하지 않아 모른다.
+  const [pickedName, setPickedName] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
   const thumbnailInputRef = useRef<HTMLInputElement>(null);
@@ -116,10 +160,11 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
 
   async function handleFilesUpload(fileList: FileList) {
     setUploadError("");
-    setUploadDone(false);
+    setStaged(null);
     setDroppedFiles([]);
     const rawFiles = Array.from(fileList);
     if (!rawFiles.length) return;
+    const name = uploadName(rawFiles);
 
     setUploading(true);
     setUploadProgress(0);
@@ -184,16 +229,9 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
     }
 
     if (indexHtmlStoragePath) {
-      // 옛 폴더를 찍은 자동 썸네일(thum.io)은 비운다 — 저장하면 옛 폴더가 지워져서
-      // 그 썸네일이 옛 화면이나 빈 페이지를 보여준다. 비우면 저장 때 새로 찍힌다.
-      setForm(prev => ({
-        ...prev,
-        demo_url: `/api/preview/${indexHtmlStoragePath}`,
-        thumbnail: prev.thumbnail?.startsWith(screenshotUrl("")) && prev.thumbnail.includes("/api/preview/")
-          ? "" : prev.thumbnail,
-      }));
+      // 폼에는 교체 창의 [바꾸기]를 눌러야 들어간다(applySwap).
+      setStaged({ demoUrl: `/api/preview/${indexHtmlStoragePath}`, name });
       setUploading(false);
-      setUploadDone(true);
     } else {
       // No HTML → demo_url stays empty and the trigger silently no-ops. Tell the
       // user instead of letting them wonder why nothing happened (input matrix #2).
@@ -202,8 +240,52 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
     }
   }
 
+  function openSwap() {
+    const uploadedNow = isUploadedProject(form.demo_url);
+    setSwapUrl(uploadedNow ? "" : form.demo_url ?? "");
+    // 올리는 중에 닫았다 다시 열면 진행 상황을 그대로 보여준다.
+    if (!uploading) {
+      setUploadMode(uploadedNow ? "files" : "url");
+      setStaged(null);
+      setUploadError("");
+      setDroppedFiles([]);
+    }
+    setSwapOpen(true);
+  }
+
+  // Modal은 onClose가 바뀔 때마다 창에 포커스를 다시 준다 — 입력 중에 포커스를 뺏기지 않게 고정.
+  const closeSwap = useCallback(() => setSwapOpen(false), []);
+
+  function applySwap(e: React.FormEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (uploadMode === "files") {
+      if (!staged || uploading) return;
+      const next = staged;
+      // 옛 폴더를 찍은 자동 썸네일(thum.io)은 비운다 — 저장하면 옛 폴더가 지워져서
+      // 그 썸네일이 옛 화면이나 빈 페이지를 보여준다. 비우면 저장 때 새로 찍힌다.
+      setForm(prev => ({
+        ...prev,
+        demo_url: next.demoUrl,
+        thumbnail: prev.thumbnail?.startsWith(screenshotUrl("")) && prev.thumbnail.includes("/api/preview/")
+          ? "" : prev.thumbnail,
+      }));
+      setPickedName(next.name);
+    } else {
+      const url = swapUrl.trim();
+      if (!url) return;
+      setForm(prev => ({ ...prev, demo_url: url }));
+      setPickedName(null);
+    }
+    setSwapOpen(false);
+  }
+
   function toggleTool(id: string) {
     setSelectedTools(prev => prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id]);
+  }
+
+  function toggleEditing(key: MoreKey) {
+    setEditing(prev => (prev === key ? null : key));
   }
 
   async function handleThumbnailUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -260,9 +342,22 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
     setSaving(false);
   }
 
-  // ── Wizard mode (추가): in-place takeover of the ProjectsTab content area ──
+  // ── 줄에 보여줄 지금 값 ──
+  const linkIsUpload = isUploadedProject(form.demo_url);
+  const linkLabel = linkIsUpload
+    ? `${t.projectForm.workLink} · ${t.projectForm.workUploaded}`
+    : t.projectForm.workLink;
+  const linkValue = linkIsUpload
+    ? pickedName ?? uploadEntry(form.demo_url) ?? t.projectForm.uploadedFiles
+    : shortUrl(form.demo_url ?? "");
+  const typeName = form.content_type
+    ? (t.contentTypes as Record<string, string>)[form.content_type]
+      ?? CONTENT_TYPES.find(ct => ct.id === form.content_type)?.label
+      ?? form.content_type
+    : null;
+  const hint = form.demo_user_hint?.trim() || "";
+  const canApplySwap = uploadMode === "files" ? !!staged && !uploading : swapUrl.trim() !== "";
 
-  // ── Edit mode (수정): overlay modal with the flat field layout ──
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-6"
@@ -270,458 +365,447 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div
-        className="relative flex overflow-hidden"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={`${uid}-title`}
+        className="relative flex flex-col overflow-hidden"
         style={{
-          width: "min(42rem, calc(100vw - 2rem))",
+          width: "min(34rem, calc(100vw - 2rem))",
           maxHeight: "92vh",
           background: "var(--surface)",
           borderRadius: 20,
           boxShadow: "var(--shadow-modal)",
         }}
       >
-
-        {/* Floating top-right controls */}
-        <div className="absolute top-4 right-4 z-20 flex gap-2">
-          <button onClick={onClose}
-            className="vf-soft-fill flex items-center justify-center rounded-full"
-            style={{ width: 32, height: 32, cursor: "pointer" }}
-            aria-label={t.projectForm.closeAria}>
-            <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
-              <path d="M4 4l12 12M16 4L4 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-            </svg>
-          </button>
-        </div>
-
-
-        {/* Form panel — scrolls under the sticky title so the save row is always
-            reachable on short viewports */}
-        <div
-          className="flex flex-col overflow-y-auto"
-          style={{ flex: 1, minWidth: 0 }}
-        >
-
-        {/* Header (edit mode keeps the original title) */}
-        <div className="sticky top-0 z-10 flex items-center gap-3 px-6 py-4"
-          style={{ background: "var(--surface)", borderBottom: "1px solid var(--border)" }}>
-          <h2 className="flex-1 vf-serif-display" style={{ fontSize: "1.2rem", fontWeight: 500, margin: 0 }}>
+        <div className="flex items-center gap-3 px-6 py-4" style={{ borderBottom: "1px solid var(--border)" }}>
+          <h2 id={`${uid}-title`} className="flex-1 vf-serif-display" style={{ fontSize: "1.2rem", fontWeight: 600, margin: 0 }}>
             {title}
           </h2>
+          <CloseButton onClick={onClose} label={t.projectForm.closeAria} />
         </div>
 
-        <form onSubmit={handleSubmit} className="px-6 py-5 flex flex-col gap-5">
-
-          <div className="vf-seg-track">
-            {(["url", "files"] as const).map(mode => {
-              const active = uploadMode === mode;
-              return (
-                <button key={mode} type="button" onClick={() => setUploadMode(mode)}
-                  data-active={active}
-                  className="vf-selectable flex-1 py-2 rounded-lg text-sm">
-                  {mode === "url" ? `🔗 ${t.projectForm.urlOptionTitle}` : `📁 ${t.projectForm.filesOptionTitle}`}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* File upload */}
-          <div>
-          {uploadMode === "files" && (
-            <div className="flex flex-col gap-3">
-              {/* 기존 업로드 연결 상태 — 내부 경로 대신 사실만 말해준다 */}
-              {isUploadedProject(form.demo_url) && !uploadDone && (
-                <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl"
-                  style={{ background: "var(--surface-soft)" }}>
-                  <svg width="13" height="13" viewBox="0 0 14 14" fill="none" style={{ flexShrink: 0 }}>
-                    <path d="M2.5 7l3 3 6-6.5" stroke="var(--text-primary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                  <p className="text-xs" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
-                    {t.projectForm.existingUpload}
-                  </p>
-                </div>
-              )}
-              {/* Guide notice */}
-              <div className="flex gap-2.5 px-3.5 py-3 rounded-xl"
-                style={{ background: "var(--surface-soft)" }}>
-                <span style={{ fontSize: "0.85rem", flexShrink: 0, marginTop: "1px" }}>💡</span>
-                <div style={{ fontFamily: "var(--font-nunito)", fontSize: "0.72rem", color: "var(--text-secondary)", lineHeight: 1.7 }}>
-                  <span style={{ fontWeight: 600, color: "var(--text-primary)", fontFamily: "var(--font-serif), 'Noto Serif KR', serif" }}>{t.projectForm.editGuideTitle}</span>
-                  {t.projectForm.editGuide1}<code className="vf-mono" style={{ background: "var(--surface)", padding: "1px 5px", borderRadius: 4, fontSize: "0.68rem", color: "var(--text-primary)" }}>npm run build</code>{t.projectForm.editGuide2}
-                  <code className="vf-mono" style={{ background: "var(--surface)", padding: "1px 5px", borderRadius: 4, fontSize: "0.68rem", color: "var(--text-primary)" }}>dist/</code>{t.projectForm.editGuide3}
-                </div>
-              </div>
-
-              <input ref={fileInputRef} type="file" className="hidden" multiple
-                accept=".html,.css,.js,.ts,.jsx,.tsx,.json,.svg,.png,.jpg,.jpeg,.gif,.webp,.woff,.woff2,.ttf,.zip"
-                onChange={e => e.target.files && handleFilesUpload(e.target.files)} />
-              <input ref={folderInputRef} type="file" className="hidden"
-                {...{ webkitdirectory: "", multiple: true } as React.InputHTMLAttributes<HTMLInputElement>}
-                onChange={e => e.target.files && handleFilesUpload(e.target.files)} />
-              <div className="flex flex-col items-center gap-3 p-6 rounded-xl"
-                onDragOver={e => { e.preventDefault(); e.currentTarget.setAttribute("data-drag", "1"); }}
-                onDragLeave={e => e.currentTarget.removeAttribute("data-drag")}
-                onDrop={e => {
-                  e.preventDefault();
-                  e.currentTarget.removeAttribute("data-drag");
-                  if (e.dataTransfer.files.length) handleFilesUpload(e.dataTransfer.files);
-                }}
-                style={{ background: "var(--surface-soft)" }}>
-                <div className="text-3xl">📂</div>
-                <p className="text-xs text-center" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
-                  {t.projectForm.dropHelpEdit}
-                </p>
-                <div className="flex gap-2">
-                  <button type="button" onClick={() => fileInputRef.current?.click()}
-                    className="vf-soft-fill rounded-full"
-                    style={{ padding: "0.5rem 1rem", fontSize: "0.8rem", fontFamily: "var(--font-nunito)", fontWeight: 500, cursor: "pointer" }}>
-                    {t.projectForm.pickFiles}
-                  </button>
-                  <button type="button" onClick={() => folderInputRef.current?.click()}
-                    className="vf-soft-fill rounded-full"
-                    style={{ padding: "0.5rem 1rem", fontSize: "0.8rem", fontFamily: "var(--font-nunito)", fontWeight: 500, cursor: "pointer" }}>
-                    {t.projectForm.pickFolder}
-                  </button>
-                </div>
-              </div>
-              {uploading && (
-                <div className="flex flex-col gap-2">
-                  <div className="flex justify-between text-xs vf-mono"
-                    style={{ color: "var(--text-secondary)" }}>
-                    <span>{t.projectForm.uploading}</span><span>{uploadProgress}%</span>
-                  </div>
-                  <div className="w-full h-1.5 rounded-full" style={{ background: "var(--border)" }}>
-                    <div className="h-1.5 rounded-full transition-all duration-300"
-                      style={{ width: `${uploadProgress}%`, background: "var(--text-primary)" }} />
-                  </div>
-                </div>
-              )}
-              {uploadDone && !uploading && (
-                <p className="text-sm flex items-center gap-1.5" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                    <path d="M2.5 7l3 3 6-6.5" stroke="var(--text-primary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                  {t.projectForm.uploadDoneEdit}
-                </p>
-              )}
-              {uploadError && (
-                <p className="text-sm" style={{ color: "#b34747", fontFamily: "var(--font-nunito)" }}>
-                  {uploadError}
-                </p>
-              )}
-              {droppedFiles.length > 0 && !uploading && (
-                <div
-                  className="text-sm rounded-lg px-3 py-2.5"
-                  style={{
-                    background: "var(--blue-tint)",
-                    color: "var(--text-secondary)",
-                    fontFamily: "var(--font-nunito)",
-                  }}
-                >
-                  <p style={{ color: "var(--text-primary)" }}>{t.projectForm.secretFilesSkipped}</p>
-                  <ul className="mt-1 space-y-0.5">
-                    {droppedFiles.map((line) => (
-                      <li key={line}>· {line}</li>
-                    ))}
-                  </ul>
-                  <p className="mt-1.5">{t.projectForm.secretFilesWhy}</p>
-                </div>
-              )}
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+          <div className="flex-1 min-h-0 overflow-y-auto p-6 flex flex-col gap-4">
+            <div>
+              <label htmlFor={`${uid}-name`} style={LABEL}>{t.projectForm.nameLabel}</label>
+              <input id={`${uid}-name`} className="vf-input" name="title" placeholder="My Awesome Project"
+                value={form.title} onChange={handleChange} required />
             </div>
-          )}
 
-          {/* URL input — 내부 preview 경로는 여기 노출하지 않는다(파일 탭이 연결
-              상태를 보여줌). 입력하면 그 외부 URL로 교체된다. */}
-          {uploadMode === "url" && (
-            <Field label={t.projectForm.demoUrlLabel}>
-              <input className="vf-input" name="demo_url" type="url"
-                placeholder="https://myproject.vercel.app"
-                value={isUploadedProject(form.demo_url) ? "" : form.demo_url}
-                onChange={handleChange} />
-            </Field>
-          )}
-          </div>{/* end step 2 wrapper */}
-
-          {/* 핵심 기능 소개 — 위저드에만 있던 칸. 초안 카드가 이 값을 보여주며
-              "수정" 버튼을 주는데 정작 모달에 칸이 없어 한 번 쓰면 못 고쳤다. */}
-          <div>
-            <Field label={t.projectForm.hintLabelEdit}>
-              <textarea className="vf-input" name="demo_user_hint" rows={2}
-                placeholder={t.projectForm.hintPlaceholder}
-                value={form.demo_user_hint ?? ""} onChange={handleChange}
-                maxLength={500}
+            <div>
+              <label htmlFor={`${uid}-desc`} style={LABEL}>{t.projectForm.descLabel}</label>
+              <textarea id={`${uid}-desc`} className="vf-input" name="description" placeholder={t.projectForm.descPlaceholder}
+                value={form.description} onChange={handleChange} rows={3}
                 style={{ resize: "vertical", lineHeight: 1.6 }} />
-            </Field>
-            <p className="text-xs mt-1.5" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
-              {t.projectForm.hintHelp}
-            </p>
-          </div>
+            </div>
 
-          {/* 구동 영상 (선택) — 대표 작품 hero에서 자동 재생 */}
-          <div>
-            <label className="vf-label">{t.projectForm.videoLabelOptional}</label>
-            <p className="text-xs mb-2" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
-              {t.projectForm.videoAutoplayHelp}
-            </p>
+            <div>
+              <label htmlFor={`${uid}-comment`} style={LABEL}>{t.projectForm.commentLabel}</label>
+              <input id={`${uid}-comment`} className="vf-input" name="comment" placeholder={t.projectForm.commentPlaceholder}
+                value={form.comment} onChange={handleChange} />
+            </div>
 
-            {form.video_url ? (
-              <div className="flex items-center gap-3 p-3 rounded-xl"
-                style={{ background: "var(--surface-soft)" }}>
-                <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
-                  style={{ background: "var(--surface)" }}>
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                    <polygon points="3,2 13,8 3,14" fill="var(--text-primary)" />
-                  </svg>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs mb-0.5" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontWeight: 600 }}>
-                    {t.projectForm.videoConnected}
-                  </p>
-                  <p className="text-xs truncate vf-mono" style={{ color: "var(--text-muted)", fontSize: "0.65rem" }}>
-                    {form.video_url}
-                  </p>
-                </div>
-                <button type="button"
-                  onClick={() => { setForm(prev => ({ ...prev, video_url: "" })); setVideoError(""); }}
-                  className="vf-button-danger"
-                  style={{ padding: "0.4rem 0.7rem", fontSize: "0.72rem" }}>
-                  {t.projectForm.remove}
-                </button>
+            {/* 작품 주소 한 줄 — 교체는 [바꾸기] → 작은 창 */}
+            <div className="flex items-center gap-3 rounded-2xl"
+              style={{ background: "var(--surface-soft)", padding: "0.75rem 0.75rem 0.75rem 1rem" }}>
+              <div className="flex-1 min-w-0">
+                <p style={SMALL}>{linkLabel}</p>
+                <p className="truncate" title={linkIsUpload ? undefined : form.demo_url}
+                  style={{ margin: 0, fontSize: "0.9375rem", fontWeight: 600, fontFamily: "var(--font-nunito)", color: linkValue ? "var(--text-primary)" : "var(--text-muted)" }}>
+                  {linkValue || t.projectForm.none}
+                </p>
               </div>
-            ) : (
-              <>
-                {/* Mode toggle */}
-                <div className="vf-seg-track mb-2 w-fit">
-                  {(["file", "url"] as const).map(m => {
-                    const active = videoMode === m;
-                    return (
-                      <button key={m} type="button" onClick={() => setVideoMode(m)}
-                        data-active={active}
-                        className="vf-selectable px-3 py-1 rounded-md text-xs">
-                        {m === "file" ? t.projectForm.modeFile : t.projectForm.modeUrl}
-                      </button>
-                    );
-                  })}
-                </div>
+              <button type="button" onClick={openSwap} style={MINI} className="transition-opacity hover:opacity-75">
+                {t.projectForm.replace}
+              </button>
+            </div>
 
-                {videoMode === "file" ? (
-                  <>
-                    <input ref={videoInputRef} type="file" accept="video/mp4,video/webm,video/quicktime" className="hidden"
-                      onChange={e => { const f = e.target.files?.[0]; if (f) handleVideoFile(f); }} />
-                    <button type="button" disabled={videoUploading}
-                      onClick={() => videoInputRef.current?.click()}
-                      className="vf-soft-fill w-full py-2.5 rounded-xl text-sm"
-                      style={{ fontFamily: "var(--font-nunito)", fontWeight: 500, cursor: videoUploading ? "not-allowed" : "pointer" }}>
-                      {videoUploading ? t.projectForm.uploading : t.projectForm.videoPickInline}
+            <div>
+              <FoldToggle open={moreOpen} onToggle={() => { setMoreOpen(v => !v); setEditing(null); }}>
+                {moreOpen ? t.projectForm.less : t.projectForm.more}
+              </FoldToggle>
+            </div>
+
+            {moreOpen && (
+              <div className="rounded-2xl overflow-hidden" style={{ background: "var(--surface-soft)" }}>
+                <MoreRow first label={t.projectForm.rowType}
+                  value={typeName ?? t.projectForm.none} empty={!typeName}
+                  action={t.projectForm.change} doneLabel={t.projectForm.done}
+                  open={editing === "type"} onToggle={() => toggleEditing("type")}>
+                  <div className="flex flex-wrap gap-1.5">
+                    {CONTENT_TYPES.map(ct => {
+                      const active = form.content_type === ct.id;
+                      return (
+                        <button key={ct.id} type="button"
+                          onClick={() => setForm(prev => ({ ...prev, content_type: active ? null : ct.id }))}
+                          data-active={active}
+                          className="vf-selectable px-3 py-1 rounded-full"
+                          style={{ fontSize: "0.8125rem" }}>
+                          {active && "✓ "}{(t.contentTypes as Record<string, string>)[ct.id] ?? ct.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </MoreRow>
+
+                <MoreRow label={t.projectForm.rowYear}
+                  value={form.year || t.projectForm.none} empty={!form.year}
+                  action={t.projectForm.change} doneLabel={t.projectForm.done}
+                  open={editing === "year"} onToggle={() => toggleEditing("year")}>
+                  <input className="vf-input" name="year" placeholder="2025" aria-label={t.projectForm.rowYear}
+                    value={form.year} onChange={handleChange} style={{ maxWidth: 160 }} />
+                </MoreRow>
+
+                <MoreRow label={t.projectForm.rowTools}
+                  value={selectedTools.length ? toolsSummary(selectedTools) : t.projectForm.none}
+                  empty={!selectedTools.length}
+                  action={t.projectForm.change} doneLabel={t.projectForm.done}
+                  open={editing === "tools"} onToggle={() => toggleEditing("tools")}>
+                  <div className="flex flex-wrap gap-1.5">
+                    {visibleTools.map(tool => {
+                      const active = selectedTools.includes(tool.id);
+                      return (
+                        <button key={tool.id} type="button" onClick={() => toggleTool(tool.id)}
+                          data-active={active}
+                          className="vf-selectable flex items-center gap-1.5 px-2.5 py-1 rounded-full"
+                          style={{ fontSize: "0.8125rem" }}>
+                          {active && <span style={{ fontSize: "0.7em" }}>✓</span>}
+                          <AiToolLogo id={tool.id} size={13} />
+                          <span>{tool.id}</span>
+                        </button>
+                      );
+                    })}
+                    <button type="button"
+                      onClick={() => setShowAllTools(v => !v)}
+                      className="vf-soft-fill px-2.5 py-1 rounded-full"
+                      style={{ fontSize: "0.8125rem", fontWeight: 500 }}>
+                      {showAllTools
+                        ? t.projectForm.less
+                        : t.projectForm.showMore(AI_TOOLS.length - AI_TOOLS_INITIAL - hiddenSelectedCount)}
                     </button>
-                  </>
-                ) : (
-                  <input className="vf-input" type="url" name="video_url"
-                    placeholder={t.projectForm.videoUrlPlaceholder}
-                    value={form.video_url} onChange={handleChange} />
-                )}
-                {videoError && (
-                  <p className="text-xs mt-2" style={{ color: "#b34747", fontFamily: "var(--font-nunito)" }}>
-                    {videoError}
-                  </p>
-                )}
-              </>
+                  </div>
+                </MoreRow>
+
+                <MoreRow label={t.projectForm.thumbLabel}
+                  value={form.thumbnail ? <ThumbPreview src={form.thumbnail} /> : t.projectForm.auto}
+                  empty={!form.thumbnail}
+                  action={form.thumbnail ? t.projectForm.change : t.projectForm.upload} doneLabel={t.projectForm.done}
+                  open={editing === "thumb"} onToggle={() => toggleEditing("thumb")}>
+                  <input ref={thumbnailInputRef} type="file" className="hidden" accept="image/*"
+                    onChange={handleThumbnailUpload} />
+                  <button type="button"
+                    onClick={() => thumbnailInputRef.current?.click()}
+                    onDragOver={e => { e.preventDefault(); e.currentTarget.setAttribute("data-drag", "1"); }}
+                    onDragLeave={e => e.currentTarget.removeAttribute("data-drag")}
+                    onDrop={e => {
+                      e.preventDefault();
+                      e.currentTarget.removeAttribute("data-drag");
+                      const file = e.dataTransfer.files[0];
+                      if (file && file.type.startsWith("image/")) {
+                        const dt = new DataTransfer();
+                        dt.items.add(file);
+                        if (thumbnailInputRef.current) {
+                          thumbnailInputRef.current.files = dt.files;
+                          thumbnailInputRef.current.dispatchEvent(new Event("change", { bubbles: true }));
+                        }
+                      }
+                    }}
+                    className="flex items-center justify-center w-full rounded-xl"
+                    style={{ height: 48, background: "var(--surface-soft)", border: "none", cursor: "pointer" }}
+                  >
+                    {thumbnailUploading ? (
+                      <span className="inline-block w-4 h-4 rounded-full border-2 animate-spin"
+                        style={{ borderColor: "var(--text-primary)", borderTopColor: "transparent" }} />
+                    ) : (
+                      <span style={SMALL}>{t.projectForm.dropOrClick}</span>
+                    )}
+                  </button>
+                  <div className="flex flex-wrap items-center gap-2.5 mt-3">
+                    <span style={SMALL}>{t.projectForm.thumbTypeLabel}</span>
+                    <div className="vf-seg-track">
+                      {(["image", "video"] as const).map(mode => (
+                        <button key={mode} type="button"
+                          onClick={() => setForm(prev => ({ ...prev, type: mode }))}
+                          data-active={form.type === mode}
+                          className="vf-selectable px-3 py-1 rounded-md"
+                          style={{ fontSize: "0.8125rem" }}>
+                          {mode === "image" ? t.projectForm.typeImage : t.projectForm.typeVideo}
+                        </button>
+                      ))}
+                    </div>
+                    {form.thumbnail && (
+                      <button type="button" className="vf-button-text ml-auto" style={{ fontSize: "0.8125rem" }}
+                        onClick={() => setForm(prev => ({ ...prev, thumbnail: "" }))}>
+                        {t.projectForm.remove}
+                      </button>
+                    )}
+                  </div>
+                </MoreRow>
+
+                <MoreRow label={t.projectForm.videoLabel}
+                  value={form.video_url ? t.projectForm.added : t.projectForm.none}
+                  empty={!form.video_url}
+                  action={form.video_url ? t.projectForm.change : t.projectForm.upload} doneLabel={t.projectForm.done}
+                  open={editing === "video"} onToggle={() => toggleEditing("video")}>
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="vf-seg-track">
+                      {(["file", "url"] as const).map(m => (
+                        <button key={m} type="button" onClick={() => setVideoMode(m)}
+                          data-active={videoMode === m}
+                          className="vf-selectable px-3 py-1 rounded-md"
+                          style={{ fontSize: "0.8125rem" }}>
+                          {m === "file" ? t.projectForm.modeFile : t.projectForm.modeUrl}
+                        </button>
+                      ))}
+                    </div>
+                    {videoMode === "url" ? (
+                      <input className="vf-input" type="url" name="video_url" aria-label={t.projectForm.videoLabel}
+                        placeholder={t.projectForm.videoUrlPlaceholder}
+                        value={form.video_url} onChange={handleChange} />
+                    ) : form.video_url ? (
+                      <div className="flex items-center gap-3">
+                        <p className="flex items-center gap-1.5"
+                          style={{ margin: 0, fontSize: "0.875rem", fontWeight: 600, color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}>
+                          <CheckIcon />{t.projectForm.videoConnected}
+                        </p>
+                        <button type="button" className="vf-button-text" style={{ fontSize: "0.8125rem" }}
+                          onClick={() => { setForm(prev => ({ ...prev, video_url: "" })); setVideoError(""); }}>
+                          {t.projectForm.remove}
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <input ref={videoInputRef} type="file" accept="video/mp4,video/webm,video/quicktime" className="hidden"
+                          onChange={e => { const f = e.target.files?.[0]; if (f) handleVideoFile(f); }} />
+                        <button type="button" disabled={videoUploading}
+                          onClick={() => videoInputRef.current?.click()}
+                          className="vf-file-pick"
+                          data-disabled={videoUploading || undefined}>
+                          {videoUploading ? t.projectForm.uploading : t.projectForm.videoPickInline}
+                        </button>
+                      </>
+                    )}
+                    {videoError && <p className="text-center" style={ERROR}>{videoError}</p>}
+                  </div>
+                </MoreRow>
+
+                {/* 촬영 워커가 브리핑에 넣는 제작자 메모(demo_user_hint) — 살아 있는 칸 */}
+                <MoreRow label={t.projectForm.hintLabel}
+                  value={hint || t.projectForm.none} empty={!hint}
+                  action={t.projectForm.change} doneLabel={t.projectForm.done}
+                  open={editing === "hint"} onToggle={() => toggleEditing("hint")}>
+                  <textarea className="vf-input" name="demo_user_hint" rows={3} aria-label={t.projectForm.hintLabel}
+                    placeholder={t.projectForm.hintPlaceholder}
+                    value={form.demo_user_hint ?? ""} onChange={handleChange}
+                    maxLength={500}
+                    style={{ resize: "vertical", lineHeight: 1.6 }} />
+                </MoreRow>
+              </div>
             )}
           </div>
 
-          <div className="flex flex-col gap-5">
-          {/* 프로젝트 이름 + 연도 */}
-          <div className="grid grid-cols-3 gap-3">
-            <div className="col-span-2">
-              <Field label={t.projectForm.nameLabel}>
-                <input className="vf-input" name="title" placeholder="My Awesome Project"
-                  value={form.title} onChange={handleChange} required />
-              </Field>
-            </div>
-            <Field label={t.projectForm.yearLabel}>
-              <input className="vf-input" name="year" placeholder="2025"
-                value={form.year} onChange={handleChange} />
-            </Field>
-          </div>
-
-          {/* 설명 */}
-          <Field label={t.projectForm.descLabel}>
-            <textarea className="vf-input" name="description" placeholder={t.projectForm.descPlaceholder}
-              value={form.description} onChange={handleChange} rows={2}
-              style={{ resize: "vertical" }} />
-          </Field>
-          </div>{/* end step 3 wrapper */}
-
-          {/* 콘텐츠 유형 — 풀 너비 */}
-          <div>
-            <label className="vf-label">{t.projectForm.contentTypeLabel}</label>
-            <div className="flex flex-wrap gap-1.5">
-              {CONTENT_TYPES.map(ct => {
-                const active = form.content_type === ct.id;
-                return (
-                  <button key={ct.id} type="button"
-                    onClick={() => setForm(prev => ({ ...prev, content_type: active ? null : ct.id }))}
-                    data-active={active}
-                    className="vf-selectable px-2.5 py-1 rounded-full text-xs">
-                    {active && <span style={{ fontSize: "0.7em" }}>✓</span>} {ct.emoji} {(t.contentTypes as Record<string, string>)[ct.id] ?? ct.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* 썸네일 업로드 */}
-          <div>
-            <label className="vf-label">
-              {t.projectForm.thumbLabel}
-              <span className="ml-1.5" style={{ color: "var(--text-muted)", textTransform: "none", letterSpacing: 0, fontWeight: 400 }}>
-                {t.projectForm.thumbAutoNote}
-              </span>
-            </label>
-            <input ref={thumbnailInputRef} type="file" className="hidden" accept="image/*"
-              onChange={handleThumbnailUpload} />
-            <div
-              onClick={() => thumbnailInputRef.current?.click()}
-              onDragOver={e => { e.preventDefault(); e.currentTarget.setAttribute("data-drag", "1"); }}
-              onDragLeave={e => e.currentTarget.removeAttribute("data-drag")}
-              onDrop={e => {
-                e.preventDefault();
-                e.currentTarget.removeAttribute("data-drag");
-                const file = e.dataTransfer.files[0];
-                if (file && file.type.startsWith("image/")) {
-                  const dt = new DataTransfer();
-                  dt.items.add(file);
-                  if (thumbnailInputRef.current) {
-                    thumbnailInputRef.current.files = dt.files;
-                    thumbnailInputRef.current.dispatchEvent(new Event("change", { bubbles: true }));
-                  }
-                }
-              }}
-              className="flex items-center justify-center gap-3 w-full rounded-xl transition-colors cursor-pointer"
-              style={{
-                height: 48,
-                background: "var(--surface-soft)",
-              }}
-            >
-              {thumbnailUploading ? (
-                <div className="w-4 h-4 rounded-full border-2 animate-spin"
-                  style={{ borderColor: "var(--text-primary)", borderTopColor: "transparent" }} />
-              ) : form.thumbnail ? (
-                <>
-                  <span className="flex items-center gap-1.5" style={{ fontSize: "0.75rem", color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
-                    <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
-                      <path d="M2.5 7l3 3 6-6.5" stroke="var(--text-primary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                    {t.projectForm.uploadDone}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={e => { e.stopPropagation(); setForm(prev => ({ ...prev, thumbnail: "" })); }}
-                    style={{ fontSize: "0.7rem", color: "var(--text-muted)", background: "none", border: "none", cursor: "pointer", fontFamily: "var(--font-nunito)", padding: 0 }}
-                  >
-                    {t.projectForm.remove}
-                  </button>
-                </>
-              ) : (
-                <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
-                  {t.projectForm.dropOrClick}
-                </span>
-              )}
-            </div>
-          </div>
-
-          {/* 썸네일 유형 */}
-          <div>
-            <label className="vf-label">{t.projectForm.thumbTypeLabel}</label>
-            <div className="flex gap-2">
-              {(["image", "video"] as const).map(mode => {
-                const active = form.type === mode;
-                return (
-                  <button key={mode} type="button"
-                    onClick={() => setForm(prev => ({ ...prev, type: mode }))}
-                    data-active={active}
-                    className="vf-selectable flex-1 py-2 rounded-xl text-sm">
-                    {active && <span style={{ marginRight: 4 }}>✓</span>}{mode === "image" ? t.projectForm.typeImage : t.projectForm.typeVideo}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* AI 도구 */}
-          <div>
-            <label className="vf-label">
-              {t.projectForm.aiToolsLabel}{" "}
-              <span style={{ color: "var(--text-muted)", fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>{t.projectForm.multiSelect}</span>
-            </label>
-            <div className="flex flex-wrap gap-1.5">
-              {visibleTools.map(tool => {
-                const active = selectedTools.includes(tool.id);
-                return (
-                  <button key={tool.id} type="button" onClick={() => toggleTool(tool.id)}
-                    data-active={active}
-                    className="vf-selectable flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs">
-                    {active && <span style={{ fontSize: "0.7em" }}>✓</span>}
-                    <AiToolLogo id={tool.id} size={13} />
-                    <span>{tool.id}</span>
-                  </button>
-                );
-              })}
-              <button type="button"
-                onClick={() => setShowAllTools(v => !v)}
-                className="vf-soft-fill px-2.5 py-1 rounded-full text-xs"
-                style={{
-                  fontFamily: "var(--font-nunito)",
-                  fontWeight: 500,
-                  cursor: "pointer",
-                }}>
-                {showAllTools
-                  ? t.projectForm.collapse
-                  : t.projectForm.showMore(AI_TOOLS.length - AI_TOOLS_INITIAL - hiddenSelectedCount)}
+          <div className="flex flex-col items-center gap-2.5 px-6 py-4" style={{ borderTop: "1px solid var(--border)" }}>
+            {saveError && (
+              <p role="alert" style={{ ...ERROR, fontWeight: 600, textAlign: "center" }}>{saveError}</p>
+            )}
+            <div className="flex justify-center gap-2.5">
+              <button type="button" onClick={onClose} className="vf-button-ghost" style={FOOT_BUTTON}>
+                {t.projectForm.close}
+              </button>
+              <button type="submit" disabled={saving || uploading} className="vf-button-primary" style={FOOT_BUTTON}>
+                {saving ? t.projectForm.saving : submitLabel}
               </button>
             </div>
           </div>
-
-          {/* 한 마디 */}
-          <div>
-            <Field label={t.projectForm.commentLabel}>
-              <input className="vf-input" name="comment" placeholder={t.projectForm.commentPlaceholder}
-                value={form.comment} onChange={handleChange} />
-            </Field>
-          </div>
-
-          {/* Save error */}
-          {saveError && (
-            <div className="px-4 py-3 rounded-xl text-xs"
-              style={{ background: "rgba(179, 71, 71, 0.08)", color: "#8e3535", fontFamily: "var(--font-nunito)", lineHeight: 1.6 }}>
-              ⚠ {saveError}
-            </div>
-          )}
-
-          {/* Actions */}
-          <div className="flex gap-3 pt-1 pb-1">
-            <button type="button" onClick={onClose}
-              className="vf-soft-fill flex-1 rounded-full"
-              style={{ padding: "0.65rem 1rem", fontFamily: "var(--font-nunito)", fontSize: "0.85rem", fontWeight: 500, cursor: "pointer" }}>
-              {t.projectForm.cancel}
-            </button>
-            <button type="submit" disabled={saving || uploading}
-              className="vf-soft-fill flex-1 rounded-full"
-              style={{ padding: "0.65rem 1rem", fontFamily: "var(--font-nunito)", fontSize: "0.85rem", fontWeight: 600, cursor: (saving || uploading) ? "not-allowed" : "pointer" }}>
-              {saving ? t.projectForm.saving : submitLabel}
-            </button>
-          </div>
-
         </form>
-        </div>
       </div>
+
+      {swapOpen && (
+        <Modal onClose={closeSwap} ariaLabel={t.projectForm.swapTitle} maxWidth="30rem" padding={0}>
+          <form onSubmit={applySwap} className="flex flex-col" style={{ maxHeight: "85vh" }}>
+            <div className="flex items-center gap-3 px-6 py-4" style={{ borderBottom: "1px solid var(--border)" }}>
+              <h3 className="flex-1 vf-serif-display" style={{ fontSize: "1.1rem", fontWeight: 600, margin: 0 }}>
+                {t.projectForm.swapTitle}
+              </h3>
+              <CloseButton onClick={closeSwap} label={t.projectForm.closeAria} />
+            </div>
+
+            <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5 flex flex-col gap-4">
+              <div className="vf-seg-track">
+                {(["url", "files"] as const).map(mode => (
+                  <button key={mode} type="button" onClick={() => setUploadMode(mode)}
+                    data-active={uploadMode === mode}
+                    className="vf-selectable flex-1 py-2 rounded-lg"
+                    style={{ fontSize: "0.875rem" }}>
+                    {mode === "url" ? t.projectForm.urlOptionTitle : t.projectForm.filesOptionTitle}
+                  </button>
+                ))}
+              </div>
+
+              {uploadMode === "url" ? (
+                <input className="vf-input" type="url" aria-label={t.projectForm.urlOptionTitle}
+                  placeholder="https://myproject.vercel.app"
+                  value={swapUrl} onChange={e => setSwapUrl(e.target.value)} />
+              ) : (
+                <>
+                  <input ref={fileInputRef} type="file" className="hidden" multiple
+                    accept=".html,.css,.js,.ts,.jsx,.tsx,.json,.svg,.png,.jpg,.jpeg,.gif,.webp,.woff,.woff2,.ttf,.zip"
+                    onChange={e => e.target.files && handleFilesUpload(e.target.files)} />
+                  <input ref={folderInputRef} type="file" className="hidden"
+                    {...{ webkitdirectory: "", multiple: true } as React.InputHTMLAttributes<HTMLInputElement>}
+                    onChange={e => e.target.files && handleFilesUpload(e.target.files)} />
+                  <div className="flex flex-col items-center gap-3 rounded-xl"
+                    onDragOver={e => { e.preventDefault(); e.currentTarget.setAttribute("data-drag", "1"); }}
+                    onDragLeave={e => e.currentTarget.removeAttribute("data-drag")}
+                    onDrop={e => {
+                      e.preventDefault();
+                      e.currentTarget.removeAttribute("data-drag");
+                      if (e.dataTransfer.files.length) handleFilesUpload(e.dataTransfer.files);
+                    }}
+                    style={{ padding: "1.5rem 1rem", background: "var(--surface-soft)" }}>
+                    <svg width="30" height="30" viewBox="0 0 24 24" aria-hidden="true" style={{ color: "var(--border-bright)" }}>
+                      <path d="M3 7.5A1.5 1.5 0 0 1 4.5 6h4l2 2h9A1.5 1.5 0 0 1 21 9.5v8A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5z" fill="currentColor" />
+                    </svg>
+                    <p className="text-center" style={SMALL}>{t.projectForm.dropHelpEdit}</p>
+                    <div className="flex flex-wrap items-center justify-center gap-3">
+                      <button type="button" className="vf-file-pick" onClick={() => fileInputRef.current?.click()}>
+                        {t.projectForm.pickFiles}
+                      </button>
+                      <button type="button" className="vf-button-text" style={{ fontSize: "0.8125rem" }}
+                        onClick={() => folderInputRef.current?.click()}>
+                        {t.projectForm.pickFolder}
+                      </button>
+                    </div>
+                  </div>
+                  {uploading && (
+                    <div className="flex flex-col gap-2">
+                      <div className="flex justify-between" style={SMALL}>
+                        <span>{t.projectForm.uploading}</span><span className="vf-mono">{uploadProgress}%</span>
+                      </div>
+                      <div className="vf-meter">
+                        <div className="vf-meter-fill transition-all duration-300" style={{ width: `${uploadProgress}%` }} />
+                      </div>
+                    </div>
+                  )}
+                  {staged && !uploading && (
+                    <p className="flex items-center justify-center gap-1.5 min-w-0"
+                      style={{ margin: 0, fontSize: "0.875rem", fontWeight: 600, color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}>
+                      <CheckIcon /><span className="truncate">{staged.name}</span>
+                    </p>
+                  )}
+                  {uploadError && <p className="text-center" style={ERROR}>{uploadError}</p>}
+                  {droppedFiles.length > 0 && !uploading && (
+                    <div
+                      className="rounded-lg px-3 py-2.5"
+                      style={{ ...SMALL, background: "var(--blue-tint)", lineHeight: 1.5 }}
+                    >
+                      <p style={{ margin: 0, color: "var(--text-primary)" }}>{t.projectForm.secretFilesSkipped}</p>
+                      <ul className="mt-1 space-y-0.5">
+                        {droppedFiles.map((line) => (
+                          <li key={line}>· {line}</li>
+                        ))}
+                      </ul>
+                      <p className="mt-1.5" style={{ marginBottom: 0 }}>{t.projectForm.secretFilesWhy}</p>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+            <div className="flex justify-center gap-2.5 px-6 py-4" style={{ borderTop: "1px solid var(--border)" }}>
+              <button type="button" onClick={closeSwap} className="vf-button-ghost" style={FOOT_BUTTON}>
+                {t.projectForm.close}
+              </button>
+              <button type="submit" disabled={!canApplySwap} className="vf-button-primary" style={FOOT_BUTTON}>
+                {t.projectForm.replace}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
     </div>
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+// '더 보기' 목록의 한 줄: 이름 · 지금 값 · 작은 버튼. 버튼을 누르면 줄 아래에 편집 칸이 열린다.
+function MoreRow({ label, value, empty, action, doneLabel, open, onToggle, first, children }: {
+  label: string;
+  value: React.ReactNode;
+  empty?: boolean;
+  action: string;
+  doneLabel: string;
+  open: boolean;
+  onToggle: () => void;
+  first?: boolean;
+  children: React.ReactNode;
+}) {
   return (
-    <div>
-      <label className="vf-label">{label}</label>
-      {children}
+    <div style={first ? undefined : { borderTop: "1px solid var(--surface)" }}>
+      <div className="flex items-center gap-3" style={{ minHeight: 48, padding: "0.5rem 0.75rem 0.5rem 1rem" }}>
+        <span style={{ ...SMALL, flexShrink: 0 }}>{label}</span>
+        <span className="flex-1 min-w-0 truncate text-right"
+          style={{ fontSize: "0.875rem", fontWeight: 600, fontFamily: "var(--font-nunito)", color: empty ? "var(--text-muted)" : "var(--text-primary)" }}>
+          {value}
+        </span>
+        <button type="button" onClick={onToggle} aria-expanded={open} style={MINI} className="transition-opacity hover:opacity-75">
+          {open ? doneLabel : action}
+        </button>
+      </div>
+      {open && (
+        <div style={{ margin: "0 0.5rem 0.5rem", padding: "0.875rem", borderRadius: 12, background: "var(--surface)" }}>
+          {children}
+        </div>
+      )}
     </div>
   );
+}
+
+function ThumbPreview({ src }: { src: string }) {
+  return (
+    <span className="relative inline-block overflow-hidden align-middle"
+      style={{ width: 44, height: 28, borderRadius: 6, background: "var(--surface)" }}>
+      <Image src={src} unoptimized alt="" fill className="object-cover" sizes="44px" />
+    </span>
+  );
+}
+
+function CloseButton({ onClick, label }: { onClick: () => void; label: string }) {
+  return (
+    <button type="button" onClick={onClick}
+      className="vf-soft-fill flex items-center justify-center rounded-full"
+      style={{ width: 32, height: 32, flexShrink: 0 }}
+      aria-label={label}>
+      <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+        <path d="M4 4l12 12M16 4L4 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      </svg>
+    </button>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true" style={{ flexShrink: 0 }}>
+      <path d="M2.5 7l3 3 6-6.5" stroke="var(--text-primary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+// 올린 것의 이름 — 파일 하나면 그 이름, 폴더면 폴더 이름, 여러 파일이면 첫 파일 +N.
+function uploadName(files: File[]) {
+  if (files.length === 1) return files[0].name;
+  const folder = files[0].webkitRelativePath.split("/")[0];
+  return folder || `${files[0].name} +${files.length - 1}`;
+}
+
+// /api/preview/{uid}/{projectId}/{entry} → entry(보통 index.html). 내부 경로 앞부분은 숨긴다.
+function uploadEntry(demoUrl: string) {
+  return demoUrl.split("/").slice(5).join("/") || null;
+}
+
+function shortUrl(url: string) {
+  return url.replace(/^https?:\/\//i, "").replace(/\/$/, "");
+}
+
+function toolsSummary(tools: string[]) {
+  return tools.length <= 2 ? tools.join(", ") : `${tools.slice(0, 2).join(", ")} +${tools.length - 2}`;
 }

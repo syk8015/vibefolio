@@ -153,21 +153,18 @@ export const ko = {
     },
   },
   onboarding: {
-    stepSignup: "가입",
-    stepProfile: "프로필",
-    stepStart: "시작",
-    title: "프레임을 만들어볼게요",
-    subtitle: "기본 정보를 입력해주세요. 나중에 언제든 바꿀 수 있어요.",
+    title: "내 주소를 정해요",
     nameLabel: "이름",
-    usernameLabel: "사용자 이름 (URL)",
-    bioLabel: "한 줄 소개 (선택)",
+    usernameLabel: "주소",
+    // 한 줄 소개 칸은 명함 탭(CardTab)만 쓴다 — 온보딩에서는 뺐다(10-01).
     bioPlaceholder: "바이브코딩으로 아이디어를 현실로 만들고 있어요.",
-    usernameAvailable: "✓ 사용 가능한 username이에요",
-    usernameTaken: "✗ 이미 사용 중이에요",
-    usernameInvalid: "✗ 영문 소문자, 숫자, _, -만 쓸 수 있어요 (2~30자)",
-    usernameReserved: "✗ 사용할 수 없는 이름이에요",
+    // 스크린리더용 — 보이는 건 칸 안의 ✓ 하나.
+    usernameAvailable: "사용할 수 있는 주소예요",
+    usernameTaken: "이미 사용 중이에요",
+    usernameInvalid: "영문 소문자, 숫자, _, -만 쓸 수 있어요 (2~30자)",
+    usernameReserved: "사용할 수 없는 이름이에요",
     submitting: "저장 중...",
-    submit: "시작하기 →",
+    submit: "시작하기",
     otherAccount: "다른 계정으로 로그인",
     ageConfirm: "만 14세 이상이에요",
     errors: {
@@ -241,9 +238,7 @@ export const ko = {
     // 올리는 길은 AI 하나뿐이다(08-25 수동 위저드 폐기) — 빈 화면이 그 길을 말해야 한다.
     emptyBody: "작품을 만든 AI에게 한 줄만 붙여넣으면, 소개글과 시연 대본까지 써서 여기에 초안으로 올려줘요",
     emptyCta: "AI 연결하고 첫 작품 올리기",
-    connectTitle: "AI로 한 줄에 올리기",
-    connectSubtitle: "초안으로 올라와요. 공개는 내가 확인한 뒤에만 돼요.",
-    editTitle: "프로젝트 수정",
+    editTitle: "작품 고치기",
     submitSave: "저장하기",
     deleteConfirm: "이 작품을 삭제할까요?",
     deleteBody: "영상과 올린 파일까지 모두 지워지고, 되돌릴 수 없어요.",
@@ -279,7 +274,6 @@ export const ko = {
     slowLabel: "예상보다 오래 걸려요",
     more: "더 보기",
     draftBadge: "공개 전 · 나만 보여요",
-    reviewIntro: "AI가 작성해 올린 초안이에요. 내용과 화면을 확인한 뒤 공개해 주세요.",
     reviewPreviewLabel: "미리보기",
     reviewNoPreview: "미리볼 화면이 없어요",
     reviewEmbedTip: "화면이 비어 보이면 이 사이트가 임베드를 막은 거예요 — [작품 열기 ↗]로 새 탭에서 확인해 주세요.",
@@ -288,17 +282,14 @@ export const ko = {
     reviewEmbedChecking: "미리보기를 확인하는 중…",
     reviewEmbedBlocked: "이 사이트는 다른 화면 안에 넣는 걸 막아 뒀어요 — 여기선 못 보여줘요. 위 [작품 열기]로 새 탭에서 확인하세요. 시연 영상은 진짜 브라우저로 찍으니 촬영에는 아무 영향 없어요.",
     reviewEmbedUnreachable: "지금 이 주소에 연결하지 못했어요. 주소가 맞는지, 사이트가 살아 있는지 확인해 주세요.",
-    reviewFileUpload: "파일 업로드 (내부 미리보기)",
-    // 초안 검토 화면 재편(2026-09-04, 인터뷰 ④⑤⑥): 명함 렌더+판정 칩·인라인 편집·
-    // AI에게 고쳐달라기·공개 뒤 진행 상황.
-    reviewCardLabel: "명함에 이렇게 보여요",
+    // 초안 검토 화면 재편(2026-09-04, 인터뷰 ④⑤⑥): 명함 렌더·인라인 편집·
+    // 고칠 점 적기(수정 프롬프트 복사)·공개 뒤 진행 상황.
     reviewEditHint: "글자를 누르면 바로 고칠 수 있어요",
-    // 작품 두 언어(2026-09-29) — 초안 검토 창의 언어 칸·자막(LanguagePanel)
+    // 작품 두 언어(2026-09-29) — 초안 검토 창의 명함 KO/EN·촬영 [보기] 안의 언어 표·자막(LanguagePanel)
     langNames: { ko: "한국어", en: "영어" } as Record<"ko" | "en", string>,
-    reviewLangMainTag: "기본",
     reviewLangTitle: "언어",
-    reviewLangLegacy: "두 언어 칸이 없는 옛 초안이에요 — [AI에게 고쳐달라기]로 채울 수 있어요",
-    reviewLangMissingTr: (name: string) => `${name} 판 글이 없어요 — [AI에게 고쳐달라기]로 채워 주세요`,
+    reviewLangLegacy: "두 언어 칸이 없는 옛 초안이에요 — [고칠 점 적기]로 채울 수 있어요",
+    reviewLangMissingTr: (name: string) => `${name} 판 글이 없어요 — [고칠 점 적기]로 채워 주세요`,
     reviewLangPrimaryRow: "기본 언어",
     reviewLangAppRow: "앱 화면",
     reviewLangAppNone: "한국어·영어 둘 다 아님",
@@ -311,7 +302,7 @@ export const ko = {
     reviewCaptionTooLong: (max: number) => `${max}자 안으로 써 주세요`,
     reviewCaptionRequired: "비울 수 없어요 — 이 언어로 보는 사람에게 이 장면 설명이 필요해요",
     reviewEditSave: "저장",
-    reviewEditCancel: "취소",
+    reviewEditCancel: "닫기",
     reviewTitleEmpty: "제목은 비울 수 없어요",
     reviewDescMeter: (lines: number, cols: number, max: number) => `${lines}줄 · 가장 긴 줄 ${cols}/${max}칸`,
     reviewDescEmpty: "소개글이 비어 있어요 — 2~3줄로 써 주세요",
@@ -319,23 +310,21 @@ export const ko = {
     reviewDescLongLine: (line: number) => `${line}번째 줄이 너무 길어요 — 폰에서 접혀 잘려요`,
     reviewSaveFailed: "저장하지 못했어요. 잠시 후 다시 시도해 주세요.",
     reviewNotePlaceholder: "한마디 (명함 말풍선, 비워도 돼요)",
-    reviewVerdictScript: "촬영 대본",
     reviewVerdictAccess: "로그인",
-    reviewVerdictOpens: "여는 곳",
     reviewAccessNoLogin: "로그인 없이 시연",
     reviewAccessUrl: "데모 경로로 들어가요",
     reviewAccessImpossible: "랜딩만 촬영 — 게스트 진입 불가",
     reviewAccessMissing: "답 없음 — 로그인 화면만 찍힐 수 있어요",
-    reviewAccessVideo: "직접 준 영상 사용 — 자동 촬영 없음",
     reviewOpensFile: "업로드한 파일",
-    reviewOpensRepo: "저장소를 받아 실행",
-    reviewMore: "그 밖에",
-    reviewFixWithAi: "AI에게 고쳐달라기",
-    reviewFixLead: "무엇을 어떻게 고칠까요? 이 말이 AI에게 그대로 전달돼요.",
+    // 고칠 점 적기(2026-10-01) — 사이트가 AI에게 보내는 게 아니라 사람이 복사해 붙여넣는다. 문구도 그 사실대로.
+    reviewFixWithAi: "고칠 점 적기",
+    reviewFixLead: "무엇을 고칠까요? 적은 말이 수정 프롬프트에 그대로 들어가요",
     reviewFixPlaceholder: "예: 소개글 톤이 딱딱해. 대본 2번은 빼고 검색 기능을 넣어줘",
-    reviewFixCopy: "프롬프트 복사",
-    reviewFixCopied: "복사했어요 — AI에게 붙여넣으세요. AI가 다시 올리면 이 초안이 갱신돼요.",
+    reviewFixCopy: "수정 프롬프트 복사",
+    reviewFixCopied: "복사했어요",
+    reviewFixCopiedBody: "AI 채팅창에 붙여넣으면 이 초안이 그대로 고쳐져요",
     reviewFixFailed: "프롬프트를 만들지 못했어요. 잠시 후 다시 시도해 주세요.",
+    reviewClose: "닫기",
     scriptRemove: "이 스텝 빼기",
     scriptMoveUp: "위로",
     scriptMoveDown: "아래로",
@@ -352,49 +341,41 @@ export const ko = {
     untitled: "제목 없음",
     publishing: "공개 중…",
     confirmPublish: "확인하고 공개",
-    // 초안 검토 창 재편(2026-09-15, 시안 2판): 두 칸·질문 제목·촬영 계획·필름 띠.
-    reviewAsk: (title: string, particle: string) => `${title}${particle} 공개할까요?`,
-    reviewIntroShort: "AI가 올린 초안이에요. 인터뷰 답과 명함, 촬영 계획을 확인해 주세요",
+    // 초안 검토 창 재편(2026-09-15 두 칸·질문 제목 → 2026-10-01 덜어내기 "라": 명함 · 체크 한 줄 · 촬영 한 줄).
+    reviewAsk: "공개할까요?",
+    reviewSeeAnswers: "답 보기",
+    reviewShow: "보기",
+    reviewFold: "접기",
     // 주인 인터뷰(2026-09-29, 필수) — 올리는 AI가 먼저 묻고 받은 답. 작품 페이지엔 안 나간다.
     reviewInterviewTitle: "주인 인터뷰",
-    reviewInterviewLead: "AI가 물어서 받은 내 답이에요. 내 말과 다르면 눌러서 고쳐 주세요",
     reviewInterviewQ: {
       proudMoment: "가장 보여주고 싶은 부분",
       howIUse: "실제로 쓰는 법",
       mustSee: "꼭 봐야 할 곳",
       hide: "가릴 것 · 공개 안 됨",
     },
-    reviewInterviewUse: {
-      proudMoment: "→ AI가 촬영 대본에서 이 장면을 오래 보여줘요",
-      howIUse: "→ 명함 말풍선 한 줄의 재료가 돼요",
-      mustSee: "→ 소개글과 촬영 대본에 반영돼요",
-      hide: "→ 이게 보이는 장면은 대본에서 빼요",
-    },
-    reviewInterviewHideNone: "없음",
+    reviewInterviewHideAdd: "가릴 것 추가",
     reviewInterviewHidePlaceholder: "쉼표로 나눠 적어요 (예: 금액, 폴더 경로)",
-    reviewInterviewConfirm: "내 말이 맞아요 — AI가 지어낸 답이 없어요",
-    reviewInterviewConfirmFirst: "인터뷰 답을 확인하면 공개할 수 있어요",
-    reviewInterviewMissing: "이 초안은 인터뷰 없이 올라왔어요. 아래 [AI에게 고쳐달라기]로 다시 올려 달라고 하면 AI가 먼저 물어봐요",
+    reviewInterviewConfirm: "인터뷰 답이 내 말과 같아요",
+    reviewInterviewMissing: "이 초안은 인터뷰 없이 올라왔어요. [고칠 점 적기]로 수정 프롬프트를 복사해 AI 채팅창에 붙여넣으면 AI가 먼저 물어봐요",
     reviewInterviewLoading: "인터뷰 답을 불러오는 중…",
     reviewInterviewEmpty: "비울 수 없어요 — 짧게라도 적어 주세요",
     reviewInterviewTooLong: (max: number) => `${max}자 안으로 적어 주세요`,
-    reviewShootTitle: "이렇게 찍어요",
-    reviewShootAllWired: (n: number) => `${n}장면 모두 정확한 위치를 알아요`,
+    // 촬영 한 줄 "촬영: 4장면 · 약 5초 · 영어 자막 포함" + [보기]
+    reviewFilmLabel: "촬영",
+    reviewFilmScenes: (n: number) => `${n}장면`,
+    reviewFilmAbout: (s: number) => `약 ${s}초`,
+    reviewFilmCaptions: (names: string[]) => `${names.join("·")} 자막 포함`,
+    reviewFilmAlso: (name: string) => `${name} 화면도 찍어요`,
     reviewShootPartWired: (wired: number, n: number) => `${n}장면 중 ${wired}장면만 위치를 정확히 알아요`,
-    reviewStartsAtPrefix: "",
-    reviewStartsAtSuffix: "에서 시작해요",
-    reviewStartFile: "업로드한 파일에서 시작해요",
     reviewVideoOwn: "직접 준 영상을 그대로 써요",
-    reviewVideoOwnSub: "자동 촬영은 하지 않아요",
     reviewDeviceMobile: "모바일 화면",
     reviewDeviceDesktop: "PC 화면",
     reviewDeviceAnswered: "AI가 답한 대로",
     reviewDeviceGuessed: "AI 답이 없어 분류로 짐작했어요",
     reviewOpenWork: "작품 열어 보기 ↗",
-    reviewMoreRow: "작품 유형, 연도, 촬영 힌트 더 보기",
     reviewPublishCta: "공개하기",
-    reviewPublishNote: "공개하면 바로 촬영을 요청해요",
-    reviewPublishNoteVideo: "공개하면 직접 준 영상이 그대로 쓰여요",
+    reviewPublishAndFilm: "공개하고 촬영 요청",
     reviewNoLiveNote: "배포 주소 없이 파일로 올린 작품이라, 공개하면 라이브 체험 없이 영상만 보여요. 배포한 주소로 올리면 체험도 켜져요.",
     reviewMenuEdit: "직접 고치기",
     reviewMenuDelete: "삭제하기",
@@ -425,8 +406,7 @@ export const ko = {
   },
   projectForm: {
     hintLabel: "핵심 기능 소개",
-    hintPlaceholder: "예: 캔버스에 마우스로 자유롭게 그림을 그릴 수 있어요. 상단에서 브러시 색과 굵기를 바꿔보세요.",
-    hintHelp: "자동 시연 영상이 이 설명을 보고 핵심 기능부터 보여드려요.",
+    hintPlaceholder: "예: 캔버스에 마우스로 그림을 그려요. 위에서 색과 굵기를 바꿔요.",
     videoTooLarge: (mb: string) => `영상은 20MB 이하만 업로드할 수 있어요. (현재 ${mb}MB)`,
     videoUnreadable: "영상 파일을 읽을 수 없어요.",
     videoTooLong: (s: string) => `영상은 30초 이하만 업로드할 수 있어요. (현재 ${s}초)`,
@@ -440,54 +420,53 @@ export const ko = {
     secretFilesSkipped: "안전을 위해 아래 파일은 올리지 않았어요.",
     secretFilesWhy: "올린 파일은 웹에 공개되기 때문에, API 키가 든 .env나 git 기록(.git)은 그대로 두면 누구나 받아갈 수 있어요.",
     onlySecretFiles: "올릴 수 있는 파일이 없어요 — 고른 게 전부 안전상 제외되는 파일이었어요.",
-    noHtml: "웹페이지(HTML) 파일이 없어요. 자동 시연은 브라우저에 뜨는 화면을 촬영해요 — index.html이 포함됐는지 확인해 주세요.",
-    saveFailed: "저장 중 오류가 발생했어요.",
-    urlOptionTitle: "URL 링크",
-    filesOptionTitle: "파일 업로드",
-    cancel: "취소",
+    noHtml: "HTML 파일이 없어요. index.html이 들어 있는지 확인해 주세요.",
+    saveFailed: "저장하지 못했어요. 다시 눌러 주세요.",
+    urlOptionTitle: "주소",
+    filesOptionTitle: "파일",
+    close: "닫기",
     pickFiles: "파일 선택",
     pickFolder: "폴더 선택",
     uploading: "업로드 중…",
-    uploadDone: "업로드 완료",
-    descPlaceholder: "어떤 프로젝트인지 소개해주세요.",
-    contentTypeLabel: "콘텐츠 유형",
-    aiToolsLabel: "사용한 AI 도구",
-    multiSelect: "(복수 선택)",
-    collapse: "접기 ↑",
+    descPlaceholder: "어떤 작품인지 소개해 주세요.",
     showMore: (n: number) => `더보기 +${n}`,
     videoConnected: "영상 연결됨",
-    remove: "제거",
-    modeFile: "파일 업로드",
+    remove: "빼기",
+    modeFile: "파일",
     modeUrl: "URL",
     videoUrlPlaceholder: "https://youtube.com/watch?v=... 또는 https://vimeo.com/...",
-    dropOrClick: "클릭하거나 이미지를 드래그해서 업로드",
-    prev: "← 이전",
-    skip: "건너뛰기",
-    next: "다음 →",
+    dropOrClick: "눌러서 고르거나 끌어다 놓아요",
     saving: "저장 중…",
     closeAria: "닫기",
-    existingUpload: "업로드된 사이트가 연결돼 있어요 — 새로 올리면 교체돼요.",
-    editGuideTitle: "React / Vue / Vite 프로젝트라면",
-    editGuide1: " 소스 폴더 대신 ",
-    editGuide2: " 후 생성된 ",
-    editGuide3: " 폴더를 올려주세요. 순수 HTML/CSS/JS 파일은 그대로 올려도 돼요.",
-    dropHelpEdit: "HTML, CSS, JS, 이미지 파일 지원 · 최대 25MB · 드래그해서 올려도 돼요",
-    uploadDoneEdit: "업로드 완료. 아래 정보를 입력하고 저장하세요.",
-    demoUrlLabel: "데모 URL",
-    hintLabelEdit: "핵심 기능 소개 (자동 시연용 · 선택)",
-    videoLabelOptional: "구동 영상 (선택)",
-    videoAutoplayHelp: "대표 작품으로 설정하면 프레임 상단에서 자동 재생돼요.",
-    videoPickInline: "+ 영상 파일 선택 (20MB · 30초 이하)",
-    nameLabel: "프로젝트 이름",
-    yearLabel: "제작 연도",
+    dropHelpEdit: "HTML·CSS·JS·이미지 · 25MB까지 · 끌어다 놓아도 돼요",
+    videoPickInline: "+ 영상 파일 선택 · 20MB·30초까지",
+    nameLabel: "이름",
     descLabel: "설명",
     thumbLabel: "썸네일",
-    thumbAutoNote: "(없으면 저장 시 자동 생성)",
     thumbTypeLabel: "썸네일 유형",
-    typeImage: "🖼️ 이미지",
-    typeVideo: "🎬 영상",
-    commentLabel: "한 마디 (말풍선에 표시)",
+    typeImage: "이미지",
+    typeVideo: "영상",
+    commentLabel: "한 마디",
     commentPlaceholder: "제가 제일 아끼는 작업물이에요! ⭐",
+    // 작품 고치기 창(2026-10-01 덜어내기) — 작품 주소 한 줄 · 교체 창 · '더 보기' 목록.
+    workLink: "작품 주소",
+    workUploaded: "nookframe 업로드 파일",
+    uploadedFiles: "올린 파일",
+    replace: "바꾸기",
+    swapTitle: "작품 바꾸기",
+    more: "더 보기",
+    less: "접기",
+    change: "바꾸기",
+    upload: "올리기",
+    done: "완료",
+    none: "없음",
+    auto: "자동",
+    added: "있음",
+    rowType: "유형",
+    rowYear: "연도",
+    rowTools: "AI 도구",
+    videoLabel: "직접 만든 영상",
+    // 수정 창은 안 쓴다(초안 검토 창용 이름표). 검토 창도 안 쓰게 되면 지울 것.
   },
   card: {
     imageTooLarge: "이미지는 5MB 이하만 업로드할 수 있어요.",
@@ -576,13 +555,17 @@ export const ko = {
     logoutAllConfirm: "모든 기기에서 로그아웃할까요? 이 기기도 로그인 화면으로 돌아가요.",
     loggingOut: "로그아웃 중…",
     logoutFailed: "로그아웃하지 못했어요. 잠시 뒤에 다시 눌러 주세요.",
+    // AI 연결(components/settings/AiConnections) — MCP 연결·연결 관리가 연결 창에서 옮겨 왔다(라, 2026-10-01).
+    // MCP 버튼·끊기 문구는 connect.*를 같이 쓴다.
     aiLabel: "AI 연결",
-    aiTitle: "AI 도구 연결",
-    aiBody: (n: number) => `Claude Code·Cursor 같은 도구에 준 연결 ${n}개를 보고 끊을 수 있어요.`,
+    aiConnected: (n: number) => (n > 0 ? `연결된 AI ${n}개` : "연결된 AI"),
     aiEmpty: "아직 연결한 AI 도구가 없어요.",
     aiLoadFailed: "연결 목록을 불러오지 못했어요.",
-    aiManage: "관리",
-    aiClose: "접기",
+    // 무엇이 복사되는지 — 원할 때만 펴는 접힌 줄(연결 창의 옛 "프롬프트 내용 보기"·MCP 미리보기가 여기로).
+    aiPreview: "복사되는 글 보기",
+    aiPreviewPrompt: "연결 창의 프롬프트",
+    aiPreviewCommand: "Claude Code 명령",
+    aiPreviewConfig: "Claude 데스크탑·Cursor 설정 파일",
     // 원격 커넥터(OAuth) 연결의 이름 — lib/oauth가 `oauth:<호스트>`로 적는다.
     oauthTokenName: (host: string) => `${host} 커넥터`,
     revoking: "끊는 중…",
@@ -663,104 +646,90 @@ export const ko = {
     },
   },
   connect: {
-    // 첫 질문(2026-09-22, 첫인상 점검 #2) — 한 창에 네 갈래(프롬프트·챗봇·MCP·토큰)가
-    // 한꺼번에 있어서 비개발자는 자기가 어느 갈래인지부터 막혔다. "어떤 AI"를 먼저 묻고
-    // 그 길 하나만 보여준다. 말도 쉬운 말로(셸·JSON·토큰 → 채팅 AI·AI 답·연결).
-    ask: "어떤 AI로 만들었나요?",
+    // 연결 창(ConnectPanel) — 라 시안(2026-10-01 덜어내기, 사용자 확정): 제목 한 줄, 도구 고르기, 큰 버튼
+    // 하나. 번호 단계·"어느 쪽인지 헷갈려요"·설명 접힌 줄은 없앴다 — 버튼 이름이 할 일을 말하고,
+    // 공개 범위는 버튼 바로 아래 한 줄이 늘 말한다. 말은 쉬운 말로(셸·JSON·토큰 → 채팅 AI·AI 답·연결).
+    title: "AI로 올리기",
+    visibility: "초안으로 와요. 공개는 내가 눌러야 돼요.",
     // 두 줄은 "쓰는 곳"이 아니라 "할 수 있는 일"로 나눈다(2026-09-22 사용자 확정). 쓰는 곳
     // (터미널·앱·웹)으로 나누면 Claude Code·Codex가 두 줄에 겹치고, Claude 데스크탑 앱은
     // 대화와 Code 탭이 한 앱이라 또 갈라야 했다. 줄 = 누른 뒤 나오는 길.
-    groupAgent: "명령을 직접 실행하는 AI",
-    groupAgentNote: "터미널·데스크탑 앱·코드 편집기 어디서 쓰든 같아요. Claude 앱의 Code 탭도 여기예요.",
-    groupChat: "채팅만 하는 AI",
-    groupChatNote: "Claude 채팅은 claude.ai와 Claude 앱의 일반 대화예요.",
+    groupAgent: "명령 실행 AI",
+    groupChat: "채팅 AI",
     toolOtherCli: "그 밖의 CLI",
     toolClaudeChat: "Claude 채팅",
-    toolOtherChat: "그 밖의 채팅 AI",
-    // 원할 때만 보여준다(2026-09-23): 두 줄 설명은 이 접힌 줄 뒤에 두고, 고른 뒤엔 칩이 한 줄로 접힌다.
-    whichToggle: "어느 쪽인지 헷갈려요",
+    toolOtherChat: "그 밖의 채팅",
     changeTool: "바꾸기",
-    // 단계는 번호 목록으로 끊어 보여준다 — 화살표 한 줄은 폰에서 가운데 정렬로 쪼개져 읽기 어려웠다.
-    // "확인하고 공개하면 끝"은 창 부제가 늘 말하고 있어 단계에서 뺐다(2026-09-23).
-    stepsTerminal: (tool: string | null) => ["[프롬프트 복사]를 눌러요.", tool ? `${tool}에 그대로 붙여넣어요.` : "작품을 만든 AI에게 그대로 붙여넣어요."],
-    // 채팅 AI는 두 단계 — 단계마다 버튼이 붙어 있고 지금 차례인 버튼만 진하게 그린다.
-    chatStep1: "프롬프트를 복사해서 작품을 만든 대화에 붙여넣어요.",
-    chatStep2: "AI 답을 통째로 복사해 온 뒤 눌러요.",
-    // Claude 연결 단계는 Claude 앱 자체의 화면이라 줄일 수 없다 — 대신 딱 한 번이다.
-    stepsClaude: [
-      "주소를 복사해요.",
-      "Claude 설정 → 커넥터 → [커스텀 커넥터 추가]에 붙여넣어요.",
-      "작품을 만든 대화에서 \"Nookframe에 올려줘\"라고 말해요.",
-    ],
-    claudeOnceTag: "처음 한 번만",
-    // 막힐 때만 필요한 이야기(연결 방식·요금제·계정 제한·프롬프트로 하기)는 이 접힌 줄 뒤로.
-    claudeHelpToggle: "잘 안 되나요?",
-    claudeAllowHint: "연결 방식을 물으면 추천된 쪽을 그대로 두세요.",
     copyPrompt: "프롬프트 복사",
+    copyAgain: "다시 복사",
     copying: "준비 중…",
-    // 복사 성공을 버튼 자체가 말하게 한다(2026-09-05) — 아래 작은 문구만으로는
-    // 눌렸는지 티가 안 난다는 지적.
-    copiedButton: "복사했어요 ✓",
-    // 복사 후 한 줄 — AI가 초안을 올리는 순간 자동으로 확인 화면이 열린다.
-    waitingAi: "AI가 올리기를 기다리는 중이에요. 도착하면 확인 화면이 저절로 열려요.",
-    waitingClaude: "Claude가 올리기를 기다리는 중이에요. 도착하면 확인 화면이 저절로 열려요.",
-    // 서버에 AI 흔적(코드 교환·토큰 사용)이 새로 생기면 위 두 줄을 이것으로 바꾼다.
-    startedAi: "AI가 작업을 시작했어요. 다 올리면 확인 화면이 저절로 열려요.",
-    startedClaude: "Claude가 작업을 시작했어요. 다 올리면 확인 화면이 저절로 열려요.",
+    // 복사한 뒤엔 큰 버튼 대신 조용한 한 줄이 다음 할 일을 말한다(누르면 새 코드로 다시 복사).
+    // tool = null은 "그 밖의" 칩 — 이름 대신 "AI"로 말한다.
+    copiedTerminal: (tool: string | null) => (tool ? `복사했어요 — ${tool}에 붙여넣어요` : "복사했어요 — AI에게 붙여넣어요"),
+    copiedChat: (tool: string | null) => (tool ? `복사했어요 — ${tool}에 붙여넣고 답을 복사해 와요` : "복사했어요 — AI 대화에 붙여넣고 답을 복사해 와요"),
+    copiedClaude: "복사했어요 — Claude에서 “Nookframe에 올려줘”라고 말해요",
+    // 기다림 한 줄 — AI가 초안을 올리는 순간 확인 화면이 저절로 열린다.
+    waitingAi: "AI가 올리면 여기서 바로 열려요",
+    waitingClaude: "Claude가 올리면 여기서 바로 열려요",
+    // 서버에 AI 흔적(코드 교환·토큰 사용)이 새로 생기면 위 두 줄을 이것으로 바꾼다(2026-09-30).
+    startedAi: "AI가 작업을 시작했어요 — 다 올리면 여기서 열려요",
+    startedClaude: "Claude가 작업을 시작했어요 — 다 올리면 여기서 열려요",
     // 터미널 AI가 예상과 달리 답만 주고 끝난 경우의 출구(2026-09-18).
-    pasteJsonLead: "AI가 답만 주고 끝났나요?",
-    // 자동 복사가 막힌 브라우저(사파리 등)의 출구 — 받은 글을 읽기 전용 칸에 펼친다(A2).
+    replyOnly: "답만 받았어요",
+    // 채팅 AI의 답을 들고 창을 다시 연 사람(D6) — 프롬프트를 또 복사하면 클립보드의 답이 지워진다.
+    haveReply: "AI 답을 이미 받았어요",
+    // Claude 채팅 = 원격 커넥터(2026-09-17). 커넥터 추가는 Claude 쪽 화면이라 줄일 수 없고, 대신 처음 한 번뿐.
+    claudeOnce: "처음 한 번만: Claude 설정 → 커넥터에 주소를 붙여넣어요.",
+    claudeCopyUrl: "커넥터 주소 복사",
+    // 커넥터를 못 쓰는 계정(무료 요금제는 1개까지·회사 계정은 관리자만)은 프롬프트 길로.
+    claudeFallback: "커넥터를 못 쓰나요? 프롬프트로 할게요",
+    // 창 안에서 AI 답을 올린 직후 — 곧 확인 화면이 저절로 열린다.
+    arrivedTitle: "초안이 왔어요",
+    reviewNow: "확인하러 가기",
+    settingsLink: "MCP·연결 관리는 설정에서",
+    // 자동 복사가 막힌 브라우저(사파리 등)의 출구 — 받은 글을 읽기 전용 칸에 펼친다(A2). 재촬영 요청 창도 쓴다.
     manualCopyLead: "자동 복사가 막혔어요. 아래 칸을 누르면 전체가 선택돼요 — 그대로 복사해 주세요.",
     issueFailed: "준비하지 못했어요. 잠시 후 다시 시도해 주세요.",
-    networkFailed: "네트워크 오류로 준비하지 못했어요.",
-    previewToggle: "프롬프트 내용 보기",
-    // 터미널 AI: 프롬프트 전문과 MCP 연결을 한 접힌 줄에 모았다(2026-09-23).
-    moreToggle: "프롬프트 내용 보기 · MCP로 연결",
-    revokeConfirm: "이 연결을 끊을까요? 이 연결로 올리던 AI는 바로 못 올리게 돼요.",
-    revokeFailed: "끊지 못했어요. 잠시 후 다시 시도해 주세요.",
-    tokensToggle: (n: number) => `연결 관리 · 연결된 AI ${n}개`,
-    unnamed: "이름 없음",
-    autoTokenName: "프롬프트로 연결",
-    lastUsed: (d: string) => `최근 사용 ${d}`,
-    neverUsed: "사용 전",
-    // MCP 연결(2026-09-04, 인터뷰 ⑦): 터미널 AI는 붙여넣기 자체가 없어지는 길.
-    mcpLead: "클로드코드·클로드 데스크탑·커서에 한 번 연결해 두면 \"이거 Nookframe에 올려줘\" 한마디로 끝나요. 프롬프트도, AI 답도 옮길 필요가 없어요.",
-    // 원격 커넥터(2026-09-17) — 설치도 열쇠 이동도 없는 유일한 길. "클로드" 답의 첫 화면.
-    mcpRemoteCaveat: "무료 요금제는 커스텀 커넥터를 1개만 둘 수 있어요. 회사·학교 계정이면 관리자만 추가할 수 있어요.",
-    claudeFallback: "커넥터를 추가할 수 없는 계정이라면 ",
-    claudeFallbackLink: "프롬프트로 하기",
-    mcpRemoteCopy: "주소 복사",
-    mcpClaudeCode: "클로드코드 — 터미널에서 한 번",
-    mcpJson: "클로드 데스크탑·커서 — MCP 설정 파일에 추가",
-    mcpCopy: "내 열쇠 채워서 복사",
+    networkFailed: "인터넷이 끊겨 준비하지 못했어요.",
+    // ── 설정 → AI 연결(components/settings/AiConnections)이 쓴다 — 연결 창에서 옮겨 갔다(라, 2026-10-01).
+    // MCP 연결(2026-09-04, 인터뷰 ⑦): 터미널 AI는 붙여넣기 자체가 없어지는 길. 누르면 내 열쇠를 새로 채워 복사.
+    mcpTitle: "한 번 연결해 두기 (MCP)",
+    mcpLead: "연결해 두면 “Nookframe에 올려줘” 한마디로 끝나요.",
+    mcpClaudeCode: "Claude Code 명령 복사",
+    mcpJson: "Claude 데스크탑·Cursor 설정 복사",
     mcpCopying: "준비 중…",
-    mcpCopied: "복사했어요 — 내 열쇠가 채워져 있으니 그대로 붙여넣으세요. 다시 복사하면 이전 MCP 열쇠는 끊겨요.",
+    mcpCopied: "복사했어요 — 내 열쇠가 채워져 있어요. 다시 복사하면 이전 열쇠는 끊겨요.",
     // 미리보기 속 자리표시 — 사람이 읽는 화면이라 사전 문구다(명령 자체는 영어 그대로).
     mcpKeyPlaceholder: "<복사를 누르면 여기에 내 열쇠가 채워져요>",
     mcpTokenName: "MCP 연결",
+    autoTokenName: "프롬프트로 연결",
+    unnamed: "이름 없음",
+    lastUsed: (d: string) => `최근 사용 ${d}`,
+    neverUsed: "사용 전",
     revoke: "끊기",
+    revokeConfirm: "이 연결을 끊을까요? 이 연결로 올리던 AI는 바로 못 올리게 돼요.",
+    revokeFailed: "끊지 못했어요. 잠시 후 다시 시도해 주세요.",
   },
   // 원격 MCP 커넥터 동의 화면(2026-09-17). 채팅창 AI가 우리 서버를 직접 부르려면
   // 사람이 여기서 한 번 허용해야 한다. **이름이 아니라 주소를 크게 보여 준다** —
   // 클라이언트 이름은 그쪽이 스스로 적어 올린 값이라 사칭이 공짜다.
   oauth: {
     title: "Nookframe에 연결할까요?",
-    hostLead: "이 주소의 프로그램이 연결을 요청했어요",
     selfName: (name: string) => `스스로 밝힌 이름: ${name}`,
-    canTitle: "허용하면 할 수 있는 일",
-    can1: "내 계정에 작품을 초안으로 올리기",
-    can2: "내가 올린 초안을 보고 고치거나 지우기",
-    cannotTitle: "할 수 없는 일",
-    cannot1: "이미 공개된 작품을 바꾸거나 지우기",
-    cannot2: "작품을 공개하기 — 공개는 언제나 내가 대시보드에서 직접 누른다",
-    cannot3: "계정 정보·비밀번호 보기",
-    returnTo: (host: string) => `허용하면 ${host} 로 돌아갑니다.`,
-    loopbackWarn: "이 연결은 내 컴퓨터에서 도는 프로그램이에요. 내가 직접 설치한 게 맞는지 확인하세요.",
-    allow: "허용",
-    deny: "취소",
-    revokeNote: "연결은 대시보드 연결 패널의 토큰 목록에서 언제든 끊을 수 있어요.",
+    can1: "작품을 초안으로 올리기",
+    can2: "자기가 올린 초안 고치기·지우기",
+    cannot: "공개·삭제는 못 해요",
+    // 버튼 바로 밑 — 허용하면 어디로 가는지(속임 방지로 늘 보인다).
+    returnTo: (host: string) => `${host}로 돌아가요`,
+    loopbackWarn: "내 컴퓨터에서 도는 프로그램이에요. 직접 설치한 게 맞나요?",
+    allow: "허용하고 돌아가기",
+    deny: "닫기",
+    // 끊기는 설정 > AI 연결(components/settings/AiConnections)이 정본.
+    revokeNote: "설정에서 언제든 끊을 수 있어요",
     errorTitle: "연결할 수 없어요",
-    errorHint: "커넥터를 만든 쪽에 이 문구를 그대로 알려 주세요.",
+    errorBody: "연결을 처음부터 다시 해 주세요.",
+    // 접힘 안에는 받은 오류 원문(영어)이 그대로 있다.
+    errorDetails: "자세히",
     backToDashboard: "대시보드로",
     // 비로그인 상태. 로그인 뒤 원래 자리로 돌려보내려면 인증 경로를 건드려야 해서,
     // 대신 "다시 한 번 눌러 주세요"로 잇는다(인증은 민감해 손대지 않는다).
@@ -827,35 +796,31 @@ export const ko = {
     browseFirst: "폰으로 먼저 둘러볼게요 →",
   },
   publish: {
-    backToDashboard: "← 대시보드",
-    title: "AI가 준 걸 붙여넣기",
-    intro:
-      "ChatGPT·제미나이처럼 채팅창에서 쓰는 AI라면, AI가 준 답을 여기에 붙여넣으세요. 초안으로 올라가요.",
-    // 옛 문구는 없는 "연결 탭"을 가리켰다(출시 점검 브라우저 #3) — 프롬프트는 [프로젝트 추가] 창에 있다.
-    promptHintBefore: "AI에게 줄 프롬프트는 ",
-    promptHintLink: "대시보드 → [프로젝트 추가]",
-    promptHintAfter: " 창에 있어요.",
-    submitting: "올리는 중…",
-    submit: "초안으로 올리기",
-    reviewNote: "공개 전에 대시보드에서 확인할 수 있어요",
-    clipboardButton: "클립보드에서 가져와 올리기",
-    clipboardHint: "AI 답을 통째로 복사해 두셨다면 이 버튼 하나면 돼요 — 설명이 섞여 있어도 JSON만 골라내서 바로 올려요.",
-    pasteHint: "아래 칸에 붙여넣어도 바로 올라가요.",
+    // AI 답 붙여넣기(/publish · 연결 창의 채팅 AI 길) — 라 시안(2026-10-01 덜어내기): 제목, 한 줄, 큰 칸,
+    // 버튼 하나. /publish 버튼은 칸이 비면 [클립보드에서 붙여넣기](칸만 채움), 차면 [초안으로 올리기].
+    title: "AI 답 붙여넣기",
+    lead: "초안으로 올라가요. 공개는 내가 눌러요.",
     // 입력칸 예시(첫인상 #9) — 코드 모양 예시는 "내가 채워야 하는 양식"으로 읽혔다.
-    pastePlaceholder: "여기에 AI 답을 통째로 붙여넣으세요 (설명이 섞여 있어도 괜찮아요)",
-    clipboardEmpty: "클립보드에서 JSON을 찾지 못했어요. AI 답을 복사한 뒤 다시 눌러 주세요.",
-    clipboardDenied: "브라우저가 클립보드 읽기를 막았어요 — 아래 칸에 직접 붙여넣어 주세요.",
+    pastePlaceholder: "여기에 AI 답을 통째로 붙여넣어요",
+    clipboardButton: "클립보드에서 붙여넣기",
+    // 연결 창의 큰 버튼 — 클립보드를 읽어 바로 올린다.
+    pasteButton: "AI 답 붙여넣기",
+    submit: "초안으로 올리기",
+    submitting: "올리는 중…",
+    zipping: "파일 준비 중…",
+    uploadingFiles: "파일 올리는 중…",
+    clipboardEmpty: "클립보드에서 AI 답을 찾지 못했어요. 답을 복사한 뒤 다시 눌러 주세요.",
+    clipboardDenied: "클립보드를 못 읽었어요. 칸에 붙여넣어 주세요.",
     // 파일 첨부(2026-09-17): 채팅창 AI는 파일을 못 내지만 **사람 손엔 파일이 있다**
     // (Claude 화면의 "HTML로 내려받기" 등). 인터넷에 올리지 못해 포기하는 경우가
-    // 가장 많다는 조사 결과에 맞춘 칸이다.
-    // 붙여넣는 순간 올라가므로 파일은 **먼저** 골라야 같이 간다(B4) — 그래서 칸도 맨 위다.
-    filesTitle: "작품 파일이 있으면 먼저 골라 주세요 (없으면 건너뛰어요)",
-    // 연결 창 안(compact)에서는 파일 칸을 접어 둔다 — 누르면 붙여넣기 칸 위에 펼쳐진다.
-    filesToggle: "작품 파일도 있어요 (.html·.zip·스크린샷·영상)",
-    // 연결 창(compact)에서는 글상자도 접어 둔다 — 클립보드 읽기가 막히면 저절로 펼친다(2026-09-23).
-    typeToggle: "직접 붙여넣을래요",
-    filesHint: "인터넷에 안 올린 작품이라면 파일을 주세요. AI가 만들어준 화면은 보통 “HTML로 내려받기”가 돼요 — 그 파일 하나면 됩니다.",
-    pickHtml: "작품 파일 (.html 또는 .zip, 25MB까지)",
+    // 가장 많다는 조사 결과에 맞춘 칸이다. 평소엔 "파일도 있어요" 뒤에 접어 둔다.
+    filesLink: "파일도 있어요",
+    // 연결 창: 한 줄에서 여러 파일을 한 번에 고른다 — 종류는 알아서 가른다.
+    filesAll: "작품 파일 · 스크린샷 · 영상",
+    filesAllHint: "인터넷에 없는 작품일 때만",
+    pickFiles: "파일 고르기",
+    // /publish: 종류별 세 줄.
+    pickHtml: "작품 파일 (.html·.zip, 25MB까지)",
     pickShot: "스크린샷 (5MB까지)",
     pickVideo: "직접 만든 시연 영상 (20MB까지)",
     // 브라우저 기본 파일 칸 대신 쓰는 버튼(2026-09-24) — 기본 칸은 글자로만 보여 누르는 곳인 줄 몰랐다.
@@ -863,11 +828,11 @@ export const ko = {
     fileChosen: (name: string) => `${name} 선택됨`,
     fileClear: "빼기",
     fileTooLarge: (name: string, mb: number) => `${name}이(가) 너무 커요 — ${mb}MB까지만 올릴 수 있어요.`,
-    zipping: "파일 준비 중…",
-    uploadingFiles: "파일 올리는 중…",
+    fileKindUnknown: (name: string) => `${name}은(는) 올릴 수 없어요 — .html·.zip·이미지·영상만 돼요.`,
+    fileOneEach: "종류마다 한 개씩 올려요. 파일이 여럿이면 .zip으로 묶어 주세요.",
     errors: {
       uploadFailed: "파일을 올리지 못했어요. 크기를 확인하고 다시 시도해 주세요.",
-      empty: "AI가 준 JSON을 붙여넣어 주세요.",
+      empty: "AI 답을 붙여넣어 주세요.",
       urlOnly: "URL만으로는 부족해요 — 제목·설명이 담긴 JSON을 붙여넣어 주세요.",
       invalidJson: "JSON을 읽을 수 없어요. AI가 준 { ... } 형식 그대로 붙여넣어 주세요.",
       submitFailed: "올리지 못했어요. 잠시 후 다시 시도해 주세요.",
@@ -878,8 +843,7 @@ export const ko = {
     // 되돌려보내기 루프(2026-08-28): JSON을 쓴 건 AI인데 고치라는 말은 사람이
     // 받는다 — 사람은 버튼 하나, 고치는 건 AI(재촬영 루프와 같은 설계).
     fixWithAi: "이 사유를 AI에게 전달하기",
-    fixCopied: "복사했어요 — AI에게 붙여넣으세요",
-    fixHint: "AI가 고친 JSON을 주면 위에 다시 붙여넣고 올리면 돼요.",
+    fixCopied: "복사했어요 — AI에게 붙여넣어요",
   },
   // /[username] 명함(Theater) 퍼블릭 페이지
   theater: {
@@ -917,9 +881,9 @@ export const ko = {
     errorCode: "오류 코드",
     rootTitle: "페이지를 불러오지 못했어요",
     rootBody: "잠시 문제가 생겼어요. 다시 시도하거나 홈으로 돌아가 주세요.",
-    notFoundEyebrow: "404 · 페이지 없음",
+    // 404(app/not-found.tsx)는 제목 한 줄 + [홈으로]뿐이다(10-01 덜어내기).
     notFoundTitle: "페이지를 찾을 수 없어요",
-    notFoundBody: "주소가 바뀌었거나 사라진 페이지일 수 있어요. 홈으로 돌아가 시작해 주세요.",
+    notFoundHome: "홈으로",
   },
   // 서버 API 에러 응답(apiError message) — 클라이언트가 그대로 표시한다.
   // admin 전용 라우트는 한국어 유지라 여기 없다. 라우트는 getT()로 쿠키 언어를 읽고,
@@ -937,7 +901,7 @@ export const ko = {
     // 자동 시연 소스 검증 (trigger-demo · ingest 공유)
     unsupportedSource: "자동 시연을 만들 수 없는 소스예요.",
     contentHost: (host: string) =>
-      `${host}는 자동 시연으로 촬영하는 '내 작품' 주소가 아니에요. 영상 링크라면 '구동 영상' 칸에 넣어주세요.`,
+      `${host}는 자동 시연으로 촬영하는 '내 작품' 주소가 아니에요. 영상 링크라면 수정 창의 '더 보기 › 직접 만든 영상'에 넣어 주세요.`,
     contentHostShort: (host: string) =>
       `${host}는 자동 시연으로 촬영하는 '내 작품' 주소가 아니에요.`,
     privateHost: "localhost나 내부 주소는 촬영할 수 없어요. 공개로 접속되는 배포 URL로 올려주세요.",

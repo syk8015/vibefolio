@@ -4,17 +4,19 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 import Image from "next/image";
 import { toPreviewUrl } from "@/lib/previewOrigin";
 import { detectVideoKind, getYouTubeEmbedUrl, getVimeoEmbedUrl } from "@/lib/video";
-import { CONTENT_TYPES, previewDevice, normalizeTargetDevice } from "@/lib/projectTaxonomy";
+import { previewDevice, normalizeTargetDevice } from "@/lib/projectTaxonomy";
 import { isStepWired } from "@/lib/demoScript";
+import { detectDemoSource } from "@/lib/demoSource";
 import { descriptionShapeIssue, descriptionTooLong, lineCols, DESCRIPTION_LINE_COLS_MAX } from "@/lib/descriptionShape";
 import { buildDraftFixPrompt } from "@/lib/draftFixPrompt";
-import { copyText } from "@/lib/clipboard";
+import { copyTextLater } from "@/lib/clipboard";
 import { useMediaQuery } from "@/lib/useMediaQuery";
+import { ManualCopyBox } from "@/components/dashboard/ManualCopyBox";
 import { AiToolLogo } from "./helpers";
-import { DemoScriptPanel } from "./DemoScriptPanel";
+import { DemoScriptPanel, holdOf } from "./DemoScriptPanel";
 import { OwnerInterviewPanel } from "./OwnerInterviewPanel";
-import { LanguagePanel } from "./LanguagePanel";
-import { normalizeLocale, otherLocale, readTranslations } from "@/lib/workLanguages";
+import { LanguagePanel, type DetailRow } from "./LanguagePanel";
+import { filmPlan, normalizeAppLanguages, normalizeLocale, otherLocale, readTranslations } from "@/lib/workLanguages";
 import { PreviewDevice, PHONE_VIEW, DESKTOP_VIEW } from "./PreviewDevice";
 import { type DBProject } from "./types";
 import { readOwnerInterview, type OwnerInterview } from "@/lib/ownerInterview";
@@ -27,22 +29,20 @@ import { useT } from "@/lib/i18n/client";
 //   두 칸이 따로 스크롤돼서 iframe 위에서 휠을 굴려도 판단 칸이 막히지 않는다.
 // - 미리보기 틀(폰 402×874 / PC 1280×800)은 업로드한 AI가 답한 targetDevice로만 정한다.
 //   사람이 바꾸는 스위치는 일부러 없다. 답이 없는 예전 초안은 분류로 짐작(previewDevice).
-// - 판단 칸은 질문 하나("…를 공개할까요?") 아래에 명함 → 촬영 계획(시작 주소 한 줄 + 필름 띠).
-//   2026-09-29: 맨 위에 주인 인터뷰 칸(필수) — "내 말이 맞아요"에 체크해야 [공개하기]가 눌린다.
-//   촬영 주소를 명함 옆에 나란히 두지 않는다(어색하다는 사용자 판정).
-// - 채운 버튼은 [공개하기] 하나. 직접 고치기·삭제는 ⋯ 안으로(폰에서 버튼이 두 줄로 접히던 문제도 해소).
+//
+// 2026-10-01 덜어내기 "라"(사용자가 고른 시안): 판단 칸은 "공개할까요?" 아래에
+// ① 방문자가 볼 명함(구석의 KO/EN으로 두 언어 판을 번갈아 봄)
+// ② 체크 한 줄 "인터뷰 답이 내 말과 같아요" + [답 보기] — 체크해야 공개 버튼이 눌린다(09-29 필수)
+// ③ 촬영 한 줄 "N장면 · 약 N초 · 영어 자막 포함" + [보기] — 펼치면 장면 막대(장면을 누르면
+//    옮기기·빼기 카드)·자막·언어/로그인 작은 표. 문제(위치 모르는 장면·로그인 답 없음)만 늘 빨갛게.
+// 버튼은 가운데 [고칠 점 적기] + [공개하고 촬영 요청]. 버튼 아래 안내 문장은 두지 않는다.
+// 작품 유형·연도·AI 도구·주소·촬영 힌트는 ⋯ [직접 고치기](수정 창)에서 보고 고친다.
 //
 // 살짝 고치기: 명함 렌더의 제목·소개글·한마디는 글자를 누르면 그 자리에서 고쳐진다
 // (서버 게이트와 같은 규칙으로 막는다 — lib/descriptionShape). 대본은 빼기·순서만.
-// 그 이상은 [AI에게 고쳐달라기] — 사람은 불만 한 줄, 고치는 건 AI(재촬영 루프와 동일).
+// 그 이상은 [고칠 점 적기] → 수정 프롬프트 복사 — 사람은 불만 한 줄, 고치는 건 AI(재촬영 루프와 동일).
+// 사이트가 AI에게 무엇을 보내는 게 아니다: 사람이 복사해 AI 채팅창에 붙여넣는다(문구도 그렇게).
 export type DraftPatch = Partial<Pick<DBProject, "title" | "description" | "comment" | "demo_script" | "translations">>;
-
-// 목적격 조사 — 제목 끝 글자의 받침으로 을/를을 고른다(한글이 아니면 병기).
-function objectParticle(word: string): string {
-  const c = word.trim().slice(-1).charCodeAt(0);
-  if (c >= 0xac00 && c <= 0xd7a3) return (c - 0xac00) % 28 ? "을" : "를";
-  return "을(를)";
-}
 
 export function DraftReviewModal({ draft, privateReady = true, onClose, onPublish, onEdit, onDelete, onSave, onSaveInterview }: {
   draft: DBProject;
@@ -78,8 +78,6 @@ export function DraftReviewModal({ draft, privateReady = true, onClose, onPublis
     videoKind === "youtube" ? getYouTubeEmbedUrl(draft.video_url)
     : videoKind === "vimeo" ? getVimeoEmbedUrl(draft.video_url)
     : null;
-  const ct = CONTENT_TYPES.find((c) => c.id === draft.content_type);
-  const ctLabel = ct ? (t.contentTypes as Record<string, string>)[ct.id] ?? ct.label : null;
   // 미리보기 틀 — AI가 답한 대상 화면(2026-09-15). 스위치 없음.
   const device = previewDevice(draft.target_device, draft.content_type);
   const deviceAnswered = normalizeTargetDevice(draft.target_device) !== null;
@@ -117,13 +115,14 @@ export function DraftReviewModal({ draft, privateReady = true, onClose, onPublis
     return () => { cancelled = true; };
   }, [needsEmbedCheck, externalSrc]);
 
-  // ── 두 언어(2026-09-29) — 명함 위 탭으로 기본 언어 판·다른 언어 판을 번갈아 보고 고친다 ──
-  // 다른 언어 판은 공개 칸 translations[다른 언어]. 판이 없는 옛 초안은 탭을 그리지 않는다.
+  // ── 두 언어(2026-09-29) — 명함 구석의 KO/EN으로 기본 언어 판·다른 언어 판을 번갈아 보고 고친다 ──
+  // 다른 언어 판은 공개 칸 translations[다른 언어]. 판이 없는 옛 초안은 KO/EN을 그리지 않는다.
   const primaryLoc = normalizeLocale(draft.primary_locale);
   const otherLoc = primaryLoc ? otherLocale(primaryLoc) : null;
   const otherTr = otherLoc ? readTranslations(draft.translations)[otherLoc] : undefined;
   const [cardLang, setCardLang] = useState<"primary" | "other">("primary");
   const onOther = cardLang === "other" && !!otherTr;
+  const langToggle = primaryLoc && otherLoc && otherTr ? ([primaryLoc, otherLoc] as const) : null;
 
   // ── 인라인 편집 ─────────────────────────────────────────────────────────
   type Field = "title" | "description" | "comment";
@@ -218,11 +217,14 @@ export function DraftReviewModal({ draft, privateReady = true, onClose, onPublis
   };
 
   // ── 주인 인터뷰(2026-09-29 사용자 확정: 필수) ─────────────────────────────
-  // 답이 있고 주인이 "내 말이 맞아요"에 체크해야 공개된다. 비공개 칸을 아직 못 받았으면
+  // 답이 있고 주인이 "인터뷰 답이 내 말과 같아요"에 체크해야 공개된다. 비공개 칸을 아직 못 받았으면
   // 답을 볼 수 없으니 공개도 기다린다. 인터뷰 없이 올라온 옛 초안은 AI에게 다시 올려 달라고 한다.
   const interview = privateReady ? readOwnerInterview(draft.owner_interview) : null;
   const [interviewConfirmed, setInterviewConfirmed] = useState(false);
   const canPublish = !!interview && interviewConfirmed;
+  // 접힌 것 둘 — 답 목록·촬영 자세히. 하나라도 펼치면(또는 고칠 점을 적는 동안) 명함을 줄인다.
+  const [answersOpen, setAnswersOpen] = useState(false);
+  const [filmOpen, setFilmOpen] = useState(false);
 
   // 공개 — 글을 고치던 중이면 먼저 저장하고, 저장이 안 되면 공개하지 않는다.
   // 전엔 편집 칸이 열린 채 [공개]를 누르면 고친 내용이 조용히 버려졌다(B9).
@@ -235,26 +237,34 @@ export function DraftReviewModal({ draft, privateReady = true, onClose, onPublis
     if (ok) onPublish();
   };
 
-  // ── AI에게 고쳐달라기 ───────────────────────────────────────────────────
-  const [fixOpen, setFixOpen] = useState(false);
+  // ── 고칠 점 적기 → 수정 프롬프트 복사 ─────────────────────────────────────
+  // 판단 칸이 통째로 "무엇을 고칠까요?" 한 가지 일로 바뀐다(버튼 줄도 [닫기] [수정 프롬프트 복사]).
+  // 복사한 뒤엔 "복사했어요" + [닫기]. 사이트는 AI에게 아무것도 보내지 않는다 — 사람이 붙여넣는다.
+  const [mode, setMode] = useState<"review" | "fix" | "copied">("review");
   const [fixNote, setFixNote] = useState("");
   const [fixBusy, setFixBusy] = useState(false);
-  const [fixState, setFixState] = useState<"idle" | "copied" | "failed">("idle");
+  const [fixFailed, setFixFailed] = useState(false);
+  // 클립보드가 막힌 브라우저(사파리 등) — 받은 프롬프트를 직접 복사 칸에 펼친다(연결 창과 같은 출구).
+  const [manualFix, setManualFix] = useState<string | null>(null);
   // 패널이 열리는 순간 한 번만 보이는 곳으로 끌어온다(안정된 ref 콜백 = 마운트 때만 호출).
   const revealFix = useCallback((el: HTMLDivElement | null) => {
     el?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, []);
-  const copyFix = async () => {
+  const openFix = () => { setMode("fix"); setFixFailed(false); setManualFix(null); };
+  const closeFix = () => { setMode("review"); setFixFailed(false); setManualFix(null); };
+  const copyFix = () => {
     if (!fixNote.trim() || fixBusy || !privateReady) return;
     setFixBusy(true);
-    setFixState("idle");
-    try {
-      // 연결 패널과 같은 규약: 프롬프트에 박히는 것은 1회용 페어링 코드뿐이다
-      // (이 프롬프트도 AI 채팅창에 붙여넣는 물건이라 토큰을 실으면 기록에 남는다).
-      const res = await fetch("/api/connect/code", { method: "POST" });
+    setFixFailed(false);
+    setManualFix(null);
+    let prompt = "";
+    // 연결 패널과 같은 규약: 프롬프트에 박히는 것은 1회용 페어링 코드뿐이다
+    // (이 프롬프트도 AI 채팅창에 붙여넣는 물건이라 토큰을 실으면 기록에 남는다).
+    // 복사는 코드 발급(fetch)보다 **먼저** 시작해야 사파리가 허락한다(copyTextLater) — 앞에 await를 두지 말 것.
+    const ready = fetch("/api/connect/code", { method: "POST" }).then(async (res) => {
       const body = await res.json().catch(() => ({}));
       if (!res.ok || typeof body.code !== "string") throw new Error("code");
-      const prompt = buildDraftFixPrompt({
+      prompt = buildDraftFixPrompt({
         projectId: draft.id,
         title: draft.title,
         description: draft.description,
@@ -274,13 +284,12 @@ export function DraftReviewModal({ draft, privateReady = true, onClose, onPublis
         code: body.code,
         origin: window.location.origin,
       }, locale);
-      if (!(await copyText(prompt))) throw new Error("copy failed");
-      setFixState("copied");
-    } catch {
-      setFixState("failed");
-    } finally {
-      setFixBusy(false);
-    }
+      return prompt;
+    });
+    copyTextLater(ready)
+      .then((ok) => { if (ok) setMode("copied"); else setManualFix(prompt); })
+      .catch(() => setFixFailed(true))
+      .finally(() => setFixBusy(false));
   };
 
   // ── ⋯ 메뉴(직접 고치기·삭제하기) ────────────────────────────────────────
@@ -318,10 +327,12 @@ export function DraftReviewModal({ draft, privateReady = true, onClose, onPublis
     return () => ro.disconnect();
   }, [measureEdges]);
 
-  // ── 촬영 계획 한 줄 ─────────────────────────────────────────────────────
+  // ── 촬영 한 줄 ─────────────────────────────────────────────────────────
   const steps = draft.demo_script?.steps ?? [];
   const wired = steps.filter(isStepWired).length;
   const hasOwnVideo = !!draft.video_url;
+  // 공개하면 촬영을 요청하나 — 공개 처리(ProjectsTab.handlePublishDraft)와 같은 판정. 버튼 이름이 결과를 말한다.
+  const films = !hasOwnVideo && !!detectDemoSource(draft.demo_url);
   const access = draft.demo_access;
   // 비공개 칸을 아직 못 받았으면 "로그인 답 없음" 경고는 거짓이다 — 중립 자리표시만.
   const accessLine = !privateReady
@@ -333,6 +344,33 @@ export function DraftReviewModal({ draft, privateReady = true, onClose, onPublis
       : access?.impossible
         ? { text: t.projects.reviewAccessImpossible, note: access.note, warn: true }
         : { text: t.projects.reviewAccessMissing, note: undefined, warn: true };
+  const accessText = [accessLine.text, accessLine.note].filter(Boolean).join(" · ");
+  // "촬영: 4장면 · 약 5초 · 영어 자막 포함" — 자막은 앱 화면이 못 보여주는 언어(filmPlan, 워커와 같은 판정).
+  const appLocs = normalizeAppLanguages(draft.app_locales);
+  const plan = primaryLoc && appLocs ? filmPlan(primaryLoc, appLocs) : null;
+  const filmTail = !plan
+    ? null
+    : plan.captions.length
+      ? t.projects.reviewFilmCaptions(plan.captions.map((l) => t.projects.langNames[l]))
+      : plan.extra ? t.projects.reviewFilmAlso(t.projects.langNames[plan.extra]) : null;
+  const filmSeconds = Math.max(1, Math.round(steps.reduce((sum, s) => sum + holdOf(s), 0)));
+  const filmLine = `${t.projects.reviewFilmLabel}: ${
+    hasOwnVideo
+      ? t.projects.reviewVideoOwn
+      : !privateReady
+        ? "…"
+        : [t.projects.reviewFilmScenes(steps.length), steps.length ? t.projects.reviewFilmAbout(filmSeconds) : null, filmTail]
+          .filter(Boolean).join(" · ")
+  }`;
+  // 늘 보이는 문제 줄 — 접혀 있어도 빨갛게(짧지만 정확하게). 정상이면 아무 말도 안 한다.
+  const filmWarnings = hasOwnVideo || !privateReady ? [] : [
+    ...(steps.length && wired < steps.length ? [t.projects.reviewShootPartWired(wired, steps.length)] : []),
+    ...(accessLine.warn ? [`${t.projects.reviewVerdictAccess}: ${accessText}`] : []),
+  ];
+  // 펼친 촬영 칸의 작은 표 첫 줄 — 로그인 방법(문제일 땐 위 빨간 줄이 이미 말하므로 뺀다).
+  const loginRow: DetailRow[] = hasOwnVideo || !privateReady || accessLine.warn
+    ? []
+    : [{ label: t.projects.reviewVerdictAccess, value: accessText }];
   const opensKind: "file" | "repo" | "url" = isFile
     ? "file"
     : /github\.com\//i.test(draft.demo_url) ? "repo" : "url";
@@ -344,14 +382,6 @@ export function DraftReviewModal({ draft, privateReady = true, onClose, onPublis
   const title = draft.title || t.projects.untitled;
 
   // ── 스타일 ─────────────────────────────────────────────────────────────
-  const fieldLabelStyle: React.CSSProperties = {
-    color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", fontSize: "0.8rem", margin: "0 0 2px",
-  };
-  const fieldValueStyle: React.CSSProperties = {
-    color: "var(--text-primary)", fontFamily: "var(--font-nunito)",
-    fontSize: "0.92rem", lineHeight: 1.65, whiteSpace: "pre-wrap", margin: 0,
-  };
-  const emptyValue = <span style={{ color: "var(--text-muted)" }}>—</span>;
   // 명함 렌더는 실제 명함(TheaterStage)처럼 작품 위에 얹힌 흰 글씨다 — 테마와 무관하게
   // 어두운 바탕이 정직하다(라이트에서도 명함은 포스터 위에 뜬다).
   const cardBg = "linear-gradient(180deg, #2a241f 0%, #1a1612 100%)";
@@ -363,6 +393,13 @@ export function DraftReviewModal({ draft, privateReady = true, onClose, onPublis
   const smallText: React.CSSProperties = {
     margin: 0, fontFamily: "var(--font-nunito)", fontSize: 13, lineHeight: 1.55, color: "var(--text-secondary)",
   };
+  // 답·촬영을 펼치거나 고칠 점을 적는 동안엔 명함을 한 단계 줄여 아래 내용에 자리를 준다.
+  const compactCard = answersOpen || filmOpen || mode !== "review";
+  const cardTitleSize = compactCard ? "1.3rem" : "1.45rem";
+  // 구석 KO/EN과 제목이 겹치지 않게 제목 오른쪽을 비운다.
+  const toggleRoom = langToggle ? 84 : 0;
+  const textLink: React.CSSProperties = { flexShrink: 0, textDecoration: "underline", textUnderlineOffset: 3 };
+  const footButton: React.CSSProperties = { fontSize: "0.9375rem", padding: "0.72rem 1.4rem" };
   // 틀 안의 글자는 틀째 축소되므로(폰 ~0.8·PC ~0.6배) 크게 쓴다.
   const frameText: React.CSSProperties = {
     margin: 0, padding: "0 32px", textAlign: "center", fontFamily: "var(--font-nunito)",
@@ -520,13 +557,12 @@ export function DraftReviewModal({ draft, privateReady = true, onClose, onPublis
                 wordBreak: "keep-all", overflowWrap: "anywhere",
               }}
             >
-              {t.projects.reviewAsk(title, objectParticle(title))}
+              {t.projects.reviewAsk}
             </h2>
-            <p style={{ ...smallText, marginTop: 4, fontSize: "0.93rem" }}>{t.projects.reviewIntroShort}</p>
           </header>
 
           <div ref={bodyRef} className="vf-review-body" onScroll={measureEdges}>
-            <div ref={contentRef} className="vf-review-content">
+            <div ref={contentRef} className="vf-review-content" style={{ gap: 16 }}>
               {!wide && previewSrc && (
                 <a
                   href={previewSrc} target="_blank" rel="noopener noreferrer"
@@ -539,48 +575,42 @@ export function DraftReviewModal({ draft, privateReady = true, onClose, onPublis
                 </a>
               )}
 
-              {/* ⓪ 주인 인터뷰 — 공개 전에 주인이 확인해야 한다(2026-09-29, 필수) */}
-              <OwnerInterviewPanel
-                interview={interview}
-                loading={!privateReady}
-                confirmed={interviewConfirmed}
-                onConfirmChange={setInterviewConfirmed}
-                onSave={onSaveInterview}
-                headId={`${uid}-interview`}
-              />
-
-              {/* ① 명함 렌더 — 글자를 누르면 그 자리에서 고친다 */}
-              <section aria-labelledby={`${uid}-card`}>
-                <SectionHead id={`${uid}-card`} title={t.projects.reviewCardLabel}
-                  right={<span style={smallText}>{t.projects.reviewEditHint}</span>} />
-                {/* 두 언어 탭(2026-09-29) — 보는 사람 언어마다 이 명함이 이렇게 뜬다 */}
-                {primaryLoc && otherLoc && (
-                  otherTr ? (
-                    <div className="vf-seg-track w-fit" role="tablist" aria-label={t.projects.reviewLangTitle} style={{ marginBottom: 10 }}>
-                      {(["primary", "other"] as const).map((k) => {
-                        const loc = k === "primary" ? primaryLoc : otherLoc;
+              {/* ① 명함 렌더 — 방문자가 볼 모습. 글자를 누르면 그 자리에서 고친다 */}
+              <div className="flex flex-col" style={{ gap: 8 }}>
+                <div className="relative rounded-2xl" style={{ background: cardBg, padding: compactCard ? "16px 20px 14px" : "20px 24px 18px" }}>
+                  {/* 두 언어(2026-09-29) — 보는 사람 언어마다 이 명함이 이렇게 뜬다. 구석의 작은 KO/EN */}
+                  {langToggle && (
+                    <div
+                      role="tablist" aria-label={t.projects.reviewLangTitle} className="absolute flex"
+                      style={{ top: compactCard ? 12 : 16, right: compactCard ? 14 : 16, padding: 2, borderRadius: 999, background: "rgba(255,255,255,0.1)" }}
+                    >
+                      {(["primary", "other"] as const).map((k, i) => {
+                        const loc = langToggle[i];
                         const active = cardLang === k;
                         return (
-                          <button key={k} type="button" role="tab" aria-selected={active} data-active={active}
+                          <button
+                            key={k} type="button" role="tab" aria-selected={active} aria-label={t.projects.langNames[loc]}
                             onClick={() => { if (editing) cancel(); setCardLang(k); }}
-                            className="vf-selectable px-3.5 py-1.5 rounded-lg text-sm">
-                            {t.projects.langNames[loc]}{k === "primary" ? ` · ${t.projects.reviewLangMainTag}` : ""}
+                            style={{
+                              padding: "2px 9px", border: "none", borderRadius: 999, cursor: "pointer",
+                              fontFamily: "var(--font-nunito)", fontSize: 13, fontWeight: 600, lineHeight: 1.5,
+                              background: active ? "#fff" : "transparent", color: active ? "#1a1612" : "rgba(255,255,255,0.72)",
+                            }}
+                          >
+                            {loc.toUpperCase()}
                           </button>
                         );
                       })}
                     </div>
-                  ) : (
-                    <p style={{ ...smallText, margin: "0 0 10px", color: "#b34747" }}>{t.projects.reviewLangMissingTr(t.projects.langNames[otherLoc])}</p>
-                  )
-                )}
-                <div className="rounded-2xl" style={{ background: cardBg, padding: "20px 24px 18px" }}>
+                  )}
+
                   {editing === "title" ? (
                     <input ref={inputRef as React.RefObject<HTMLInputElement>} value={value} onChange={e => setValue(e.target.value)}
                       onKeyDown={e => onKey(e, false)} disabled={saving}
-                      className="vf-serif-display" style={{ ...inputStyle, fontSize: "1.45rem", fontWeight: 500 }} />
+                      className="vf-serif-display" style={{ ...inputStyle, fontSize: cardTitleSize, fontWeight: 500, width: `calc(100% - ${toggleRoom}px)` }} />
                   ) : (
                     <h3 className="vf-serif-display" onClick={() => begin("title")} title={t.projects.reviewEditHint}
-                      style={{ ...editableStyle, fontSize: "1.45rem", fontWeight: 500, margin: 0, color: "#fff", textShadow: "0 2px 16px rgba(0,0,0,0.55)", padding: "2px 4px", marginLeft: -4 }}>
+                      style={{ ...editableStyle, fontSize: cardTitleSize, fontWeight: 500, margin: 0, color: "#fff", textShadow: "0 2px 16px rgba(0,0,0,0.55)", padding: `2px ${4 + toggleRoom}px 2px 4px`, marginLeft: -4 }}>
                       {fieldValue("title") || t.projects.untitled}
                     </h3>
                   )}
@@ -589,7 +619,7 @@ export function DraftReviewModal({ draft, privateReady = true, onClose, onPublis
                     <div style={{ marginTop: 8 }}>
                       <textarea ref={inputRef as React.RefObject<HTMLTextAreaElement>} value={value} onChange={e => setValue(e.target.value)}
                         onKeyDown={e => onKey(e, true)} rows={3} disabled={saving}
-                        style={{ ...inputStyle, fontSize: 15, lineHeight: 1.55, resize: "vertical", maxWidth: 460 }} />
+                        style={{ ...inputStyle, fontSize: compactCard ? 14 : 15, lineHeight: 1.55, resize: "vertical", maxWidth: 460 }} />
                       <p className="text-xs" style={{ margin: "4px 0 0", fontFamily: "var(--font-nunito)", color: descIssue ? "#f0a3a3" : "rgba(255,255,255,0.6)" }}>
                         {descIssue ?? t.projects.reviewDescMeter(descLines.length, descMaxCols, DESCRIPTION_LINE_COLS_MAX)}
                       </p>
@@ -597,7 +627,7 @@ export function DraftReviewModal({ draft, privateReady = true, onClose, onPublis
                   ) : (
                     <p onClick={() => begin("description")} title={t.projects.reviewEditHint}
                       style={{
-                        ...editableStyle, fontSize: 15, color: fieldValue("description") ? "rgba(255,255,255,0.84)" : "rgba(255,255,255,0.4)",
+                        ...editableStyle, fontSize: compactCard ? 14 : 15, color: fieldValue("description") ? "rgba(255,255,255,0.84)" : "rgba(255,255,255,0.4)",
                         marginTop: 8, lineHeight: 1.55, maxWidth: 460, fontFamily: "var(--font-nunito)",
                         textShadow: "0 1px 8px rgba(0,0,0,0.5)", whiteSpace: "pre-line",
                         display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 3, overflow: "hidden",
@@ -610,21 +640,21 @@ export function DraftReviewModal({ draft, privateReady = true, onClose, onPublis
                   {editing === "comment" ? (
                     <input ref={inputRef as React.RefObject<HTMLInputElement>} value={value} onChange={e => setValue(e.target.value)}
                       onKeyDown={e => onKey(e, false)} disabled={saving} placeholder={t.projects.reviewNotePlaceholder}
-                      style={{ ...inputStyle, fontSize: 14, marginTop: 12, maxWidth: 460 }} />
+                      style={{ ...inputStyle, fontSize: compactCard ? 13 : 14, marginTop: compactCard ? 10 : 12, maxWidth: 460 }} />
                   ) : (
                     <div onClick={() => begin("comment")} title={t.projects.reviewEditHint}
                       className="inline-block"
                       style={{
-                        ...editableStyle, marginTop: 12, fontSize: 14, fontFamily: "var(--font-nunito)",
+                        ...editableStyle, marginTop: compactCard ? 10 : 12, fontSize: compactCard ? 13 : 14, fontFamily: "var(--font-nunito)",
                         background: "rgba(255,255,255,0.12)", color: fieldValue("comment") ? "#fff" : "rgba(255,255,255,0.45)",
-                        padding: "7px 14px", borderRadius: 14, maxWidth: 460,
+                        padding: compactCard ? "6px 13px" : "7px 14px", borderRadius: 14, maxWidth: 460,
                       }}>
                       {fieldValue("comment") || t.projects.reviewNotePlaceholder}
                     </div>
                   )}
 
                   {draft.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5" style={{ marginTop: 12 }}>
+                    <div className="flex flex-wrap gap-1.5" style={{ marginTop: compactCard ? 10 : 12 }}>
                       {draft.tags.map(tag => (
                         <span key={tag} className="flex items-center gap-1 px-2 py-0.5 rounded-full"
                           style={{ background: "rgba(255,255,255,0.10)", color: "rgba(255,255,255,0.88)", fontFamily: "var(--font-nunito)", fontSize: "0.72rem" }}>
@@ -653,192 +683,129 @@ export function DraftReviewModal({ draft, privateReady = true, onClose, onPublis
                     </div>
                   )}
                 </div>
-              </section>
-
-              {/* ①-2 언어 — 보는 사람 언어마다 무엇을 보나 + 자막(2026-09-29 작품 두 언어) */}
-              <LanguagePanel
-                primary={draft.primary_locale}
-                app={draft.app_locales}
-                script={privateReady ? draft.demo_script : null}
-                scriptLoading={!privateReady}
-                hasOwnVideo={hasOwnVideo}
-                headId={`${uid}-lang`}
-                onSaveScript={async (next) => { await onSave({ demo_script: next }); }}
-              />
-
-              {/* ② 촬영 계획 — 어디서 시작해, 이 순서로 찍는다 */}
-              <section aria-labelledby={`${uid}-shoot`}>
-                <SectionHead
-                  id={`${uid}-shoot`}
-                  title={t.projects.reviewShootTitle}
-                  right={!hasOwnVideo && steps.length > 0 ? (
-                    <span className="inline-flex items-center gap-1.5"
-                      style={{
-                        fontFamily: "var(--font-nunito)", fontSize: "0.85rem", fontWeight: 600,
-                        color: wired === steps.length ? "var(--text-primary)" : "#b34747",
-                      }}>
-                      <StatusGlyph ok={wired === steps.length} />
-                      {wired === steps.length
-                        ? t.projects.reviewShootAllWired(steps.length)
-                        : t.projects.reviewShootPartWired(wired, steps.length)}
-                    </span>
-                  ) : null}
-                />
-                <div className="vf-review-start" data-warn={!hasOwnVideo && accessLine.warn ? "true" : "false"}>
-                  <span className="vf-review-start-icon" aria-hidden>{hasOwnVideo ? <FilmGlyph /> : <EnterGlyph />}</span>
-                  <div style={{ minWidth: 0 }}>
-                    <p style={{ margin: 0, fontFamily: "var(--font-nunito)", fontSize: "0.95rem", fontWeight: 600, lineHeight: 1.5, color: "var(--text-primary)" }}>
-                      {hasOwnVideo
-                        ? t.projects.reviewVideoOwn
-                        : opensKind === "url"
-                          ? (
-                            <>
-                              {t.projects.reviewStartsAtPrefix}
-                              <span className="vf-mono" style={{ fontSize: "0.86rem", fontWeight: 500, overflowWrap: "anywhere" }}>{opensLabel}</span>
-                              {t.projects.reviewStartsAtSuffix}
-                            </>
-                          )
-                          : opensKind === "file"
-                            ? t.projects.reviewStartFile
-                            : `${t.projects.reviewOpensRepo} · ${opensLabel}`}
-                    </p>
-                    <p className="vf-review-start-sub" style={{ ...smallText, marginTop: 2 }}>
-                      {hasOwnVideo
-                        ? t.projects.reviewVideoOwnSub
-                        : [accessLine.text, accessLine.note].filter(Boolean).join(" · ")}
-                    </p>
-                  </div>
-                </div>
-                {!hasOwnVideo && <DemoScriptPanel script={draft.demo_script} loading={!privateReady} onChange={saveScript} />}
-                {scriptError && (
-                  <p style={{ ...smallText, marginTop: 8, color: "#b34747" }}>{scriptError}</p>
-                )}
-              </section>
-
-              {/* ③ AI에게 고쳐달라기 */}
-              {fixOpen && (
-                <div ref={revealFix} className="rounded-2xl" style={{ background: "var(--surface-sunken)", padding: "16px 18px" }}>
-                  <p style={{ margin: "0 0 8px", fontFamily: "var(--font-nunito)", fontSize: "0.95rem", fontWeight: 600, color: "var(--text-primary)" }}>
-                    {t.projects.reviewFixLead}
+                {/* 다른 언어 판이 빠진 초안 — 방문자 절반이 빈 명함을 보게 되니 늘 보이게 */}
+                {primaryLoc && otherLoc && !otherTr && (
+                  <p style={{ ...smallText, padding: "0 4px", color: "var(--danger)" }}>
+                    {t.projects.reviewLangMissingTr(t.projects.langNames[otherLoc])}
                   </p>
-                  <textarea value={fixNote} onChange={e => { setFixNote(e.target.value); setFixState("idle"); }}
-                    rows={3} placeholder={t.projects.reviewFixPlaceholder} className="vf-input w-full"
-                    style={{ fontSize: "0.9rem", lineHeight: 1.6, background: "var(--surface)" }} />
-                  <div className="flex items-center gap-3 flex-wrap" style={{ marginTop: 8 }}>
-                    <button type="button" onClick={() => void copyFix()} disabled={fixBusy || !fixNote.trim() || !privateReady}
-                      className="vf-button-primary" style={{ fontSize: "0.85rem", padding: "0.55rem 1.1rem", opacity: fixBusy || !fixNote.trim() || !privateReady ? 0.5 : 1 }}>
-                      {t.projects.reviewFixCopy}
-                    </button>
-                    {fixState === "copied" && (
-                      <span style={smallText}>{t.projects.reviewFixCopied}</span>
-                    )}
-                    {fixState === "failed" && (
-                      <span style={{ ...smallText, color: "#b34747" }}>{t.projects.reviewFixFailed}</span>
+                )}
+              </div>
+
+              {mode === "review" ? (
+                <>
+                  {/* ② 주인 인터뷰 확인 — 체크해야 공개된다(2026-09-29, 필수) */}
+                  <OwnerInterviewPanel
+                    interview={interview}
+                    loading={!privateReady}
+                    confirmed={interviewConfirmed}
+                    onConfirmChange={setInterviewConfirmed}
+                    open={answersOpen}
+                    onOpenChange={setAnswersOpen}
+                    onSave={onSaveInterview}
+                    listId={`${uid}-answers`}
+                  />
+
+                  {/* ③ 촬영 한 줄 — [보기]로 장면 막대·자막·언어/로그인 */}
+                  <div className="flex flex-col" style={{ gap: 6 }}>
+                    <div className="flex items-center justify-between" style={{ gap: 12, padding: "2px 4px" }}>
+                      <p style={{ margin: 0, minWidth: 0, fontFamily: "var(--font-nunito)", fontSize: 15, lineHeight: 1.5, color: "var(--text-primary)" }}>
+                        {filmLine}
+                      </p>
+                      <button
+                        type="button" onClick={() => setFilmOpen((v) => !v)}
+                        aria-expanded={filmOpen} aria-controls={`${uid}-film`}
+                        className="vf-button-text" style={textLink}
+                      >
+                        {filmOpen ? t.projects.reviewFold : t.projects.reviewShow}
+                      </button>
+                    </div>
+                    {filmWarnings.map((w) => (
+                      <p key={w} style={{ ...smallText, padding: "0 4px", color: "var(--danger)" }}>{w}</p>
+                    ))}
+                    {filmOpen && (
+                      <div id={`${uid}-film`} className="flex flex-col" style={{ gap: 14, marginTop: 6 }}>
+                        {!hasOwnVideo && (
+                          <DemoScriptPanel script={draft.demo_script} loading={!privateReady} onChange={saveScript} compact />
+                        )}
+                        {scriptError && <p style={{ ...smallText, color: "var(--danger)" }}>{scriptError}</p>}
+                        <LanguagePanel
+                          primary={draft.primary_locale}
+                          app={draft.app_locales}
+                          script={privateReady ? draft.demo_script : null}
+                          scriptLoading={!privateReady}
+                          hasOwnVideo={hasOwnVideo}
+                          lead={loginRow}
+                          onSaveScript={async (next) => { await onSave({ demo_script: next }); }}
+                        />
+                      </div>
                     )}
                   </div>
+                </>
+              ) : mode === "fix" ? (
+                // 고칠 점 적기 — 이 창의 일이 "무엇을 고칠까요?" 하나로 바뀐다
+                <div ref={revealFix} className="rounded-2xl flex flex-col" style={{ gap: 12, padding: 18, background: "var(--surface-soft)" }}>
+                  <label htmlFor={`${uid}-fix`} style={{ fontFamily: "var(--font-nunito)", fontSize: 15, fontWeight: 600, lineHeight: 1.5, color: "var(--text-primary)" }}>
+                    {t.projects.reviewFixLead}
+                  </label>
+                  <textarea
+                    id={`${uid}-fix`} autoFocus value={fixNote}
+                    onChange={e => { setFixNote(e.target.value); setFixFailed(false); setManualFix(null); }}
+                    rows={4} placeholder={t.projects.reviewFixPlaceholder} className="vf-input w-full"
+                    style={{ fontSize: 15, lineHeight: 1.6, background: "var(--surface)", resize: "vertical" }}
+                  />
+                  {fixFailed && <p style={{ ...smallText, fontSize: 14, color: "var(--danger)" }}>{t.projects.reviewFixFailed}</p>}
+                  {manualFix && <ManualCopyBox text={manualFix} />}
+                </div>
+              ) : (
+                <div role="status" className="rounded-2xl" style={{ padding: 18, background: "var(--surface-soft)" }}>
+                  <p style={{ margin: 0, fontFamily: "var(--font-nunito)", fontSize: 15, fontWeight: 600, color: "var(--text-primary)" }}>
+                    <span aria-hidden>✓ </span>{t.projects.reviewFixCopied}
+                  </p>
+                  <p style={{ ...smallText, fontSize: 14, marginTop: 6 }}>{t.projects.reviewFixCopiedBody}</p>
                 </div>
               )}
-
-              {/* ④ 그 밖에 — 판단에 안 쓰이는 것들은 접는다 */}
-              <details className="vf-review-more">
-                <summary>{t.projects.reviewMoreRow}</summary>
-                <div className="flex flex-col gap-4" style={{ padding: "14px 16px 0" }}>
-                  <div>
-                    <p style={fieldLabelStyle}>{t.projectForm.hintLabel}</p>
-                    <p style={fieldValueStyle}>{privateReady ? draft.demo_user_hint || emptyValue : "…"}</p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p style={fieldLabelStyle}>{t.projectForm.contentTypeLabel}</p>
-                      <p style={fieldValueStyle}>{ct ? `${ct.emoji} ${ctLabel}` : emptyValue}</p>
-                    </div>
-                    <div>
-                      <p style={fieldLabelStyle}>{t.projectForm.yearLabel}</p>
-                      <p style={fieldValueStyle}>{draft.year || emptyValue}</p>
-                    </div>
-                  </div>
-                  <div>
-                    <p style={fieldLabelStyle}>{t.projectForm.aiToolsLabel}</p>
-                    <p style={fieldValueStyle}>{draft.tags.length ? draft.tags.join(" · ") : emptyValue}</p>
-                  </div>
-                  <div>
-                    <p style={fieldLabelStyle}>{t.projectForm.demoUrlLabel}</p>
-                    <p className="vf-mono" style={{ ...fieldValueStyle, fontSize: "0.78rem", wordBreak: "break-all" }}>
-                      {isFile ? t.projects.reviewFileUpload : (draft.demo_url || emptyValue)}
-                    </p>
-                  </div>
-                </div>
-              </details>
             </div>
           </div>
 
-          {/* 아래 버튼 줄 — 채운 버튼은 공개하기 하나 */}
-          <footer className="vf-review-foot" data-at-end={edges.atEnd ? "true" : "false"}>
-            <p className="vf-review-foot-note">
-              {!canPublish
-                ? t.projects.reviewInterviewConfirmFirst
-                : hasOwnVideo ? t.projects.reviewPublishNoteVideo : t.projects.reviewPublishNote}
-            </p>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setFixOpen((v) => !v)}
-                aria-expanded={fixOpen}
-                className="vf-button-ghost"
-                style={{
-                  fontSize: "0.92rem", padding: "0.72rem 1.15rem",
-                  background: fixOpen ? "var(--surface-soft-hover)" : undefined,
-                }}
-              >
-                {t.projects.reviewFixWithAi}
+          {/* 아래 버튼 줄 — 가운데 모아서. 안내 문장 없이 버튼 이름이 결과를 말한다 */}
+          <footer className="vf-review-foot" data-at-end={edges.atEnd ? "true" : "false"} style={{ justifyContent: "center" }}>
+            {mode === "review" ? (
+              <>
+                <button type="button" onClick={openFix} className="vf-button-ghost" style={footButton}>
+                  {t.projects.reviewFixWithAi}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void publish()}
+                  disabled={publishing || saving || scriptSaving > 0 || !canPublish}
+                  className="vf-button-primary"
+                  style={footButton}
+                >
+                  {films ? t.projects.reviewPublishAndFilm : t.projects.reviewPublishCta}
+                </button>
+              </>
+            ) : mode === "fix" ? (
+              <>
+                <button type="button" onClick={closeFix} className="vf-button-ghost" style={footButton}>
+                  {t.projects.reviewClose}
+                </button>
+                <button
+                  type="button" onClick={copyFix}
+                  disabled={fixBusy || !fixNote.trim() || !privateReady}
+                  className="vf-button-primary" style={footButton}
+                >
+                  {t.projects.reviewFixCopy}
+                </button>
+              </>
+            ) : (
+              <button type="button" onClick={closeFix} className="vf-button-primary" style={footButton}>
+                {t.projects.reviewClose}
               </button>
-              <button
-                type="button"
-                onClick={() => void publish()}
-                disabled={publishing || saving || scriptSaving > 0 || !canPublish}
-                className="vf-button-primary"
-                style={{ fontSize: "0.92rem", padding: "0.72rem 1.4rem", minWidth: 120 }}
-              >
-                {t.projects.reviewPublishCta}
-              </button>
-            </div>
+            )}
           </footer>
         </section>
       </div>
     </div>
-  );
-}
-
-function SectionHead({ id, title, right }: { id: string; title: string; right?: React.ReactNode }) {
-  return (
-    <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1" style={{ marginBottom: 12 }}>
-      <h3
-        id={id}
-        style={{
-          margin: 0, fontFamily: "var(--font-nunito)", fontSize: "1.15rem", fontWeight: 700,
-          letterSpacing: "-0.015em", color: "var(--text-primary)",
-        }}
-      >
-        {title}
-      </h3>
-      {right}
-    </div>
-  );
-}
-
-function StatusGlyph({ ok }: { ok: boolean }) {
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden>
-      <circle cx="8" cy="8" r="8" fill="currentColor" />
-      {ok ? (
-        <path d="M4.7 8.2l2.1 2.1 4.5-4.7" fill="none" style={{ stroke: "var(--bg)" }} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      ) : (
-        <>
-          <path d="M8 4.2v4.6" style={{ stroke: "var(--bg)" }} strokeWidth="1.8" strokeLinecap="round" />
-          <circle cx="8" cy="11.4" r="1" style={{ fill: "var(--bg)" }} />
-        </>
-      )}
-    </svg>
   );
 }
 
@@ -856,24 +823,6 @@ function LaptopGlyph() {
     <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden>
       <rect x="2.75" y="3" width="10.5" height="7.5" rx="1.25" stroke="currentColor" strokeWidth="1.5" />
       <path d="M1 13h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function EnterGlyph() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
-      <path d="M2.5 8h7.5M7 4.5L10.5 8 7 11.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M10.5 2.5h2a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1h-2" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function FilmGlyph() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
-      <rect x="2" y="3" width="12" height="10" rx="2" stroke="currentColor" strokeWidth="1.5" />
-      <path d="M7 6.2v3.6L10 8 7 6.2z" fill="currentColor" />
     </svg>
   );
 }

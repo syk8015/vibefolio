@@ -1274,7 +1274,6 @@ body::before {
   transition: opacity 0.2s ease;
 }
 .vf-review-foot[data-at-end="true"]::before { opacity: 0; }
-.vf-review-foot-note { flex: 1 1 220px; min-width: 0; margin: 0; font-family: var(--font-nunito), sans-serif; font-size: 13px; color: var(--text-secondary); }
 @media (min-width: 768px) {
   .vf-review-head { padding: 22px 32px 14px; }
   .vf-review-body { padding: 4px 32px 36px; }
@@ -1306,35 +1305,6 @@ body::before {
   background: var(--surface-sunken);
 }
 .vf-review-start-icon { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%; background: var(--surface-soft); color: var(--text-primary); }
-.vf-review-start[data-warn="true"] .vf-review-start-sub { color: #b34747; }
-.vf-review-more > summary {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 14px 16px;
-  border-radius: 14px;
-  background: var(--surface-sunken);
-  color: var(--text-primary);
-  font-family: var(--font-nunito), sans-serif;
-  font-size: 14px;
-  font-weight: 500;
-  list-style: none;
-  cursor: pointer;
-  transition: background-color 0.15s ease;
-}
-.vf-review-more > summary::-webkit-details-marker { display: none; }
-.vf-review-more > summary::after {
-  content: "";
-  width: 7px;
-  height: 7px;
-  border-right: 1.8px solid var(--text-muted);
-  border-bottom: 1.8px solid var(--text-muted);
-  transform: translateY(-2px) rotate(45deg);
-  transition: transform 0.2s ease;
-}
-.vf-review-more[open] > summary::after { transform: translateY(2px) rotate(-135deg); }
-.vf-review-more > summary:hover { background: var(--surface-soft); }
 
 /* 필름 띠 — 칸 너비 = 머무는 시간, 칸 아래 막대가 차면 다음 장면으로 */
 .vf-strip-zone { container-type: inline-size; }

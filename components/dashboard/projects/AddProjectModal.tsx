@@ -35,7 +35,7 @@ export function AddProjectModal({ onClose }: { onClose: () => void }) {
         aria-labelledby="add-project-title"
         className="relative flex flex-col overflow-hidden"
         style={{
-          width: "min(46rem, calc(100vw - 2rem))",
+          width: "min(41.25rem, calc(100vw - 2rem))",
           maxHeight: "92vh",
           // 페이지 배경(vf-card·soft-fill이 얹히는 면) 위에 설계된 UI라 surface가
           // 아니라 bg를 깐다 — surface면 내부 카드가 면에 묻힌다.
@@ -44,18 +44,12 @@ export function AddProjectModal({ onClose }: { onClose: () => void }) {
           boxShadow: "var(--shadow-modal)",
         }}
       >
-        <div className="flex items-start gap-3 px-6 pt-5 pb-4"
+        {/* 제목 한 줄만(라, 2026-10-01) — 공개 범위는 창 안 버튼 바로 아래 한 줄이 늘 말한다. */}
+        <div className="flex items-center gap-3 px-6 pt-5 pb-4"
           style={{ borderBottom: "1px solid var(--border)" }}>
-          <div className="flex-1 min-w-0">
-            <h2 id="add-project-title" className="vf-serif-display" style={{ fontSize: "1.25rem", fontWeight: 500, margin: 0 }}>
-              {t.projects.connectTitle}
-            </h2>
-            {/* keep-all은 단어 '안'에서 끊기는 것만 막는다 — 폰에서 끝 단어("돼요.")만
-                둘째 줄로 떨어지는 건 balance가 두 줄 길이를 고르게 맞춰서 막는다. */}
-            <p className="text-sm" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", margin: "2px 0 0", lineHeight: 1.5, wordBreak: "keep-all", textWrap: "balance" }}>
-              {t.projects.connectSubtitle}
-            </p>
-          </div>
+          <h2 id="add-project-title" className="vf-serif-display flex-1 min-w-0" style={{ fontSize: "1.25rem", fontWeight: 500, margin: 0 }}>
+            {t.connect.title}
+          </h2>
           <button
             type="button"
             onClick={onClose}
@@ -68,7 +62,7 @@ export function AddProjectModal({ onClose }: { onClose: () => void }) {
             </svg>
           </button>
         </div>
-        <div className="overflow-y-auto px-6 py-6">
+        <div className="overflow-y-auto px-6 pt-6 pb-5">
           <ConnectPanel />
         </div>
       </div>

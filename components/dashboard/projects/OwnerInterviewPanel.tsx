@@ -7,24 +7,27 @@ import {
 } from "@/lib/ownerInterview";
 import { useT } from "@/lib/i18n/client";
 
-// 초안 검토 창의 "주인 인터뷰" 칸(2026-09-29 사용자 확정: 필수) — docs/owner-interview-real-record.md §2.
+// 초안 검토 창의 주인 인터뷰 확인(2026-09-29 사용자 확정: 필수) — docs/owner-interview-real-record.md §2.
 //
-// 올리는 AI가 먼저 묻고 받은 주인의 답을 보여 주고, 주인이 "내 말이 맞아요"에 체크해야 공개
-// 버튼이 눌린다. AI가 꾸며 쓴 답을 사람이 걸러내는 마지막 자리다. 답은 눌러서 그 자리에서
-// 고친다 — 저장은 서버(/api/ingest/drafts/[id] PATCH)가 생성 게이트와 같은 판정으로 한다.
+// 2026-10-01 덜어내기 "라": 체크 한 줄 "인터뷰 답이 내 말과 같아요" + [답 보기]. 답은 [답 보기]를
+// 누르거나 체크하면 펼쳐진다(확인한 답을 바로 눈앞에 둔다). 체크해야 공개 버튼이 눌린다 —
+// AI가 꾸며 쓴 답을 사람이 걸러내는 마지막 자리다. 답은 눌러서 그 자리에서 고친다 — 저장은
+// 서버(/api/ingest/drafts/[id] PATCH)가 생성 게이트와 같은 판정으로 한다.
 // 답은 작품 페이지에 따로 나가지 않는다(09-29: 새 칸 없음) — 대본·말풍선·가리기에만 쓰인다.
 
 type Field = OwnerInterviewKey | "hide";
-const FIELDS: readonly Field[] = [...OWNER_INTERVIEW_KEYS, "hide"];
 
-export function OwnerInterviewPanel({ interview, loading, confirmed, onConfirmChange, onSave, headId }: {
+export function OwnerInterviewPanel({ interview, loading, confirmed, onConfirmChange, open, onOpenChange, onSave, listId }: {
   interview: OwnerInterview | null;
   /** 비공개 칸을 아직 못 받았다 — "인터뷰 없음"이라고 거짓말하지 않게 자리표시만. */
   loading: boolean;
   confirmed: boolean;
   onConfirmChange: (next: boolean) => void;
+  /** 답 목록이 펼쳐져 있나 — 검토 창이 쥔다(펼치면 명함이 작아진다). */
+  open: boolean;
+  onOpenChange: (next: boolean) => void;
   onSave: (next: OwnerInterview) => Promise<void>;
-  headId: string;
+  listId: string;
 }) {
   const { t } = useT();
   const [editing, setEditing] = useState<Field | null>(null);
@@ -36,6 +39,18 @@ export function OwnerInterviewPanel({ interview, loading, confirmed, onConfirmCh
   useEffect(() => {
     if (editing) inputRef.current?.focus();
   }, [editing]);
+
+  // 인터뷰 없이 올라온 옛 초안 — 확인할 답이 없으니 체크 대신 길을 말한다(공개는 막힌 채).
+  if (!loading && !interview) {
+    return (
+      <p
+        className="rounded-2xl"
+        style={{ ...small, color: "var(--text-primary)", background: "var(--surface-soft)", padding: "14px 16px" }}
+      >
+        {t.projects.reviewInterviewMissing}
+      </p>
+    );
+  }
 
   const begin = (f: Field) => {
     if (!interview || saving) return;
@@ -75,126 +90,139 @@ export function OwnerInterviewPanel({ interview, loading, confirmed, onConfirmCh
     if (e.key === "Enter" && (editing === "hide" || e.metaKey || e.ctrlKey)) { e.preventDefault(); void save(); }
   };
 
-  const small: React.CSSProperties = {
-    margin: 0, fontFamily: "var(--font-nunito)", fontSize: 13, lineHeight: 1.55, color: "var(--text-secondary)",
-  };
-  const answerStyle: React.CSSProperties = {
-    margin: 0, fontFamily: "var(--font-nunito)", fontSize: 15, fontWeight: 600, lineHeight: 1.55,
-    color: "var(--text-primary)", cursor: "text", borderRadius: 6, padding: "1px 4px", marginLeft: -4,
-    overflowWrap: "anywhere",
-  };
-  const inputStyle: React.CSSProperties = {
-    width: "100%", fontFamily: "var(--font-nunito)", fontSize: 15, lineHeight: 1.55,
-    background: "var(--surface)", color: "var(--text-primary)", border: "none", outline: "none",
-    borderRadius: 8, padding: "6px 8px", resize: "vertical",
-  };
+  // 가릴 것은 비었으면 줄을 두지 않는다 — 대신 목록 끝의 작은 [가릴 것 추가]로 적는다.
+  const fields: Field[] = interview && (interview.hide.length || editing === "hide")
+    ? [...OWNER_INTERVIEW_KEYS, "hide"]
+    : [...OWNER_INTERVIEW_KEYS];
 
   return (
-    <section aria-labelledby={headId}>
-      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1" style={{ marginBottom: 6 }}>
-        <h3
-          id={headId}
-          style={{
-            margin: 0, fontFamily: "var(--font-nunito)", fontSize: "1.15rem", fontWeight: 700,
-            letterSpacing: "-0.015em", color: "var(--text-primary)",
-          }}
+    <div className="flex flex-col" style={{ gap: 10 }}>
+      <div
+        className="flex items-center rounded-2xl"
+        style={{ gap: 12, padding: "14px 16px", background: "var(--surface-soft)" }}
+      >
+        <label className="flex items-center" style={{ gap: 12, flex: 1, minWidth: 0, cursor: loading || editing ? "default" : "pointer" }}>
+          <input
+            type="checkbox" checked={confirmed}
+            onChange={(e) => {
+              onConfirmChange(e.target.checked);
+              // 체크하면 답을 펼친다 — 무엇에 "맞아요"라고 했는지 바로 보이게.
+              if (e.target.checked) onOpenChange(true);
+            }}
+            disabled={loading || !!editing}
+            style={{ width: 20, height: 20, margin: 0, accentColor: "var(--text-primary)", flexShrink: 0 }}
+          />
+          <span style={{ fontFamily: "var(--font-nunito)", fontSize: 15, fontWeight: 600, color: "var(--text-primary)" }}>
+            {t.projects.reviewInterviewConfirm}
+          </span>
+        </label>
+        <button
+          type="button"
+          // 고치던 답이 있으면 접을 때 버린다 — 안 그러면 보이지 않는 편집 때문에 체크 칸이 잠긴 채 남는다.
+          onClick={() => { if (open) cancel(); onOpenChange(!open); }}
+          aria-expanded={open} aria-controls={listId}
+          className="vf-button-text"
+          style={{ flexShrink: 0, textDecoration: "underline", textUnderlineOffset: 3 }}
         >
-          {t.projects.reviewInterviewTitle}
-        </h3>
+          {open ? t.projects.reviewFold : t.projects.reviewSeeAnswers}
+        </button>
       </div>
 
-      {loading ? (
-        <p style={small}>{t.projects.reviewInterviewLoading}</p>
-      ) : !interview ? (
-        <p className="rounded-2xl" style={{ ...small, color: "var(--text-primary)", background: "var(--surface-sunken)", padding: "14px 16px" }}>
-          {t.projects.reviewInterviewMissing}
-        </p>
-      ) : (
-        <>
-          <p style={{ ...small, marginBottom: 10 }}>{t.projects.reviewInterviewLead}</p>
-          <ul className="rounded-2xl" style={{ listStyle: "none", margin: 0, padding: 0, overflow: "hidden", background: "var(--surface-soft)" }}>
-            {FIELDS.map((f, i) => {
-              const shown = f === "hide"
-                ? (interview.hide.length ? interview.hide.join(", ") : t.projects.reviewInterviewHideNone)
-                : interview[f];
-              return (
-                <li
-                  key={f}
-                  style={{
-                    padding: "13px 16px", display: "flex", flexDirection: "column", gap: 3,
-                    borderTop: i === 0 ? undefined : "1px solid var(--surface)",
-                  }}
-                >
-                  <span style={{ ...small, display: "inline-flex", alignItems: "center", gap: 6 }}>
-                    {f === "hide" && <LockGlyph />}
-                    {t.projects.reviewInterviewQ[f]}
-                  </span>
-                  {editing === f ? (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                      {f === "hide" ? (
-                        <input
-                          ref={inputRef as React.RefObject<HTMLInputElement>}
-                          value={value} onChange={(e) => setValue(e.target.value)} onKeyDown={onKey}
-                          disabled={saving} placeholder={t.projects.reviewInterviewHidePlaceholder} style={inputStyle}
-                        />
-                      ) : (
-                        <textarea
-                          ref={inputRef as React.RefObject<HTMLTextAreaElement>}
-                          value={value} onChange={(e) => setValue(e.target.value)} onKeyDown={onKey}
-                          disabled={saving} rows={2} style={inputStyle}
-                        />
-                      )}
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <button
-                          type="button" onClick={() => void save()} disabled={saving}
-                          className="vf-button-primary" style={{ fontSize: "0.8rem", padding: "0.4rem 0.9rem", opacity: saving ? 0.5 : 1 }}
-                        >
-                          {t.projects.reviewEditSave}
-                        </button>
-                        <button
-                          type="button" onClick={cancel} disabled={saving}
-                          className="vf-button-ghost" style={{ fontSize: "0.8rem", padding: "0.4rem 0.9rem" }}
-                        >
-                          {t.projects.reviewEditCancel}
-                        </button>
-                        {error && <span style={{ ...small, color: "#b34747" }}>{error}</span>}
-                      </div>
-                    </div>
-                  ) : (
-                    <p
-                      role="button" tabIndex={0}
-                      onClick={() => begin(f)}
-                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); begin(f); } }}
-                      title={t.projects.reviewEditHint}
-                      style={{ ...answerStyle, color: f === "hide" && !interview.hide.length ? "var(--text-muted)" : answerStyle.color }}
-                    >
-                      {shown}
-                    </p>
-                  )}
-                  <span style={small}>{t.projects.reviewInterviewUse[f]}</span>
-                </li>
-              );
-            })}
-          </ul>
-
-          <label
-            className="flex items-center gap-2.5 rounded-xl"
-            style={{ marginTop: 12, padding: "12px 14px", background: "var(--surface-soft)", cursor: "pointer" }}
+      {open && (
+        !interview ? (
+          <p id={listId} style={{ ...small, padding: "0 4px" }}>{t.projects.reviewInterviewLoading}</p>
+        ) : (
+          <ul
+            id={listId} aria-label={t.projects.reviewInterviewTitle} className="rounded-2xl"
+            style={{ listStyle: "none", margin: 0, padding: 0, overflow: "hidden", background: "var(--surface-soft)" }}
           >
-            <input
-              type="checkbox" checked={confirmed} onChange={(e) => onConfirmChange(e.target.checked)}
-              disabled={!!editing}
-              style={{ width: 18, height: 18, margin: 0, accentColor: "var(--text-primary)", flexShrink: 0 }}
-            />
-            <span style={{ fontFamily: "var(--font-nunito)", fontSize: 15, fontWeight: 600, color: "var(--text-primary)" }}>
-              {t.projects.reviewInterviewConfirm}
-            </span>
-          </label>
-        </>
+            {fields.map((f, i) => (
+              <li
+                key={f}
+                style={{
+                  padding: "10px 16px", display: "flex", flexDirection: "column", gap: 2,
+                  borderTop: i === 0 ? undefined : "1px solid var(--surface)",
+                }}
+              >
+                <span style={{ ...small, display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  {f === "hide" && <LockGlyph />}
+                  {t.projects.reviewInterviewQ[f]}
+                </span>
+                {editing === f ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {f === "hide" ? (
+                      <input
+                        ref={inputRef as React.RefObject<HTMLInputElement>}
+                        value={value} onChange={(e) => setValue(e.target.value)} onKeyDown={onKey}
+                        disabled={saving} placeholder={t.projects.reviewInterviewHidePlaceholder} style={inputStyle}
+                      />
+                    ) : (
+                      <textarea
+                        ref={inputRef as React.RefObject<HTMLTextAreaElement>}
+                        value={value} onChange={(e) => setValue(e.target.value)} onKeyDown={onKey}
+                        disabled={saving} rows={2} style={inputStyle}
+                      />
+                    )}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <button
+                        type="button" onClick={() => void save()} disabled={saving}
+                        className="vf-button-primary" style={{ fontSize: "0.8rem", padding: "0.4rem 0.9rem", opacity: saving ? 0.5 : 1 }}
+                      >
+                        {t.projects.reviewEditSave}
+                      </button>
+                      <button
+                        type="button" onClick={cancel} disabled={saving}
+                        className="vf-button-ghost" style={{ fontSize: "0.8rem", padding: "0.4rem 0.9rem" }}
+                      >
+                        {t.projects.reviewEditCancel}
+                      </button>
+                      {error && <span style={{ ...small, color: "var(--danger)" }}>{error}</span>}
+                    </div>
+                  </div>
+                ) : (
+                  <p
+                    role="button" tabIndex={0}
+                    onClick={() => begin(f)}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); begin(f); } }}
+                    title={t.projects.reviewEditHint}
+                    style={answerStyle}
+                  >
+                    {f === "hide" ? interview.hide.join(", ") : interview[f]}
+                  </p>
+                )}
+              </li>
+            ))}
+            {!fields.includes("hide") && (
+              <li style={{ padding: "8px 16px 10px", borderTop: "1px solid var(--surface)" }}>
+                <button
+                  type="button" onClick={() => begin("hide")}
+                  className="vf-button-text" style={{ fontSize: 13, gap: 6 }}
+                >
+                  <LockGlyph />
+                  {t.projects.reviewInterviewHideAdd}
+                </button>
+              </li>
+            )}
+          </ul>
+        )
       )}
-    </section>
+    </div>
   );
 }
+
+const small: React.CSSProperties = {
+  margin: 0, fontFamily: "var(--font-nunito)", fontSize: 13, lineHeight: 1.55, color: "var(--text-secondary)",
+};
+const answerStyle: React.CSSProperties = {
+  margin: 0, fontFamily: "var(--font-nunito)", fontSize: 15, fontWeight: 600, lineHeight: 1.5,
+  color: "var(--text-primary)", cursor: "text", borderRadius: 6, padding: "1px 4px", marginLeft: -4,
+  overflowWrap: "anywhere",
+};
+const inputStyle: React.CSSProperties = {
+  width: "100%", fontFamily: "var(--font-nunito)", fontSize: 15, lineHeight: 1.55,
+  background: "var(--surface)", color: "var(--text-primary)", border: "none", outline: "none",
+  borderRadius: 8, padding: "6px 8px", resize: "vertical",
+};
 
 function LockGlyph() {
   return (

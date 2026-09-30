@@ -10,10 +10,14 @@ import { classifyTrafficSource } from "@/lib/traffic-source";
 import { AdminRequestList, type AdminRequestItem } from "./AdminRequestList";
 import { ReportInbox, type ReportItem } from "./ReportInbox";
 import { ModerationInbox, type ModerationItem } from "./ModerationInbox";
+import { LinksMenu, type AdminLink } from "./LinksMenu";
 import {
+  Verdict,
   Ledger,
   type LedgerEntry,
+  type LedgerState,
   AlertTicker,
+  Fold,
   SectionTitle,
   MonoAside,
   Panel,
@@ -29,11 +33,35 @@ import {
   fmtBytes,
 } from "./panels";
 
-// 관제탑 — the whole admin surface on one full-width screen, read in triage
-// order: ① 생존 (is the machine alive) → ② 손이 필요한 것 (approvals, reports)
-// → ③ 시연 파이프라인 (throughput, quality) → ④ 성장 (funnel, spread, reach).
-// Gated to ADMIN_EMAILS; 404 to everyone else. Always rendered fresh.
+// 관제탑 — the whole admin surface on one screen, "라" layout (2026-10-01):
+// ① 판정 한 줄 (does anything need me right now, in words) → ② 상태 6칸, one
+// compact row (click → sub-lines + alert log) → ③ 결정 카드 (approvals ·
+// reports · moderation) only while something waits → ④ everything else
+// (pipeline, growth, traffic, raw events) inside one "숫자 보기" fold.
+// Gated to ADMIN_EMAILS; 404 to everyone else. Always rendered fresh — a
+// reload re-reads everything.
 export const dynamic = "force-dynamic";
+
+const ADMIN_LINKS: AdminLink[] = [
+  { label: "홍보 클립 관리", href: "/admin/promo" },
+  { label: "Vercel", href: "https://vercel.com/dashboard" },
+  { label: "Supabase", href: "https://supabase.com/dashboard/project/nepwsgrtonmexgqplcdp" },
+  { label: "R2", href: "https://dash.cloudflare.com/?to=/:account/r2" },
+  { label: "cron-job.org", href: "https://console.cron-job.org" },
+  { label: "Resend", href: "https://resend.com/emails" },
+  { label: "Sentry", href: "https://sentry.io" },
+  // 도메인 속성이라 resource_id는 sc-domain: 접두사가 붙는다(URL 속성과 다름).
+  { label: "Search Console", href: "https://search.google.com/search-console?resource_id=sc-domain%3Anookframe.com" },
+  { label: "사이트맵 상태", href: "https://search.google.com/search-console/sitemaps?resource_id=sc-domain%3Anookframe.com" },
+];
+
+// 판정 한 줄에 쓰는 문장 — 상태 칸이 "이상(bad)"일 때. 칸의 sub 줄이 뒤에 붙는다.
+const ALARM_SAY: Record<string, string> = {
+  "녹화 워커": "녹화 워커가 멈췄어요",
+  "워치독 크론": "워치독 크론이 끊겼어요",
+  Sentry: "Sentry가 연결 안 돼 있어요",
+  "R2 저장소": "R2 저장소를 못 읽었어요",
+};
 
 // Mirrors HEARTBEAT_STALE_MIN in app/api/cron/health/route.ts (route files can't
 // export extra symbols, so the threshold is duplicated here on purpose).
@@ -91,9 +119,26 @@ function bump(map: Record<string, number>, key: string) {
 // Status tokens for this page only — validated against both paper surfaces
 // (see panels.tsx header). Follows the site convention: :root default +
 // [data-theme="dark"] override, no media query.
+// The two folds are native <details>: .nf-ops-status (the status row — opening
+// it shows each cell's sub-line + the alert log) and .nf-ops-fold ("숫자 보기";
+// chevron like components/FoldToggle).
 const OPS_TOKENS = `
 .nf-ops { --ops-ok: #2e7d4a; --ops-warn: #a5741f; --ops-bad: #b53f3f; }
 [data-theme="dark"] .nf-ops { --ops-ok: #3f9e60; --ops-warn: #bd831f; --ops-bad: #cd5f4a; }
+.nf-ops-status > summary, .nf-ops-fold > summary { list-style: none; cursor: pointer; }
+.nf-ops-status > summary::-webkit-details-marker, .nf-ops-fold > summary::-webkit-details-marker { display: none; }
+.nf-ops-status > summary { display: block; }
+.nf-ops-sub { display: none; }
+.nf-ops-status[open] .nf-ops-sub { display: block; }
+@media (hover: hover) { .nf-ops-status > summary:hover { background: var(--surface-sunken); } }
+.nf-ops-fold > summary {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--font-nunito), sans-serif; font-size: 0.9375rem; font-weight: 600;
+  color: var(--text-secondary);
+}
+.nf-ops-fold > summary svg { flex-shrink: 0; transition: transform 0.15s; }
+.nf-ops-fold[open] > summary svg { transform: rotate(90deg); }
+@media (prefers-reduced-motion: reduce) { .nf-ops-fold > summary svg { transition: none; } }
 `;
 
 export default async function AdminPage() {
@@ -452,7 +497,7 @@ export default async function AdminPage() {
     }
   }
 
-  // ── ① 생존 — system ledger + verdict ──────────────────────────────────────
+  // ── ② 생존 — system ledger ────────────────────────────────────────────────
   const systemEntries: LedgerEntry[] = [
     {
       label: "녹화 워커",
@@ -497,7 +542,6 @@ export default async function AdminPage() {
       value: nBad > 0 ? `이상 ${nBad}건` : nWarn > 0 ? `주의 ${nWarn}건` : "정상 운항",
       sub: firstIssue ? `${firstIssue.label} 확인` : "워커·크론·Sentry·R2 정상",
       state: nBad > 0 ? "bad" : nWarn > 0 ? "warn" : "ok",
-      emph: true,
     },
     ...systemEntries,
     {
@@ -508,7 +552,69 @@ export default async function AdminPage() {
     },
   ];
 
-  const todoCount = approvalItems.length + reports.length + moderationItems.length;
+  // ── ① 판정 한 줄 — "지금 손 볼 게 있나"를 말로 ────────────────────────────
+  // 손 볼 것 = 이상(bad)인 상태 칸 · 기다리는 결정(승인·신고·검토) · 빠진 테이블.
+  // 녹화 워커 일시정지는 배치 모드의 평상시라 손 볼 것이 아니다 — 판정 뒤 메모로만
+  // 붙이고, 그동안 쌓인 촬영 대기 수를 같이 적는다.
+  const attention: { say: string; detail?: string; bad?: boolean }[] = systemEntries
+    .filter((e) => e.state === "bad")
+    .map((e) => ({ say: ALARM_SAY[e.label] ?? `${e.label} ${e.value}`, detail: e.sub, bad: true }));
+  const waiting = [
+    approvalItems.length > 0 ? `시연 승인 ${approvalItems.length}건` : null,
+    reports.length > 0 ? `신고 ${reports.length}건` : null,
+    moderationItems.length > 0 ? `모더레이션 검토 ${moderationItems.length}건` : null,
+  ].filter((s): s is string => s !== null);
+  // 목록이 늘 "N건"으로 끝나니 조사는 "이" 하나.
+  if (waiting.length > 0) attention.push({ say: `${waiting.join(" · ")}이 기다려요` });
+  if (moderationMissing) attention.push({ say: "demo_moderation 테이블이 없어요" });
+  if (metricsMissing) {
+    attention.push({ say: "analytics_events 테이블이 없어요", detail: "supabase/migration_analytics.sql 적용 필요" });
+  }
+  const verdictNotes = paused
+    ? [pendingCount > 0 ? `녹화 워커는 일부러 멈춰 둠 · 촬영 대기 ${pendingCount}건` : "녹화 워커는 일부러 멈춰 둠"]
+    : [];
+  const [topIssue, ...otherIssues] = attention;
+  const verdict: { tone: Exclude<LedgerState, "plain">; headline: string; detail: string } = topIssue
+    ? {
+        tone: attention.some((a) => a.bad) ? "bad" : "warn",
+        headline: topIssue.say,
+        detail: [topIssue.detail, ...otherIssues.map((a) => a.say), ...verdictNotes].filter(Boolean).join(" · "),
+      }
+    : { tone: "ok", headline: "지금 손 볼 것 없어요", detail: verdictNotes.join(" · ") };
+
+  // ── ③ 결정 카드 — 기다리는 것이 있을 때만. 0건이면 한 줄로 끝낸다 ──────────
+  const decisionCards: React.ReactNode[] = [];
+  if (approvalItems.length > 0) {
+    decisionCards.push(
+      <Panel key="approvals" title={`시연 승인 대기 · ${approvalItems.length}`}>
+        <AdminRequestList items={approvalItems} />
+      </Panel>,
+    );
+  }
+  if (reports.length > 0) {
+    decisionCards.push(
+      <Panel key="reports" title={`신고 인박스 · ${reports.length}`}>
+        <ReportInbox items={reports} />
+      </Panel>,
+    );
+  }
+  // 테이블이 없으면 판정 줄이 "없어요"를 말하고, 카드는 고치는 법만 적는다.
+  if (moderationMissing || moderationItems.length > 0) {
+    decisionCards.push(
+      <Panel key="moderation" title={`모더레이션 검토 · ${moderationItems.length}`}>
+        {moderationMissing ? (
+          <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+            <code className="vf-mono">supabase/migration_demo_moderation.sql</code> 적용 필요.
+          </p>
+        ) : (
+          <ModerationInbox items={moderationItems} />
+        )}
+      </Panel>,
+    );
+  }
+
+  // 시연 상태 카드는 시연이 하나라도 있을 때만 — 비어 있으면 파이프라인 줄이 두 칸이 된다.
+  const showStatus = Object.keys(distribution).length > 0 || recent.length > 0;
 
   return (
     <main
@@ -517,300 +623,242 @@ export default async function AdminPage() {
     >
       <style>{OPS_TOKENS}</style>
 
-      {/* Header */}
-      <div className="flex flex-wrap items-baseline justify-between gap-3 mb-6">
+      {/* Header — 바깥 링크는 [바로가기 ▾] 한 메뉴 */}
+      <div
+        className="flex items-center justify-between gap-3 pb-5"
+        style={{ borderBottom: "1px solid var(--border)" }}
+      >
         {/* 폰에서는 제목과 시각을 세로로 — 한 줄에 붙이면 제목이 두 동강 나고
             그 사이로 타임스탬프가 끼어든다(2026-08-27 실기기 확인). */}
         <div className="flex flex-col sm:flex-row sm:items-baseline gap-0.5 sm:gap-4">
           <h1 className="vf-serif-display" style={{ fontSize: "1.9rem" }}>관제탑</h1>
           <span className="vf-mono" style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>
-            {new Date(now).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })} KST · 새로고침하면 갱신
+            {new Date(now).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })} KST
           </span>
         </div>
-        <div className="flex flex-wrap gap-x-4 gap-y-1">
-          {[
-            ["홍보 클립 관리", "/admin/promo"],
-            ["Vercel", "https://vercel.com/dashboard"],
-            ["Supabase", "https://supabase.com/dashboard/project/nepwsgrtonmexgqplcdp"],
-            ["R2", "https://dash.cloudflare.com/?to=/:account/r2"],
-            ["cron-job.org", "https://console.cron-job.org"],
-            ["Resend", "https://resend.com/emails"],
-            ["Sentry", "https://sentry.io"],
-            // 도메인 속성이라 resource_id는 sc-domain: 접두사가 붙는다(URL 속성과 다름).
-            ["Search Console", "https://search.google.com/search-console?resource_id=sc-domain%3Anookframe.com"],
-            ["사이트맵 상태", "https://search.google.com/search-console/sitemaps?resource_id=sc-domain%3Anookframe.com"],
-          ].map(([label, href]) => (
-            <a
-              key={label}
-              href={href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="vf-mono text-xs"
-              style={{ color: "var(--text-muted)" }}
-            >
-              {label} ↗
-            </a>
-          ))}
-        </div>
+        <LinksMenu links={ADMIN_LINKS} />
       </div>
 
-      {/* ① 생존 — annunciator ledger (verdict first) + alert log line */}
-      <div className="mb-8">
-        <Ledger entries={ledger} />
+      {/* ① 판정 한 줄 */}
+      <div className="mt-7">
+        <Verdict tone={verdict.tone} headline={verdict.headline} detail={verdict.detail} />
+      </div>
+
+      {/* ② 상태 6칸 — 누르면 칸마다 세부 줄(하트비트·틱·파일 수…)과 경보 로그 */}
+      <details className="nf-ops-status mt-5">
+        <summary>
+          <Ledger entries={ledger} compact />
+        </summary>
         <AlertTicker entries={alertEntries} now={now} />
-      </div>
+      </details>
 
-      {/* ② 손이 필요한 것 */}
-      <section className="mb-8">
-        <SectionTitle
-          aside={
-            <MonoAside tone={todoCount > 0 ? "warn" : undefined}>
-              승인 {approvalItems.length} · 신고 {reports.length} · 모더레이션 {moderationItems.length}
-              {todoCount > 0 ? " — 결정 필요" : ""}
-            </MonoAside>
-          }
-        >
-          손이 필요한 것
-        </SectionTitle>
-        <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 items-start">
-          <div className="xl:col-span-7 flex flex-col gap-5">
-            <Panel
-              title={`시연 승인 대기 · ${approvalItems.length}`}
-              aside={<MonoAside>승인하면 바로 촬영 대기열로</MonoAside>}
-            >
-              <AdminRequestList items={approvalItems} />
-            </Panel>
-            <Panel
-              title={`모더레이션 검토 · ${moderationItems.length}`}
-              aside={<MonoAside>승인=게시 · 거절=격리 파일 삭제</MonoAside>}
-            >
-              {moderationMissing ? (
-                <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-                  demo_moderation 테이블이 아직 없어요 —{" "}
-                  <code className="vf-mono">supabase/migration_demo_moderation.sql</code> 적용 필요.
-                </p>
-              ) : (
-                <ModerationInbox items={moderationItems} />
-              )}
-            </Panel>
-          </div>
-          <div className="xl:col-span-5">
-            <Panel title={`신고 인박스 · ${reports.length}`}>
-              <ReportInbox items={reports} />
-            </Panel>
-          </div>
-        </div>
-      </section>
+      {/* ③ 결정 카드 */}
+      {decisionCards.length > 0 ? (
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 items-start mt-6">{decisionCards}</div>
+      ) : (
+        <p className="vf-card px-5 py-4 mt-6" style={{ fontSize: "0.9375rem", color: "var(--text-secondary)" }}>
+          승인·신고·검토 대기 없음
+        </p>
+      )}
 
-      {/* ③ 시연 파이프라인 */}
-      <section className="mb-8">
-        <SectionTitle
-          aside={
-            <MonoAside>
-              대기 {pendingCount} · 진행 {inFlightCount}
-              {metricsMissing ? "" : ` · 실패 ${failed} (${WINDOW_DAYS}일)`}
-            </MonoAside>
-          }
-        >
-          시연 파이프라인
-        </SectionTitle>
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-12 gap-5 items-start">
-          <div className="xl:col-span-5">
-            <Panel
-              title={`일별 시연 (${CHART_DAYS}일)`}
-              aside={metricsMissing ? undefined : <MonoAside>실패 {failed14} · {CHART_DAYS}일</MonoAside>}
-            >
-              {metricsMissing ? <MetricsMissingNotice /> : (
-                <ColumnChart days={days} daily={daily} maxDaily={maxDaily} />
-              )}
-            </Panel>
-          </div>
-          <div className="xl:col-span-4">
-            <Panel
-              title="시연 상태"
-              aside={<MonoAside>대기 {pendingCount} · 진행 {inFlightCount}</MonoAside>}
-            >
-              <StatusBars distribution={distribution} />
-              {recent.length > 0 && (
-                <div className="flex flex-col gap-1.5 mt-4 pt-3" style={{ borderTop: "1px solid var(--border)" }}>
-                  <span className="vf-label" style={{ margin: 0, color: "var(--text-muted)" }}>최근 10건</span>
-                  {recent.map((r) => {
-                    const meta = statusMeta(r.demo_build_status as string);
-                    const failure =
-                      r.demo_build_status === "failed" ? parseDemoFailure(r.demo_build_error) : null;
-                    return (
-                      <div
-                        key={r.id}
-                        className="flex items-center gap-3 text-sm py-1"
-                        style={{ borderBottom: "1px solid var(--border)" }}
-                      >
-                        <span style={{ color: meta.color, fontWeight: 700, width: "2.6rem", flexShrink: 0 }}>
-                          {meta.label}
-                        </span>
-                        <span className="truncate flex-1" style={{ color: "var(--text-primary)" }}>
-                          {r.title ?? "(제목 없음)"}
-                          <span style={{ color: "var(--text-muted)" }}>
-                            {" "}· @{usernameById.get(r.user_id) ?? "?"}
-                          </span>
-                          {failure && (
-                            <span className="vf-mono" style={{ fontSize: "0.68rem", color: "var(--ops-bad)" }}>
-                              {" "}[{failure.code}]
-                            </span>
-                          )}
-                        </span>
-                        <span
-                          className="vf-mono shrink-0"
-                          style={{ fontSize: "0.68rem", color: "var(--text-muted)" }}
-                        >
-                          {ago(r.demo_status_changed_at, now)}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </Panel>
-          </div>
-          <div className="xl:col-span-3">
-            <Panel title={`빌드 성공률 (${WINDOW_DAYS}일)`}>
-              {metricsMissing ? <MetricsMissingNotice /> : (
-                <div className="flex flex-col items-center gap-3 py-2">
-                  <RatioRing pct={successRate} />
-                  <div
-                    className="vf-mono text-center"
-                    style={{ fontSize: "0.7rem", color: "var(--text-muted)", fontVariantNumeric: "tabular-nums" }}
+      {/* ④ 숫자 — 파이프라인·성장·유입·이벤트 원본은 접어 둔다 */}
+      <Fold label="숫자 보기" className="mt-7">
+        <div className="mt-6">
+          {(eventsRes.truncated || viewsRes.truncated) && (
+            <p className="text-sm mb-5" style={{ color: "var(--ops-warn)" }}>
+              최근 {WINDOW_DAYS}일 기록이 {MAX_ROWS.toLocaleString()}건을 넘어 일부만 셌어요.
+            </p>
+          )}
+
+          {/* 시연 파이프라인 */}
+          <section className="mb-8">
+            <SectionTitle>시연 파이프라인</SectionTitle>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-12 gap-5 items-start">
+              <div className={showStatus ? "xl:col-span-5" : "xl:col-span-9"}>
+                <Panel
+                  title={`일별 시연 (${CHART_DAYS}일)`}
+                  aside={metricsMissing ? undefined : <MonoAside>실패 {failed14} · {CHART_DAYS}일</MonoAside>}
+                >
+                  {metricsMissing ? <MetricsMissingNotice /> : (
+                    <ColumnChart days={days} daily={daily} maxDaily={maxDaily} />
+                  )}
+                </Panel>
+              </div>
+              {showStatus && (
+                <div className="xl:col-span-4">
+                  <Panel
+                    title="시연 상태"
+                    aside={<MonoAside>대기 {pendingCount} · 진행 {inFlightCount}</MonoAside>}
                   >
-                    성공 {succeeded} / 요청 {requested} · 실패 {failed}
-                  </div>
+                    <StatusBars distribution={distribution} />
+                    {recent.length > 0 && (
+                      <div className="flex flex-col gap-1.5 mt-4 pt-3" style={{ borderTop: "1px solid var(--border)" }}>
+                        <span className="vf-label" style={{ margin: 0, color: "var(--text-muted)" }}>최근 10건</span>
+                        {recent.map((r) => {
+                          const meta = statusMeta(r.demo_build_status as string);
+                          const failure =
+                            r.demo_build_status === "failed" ? parseDemoFailure(r.demo_build_error) : null;
+                          return (
+                            <div
+                              key={r.id}
+                              className="flex items-center gap-3 text-sm py-1"
+                              style={{ borderBottom: "1px solid var(--border)" }}
+                            >
+                              <span style={{ color: meta.color, fontWeight: 700, width: "2.6rem", flexShrink: 0 }}>
+                                {meta.label}
+                              </span>
+                              <span className="truncate flex-1" style={{ color: "var(--text-primary)" }}>
+                                {r.title ?? "(제목 없음)"}
+                                <span style={{ color: "var(--text-muted)" }}>
+                                  {" "}· @{usernameById.get(r.user_id) ?? "?"}
+                                </span>
+                                {failure && (
+                                  <span className="vf-mono" style={{ fontSize: "0.68rem", color: "var(--ops-bad)" }}>
+                                    {" "}[{failure.code}]
+                                  </span>
+                                )}
+                              </span>
+                              <span
+                                className="vf-mono shrink-0"
+                                style={{ fontSize: "0.68rem", color: "var(--text-muted)" }}
+                              >
+                                {ago(r.demo_status_changed_at, now)}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </Panel>
                 </div>
               )}
-            </Panel>
-          </div>
-        </div>
-      </section>
-
-      {/* ④ 성장 */}
-      <section>
-        <SectionTitle
-          aside={
-            <MonoAside>
-              {metricsMissing ? "" : `가입 ${signups30} · `}조회 {views.length} · {WINDOW_DAYS}일
-              {eventsRes.truncated || viewsRes.truncated ? ` · ${MAX_ROWS.toLocaleString()}건에서 잘림` : ""}
-            </MonoAside>
-          }
-        >
-          성장
-        </SectionTitle>
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-12 gap-5 items-start mb-5">
-          <div className="xl:col-span-5">
-            <Panel
-              title={`퍼널 (${WINDOW_DAYS}일)`}
-              aside={
-                metricsMissing || overallConv === null ? undefined : (
-                  <MonoAside>가입→공유 {overallConv}%</MonoAside>
-                )
-              }
-            >
-              {metricsMissing ? <MetricsMissingNotice /> : (
-                <Funnel steps={funnelSteps} max={funnelMax} />
-              )}
-            </Panel>
-          </div>
-          <div className="xl:col-span-4">
-            <Panel title="공유 · 확산" aside={<MonoAside>목표 30%</MonoAside>}>
-              {metricsMissing ? <MetricsMissingNotice /> : (
-                <>
-                  <div className="flex items-center gap-4 mb-4">
-                    <RatioRing pct={shareRate} size={96} goal={30} />
-                    <div className="text-sm" style={{ color: "var(--text-secondary)" }}>
-                      성공한 시연 {succeeded}건 중 {shares}건이 공유·다운로드로 이어졌어요.
-                      <div className="vf-mono mt-1" style={{ fontSize: "0.66rem", color: "var(--text-muted)" }}>
-                        링 눈금 = 목표 30%
+              <div className="xl:col-span-3">
+                <Panel title={`빌드 성공률 (${WINDOW_DAYS}일)`}>
+                  {metricsMissing ? <MetricsMissingNotice /> : (
+                    <div className="flex flex-col items-center gap-3 py-2">
+                      <RatioRing pct={successRate} />
+                      <div
+                        className="vf-mono text-center"
+                        style={{ fontSize: "0.7rem", color: "var(--text-muted)", fontVariantNumeric: "tabular-nums" }}
+                      >
+                        성공 {succeeded} / 요청 {requested} · 실패 {failed}
                       </div>
                     </div>
+                  )}
+                </Panel>
+              </div>
+            </div>
+          </section>
+
+          {/* 성장 */}
+          <section>
+            <SectionTitle>성장</SectionTitle>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-12 gap-5 items-start mb-5">
+              <div className="xl:col-span-5">
+                <Panel
+                  title={`퍼널 (${WINDOW_DAYS}일)`}
+                  aside={
+                    metricsMissing || overallConv === null ? undefined : (
+                      <MonoAside>가입→공유 {overallConv}%</MonoAside>
+                    )
+                  }
+                >
+                  {metricsMissing ? <MetricsMissingNotice /> : (
+                    <Funnel steps={funnelSteps} max={funnelMax} />
+                  )}
+                </Panel>
+              </div>
+              <div className="xl:col-span-4">
+                <Panel title="공유 · 확산" aside={<MonoAside>목표 30%</MonoAside>}>
+                  {metricsMissing ? <MetricsMissingNotice /> : (
+                    <>
+                      <div className="flex items-center gap-4 mb-4">
+                        <RatioRing pct={shareRate} size={96} goal={30} />
+                        <div className="text-sm" style={{ color: "var(--text-secondary)" }}>
+                          성공한 시연 {succeeded}건 중 {shares}건이 공유·다운로드로 이어졌어요.
+                        </div>
+                      </div>
+                      <RankList rows={topCounts(shareKindCounts, 5)} empty="아직 공유 행동이 없어요." />
+                      {Object.keys(watchRefCounts).length > 0 && (
+                        <div className="mt-4">
+                          <div className="vf-label" style={{ color: "var(--text-muted)" }}>watch 유입 채널</div>
+                          <RankList rows={topCounts(watchRefCounts, 6)} empty="" />
+                        </div>
+                      )}
+                      {watchTopRows.length > 0 && (
+                        <div className="mt-4">
+                          <div className="vf-label" style={{ color: "var(--text-muted)" }}>watch 귀속 상위</div>
+                          <RankList rows={watchTopRows} empty="" />
+                        </div>
+                      )}
+                    </>
+                  )}
+                </Panel>
+              </div>
+              <div className="xl:col-span-3">
+                <Panel title="규모">
+                  <div className="flex flex-col gap-4">
+                    <StatSpark
+                      label="가입자"
+                      value={profileCountRes.count ?? 0}
+                      points={signupSpark}
+                      sub={`최근 ${WINDOW_DAYS}일 +${signups30}`}
+                    />
+                    <div style={{ borderTop: "1px solid var(--border)" }} />
+                    <StatSpark
+                      label="프레임 조회"
+                      value={views.length}
+                      points={viewSpark}
+                      sub={`일별 추이 · ${WINDOW_DAYS}일`}
+                    />
                   </div>
-                  <RankList rows={topCounts(shareKindCounts, 5)} empty="아직 공유 행동이 없어요." />
-                  {Object.keys(watchRefCounts).length > 0 && (
-                    <div className="mt-4">
-                      <div className="vf-label" style={{ color: "var(--text-muted)" }}>watch 유입 채널</div>
-                      <RankList rows={topCounts(watchRefCounts, 6)} empty="" />
-                    </div>
-                  )}
-                  {watchTopRows.length > 0 && (
-                    <div className="mt-4">
-                      <div className="vf-label" style={{ color: "var(--text-muted)" }}>watch 귀속 상위</div>
-                      <RankList rows={watchTopRows} empty="" />
-                    </div>
-                  )}
-                </>
-              )}
-            </Panel>
-          </div>
-          <div className="xl:col-span-3">
-            <Panel title="규모">
-              <div className="flex flex-col gap-4">
-                <StatSpark
-                  label="가입자"
-                  value={profileCountRes.count ?? 0}
-                  points={signupSpark}
-                  sub={`최근 ${WINDOW_DAYS}일 +${signups30} · profiles 총계`}
-                />
-                <div style={{ borderTop: "1px solid var(--border)" }} />
-                <StatSpark
-                  label="프레임 조회"
-                  value={views.length}
-                  points={viewSpark}
-                  sub={`일별 추이 · ${WINDOW_DAYS}일`}
-                />
+                </Panel>
               </div>
-            </Panel>
-          </div>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 items-start">
-          <Panel
-            title="프레임 조회 유입 채널"
-            aside={<MonoAside>조회 {views.length}</MonoAside>}
-          >
-            <RankList rows={topCounts(viewChannelCounts, 8)} empty="아직 조회가 없어요." />
-            {topCounts(viewRefCounts, 6).some((r) => r.label !== "(직접/알 수 없음)") && (
-              <div className="mt-4">
-                <div className="vf-label" style={{ color: "var(--text-muted)" }}>리퍼러 도메인 원본</div>
-                <RankList rows={topCounts(viewRefCounts, 6)} empty="" />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 items-start">
+              <Panel
+                title="프레임 조회 유입 채널"
+                aside={<MonoAside>조회 {views.length}</MonoAside>}
+              >
+                <RankList rows={topCounts(viewChannelCounts, 8)} empty="아직 조회가 없어요." />
+                {topCounts(viewRefCounts, 6).some((r) => r.label !== "(직접/알 수 없음)") && (
+                  <div className="mt-4">
+                    <div className="vf-label" style={{ color: "var(--text-muted)" }}>리퍼러 도메인 원본</div>
+                    <RankList rows={topCounts(viewRefCounts, 6)} empty="" />
+                  </div>
+                )}
+              </Panel>
+              <Panel title="조회 국가">
+                <RankList rows={topCounts(viewCountryCounts, 8)} empty="아직 조회가 없어요." />
+              </Panel>
+              <Panel
+                title="못 찍는 네이티브 앱 요청"
+                aside={<MonoAside>{nativeTotal}건 / {WINDOW_DAYS}일</MonoAside>}
+              >
+                <RankList
+                  rows={topCounts(nativeCounts, 8)}
+                  empty="아직 없어요 — 요청이 쌓이면 그때 클라우드 폰(Appetize) 도입을 판단."
+                />
+              </Panel>
+              <Panel title="가입 유입 소스">
+                <RankList rows={topCounts(signupSourceCounts, 8)} empty="아직 없어요." />
+              </Panel>
+            </div>
+            {/* 원본 이벤트 카운트 — 진단용이라 한 번 더 접어 둔다 */}
+            <details className="mt-6" style={{ borderTop: "1px solid var(--border)" }}>
+              <summary
+                className="vf-mono"
+                style={{ fontSize: "0.7rem", color: "var(--text-muted)", cursor: "pointer", padding: "10px 0" }}
+              >
+                이벤트 원본 카운트 ({WINDOW_DAYS}일) · {allEvents.length}종
+              </summary>
+              <div style={{ maxWidth: "560px", paddingBottom: "12px" }}>
+                {metricsMissing ? <MetricsMissingNotice /> : <EventBreakdown events={allEvents} />}
               </div>
-            )}
-          </Panel>
-          <Panel title="조회 국가">
-            <RankList rows={topCounts(viewCountryCounts, 8)} empty="아직 조회가 없어요." />
-          </Panel>
-          <Panel
-            title="못 찍는 네이티브 앱 요청"
-            aside={<MonoAside>{nativeTotal}건 / {WINDOW_DAYS}일</MonoAside>}
-          >
-            <RankList
-              rows={topCounts(nativeCounts, 8)}
-              empty="아직 없어요 — 요청이 쌓이면 그때 클라우드 폰(Appetize) 도입을 판단."
-            />
-          </Panel>
-          <Panel title="가입 유입 소스">
-            <RankList
-              rows={topCounts(signupSourceCounts, 8)}
-              empty="아직 없어요 — 이 배포부터 첫 방문 referrer/UTM이 가입에 붙어요."
-            />
-          </Panel>
+            </details>
+          </section>
         </div>
-        {/* 원본 이벤트 카운트 — 진단용이라 접어 둔다 */}
-        <details className="mt-6" style={{ borderTop: "1px solid var(--border)" }}>
-          <summary
-            className="vf-mono"
-            style={{ fontSize: "0.7rem", color: "var(--text-muted)", cursor: "pointer", padding: "10px 0" }}
-          >
-            이벤트 원본 카운트 ({WINDOW_DAYS}일) · {allEvents.length}종
-          </summary>
-          <div style={{ maxWidth: "560px", paddingBottom: "12px" }}>
-            {metricsMissing ? <MetricsMissingNotice /> : <EventBreakdown events={allEvents} />}
-          </div>
-        </details>
-      </section>
+      </Fold>
     </main>
   );
 }

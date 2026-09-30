@@ -23,22 +23,35 @@ import { useMediaQuery } from "@/lib/useMediaQuery";
 // 화면이 서버가 거절할 대본을 저장하게 두면 안 되니까.
 
 // hold가 없는 장면은 리플레이 기본 페이싱(HOLD_MS 900)을 탄다 — 칸 너비도 그 값으로.
+// 검토 창의 촬영 줄("약 N초")도 이 값을 쓴다 — 띠의 눈금과 한 줄 요약이 갈리지 않게.
 const DEFAULT_HOLD_S = 0.9;
-const holdOf = (st: DemoScriptStep) => (typeof st.hold === "number" && st.hold > 0 ? st.hold : DEFAULT_HOLD_S);
+export const holdOf = (st: DemoScriptStep) => (typeof st.hold === "number" && st.hold > 0 ? st.hold : DEFAULT_HOLD_S);
 // 자동 넘김 속도: 필름의 머무는 시간을 따르되, 한 장면을 읽을 틈(최소 2.2초)은 준다.
 const playSeconds = (hold: number) => Math.max(2.2, hold * 1.4);
 const fmtSec = (s: number) => String(Math.round(s * 10) / 10);
+// compact 칸: 번호 아래 장면 이름 한 줄(넘치면 …, 전체는 title 툴팁).
+const COMPACT_CELL: React.CSSProperties = {
+  flexDirection: "column", alignItems: "flex-start", justifyContent: "center", gap: 1, padding: "0 10px",
+};
+const COMPACT_NAME: React.CSSProperties = {
+  maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+  fontSize: 13, fontWeight: 500,
+};
 
-export function DemoScriptPanel({ script, loading = false, onChange }: {
+export function DemoScriptPanel({ script, loading = false, onChange, compact = false }: {
   script: DemoScript | null;
   // 대본(비공개 칸)을 아직 못 받았다 — "대본 없음"은 거짓이라 빈 자리만 보여 준다.
   loading?: boolean;
   onChange?: (next: DemoScript) => void;
+  // 초안 검토 창(2026-10-01 덜어내기 "라"): 칸에 장면 이름을 적고 저절로 넘기지 않는다.
+  // 장면 카드(옮기기·빼기)는 칸을 눌러야 열리고, 같은 칸을 다시 누르면 닫힌다.
+  // 칸 너비 설명·셀렉터 경고 문단도 뺀다 — 경고는 검토 창의 촬영 줄이 한 번만 말한다.
+  compact?: boolean;
 }) {
   const { t } = useT();
   const uid = useId();
   const reduceMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
-  const [selRaw, setSel] = useState(0);
+  const [selRaw, setSel] = useState<number | null>(compact ? null : 0);
   const [dir, setDir] = useState<1 | -1>(1);
   const [userPaused, setUserPaused] = useState(false);
   const steps = script?.steps ?? [];
@@ -63,10 +76,11 @@ export function DemoScriptPanel({ script, loading = false, onChange }: {
   }
 
   const n = steps.length;
-  const sel = Math.min(selRaw, n - 1);
-  const st = steps[sel];
+  // compact에서만 null(아직 아무 장면도 안 고름) — 기본 띠는 늘 한 장면을 보여 준다.
+  const sel = selRaw === null ? null : Math.min(selRaw, n - 1);
+  const st = sel === null ? null : steps[sel];
   // 움직임 줄이기 설정이면 자동 넘김을 아예 하지 않는다(재생 버튼도 숨김).
-  const paused = userPaused || reduceMotion;
+  const paused = userPaused || reduceMotion || compact;
   const wiredCount = steps.filter(isStepWired).length;
   const solid = steps.filter(isStepSubstantial).length;
   const total = steps.reduce((sum, s) => sum + holdOf(s), 0);
@@ -107,21 +121,29 @@ export function DemoScriptPanel({ script, loading = false, onChange }: {
     const d = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
     if (!d) return;
     e.preventDefault();
-    const next = (((sel + d) % n) + n) % n;
+    // 아무 장면도 안 고른 compact 띠: → 는 첫 장면, ← 는 마지막 장면부터.
+    const from = sel ?? (d === 1 ? -1 : 0);
+    const next = (((from + d) % n) + n) % n;
     select(next, d, true);
     document.getElementById(tabId(next))?.focus();
   };
+  const onCellClick = (i: number) => {
+    if (compact && i === sel) { setSel(null); return; }
+    select(i, sel === null || i >= sel ? 1 : -1, true);
+  };
 
-  const block = onChange ? removeBlock(st) : null;
-  const wiredNow = isStepWired(st);
+  const block = onChange && st ? removeBlock(st) : null;
+  const wiredNow = st ? isStepWired(st) : true;
   // 셀렉터가 없으면 로봇은 where(눈으로 찾는 법)로 화면을 뒤진다 — 감추지 않고 보여준다.
-  const locator = st.selector ?? (st.where ? `${t.projects.scriptByEye}: ${st.where}` : null);
-  const actionPart = st.action
+  const locator = st ? st.selector ?? (st.where ? `${t.projects.scriptByEye}: ${st.where}` : null) : null;
+  const actionPart = st?.action
     ? `${actionLabels[st.action] ?? st.action}${st.action === "type" && st.text ? ` ‘${st.text}’` : ""}`
     : null;
-  const meta = [actionPart, t.projects.sceneHold(fmtSec(holdOf(st))), wiredNow ? null : t.projects.sceneByEye]
-    .filter(Boolean)
-    .join(" · ");
+  const meta = st
+    ? [actionPart, t.projects.sceneHold(fmtSec(holdOf(st))), wiredNow ? null : t.projects.sceneByEye]
+      .filter(Boolean)
+      .join(" · ")
+    : "";
 
   const small: React.CSSProperties = {
     margin: 0, fontFamily: "var(--font-nunito)", fontSize: 13, lineHeight: 1.55, color: "var(--text-secondary)",
@@ -130,12 +152,13 @@ export function DemoScriptPanel({ script, loading = false, onChange }: {
 
   return (
     <div className="vf-strip-zone" data-paused={paused ? "true" : "false"}>
-      <p style={{ ...small, marginBottom: 10 }}>{t.projects.stripHint(fmtSec(total))}</p>
-      {wiredCount < n && (
+      {!compact && <p style={{ ...small, marginBottom: 10 }}>{t.projects.stripHint(fmtSec(total))}</p>}
+      {!compact && wiredCount < n && (
         <p style={{ ...small, marginBottom: 10, color: "#b34747" }}>{t.projects.scriptPartialHelp}</p>
       )}
 
-      <div role="tablist" aria-label={t.projects.scriptLabel} className="vf-strip" onKeyDown={onTabKey}>
+      <div role="tablist" aria-label={t.projects.scriptLabel} className="vf-strip" onKeyDown={onTabKey}
+        style={compact ? { height: 60 } : undefined}>
         {steps.map((s, i) => {
           const hold = holdOf(s);
           return (
@@ -145,16 +168,31 @@ export function DemoScriptPanel({ script, loading = false, onChange }: {
               role="tab"
               id={tabId(i)}
               aria-selected={i === sel}
-              aria-controls={panelId}
-              tabIndex={i === sel ? 0 : -1}
+              aria-controls={sel === null ? undefined : panelId}
+              tabIndex={i === (sel ?? 0) ? 0 : -1}
               title={s.goal}
               className="vf-strip-cell"
-              style={{ flexGrow: hold, ["--vf-dur" as string]: `${playSeconds(hold)}s` } as React.CSSProperties}
-              onClick={() => select(i, i >= sel ? 1 : -1, true)}
+              style={{
+                flexGrow: hold, ["--vf-dur" as string]: `${playSeconds(hold)}s`,
+                ...(compact ? COMPACT_CELL : null),
+              } as React.CSSProperties}
+              onClick={() => onCellClick(i)}
             >
-              <span>{i + 1}</span>
-              <ActionGlyph action={s.action} />
-              {!isStepWired(s) && <span className="vf-strip-warn" aria-hidden />}
+              {compact ? (
+                <>
+                  <span className="inline-flex items-center gap-1.5">
+                    {i + 1}
+                    {!isStepWired(s) && <span className="vf-strip-warn" aria-hidden />}
+                  </span>
+                  <span style={COMPACT_NAME}>{s.goal}</span>
+                </>
+              ) : (
+                <>
+                  <span>{i + 1}</span>
+                  <ActionGlyph action={s.action} />
+                  {!isStepWired(s) && <span className="vf-strip-warn" aria-hidden />}
+                </>
+              )}
               {/* 막대가 다 차면 다음 장면으로. 멈춤·호버 중엔 CSS가 애니메이션을 세운다. */}
               <span
                 className="vf-strip-bar"
@@ -171,11 +209,12 @@ export function DemoScriptPanel({ script, loading = false, onChange }: {
         ))}
       </div>
 
+      {st && sel !== null && (
       <div id={panelId} role="tabpanel" aria-labelledby={tabId(sel)} className="vf-scene-card">
         <div className="flex items-center justify-between gap-3" style={{ marginBottom: 8 }}>
           <span style={{ ...small, fontVariantNumeric: "tabular-nums" }}>{t.projects.sceneCount(sel + 1, n)}</span>
           <div className="flex items-center gap-1.5">
-            {!reduceMotion && (
+            {!reduceMotion && !compact && (
               <button
                 type="button" className="vf-icon-button" style={iconBtn}
                 onClick={() => setUserPaused((p) => !p)}
@@ -268,6 +307,7 @@ export function DemoScriptPanel({ script, loading = false, onChange }: {
           )}
         </div>
       </div>
+      )}
 
       {script?.prep && <p style={{ ...small, marginTop: 10 }}>{t.projects.scriptPrep}: {script.prep}</p>}
       {script?.skip?.length ? (

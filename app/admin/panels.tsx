@@ -1,5 +1,6 @@
 // Presentational pieces for the unified /admin control tower. All server
-// components — interactivity lives in AdminRequestList / ReportInbox.
+// components — interactivity lives in AdminRequestList / ReportInbox /
+// ModerationInbox / LinksMenu, and the folds are native <details>.
 //
 // Status colors are page-scoped tokens (--ops-ok/--ops-warn/--ops-bad) defined
 // in page.tsx, validated against both paper surfaces (dataviz six-checks).
@@ -33,38 +34,68 @@ const STATE_COLOR: Record<Exclude<LedgerState, "plain">, string> = {
   bad: "var(--ops-bad)",
 };
 
-// ── Annunciator ledger (v2) ──────────────────────────────────────────────────
-// System-liveness only (verdict + worker/cron/Sentry/R2/alerts). Action counts
-// and growth numbers moved to their own bands — the old strip mixed all four
-// categories, which is why anomalies didn't pop. `emph` marks the verdict cell
-// (wider, larger serif). bad/warn values take the status color so a scan of
-// the strip surfaces problems without reading the sub-lines.
+// ── Verdict line (라, 2026-10-01) ────────────────────────────────────────────
+// 맨 위 한 줄 — "지금 손 볼 게 있나"를 말로. 문장은 page.tsx가 상태 데이터에서
+// 만든다. 점은 색만으로 말하지 않는다(늘 문장과 같이).
+
+export function Verdict({
+  tone,
+  headline,
+  detail,
+}: {
+  tone: Exclude<LedgerState, "plain">;
+  headline: string;
+  detail: string;
+}) {
+  return (
+    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+      <span
+        aria-hidden
+        className="w-3 h-3 rounded-full shrink-0 self-center"
+        style={{ background: STATE_COLOR[tone] }}
+      />
+      <p className="vf-serif-display" style={{ margin: 0, fontSize: "1.6rem", fontWeight: 600, lineHeight: 1.25 }}>
+        {headline}
+      </p>
+      {detail && (
+        <span style={{ fontSize: "0.9375rem", color: "var(--text-secondary)" }}>· {detail}</span>
+      )}
+    </div>
+  );
+}
+
+// ── Annunciator ledger ───────────────────────────────────────────────────────
+// A strip of label + value (+ sub-line) cells; bad/warn values take the status
+// color so a scan of the strip surfaces problems. The control tower uses the
+// `compact` row (smaller values; sub-lines carry `nf-ops-sub`, hidden until
+// the owner opens the row — page.tsx wraps it in <details className=
+// "nf-ops-status">). /admin/promo uses the full-size strip. Spans, not divs:
+// the compact ledger sits inside <summary>, which takes phrasing content only.
 
 export type LedgerEntry = {
   label: string;
   value: string | number;
   sub: string;
   state: LedgerState;
-  emph?: boolean;
 };
 
-export function Ledger({ entries }: { entries: LedgerEntry[] }) {
+export function Ledger({ entries, compact = false }: { entries: LedgerEntry[]; compact?: boolean }) {
   return (
-    <div
+    <span
       className="flex flex-wrap"
       style={{ borderTop: "1px solid var(--border)", borderBottom: "1px solid var(--border)" }}
     >
       {entries.map((e, i) => (
-        <div
+        <span
           key={e.label}
-          className="px-4 py-4"
+          className={`block px-4 ${compact ? "py-3" : "py-4"}`}
           style={{
-            flex: e.emph ? "1.5 1 0%" : "1 1 0%",
-            minWidth: e.emph ? "11rem" : "9rem",
+            flex: "1 1 0%",
+            minWidth: compact ? "8rem" : "9rem",
             ...(i > 0 ? { borderLeft: "1px solid var(--border)" } : {}),
           }}
         >
-          <div className="flex items-center gap-1.5">
+          <span className="flex items-center gap-1.5">
             {e.state !== "plain" && (
               <span
                 aria-hidden
@@ -75,13 +106,13 @@ export function Ledger({ entries }: { entries: LedgerEntry[] }) {
             <span className="vf-label" style={{ margin: 0, color: "var(--text-muted)" }}>
               {e.label}
             </span>
-          </div>
-          <div
-            className="vf-serif-display"
+          </span>
+          <span
+            className="block vf-serif-display"
             style={{
-              fontSize: e.emph ? "1.9rem" : "1.55rem",
-              lineHeight: 1.15,
-              marginTop: "0.3rem",
+              fontSize: compact ? "1.25rem" : "1.55rem",
+              lineHeight: compact ? 1.2 : 1.15,
+              marginTop: compact ? "0.15rem" : "0.3rem",
               fontVariantNumeric: "tabular-nums",
               color:
                 e.state === "bad"
@@ -92,21 +123,45 @@ export function Ledger({ entries }: { entries: LedgerEntry[] }) {
             }}
           >
             {e.value}
-          </div>
-          <div
-            className="vf-mono"
+          </span>
+          <span
+            className={`${compact ? "nf-ops-sub" : "block"} vf-mono`}
             style={{ fontSize: "0.66rem", color: "var(--text-muted)", marginTop: "0.15rem" }}
           >
             {e.sub}
-          </div>
-        </div>
+          </span>
+        </span>
       ))}
-    </div>
+    </span>
   );
 }
 
-// Cockpit message line under the ledger — recent alert log, one mono line,
-// renders nothing when the log is empty.
+// Folded section — native <details>, so it works before hydration and stays a
+// server component. Chevron and marker styles live in page.tsx (.nf-ops-fold).
+export function Fold({
+  label,
+  className,
+  children,
+}: {
+  label: string;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <details className={`nf-ops-fold${className ? ` ${className}` : ""}`}>
+      <summary>
+        <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden>
+          <path d="M4 2l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        {label}
+      </summary>
+      {children}
+    </details>
+  );
+}
+
+// Alert log — shown when the owner opens the status row. Renders nothing when
+// the log is empty.
 const ALERT_LABEL: Record<string, string> = {
   "worker-stale": "워커 하트비트 끊김",
   reaped: "스턱 잡 정리",
@@ -147,9 +202,9 @@ export function AlertTicker({
 }
 
 // ── Section & panel scaffolding ──────────────────────────────────────────────
-// Full-width bands in triage order (생존 → 손 → 파이프라인 → 성장). Each band
-// header carries a summary aside so the category's key numbers are readable
-// without entering the panels.
+// Band header + optional summary aside. The control tower's bands (inside the
+// "숫자 보기" fold) pass no aside — their panels already show those numbers;
+// /admin/promo still uses it.
 
 export function SectionTitle({
   children,
@@ -168,21 +223,11 @@ export function SectionTitle({
   );
 }
 
-export function MonoAside({
-  children,
-  tone,
-}: {
-  children: React.ReactNode;
-  tone?: "warn" | "bad";
-}) {
+export function MonoAside({ children }: { children: React.ReactNode }) {
   return (
     <span
       className="vf-mono"
-      style={{
-        fontSize: "0.68rem",
-        color: tone ? `var(--ops-${tone})` : "var(--text-muted)",
-        fontVariantNumeric: "tabular-nums",
-      }}
+      style={{ fontSize: "0.68rem", color: "var(--text-muted)", fontVariantNumeric: "tabular-nums" }}
     >
       {children}
     </span>

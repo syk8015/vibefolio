@@ -898,3 +898,237 @@ SNS/검색 로봇은 JS를 안 돌려 OG·크롤러 노출 문구(루트 descrip
 | connect.startedClaude | Claude가 작업을 시작했어요. 다 올리면 확인 화면이 저절로 열려요. | Claude has started. The review screen opens by itself when it's uploaded. | 신규 · 위와 같음(Claude 채팅 커넥터) |
 | email.readyLandingOnly | 로봇이 앱 안쪽까지 들어가지 못해 소개 화면만 찍혔어요. 앱이 돌아가는 모습을 보여주려면 대시보드에서 직접 찍은 영상으로 바꾸거나 재촬영을 요청해 주세요. | The robot couldn't get past your intro page, so the video only shows that page. To show the app itself, swap in a video you recorded or request a re-record from your dashboard. | 신규 · 완성 메일, 해당할 때만 |
 | email.readyGuessedBeats | {n}개 장면은 버튼을 찾지 못해 화면 위치로 눌렀어요. 엉뚱한 곳을 눌렀을 수 있으니 영상을 한 번 봐 주세요. | In {n} scene(s) the robot couldn't find the button and clicked by screen position. It may have hit the wrong spot — give the video a quick look. | 신규 · 완성 메일, 함수(n), 영어는 단/복수 |
+
+## 사이트 덜어내기 — 라 시안 8화면 (2026-10-01)
+
+화면마다 할 일 하나 · 버튼은 글자만큼 가운데 · 설명 문장 대신 버튼 이름으로(연결 창, 초안 검토 창, 작품 수정 창, /publish, 온보딩, 연결 허락, 404, 설정 AI 연결). `비고`의 **변경**은 옛 한·영 값을, **삭제**는 더는 쓰지 않아 지운 키를 적었다(취소선). 관제탑은 한국어 고정 화면이라 사전 밖이다.
+
+| 키 | 한국어 | English | 비고 |
+|---|---|---|---|
+| onboarding.title | 내 주소를 정해요 | Pick your address | 변경 · 전: 프레임을 만들어볼게요 / Let's build your frame |
+| onboarding.usernameLabel | 주소 | Address | 변경 · 전: 사용자 이름 (URL) / Username (URL) |
+| onboarding.usernameAvailable | 사용할 수 있는 주소예요 | This address is available | 변경 · 전: ✓ 사용 가능한 username이에요 / ✓ This username is available |
+| onboarding.usernameTaken | 이미 사용 중이에요 | Already taken | 변경 · 전: ✗ 이미 사용 중이에요 / ✗ Already taken |
+| onboarding.usernameInvalid | 영문 소문자, 숫자, _, -만 쓸 수 있어요 (2~30자) | Lowercase letters, numbers, _ and - only (2–30 characters) | 변경 · 전: ✗ 영문 소문자, 숫자, _, -만 쓸 수 있어요 (2~30자) / ✗ Lowercase letters, numbers, _ and - only (2–30 characters) |
+| onboarding.usernameReserved | 사용할 수 없는 이름이에요 | This name can't be used | 변경 · 전: ✗ 사용할 수 없는 이름이에요 / ✗ This name can't be used |
+| onboarding.submit | 시작하기 | Get started | 변경 · 전: 시작하기 → / Get started → |
+| onboarding.otherAccount | 다른 계정으로 로그인 | Use a different account | 변경 · 전: 다른 계정으로 로그인 / Sign in with a different account |
+| projects.editTitle | 작품 고치기 | Edit work | 변경 · 전: 프로젝트 수정 / Edit project |
+| projects.reviewLangLegacy | 두 언어 칸이 없는 옛 초안이에요 — [고칠 점 적기]로 채울 수 있어요 | This older draft has no language fields — [Note a fix] can fill them in | 변경 · 전: 두 언어 칸이 없는 옛 초안이에요 — [AI에게 고쳐달라기]로 채울 수 있어요 / This older draft has no language fields — [Ask AI to fix it] can fill them in |
+| projects.reviewLangMissingTr | {name} 판 글이 없어요 — [고칠 점 적기]로 채워 주세요 (함수: name) | There's no {name} version yet — use [Note a fix] to add one (함수: name) | 변경 · 전: {name} 판 글이 없어요 — [AI에게 고쳐달라기]로 채워 주세요 (함수: name) / There's no {name} version yet — use [Ask AI to fix it] to add one (함수: name) |
+| projects.reviewEditCancel | 닫기 | Close | 변경 · 전: 취소 / Cancel |
+| projects.reviewFixWithAi | 고칠 점 적기 | Note a fix | 변경 · 전: AI에게 고쳐달라기 / Ask AI to fix it |
+| projects.reviewFixLead | 무엇을 고칠까요? 적은 말이 수정 프롬프트에 그대로 들어가요 | What should change? Your words go into the fix prompt as-is | 변경 · 전: 무엇을 어떻게 고칠까요? 이 말이 AI에게 그대로 전달돼요. / What should change, and how? This goes to your AI verbatim. |
+| projects.reviewFixCopy | 수정 프롬프트 복사 | Copy fix prompt | 변경 · 전: 프롬프트 복사 / Copy prompt |
+| projects.reviewFixCopied | 복사했어요 | Copied | 변경 · 전: 복사했어요 — AI에게 붙여넣으세요. AI가 다시 올리면 이 초안이 갱신돼요. / Copied — paste it into your AI. When it republishes, this draft is updated in place. |
+| projects.reviewFixCopiedBody | AI 채팅창에 붙여넣으면 이 초안이 그대로 고쳐져요 | Paste it into your AI — this draft gets updated in place | 신규 |
+| projects.reviewClose | 닫기 | Close | 신규 |
+| projects.reviewAsk | 공개할까요? | Publish it? | 변경 · 전: {title}{particle} 공개할까요? (함수: title, particle) / Publish {title}? (함수: title) |
+| projects.reviewSeeAnswers | 답 보기 | See answers | 신규 |
+| projects.reviewShow | 보기 | View | 신규 |
+| projects.reviewFold | 접기 | Hide | 신규 |
+| projects.reviewInterviewHideAdd | 가릴 것 추가 | Add something to keep hidden | 신규 |
+| projects.reviewInterviewConfirm | 인터뷰 답이 내 말과 같아요 | My interview answers are in my own words | 변경 · 전: 내 말이 맞아요 — AI가 지어낸 답이 없어요 / These are my words — nothing made up by the AI |
+| projects.reviewInterviewMissing | 이 초안은 인터뷰 없이 올라왔어요. [고칠 점 적기]로 수정 프롬프트를 복사해 AI 채팅창에 붙여넣으면 AI가 먼저 물어봐요 | This draft came in without your interview. Copy a fix prompt with [Note a fix] and paste it into your AI chat — your AI will ask you first | 변경 · 전: 이 초안은 인터뷰 없이 올라왔어요. 아래 [AI에게 고쳐달라기]로 다시 올려 달라고 하면 AI가 먼저 물어봐요 / This draft came in without your interview. Use [Ask AI to fix it] below — your AI will ask you first, then resubmit |
+| projects.reviewFilmLabel | 촬영 | Filming | 신규 |
+| projects.reviewFilmScenes | {n}장면 (함수: n) | {n} scenes (함수: n) | 신규 |
+| projects.reviewFilmAbout | 약 {s}초 (함수: s) | about {s}s (함수: s) | 신규 |
+| projects.reviewFilmCaptions | (함수) | (함수) | 신규 |
+| projects.reviewFilmAlso | {name} 화면도 찍어요 (함수: name) | Also filmed in {name} (함수: name) | 신규 |
+| projects.reviewVideoOwn | 직접 준 영상을 그대로 써요 | your own video, as-is | 변경 · 전: 직접 준 영상을 그대로 써요 / Uses the video you provided |
+| projects.reviewPublishAndFilm | 공개하고 촬영 요청 | Publish & film | 신규 |
+| projectForm.hintPlaceholder | 예: 캔버스에 마우스로 그림을 그려요. 위에서 색과 굵기를 바꿔요. | e.g. Draw on the canvas with your mouse. Change color and size at the top. | 변경 · 전: 예: 캔버스에 마우스로 자유롭게 그림을 그릴 수 있어요. 상단에서 브러시 색과 굵기를 바꿔보세요. / e.g. You can draw freely on the canvas with your mouse. Try changing the brush color and size at the top. |
+| projectForm.noHtml | HTML 파일이 없어요. index.html이 들어 있는지 확인해 주세요. | No HTML file found. Make sure index.html is included. | 변경 · 전: 웹페이지(HTML) 파일이 없어요. 자동 시연은 브라우저에 뜨는 화면을 촬영해요 — index.html이 포함됐는지 확인해 주세요. / No web page (HTML) file found. The auto demo films what shows up in a browser — make sure index.html is included. |
+| projectForm.saveFailed | 저장하지 못했어요. 다시 눌러 주세요. | Couldn't save. Please try again. | 변경 · 전: 저장 중 오류가 발생했어요. / Something went wrong while saving. |
+| projectForm.urlOptionTitle | 주소 | Link | 변경 · 전: URL 링크 / URL link |
+| projectForm.filesOptionTitle | 파일 | File | 변경 · 전: 파일 업로드 / File upload |
+| projectForm.close | 닫기 | Close | 신규 |
+| projectForm.descPlaceholder | 어떤 작품인지 소개해 주세요. | Tell people what this work is. | 변경 · 전: 어떤 프로젝트인지 소개해주세요. / Tell us what this project is about. |
+| projectForm.remove | 빼기 | Remove | 변경 · 전: 제거 / Remove |
+| projectForm.modeFile | 파일 | File | 변경 · 전: 파일 업로드 / Upload file |
+| projectForm.dropOrClick | 눌러서 고르거나 끌어다 놓아요 | Click to choose, or drag an image here | 변경 · 전: 클릭하거나 이미지를 드래그해서 업로드 / Click or drag an image to upload |
+| projectForm.dropHelpEdit | HTML·CSS·JS·이미지 · 25MB까지 · 끌어다 놓아도 돼요 | HTML, CSS, JS, images · up to 25MB · or drag it in | 변경 · 전: HTML, CSS, JS, 이미지 파일 지원 · 최대 25MB · 드래그해서 올려도 돼요 / HTML, CSS, JS, and image files · max 25MB · drag & drop works too |
+| projectForm.videoPickInline | + 영상 파일 선택 · 20MB·30초까지 | + Choose a video · 20MB, 30s max | 변경 · 전: + 영상 파일 선택 (20MB · 30초 이하) / + Choose a video file (max 20MB · 30s) |
+| projectForm.nameLabel | 이름 | Name | 변경 · 전: 프로젝트 이름 / Project name |
+| projectForm.typeImage | 이미지 | Image | 변경 · 전: 🖼️ 이미지 / 🖼️ Image |
+| projectForm.typeVideo | 영상 | Video | 변경 · 전: 🎬 영상 / 🎬 Video |
+| projectForm.commentLabel | 한 마디 | One-liner | 변경 · 전: 한 마디 (말풍선에 표시) / One-liner (shown in a speech bubble) |
+| projectForm.workLink | 작품 주소 | Work link | 신규 |
+| projectForm.workUploaded | nookframe 업로드 파일 | file on nookframe | 신규 |
+| projectForm.uploadedFiles | 올린 파일 | Uploaded files | 신규 |
+| projectForm.replace | 바꾸기 | Replace | 신규 |
+| projectForm.swapTitle | 작품 바꾸기 | Replace work | 신규 |
+| projectForm.more | 더 보기 | More | 신규 |
+| projectForm.less | 접기 | Less | 신규 |
+| projectForm.change | 바꾸기 | Change | 신규 |
+| projectForm.upload | 올리기 | Upload | 신규 |
+| projectForm.done | 완료 | Done | 신규 |
+| projectForm.none | 없음 | None | 신규 |
+| projectForm.auto | 자동 | Auto | 신규 |
+| projectForm.added | 있음 | Added | 신규 |
+| projectForm.rowType | 유형 | Type | 신규 |
+| projectForm.rowYear | 연도 | Year | 신규 |
+| projectForm.rowTools | AI 도구 | AI tools | 신규 |
+| projectForm.videoLabel | 직접 만든 영상 | Your own video | 신규 |
+| settings.aiConnected | 연결된 AI (함수: n) | Connected AIs (함수: n) | 신규 |
+| settings.aiPreview | 복사되는 글 보기 | See what gets copied | 신규 |
+| settings.aiPreviewPrompt | 연결 창의 프롬프트 | The connect window's prompt | 신규 |
+| settings.aiPreviewCommand | Claude Code 명령 | Claude Code command | 신규 |
+| settings.aiPreviewConfig | Claude 데스크탑·Cursor 설정 파일 | Claude Desktop · Cursor config file | 신규 |
+| connect.title | AI로 올리기 | Upload with AI | 신규 |
+| connect.visibility | 초안으로 와요. 공개는 내가 눌러야 돼요. | It arrives as a draft. Only you can publish it. | 신규 |
+| connect.groupAgent | 명령 실행 AI | Runs commands | 변경 · 전: 명령을 직접 실행하는 AI / AIs that run commands themselves |
+| connect.groupChat | 채팅 AI | Chat only | 변경 · 전: 채팅만 하는 AI / AIs that only chat |
+| connect.toolOtherChat | 그 밖의 채팅 | Other chat | 변경 · 전: 그 밖의 채팅 AI / Other chat AI |
+| connect.copyAgain | 다시 복사 | Copy again | 신규 |
+| connect.copiedTerminal | 복사했어요 — {tool}에 붙여넣어요 (함수: tool) | Copied — paste it into {tool} (함수: tool) | 신규 |
+| connect.copiedChat | 복사했어요 — {tool}에 붙여넣고 답을 복사해 와요 (함수: tool) | Copied — paste into {tool}, then copy its reply (함수: tool) | 신규 |
+| connect.copiedClaude | 복사했어요 — Claude에서 “Nookframe에 올려줘”라고 말해요 | Copied — tell Claude “publish this to Nookframe” | 신규 |
+| connect.waitingAi | AI가 올리면 여기서 바로 열려요 | Opens here as soon as your AI uploads it | 변경 · 전: AI가 올리기를 기다리는 중이에요. 도착하면 확인 화면이 저절로 열려요. / Waiting for your AI to upload it. The review screen opens by itself when it lands. |
+| connect.waitingClaude | Claude가 올리면 여기서 바로 열려요 | Opens here as soon as Claude uploads it | 변경 · 전: Claude가 올리기를 기다리는 중이에요. 도착하면 확인 화면이 저절로 열려요. / Waiting for Claude to upload it. The review screen opens by itself when it lands. |
+| connect.startedAi | AI가 작업을 시작했어요 — 다 올리면 여기서 열려요 | Your AI has started — it opens here once uploaded | 변경 · 전: AI가 작업을 시작했어요. 다 올리면 확인 화면이 저절로 열려요. / Your AI has started. The review screen opens by itself when it's uploaded. |
+| connect.startedClaude | Claude가 작업을 시작했어요 — 다 올리면 여기서 열려요 | Claude has started — it opens here once uploaded | 변경 · 전: Claude가 작업을 시작했어요. 다 올리면 확인 화면이 저절로 열려요. / Claude has started. The review screen opens by itself when it's uploaded. |
+| connect.replyOnly | 답만 받았어요 | I only got a reply | 신규 |
+| connect.haveReply | AI 답을 이미 받았어요 | I already have the reply | 신규 |
+| connect.claudeOnce | 처음 한 번만: Claude 설정 → 커넥터에 주소를 붙여넣어요. | First time only: paste the URL in Claude → Settings → Connectors. | 신규 |
+| connect.claudeCopyUrl | 커넥터 주소 복사 | Copy connector URL | 신규 |
+| connect.claudeFallback | 커넥터를 못 쓰나요? 프롬프트로 할게요 | Can't add connectors? Use the prompt | 변경 · 전: 커넥터를 추가할 수 없는 계정이라면  / If your account can't add connectors,  |
+| connect.arrivedTitle | 초안이 왔어요 | Your draft is here | 신규 |
+| connect.reviewNow | 확인하러 가기 | Go review it | 신규 |
+| connect.settingsLink | MCP·연결 관리는 설정에서 | MCP & connections live in Settings | 신규 |
+| connect.networkFailed | 인터넷이 끊겨 준비하지 못했어요. | A network error got in the way. | 변경 · 전: 네트워크 오류로 준비하지 못했어요. / A network error got in the way. Please try again. |
+| connect.mcpTitle | 한 번 연결해 두기 (MCP) | Connect once (MCP) | 신규 |
+| connect.mcpLead | 연결해 두면 “Nookframe에 올려줘” 한마디로 끝나요. | Then “publish this to Nookframe” is all it takes. | 변경 · 전: 클로드코드·클로드 데스크탑·커서에 한 번 연결해 두면 "이거 Nookframe에 올려줘" 한마디로 끝나요. 프롬프트도, AI 답도 옮길 필요가 없어요. / Connect Nookframe once in Claude Code, Claude Desktop or Cursor and "publish this to Nookframe" is the whole job. No prompt to paste, no reply to carry over. |
+| connect.mcpClaudeCode | Claude Code 명령 복사 | Copy Claude Code command | 변경 · 전: 클로드코드 — 터미널에서 한 번 / Claude Code — once, in the terminal |
+| connect.mcpJson | Claude 데스크탑·Cursor 설정 복사 | Copy Claude Desktop · Cursor config | 변경 · 전: 클로드 데스크탑·커서 — MCP 설정 파일에 추가 / Claude Desktop · Cursor — add to the MCP config file |
+| connect.mcpCopied | 복사했어요 — 내 열쇠가 채워져 있어요. 다시 복사하면 이전 열쇠는 끊겨요. | Copied — your key is filled in. Copying again disconnects the previous key. | 변경 · 전: 복사했어요 — 내 열쇠가 채워져 있으니 그대로 붙여넣으세요. 다시 복사하면 이전 MCP 열쇠는 끊겨요. / Copied — your key is already filled in, paste it as-is. Copying again disconnects the previous MCP key. |
+| oauth.title | Nookframe에 연결할까요? | Connect to Nookframe? | 변경 · 전: Nookframe에 연결할까요? / Connect this to Nookframe? |
+| oauth.can1 | 작품을 초안으로 올리기 | Upload work as drafts | 변경 · 전: 내 계정에 작품을 초안으로 올리기 / Upload work to your account as a draft |
+| oauth.can2 | 자기가 올린 초안 고치기·지우기 | Edit or delete the drafts it uploaded | 변경 · 전: 내가 올린 초안을 보고 고치거나 지우기 / List, edit and delete the drafts it uploaded |
+| oauth.cannot | 공개·삭제는 못 해요 | It can't publish or delete public works | 신규 |
+| oauth.returnTo | {host}로 돌아가요 (함수: host) | Returns you to {host} (함수: host) | 변경 · 전: 허용하면 {host} 로 돌아갑니다. (함수: host) / Allowing sends you back to {host}. (함수: host) |
+| oauth.loopbackWarn | 내 컴퓨터에서 도는 프로그램이에요. 직접 설치한 게 맞나요? | This is a program on your own computer. Did you install it yourself? | 변경 · 전: 이 연결은 내 컴퓨터에서 도는 프로그램이에요. 내가 직접 설치한 게 맞는지 확인하세요. / This connection is a program running on your own computer. Make sure you installed it yourself. |
+| oauth.allow | 허용하고 돌아가기 | Allow and go back | 변경 · 전: 허용 / Allow |
+| oauth.deny | 닫기 | Close | 변경 · 전: 취소 / Cancel |
+| oauth.revokeNote | 설정에서 언제든 끊을 수 있어요 | You can disconnect any time in Settings | 변경 · 전: 연결은 대시보드 연결 패널의 토큰 목록에서 언제든 끊을 수 있어요. / You can cut the connection any time from the token list in the dashboard's connect panel. |
+| oauth.errorBody | 연결을 처음부터 다시 해 주세요. | Please start the connection again. | 신규 |
+| oauth.errorDetails | 자세히 | Details | 신규 |
+| publish.title | AI 답 붙여넣기 | Paste your AI's reply | 변경 · 전: AI가 준 걸 붙여넣기 / Paste what your AI gave you |
+| publish.lead | 초안으로 올라가요. 공개는 내가 눌러요. | It goes up as a draft. Only you can publish it. | 신규 |
+| publish.pastePlaceholder | 여기에 AI 답을 통째로 붙여넣어요 | Paste the whole AI reply here | 변경 · 전: 여기에 AI 답을 통째로 붙여넣으세요 (설명이 섞여 있어도 괜찮아요) / Paste the AI's whole reply here (prose around it is fine) |
+| publish.clipboardButton | 클립보드에서 붙여넣기 | Paste from clipboard | 변경 · 전: 클립보드에서 가져와 올리기 / Grab from clipboard and publish |
+| publish.pasteButton | AI 답 붙여넣기 | Paste the AI's reply | 신규 |
+| publish.clipboardEmpty | 클립보드에서 AI 답을 찾지 못했어요. 답을 복사한 뒤 다시 눌러 주세요. | No AI reply found in the clipboard. Copy the reply and press again. | 변경 · 전: 클립보드에서 JSON을 찾지 못했어요. AI 답을 복사한 뒤 다시 눌러 주세요. / No JSON found in the clipboard. Copy the AI's reply and press again. |
+| publish.clipboardDenied | 클립보드를 못 읽었어요. 칸에 붙여넣어 주세요. | Couldn't read the clipboard. Paste it into the box. | 변경 · 전: 브라우저가 클립보드 읽기를 막았어요 — 아래 칸에 직접 붙여넣어 주세요. / The browser blocked clipboard access — paste into the box below instead. |
+| publish.filesLink | 파일도 있어요 | I have files too | 신규 |
+| publish.filesAll | 작품 파일 · 스크린샷 · 영상 | Work file · screenshot · video | 신규 |
+| publish.filesAllHint | 인터넷에 없는 작품일 때만 | Only if the work isn't online | 신규 |
+| publish.pickFiles | 파일 고르기 | Choose files | 신규 |
+| publish.pickHtml | 작품 파일 (.html·.zip, 25MB까지) | Work file (.html or .zip, up to 25MB) | 변경 · 전: 작품 파일 (.html 또는 .zip, 25MB까지) / The work itself (.html or .zip, up to 25MB) |
+| publish.fileKindUnknown | {name}은(는) 올릴 수 없어요 — .html·.zip·이미지·영상만 돼요. (함수: name) | {name} can't be uploaded — only .html, .zip, images or videos. (함수: name) | 신규 |
+| publish.fileOneEach | 종류마다 한 개씩 올려요. 파일이 여럿이면 .zip으로 묶어 주세요. | One file of each kind. Several files? Zip them together. | 신규 |
+| publish.errors.empty | AI 답을 붙여넣어 주세요. | Paste your AI's reply first. | 변경 · 전: AI가 준 JSON을 붙여넣어 주세요. / Paste the JSON your AI gave you. |
+| publish.fixCopied | 복사했어요 — AI에게 붙여넣어요 | Copied — paste it to your AI | 변경 · 전: 복사했어요 — AI에게 붙여넣으세요 / Copied — paste it to your AI |
+| errorState.notFoundHome | 홈으로 | Go home | 신규 |
+| api.contentHost | {host}는 자동 시연으로 촬영하는 '내 작품' 주소가 아니에요. 영상 링크라면 수정 창의 '더 보기 › 직접 만든 영상'에 넣어 주세요. (함수: host) | {host} isn't a "my work" address the auto demo can film. If it's a video link, add it under More › Your own video in the edit window. (함수: host) | 변경 · 전: {host}는 자동 시연으로 촬영하는 '내 작품' 주소가 아니에요. 영상 링크라면 '구동 영상' 칸에 넣어주세요. (함수: host) / {host} isn't a "my work" address the auto demo can film. If it's a video link, put it in the "Video clip" field instead. (함수: host) |
+| onboarding.stepSignup | ~~가입~~ | ~~Sign up~~ | 삭제 |
+| onboarding.stepProfile | ~~프로필~~ | ~~Profile~~ | 삭제 |
+| onboarding.stepStart | ~~시작~~ | ~~Start~~ | 삭제 |
+| onboarding.subtitle | ~~기본 정보를 입력해주세요. 나중에 언제든 바꿀 수 있어요.~~ | ~~Fill in the basics. You can change everything later.~~ | 삭제 |
+| onboarding.bioLabel | ~~한 줄 소개 (선택)~~ | ~~One-line bio (optional)~~ | 삭제 |
+| projects.connectTitle | ~~AI로 한 줄에 올리기~~ | ~~Publish in one line with AI~~ | 삭제 |
+| projects.connectSubtitle | ~~초안으로 올라와요. 공개는 내가 확인한 뒤에만 돼요.~~ | ~~It arrives as a draft. Nothing goes public until you review it.~~ | 삭제 |
+| projects.reviewIntro | ~~AI가 작성해 올린 초안이에요. 내용과 화면을 확인한 뒤 공개해 주세요.~~ | ~~This draft was written and posted by an AI. Check the content and the preview, then publish.~~ | 삭제 |
+| projects.reviewFileUpload | ~~파일 업로드 (내부 미리보기)~~ | ~~File upload (internal preview)~~ | 삭제 |
+| projects.reviewCardLabel | ~~명함에 이렇게 보여요~~ | ~~How it looks on your card~~ | 삭제 |
+| projects.reviewLangMainTag | ~~기본~~ | ~~main~~ | 삭제 |
+| projects.reviewVerdictScript | ~~촬영 대본~~ | ~~Script~~ | 삭제 |
+| projects.reviewVerdictOpens | ~~여는 곳~~ | ~~Opens~~ | 삭제 |
+| projects.reviewAccessVideo | ~~직접 준 영상 사용 — 자동 촬영 없음~~ | ~~Uses your own video — no auto-recording~~ | 삭제 |
+| projects.reviewOpensRepo | ~~저장소를 받아 실행~~ | ~~Clones and runs the repo~~ | 삭제 |
+| projects.reviewMore | ~~그 밖에~~ | ~~More~~ | 삭제 |
+| projects.reviewIntroShort | ~~AI가 올린 초안이에요. 인터뷰 답과 명함, 촬영 계획을 확인해 주세요~~ | ~~Your AI posted this draft. Check your interview answers, the card and the filming plan.~~ | 삭제 |
+| projects.reviewInterviewLead | ~~AI가 물어서 받은 내 답이에요. 내 말과 다르면 눌러서 고쳐 주세요~~ | ~~Your answers, as your AI asked them. If anything isn't what you said, click it to fix it~~ | 삭제 |
+| projects.reviewInterviewUse.proudMoment | ~~→ AI가 촬영 대본에서 이 장면을 오래 보여줘요~~ | ~~→ Your AI lingers on this scene in the filming script~~ | 삭제 |
+| projects.reviewInterviewUse.howIUse | ~~→ 명함 말풍선 한 줄의 재료가 돼요~~ | ~~→ Becomes your one-line card bubble~~ | 삭제 |
+| projects.reviewInterviewUse.mustSee | ~~→ 소개글과 촬영 대본에 반영돼요~~ | ~~→ Shapes the description and the filming script~~ | 삭제 |
+| projects.reviewInterviewUse.hide | ~~→ 이게 보이는 장면은 대본에서 빼요~~ | ~~→ Scenes that show these stay out of the script~~ | 삭제 |
+| projects.reviewInterviewHideNone | ~~없음~~ | ~~Nothing~~ | 삭제 |
+| projects.reviewInterviewConfirmFirst | ~~인터뷰 답을 확인하면 공개할 수 있어요~~ | ~~Confirm your interview answers to publish~~ | 삭제 |
+| projects.reviewShootTitle | ~~이렇게 찍어요~~ | ~~How it gets filmed~~ | 삭제 |
+| projects.reviewShootAllWired | ~~{n}장면 모두 정확한 위치를 알아요 (함수: n)~~ | ~~All {n} scenes have exact targets (함수: n)~~ | 삭제 |
+| projects.reviewStartsAtPrefix | ~~~~ | ~~Starts at ~~ | 삭제 |
+| projects.reviewStartsAtSuffix | ~~에서 시작해요~~ | ~~~~ | 삭제 |
+| projects.reviewStartFile | ~~업로드한 파일에서 시작해요~~ | ~~Starts from the uploaded files~~ | 삭제 |
+| projects.reviewVideoOwnSub | ~~자동 촬영은 하지 않아요~~ | ~~No auto-recording for this one~~ | 삭제 |
+| projects.reviewMoreRow | ~~작품 유형, 연도, 촬영 힌트 더 보기~~ | ~~More: category, year, filming hint~~ | 삭제 |
+| projects.reviewPublishNote | ~~공개하면 바로 촬영을 요청해요~~ | ~~Publishing requests the demo recording right away~~ | 삭제 |
+| projects.reviewPublishNoteVideo | ~~공개하면 직접 준 영상이 그대로 쓰여요~~ | ~~Publishing uses your own video as-is~~ | 삭제 |
+| projectForm.hintHelp | ~~자동 시연 영상이 이 설명을 보고 핵심 기능부터 보여드려요.~~ | ~~The auto demo video reads this and shows your key features first.~~ | 삭제 |
+| projectForm.cancel | ~~취소~~ | ~~Cancel~~ | 삭제 |
+| projectForm.uploadDone | ~~업로드 완료~~ | ~~Upload complete~~ | 삭제 |
+| projectForm.contentTypeLabel | ~~콘텐츠 유형~~ | ~~Content type~~ | 삭제 |
+| projectForm.aiToolsLabel | ~~사용한 AI 도구~~ | ~~AI tools used~~ | 삭제 |
+| projectForm.multiSelect | ~~(복수 선택)~~ | ~~(multi-select)~~ | 삭제 |
+| projectForm.collapse | ~~접기 ↑~~ | ~~Collapse ↑~~ | 삭제 |
+| projectForm.prev | ~~← 이전~~ | ~~← Back~~ | 삭제 |
+| projectForm.skip | ~~건너뛰기~~ | ~~Skip~~ | 삭제 |
+| projectForm.next | ~~다음 →~~ | ~~Next →~~ | 삭제 |
+| projectForm.existingUpload | ~~업로드된 사이트가 연결돼 있어요 — 새로 올리면 교체돼요.~~ | ~~An uploaded site is attached — uploading again replaces it.~~ | 삭제 |
+| projectForm.editGuideTitle | ~~React / Vue / Vite 프로젝트라면~~ | ~~For React / Vue / Vite projects~~ | 삭제 |
+| projectForm.editGuide1 | ~~ 소스 폴더 대신 ~~ | ~~, skip the source folder — run ~~ | 삭제 |
+| projectForm.editGuide2 | ~~ 후 생성된 ~~ | ~~ and upload the generated ~~ | 삭제 |
+| projectForm.editGuide3 | ~~ 폴더를 올려주세요. 순수 HTML/CSS/JS 파일은 그대로 올려도 돼요.~~ | ~~ folder. Plain HTML/CSS/JS files can go up as-is.~~ | 삭제 |
+| projectForm.uploadDoneEdit | ~~업로드 완료. 아래 정보를 입력하고 저장하세요.~~ | ~~Upload complete. Fill in the details below and save.~~ | 삭제 |
+| projectForm.demoUrlLabel | ~~데모 URL~~ | ~~Demo URL~~ | 삭제 |
+| projectForm.hintLabelEdit | ~~핵심 기능 소개 (자동 시연용 · 선택)~~ | ~~Key features (for the auto demo · optional)~~ | 삭제 |
+| projectForm.videoLabelOptional | ~~구동 영상 (선택)~~ | ~~Video clip (optional)~~ | 삭제 |
+| projectForm.videoAutoplayHelp | ~~대표 작품으로 설정하면 프레임 상단에서 자동 재생돼요.~~ | ~~If this is your featured work, it autoplays at the top of your frame.~~ | 삭제 |
+| projectForm.yearLabel | ~~제작 연도~~ | ~~Year~~ | 삭제 |
+| projectForm.thumbAutoNote | ~~(없으면 저장 시 자동 생성)~~ | ~~(auto-generated on save if empty)~~ | 삭제 |
+| settings.aiTitle | ~~AI 도구 연결~~ | ~~Connected AI tools~~ | 삭제 |
+| settings.aiBody | ~~Claude Code·Cursor 같은 도구에 준 연결 {n}개를 보고 끊을 수 있어요. (함수: n)~~ | ~~See and disconnect the {n} connections you gave tools like Claude Code or Cursor. (함수: n)~~ | 삭제 |
+| settings.aiManage | ~~관리~~ | ~~Manage~~ | 삭제 |
+| settings.aiClose | ~~접기~~ | ~~Hide~~ | 삭제 |
+| connect.ask | ~~어떤 AI로 만들었나요?~~ | ~~Which AI did you build this with?~~ | 삭제 |
+| connect.groupAgentNote | ~~터미널·데스크탑 앱·코드 편집기 어디서 쓰든 같아요. Claude 앱의 Code 탭도 여기예요.~~ | ~~Same in a terminal, a desktop app or a code editor. The Code tab in the Claude app belongs here too.~~ | 삭제 |
+| connect.groupChatNote | ~~Claude 채팅은 claude.ai와 Claude 앱의 일반 대화예요.~~ | ~~Claude chat means claude.ai and regular conversations in the Claude app.~~ | 삭제 |
+| connect.whichToggle | ~~어느 쪽인지 헷갈려요~~ | ~~Not sure which one?~~ | 삭제 |
+| connect.stepsTerminal | ~~[프롬프트 복사]를 눌러요.,{tool}에 그대로 붙여넣어요. (함수: tool)~~ | ~~Press Copy prompt.,Paste it into {tool} as is. (함수: tool)~~ | 삭제 |
+| connect.chatStep1 | ~~프롬프트를 복사해서 작품을 만든 대화에 붙여넣어요.~~ | ~~Copy the prompt and paste it into the chat where you built the work.~~ | 삭제 |
+| connect.chatStep2 | ~~AI 답을 통째로 복사해 온 뒤 눌러요.~~ | ~~Copy the AI's whole reply, then press this.~~ | 삭제 |
+| connect.stepsClaude | ~~주소를 복사해요. · Claude 설정 → 커넥터 → [커스텀 커넥터 추가]에 붙여넣어요. · 작품을 만든 대화에서 "Nookframe에 올려줘"라고 말해요.~~ | ~~Copy the URL. · In Claude: Settings → Connectors → Add custom connector, and paste it. · In the chat where you built the work, say "publish this to Nookframe".~~ | 삭제 |
+| connect.claudeOnceTag | ~~처음 한 번만~~ | ~~first time only~~ | 삭제 |
+| connect.claudeHelpToggle | ~~잘 안 되나요?~~ | ~~Not working?~~ | 삭제 |
+| connect.claudeAllowHint | ~~연결 방식을 물으면 추천된 쪽을 그대로 두세요.~~ | ~~If it asks how to connect, keep the recommended option.~~ | 삭제 |
+| connect.copiedButton | ~~복사했어요 ✓~~ | ~~Copied ✓~~ | 삭제 |
+| connect.pasteJsonLead | ~~AI가 답만 주고 끝났나요?~~ | ~~Did your AI just reply and stop?~~ | 삭제 |
+| connect.previewToggle | ~~프롬프트 내용 보기~~ | ~~See the prompt~~ | 삭제 |
+| connect.moreToggle | ~~프롬프트 내용 보기 · MCP로 연결~~ | ~~See the prompt · Connect with MCP~~ | 삭제 |
+| connect.tokensToggle | ~~연결 관리 · 연결된 AI {n}개 (함수: n)~~ | ~~Manage connections · {n} connected AIs (함수: n)~~ | 삭제 |
+| connect.mcpRemoteCaveat | ~~무료 요금제는 커스텀 커넥터를 1개만 둘 수 있어요. 회사·학교 계정이면 관리자만 추가할 수 있어요.~~ | ~~Free plans can keep only one custom connector. On a work or school account, only an owner can add it.~~ | 삭제 |
+| connect.claudeFallbackLink | ~~프롬프트로 하기~~ | ~~use the prompt instead~~ | 삭제 |
+| connect.mcpRemoteCopy | ~~주소 복사~~ | ~~Copy URL~~ | 삭제 |
+| connect.mcpCopy | ~~내 열쇠 채워서 복사~~ | ~~Copy with my key filled in~~ | 삭제 |
+| oauth.hostLead | ~~이 주소의 프로그램이 연결을 요청했어요~~ | ~~A program at this address asked to connect~~ | 삭제 |
+| oauth.canTitle | ~~허용하면 할 수 있는 일~~ | ~~What it will be able to do~~ | 삭제 |
+| oauth.cannotTitle | ~~할 수 없는 일~~ | ~~What it cannot do~~ | 삭제 |
+| oauth.cannot1 | ~~이미 공개된 작품을 바꾸거나 지우기~~ | ~~Change or delete anything you already published~~ | 삭제 |
+| oauth.cannot2 | ~~작품을 공개하기 — 공개는 언제나 내가 대시보드에서 직접 누른다~~ | ~~Publish anything — publishing is always your own press in the dashboard~~ | 삭제 |
+| oauth.cannot3 | ~~계정 정보·비밀번호 보기~~ | ~~See your account details or password~~ | 삭제 |
+| oauth.errorHint | ~~커넥터를 만든 쪽에 이 문구를 그대로 알려 주세요.~~ | ~~Send this message as-is to whoever built the connector.~~ | 삭제 |
+| publish.backToDashboard | ~~← 대시보드~~ | ~~← Dashboard~~ | 삭제 |
+| publish.intro | ~~ChatGPT·제미나이처럼 채팅창에서 쓰는 AI라면, AI가 준 답을 여기에 붙여넣으세요. 초안으로 올라가요.~~ | ~~Using a chat AI like ChatGPT or Gemini? Paste the reply it gave you here and it goes up as a draft.~~ | 삭제 |
+| publish.promptHintBefore | ~~AI에게 줄 프롬프트는 ~~ | ~~The prompt to give your AI is in the ~~ | 삭제 |
+| publish.promptHintLink | ~~대시보드 → [프로젝트 추가]~~ | ~~Dashboard → Add project~~ | 삭제 |
+| publish.promptHintAfter | ~~ 창에 있어요.~~ | ~~ window.~~ | 삭제 |
+| publish.reviewNote | ~~공개 전에 대시보드에서 확인할 수 있어요~~ | ~~You can review it on the dashboard before it goes public~~ | 삭제 |
+| publish.clipboardHint | ~~AI 답을 통째로 복사해 두셨다면 이 버튼 하나면 돼요 — 설명이 섞여 있어도 JSON만 골라내서 바로 올려요.~~ | ~~If you copied the AI's whole reply, this one button is enough — it picks out the JSON even with prose around it and publishes right away.~~ | 삭제 |
+| publish.pasteHint | ~~아래 칸에 붙여넣어도 바로 올라가요.~~ | ~~Pasting into the box below publishes right away too.~~ | 삭제 |
+| publish.filesTitle | ~~작품 파일이 있으면 먼저 골라 주세요 (없으면 건너뛰어요)~~ | ~~Have files for the work? Pick them first (skip if not)~~ | 삭제 |
+| publish.filesToggle | ~~작품 파일도 있어요 (.html·.zip·스크린샷·영상)~~ | ~~I have files for the work too (.html · .zip · screenshot · video)~~ | 삭제 |
+| publish.typeToggle | ~~직접 붙여넣을래요~~ | ~~I'll paste it myself~~ | 삭제 |
+| publish.filesHint | ~~인터넷에 안 올린 작품이라면 파일을 주세요. AI가 만들어준 화면은 보통 “HTML로 내려받기”가 돼요 — 그 파일 하나면 됩니다.~~ | ~~If the work isn't online anywhere, send the files. A screen your AI built can usually be saved with “Download as HTML” — that one file is enough.~~ | 삭제 |
+| publish.fixHint | ~~AI가 고친 JSON을 주면 위에 다시 붙여넣고 올리면 돼요.~~ | ~~Paste the corrected JSON back above and publish again.~~ | 삭제 |
+| errorState.notFoundEyebrow | ~~404 · 페이지 없음~~ | ~~404 · Not found~~ | 삭제 |
+| errorState.notFoundBody | ~~주소가 바뀌었거나 사라진 페이지일 수 있어요. 홈으로 돌아가 시작해 주세요.~~ | ~~The address may have changed or the page may be gone. Head home to start over.~~ | 삭제 |

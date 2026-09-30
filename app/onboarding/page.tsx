@@ -9,7 +9,7 @@ import { isReservedUsername } from "@/lib/reservedUsernames";
 import { safeNext } from "@/lib/safeNext";
 import { hasBlockedTerm } from "@/lib/nameFilter";
 import {
-  BIO_MAX, NAME_MAX, USERNAME_MAX, USERNAME_PATTERN,
+  NAME_MAX, USERNAME_MAX, USERNAME_PATTERN,
   isValidUsername, normalizeUsername, usernameIlikePattern,
 } from "@/lib/username";
 import { useT } from "@/lib/i18n/client";
@@ -40,14 +40,17 @@ async function usernameTaken(supabase: ReturnType<typeof createClient>, value: s
 export default function OnboardingPage() {
   const router = useRouter();
   const { t } = useT();
-  const [form, setForm] = useState({ name: "", username: "", bio: "" });
+  // 한 줄 소개는 여기서 묻지 않는다(10-01 덜어내기) — 대시보드 명함 탭(CardTab)에서 쓴다.
+  const [form, setForm] = useState({ name: "", username: "" });
   const [loading, setLoading] = useState(false);
   const [initLoading, setInitLoading] = useState(true);
   const [error, setError] = useState("");
   const [usernameStatus, setUsernameStatus] = useState<UsernameStatus>("idle");
   const [ageOk, setAgeOk] = useState(false);
+  const [usernameFocused, setUsernameFocused] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const userIdRef = useRef<string | null>(null);
+  const usernameRef = useRef<HTMLInputElement | null>(null);
   // 가입 폼이 metadata에 실어 둔 첫 방문 정보 — 인증 메일을 다른 브라우저에서 열어
   // 이 브라우저의 localStorage가 비어 있을 때 쓴다(홍보 유입 귀속).
   const signupTouchRef = useRef<FirstTouchData | null>(null);
@@ -99,7 +102,7 @@ export default function OnboardingPage() {
     });
   }, [checkUsername, router]);
 
-  function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const { name } = e.target;
     const value = name === "username" ? normalizeUsername(e.target.value) : e.target.value;
     setForm((prev) => ({ ...prev, [name]: value }));
@@ -148,11 +151,11 @@ export default function OnboardingPage() {
     // profiles를 먼저 쓴다. metadata.username은 미들웨어의 "온보딩 끝" 표식이라,
     // 그걸 먼저 쓰고 profiles가 실패하면(아이디 겹침 23505 등) 관문이 다시는 안 잡아
     // "프로필 없는 계정"이 사이트를 돌아다닌다(2026-09-22 A4). CardTab과 같은 순서.
+    // bio는 싣지 않는다 — 이 화면엔 칸이 없으니, 다시 온 사람의 기존 소개를 빈 값으로 덮지 않게.
     const { error: profileErr } = await supabase.from("profiles").upsert({
       id: user.id,
       username,
       name: form.name,
-      bio: form.bio,
       updated_at: new Date().toISOString(),
     });
     if (profileErr) {
@@ -169,7 +172,7 @@ export default function OnboardingPage() {
     }
 
     const { error: authErr } = await supabase.auth.updateUser({
-      data: { name: form.name, username, bio: form.bio, age_confirmed_at: new Date().toISOString() },
+      data: { name: form.name, username, age_confirmed_at: new Date().toISOString() },
     });
     if (authErr) {
       // 프로필은 저장됐다 — 다시 누르면 upsert는 같은 행을 덮고 여기를 한 번 더 시도한다.
@@ -212,6 +215,21 @@ export default function OnboardingPage() {
 
   const canSubmit = !loading && ageOk && usernameStatus !== "taken" && usernameStatus !== "invalid" && usernameStatus !== "reserved" && usernameStatus !== "checking";
 
+  // 주소 칸 아래 한 줄은 실패일 때만 — 쓸 수 있으면 칸 안의 ✓ 하나로 끝낸다(10-01 덜어내기).
+  const usernameError =
+    usernameStatus === "taken" ? t.onboarding.usernameTaken
+    : usernameStatus === "invalid" ? t.onboarding.usernameInvalid
+    : usernameStatus === "reserved" ? t.onboarding.usernameReserved
+    : "";
+
+  // 'nookframe.com/' 글자를 눌러도 입력칸으로 — 커서는 적힌 아이디 끝에.
+  function focusUsername(e: React.MouseEvent<HTMLDivElement>) {
+    const el = usernameRef.current;
+    if (!el || e.target === el) return;
+    el.focus();
+    el.setSelectionRange(el.value.length, el.value.length);
+  }
+
   if (initLoading) {
     return (
       <main className="min-h-screen flex items-center justify-center" style={{ background: "var(--bg)" }}>
@@ -221,113 +239,73 @@ export default function OnboardingPage() {
     );
   }
 
+  // 할 일은 '내 주소 정하기' 하나(10-01 덜어내기 라) — 단계 표시·이름 동그라미·부제·한 줄 소개를 뺐다.
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center px-6 py-12" style={{ background: "var(--bg)" }}>
+    <main className="min-h-screen flex flex-col items-center px-6 pt-12 pb-16" style={{ background: "var(--bg)" }}>
+      <Logo href={null} />
 
-      {/* Logo */}
-      <div className="mb-10">
-        <Logo href={null} />
-      </div>
+      <div className="w-full max-w-sm" style={{ marginTop: "clamp(3.5rem, 13vh, 7.5rem)" }}>
+        <h1 className="vf-serif-display text-center"
+          style={{ fontSize: "1.875rem", fontWeight: 600, lineHeight: 1.25, margin: "0 0 1.75rem" }}>
+          {t.onboarding.title}
+        </h1>
 
-      <div className="w-full max-w-sm">
-
-        {/* Step indicator */}
-        <div className="flex items-center justify-center mb-8">
-          <div className="flex items-center gap-2">
-            <StepDot state="done" label={t.onboarding.stepSignup} />
-            <StepLine />
-            <StepDot state="active" label={t.onboarding.stepProfile} />
-            <StepLine />
-            <StepDot state="upcoming" label={t.onboarding.stepStart} />
-          </div>
-        </div>
-
-        {/* Avatar + heading */}
-        <div className="mb-8 text-center">
-          {/* 구글·깃허브 사진은 쓰지 않는다 — 고른 적 없는 사진(09-25 사용자, app/page.tsx 참고). 이름 첫 글자만. */}
-          <div className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center text-2xl font-black"
-            style={{ background: "var(--blue-tint)", border: "2px solid var(--border-bright)", color: "var(--blue)", fontFamily: "var(--font-nunito)" }}>
-            {form.name ? form.name.charAt(0).toUpperCase() : "V"}
-          </div>
-          <h1 className="text-3xl font-black mb-2" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", letterSpacing: "-0.02em" }}>
-            {t.onboarding.title}
-          </h1>
-          <p className="text-sm font-semibold" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
-            {t.onboarding.subtitle}
-          </p>
-        </div>
-
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <Field label={t.onboarding.nameLabel}>
-            <input className="vf-input" type="text" name="name"
+        <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+          <Field htmlFor="onboarding-name" label={t.onboarding.nameLabel}>
+            <input id="onboarding-name" className="vf-input" type="text" name="name"
               placeholder={t.signup.namePlaceholder} value={form.name} onChange={handleChange} required autoFocus
               maxLength={NAME_MAX} autoComplete="name" />
           </Field>
 
-          <Field label={t.onboarding.usernameLabel}>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold pointer-events-none"
-                style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>@</span>
-              <input className="vf-input" style={{ paddingLeft: "1.75rem", paddingRight: "2.5rem" }}
-                type="text" name="username" placeholder="alexvibe"
+          <Field htmlFor="onboarding-username" label={t.onboarding.usernameLabel}>
+            {/* 칸 하나에 주소 전체 — 'nookframe.com/'은 고정 글자, 뒤에 아이디를 적는다. 초점 테두리는
+                안쪽 입력칸 대신 이 칸이 그린다(.vf-input:focus와 같은 색). */}
+            <div className="vf-input flex items-center cursor-text" onClick={focusUsername}
+              style={usernameFocused ? { background: "var(--surface)", borderColor: "var(--text-primary)" } : undefined}>
+              <span aria-hidden className="shrink-0" style={{ color: "var(--text-muted)" }}>nookframe.com/</span>
+              <input ref={usernameRef} id="onboarding-username" type="text" name="username" placeholder="alexvibe"
+                className="flex-1 min-w-0 outline-none"
                 value={form.username} onChange={handleChange} required
+                onFocus={() => setUsernameFocused(true)} onBlur={() => setUsernameFocused(false)}
                 pattern={USERNAME_PATTERN} title={t.auth.usernamePattern} maxLength={USERNAME_MAX}
+                aria-invalid={usernameError ? true : undefined}
+                aria-describedby={usernameError ? "onboarding-username-error" : undefined}
                 autoCapitalize="none" autoCorrect="off" spellCheck={false} autoComplete="off" />
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                <UsernameStatusIcon status={usernameStatus} />
-              </div>
+              <span className="shrink-0 ml-2 flex items-center">
+                <UsernameStatusIcon status={usernameStatus} availableLabel={t.onboarding.usernameAvailable} />
+              </span>
             </div>
-            {form.username && (
-              <p className="mt-1.5 text-xs font-semibold" style={{
-                color: usernameStatus === "available" ? "#22c55e"
-                  : (usernameStatus === "taken" || usernameStatus === "invalid" || usernameStatus === "reserved") ? "#ef4444"
-                  : "var(--text-muted)",
-                fontFamily: "var(--font-nunito)"
-              }}>
-                {usernameStatus === "available" && t.onboarding.usernameAvailable}
-                {usernameStatus === "taken" && t.onboarding.usernameTaken}
-                {usernameStatus === "invalid" && t.onboarding.usernameInvalid}
-                {usernameStatus === "reserved" && t.onboarding.usernameReserved}
-                {(usernameStatus === "idle" || usernameStatus === "checking") && (
-                  <>nookframe.com/<span style={{ color: "var(--blue)" }}>{form.username}</span></>
-                )}
+            {usernameError && (
+              <p id="onboarding-username-error" className="mt-1.5" style={{ fontSize: "0.8125rem", color: "var(--danger)" }}>
+                {usernameError}
               </p>
             )}
           </Field>
 
-          <Field label={t.onboarding.bioLabel}>
-            <textarea className="vf-input" name="bio"
-              placeholder={t.onboarding.bioPlaceholder}
-              value={form.bio} onChange={handleChange} rows={2} maxLength={BIO_MAX} style={{ resize: "none" }} />
-          </Field>
-
           {/* 만 14세 이상 확인 — 약관 1조의 가입 조건. 이메일·구글 가입이 모두 여기를 지난다. */}
-          <label className="flex items-start gap-2 text-xs font-semibold cursor-pointer"
-            style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
+          <label className="flex items-center gap-2.5 cursor-pointer"
+            style={{ fontSize: "0.875rem", fontWeight: 500, color: "var(--text-primary)" }}>
             <input type="checkbox" checked={ageOk} onChange={(e) => setAgeOk(e.target.checked)}
-              required className="mt-0.5" style={{ accentColor: "var(--blue)" }} />
+              required className="shrink-0" style={{ width: 16, height: 16, accentColor: "var(--blue)" }} />
             <span>{t.onboarding.ageConfirm}</span>
           </label>
 
           {error && (
-            <p className="text-sm font-semibold text-center py-2 px-3 rounded-xl"
-              style={{ color: "#ef4444", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", fontFamily: "var(--font-nunito)" }}>
+            <p role="alert" className="text-center" style={{ fontSize: "0.875rem", color: "var(--danger)" }}>
               {error}
             </p>
           )}
 
-          <button type="submit" disabled={!canSubmit}
-            className="w-full py-3.5 rounded-xl font-black text-sm mt-2 transition-opacity hover:opacity-85 disabled:opacity-50"
-            style={{ background: "var(--blue)", color: "var(--bg)", fontFamily: "var(--font-nunito)", cursor: canSubmit ? "pointer" : "not-allowed", border: "none", boxShadow: "0 0 20px var(--blue-glow)" }}>
+          <button type="submit" disabled={!canSubmit} className="vf-button-primary self-center"
+            style={{ minWidth: 180, padding: "0.8rem 2rem", fontSize: "0.9375rem" }}>
             {loading ? t.onboarding.submitting : t.onboarding.submit}
           </button>
         </form>
 
         {/* Escape hatch for a wrong-account sign-in */}
-        <div className="mt-6 text-center">
-          <button type="button" onClick={handleSignOut}
-            className="text-xs font-semibold transition-opacity hover:opacity-70"
-            style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", background: "none", border: "none", cursor: "pointer" }}>
+        <div className="mt-5 text-center">
+          <button type="button" onClick={handleSignOut} className="vf-button-text"
+            style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}>
             {t.onboarding.otherAccount}
           </button>
         </div>
@@ -336,71 +314,39 @@ export default function OnboardingPage() {
   );
 }
 
-function UsernameStatusIcon({ status }: { status: UsernameStatus }) {
+function UsernameStatusIcon({ status, availableLabel }: { status: UsernameStatus; availableLabel: string }) {
   if (status === "checking") {
     return (
-      <div className="w-4 h-4 rounded-full border-2 animate-spin"
+      <div aria-hidden className="w-4 h-4 rounded-full border-2 animate-spin"
         style={{ borderColor: "var(--blue)", borderTopColor: "transparent" }} />
     );
   }
   if (status === "available") {
+    // 보이는 글은 ✓ 하나뿐이라, 스크린리더에는 이름표로 알린다.
     return (
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <svg role="img" aria-label={availableLabel} width="16" height="16" viewBox="0 0 16 16" fill="none">
         <circle cx="8" cy="8" r="7" fill="rgba(34,197,94,0.15)" stroke="#22c55e" strokeWidth="1.5" />
         <path d="M5 8l2 2 4-4" stroke="#22c55e" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     );
   }
   if (status === "taken" || status === "invalid" || status === "reserved") {
+    // 이유는 칸 아래 한 줄이 말한다 — 표시는 장식.
     return (
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-        <circle cx="8" cy="8" r="7" fill="rgba(239,68,68,0.15)" stroke="#ef4444" strokeWidth="1.5" />
-        <path d="M5.5 5.5l5 5M10.5 5.5l-5 5" stroke="#ef4444" strokeWidth="1.5" strokeLinecap="round" />
+      <svg aria-hidden width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <circle cx="8" cy="8" r="7" style={{ stroke: "var(--danger)" }} strokeWidth="1.5" />
+        <path d="M5.5 5.5l5 5M10.5 5.5l-5 5" style={{ stroke: "var(--danger)" }} strokeWidth="1.5" strokeLinecap="round" />
       </svg>
     );
   }
   return null;
 }
 
-function StepDot({ state, label }: { state: "done" | "active" | "upcoming"; label: string }) {
-  const isDone = state === "done";
-  const isActive = state === "active";
-  return (
-    <div className="flex flex-col items-center gap-1.5">
-      <div className="w-7 h-7 rounded-full flex items-center justify-center transition-all"
-        style={{
-          background: isDone || isActive ? "var(--blue)" : "var(--surface)",
-          border: `1.5px solid ${isDone || isActive ? "var(--blue)" : "var(--border)"}`,
-          boxShadow: isActive ? "0 0 12px var(--blue-glow)" : "none",
-        }}>
-        {isDone ? (
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-            <path d="M2.5 6l2.5 2.5 5-5" style={{ stroke: "var(--bg)" }} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        ) : (
-          <div className="w-2 h-2 rounded-full"
-            style={{ background: isActive ? "var(--bg)" : "var(--text-muted)" }} />
-        )}
-      </div>
-      <span className="text-xs font-bold" style={{
-        color: isDone || isActive ? "var(--blue)" : "var(--text-muted)",
-        fontFamily: "var(--font-nunito)"
-      }}>
-        {label}
-      </span>
-    </div>
-  );
-}
-
-function StepLine() {
-  return <div className="w-10 h-px mb-4" style={{ background: "var(--border)" }} />;
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ htmlFor, label, children }: { htmlFor: string; label: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="block text-xs font-bold mb-1.5"
-        style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", letterSpacing: "0.05em" }}>
+      <label htmlFor={htmlFor} className="block mb-1.5"
+        style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--text-secondary)" }}>
         {label}
       </label>
       {children}
