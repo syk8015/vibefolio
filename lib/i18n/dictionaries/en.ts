@@ -330,7 +330,7 @@ export const en: Dictionary = {
     reviewInterviewTitle: "Owner interview",
     reviewInterviewLead: "Your answers, as your AI asked them. If anything isn't what you said, click it to fix it",
     reviewInterviewQ: {
-      proudMoment: "The moment you're proudest of",
+      proudMoment: "The part you most want people to see",
       howIUse: "How you actually use it",
       mustSee: "What viewers must notice",
       hide: "Keep hidden · never shown",
@@ -896,7 +896,7 @@ export const en: Dictionary = {
     targetDeviceInvalid: (got: string) =>
       `targetDevice must be "mobile" or "desktop" — got ${got}. Use "mobile" if the app was designed for phone screens, "desktop" if it was designed for a computer browser, and send it again.`,
     ownerInterviewRequired:
-      'ownerInterview is required. Before writing anything else, ask the owner these in the chat and WAIT for their answers — do not answer them yourself: 1) the moment they are proudest of (proudMoment) 2) how they actually use it — when, how often, why (howIUse) 3) the one thing a first-time viewer must notice (mustSee) 4) optional: anything that must never be shown (hide, a list). Send their own words: { "ownerInterview": { "proudMoment": "…", "howIUse": "…", "mustSee": "…", "hide": ["…"] } }. Then use them: put the proudMoment/mustSee scenes early in demoScript and hold on them, draw builderNote from howIUse (one line), and leave any scene that shows a hide item out of the script.',
+      'ownerInterview is required. Before writing anything else, ask the owner these in the chat and WAIT for their answers — do not answer them yourself: 1) the part of the app they most want people to see — a screen, a feature, a result (proudMoment) 2) how they actually use it — when, how often, why; or, if they have not used it yet, what they built it for (howIUse) 3) the one thing a first-time viewer must notice (mustSee) 4) optional: anything that must never be shown (hide, a list). Send their own words: { "ownerInterview": { "proudMoment": "…", "howIUse": "…", "mustSee": "…", "hide": ["…"] } }. Then use them: put the proudMoment/mustSee scenes early in demoScript and hold on them, draw builderNote from howIUse (one line), and leave any scene that shows a hide item out of the script.',
     ownerInterviewIncomplete: (keys: string[]) =>
       `ownerInterview is missing an answer for: ${keys.join(", ")}. Ask the owner and send their own words — placeholders like "none" or "N/A" count as missing.`,
     ownerInterviewTooLong: (key: string, max: number) =>

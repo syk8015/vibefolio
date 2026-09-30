@@ -602,6 +602,9 @@ export default function ProjectsTab({
           {t.projects.projectsCount(projects.length)}
           {drafts.length > 0 && ` · ${t.projects.pendingReview(drafts.length)}`}
         </p>
+        {/* 작품이 하나도 없을 땐 아래 빈 칸의 [AI 연결하고 첫 작품 올리기] 하나만 둔다(09-30 실사용 피드백:
+            같은 창을 여는 버튼 두 개가 서로 다른 일처럼 보였다). */}
+        {(projects.length > 0 || drafts.length > 0) && (
         <button
           onClick={() => setShowAddModal(true)}
           className="vf-button-primary"
@@ -612,6 +615,7 @@ export default function ProjectsTab({
           </svg>
           {t.projects.addProject}
         </button>
+        )}
       </div>
 
       {/* 초안과 공개를 한 리스트, 같은 행 언어로(시안 A) — 초안은 좌측 잉크

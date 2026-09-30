@@ -67,13 +67,13 @@ JSON are read as local paths, just like the flags.
 
 ## The owner interview (ownerInterview) — required
 
-A demo is not the real app, and only the person who built and uses it knows what matters. So before
-writing anything, the AI asks the owner four questions in the chat and waits for the answers — it never
+A demo is not the real app, and only the person who built and uses it knows what matters. So after a quick
+look at the project, the AI asks the owner four questions in plain words in the chat and waits for the answers — it never
 answers them itself. The server rejects a payload without them.
 
 ```json
 "ownerInterview": {
-  "proudMoment": "the moment the owner is proudest of",
+  "proudMoment": "the part of the app the owner most wants people to see",
   "howIUse": "how they actually use it — when, how often, what for",
   "mustSee": "the one thing a first-time viewer must notice",
   "hide": ["optional: anything that must never be shown"]

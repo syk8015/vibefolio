@@ -876,7 +876,7 @@ SNS/검색 로봇은 JS를 안 돌려 OG·크롤러 노출 문구(루트 descrip
 | card.cardAddress | 명함 주소 | Card address | 신규 · 아이디 칸 아래 "명함 주소 nookframe.com/…" |
 | projects.reviewIntroShort | AI가 올린 초안이에요. 인터뷰 답과 명함, 촬영 계획을 확인해 주세요 | Your AI posted this draft. Check your interview answers, the card and the filming plan. | 교체 · 주인 인터뷰(09-29, 필수) |
 | projects.reviewInterviewTitle / reviewInterviewLead | 주인 인터뷰 / AI가 물어서 받은 내 답이에요. 내 말과 다르면 눌러서 고쳐 주세요 | Owner interview / Your answers, as your AI asked them. If anything isn't what you said, click it to fix it | 신규 · 초안 검토 창 맨 위 칸 |
-| projects.reviewInterviewQ.* | 제일 자랑하고 싶은 장면 · 실제로 쓰는 법 · 꼭 봐야 할 곳 · 가릴 것 · 공개 안 됨 | The moment you're proudest of · How you actually use it · What viewers must notice · Keep hidden · never shown | 신규 · 질문 라벨 4개 |
+| projects.reviewInterviewQ.* | 가장 보여주고 싶은 부분 · 실제로 쓰는 법 · 꼭 봐야 할 곳 · 가릴 것 · 공개 안 됨 | The part you most want people to see · How you actually use it · What viewers must notice · Keep hidden · never shown | 신규 · 질문 라벨 4개 |
 | projects.reviewInterviewUse.* | → AI가 촬영 대본에서 이 장면을 오래 보여줘요 · → 명함 말풍선 한 줄의 재료가 돼요 · → 소개글과 촬영 대본에 반영돼요 · → 이게 보이는 장면은 대본에서 빼요 | → Your AI lingers on this scene in the filming script · → Becomes your one-line card bubble · → Shapes the description and the filming script · → Scenes that show these stay out of the script | 신규 · 답이 어디에 쓰이는지 |
 | projects.reviewInterviewHideNone / reviewInterviewHidePlaceholder | 없음 / 쉼표로 나눠 적어요 (예: 금액, 폴더 경로) | Nothing / Separate with commas (e.g. amounts, folder paths) | 신규 |
 | projects.reviewInterviewConfirm / reviewInterviewConfirmFirst | 내 말이 맞아요 — AI가 지어낸 답이 없어요 / 인터뷰 답을 확인하면 공개할 수 있어요 | These are my words — nothing made up by the AI / Confirm your interview answers to publish | 신규 · 체크해야 [공개하기]가 눌린다 |

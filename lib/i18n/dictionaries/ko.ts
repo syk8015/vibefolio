@@ -350,7 +350,7 @@ export const ko = {
     reviewInterviewTitle: "주인 인터뷰",
     reviewInterviewLead: "AI가 물어서 받은 내 답이에요. 내 말과 다르면 눌러서 고쳐 주세요",
     reviewInterviewQ: {
-      proudMoment: "제일 자랑하고 싶은 장면",
+      proudMoment: "가장 보여주고 싶은 부분",
       howIUse: "실제로 쓰는 법",
       mustSee: "꼭 봐야 할 곳",
       hide: "가릴 것 · 공개 안 됨",
@@ -978,7 +978,7 @@ export const ko = {
       `targetDevice는 "mobile" 또는 "desktop"만 돼요 — 받은 값: ${got}. 폰 화면에 맞춰 만든 앱이면 "mobile", 컴퓨터 브라우저에 맞춰 만든 앱이면 "desktop"으로 바꿔 다시 보내 주세요.`,
     // 주인 인터뷰 게이트(2026-09-29 사용자 확정: 필수). 받는 쪽은 AI라 "주인에게 물어라"가 곧 지시문이다.
     ownerInterviewRequired:
-      'ownerInterview가 필요해요. 다른 걸 쓰기 전에 주인에게 채팅으로 아래를 묻고 답을 기다리세요 — AI가 대신 답하면 안 돼요. 1) 제일 자랑하고 싶은 장면(proudMoment) 2) 실제로 어떻게 쓰는지: 언제·얼마나 자주·왜(howIUse) 3) 처음 보는 사람이 꼭 봐야 할 것 하나(mustSee) 4) 선택: 절대 보여주면 안 되는 것(hide, 목록). 주인의 말 그대로 보내세요: { "ownerInterview": { "proudMoment": "…", "howIUse": "…", "mustSee": "…", "hide": ["…"] } }. 받은 답으로 대본에서 proudMoment·mustSee 장면을 앞에 두고 오래 보여주고, builderNote는 howIUse에서 한 줄로 뽑고, hide가 보이는 장면은 대본에서 빼세요.',
+      'ownerInterview가 필요해요. 다른 걸 쓰기 전에 주인에게 채팅으로 아래를 묻고 답을 기다리세요 — AI가 대신 답하면 안 돼요. 1) 이 앱에서 가장 보여주고 싶은 부분 — 화면·기능·결과(proudMoment) 2) 실제로 어떻게 쓰는지: 언제·얼마나 자주·왜, 아직 안 써 봤다면 무엇 때문에 만들었는지(howIUse) 3) 처음 보는 사람이 꼭 봐야 할 것 하나(mustSee) 4) 선택: 절대 보여주면 안 되는 것(hide, 목록). 주인의 말 그대로 보내세요: { "ownerInterview": { "proudMoment": "…", "howIUse": "…", "mustSee": "…", "hide": ["…"] } }. 받은 답으로 대본에서 proudMoment·mustSee 장면을 앞에 두고 오래 보여주고, builderNote는 howIUse에서 한 줄로 뽑고, hide가 보이는 장면은 대본에서 빼세요.',
     ownerInterviewIncomplete: (keys: string[]) =>
       `ownerInterview에 답이 빠졌어요: ${keys.join(", ")}. 주인에게 묻고 그 말 그대로 보내세요 — "없음"·"N/A" 같은 자리 채우기는 빈 답으로 봐요.`,
     ownerInterviewTooLong: (key: string, max: number) =>

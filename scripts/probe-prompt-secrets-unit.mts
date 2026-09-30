@@ -28,7 +28,11 @@ ok("연결: 1회용이라고 말한다", paste.includes("ONE-TIME pairing code")
 ok("연결: check 단계가 있다", paste.includes("check --file"));
 ok("연결: 토큰이 없다", !paste.includes("nf_live_"));
 // 주인 인터뷰(2026-09-29, 필수) — 프롬프트가 먼저 묻게 하고, 필드 이름을 알려 준다.
-ok("연결: 주인 인터뷰를 먼저 묻는다", paste.includes("Interview me BEFORE you write anything"));
+ok("연결: 프로젝트를 먼저 훑고, 쉬운 말로 인터뷰한다", paste.indexOf("First, look around the project") < paste.indexOf("Then interview me") && paste.includes("plain everyday words"));
+// 09-30 실사용 피드백: 덜 만든 백엔드 작품에 "가장 뿌듯했던 순간"·촬영 기술 질문이 돌아와 당황.
+ok("연결: 앱의 '부분'을 묻는다(인생의 순간이 아니라)", paste.includes("a PART of the app, not a moment in my life"));
+ok("연결: 덜 만든 작품이면 먼저 말하고 지금 올릴지 묻는다", paste.includes("work in progress"));
+ok("연결: 인터뷰에 촬영 기술 질문을 섞지 않는다", paste.includes("Don't put filming mechanics in it"));
 ok("연결: ownerInterview 필드를 알려 준다", paste.includes("ownerInterview — REQUIRED"));
 
 // ── ② 고쳐달라기 프롬프트
