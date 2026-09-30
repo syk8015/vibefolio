@@ -9,6 +9,7 @@ import { PasteReply } from "@/components/publish/PasteReply";
 import { FoldToggle } from "@/components/FoldToggle";
 import { pastePrompt, AUTO_TOKEN_NAME, MCP_TOKEN_NAME, mcpClaudeCodeCommand, mcpConfigJson, remoteMcpUrl } from "@/lib/connectSnippets";
 import { useT } from "@/lib/i18n/client";
+import { aiStarted } from "@/lib/connectActivity";
 
 interface TokenRow {
   id: string;
@@ -100,6 +101,47 @@ function ToolIcon({ id }: { id: ToolId }) {
   );
 }
 
+// 복사한 뒤 AI가 실제로 움직였나(2026-09-30). 켜지는 순간의 값을 기준점으로 잡고 몇 초마다 다시
+// 물어, 기준점 뒤 새 흔적(코드 교환·토큰 사용)이 생기면 true. 판정은 lib/connectActivity.ts.
+// 30분(코드 수명)이 지나면 묻기를 그친다 — 그때까지 없으면 기존 기다림 문구가 그대로 남는다.
+const ACTIVITY_POLL_MS = 5_000;
+const ACTIVITY_POLL_MAX_MS = 30 * 60_000;
+function useAiStarted(active: boolean): boolean {
+  const [started, setStarted] = useState(false);
+  useEffect(() => {
+    if (!active) return;
+    let stop = false;
+    let baseline: string | null | undefined;
+    const until = Date.now() + ACTIVITY_POLL_MAX_MS;
+    const ask = async (): Promise<string | null | undefined> => {
+      const res = await fetch("/api/connect/activity", { cache: "no-store" }).catch(() => null);
+      if (!res?.ok) return undefined;
+      const body = await res.json().catch(() => null);
+      return typeof body?.latest === "string" ? body.latest : null;
+    };
+    const tick = async () => {
+      if (stop) return;
+      const latest = await ask();
+      if (stop) return;
+      if (latest !== undefined) {
+        if (baseline === undefined) baseline = latest;
+        else if (aiStarted(baseline, latest)) {
+          setStarted(true);
+          return;
+        }
+      }
+      if (Date.now() < until) timer = window.setTimeout(tick, ACTIVITY_POLL_MS);
+    };
+    let timer = window.setTimeout(tick, 0);
+    return () => {
+      stop = true;
+      window.clearTimeout(timer);
+      setStarted(false);
+    };
+  }, [active]);
+  return started;
+}
+
 export default function ConnectPanel() {
   const { t, locale } = useT();
   const [tool, setTool] = useState<ToolId | null>(null);
@@ -136,6 +178,8 @@ export default function ConnectPanel() {
   const pastedTimer = useRef<number | null>(null);
   useEffect(() => () => { if (pastedTimer.current) window.clearTimeout(pastedTimer.current); }, []);
   const origin = typeof window !== "undefined" ? window.location.origin : "https://nookframe.com";
+  const terminalStarted = useAiStarted(path === "terminal" && copiedOnce);
+  const claudeStarted = useAiStarted(path === "claude" && urlCopied);
 
   async function load() {
     const supabase = createClient();
@@ -417,7 +461,7 @@ export default function ConnectPanel() {
           {manualPrompt && <ManualCopyBox text={manualPrompt} />}
           {prompted && (
             <div className="flex flex-col gap-2.5">
-              {waiting(t.connect.waitingAi)}
+              {waiting(terminalStarted ? t.connect.startedAi : t.connect.waitingAi)}
               {/* 터미널 AI가 예상과 달리 답만 주고 끝났을 때의 출구(2026-09-18). */}
               <div className="w-full">
                 <FoldToggle open={showPaste} onToggle={() => setShowPaste((v) => !v)}>{t.connect.pasteJsonLead}</FoldToggle>
@@ -441,7 +485,7 @@ export default function ConnectPanel() {
             {urlCopied ? t.connect.copiedButton : t.connect.mcpRemoteCopy}
           </button>
           {urlCopyFailed && <ManualCopyBox text={remoteMcpUrl(origin)} rows={1} />}
-          {urlCopied && waiting(t.connect.waitingClaude)}
+          {urlCopied && waiting(claudeStarted ? t.connect.startedClaude : t.connect.waitingClaude)}
           <div className="w-full">
             <FoldToggle open={showHelp} onToggle={() => setShowHelp((v) => !v)}>{t.connect.claudeHelpToggle}</FoldToggle>
             {showHelp && (

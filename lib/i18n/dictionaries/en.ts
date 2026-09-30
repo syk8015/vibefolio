@@ -657,6 +657,8 @@ export const en: Dictionary = {
     copiedButton: "Copied ✓",
     waitingAi: "Waiting for your AI to upload it. The review screen opens by itself when it lands.",
     waitingClaude: "Waiting for Claude to upload it. The review screen opens by itself when it lands.",
+    startedAi: "Your AI has started. The review screen opens by itself when it's uploaded.",
+    startedClaude: "Claude has started. The review screen opens by itself when it's uploaded.",
     pasteJsonLead: "Did your AI just reply and stop?",
     manualCopyLead: "Your browser blocked automatic copying. Tap the box below to select everything, then copy it yourself.",
     issueFailed: "Couldn't get it ready. Please try again shortly.",
