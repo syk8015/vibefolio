@@ -53,7 +53,7 @@ import { getDictionary } from "@/lib/i18n/dictionaries";
 // 사이트가 AI에게 무엇을 보내는 게 아니다: 사람이 복사해 AI 채팅창에 붙여넣는다(문구도 그렇게).
 export type DraftPatch = Partial<Pick<DBProject, "title" | "description" | "comment" | "demo_script" | "translations">>;
 
-export function DraftReviewModal({ draft, privateReady = true, username, demoPaused = false, onClose, onPublish, onEdit, onDelete, onSave, onSaveInterview }: {
+export function DraftReviewModal({ draft, privateReady = true, username, demoPaused = false, published: publishedProp, filmRequested = false, onClose, onPublish, onEdit, onDelete, onSave, onSaveInterview }: {
   draft: DBProject;
   // 비공개 칸(대본·로그인 답·로봇 메모)을 서버에서 받았나. 못 받은 동안엔 "대본 없음"이라
   // 거짓으로 보이거나, 빈 값으로 AI 수정 프롬프트를 만들어 AI가 멀쩡한 대본을 덮게 된다.
@@ -62,6 +62,12 @@ export function DraftReviewModal({ draft, privateReady = true, username, demoPau
   username?: string;
   /** 촬영을 몰아서 하는 중(배치 모드) — 공개 뒤 "촬영 대기 중"의 툴팁이 언제 찍히는지 맞게 말한다 */
   demoPaused?: boolean;
+  /** 공개 목록으로 옮겨졌나 — 행의 is_draft가 아니라 ProjectsTab의 목록으로 가른다. realtime은 그 칸을
+   *  DB 값으로 덮어써서(공개 직전 저장의 is_draft=true가 늦게 오는 등) 창이 검토 화면으로 깜빡인다 */
+  published?: boolean;
+  /** 공개하면서 촬영을 요청했고 아직 실패하지 않았다 — DB에 '대기'가 찍히기 전(공개 UPDATE의 realtime이
+   *  촬영 상태를 비워 보낸다) 세 단계가 사라졌다 돌아오지 않게 '촬영 대기 중'으로 둔다 */
+  filmRequested?: boolean;
   onClose: () => void;
   /** 공개 요청 — 끝날 때까지(성공·실패) 기다린다. 그동안 버튼은 "공개 중…"으로 잠긴다 */
   onPublish: () => Promise<unknown> | void;
@@ -254,13 +260,15 @@ export function DraftReviewModal({ draft, privateReady = true, username, demoPau
     }
   };
   // 공개됐다 — ProjectsTab이 공개 목록으로 옮긴 같은 행을 넘긴다(실패하면 초안으로 돌아온다).
-  const published = !draft.is_draft;
+  const published = publishedProp ?? !draft.is_draft;
   // "공개했어요"로 바뀌는 순간 읽기 초점을 그 제목에 둔다(누른 버튼이 사라지므로).
   const publishedHeadingRef = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
     if (published) publishedHeadingRef.current?.focus();
   }, [published]);
   const [linkCopied, setLinkCopied] = useState(false);
+  const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (copiedTimer.current) clearTimeout(copiedTimer.current); }, []);
   const [manualLink, setManualLink] = useState<string | null>(null);
   const copyLink = async () => {
     if (!username) return;
@@ -268,7 +276,8 @@ export function DraftReviewModal({ draft, privateReady = true, username, demoPau
     if (await copyText(url)) {
       setManualLink(null);
       setLinkCopied(true);
-      setTimeout(() => setLinkCopied(false), 1600);
+      if (copiedTimer.current) clearTimeout(copiedTimer.current);
+      copiedTimer.current = setTimeout(() => setLinkCopied(false), 1600);
     } else {
       // 복사가 막힌 곳(인앱 브라우저 등) — "복사했어요"라고 거짓말하지 않고 주소를 펼친다.
       setManualLink(url);
@@ -436,7 +445,7 @@ export function DraftReviewModal({ draft, privateReady = true, username, demoPau
   ] : null;
   // 공개한 뒤엔 촬영 상태(실시간으로 바뀐다)를 그대로 따른다. 촬영이 안 걸렸으면(직접 준 영상·요청 실패) 두지 않는다 —
   // 실패는 목록의 토스트·행 배지가 말한다.
-  const status = draft.demo_build_status;
+  const status = draft.demo_build_status ?? (published && filmRequested ? "pending" : null);
   const filmStep: TrailStep | null =
     status === "pending" || status === "held"
       ? { state: "wait", label: t.projects.reviewTrailWaiting, title: demoPaused ? t.projects.pausedTip : t.projects.progressRunningBody }

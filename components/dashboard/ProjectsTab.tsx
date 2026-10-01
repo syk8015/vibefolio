@@ -65,11 +65,14 @@ export default function ProjectsTab({
   // 되돌아가면 저절로 검토 화면으로 돌아온다. 이 화면이 떠 있는 동안 성공 토스트는 띄우지 않는다(같은 말 두 번).
   const [celebrateId, setCelebrateId] = useState<string | null>(null);
   const celebrateRef = useRef<string | null>(null);
+  // 그 공개가 촬영을 요청했고 아직 실패하지 않았나 — 창의 세 단계가 DB에 '대기'가 찍히기 전에도 버틴다.
+  const [celebrateFilm, setCelebrateFilm] = useState(false);
   const celebrated = !reviewDraft && celebrateId ? projects.find((p) => p.id === celebrateId) ?? null : null;
   const reviewTarget = reviewDraft ?? celebrated;
   function closeReview() {
     setReviewDraftId(null);
     setCelebrateId(null);
+    setCelebrateFilm(false);
     celebrateRef.current = null;
   }
   // 수정 창을 **연 순간**의 로봇 메모와 "그 값을 서버에서 받아 봤나". 창은 열릴 때 폼을 한 번
@@ -100,12 +103,17 @@ export default function ProjectsTab({
   // null로 보여도 DB엔 값이 있을 수 있다 — 수정 저장이 그 null로 로봇 메모를 지우지 않게,
   // 검토 창이 "대본 없음"이라고 거짓말하지 않게 가른다(렌더에서 봐야 해서 state).
   const [privLoaded, setPrivLoaded] = useState<ReadonlySet<string>>(() => new Set());
-  const markPrivLoaded = (ids: Iterable<string>) =>
+  // 갱신 함수는 React가 두 번 부를 수 있다(개발 모드 검사·렌더 재시작) — 한 번 돌면 끝나는
+  // 반복자(Map.keys())를 그 안에서 돌리면 두 번째엔 빈손이라 "받아 봤음"이 조용히 빠지고,
+  // 검토 창이 "불러오는 중"에 멈춰 체크·공개가 잠긴다(10-01). 배열로 먼저 굳힌다.
+  const markPrivLoaded = (ids: Iterable<string>) => {
+    const list = [...ids];
     setPrivLoaded((prev) => {
       const next = new Set(prev);
-      for (const id of ids) next.add(id);
+      for (const id of list) next.add(id);
       return next.size === prev.size ? prev : next;
     });
+  };
   // 목록 재조회 때 "화면에 있던 비공개 칸"을 지키려고 최신 두 목록을 본다.
   const rowsRef = useRef<DBProject[]>([]);
   const showAddModalRef = useRef(showAddModal);
@@ -531,6 +539,8 @@ export default function ProjectsTab({
 
   // 공개됐으면 true, 실패해서 초안으로 되돌렸으면 false — 검토 창이 결과를 기다린다(그동안 버튼 잠금).
   async function handlePublishDraft(stale: DBProject): Promise<boolean> {
+    // 이미 공개 목록에 있다 — 두 번 눌러 같은 행이 두 번 꽂히고 촬영이 두 번 요청되지 않게.
+    if (projects.some(p => p.id === stale.id)) return true;
     // 초안 → 공개: is_draft=false로 내리고 published 리스트로 옮긴 뒤, 기존 추가
     // 플로우와 동일하게 자동 시연을 트리거한다(쿼터·모더레이션·held 전부 상속).
     const supabase = createClient();
@@ -552,6 +562,7 @@ export default function ProjectsTab({
       : base;
     setDrafts(prev => prev.filter(p => p.id !== project.id));
     setProjects(prev => [published, ...prev]);
+    if (celebrateRef.current === project.id) setCelebrateFilm(!!source);
     void loadPrivate([project.id]);
 
     // 공개는 초안 검토 창에서 주인 인터뷰를 확인해야만 여기로 온다(2026-09-29) — 그 순간을 남긴다.
@@ -568,6 +579,7 @@ export default function ProjectsTab({
       setProjects(prev => prev.filter(p => p.id !== project.id));
       setDrafts(prev => (prev.some(p => p.id === project.id) ? prev : [project, ...prev]));
       setNotice(t.projects.publishFailed);
+      setCelebrateFilm(false);
       return false;
     }
     syncPublic();
@@ -593,10 +605,12 @@ export default function ProjectsTab({
             return;
           }
           setProjects(prev => prev.map(p => p.id === project.id ? { ...published, demo_build_status: null } : p));
+          if (celebrateRef.current === project.id) setCelebrateFilm(false);
           setNotice(body.message || t.projects.publishedDemoStartFailed);
         })
         .catch(() => {
           setProjects(prev => prev.map(p => p.id === project.id ? { ...published, demo_build_status: null } : p));
+          if (celebrateRef.current === project.id) setCelebrateFilm(false);
           setNotice(t.projects.publishedDemoRequestFailed);
         });
     }
@@ -715,11 +729,14 @@ export default function ProjectsTab({
           privateReady={privLoaded.has(reviewTarget.id)}
           username={username}
           demoPaused={demoPaused}
+          published={!reviewDraft}
+          filmRequested={!reviewDraft && celebrateFilm}
           onClose={closeReview}
           onPublish={async () => {
             const d = reviewTarget;
             celebrateRef.current = d.id;
             setCelebrateId(d.id);
+            setCelebrateFilm(false);
             await handlePublishDraft(d);
           }}
           onEdit={() => { openEdit(reviewTarget); closeReview(); }}

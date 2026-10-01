@@ -49,12 +49,15 @@ const CLAUDE_ORANGE = "#D97757";
 // 성공·켜짐의 초록 — 복사 완료 표시(CopyLinkButton)와 같은 값. 라이트·다크 바탕 둘 다에서 보인다.
 const ACTIVE_GREEN = "#22c55e";
 const RECENT_MS = 7 * 24 * 60 * 60 * 1000;
+const OPENAI_HOSTS = new Set(["chatgpt.com", "chat.openai.com", "openai.com"]);
 
 /** 연결이 어디로 이어졌는지 — 공식 로고가 있는 건 그 로고, 없으면 같은 굵기의 선 아이콘. */
 function ConnectionIcon({ name }: { name: string | null }) {
   const host = name?.startsWith("oauth:") ? name.slice("oauth:".length).toLowerCase() : null;
-  const logo = host?.includes("claude") ? { d: AI_TOOL_PATHS.claude, fill: CLAUDE_ORANGE }
-    : host && /chatgpt|openai/.test(host) ? { d: AI_TOOL_PATHS.openai, fill: "currentColor" }
+  // 주소가 정확히 그 회사일 때만 공식 로고 — "claude"가 들어간 남의 주소(claude-helper.dev 등)가
+  // Claude처럼 보이면 끊을 연결을 고를 때 속는다(연결 허락 화면 ConnectPair와 같은 규칙).
+  const logo = host === "claude.ai" ? { d: AI_TOOL_PATHS.claude, fill: CLAUDE_ORANGE }
+    : host && OPENAI_HOSTS.has(host) ? { d: AI_TOOL_PATHS.openai, fill: "currentColor" }
       : null;
   if (logo) {
     return (
