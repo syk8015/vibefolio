@@ -33,6 +33,11 @@ export const DEMO_SCRIPT_ACTIONS = [
   // 컷 하나를 거기 쓴다. 브라우저 히스토리로 돌아가면 그 컷을 아낀다. 값은 back 하나뿐 —
   // 대본이 주소를 정하면 안전 검사(같은 출처 확인)가 한 겹 더 필요해진다.
   "navigate",
+  // 기다리기(2026-10-02): 느린 앱(AI 답·차트 계산·첫 로딩)은 결과가 기본 정지(0.9초) 뒤에야
+  // 그려져, 로봇이 다음 장면으로 넘어간 뒤에 나타났다 — 필름엔 빈 화면만 남았다. selector가
+  // 있으면 그 요소가 보일 때까지(최대 DEMO_SCRIPT_WAIT_MAX_SEC) 기다린 뒤 hold만큼 보여 주고,
+  // 없으면 hold초(기본 DEMO_SCRIPT_WAIT_PAUSE_SEC) 그냥 멈춘다. 손이 하는 일이 아니라 커서는 없다.
+  "wait",
 ] as const;
 type DemoScriptAction = (typeof DEMO_SCRIPT_ACTIONS)[number];
 
@@ -95,7 +100,8 @@ export const DEMO_SCRIPT_MIN_SUBSTANTIAL = 3;
 export function isStepWired(st: DemoScriptStep): boolean {
   // navigate(뒤로가기)는 화면 안 요소를 안 쓴다 — 셀렉터를 요구하면 뒤로가기 한 줄
   // 때문에 대본 전체가 비싼 비전 경로로 떨어진다(편당 $0.19 vs $0.02).
-  if (st.action === "navigate") return true;
+  // wait도 같다: 셀렉터는 "기다릴 대상"일 뿐이라 없어도(그냥 멈춤) 결정론이다.
+  if (st.action === "navigate" || st.action === "wait") return true;
   if (!st.selector || !st.action) return false;
   if (st.action === "draw") return false;
   if (st.action === "drag" && !st.toSelector) return false;
@@ -111,9 +117,23 @@ export function isFullyWired(script: DemoScript): boolean {
 // (selector 또는 where)가 둘 다 있어야 한다. isStepWired(비전 생략의 조건)보다 느슨한
 // 기준이다 — 셀렉터 없이 where만 준 대본도 (비전 폴백으로) 찍히기는 하므로 실속으로 센다.
 export function isStepSubstantial(st: DemoScriptStep): boolean {
-  if (st.action === "navigate") return true; // 어디를 누를지가 없는 게 정상인 유일한 액션
+  if (st.action === "navigate") return true; // 어디를 누를지가 없는 게 정상인 액션
+  // 기다리기는 앞 장면의 결과를 기다리는 이음새다 — 보여주는 기능이 아니라 실속으로 안 센다
+  // (기다리기 줄로 실속 하한을 채우는 길을 막는다).
+  if (st.action === "wait") return false;
   return !!st.action && !!(st.selector || st.where);
 }
+
+// 자막이 필요한 장면인가. 뒤로가기·기다리기는 앞 장면의 이음새라 앞 자막이 그대로 이어진다
+// (게이트 captionIssue·자막 시간표 buildCaptionTrack·검토 창 LanguagePanel이 같은 규칙).
+export function stepTakesCaption(st: DemoScriptStep): boolean {
+  return st.action !== "navigate" && st.action !== "wait";
+}
+
+// 기다리기 상한·기본값(초). 러너(assemble·explore·replay)와 예상 길이(demoScriptReview)가 같이 쓴다.
+// 상한 10초: 필름이 34초라 그 이상 기다리면 뒤 장면이 통째로 잘린다.
+export const DEMO_SCRIPT_WAIT_MAX_SEC = 10;
+export const DEMO_SCRIPT_WAIT_PAUSE_SEC = 2;
 
 export function substantialStepCount(script: DemoScript): number {
   return script.steps.filter(isStepSubstantial).length;

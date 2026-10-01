@@ -14,7 +14,7 @@
 // 판정은 여기 한 벌이다: 생성 게이트(/api/ingest)·수정(/api/ingest/drafts/[id])이 같은
 // 함수를 쓴다. 서버 두 곳의 답이 갈라지면 "만들 땐 됐는데 고치니 튕긴다"가 된다.
 import { descriptionShapeIssue, descriptionTooLong, type DescriptionIssue } from "@/lib/descriptionShape";
-import type { DemoScript } from "@/lib/demoScript";
+import { stepTakesCaption, type DemoScript } from "@/lib/demoScript";
 
 export const SITE_LOCALES = ["ko", "en"] as const;
 export type SiteLocale = (typeof SITE_LOCALES)[number];
@@ -121,7 +121,7 @@ export type CaptionIssue =
   | { kind: "too-long"; locale: SiteLocale; step: number; max: number };
 
 /**
- * 자막 판정. 뒤로가기(navigate) 장면은 자막이 없는 게 정상 — 앞 장면 자막이 그대로 이어진다.
+ * 자막 판정. 뒤로가기(navigate)·기다리기(wait) 장면은 자막이 없는 게 정상 — 앞 장면 자막이 그대로 이어진다.
  * 번호는 사람이 읽는 1부터. 빠진 장면을 **전부** 알려준다(하나씩 고치며 여러 번 되돌려받지 않게).
  */
 export function captionIssue(script: DemoScript | null, needed: readonly SiteLocale[]): CaptionIssue | null {
@@ -130,7 +130,7 @@ export function captionIssue(script: DemoScript | null, needed: readonly SiteLoc
     const missing: number[] = [];
     for (let i = 0; i < script.steps.length; i++) {
       const st = script.steps[i];
-      if (st.action === "navigate") continue;
+      if (!stepTakesCaption(st)) continue;
       const cap = st.caption?.[locale];
       if (!cap) missing.push(i + 1);
       else if ([...cap].length > CAPTION_MAX) return { kind: "too-long", locale, step: i + 1, max: CAPTION_MAX };
@@ -211,7 +211,8 @@ const round1 = (n: number) => Math.round(n * 10) / 10;
 /**
  * 장면 표시 + 대본 자막 → 언어별 시간표. 규칙:
  *  - 자막은 다음 장면이 시작할 때 내려간다. 자막 없는 장면은 빈칸(앞 자막을 끈다).
- *  - 뒤로가기(navigate) 장면은 경계가 아니다 — 앞 자막이 그대로 이어진다(자막 규칙과 같다).
+ *  - 뒤로가기(navigate)·기다리기(wait) 장면은 경계가 아니다 — 앞 자막이 그대로 이어진다(자막 규칙과
+ *    같다). 단 그 장면에 그 언어 자막을 따로 달았다면 그 자막이 뜬다.
  *  - 첫 자막은 0초부터 — 첫 동작 전 인트로 동안에도 무엇을 보는지 알 수 있게.
  *  - 필름 길이(clipSec) 밖은 자른다. 촬영 예산에 걸려 못 찍은 장면은 표시가 없어 자막도 없다.
  */
@@ -224,13 +225,16 @@ export function buildCaptionTrack(
   const out: CaptionTrack = {};
   if (!script || !locales.length) return out;
   const seen = new Set<number>();
-  const bounds = [...marks]
+  const allBounds = [...marks]
     .filter((m) => Number.isFinite(m.atSec) && m.step >= 1 && m.step <= script.steps.length)
     .sort((a, b) => a.atSec - b.atSec)
-    .filter((m) => (seen.has(m.step) ? false : (seen.add(m.step), true)))
-    .filter((m) => script.steps[m.step - 1].action !== "navigate");
+    .filter((m) => (seen.has(m.step) ? false : (seen.add(m.step), true)));
   for (const locale of locales) {
     const cues: CaptionCue[] = [];
+    const bounds = allBounds.filter((m) => {
+      const st = script.steps[m.step - 1];
+      return stepTakesCaption(st) || !!st.caption?.[locale];
+    });
     for (let i = 0; i < bounds.length; i++) {
       const text = script.steps[bounds[i].step - 1].caption?.[locale];
       if (!text) continue;

@@ -26,6 +26,10 @@ type ScriptActionBase =
   // 쓰면 화면 안 버튼을 찾을 필요가 없다. 주소는 대본이 정하지 않는다(back 전용) —
   // netguard와 엮이지 않게.
   | { kind: "navigate"; to: "back"; label?: string }
+  // 기다리기 비트(2026-10-02): 느린 앱이 결과를 그릴 시간. selector가 있으면 그 요소가 보일
+  // 때까지(최대 DEMO_SCRIPT_WAIT_MAX_SEC) 기다린 뒤 holdMs(없으면 HOLD_MS)만큼 보여 주고,
+  // 없으면 ms만큼 그냥 멈춘다. 손이 하는 일이 아니라 커서는 숨기고 카메라는 와이드.
+  | { kind: "wait"; selector?: string; ms?: number; label?: string }
   // M1 (explore) emits these; replay handles them then.
   | { kind: "hover"; selector: string; x?: number; y?: number }
   // viaKey: the dismissal explore observed was an Escape press (no element to

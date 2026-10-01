@@ -358,7 +358,9 @@ export async function recordDemo(opts: RecordDemoOptions): Promise<RecordDemoRes
                 // "key" and the operator couldn't tell Enter from Delete.
                 : a.kind === "key"
                   ? ` ${a.key}`
-                  : "";
+                  : a.kind === "wait" && a.ms
+                    ? ` ${a.ms}ms`
+                    : "";
       const sel = "selector" in a ? a.selector || "(coord)" : "";
       console.log(`   ${a.kind.padEnd(7)} ${sel}${tail}`);
     }

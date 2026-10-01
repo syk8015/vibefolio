@@ -348,6 +348,12 @@ function ActionGlyph({ action }: { action?: string }) {
     case "draw":
       body = <path d="M3 13l1-3.5L10.5 3 13 5.5 6.5 12 3 13z" fill="none" {...stroke} />;
       break;
+    case "navigate":
+      body = <path d="M13 8H3M7 4L3 8l4 4" fill="none" {...stroke} />;
+      break;
+    case "wait":
+      body = <path d="M8 2.5a5.5 5.5 0 1 1 0 11 5.5 5.5 0 0 1 0-11zM8 5v3l2 1.5" fill="none" {...stroke} />;
+      break;
     default:
       return null;
   }

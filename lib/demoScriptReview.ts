@@ -22,7 +22,7 @@
 // 스크립트가 같은 판정을 쓰게.
 
 import type { DemoScript } from "./demoScript";
-import { isStepWired } from "./demoScript";
+import { DEMO_SCRIPT_WAIT_PAUSE_SEC, isStepWired } from "./demoScript";
 import type { DemoAccess } from "./demoAccess";
 import { safeFetch, readResponseCapped } from "./ssrf";
 
@@ -88,6 +88,9 @@ export type FilmEstimate = {
 // 뒤로가기 비트: 커서가 움직이지 않고 브라우저 히스토리 복귀만 기다린다
 // (replay.ts navigate 분기 — goBack + hold). 클릭보다 싸다.
 const NAV_SEC = 0.8;
+// 기다리기 비트: 셀렉터가 있으면 앱이 그걸 그릴 때까지(최대 10초) 기다린다 — 얼마나 걸릴지는
+// 앱마다 달라 어림값(2초)을 하한으로 쓴다. 없으면 hold초(기본 2초) 그냥 멈춘다.
+const WAIT_GUESS_SEC = 2;
 
 function stepSeconds(step: DemoScript["steps"][number]): number {
   // hold는 스키마 상한(0.5~4초)으로 자른다 — 대본이 20을 적어도 러너가 그만큼 쉬지 않는다.
@@ -101,6 +104,10 @@ function stepSeconds(step: DemoScript["steps"][number]): number {
     case "type": return CURSOR_MOVE_SEC + SETTLE_SEC + (step.text?.length ?? 0) * TYPE_CHAR_SEC + hold;
     case "drag": return CURSOR_MOVE_SEC + SETTLE_SEC + DRAG_SEC + hold;
     case "navigate": return NAV_SEC + hold;
+    case "wait":
+      return step.selector
+        ? WAIT_GUESS_SEC + hold
+        : typeof step.hold === "number" ? hold : DEMO_SCRIPT_WAIT_PAUSE_SEC;
     case "draw": return CURSOR_MOVE_SEC + SETTLE_SEC + DRAW_SEC + hold;
     // click과 action 없는 스텝(로봇이 화면을 보고 고르는 것)은 같은 비용으로 센다.
     default: return CURSOR_MOVE_SEC + SETTLE_SEC + hold;
@@ -121,7 +128,8 @@ export function estimateFilm(script: DemoScript): FilmEstimate {
 // 화면을 바꾸지 않는 액션 — focus는 필름 카메라가 확대만 하고, scroll은 같은 페이지를
 // 움직일 뿐이다. 나머지(click·type·drag·draw·hover, action 없음)는 다른 화면이나
 // JS가 새로 그리는 요소(드롭다운·모달·검색 결과)를 부를 수 있다.
-const SAME_SCREEN_ACTIONS = new Set<string>(["focus", "scroll"]);
+// wait도 스스로는 화면을 안 바꾼다(앞 동작의 결과를 기다릴 뿐).
+const SAME_SCREEN_ACTIONS = new Set<string>(["focus", "scroll", "wait"]);
 
 export type SelectorGroups = {
   // 로봇이 진입 URL을 열자마자 쓰는 셀렉터 — 앞에서부터 첫 "화면을 바꿀 수 있는"
@@ -139,7 +147,8 @@ export function selectorsOf(script: DemoScript): SelectorGroups {
   for (const s of script.steps) {
     for (const sel of [s.selector, s.toSelector]) {
       if (!sel || entry.includes(sel) || later.includes(sel)) continue;
-      (firstScreen ? entry : later).push(sel);
+      // 기다리기의 셀렉터는 "아직 안 그려진 것"이 정의다 — 첫 화면 HTML에 없다고 짚으면 거짓 경보다.
+      (firstScreen && s.action !== "wait" ? entry : later).push(sel);
     }
     if (!s.action || !SAME_SCREEN_ACTIONS.has(s.action)) firstScreen = false;
   }

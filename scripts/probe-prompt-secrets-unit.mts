@@ -26,7 +26,12 @@ const paste = pastePrompt(ORIGIN, "ko", CODE);
 ok("연결: login에 코드가 실린다", paste.includes(`login ${CODE}`));
 ok("연결: 1회용이라고 말한다", paste.includes("ONE-TIME pairing code"));
 ok("연결: check 단계가 있다", paste.includes("check --file"));
-ok("연결: 토큰이 없다", !paste.includes("nf_live_"));
+// npm이 막힌 셸용 curl 길(2026-10-02)도 재촬영과 같은 2단계 — `nf_live_…`는 설명용 예시로만 나온다.
+const realToken = /nf_live_[A-Za-z0-9_-]{10,}/;
+ok("연결: 진짜 토큰 모양이 없다", !realToken.test(paste));
+ok("연결: nf_live_는 설명용 예시로만 등장", (paste.match(/nf_live_/g) ?? []).length === 1 && paste.includes('{"token": "nf_live_…"}'));
+ok("연결: npm이 막히면 curl 길(교환 → 검사 → 발행)", paste.includes("npx won't run") && paste.includes("/api/connect/exchange") && paste.includes("/api/ingest?dryRun=1"));
+ok("연결: curl Bearer 자리엔 코드가 아니라 '방금 찍힌 토큰'", !paste.includes(`Bearer ${CODE}`) && paste.includes("Bearer <the token it just printed>"));
 // 주인 인터뷰(2026-09-29, 필수) — 프롬프트가 먼저 묻게 하고, 필드 이름을 알려 준다.
 ok("연결: 프로젝트를 먼저 훑고, 쉬운 말로 인터뷰한다", paste.indexOf("First, look around the project") < paste.indexOf("Then interview me") && paste.includes("plain everyday words"));
 // 09-30 실사용 피드백: 덜 만든 백엔드 작품에 "가장 뿌듯했던 순간"·촬영 기술 질문이 돌아와 당황.
@@ -59,7 +64,8 @@ ok("고쳐달라기: 두 언어 칸이 없으면 채우게 한다", fix.includes
 ok("고쳐달라기: 있으면 다른 언어 판을 싣는다", fixWith.includes('"title": "T"') && fixWith.includes('"appLanguages": [') && fixWith.includes("in step with your changes"));
 ok("고쳐달라기: login에 코드가 실린다", fix.includes(`login ${CODE}`));
 ok("고쳐달라기: check 단계가 있다", fix.includes("check --file"));
-ok("고쳐달라기: 토큰이 없다", !fix.includes("nf_live_"));
+ok("고쳐달라기: 진짜 토큰 모양이 없다", !realToken.test(fix) && (fix.match(/nf_live_/g) ?? []).length === 1);
+ok("고쳐달라기: npm이 막히면 curl 길", fix.includes("npx won't run") && fix.includes(`{"code": "${CODE}"}`) && !fix.includes(`Bearer ${CODE}`));
 ok("고쳐달라기: draftId가 실린다", fix.includes('"draftId": "p1"'));
 
 // ── ③ 재촬영 프롬프트

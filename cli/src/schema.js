@@ -58,7 +58,7 @@ export const TARGET_DEVICE_SCHEMA = {
 
 export const DEMO_SCRIPT_SCHEMA = {
   "type": "object",
-  "description": "The demo script a filming robot follows. You built this app, so you know which screen to open and what to press for the good part to show — do not leave the robot guessing from pixels. This script IS the whole video (the robot films exactly these steps and stops): cover every feature worth showing, 5-8 steps is right (max 10, min 4), in order of importance (the film runs ~30s and is cut from the end — step 1 must be the feature that absolutely cannot be missing). Every step must carry both an action and a selector (or where, if you do not know the selector) — a step with only a goal is a table of contents, not a script, and the server rejects a script made only of those (at least 3 steps must meet this bar). Set hold (seconds, 0.5-4) to linger on a step's result. The robot verifies each step on the real screen and skips what it cannot find. It films a 1280x720 desktop browser, so selectors must match the layout at that size. It has no account (cannot log in) and never opens file pickers; clicks that save, send or delete are skipped or answered with a fake success that never reaches the real server, so do not build a step on a result only the server can produce (an AI reply, data reloaded from the database).",
+  "description": "The demo script a filming robot follows. You built this app, so you know which screen to open and what to press for the good part to show — do not leave the robot guessing from pixels. This script IS the whole video (the robot films exactly these steps and stops): cover every feature worth showing, 5-8 steps is right (max 10, min 4), in order of importance (the film runs ~30s and is cut from the end — step 1 must be the feature that absolutely cannot be missing). Every step must carry both an action and a selector (or where, if you do not know the selector) — a step with only a goal is a table of contents, not a script, and the server rejects a script made only of those (at least 3 steps must meet this bar). Set hold (seconds, 0.5-4) to linger on a step's result. If the app is slow to show a result (an AI answer, a chart that computes, a heavy first load), add a step with action \"wait\" right after the step that triggers it: give the selector of what should appear and the robot waits up to 10 seconds for it before moving on, so the film catches the result instead of an empty screen (without a selector it simply pauses for hold seconds, default 2). The robot verifies each step on the real screen and skips what it cannot find. It films a 1280x720 desktop browser, so selectors must match the layout at that size. It has no account (cannot log in) and never opens file pickers; clicks that save, send or delete are skipped or answered with a fake success that never reaches the real server, so do not build a step on a result only the server can produce (an AI reply, data reloaded from the database).",
   "properties": {
     "steps": {
       "type": "array",
@@ -72,7 +72,7 @@ export const DEMO_SCRIPT_SCHEMA = {
           },
           "selector": {
             "type": "string",
-            "description": "CSS selector for that control — you know the code, so give the exact one (max 250 chars)"
+            "description": "CSS selector for that control — you know the code, so give the exact one (max 250 chars). For action=wait: the element whose appearance ends the wait (e.g. the result panel)"
           },
           "toSelector": {
             "type": "string",
@@ -92,7 +92,8 @@ export const DEMO_SCRIPT_SCHEMA = {
               "hover",
               "draw",
               "focus",
-              "navigate"
+              "navigate",
+              "wait"
             ]
           },
           "to": {
@@ -112,7 +113,7 @@ export const DEMO_SCRIPT_SCHEMA = {
           },
           "hold": {
             "type": "number",
-            "description": "How many seconds to hold on this step's result (0.5-4). Only for beats that need a slow look"
+            "description": "How many seconds to hold on this step's result (0.5-4). Only for beats that need a slow look. For action=wait without a selector: how long to pause"
           },
           "caption": {
             "type": "object",
@@ -124,7 +125,7 @@ export const DEMO_SCRIPT_SCHEMA = {
                 "type": "string"
               }
             },
-            "description": "Required for every language in ko/en that appLanguages does NOT list (a navigate step needs none): one short caption for this scene in that language (max 90 characters), drawn from the owner's interview answers — e.g. { \"en\": \"Every room, live — updated every minute.\" }. The player lays it over the video until the next caption; it is never burned into the film."
+            "description": "Required for every language in ko/en that appLanguages does NOT list (navigate and wait steps need none): one short caption for this scene in that language (max 90 characters), drawn from the owner's interview answers — e.g. { \"en\": \"Every room, live — updated every minute.\" }. The player lays it over the video until the next caption; it is never burned into the film."
           }
         },
         "required": [
@@ -299,7 +300,7 @@ export const PUBLISH_INPUT_SCHEMA = {
     },
     "demoScript": {
       "type": "object",
-      "description": "The demo script a filming robot follows. You built this app, so you know which screen to open and what to press for the good part to show — do not leave the robot guessing from pixels. This script IS the whole video (the robot films exactly these steps and stops): cover every feature worth showing, 5-8 steps is right (max 10, min 4), in order of importance (the film runs ~30s and is cut from the end — step 1 must be the feature that absolutely cannot be missing). Every step must carry both an action and a selector (or where, if you do not know the selector) — a step with only a goal is a table of contents, not a script, and the server rejects a script made only of those (at least 3 steps must meet this bar). Set hold (seconds, 0.5-4) to linger on a step's result. The robot verifies each step on the real screen and skips what it cannot find. It films a 1280x720 desktop browser, so selectors must match the layout at that size. It has no account (cannot log in) and never opens file pickers; clicks that save, send or delete are skipped or answered with a fake success that never reaches the real server, so do not build a step on a result only the server can produce (an AI reply, data reloaded from the database).",
+      "description": "The demo script a filming robot follows. You built this app, so you know which screen to open and what to press for the good part to show — do not leave the robot guessing from pixels. This script IS the whole video (the robot films exactly these steps and stops): cover every feature worth showing, 5-8 steps is right (max 10, min 4), in order of importance (the film runs ~30s and is cut from the end — step 1 must be the feature that absolutely cannot be missing). Every step must carry both an action and a selector (or where, if you do not know the selector) — a step with only a goal is a table of contents, not a script, and the server rejects a script made only of those (at least 3 steps must meet this bar). Set hold (seconds, 0.5-4) to linger on a step's result. If the app is slow to show a result (an AI answer, a chart that computes, a heavy first load), add a step with action \"wait\" right after the step that triggers it: give the selector of what should appear and the robot waits up to 10 seconds for it before moving on, so the film catches the result instead of an empty screen (without a selector it simply pauses for hold seconds, default 2). The robot verifies each step on the real screen and skips what it cannot find. It films a 1280x720 desktop browser, so selectors must match the layout at that size. It has no account (cannot log in) and never opens file pickers; clicks that save, send or delete are skipped or answered with a fake success that never reaches the real server, so do not build a step on a result only the server can produce (an AI reply, data reloaded from the database).",
       "properties": {
         "steps": {
           "type": "array",
@@ -313,7 +314,7 @@ export const PUBLISH_INPUT_SCHEMA = {
               },
               "selector": {
                 "type": "string",
-                "description": "CSS selector for that control — you know the code, so give the exact one (max 250 chars)"
+                "description": "CSS selector for that control — you know the code, so give the exact one (max 250 chars). For action=wait: the element whose appearance ends the wait (e.g. the result panel)"
               },
               "toSelector": {
                 "type": "string",
@@ -333,7 +334,8 @@ export const PUBLISH_INPUT_SCHEMA = {
                   "hover",
                   "draw",
                   "focus",
-                  "navigate"
+                  "navigate",
+                  "wait"
                 ]
               },
               "to": {
@@ -353,7 +355,7 @@ export const PUBLISH_INPUT_SCHEMA = {
               },
               "hold": {
                 "type": "number",
-                "description": "How many seconds to hold on this step's result (0.5-4). Only for beats that need a slow look"
+                "description": "How many seconds to hold on this step's result (0.5-4). Only for beats that need a slow look. For action=wait without a selector: how long to pause"
               },
               "caption": {
                 "type": "object",
@@ -365,7 +367,7 @@ export const PUBLISH_INPUT_SCHEMA = {
                     "type": "string"
                   }
                 },
-                "description": "Required for every language in ko/en that appLanguages does NOT list (a navigate step needs none): one short caption for this scene in that language (max 90 characters), drawn from the owner's interview answers — e.g. { \"en\": \"Every room, live — updated every minute.\" }. The player lays it over the video until the next caption; it is never burned into the film."
+                "description": "Required for every language in ko/en that appLanguages does NOT list (navigate and wait steps need none): one short caption for this scene in that language (max 90 characters), drawn from the owner's interview answers — e.g. { \"en\": \"Every room, live — updated every minute.\" }. The player lays it over the video until the next caption; it is never burned into the film."
               }
             },
             "required": [
@@ -615,7 +617,7 @@ export const TOOLS = [
         },
         "demoScript": {
           "type": "object",
-          "description": "The demo script a filming robot follows. You built this app, so you know which screen to open and what to press for the good part to show — do not leave the robot guessing from pixels. This script IS the whole video (the robot films exactly these steps and stops): cover every feature worth showing, 5-8 steps is right (max 10, min 4), in order of importance (the film runs ~30s and is cut from the end — step 1 must be the feature that absolutely cannot be missing). Every step must carry both an action and a selector (or where, if you do not know the selector) — a step with only a goal is a table of contents, not a script, and the server rejects a script made only of those (at least 3 steps must meet this bar). Set hold (seconds, 0.5-4) to linger on a step's result. The robot verifies each step on the real screen and skips what it cannot find. It films a 1280x720 desktop browser, so selectors must match the layout at that size. It has no account (cannot log in) and never opens file pickers; clicks that save, send or delete are skipped or answered with a fake success that never reaches the real server, so do not build a step on a result only the server can produce (an AI reply, data reloaded from the database).",
+          "description": "The demo script a filming robot follows. You built this app, so you know which screen to open and what to press for the good part to show — do not leave the robot guessing from pixels. This script IS the whole video (the robot films exactly these steps and stops): cover every feature worth showing, 5-8 steps is right (max 10, min 4), in order of importance (the film runs ~30s and is cut from the end — step 1 must be the feature that absolutely cannot be missing). Every step must carry both an action and a selector (or where, if you do not know the selector) — a step with only a goal is a table of contents, not a script, and the server rejects a script made only of those (at least 3 steps must meet this bar). Set hold (seconds, 0.5-4) to linger on a step's result. If the app is slow to show a result (an AI answer, a chart that computes, a heavy first load), add a step with action \"wait\" right after the step that triggers it: give the selector of what should appear and the robot waits up to 10 seconds for it before moving on, so the film catches the result instead of an empty screen (without a selector it simply pauses for hold seconds, default 2). The robot verifies each step on the real screen and skips what it cannot find. It films a 1280x720 desktop browser, so selectors must match the layout at that size. It has no account (cannot log in) and never opens file pickers; clicks that save, send or delete are skipped or answered with a fake success that never reaches the real server, so do not build a step on a result only the server can produce (an AI reply, data reloaded from the database).",
           "properties": {
             "steps": {
               "type": "array",
@@ -629,7 +631,7 @@ export const TOOLS = [
                   },
                   "selector": {
                     "type": "string",
-                    "description": "CSS selector for that control — you know the code, so give the exact one (max 250 chars)"
+                    "description": "CSS selector for that control — you know the code, so give the exact one (max 250 chars). For action=wait: the element whose appearance ends the wait (e.g. the result panel)"
                   },
                   "toSelector": {
                     "type": "string",
@@ -649,7 +651,8 @@ export const TOOLS = [
                       "hover",
                       "draw",
                       "focus",
-                      "navigate"
+                      "navigate",
+                      "wait"
                     ]
                   },
                   "to": {
@@ -669,7 +672,7 @@ export const TOOLS = [
                   },
                   "hold": {
                     "type": "number",
-                    "description": "How many seconds to hold on this step's result (0.5-4). Only for beats that need a slow look"
+                    "description": "How many seconds to hold on this step's result (0.5-4). Only for beats that need a slow look. For action=wait without a selector: how long to pause"
                   },
                   "caption": {
                     "type": "object",
@@ -681,7 +684,7 @@ export const TOOLS = [
                         "type": "string"
                       }
                     },
-                    "description": "Required for every language in ko/en that appLanguages does NOT list (a navigate step needs none): one short caption for this scene in that language (max 90 characters), drawn from the owner's interview answers — e.g. { \"en\": \"Every room, live — updated every minute.\" }. The player lays it over the video until the next caption; it is never burned into the film."
+                    "description": "Required for every language in ko/en that appLanguages does NOT list (navigate and wait steps need none): one short caption for this scene in that language (max 90 characters), drawn from the owner's interview answers — e.g. { \"en\": \"Every room, live — updated every minute.\" }. The player lays it over the video until the next caption; it is never burned into the film."
                   }
                 },
                 "required": [
@@ -929,7 +932,7 @@ export const TOOLS = [
         },
         "demoScript": {
           "type": "object",
-          "description": "The demo script a filming robot follows. You built this app, so you know which screen to open and what to press for the good part to show — do not leave the robot guessing from pixels. This script IS the whole video (the robot films exactly these steps and stops): cover every feature worth showing, 5-8 steps is right (max 10, min 4), in order of importance (the film runs ~30s and is cut from the end — step 1 must be the feature that absolutely cannot be missing). Every step must carry both an action and a selector (or where, if you do not know the selector) — a step with only a goal is a table of contents, not a script, and the server rejects a script made only of those (at least 3 steps must meet this bar). Set hold (seconds, 0.5-4) to linger on a step's result. The robot verifies each step on the real screen and skips what it cannot find. It films a 1280x720 desktop browser, so selectors must match the layout at that size. It has no account (cannot log in) and never opens file pickers; clicks that save, send or delete are skipped or answered with a fake success that never reaches the real server, so do not build a step on a result only the server can produce (an AI reply, data reloaded from the database).",
+          "description": "The demo script a filming robot follows. You built this app, so you know which screen to open and what to press for the good part to show — do not leave the robot guessing from pixels. This script IS the whole video (the robot films exactly these steps and stops): cover every feature worth showing, 5-8 steps is right (max 10, min 4), in order of importance (the film runs ~30s and is cut from the end — step 1 must be the feature that absolutely cannot be missing). Every step must carry both an action and a selector (or where, if you do not know the selector) — a step with only a goal is a table of contents, not a script, and the server rejects a script made only of those (at least 3 steps must meet this bar). Set hold (seconds, 0.5-4) to linger on a step's result. If the app is slow to show a result (an AI answer, a chart that computes, a heavy first load), add a step with action \"wait\" right after the step that triggers it: give the selector of what should appear and the robot waits up to 10 seconds for it before moving on, so the film catches the result instead of an empty screen (without a selector it simply pauses for hold seconds, default 2). The robot verifies each step on the real screen and skips what it cannot find. It films a 1280x720 desktop browser, so selectors must match the layout at that size. It has no account (cannot log in) and never opens file pickers; clicks that save, send or delete are skipped or answered with a fake success that never reaches the real server, so do not build a step on a result only the server can produce (an AI reply, data reloaded from the database).",
           "properties": {
             "steps": {
               "type": "array",
@@ -943,7 +946,7 @@ export const TOOLS = [
                   },
                   "selector": {
                     "type": "string",
-                    "description": "CSS selector for that control — you know the code, so give the exact one (max 250 chars)"
+                    "description": "CSS selector for that control — you know the code, so give the exact one (max 250 chars). For action=wait: the element whose appearance ends the wait (e.g. the result panel)"
                   },
                   "toSelector": {
                     "type": "string",
@@ -963,7 +966,8 @@ export const TOOLS = [
                       "hover",
                       "draw",
                       "focus",
-                      "navigate"
+                      "navigate",
+                      "wait"
                     ]
                   },
                   "to": {
@@ -983,7 +987,7 @@ export const TOOLS = [
                   },
                   "hold": {
                     "type": "number",
-                    "description": "How many seconds to hold on this step's result (0.5-4). Only for beats that need a slow look"
+                    "description": "How many seconds to hold on this step's result (0.5-4). Only for beats that need a slow look. For action=wait without a selector: how long to pause"
                   },
                   "caption": {
                     "type": "object",
@@ -995,7 +999,7 @@ export const TOOLS = [
                         "type": "string"
                       }
                     },
-                    "description": "Required for every language in ko/en that appLanguages does NOT list (a navigate step needs none): one short caption for this scene in that language (max 90 characters), drawn from the owner's interview answers — e.g. { \"en\": \"Every room, live — updated every minute.\" }. The player lays it over the video until the next caption; it is never burned into the film."
+                    "description": "Required for every language in ko/en that appLanguages does NOT list (navigate and wait steps need none): one short caption for this scene in that language (max 90 characters), drawn from the owner's interview answers — e.g. { \"en\": \"Every room, live — updated every minute.\" }. The player lays it over the video until the next caption; it is never burned into the film."
                   }
                 },
                 "required": [
@@ -1160,7 +1164,7 @@ export const TOOLS = [
         },
         "demoScript": {
           "type": "object",
-          "description": "The demo script a filming robot follows. You built this app, so you know which screen to open and what to press for the good part to show — do not leave the robot guessing from pixels. This script IS the whole video (the robot films exactly these steps and stops): cover every feature worth showing, 5-8 steps is right (max 10, min 4), in order of importance (the film runs ~30s and is cut from the end — step 1 must be the feature that absolutely cannot be missing). Every step must carry both an action and a selector (or where, if you do not know the selector) — a step with only a goal is a table of contents, not a script, and the server rejects a script made only of those (at least 3 steps must meet this bar). Set hold (seconds, 0.5-4) to linger on a step's result. The robot verifies each step on the real screen and skips what it cannot find. It films a 1280x720 desktop browser, so selectors must match the layout at that size. It has no account (cannot log in) and never opens file pickers; clicks that save, send or delete are skipped or answered with a fake success that never reaches the real server, so do not build a step on a result only the server can produce (an AI reply, data reloaded from the database).",
+          "description": "The demo script a filming robot follows. You built this app, so you know which screen to open and what to press for the good part to show — do not leave the robot guessing from pixels. This script IS the whole video (the robot films exactly these steps and stops): cover every feature worth showing, 5-8 steps is right (max 10, min 4), in order of importance (the film runs ~30s and is cut from the end — step 1 must be the feature that absolutely cannot be missing). Every step must carry both an action and a selector (or where, if you do not know the selector) — a step with only a goal is a table of contents, not a script, and the server rejects a script made only of those (at least 3 steps must meet this bar). Set hold (seconds, 0.5-4) to linger on a step's result. If the app is slow to show a result (an AI answer, a chart that computes, a heavy first load), add a step with action \"wait\" right after the step that triggers it: give the selector of what should appear and the robot waits up to 10 seconds for it before moving on, so the film catches the result instead of an empty screen (without a selector it simply pauses for hold seconds, default 2). The robot verifies each step on the real screen and skips what it cannot find. It films a 1280x720 desktop browser, so selectors must match the layout at that size. It has no account (cannot log in) and never opens file pickers; clicks that save, send or delete are skipped or answered with a fake success that never reaches the real server, so do not build a step on a result only the server can produce (an AI reply, data reloaded from the database).",
           "properties": {
             "steps": {
               "type": "array",
@@ -1174,7 +1178,7 @@ export const TOOLS = [
                   },
                   "selector": {
                     "type": "string",
-                    "description": "CSS selector for that control — you know the code, so give the exact one (max 250 chars)"
+                    "description": "CSS selector for that control — you know the code, so give the exact one (max 250 chars). For action=wait: the element whose appearance ends the wait (e.g. the result panel)"
                   },
                   "toSelector": {
                     "type": "string",
@@ -1194,7 +1198,8 @@ export const TOOLS = [
                       "hover",
                       "draw",
                       "focus",
-                      "navigate"
+                      "navigate",
+                      "wait"
                     ]
                   },
                   "to": {
@@ -1214,7 +1219,7 @@ export const TOOLS = [
                   },
                   "hold": {
                     "type": "number",
-                    "description": "How many seconds to hold on this step's result (0.5-4). Only for beats that need a slow look"
+                    "description": "How many seconds to hold on this step's result (0.5-4). Only for beats that need a slow look. For action=wait without a selector: how long to pause"
                   },
                   "caption": {
                     "type": "object",
@@ -1226,7 +1231,7 @@ export const TOOLS = [
                         "type": "string"
                       }
                     },
-                    "description": "Required for every language in ko/en that appLanguages does NOT list (a navigate step needs none): one short caption for this scene in that language (max 90 characters), drawn from the owner's interview answers — e.g. { \"en\": \"Every room, live — updated every minute.\" }. The player lays it over the video until the next caption; it is never burned into the film."
+                    "description": "Required for every language in ko/en that appLanguages does NOT list (navigate and wait steps need none): one short caption for this scene in that language (max 90 characters), drawn from the owner's interview answers — e.g. { \"en\": \"Every room, live — updated every minute.\" }. The player lays it over the video until the next caption; it is never burned into the film."
                   }
                 },
                 "required": [

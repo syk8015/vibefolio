@@ -98,7 +98,7 @@ Every work on Nookframe is shown in Korean and English; each visitor sees their 
 - `language` — the language `title`/`description`/`builderNote` are written in (the owner's language).
 - `translation` — the same copy in the other language, written naturally. Same 2–3 line rule for the description.
 - `appLanguages` — which of `ko`/`en` the app's **own screens** can show. The robot films once per language listed.
-  For each language missing, every demo-script step (except `navigate`) needs `"caption": { "<that language>": "…" }`
+  For each language missing, every demo-script step (except `navigate` and `wait`) needs `"caption": { "<that language>": "…" }`
   (max 90 characters). The player lays captions over the video; they are never burned into the film.
 - If the app has no English, the AI asks the owner first: "Should I add an English version of the app?" —
   yes → add it, deploy, list both; no → English captions. If only Korean is missing, it just writes Korean captions.
@@ -125,7 +125,7 @@ whole video.
 
 - **5-8 steps is right (min 4, max 10), in order of importance** — the film runs ~30s and is cut from the end.
 - Give a `selector` (CSS selector) on **every step** and the robot builds the run straight from the DOM instead of exploring the screen — faster and more accurate.
-- `action`: `click` · `type` · `drag` · `scroll` · `hover` · `draw` · `focus` (no interaction; the camera zooms into that area).
+- `action`: `click` · `type` · `drag` · `scroll` · `hover` · `draw` · `focus` (no interaction; the camera zooms into that area) · `navigate` (`"to": "back"` — browser back, no selector) · `wait` (a slow app: `selector` = what should appear, the robot waits up to 10s for it; without a selector it pauses for `hold` seconds, default 2).
 - Put `action` **and** `selector` (or `where`, if you do not know the selector) on every step — a step with only a `goal` is a table of contents, and the server rejects a script made only of those (at least 3 steps must meet this bar).
 - `hold` (0.5-4s): holds that step's result on screen for beats that need a slow look.
 - The robot films a **1280×720 desktop browser** — give selectors for the layout at that size, even for a phone-first app.

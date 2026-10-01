@@ -33,7 +33,8 @@ import {
 } from "./config";
 import { coalesceScrolls } from "./script";
 import type { Script, ScriptAction } from "./script";
-import type { DemoScript } from "../lib/demoScript";
+import type { DemoScript, DemoScriptStep } from "../lib/demoScript";
+import { DEMO_SCRIPT_WAIT_MAX_SEC, DEMO_SCRIPT_WAIT_PAUSE_SEC } from "../lib/demoScript";
 import { sleep, run } from "./util";
 import { type ApiUsage, addUsage, emptyUsage, costLine } from "./cost";
 
@@ -830,8 +831,9 @@ export function buildScriptBrief(script: DemoScript): string {
     "  hunt for more than one beat.",
     "- The moment you START a step, call the mark_step tool with its number (in the same turn as the",
     "  step's first action).",
-    "- A step whose action is 'navigate' means GO BACK to the previous screen. Press Alt+Left (browser",
-    "  history) instead of hunting for a back button in the page — it has no selector on purpose.",
+    "- A step whose action is 'navigate' (go back) or 'wait' (give a slow app time to draw its result) is",
+    "  done by the code: just call mark_step with its number, then take a screenshot to see the result.",
+    "  Never hunt for a back button or click anything for these steps.",
     "- 'expect' says what should appear right after. Check the next screenshot against it: if it did NOT",
     "  appear, the step failed — do not build later steps on top of it; retry ONCE differently or skip",
     "  ahead to the next step.",
@@ -1124,6 +1126,28 @@ export async function explore(page: Page, opts: ExploreOptions = {}): Promise<Ex
     }
   }
 
+  // 대본의 navigate·wait 스텝을 코드가 실행하고 기록할 액션을 돌려준다(mark_step이 부른다).
+  // 기다리던 것이 끝내 안 나타나면 기록하지 않는다 — 리플레이가 같은 10초를 필름에 또 쓴다.
+  async function scriptBeat(st: DemoScriptStep): Promise<{ act: ScriptAction | null; note: string }> {
+    const label = st.goal.slice(0, 40);
+    if (st.action === "navigate") {
+      await page.goBack({ waitUntil: "domcontentloaded" }).catch(() => {});
+      await sleep(500);
+      return { act: { kind: "navigate", to: "back", label }, note: "went back to the previous screen (done by the code)." };
+    }
+    if (st.selector) {
+      const ok = await page.locator(st.selector).first()
+        .waitFor({ state: "visible", timeout: DEMO_SCRIPT_WAIT_MAX_SEC * 1000 })
+        .then(() => true, () => false);
+      return ok
+        ? { act: { kind: "wait", selector: st.selector, label }, note: `waited until ${st.selector} appeared (done by the code).` }
+        : { act: null, note: `waited ${DEMO_SCRIPT_WAIT_MAX_SEC}s but ${st.selector} never appeared — skip whatever depended on it.` };
+    }
+    const ms = st.hold ? Math.round(st.hold * 1000) : DEMO_SCRIPT_WAIT_PAUSE_SEC * 1000;
+    await sleep(ms);
+    return { act: { kind: "wait", ms, label }, note: `paused ${ms / 1000}s for the app to catch up (done by the code).` };
+  }
+
   // draw_path tool: one continuous pointer-down polyline (a freehand stroke on a
   // drawing canvas). Recorded unconditionally, like drags — the live page now has
   // the ink, so cutting the beat would desync script and page (and a stroke on a
@@ -1317,11 +1341,26 @@ export async function explore(page: Page, opts: ExploreOptions = {}): Promise<Ex
           ack = "No shot list was provided for this walkthrough — don't call mark_step again.";
         } else if (Number.isFinite(n) && n >= 1 && n <= script.steps.length) {
           markedSteps.add(n);
-          const h = script.steps[n - 1].hold;
+          const st = script.steps[n - 1];
+          const h = st.hold;
           pendingHoldMs = h ? Math.round(h * 1000) : null;
           pendingStep = n;
-          console.log(`[explore] shot-list step ${n}/${script.steps.length} — ${script.steps[n - 1].goal}`);
+          console.log(`[explore] shot-list step ${n}/${script.steps.length} — ${st.goal}`);
           ack = `Step ${n} noted.`;
+          // 뒤로가기·기다리기는 화면을 볼 필요가 없는 비트라 코드가 직접 한다(2026-10-02).
+          // 예전엔 navigate를 모델에게 Alt+Left로 시켰는데, 키 목록이 조합키를 거부해서 비전
+          // 경로의 뒤로가기는 한 번도 실행되지 않았다.
+          if (st.action === "navigate" || st.action === "wait") {
+            const beat = await scriptBeat(st);
+            if (beat.act) {
+              actions.push({ ...beat.act, step: n, ...(pendingHoldMs ? { holdMs: pendingHoldMs } : {}) });
+              mergeableClick = false;
+              lastWasType = false;
+            }
+            pendingHoldMs = null;
+            pendingStep = null;
+            ack = `Step ${n}: ${beat.note} Take a screenshot to see the screen now, then go on with the next step.`;
+          }
         } else {
           ack = `Step number out of range — the shot list has steps 1-${script.steps.length}.`;
         }

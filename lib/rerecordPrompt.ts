@@ -1,5 +1,5 @@
 import type { DemoScript } from "@/lib/demoScript";
-import { CONNECT_CODE_PLACEHOLDER, loginCommand, outputLanguageLine } from "@/lib/connectSnippets";
+import { CONNECT_CODE_PLACEHOLDER, curlFallback, loginCommand, outputLanguageLine } from "@/lib/connectSnippets";
 
 // 재촬영 프롬프트 (2026-08-25 사용자 확정 설계).
 //
@@ -32,10 +32,10 @@ const SHAPE = `{
   "steps": [
     {
       "goal": "what this beat proves (max 120 chars)",
-      "selector": "the control's CSS selector — you know the code, give the exact one",
+      "selector": "the control's CSS selector — you know the code, give the exact one (action=wait: the element whose appearance ends the wait)",
       "toSelector": "(action=drag) CSS selector of the drop target",
       "where": "how to find it by eye (visible label/position) — the fallback when a selector misses",
-      "action": "click | type | drag | scroll | hover | draw | focus | navigate",
+      "action": "click | type | drag | scroll | hover | draw | focus | navigate | wait",
       "to": "(action=navigate) \\"back\\" — return to the previous screen via browser history, no selector needed",
       "text": "(action=type) what to type",
       "expect": "what the screen should show right after",
@@ -72,7 +72,6 @@ export function rerecordPrompt(
     : "(none — this film was shot without a script)";
   const base = origin.replace(/\/$/, "");
   const submitUrl = `${base}/api/ingest/rerecord/${c.projectId}`;
-  const exchangeUrl = `${base}/api/connect/exchange`;
 
   // 본문은 영어 하나(2026-09-05). 대본의 goal/expect는 소유자가 검토 화면에서
   // 눈으로 읽는 문장이라, 그 언어만 outputLanguageLine이 정해 준다.
@@ -99,6 +98,7 @@ RULES (the robot follows the script literally)
 - Every step needs BOTH an "action" and a "selector" (or "where") — a step with only a goal is rejected, and at least 3 steps must clear this bar.
 - Give a real CSS "selector" for EVERY step — when all steps carry one (and drags carry toSelector, types carry text), the robot skips its vision pass and frames straight from the DOM: faster, cheaper, pixel-exact. "where" is only the fallback.
 - "hold" (0.5–4s) keeps that step's result on screen; "focus" magnifies an area without touching it.
+- A slow app (an AI answer, a chart that computes, a heavy first load) needs a "wait" step right after the step that triggers it, with the selector of what should appear — otherwise the robot moves on before the result is drawn and the film shows an empty screen. Owner complaints like "the result never shows" usually mean this.
 - The robot films a 1280×720 desktop browser, so selectors must match the layout at that size.
 - It has no account (it can't log in) and never opens file pickers; clicks that save, send or delete are skipped or answered with a fake success — don't build a beat on a result only the server can produce (an AI reply, data reloaded from the database).
 - Keep each step's "caption" (and write one for every new step) in the same language(s) as the current script — a language the app's screens can't show is carried by these captions, and the server rejects a script that drops them.
@@ -111,16 +111,10 @@ HOW TO SUBMIT — pick whichever fits you (this replaces nothing until the owner
    ${loginCommand(codeArg)}
    npx nookframe@latest rerecord ${c.projectId} --file <that file>
   That argument is a ONE-TIME pairing code, not a token: it works once, dies 30 minutes after the owner copied this, and the command trades it for the real token it saves here.
-- Neither? Plain HTTP works too, but it takes TWO calls — the code above cannot go in an Authorization header, so trade it for a token first:
-   curl -X POST ${exchangeUrl} \\
-     -H "Content-Type: application/json" \\
-     -d '{"code": "${codeArg}"}'
-  That prints {"token": "nf_live_…"}. Use THAT token — not the code — to submit:
-   curl -X POST ${submitUrl} \\
-     -H "Authorization: Bearer <the token it just printed>" \\
-     -H "Content-Type: application/json" \\
-     -d '{"demoScript": <your script>, "note": "one line on what you changed and why"}'
-  Only do this if you did NOT run the login command above — that already spent the code, and the token it saved is the one to reuse.
+- Neither, or a shell where npx won't run (no Node.js, npm registry blocked)? Plain HTTP works too, but it takes TWO calls — the code above cannot go in an Authorization header, so trade it for a token first:
+${curlFallback(base, codeArg, [
+    { url: submitUrl, body: `-d '{"demoScript": <your script>, "note": "one line on what you changed and why"}'` },
+  ])}
 Then tell the owner what you changed AND that nothing is re-recorded yet — they have to open Nookframe and press re-record.
 
 Script shape:

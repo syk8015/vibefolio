@@ -15,7 +15,7 @@
 // 비전 탐색으로 폴백(우리 토큰이 비상장치).
 import type { Page } from "playwright-core";
 import type { DemoScript, DemoScriptStep } from "../lib/demoScript";
-import { isFullyWired } from "../lib/demoScript";
+import { DEMO_SCRIPT_WAIT_MAX_SEC, DEMO_SCRIPT_WAIT_PAUSE_SEC, isFullyWired } from "../lib/demoScript";
 import type { Script, ScriptAction } from "./script";
 import { VIEW_H } from "./config";
 import { sleep } from "./util";
@@ -87,6 +87,25 @@ export async function assembleScript(
       actions.push({ kind: "navigate", to: "back", label, ...(holdMs ? { holdMs } : {}) });
       await page.goBack({ waitUntil: "domcontentloaded" }).catch(() => {});
       await sleep(500);
+      tagStep();
+      continue;
+    }
+    // 기다리기 비트(2026-10-02): 느린 앱이 결과를 그릴 시간. 조립도 실제로 기다려 둬야
+    // 다음 스텝의 셀렉터가 화면에 있다. 셀렉터가 끝내 안 나타나면 이 대본은 이 화면에서
+    // 성립하지 않는다 → 비전 탐색으로 폴백(다른 스텝의 셀렉터 실패와 같은 취급).
+    if (st.action === "wait") {
+      if (st.selector) {
+        try {
+          await page.locator(st.selector).first().waitFor({ state: "visible", timeout: DEMO_SCRIPT_WAIT_MAX_SEC * 1000 });
+        } catch {
+          return fail(i, st, `waited ${DEMO_SCRIPT_WAIT_MAX_SEC}s but ${st.selector} never appeared`);
+        }
+        actions.push({ kind: "wait", selector: st.selector, label, ...(holdMs ? { holdMs } : {}) });
+      } else {
+        const ms = holdMs ?? DEMO_SCRIPT_WAIT_PAUSE_SEC * 1000;
+        actions.push({ kind: "wait", ms, label });
+        await sleep(ms);
+      }
       tagStep();
       continue;
     }

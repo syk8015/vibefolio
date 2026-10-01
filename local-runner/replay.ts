@@ -13,6 +13,7 @@ import {
 } from "./cursor";
 import { VIEW_W, VIEW_H, ZOOM_OUT_MS, CURSOR_FADE_MS } from "./config";
 import { sleep } from "./util";
+import { DEMO_SCRIPT_WAIT_MAX_SEC } from "../lib/demoScript";
 
 // Cinematic timing (tune by eyeball in PoC).
 const SAME_PLACE_PX = 12; // closer than this → no glide/zoom (e.g. re-typing same input)
@@ -227,6 +228,24 @@ async function runAction(
     }
     await page.goBack({ waitUntil: "domcontentloaded" }).catch(() => {});
     await sleep(hold);
+    return;
+  }
+  if (act.kind === "wait") {
+    // 기다리기(2026-10-02): 느린 앱의 결과가 그려지는 순간을 필름에 담는다. 손이 할 일이 없어
+    // 커서는 숨기고, 무엇이 나타나는지 보이게 와이드로 푼다.
+    await cursorHide(page, CURSOR_FADE_MS);
+    if (cam.isZoomed()) {
+      cam.settleWide();
+      await sleep(ZOOM_OUT_MS);
+    }
+    if (act.selector) {
+      await page.locator(act.selector).first()
+        .waitFor({ state: "visible", timeout: DEMO_SCRIPT_WAIT_MAX_SEC * 1000 })
+        .catch(() => console.error(`wait: "${act.selector}" never appeared — moving on`));
+      await sleep(hold);
+    } else {
+      await sleep(act.ms ?? hold);
+    }
     return;
   }
   if (act.kind === "hover") {

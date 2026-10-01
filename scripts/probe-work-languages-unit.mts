@@ -128,6 +128,16 @@ ok("translation 제목 없음 → title-missing", (() => {
   ok("시간표: 필름 밖에서 시작한 장면은 자막 없음", short.en?.length === 1 && short.en[0].end === 20, JSON.stringify(short));
   ok("시간표: 자막 언어가 없으면 빈 시간표", Object.keys(buildCaptionTrack([{ step: 1, atSec: 1 }], sc, [], 20)).length === 0);
 }
+// 기다리기(2026-10-02): 자막 면제·경계 아님 — 단 그 장면에 자막을 따로 달면 그 자막이 뜬다.
+{
+  const sc = script([step("a", { en: "One" }), { goal: "wait", action: "wait", selector: "#out" }, step("b", { en: "Two" })]);
+  ok("기다리기 장면은 자막 면제", !judge({ script: sc }).issue, JSON.stringify(judge({ script: sc }).issue));
+  const t = buildCaptionTrack([{ step: 1, atSec: 3 }, { step: 2, atSec: 5 }, { step: 3, atSec: 9 }], sc, ["en"], 20);
+  ok("시간표: 기다리기는 경계가 아니다(1번 자막이 3번 시작까지)", t.en?.[0]?.end === 9 && t.en?.length === 2, JSON.stringify(t));
+  const sc2 = script([step("a", { en: "One" }), { goal: "wait", action: "wait", caption: { en: "Thinking…" } }, step("b", { en: "Two" })]);
+  const t2 = buildCaptionTrack([{ step: 1, atSec: 3 }, { step: 2, atSec: 5 }, { step: 3, atSec: 9 }], sc2, ["en"], 20);
+  ok("시간표: 자막 단 기다리기는 제 자막을 띄운다", t2.en?.[1]?.text === "Thinking…" && t2.en?.[1]?.start === 5, JSON.stringify(t2));
+}
 {
   const n = normalizeCaptionTrack({ en: [{ start: 0, end: 4, text: " Hi  there " }, { start: 3, end: 5, text: "overlap" }, { start: 5, end: 99, text: "too long film" }], fr: [{ start: 0, end: 1, text: "x" }] });
   ok("서버 검사: 공백 정리·겹침·필름 밖·모르는 언어 버림", n?.en?.length === 1 && n.en[0].text === "Hi there" && !("fr" in (n ?? {})), JSON.stringify(n));

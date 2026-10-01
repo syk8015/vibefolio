@@ -35,6 +35,37 @@ export function loginCommand(code: string): string {
   return `npx nookframe@latest login ${code}`;
 }
 
+/**
+ * 셸은 있는데 npx를 못 쓰는 AI(노드 없음·npm 저장소 막힘)를 위한 curl 길(2026-10-02).
+ * 예전엔 재촬영 프롬프트에만 있어서, 연결·고쳐달라기 프롬프트를 받은 AI는 거기서 멈췄다.
+ * **반드시 두 번 부른다** — 코드를 토큰으로 바꾸고, 그 토큰으로 보낸다. 한 번으로 줄이면
+ * 코드가 Authorization 헤더에 실려 401(`PAIRING_CODE`)이 난다. 반환 문자열은 들여쓰기 3칸.
+ */
+export function curlFallback(
+  origin: string,
+  code: string,
+  calls: { url: string; body: string; note?: string }[],
+): string {
+  const base = origin.replace(/\/$/, "");
+  const lines = [
+    `   curl -X POST ${base}/api/connect/exchange \\`,
+    `     -H "Content-Type: application/json" \\`,
+    `     -d '{"code": "${code}"}'`,
+    `  That prints {"token": "nf_live_…"}. Use THAT token — not the code — for the next call${calls.length > 1 ? "s" : ""}:`,
+  ];
+  for (const c of calls) {
+    if (c.note) lines.push(`  ${c.note}`);
+    lines.push(
+      `   curl -X POST "${c.url}" \\`,
+      `     -H "Authorization: Bearer <the token it just printed>" \\`,
+      `     -H "Content-Type: application/json" \\`,
+      `     ${c.body}`,
+    );
+  }
+  lines.push("  Only trade the code if you did NOT run the login command — that already spent it; reuse the token it saved instead.");
+  return lines.join("\n");
+}
+
 // MCP 연결(2026-09-04, 인터뷰 ⑦ 터미널 쪽). 프롬프트 붙여넣기·JSON 옮기기가 통째로
 // 사라지는 길이라 연결 탭에 같이 둔다. 토큰 이름은 자동 토큰처럼 센티널 —
 // 서버가 재복사 때 이전 것을 폐기해 토큰 상한(MAX_TOKENS_PER_USER)에 안 걸린다.
@@ -91,6 +122,7 @@ You're the AI that built this project, so read the repo yourself and describe it
 1) If you have a shell, first run this once to pair with my account (skip if you have no shell):
    ${login}
    That argument is a ONE-TIME pairing code, not a token: the command trades it at the server for the real token and saves that on this machine. It works once and dies 30 minutes after I copied this prompt, so putting it in an Authorization header will fail — if it's already used or expired, ask me to press "Copy prompt" again for a fresh one.
+   If you have a shell but npx won't run (no Node.js, or the npm registry is blocked), don't stop and don't ask me to install anything — skip this command and use the plain-HTTP route in step 6 instead.
 2) First, look around the project — README, package.json, the actual routes/screens, git log — just enough to know what it is, what already works, and whether there is anything a visitor could see (a screen, an output, a terminal run). Don't change anything yet. If it's still half-built, also work out what it was going to be.
 3) Then interview me — this is required: the server rejects an upload without it. Ask in this chat, in plain everyday words, in the language I write to you in, and WAIT for my answers — never answer for me. Fit the questions to what you found in step 2:
    a. Which part of this app do you most want people to see — a screen, a feature, a result? (Ask about a PART of the app, not a moment in my life.)
@@ -114,10 +146,10 @@ You're the AI that built this project, so read the repo yourself and describe it
      Keep each line short (~20 CJK / ~40 Latin characters) so it doesn't wrap on a phone. Only 3 lines show on the card. A single paragraph is rejected (it must be 2–3 lines), and so is any line over 52 columns (a CJK character counts as 2) or anything over 200 characters
    • builderNote — (optional) a short one-liner shown as a speech bubble on the public card, drawn from my answer (b) in my voice. One line, not a paragraph — e.g. "I check it every Monday morning"
    • demoScript — **REQUIRED** (the one exception: attaching your own demo "video", which skips auto-recording). A publish without it is rejected with an error telling you to write one. The filming script the auto-demo robot follows. You BUILT this app, so you know which screen shows what and which control proves the core value — don't make the robot guess from pixels. Shape:
-       { "steps": [ { "goal": "what this beat proves", "selector": "the control's CSS selector — you know the code, give the exact one", "where": "how to FIND it by eye (visible label/position) — the fallback when a selector misses", "action": "click|type|drag|scroll|hover|draw|focus|navigate", "toSelector": "(drag only) CSS selector of the drop target", "text": "what to type (type only)", "expect": "what the screen should show right after", "hold": 2 } ],
+       { "steps": [ { "goal": "what this beat proves", "selector": "the control's CSS selector — you know the code, give the exact one", "where": "how to FIND it by eye (visible label/position) — the fallback when a selector misses", "action": "click|type|drag|scroll|hover|draw|focus|navigate|wait", "toSelector": "(drag only) CSS selector of the drop target", "text": "what to type (type only)", "expect": "what the screen should show right after", "hold": 2 } ],
          "skip": ["things NOT worth a beat because every app has them — e.g. a dark-mode or language toggle"],
          "prep": "one optional setup line before the tour" }
-     Your script IS the film — the robot shoots exactly these steps and stops, so cover every feature worth showing: 5–8 steps is the sweet spot (min 4, max 10). Order = importance; the film is ~30s and gets cut from the END, so step 1 is the one feature the demo must not miss. "hold" (seconds, 0.5–4) keeps that step's result on screen longer — use it on beats that deserve a pause. Every step needs BOTH an action and a selector (or where, if you only know the UI) — a step with just a goal is a table of contents, not a script, and a script made of those is rejected (at least 3 steps must meet this bar). The robot verifies each step on the live screen and skips what it can't find. It has no account (it can't log in) and never opens file pickers; clicks that save, send or delete are skipped or answered with a fake success, so nothing reaches your real server — typing into a form to show it off is fine, but don't build a beat on a result only your server can produce (an AI reply, data reloaded from the database). SELECTORS MATTER MOST: when EVERY step carries a selector (and drags carry toSelector), the robot skips the vision pass entirely and assembles the film straight from the DOM — faster, cheaper, and pixel-exact framing. You built this app, so give real selectors for every step; if any selector fails on the live page the robot falls back to reading the screen. action "focus" is the emphasis device: the film's camera MAGNIFIES that area for the beat (nothing is clicked) — use it for "let the viewer study this" moments like a playing video or a result panel. action "navigate" with "to": "back" returns to the PREVIOUS screen through browser history — use it instead of spending a beat clicking the app's own back button, and give it no selector (it needs none). CAPTIONS: for each of ko/en that appLanguages does NOT list, every step (except navigate) needs "caption": { "<that language>": "…" } — one short line (max 90 characters) saying what the scene shows, drawn from my interview answers. Visitors in that language see it laid over the video until the next caption
+     Your script IS the film — the robot shoots exactly these steps and stops, so cover every feature worth showing: 5–8 steps is the sweet spot (min 4, max 10). Order = importance; the film is ~30s and gets cut from the END, so step 1 is the one feature the demo must not miss. "hold" (seconds, 0.5–4) keeps that step's result on screen longer — use it on beats that deserve a pause. Every step needs BOTH an action and a selector (or where, if you only know the UI) — a step with just a goal is a table of contents, not a script, and a script made of those is rejected (at least 3 steps must meet this bar). The robot verifies each step on the live screen and skips what it can't find. It has no account (it can't log in) and never opens file pickers; clicks that save, send or delete are skipped or answered with a fake success, so nothing reaches your real server — typing into a form to show it off is fine, but don't build a beat on a result only your server can produce (an AI reply, data reloaded from the database). SELECTORS MATTER MOST: when EVERY step carries a selector (and drags carry toSelector), the robot skips the vision pass entirely and assembles the film straight from the DOM — faster, cheaper, and pixel-exact framing. You built this app, so give real selectors for every step; if any selector fails on the live page the robot falls back to reading the screen. action "focus" is the emphasis device: the film's camera MAGNIFIES that area for the beat (nothing is clicked) — use it for "let the viewer study this" moments like a playing video or a result panel. action "navigate" with "to": "back" returns to the PREVIOUS screen through browser history — use it instead of spending a beat clicking the app's own back button, and give it no selector (it needs none). action "wait" is for a SLOW app: right after a step whose result takes a moment to appear (an AI answer, a chart that computes, a heavy first load), add a wait step with the selector of what should appear — the robot waits up to 10 seconds for it before moving on, so the film catches the result instead of an empty screen (without a selector it just pauses for "hold" seconds, default 2). CAPTIONS: for each of ko/en that appLanguages does NOT list, every step (except navigate and wait) needs "caption": { "<that language>": "…" } — one short line (max 90 characters) saying what the scene shows, drawn from my interview answers. Visitors in that language see it laid over the video until the next caption
    • tags — which AI tools were used to build this. Pick from this exact list (anything else is silently dropped): ChatGPT, Claude Code, Cursor, GitHub Copilot, Gemini, v0, Bolt.new, Windsurf, Lovable, Replit AI, Devin, Aider, Continue.dev, Codeium, Amazon Q, Perplexity, Midjourney, DALL-E, Stable Diffusion, Ideogram, Flux, Runway, Kling, Pika, Suno, ElevenLabs
    • contentType — one of web-app | saas | mobile | game | extension | ai-service | media | other
    • targetDevice — REQUIRED: "mobile" or "desktop", the screen this app was mainly designed for. "mobile" = built for phone screens (a narrow single column, a bottom tab bar, touch-first); "desktop" = built for a computer browser (wide layouts, sidebars, hover). If it works on both, pick the one it was designed for first. This is NOT contentType — a phone-first web app is contentType "web-app" with targetDevice "mobile". The owner's draft preview is framed as a phone or a desktop screen from this answer, and a publish without it is rejected. The demo robot itself always films a 1280×720 desktop browser, so write demoScript selectors for what the app shows at that size (a bottom tab bar that only appears on phones won't be there)
@@ -131,6 +163,12 @@ You're the AI that built this project, so read the repo yourself and describe it
 5) If you have a shell: before uploading anything, write the JSON above to a file and run ${NPX_CHECK} --file <that file>. That asks the server the exact questions publishing would ask — the script, the description shape, targetDevice, demoAccess, the owner interview, the two languages and captions, the estimated film length — and prints either the precise rejection reason or a summary of what would be accepted. Nothing is stored and nothing is uploaded. If it rejects, fix the JSON and check again until it passes; reading the reason here is far cheaper than publishing and getting a 400.
 6) If you have a shell: publish it — ${NPX_PUBLISH} --file <that file> (step 1 already paired this machine). Then tell the owner it went up as a DRAFT — nothing is public until they open the review link it prints and press publish.
    If you have a screenshot or a demo video you made, add --screenshot <path> / --video <path> (image png/jpg/webp/gif ≤5MB; video mp4/webm ≤20MB — providing a video replaces the auto-recorded demo).
+   If you have a shell but no npx (see step 1): plain HTTP does the same check and publish for a deployUrl or htmlBody payload, but it takes TWO steps — the pairing code from step 1 cannot go in an Authorization header, so trade it for a token first:
+${curlFallback(origin, code ?? CONNECT_CODE_PLACEHOLDER, [
+    { url: `${origin}/api/ingest?dryRun=1`, body: "--data @<that file>", note: "Check first (same as step 5 — stores nothing):" },
+    { url: `${origin}/api/ingest`, body: "--data @<that file>", note: "Then publish (it answers with the draft id and the review link to give me):" },
+  ])}
+   A folder or zip upload needs the CLI; over plain HTTP send a deployUrl or htmlBody instead (screenshots and your own video are CLI-only too).
    If you don't have a shell: print the JSON in one \`\`\`json code block, then put this link on its own line right after it so I can click straight through: ${origin}/publish — I'll paste the JSON there.
    To revise something already pushed, publish again with --id <the draft id it printed> — that draft is updated in place, no duplicates.`;
 }

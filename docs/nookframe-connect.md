@@ -76,6 +76,8 @@
   바꾸면 옛 CLI가 코드를 토큰으로 저장해 모든 PAT 호출이 401이 된다(09-15 `--file` 교체와 같은 규칙).
   재촬영 프롬프트의 curl 폴백은 **2단계**가 됐다(`/api/connect/exchange`로 코드→토큰, 그 토큰으로
   제출) — 셸은 있는데 npm이 막힌 경로를 살리면서도 프롬프트엔 코드만 남는다.
+  2026-10-02부터 연결·고쳐달라기 프롬프트에도 같은 2단계 curl 길이 있다(`curlFallback()` 한 벌 —
+  교환 → `/api/ingest?dryRun=1` 검사 → `/api/ingest` 발행). 폴더·zip은 CLI 전용이라 이 길은 deployUrl·htmlBody만.
 - 검증(`lib/apiToken.ts`): Bearer 헤더 전용 → 해시 조회(`.is('revoked_at',null)`) → user_id.
 - **폭발반경**: 유출돼도 자기 계정의 **초안 INSERT만** 가능. 발행·데모예산 소진·토큰조회는
   전부 쿠키(`auth.uid()`) 전용이라 닿지 못한다. 유저당 토큰 ≤10, 활성 초안 ≤20, 레이트리밋 20/h(user_id 키).
@@ -250,11 +252,14 @@ MCP 규격이 2026-07-28에 갈아엎였다: `initialize`·세션·`ping`이 사
   스크린샷·zip만 올린" 모양이다. 프로브=`probe-ingest-media.mjs` (5)(6).
 - payload 매핑: `demoScript`→`demo_script`(**촬영 대본** — demoHighlights의 구조화 승격, 2026-08-20.
   `{ steps: [{ goal, where?, action?, text?, expect?, hold? }], skip?, prep? }`, 정규화=`lib/demoScript.ts`:
-  스텝≤10·필드 캡·action 화이트리스트(`click|type|drag|scroll|hover|draw|focus|navigate` — **navigate**는
+  스텝≤10·필드 캡·action 화이트리스트(`click|type|drag|scroll|hover|draw|focus|navigate|wait` — **navigate**는
   2026-09-16 추가된 뒤로가기 비트[NF-06]로 `to:"back"` 하나만 받고 **셀렉터가 없는 게 정상**이다:
   `isStepWired`·`isStepSubstantial`이 이 액션만 예외로 통과시킨다. 안 그러면 뒤로가기 한 줄 때문에
   대본 전체가 비전 경로로 떨어진다. `to`는 `toSelector`의 별칭이기도 해서 정규화가 action을 **먼저**
-  읽는다 — 순서를 되돌리면 `to:"back"`이 드롭 대상 셀렉터로 새어 들어간다), 형식 어긋난 스텝은 조용히 드랍 후 에코의 `demoScriptSteps`/
+  읽는다 — 순서를 되돌리면 `to:"back"`이 드롭 대상 셀렉터로 새어 들어간다. **wait**(2026-10-02)은
+  느린 앱의 결과를 기다리는 비트: `selector`가 있으면 그 요소가 보일 때까지 최대 10초 기다린 뒤 `hold`만큼
+  보여 주고, 없으면 `hold`초(기본 2초) 멈춘다. 늘 직배선·실속 아님·자막 면제(`stepTakesCaption`)이고,
+  비전 경로에선 navigate와 함께 `mark_step` 때 코드가 직접 실행한다), 형식 어긋난 스텝은 조용히 드랍 후 에코의 `demoScriptSteps`/
   `demoScriptDropped`로 보고. 레코더에선 explore 브리핑의 등뼈가 되고 `mark_step` 툴로 커버리지를
   코드가 추적, 마지막 스텝 도달 전 종료는 재촉으로 거부되고, **완주하면 즉시 종료**(분량 하한·재촉은 대본 없는 판 전용 — 대본이 곧 필름 전체). hold(초 0.5~4)는 mark_step 매핑으로 그 스텝 첫 기록 액션에 붙어 replay 페이싱이 된다. **"제안"으로만 취급** — 하드룰·쓰기
   mock은 대본과 무관하게 유지. 컬럼 부재 시 3개 라우트+워커 전부 42703/PGRST204 디그레이드로 대본만

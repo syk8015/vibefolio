@@ -7,7 +7,7 @@
 // 같은 해법: **사람은 불만 한 줄, 고치는 건 AI.** 지금 초안 전체와 사람의 요청을
 // 통째로 싣고, JSON의 draftId로 다시 올리면 그 초안이 갱신된다는 사실까지 넣는다 —
 // 새 세션의 AI가 이 프롬프트 하나로 일을 끝낼 수 있어야 한다.
-import { loginCommand, NPX_CHECK, NPX_PUBLISH, outputLanguageLine } from "@/lib/connectSnippets";
+import { curlFallback, loginCommand, NPX_CHECK, NPX_PUBLISH, outputLanguageLine } from "@/lib/connectSnippets";
 import type { DemoScript } from "@/lib/demoScript";
 import type { DemoAccess } from "@/lib/demoAccess";
 import type { OwnerInterview } from "@/lib/ownerInterview";
@@ -97,6 +97,11 @@ HOW TO RESUBMIT — keep "draftId" in the JSON: publishing it again updates this
    ${login}
    ${NPX_CHECK} --file <that file>   (asks the server whether this would be accepted; stores nothing)
    ${NPX_PUBLISH} --file <that file>${c.deployUrl ? "" : "  (this draft was a file upload — add --dir <the folder> again)"}
+- If you have a shell but npx won't run (no Node.js, or the npm registry is blocked): plain HTTP does the same, in TWO steps — the code above cannot go in an Authorization header, so trade it for a token first:
+${curlFallback(c.origin, c.code, [
+    { url: `${c.origin}/api/ingest?dryRun=1`, body: "--data @<that file>", note: "Check (stores nothing):" },
+    { url: `${c.origin}/api/ingest`, body: "--data @<that file>", note: "Then publish:" },
+  ])}${c.deployUrl ? "" : "\n  This draft was a file upload, and a folder can only be re-sent with the CLI — over plain HTTP, send a deployUrl or htmlBody instead."}
 - If you have the Nookframe MCP server: call "publish_to_nookframe" with the revised fields, draftId included.
 - No shell? Print the revised JSON only and I'll paste it into ${c.origin}/publish.
 The server rejects thin work with an error that says exactly what to fix — read it and resubmit. Then tell the owner what you changed.`;

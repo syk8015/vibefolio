@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { DemoScript } from "@/lib/demoScript";
+import { stepTakesCaption, type DemoScript } from "@/lib/demoScript";
 import {
   CAPTION_MAX, SITE_LOCALES, filmPlan, normalizeAppLanguages, normalizeLocale,
   type SiteLocale,
@@ -47,7 +47,7 @@ export function LanguagePanel({ primary, app, script, scriptLoading, hasOwnVideo
   const plan = filmPlan(main, apps);
   const steps = script?.steps ?? [];
   const captionCount = (l: SiteLocale) =>
-    steps.filter((s) => s.action !== "navigate" && s.caption?.[l]).length;
+    steps.filter((s) => s.caption?.[l]).length;
   const viewerLine = (l: SiteLocale) => {
     if (plan.main === l || plan.extra === l) return t.projects.reviewLangFilm(name(l));
     // 대본(비공개 칸)을 아직 못 받았으면 "자막 0장면"은 거짓이다 — 자리표시만.
@@ -104,7 +104,7 @@ export function LanguagePanel({ primary, app, script, scriptLoading, hasOwnVideo
             <div aria-busy="true" className="rounded-xl animate-pulse" style={{ height: 56, background: "var(--surface-sunken)" }} />
           ) : (
             <ol style={{ listStyle: "none", margin: 0, padding: "0 4px", display: "flex", flexDirection: "column", gap: 2 }}>
-              {steps.map((s, i) => s.action === "navigate" ? null : (
+              {steps.map((s, i) => !stepTakesCaption(s) && !s.caption ? null : (
                 <li key={i} style={{ display: "grid", gridTemplateColumns: "18px minmax(0, 1fr)", gap: 10, alignItems: "baseline" }}>
                   <span className="vf-mono" style={{ ...mutedText, fontSize: 12 }}>{i + 1}</span>
                   {editing?.step === i && editing.locale === locale ? (

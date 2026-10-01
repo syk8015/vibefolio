@@ -180,6 +180,14 @@ ok("hold는 스키마 상한 4초로 자른다", Math.abs(fe4.seconds - (0.7 + 4
 const feNav = estimateFilm({ steps: [{ goal: "목록으로", action: "navigate" }] });
 ok("navigate = 0.8 + 기본 hold 0.9 → 1.7", feNav.seconds === 1.7, JSON.stringify(feNav));
 ok("navigate가 click(2.1)보다 싸다", feNav.seconds < fe1.seconds, `${feNav.seconds} < ${fe1.seconds}`);
+// 기다리기(2026-10-02): 셀렉터가 있으면 어림 2초 + hold, 없으면 hold(기본 2초)만큼 멈춤.
+ok("wait(셀렉터) = 2 + 기본 hold 0.9 → 2.9", estimateFilm({ steps: [{ goal: "답", action: "wait", selector: "#out" }] }).seconds === 2.9);
+ok("wait(셀렉터 없음) = 기본 2초", estimateFilm({ steps: [{ goal: "쉼", action: "wait" }] }).seconds === 2);
+ok("wait(셀렉터 없음, hold 3) = 3초", estimateFilm({ steps: [{ goal: "쉼", action: "wait", hold: 3 }] }).seconds === 3);
+{
+  const wg = selectorsOf({ steps: [{ goal: "느린 첫 화면", action: "wait", selector: "#chart" }, { goal: "a", selector: "#btn", action: "click" }] });
+  ok("selectorsOf: wait 셀렉터는 첫 화면 HTML로 판정하지 않는다(아직 안 그려진 것)", wg.entry.join() === "#btn" && wg.later.join() === "#chart", JSON.stringify(wg));
+}
 // 외부 AI가 09-16에 고른 9컷(hold 합 20초) 모양 — 30초를 넘어 뒤 스텝이 못 들어간다.
 const nine: DemoScript = {
   steps: Array.from({ length: 9 }, (_, i) => ({
