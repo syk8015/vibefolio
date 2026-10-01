@@ -240,6 +240,7 @@ export const ko = {
     scriptActions: {
       click: "클릭", type: "입력", drag: "드래그", scroll: "스크롤",
       hover: "가리키기", draw: "그리기", focus: "확대 강조",
+      navigate: "뒤로 가기", wait: "기다리기",
     },
     pendingReview: (n: number) => `검토 대기 ${n}`,
     projectsCount: (n: number) => `작품 ${n}개`,
@@ -300,6 +301,9 @@ export const ko = {
     reviewLangTitle: "언어",
     reviewLangLegacy: "두 언어 칸이 없는 옛 초안이에요 — [고칠 점 적기]로 채울 수 있어요",
     reviewLangMissingTr: (name: string) => `${name} 판 글이 없어요 — [고칠 점 적기]로 채워 주세요`,
+    // 이미 공개된 같은 작품(NF-19) — 공개하면 명함에 둘이 뜬다
+    reviewPublishedTwin: (title: string, byUrl: boolean) =>
+      `이미 공개된 「${title}」와 ${byUrl ? "주소가" : "제목이"} 같아요. 공개하면 명함에 둘 다 떠요 — 바꾸려는 거면 공개한 뒤 옛 것을 지우세요.`,
     reviewLangPrimaryRow: "기본 언어",
     reviewLangAppRow: "앱 화면",
     reviewLangAppNone: "한국어·영어 둘 다 아님",
@@ -1028,7 +1032,7 @@ export const ko = {
     },
     captionsRequired: (locale: "ko" | "en", steps: number[]) => {
       const name = locale === "ko" ? "한국어" : "영어";
-      return `demoScript의 ${steps.join(", ")}번 장면에 ${name} 자막(caption.${locale})이 없어요. 앱 화면이 ${name}를 못 보여주니, ${name}로 보는 사람에게 장면마다 짧은 자막 하나를 붙여요: "caption": { "${locale}": "이 장면이 보여주는 것, 쉬운 말로" } (90자 이하, navigate 장면은 필요 없어요). 주인 인터뷰 답에서 뽑으세요 — 자막은 다음 자막이 나올 때까지 떠 있어요.`;
+      return `demoScript의 ${steps.join(", ")}번 장면에 ${name} 자막(caption.${locale})이 없어요. 앱 화면이 ${name}를 못 보여주니, ${name}로 보는 사람에게 장면마다 짧은 자막 하나를 붙여요: "caption": { "${locale}": "이 장면이 보여주는 것, 쉬운 말로" } (90자 이하, navigate·wait 장면은 필요 없어요). 주인 인터뷰 답에서 뽑으세요 — 자막은 다음 자막이 나올 때까지 떠 있어요.`;
     },
     captionTooLong: (locale: "ko" | "en", step: number, max: number) =>
       `${step}번 장면의 caption.${locale}이 너무 길어요 — 자막마다 ${max}자 안으로 써 주세요(영상 위에 두 줄 안으로 얹혀요).`,
@@ -1099,6 +1103,9 @@ export const ko = {
     finalizeNotDraft: "이미 공개된 프로젝트는 이 경로로 수정할 수 없어요.",
     draftIdNotDraft: "이미 공개된 프로젝트예요 — draftId로는 초안만 갱신할 수 있어요. 공개된 작품의 영상을 바꾸려면 rerecord로 새 대본을 내세요.",
     newDraftConflict: "newDraft와 draftId는 서로 반대예요 — newDraft는 늘 새 초안을 만들고, draftId는 그 초안을 갱신해요. 둘 중 하나만 보내세요.",
+    // NF-19(10-02): 이미 공개된 같은 작품 — 이 응답은 사람이 붙여넣기 창에서 본다(AI는 영어판을 받는다).
+    publishedTwin: (title: string, id: string, byUrl: boolean) =>
+      `이미 공개된 작품 「${title}」(${id})와 ${byUrl ? "주소가" : "제목이"} 같아요 — 이대로 올리면 명함에 같은 작품이 두 번 떠요. 아무것도 저장하지 않았어요. 그 작품을 고치려면 대시보드에서 그 작품을 고치세요. 따로 하나 더 올리는 게 맞다면 AI에게 "newDraft": true를 넣어 다시 달라고 하세요.`,
     draftNoFields: "수정할 항목이 없어요.",
     draftUrlImmutable: "URL이나 파일 교체는 payload에 \"draftId\": \"<이 초안 id>\"를 넣고 publish를 다시 실행하세요 — 그 초안이 그대로 갱신돼요(같은 URL로 다시 올려도 갱신돼요).",
     projectCreateFailed: "프로젝트를 만들지 못했어요.",

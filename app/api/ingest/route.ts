@@ -12,6 +12,7 @@ import {
 } from "./shared";
 import { normalizeOwnerInterview } from "@/lib/ownerInterview";
 import { judgeWorkLanguages, otherLocale } from "@/lib/workLanguages";
+import { findPublishedTwin, translationTitles } from "@/lib/publishedTwin";
 import { probeSelectors, selectorsOf, composeProbeUrl, type SelectorCheck } from "@/lib/demoScriptReview";
 import { normalizeTags, normalizeContentType, normalizeTargetDevice } from "@/lib/projectTaxonomy";
 import {
@@ -481,6 +482,36 @@ export async function POST(req: NextRequest) {
           thumbnail: (sameUrl.thumbnail as string | null) ?? null,
           demoUrl: (sameUrl.demo_url as string | null) ?? null,
         };
+      }
+    }
+
+    // 6.1. 이미 공개된 같은 작품(2026-10-02, 외부 AI 피드백 NF-19 — 실제로 일어난 일). 위
+    // upsert는 초안만 보므로, 공개된 작품을 다시 올리면 새 초안이 생기고 공개하면 명함에 둘이
+    // 뜬다(스킨로그가 그렇게 두 장이 됐다). 새 행을 만들 차례에만 묻는다 — 초안 갱신은 이미 한 번
+    // 지나간 길이다. newDraft는 "그래도 따로 하나 더"의 명시적인 답이라 통과시킨다. 드라이런보다
+    // 앞이라 check와 발행의 답이 같다. 조회가 실패하면 막지 않는다(검토 창이 한 번 더 경고한다).
+    if (!existing && !newDraft) {
+      const { data: pubRows, error: pubErr } = await admin
+        .from("projects")
+        .select("id, title, demo_url, translations")
+        .eq("user_id", userId)
+        .eq("is_draft", false);
+      if (pubErr) logger.error("ingest: published twin lookup failed", { error: pubErr });
+      const twin = findPublishedTwin(
+        { title, demoUrl, otherTitles: [languages.translation?.title] },
+        (pubRows ?? []).map((r) => ({
+          id: r.id as string,
+          title: r.title as string | null,
+          demoUrl: r.demo_url as string | null,
+          otherTitles: translationTitles(r.translations),
+        })),
+      );
+      if (twin) {
+        return apiError({
+          status: 409,
+          message: t.api.publishedTwin(twin.title, twin.id, twin.by === "url"),
+          code: "PUBLISHED_TWIN",
+        });
       }
     }
 

@@ -222,6 +222,7 @@ export const en: Dictionary = {
     scriptActions: {
       click: "click", type: "type", drag: "drag", scroll: "scroll",
       hover: "hover", draw: "draw", focus: "magnify",
+      navigate: "go back", wait: "wait",
     },
     pendingReview: (n: number) => `${n} awaiting review`,
     projectsCount: (n: number) => `${n} project${n === 1 ? "" : "s"}`,
@@ -276,6 +277,8 @@ export const en: Dictionary = {
     reviewLangTitle: "Languages",
     reviewLangLegacy: "This older draft has no language fields — [Note a fix] can fill them in",
     reviewLangMissingTr: (name: string) => `There's no ${name} version yet — use [Note a fix] to add one`,
+    reviewPublishedTwin: (title: string, byUrl: boolean) =>
+      `This has the same ${byUrl ? "address" : "title"} as “${title}”, which is already public. Publishing puts both on your card — if this replaces it, delete the old one afterwards.`,
     reviewLangPrimaryRow: "Main language",
     reviewLangAppRow: "App screens",
     reviewLangAppNone: "Neither Korean nor English",
@@ -922,7 +925,7 @@ export const en: Dictionary = {
     },
     captionsRequired: (locale: "ko" | "en", steps: number[]) => {
       const name = locale === "ko" ? "Korean" : "English";
-      return `demoScript is missing ${name} captions (caption.${locale}) on step ${steps.join(", ")}. The app's screens don't show ${name}, so a ${name} viewer gets one short caption per scene: "caption": { "${locale}": "what this scene shows, in plain words" } (max 90 characters; a navigate step needs none). Draw them from the owner's interview answers — each caption stays on screen until the next one.`;
+      return `demoScript is missing ${name} captions (caption.${locale}) on step ${steps.join(", ")}. The app's screens don't show ${name}, so a ${name} viewer gets one short caption per scene: "caption": { "${locale}": "what this scene shows, in plain words" } (max 90 characters; navigate and wait steps need none). Draw them from the owner's interview answers — each caption stays on screen until the next one.`;
     },
     captionTooLong: (locale: "ko" | "en", step: number, max: number) =>
       `step ${step}'s caption.${locale} is too long — keep each caption under ${max} characters (it sits over the video in two lines at most).`,
@@ -994,6 +997,8 @@ export const en: Dictionary = {
     finalizeNotDraft: "A published project can't be modified through this path.",
     draftIdNotDraft: "That project is already published — draftId only updates drafts. To change a published work's demo video, submit a new script with rerecord.",
     newDraftConflict: "newDraft and draftId are opposites — newDraft always creates a new draft, draftId updates that one. Send only one of them.",
+    publishedTwin: (title: string, id: string, byUrl: boolean) =>
+      `The owner already has a PUBLISHED work with the same ${byUrl ? "entry URL" : "title"}: "${title}" (id ${id}). Publishing this would put the same work on their public card twice, so nothing was saved. (drafts lists only unpublished work — that is why you did not see it.) Ask the owner before sending again: to change that work's demo video, use rerecord with id ${id}; its text they edit in the dashboard. If they want this as a separate card (a new version, or a genuinely different work), publish again with "newDraft": true (CLI --new) — and if it replaces "${title}", tell them to delete the old one in the dashboard after publishing this one.`,
     draftNoFields: "No fields to update.",
     draftUrlImmutable: "To change the URL or files, run publish again with \"draftId\": \"<this draft's id>\" in the payload — that draft is updated in place (publishing the same URL again also updates it).",
     projectCreateFailed: "Couldn't create the project.",

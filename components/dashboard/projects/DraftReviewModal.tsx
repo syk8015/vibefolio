@@ -21,6 +21,7 @@ import { PublishTrail, PublishedMark, type TrailStep } from "./PublishTrail";
 import { filmPlan, normalizeAppLanguages, normalizeLocale, otherLocale, readTranslations } from "@/lib/workLanguages";
 import { PreviewDevice, PHONE_VIEW, DESKTOP_VIEW } from "./PreviewDevice";
 import { type DBProject } from "./types";
+import { type PublishedTwin } from "@/lib/publishedTwin";
 import { readOwnerInterview, type OwnerInterview } from "@/lib/ownerInterview";
 import { useT } from "@/lib/i18n/client";
 import { getDictionary } from "@/lib/i18n/dictionaries";
@@ -53,7 +54,7 @@ import { getDictionary } from "@/lib/i18n/dictionaries";
 // 사이트가 AI에게 무엇을 보내는 게 아니다: 사람이 복사해 AI 채팅창에 붙여넣는다(문구도 그렇게).
 export type DraftPatch = Partial<Pick<DBProject, "title" | "description" | "comment" | "demo_script" | "translations">>;
 
-export function DraftReviewModal({ draft, privateReady = true, username, demoPaused = false, published: publishedProp, filmRequested = false, onClose, onPublish, onEdit, onDelete, onSave, onSaveInterview }: {
+export function DraftReviewModal({ draft, privateReady = true, username, demoPaused = false, published: publishedProp, filmRequested = false, twin = null, onClose, onPublish, onEdit, onDelete, onSave, onSaveInterview }: {
   draft: DBProject;
   // 비공개 칸(대본·로그인 답·로봇 메모)을 서버에서 받았나. 못 받은 동안엔 "대본 없음"이라
   // 거짓으로 보이거나, 빈 값으로 AI 수정 프롬프트를 만들어 AI가 멀쩡한 대본을 덮게 된다.
@@ -68,6 +69,8 @@ export function DraftReviewModal({ draft, privateReady = true, username, demoPau
   /** 공개하면서 촬영을 요청했고 아직 실패하지 않았다 — DB에 '대기'가 찍히기 전(공개 UPDATE의 realtime이
    *  촬영 상태를 비워 보낸다) 세 단계가 사라졌다 돌아오지 않게 '촬영 대기 중'으로 둔다 */
   filmRequested?: boolean;
+  /** 이미 공개된 같은 작품(NF-19) — 공개하면 명함에 둘이 뜬다는 경고 한 줄 */
+  twin?: PublishedTwin | null;
   onClose: () => void;
   /** 공개 요청 — 끝날 때까지(성공·실패) 기다린다. 그동안 버튼은 "공개 중…"으로 잠긴다 */
   onPublish: () => Promise<unknown> | void;
@@ -787,6 +790,11 @@ export function DraftReviewModal({ draft, privateReady = true, username, demoPau
               {/* 검토 칸들은 [고칠 점 적기]로 바꿔도 **숨기기만** 한다 — 내리면(unmount) 고치던 답·자막이
                   말없이 사라졌다(10-01 검토). 돌아오면 하던 그대로다(공개가 실패해 돌아올 때도). */}
               <div className="flex flex-col" style={{ gap: 12 }} hidden={mode !== "review" || published}>
+                  {twin && (
+                    <p role="note" style={{ ...smallText, padding: "0 4px", color: "var(--danger)" }}>
+                      {t.projects.reviewPublishedTwin(twin.title, twin.by === "url")}
+                    </p>
+                  )}
                   {/* ② 주인 인터뷰 확인 — 체크해야 공개된다(2026-09-29, 필수) */}
                   <OwnerInterviewPanel
                     interview={interview}

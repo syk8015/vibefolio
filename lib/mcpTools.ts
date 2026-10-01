@@ -274,7 +274,7 @@ export const MCP_TOOLS: McpTool[] = [
         },
         "newDraft": {
           "type": "boolean",
-          "description": "(optional) Set true to always create a NEW draft instead of updating the one with the same URL. Use it when the owner wants to keep the draft already there (publishing the same URL again overwrites it by default). Cannot be combined with draftId."
+          "description": "(optional) Set true to always create a NEW draft instead of updating the one with the same URL. Use it when the owner wants to keep the draft already there (publishing the same URL again overwrites it by default), or when the owner confirmed they want a second card although a PUBLISHED work with the same URL or title exists (otherwise that is rejected with PUBLISHED_TWIN). Cannot be combined with draftId."
         },
         "demoAccess": {
           "type": "object",
@@ -576,7 +576,7 @@ export const MCP_TOOLS: McpTool[] = [
         },
         "newDraft": {
           "type": "boolean",
-          "description": "(optional) Set true to always create a NEW draft instead of updating the one with the same URL. Use it when the owner wants to keep the draft already there (publishing the same URL again overwrites it by default). Cannot be combined with draftId."
+          "description": "(optional) Set true to always create a NEW draft instead of updating the one with the same URL. Use it when the owner wants to keep the draft already there (publishing the same URL again overwrites it by default), or when the owner confirmed they want a second card although a PUBLISHED work with the same URL or title exists (otherwise that is rejected with PUBLISHED_TWIN). Cannot be combined with draftId."
         },
         "demoAccess": {
           "type": "object",

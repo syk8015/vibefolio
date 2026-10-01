@@ -18,6 +18,7 @@ import { DraftRow, ProjectRow } from "./projects/rows";
 import { ProjectFormModal } from "./projects/ProjectFormModal";
 import { AddProjectModal } from "./projects/AddProjectModal";
 import { DraftReviewModal, type DraftPatch } from "./projects/DraftReviewModal";
+import { findPublishedTwin, translationTitles } from "@/lib/publishedTwin";
 import { useDemoStatusSync } from "./projects/useDemoStatusSync";
 import { useDraftArrival } from "./projects/useDraftArrival";
 import {
@@ -69,6 +70,14 @@ export default function ProjectsTab({
   const [celebrateFilm, setCelebrateFilm] = useState(false);
   const celebrated = !reviewDraft && celebrateId ? projects.find((p) => p.id === celebrateId) ?? null : null;
   const reviewTarget = reviewDraft ?? celebrated;
+  // 이미 공개된 같은 작품(NF-19) — 공개하면 명함에 둘이 뜬다. 인제스트가 새 초안을 막지만
+  // newDraft로 지나왔거나 그 전에 올라온 초안은 여기서 한 번 더 말한다.
+  const reviewTwin = reviewDraft
+    ? findPublishedTwin(
+        { id: reviewDraft.id, title: reviewDraft.title, demoUrl: reviewDraft.demo_url, otherTitles: translationTitles(reviewDraft.translations) },
+        projects.map((p) => ({ id: p.id, title: p.title, demoUrl: p.demo_url, otherTitles: translationTitles(p.translations) })),
+      )
+    : null;
   function closeReview() {
     setReviewDraftId(null);
     setCelebrateId(null);
@@ -731,6 +740,7 @@ export default function ProjectsTab({
           demoPaused={demoPaused}
           published={!reviewDraft}
           filmRequested={!reviewDraft && celebrateFilm}
+          twin={reviewTwin}
           onClose={closeReview}
           onPublish={async () => {
             const d = reviewTarget;

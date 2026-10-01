@@ -285,6 +285,11 @@ MCP 규격이 2026-07-28에 갈아엎였다: `initialize`·세션·`ping`이 사
 - **newDraft(2026-09-16, 외부 AI 피드백 NF-16)**: payload `newDraft:true`(CLI `--new`)면 URL 매칭을 건너뛰고
   **늘 새 초안**을 만든다 — 앞 초안을 남긴 채 v2를 올릴 유일한 길이다(기본은 같은 URL이면 말없이 덮어쓰기).
   `draftId`와 같이 주면 400 `BAD_REQUEST`(`newDraftConflict`). 초안 상한 20은 그대로 적용된다.
+- **공개된 쌍둥이(2026-10-02, NF-19)**: 새 초안을 만들 차례(갱신할 초안 없음·newDraft 아님)에 같은 사용자의
+  **공개** 작품 중 진입 주소(외부 URL만)나 제목(두 언어 판 아무거나, 대소문자·공백 무시)이 같은 것이 있으면
+  409 `PUBLISHED_TWIN` — 공개하면 명함에 같은 작품이 둘 뜨기 때문이다(스킨로그 실제 사례). 메시지가 id·제목과
+  갈 길(영상만 → rerecord, 따로 한 장 더 → `newDraft:true`)을 말한다. 드라이런보다 앞이라 `check`도 같은 답.
+  판정은 `lib/publishedTwin.ts` 하나 — 초안 검토 창도 같은 함수로 공개 버튼 위에 경고 한 줄을 띄운다.
 - 응답: `{ ok, projectId, reviewUrl, isDraft:true, upserted? }`. reviewUrl은 요청 origin 기준.
 
 ## 초안 관리 API (요청4) — `/api/ingest/drafts`
