@@ -132,7 +132,8 @@ try {
       user_id: userId, title: "NF probe storage", demo_url: `/api/preview/${userId}/${folder}/index.html`, is_draft: true,
     }).select("id").single();
     const del = await fetch(`${ORIGIN}/api/projects/${row.id}/demo-assets`, { method: "DELETE", headers: { cookie } });
-    const after = await fetch(`${ORIGIN}/api/preview/${userId}/${folder}/index.html`);
+    // 미리보기 응답은 엣지에 60초 캐시된다 — 위 (4)에서 본 주소라 쿼리를 붙여 캐시를 피한다(HTML은 쿼리 허용).
+    const after = await fetch(`${ORIGIN}/api/preview/${userId}/${folder}/index.html?after=${Date.now()}`);
     ok("(5) 작품 삭제 → 업로드 폴더가 R2에서 지워짐(미리보기 404)", del.ok && after.status === 404, `${del.status} → ${after.status}`);
   }
   // (5) 계정 삭제 → 남은 R2 파일(프로필 사진 등)도 지움
