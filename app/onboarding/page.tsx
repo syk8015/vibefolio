@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { AnalyticsEvent, trackClientEvent, firstTouch, type FirstTouchData } from "@/lib/analytics-client";
 import Logo from "@/components/Logo";
 import BrandMark from "@/components/BrandMark";
+import Modal from "@/components/Modal";
 import { isReservedUsername } from "@/lib/reservedUsernames";
 import { safeNext } from "@/lib/safeNext";
 import { hasBlockedTerm } from "@/lib/nameFilter";
@@ -52,6 +53,10 @@ export default function OnboardingPage() {
   const [usernameStatus, setUsernameStatus] = useState<UsernameStatus>("idle");
   const [ageOk, setAgeOk] = useState(false);
   const [usernameFocused, setUsernameFocused] = useState(false);
+  const [email, setEmail] = useState("");
+  const [quitOpen, setQuitOpen] = useState(false);
+  const [quitting, setQuitting] = useState(false);
+  const [quitError, setQuitError] = useState("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const userIdRef = useRef<string | null>(null);
   const usernameRef = useRef<HTMLInputElement | null>(null);
@@ -81,6 +86,7 @@ export default function OnboardingPage() {
       // 스피너가 끝없이 돈다(로그아웃 뒤 뒤로가기 등).
       if (!user) { router.replace("/login"); return; }
       userIdRef.current = user.id;
+      setEmail(user.email ?? "");
       const meta = user.user_metadata;
       signupTouchRef.current = meta?.first_touch ?? null;
       const name = meta?.full_name || meta?.name || "";
@@ -217,6 +223,28 @@ export default function OnboardingPage() {
     router.refresh();
   }
 
+  // 가입을 그만두는 사람의 탈출구(10-02). 프로필이 없으면 미들웨어가 어디로 가든 여기로 돌려보내
+  // 설정 화면의 회원 탈퇴에 닿지 못한다 — 로그아웃만 되니 빈 계정이 쌓였다. /api는 온보딩 관문을
+  // 건너뛰므로 설정 화면과 같은 DELETE /api/account를 그대로 쓴다(저장소 비우기 → 계정 삭제).
+  async function handleQuit() {
+    setQuitting(true);
+    setQuitError("");
+    try {
+      const res = await fetch("/api/account", { method: "DELETE" });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.message || t.onboarding.quitFailed);
+      }
+      // 계정이 사라졌다 — 이 기기에 남은 세션 쿠키만 비운다.
+      await createClient().auth.signOut({ scope: "local" });
+      router.push("/");
+      router.refresh();
+    } catch (err) {
+      setQuitting(false);
+      setQuitError(err instanceof Error ? err.message : t.onboarding.quitFailed);
+    }
+  }
+
   const canSubmit = !loading && ageOk && usernameStatus !== "taken" && usernameStatus !== "invalid" && usernameStatus !== "reserved" && usernameStatus !== "checking";
 
   // 주소 칸 아래 한 줄은 실패일 때만 — 쓸 수 있으면 칸 안의 ✓ 하나로 끝낸다(10-01 덜어내기).
@@ -310,14 +338,51 @@ export default function OnboardingPage() {
           </button>
         </form>
 
-        {/* Escape hatch for a wrong-account sign-in */}
-        <div className="mt-5 text-center">
+        {/* Escape hatches: a wrong-account sign-in, or someone who'd rather not sign up after all */}
+        <div className="mt-5 flex items-center justify-center gap-2.5"
+          style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}>
           <button type="button" onClick={handleSignOut} className="vf-button-text"
-            style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}>
+            style={{ fontSize: "inherit", color: "inherit" }}>
             {t.onboarding.otherAccount}
+          </button>
+          <span aria-hidden>·</span>
+          <button type="button" onClick={() => { setQuitOpen(true); setQuitError(""); }} className="vf-button-text"
+            style={{ fontSize: "inherit", color: "inherit" }}>
+            {t.onboarding.quitLink}
           </button>
         </div>
       </div>
+
+      {quitOpen && (
+        <Modal ariaLabel={t.onboarding.quitTitle} maxWidth="24rem"
+          onClose={() => { if (!quitting) setQuitOpen(false); }}>
+          <h2 style={{ fontSize: "1.0625rem", fontWeight: 700, lineHeight: 1.4, margin: "0 0 0.75rem", color: "var(--text-primary)" }}>
+            {t.onboarding.quitTitle}
+          </h2>
+          {email && (
+            <p style={{ fontSize: "0.875rem", fontWeight: 600, margin: "0 0 0.375rem", color: "var(--text-primary)", overflowWrap: "anywhere" }}>
+              {email}
+            </p>
+          )}
+          <p style={{ fontSize: "0.875rem", lineHeight: 1.6, margin: 0, color: "var(--text-secondary)" }}>
+            {t.onboarding.quitBody}
+          </p>
+          {quitError && (
+            <p role="alert" style={{ fontSize: "0.875rem", margin: "0.75rem 0 0", color: "var(--danger)" }}>{quitError}</p>
+          )}
+          <div className="flex gap-2" style={{ marginTop: "1.25rem" }}>
+            <button type="button" onClick={() => setQuitOpen(false)} disabled={quitting}
+              className="vf-button-ghost flex-1" style={{ fontSize: "0.875rem" }}>
+              {t.onboarding.quitCancel}
+            </button>
+            <button type="button" onClick={handleQuit} disabled={quitting}
+              className="vf-button-ghost flex-1"
+              style={{ fontSize: "0.875rem", fontWeight: 600, background: "#b34747", color: "#fff" }}>
+              {quitting ? t.onboarding.quitDeleting : t.onboarding.quitConfirm}
+            </button>
+          </div>
+        </Modal>
+      )}
     </main>
   );
 }

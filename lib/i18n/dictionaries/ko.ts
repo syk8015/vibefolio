@@ -168,6 +168,14 @@ export const ko = {
     submitting: "저장 중...",
     submit: "시작하기",
     otherAccount: "다른 계정으로 로그인",
+    // 가입을 마치지 않은 계정의 탈출구(10-02) — 프로필이 없어 설정 화면의 회원 탈퇴에 갈 수 없다.
+    quitLink: "계정 지우기",
+    quitTitle: "가입을 그만두고 계정을 지울까요?",
+    quitBody: "이 계정이 바로 지워지고, 되돌릴 수 없어요. 같은 메일로 언제든 다시 가입할 수 있어요.",
+    quitConfirm: "계정 지우기",
+    quitDeleting: "지우는 중…",
+    quitFailed: "계정을 지우지 못했어요. 잠시 후 다시 시도해 주세요.",
+    quitCancel: "취소",
     ageConfirm: "만 14세 이상이에요",
     errors: {
       usernameTaken: "이미 사용 중인 username이에요. 다른 걸 입력해주세요.",

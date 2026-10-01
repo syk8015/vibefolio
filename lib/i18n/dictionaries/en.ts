@@ -155,6 +155,13 @@ export const en: Dictionary = {
     submitting: "Saving...",
     submit: "Get started",
     otherAccount: "Use a different account",
+    quitLink: "Delete account",
+    quitTitle: "Stop signing up and delete this account?",
+    quitBody: "This account will be deleted right away and can't be restored. You can sign up again with the same email anytime.",
+    quitConfirm: "Delete account",
+    quitDeleting: "Deleting…",
+    quitFailed: "Couldn't delete your account. Please try again shortly.",
+    quitCancel: "Cancel",
     ageConfirm: "I'm 14 or older",
     errors: {
       usernameTaken: "This username is already taken. Please pick another.",
