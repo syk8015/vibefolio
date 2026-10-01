@@ -137,12 +137,14 @@ try {
   ok("(B) 에코에 .git 언급", droppedText.includes(".git"), droppedText);
 
   if (mixed.status === 200) {
-    const keys = await walk(`${prof.id}/${mixed.body.projectId}`);
-    const rel = keys.map((k) => k.replace(`${prof.id}/${mixed.body.projectId}/`, ""));
-    ok("(B) 스토리지에 .env 없음", !rel.some((p) => p === ".env" || p === ".env.local"), rel.join(", "));
-    ok("(B) 스토리지에 .git/ 없음", !rel.some((p) => p.startsWith(".git/")), rel.join(", "));
-    ok("(B) index.html은 저장됨", rel.includes("index.html"), rel.join(", "));
-    ok("(B) .gitignore는 오탐 없이 저장됨", rel.includes(".gitignore"), rel.join(", "));
+    // 파일은 R2(2026-10-01~) — 공개 주소(media.nookframe.com/files/…)를 처음 두드려 있는지 본다
+    // (처음 부르는 주소라 CDN 캐시가 없다). 이 컴퓨터엔 R2 열쇠가 없어 목록 대신 이렇게 본다.
+    const r2 = async (rel) => (await fetch(`https://media.nookframe.com/files/${prof.id}/${mixed.body.projectId}/${rel}`, { method: "HEAD" })).status;
+    const [env, envLocal, gitCfg, idx, gi] = await Promise.all([".env", ".env.local", ".git/config", "index.html", ".gitignore"].map(r2));
+    ok("(B) 저장소에 .env 없음", env === 404 && envLocal === 404, `.env ${env} · .env.local ${envLocal}`);
+    ok("(B) 저장소에 .git/ 없음", gitCfg === 404, `.git/config ${gitCfg}`);
+    ok("(B) index.html은 저장됨", idx === 200, `${idx}`);
+    ok("(B) .gitignore는 오탐 없이 저장됨", gi === 200, `${gi}`);
 
     // (C) 서빙 차단 — 스토리지에 있었다 해도 이 라우트로는 안 나간다.
     const base = `${ORIGIN}/api/preview/${prof.id}/${mixed.body.projectId}`;

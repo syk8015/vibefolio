@@ -94,24 +94,13 @@ export async function GET(
   }
 
   // 파일은 R2에서 바로 읽는다(2026-10-01~, lib/userStorage.ts — CDN이 아니라 저장소라 방금 바꾼
-  // 파일도 바로 보인다). 그 전에 올린 파일은 옛 Supabase 공개 버킷에서 읽는다.
+  // 파일도 바로 보인다). 옛 Supabase 파일은 R2로 옮겼고 그 버킷은 닫았다.
   // This route serves files for iframes, so error responses stay plain-text
   // (never JSON) to honour its content contract. The outer guard only ensures an
   // upstream network failure becomes a clean 502 instead of an unhandled 500.
   let body: ReadableStream | null = null;
   try {
-    const fromR2 = await readUserFileStream("project-files", filePath);
-    if (fromR2) {
-      body = fromR2.body;
-    } else {
-      // Cap the wait: every embed asset (JS/CSS/font/image) flows through here, and a
-      // slow storage origin would otherwise pin this function until the platform timeout.
-      const legacy = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/project-files/${filePath}`,
-        { signal: AbortSignal.timeout(8000) },
-      );
-      if (legacy.ok) body = legacy.body;
-    }
+    body = (await readUserFileStream("project-files", filePath))?.body ?? null;
   } catch (err) {
     logger.error("preview: upstream fetch failed", { error: err, filePath });
     return new NextResponse("Upstream error", { status: 502 });

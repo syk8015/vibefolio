@@ -4,6 +4,9 @@
 // 검증: (1) 옛 무작위 폴더는 통째로 지워지고 새 폴더는 남음 (2) 주인의 다른 작품이 쓰는 폴더는
 // 안 지움 (3) thumbnails/처럼 UUID가 아닌 폴더는 못 고름 (4) 남의 폴더는 못 고름
 // (5) 지금 쓰는 폴더는 안 지움 (6) 행 폴더(Connect 업로드)는 _media와 쓰는 썸네일을 남기고 비움.
+// 파일은 R2(2026-10-01~) — 대시보드와 같은 길(/api/storage/sign 서명 URL)로 심고, 있는지는 처음 두드리는
+// 주소로 본다(.html은 미리보기에 쿼리를 붙여 저장소에서 바로, 나머지는 media.nookframe.com HEAD 한 번).
+// 이 컴퓨터엔 R2 열쇠가 없다. 끝나면 계정 삭제 API로 계정·파일을 같이 지운다.
 // 사용: `node scripts/probe-folder-swap.mjs` (배포 뒤)
 import "./_secrets.mjs";
 import { createClient } from "@supabase/supabase-js";
@@ -12,21 +15,38 @@ import { createChunks, stringToBase64URL } from "@supabase/ssr";
 const ORIGIN = process.env.PROBE_ORIGIN ?? "https://nookframe.com";
 const URL_ = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const svc = createClient(URL_, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
-const BUCKET = "project-files";
 
 let failed = 0;
 const ok = (name, pass, detail = "") => {
   console.log(`${pass ? "✓" : "✗"} ${name}${detail ? ` — ${String(detail).slice(0, 200)}` : ""}`);
   if (!pass) failed++;
 };
+const BODY = "<p>nf probe</p>";
+let cookie = null;
+const sign = async (body) => {
+  const r = await fetch(`${ORIGIN}/api/storage/sign`, {
+    method: "POST", headers: { cookie, "Content-Type": "application/json" }, body: JSON.stringify(body),
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(`sign ${JSON.stringify(body).slice(0, 80)}: ${r.status} ${JSON.stringify(j)}`);
+  return j;
+};
+const putTarget = async (t, data) => {
+  const r = await fetch(t.url, { method: "PUT", headers: t.headers, body: data });
+  if (!r.ok) throw new Error(`put ${t.path}: ${r.status}`);
+};
+// key = {uid}/{폴더}/{상대경로} — 서명 API로 그 폴더에 올린다.
 const put = async (key) => {
-  const { error } = await svc.storage.from(BUCKET).upload(key, new Blob(["<p>nf probe</p>"]), { upsert: true, contentType: "text/html" });
-  if (error) throw new Error(`upload ${key}: ${error.message}`);
+  const [, folder, ...rest] = key.split("/");
+  const { targets } = await sign({ kind: "app", folder, files: [{ path: rest.join("/"), size: Buffer.byteLength(BODY) }] });
+  await putTarget(targets[0], BODY);
 };
 const exists = async (key) => {
-  const dir = key.slice(0, key.lastIndexOf("/"));
-  const { data } = await svc.storage.from(BUCKET).list(dir, { limit: 1000 });
-  return !!data?.some((e) => `${dir}/${e.name}` === key);
+  if (key.endsWith(".html")) {
+    const r = await fetch(`${ORIGIN}/api/preview/${key}?nfp=${crypto.randomUUID()}`);
+    return r.status === 200;
+  }
+  return (await fetch(`https://media.nookframe.com/files/${key}`, { method: "HEAD" })).status === 200;
 };
 const preview = (key) => `/api/preview/${key}`;
 
@@ -45,18 +65,19 @@ try {
   const { data: sess, error: vErr } = await user.auth.verifyOtp({ type: "magiclink", token_hash: link.properties.hashed_token });
   if (vErr) throw vErr;
   const ref = new URL(URL_).hostname.split(".")[0];
-  const cookie = createChunks(`sb-${ref}-auth-token`, "base64-" + stringToBase64URL(JSON.stringify(sess.session)))
+  cookie = createChunks(`sb-${ref}-auth-token`, "base64-" + stringToBase64URL(JSON.stringify(sess.session)))
     .map((c) => `${c.name}=${c.value}`).join("; ");
   await svc.from("profiles").upsert({ id: userId, username, name: "NF probe" });
 
   const A = `${userId}/${crypto.randomUUID()}`;
   const B = `${userId}/${crypto.randomUUID()}`;
   const SHARED = `${userId}/${crypto.randomUUID()}`;
-  const THUMB = `${userId}/thumbnails/${crypto.randomUUID()}.png`;
-  await Promise.all([
-    put(`${A}/index.html`), put(`${A}/js/app.js`), put(`${B}/index.html`),
-    put(`${SHARED}/index.html`), put(THUMB), put(`${strangerDir}/index.html`),
-  ]);
+  // 썸네일은 서버가 이름을 정한다 — 받은 주소에서 키를 꺼낸다.
+  const th = await sign({ kind: "thumbnail", ext: "png", size: Buffer.byteLength(BODY), contentType: "image/png" });
+  await putTarget(th.target, BODY);
+  const THUMB = th.target.publicUrl.replace("https://media.nookframe.com/files/", "");
+  await Promise.all([put(`${A}/index.html`), put(`${A}/js/app.js`), put(`${B}/index.html`), put(`${SHARED}/index.html`)]);
+  // 남의 폴더(strangerDir)는 심지 않는다 — 남의 계정으로는 서명을 못 받는다. 청소가 0개를 지우는지만 본다.
 
   const insert = async (demo_url) => {
     const { data, error } = await svc.from("projects").insert({
@@ -95,7 +116,7 @@ try {
   }
   {
     const r = await clean(id, preview(`${strangerDir}/index.html`));
-    ok("(4) 남의 폴더는 못 고름", r.removed === 0 && (await exists(`${strangerDir}/index.html`)), JSON.stringify(r));
+    ok("(4) 남의 폴더는 못 고름", r.removed === 0, JSON.stringify(r));
   }
   {
     const r = await clean(id, preview(`${B}/index.html`));
@@ -106,7 +127,7 @@ try {
     const rowId = await insert("https://example.com/nfprobe-placeholder");
     const R = `${userId}/${rowId}`;
     await Promise.all([put(`${R}/index.html`), put(`${R}/_media/screenshot.png`), put(`${R}/_media/extra.png`)]);
-    const shot = svc.storage.from(BUCKET).getPublicUrl(`${R}/_media/screenshot.png`).data.publicUrl;
+    const shot = `https://media.nookframe.com/files/${R}/_media/screenshot.png`;
     await svc.from("projects").update({ demo_url: preview(`${R}/index.html`), thumbnail: shot }).eq("id", rowId);
     const C = `${userId}/${crypto.randomUUID()}`;
     await put(`${C}/index.html`);
@@ -117,21 +138,14 @@ try {
   }
 } finally {
   if (userId) {
-    const { data: files } = await svc.storage.from(BUCKET).list(userId, { limit: 1000 });
-    const all = [];
-    const queue = (files ?? []).map((f) => ({ path: `${userId}/${f.name}`, dir: f.id === null }));
-    while (queue.length) {
-      const e = queue.shift();
-      if (!e.dir) { all.push(e.path); continue; }
-      const { data } = await svc.storage.from(BUCKET).list(e.path, { limit: 1000 });
-      for (const f of data ?? []) queue.push({ path: `${e.path}/${f.name}`, dir: f.id === null });
+    // 계정 삭제 API가 R2의 사용자 파일까지 지운다(그것도 이 기능의 일부).
+    const del = cookie ? await fetch(`${ORIGIN}/api/account`, { method: "DELETE", headers: { cookie } }).catch(() => null) : null;
+    if (!del?.ok) {
+      await svc.from("projects").delete().eq("user_id", userId);
+      await svc.from("profiles").delete().eq("id", userId);
+      await svc.auth.admin.deleteUser(userId);
     }
-    if (all.length) await svc.storage.from(BUCKET).remove(all);
-    await svc.from("projects").delete().eq("user_id", userId);
-    await svc.from("profiles").delete().eq("id", userId);
-    await svc.auth.admin.deleteUser(userId);
   }
-  await svc.storage.from(BUCKET).remove([`${strangerDir}/index.html`]);
 }
 
 console.log(failed ? `\n✗ ${failed} failed` : "\nall folder-swap probes passed");
