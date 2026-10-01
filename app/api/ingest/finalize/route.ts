@@ -12,6 +12,7 @@ import {
 import { uploadErrorResponse } from "../uploadError";
 import { normalizeDemoScript } from "@/lib/demoScript";
 import { logger } from "@/lib/logger";
+import { withUserStorage } from "@/lib/userStorage";
 
 // POST /api/ingest/finalize — 서명 URL 2단계의 마무리. /api/ingest가 uploads
 // 선언에 발급한 URL로 클라가 스토리지에 직접 PUT한 뒤(Vercel 본문 상한 ~4.5MB
@@ -54,6 +55,8 @@ export async function POST(req: NextRequest) {
 
     // 4. 행 소유·초안 확인.
     const admin = createAdminClient();
+    // 파일은 R2(lib/userStorage.ts) — 표는 admin, 저장소 호출만 files로.
+    const files = withUserStorage(admin);
     const { data: row, error: selErr } = await admin
       .from("projects")
       .select("id, user_id, is_draft, demo_url, video_url, thumbnail, demo_script")
@@ -72,7 +75,7 @@ export async function POST(req: NextRequest) {
     // 5. 임시 오브젝트 회수 — 1단계가 만든 가장 새 업로드 세션의 키만. download 에러 =
     // 미업로드로 간주. replacing = 1단계가 "이미 있던 초안에 올린다"고 남긴 교체 표식.
     // 세션·표식은 목록 조회로 찾는다(CDN 캐시를 안 탄다 — lib/ingestStore.ts).
-    const { session, replacing } = await inspectUploads(admin, userId, projectId);
+    const { session, replacing } = await inspectUploads(files, userId, projectId);
     const tempKeys = session
       ? [
           UPLOAD_TEMP_KEYS.bundle(userId, projectId, session),
@@ -80,15 +83,19 @@ export async function POST(req: NextRequest) {
           UPLOAD_TEMP_KEYS.video(userId, projectId, session),
         ]
       : [];
+    // 25MB(번들 상한)를 넘는 임시 파일은 읽지 않는다 — R2 서명 URL은 크기를 묶지 못해(CLI가 크기를
+    // 미리 안 알린다) 여기서 막는다. 넘었으면 "안 올라옴"이 아니라 "너무 큼"으로 답한다.
+    let oversized = false;
     const download = async (key: string | undefined): Promise<Uint8Array | null> => {
       if (!key) return null;
-      const { data, error } = await admin.storage.from("project-files").download(key);
+      const { data, error } = await files.storage.from("project-files").download(key, { maxBytes: MAX_UPLOAD_BYTES });
+      if (error?.message.startsWith("object too large")) oversized = true;
       if (error || !data) return null;
       return new Uint8Array(await data.arrayBuffer());
     };
     const [bundleBuf, shotBuf, videoBuf] = await Promise.all(tempKeys.length ? tempKeys.map(download) : [null, null, null]);
     const cleanupTemp = () =>
-      admin.storage
+      files.storage
         .from("project-files")
         .remove([...tempKeys, UPLOAD_REPLACE_MARKER(userId, projectId)])
         .then(
@@ -98,7 +105,7 @@ export async function POST(req: NextRequest) {
 
     // 아무것도 안 올라온 finalize: 이미 아티팩트가 연결돼 있으면(재호출) 멱등 성공,
     // 아니면 실패 — 빈 초안을 "완료"로 오인하게 두지 않는다.
-    if (!bundleBuf && !shotBuf && !videoBuf) {
+    if (!bundleBuf && !shotBuf && !videoBuf && !oversized) {
       if (row.demo_url || row.video_url) {
         const reviewUrl = `${req.nextUrl.origin}/dashboard?review=${projectId}`;
         return NextResponse.json({ ok: true, projectId, reviewUrl, deduped: true });
@@ -113,6 +120,7 @@ export async function POST(req: NextRequest) {
     let droppedFiles: string[] = [];
     try {
       const updates: Record<string, string> = {};
+      if (oversized) throw new UploadError(t.api.uploadTooLarge, "too-large");
       const sniffed = validateMedia(shotBuf, videoBuf);
       // 영상도 대본도 없으면 이 초안은 찍을 방법이 없다(2026-09-16). 발행 때
       // `uploads:["video"]` **선언만으로** 대본 게이트를 면제받고서 영상을 끝내 안
@@ -128,7 +136,7 @@ export async function POST(req: NextRequest) {
         if (bundleBuf.byteLength > MAX_UPLOAD_BYTES) {
           throw new UploadError(t.api.uploadTooLarge, "too-large");
         }
-        const stored = await storeZipBundle(admin, userId, projectId, bundleBuf.buffer as ArrayBuffer);
+        const stored = await storeZipBundle(files, userId, projectId, bundleBuf.buffer as ArrayBuffer);
         const { entryPath, runnable } = stored;
         droppedFiles = summarizeDropped(stored.dropped, t.api.secretFileKinds);
         keep = new Set(stored.keys);
@@ -140,7 +148,7 @@ export async function POST(req: NextRequest) {
           updates.thumbnail = screenshotUrl(`${req.nextUrl.origin}${updates.demo_url}`);
         }
       }
-      const media = await uploadMedia(admin, userId, projectId, shotBuf, videoBuf, sniffed);
+      const media = await uploadMedia(files, userId, projectId, shotBuf, videoBuf, sniffed);
       Object.assign(updates, media); // screenshot thumbnail이 thum.io보다 우선
       if (videoBuf) updates.type = "video";
       const { error: updErr } = await admin.from("projects").update(updates).eq("id", projectId);
@@ -148,13 +156,13 @@ export async function POST(req: NextRequest) {
       // 파일 초안의 zip을 갈아끼웠으면 새 zip에 없는 옛 파일을 지운다(공개 버킷). 정리 실패는
       // 발행 실패가 아니다 — 새 파일은 이미 연결됐으니 기록만 남긴다.
       if (keep && (row.demo_url as string | null)?.startsWith("/api/preview/")) {
-        await removeStaleFiles(admin, userId, projectId, keep).catch((err) =>
+        await removeStaleFiles(files, userId, projectId, keep).catch((err) =>
           logger.error("ingest finalize: stale file cleanup failed", { error: err, projectId }));
       }
       await cleanupTemp();
     } catch (e) {
       // 교체 표식이 있으면 이미 있던 초안이다 — 지우지 않고 이전 상태를 남긴다.
-      if (!replacing) await dropNewRow(admin, userId, projectId);
+      if (!replacing) await dropNewRow(files, userId, projectId);
       await cleanupTemp();
       if (e instanceof UploadError) return await uploadErrorResponse(e, t, userId);
       logger.error("ingest finalize: processing failed", { error: e, projectId });

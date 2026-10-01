@@ -32,6 +32,7 @@ import {
 import { htmlBodyIssue, htmlBodyToZip, HTML_BODY_MAX_BYTES } from "@/lib/htmlBody";
 import { uploadErrorResponse } from "./uploadError";
 import { logger } from "@/lib/logger";
+import { withUserStorage } from "@/lib/userStorage";
 
 // POST /api/ingest — Nookframe Connect. 외부 AI 에이전트(CLI/MCP/붙여넣기)가 로그인된
 // 유저 대신 프로젝트를 "초안"으로 밀어넣는다. 초안은 공개 어디에도 안 뜨고(RLS),
@@ -175,6 +176,8 @@ export async function POST(req: NextRequest) {
     const dryRun = dryRunQuery || payload?.dryRun === true;
 
     const admin = createAdminClient();
+    // 파일은 R2(lib/userStorage.ts) — 표는 그대로 admin, 저장소 호출만 files로.
+    const files = withUserStorage(admin);
 
     // 3.5. 갱신할 초안 지정 — draftId(2026-09-15). 주면 진입 URL 대신 그 초안을 갱신한다(6단계).
     // 파일 업로드 초안은 비교할 URL이 없어 다시 올릴 때마다 새 초안이 생겼고, URL을 바꿔 올린
@@ -571,7 +574,7 @@ export async function POST(req: NextRequest) {
       // 파일 초안을 URL로 바꿔 올렸으면 옛 zip은 이제 어디서도 안 가리킨다 — 공개 버킷이라
       // 지운다. 정리 실패는 발행 실패가 아니다(행은 이미 새 URL) — 기록만 남긴다.
       if (demoUrl && existing.demoUrl?.startsWith("/api/preview/")) {
-        await removeStaleFiles(admin, userId, existingId, new Set()).catch((err) =>
+        await removeStaleFiles(files, userId, existingId, new Set()).catch((err) =>
           logger.error("ingest: stale file cleanup failed", { error: err, projectId: existingId }));
       }
     } else {
@@ -644,7 +647,7 @@ export async function POST(req: NextRequest) {
         if (bundle.size > MAX_UPLOAD_BYTES) {
           throw new UploadError(t.api.uploadTooLarge, "too-large");
         }
-        const stored = await storeZipBundle(admin, userId, projectId, await bundle.arrayBuffer());
+        const stored = await storeZipBundle(files, userId, projectId, await bundle.arrayBuffer());
         const { entryPath, runnable } = stored;
         droppedFiles = summarizeDropped(stored.dropped, t.api.secretFileKinds);
         demoUrl = `/api/preview/${userId}/${projectId}/${entryPath}`;
@@ -662,12 +665,12 @@ export async function POST(req: NextRequest) {
         if (updErr) throw new UploadError(t.api.demoUrlSaveFailed);
         // 교체 발행이면 새 zip에 없는 옛 파일을 지운다(공개 버킷 — lib/ingestStore.ts).
         if (upserted) {
-          await removeStaleFiles(admin, userId, projectId, new Set(stored.keys)).catch((err) =>
+          await removeStaleFiles(files, userId, projectId, new Set(stored.keys)).catch((err) =>
             logger.error("ingest: stale file cleanup failed", { error: err, projectId }));
         }
       } catch (e) {
         // 이번 요청이 만든 행만 지운다 — 이미 있던 초안(draftId·같은 URL)은 이전 상태가 남는 게 낫다.
-        if (!upserted) await dropNewRow(admin, userId, projectId);
+        if (!upserted) await dropNewRow(files, userId, projectId);
         if (e instanceof UploadError) return await uploadErrorResponse(e, t, userId);
         logger.error("ingest: file upload failed", { error: e, projectId });
         return apiError({ status: 500, message: t.api.uploadProcessingError, code: "UPLOAD_ERROR", cause: e });
@@ -679,13 +682,13 @@ export async function POST(req: NextRequest) {
     // video_url(노출 1순위 표면)을 채운다.
     if (shotBuf || videoBuf) {
       try {
-        const updates = await uploadMedia(admin, userId, projectId, shotBuf, videoBuf, sniffed);
+        const updates = await uploadMedia(files, userId, projectId, shotBuf, videoBuf, sniffed);
         const { error: updErr } = await admin.from("projects").update(updates).eq("id", projectId);
         if (updErr) throw new Error(`media row update: ${updErr.message}`);
       } catch (e) {
         // 고아 행 정리 — zip 실패 경로와 동일 정책(행 폴더의 파일도 dropNewRow가 지운다).
         // 단 upsert된 기존 초안은 지우지 않는다(이전 상태가 남는 게 낫다).
-        if (!upserted) await dropNewRow(admin, userId, projectId);
+        if (!upserted) await dropNewRow(files, userId, projectId);
         logger.error("ingest: media upload failed", { error: e, projectId });
         return apiError({ status: 500, message: t.api.mediaUploadFailed, code: "MEDIA_UPLOAD_FAILED", cause: e });
       }
@@ -699,7 +702,7 @@ export async function POST(req: NextRequest) {
       // 이미 있던 초안(draftId·같은 URL)에 올리는 파일이면 교체 표식을 남긴다 — finalize는 행이
       // 이번에 새로 생긴 건지 모르므로, 이 표식을 보고 검증 실패 때 그 초안을 지우지 않는다.
       if (upserted) {
-        const { error: markErr } = await admin.storage
+        const { error: markErr } = await files.storage
           .from("project-files")
           .upload(UPLOAD_REPLACE_MARKER(userId, projectId), new Uint8Array([1]), {
             upsert: true,
@@ -714,11 +717,11 @@ export async function POST(req: NextRequest) {
       }
       const session = newUploadSession();
       for (const kind of declared) {
-        const { data, error } = await admin.storage
+        const { data, error } = await files.storage
           .from("project-files")
-          .createSignedUploadUrl(UPLOAD_TEMP_KEYS[kind](userId, projectId, session), { upsert: true });
+          .createSignedUploadUrl(UPLOAD_TEMP_KEYS[kind](userId, projectId, session));
         if (error || !data) {
-          if (!upserted) await dropNewRow(admin, userId, projectId);
+          if (!upserted) await dropNewRow(files, userId, projectId);
           return apiError({
             status: 500, message: t.api.mediaUploadFailed, code: "SIGN_FAILED",
             cause: error, context: { projectId, kind },

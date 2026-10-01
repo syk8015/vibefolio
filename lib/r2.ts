@@ -2,7 +2,8 @@
 //
 // Why R2 and not Supabase Storage for demos: once a demo mp4 unfurls as og:video,
 // a single Discord/Slack unfurl can pull tens of GB of egress. R2 egress is free;
-// Supabase's is metered. Everything else (uploads, avatars) stays on Supabase.
+// Supabase's is metered. Since 2026-10-01 user files (uploads, avatars) live here
+// too, under files/ and avatars/ (lib/userStorage.ts) — same reason.
 //
 // Shared by THREE runtimes, so it carries zero framework deps and reads env lazily
 // at call time (a missing config never throws at import — callers gate on
@@ -53,6 +54,18 @@ function client(): S3Client {
     },
   });
   return _client;
+}
+
+// 사용자 파일 저장(lib/userStorage.ts)이 같은 버킷·같은 연결을 쓴다(2026-10-01) — 연결을
+// 두 벌 만들지 않게 여기서만 꺼내 준다. 서버 전용(워커는 키가 없다).
+export function r2Client(): S3Client {
+  return client();
+}
+export function r2Bucket(): string {
+  return env().bucket!;
+}
+export function r2PublicBase(): string {
+  return (env().publicBase || "").replace(/\/+$/, "");
 }
 
 // Public URL for a stored object. R2_PUBLIC_URL_BASE is the bucket's public base

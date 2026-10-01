@@ -1,4 +1,13 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+// 저장소 모양만 받는다 — 사용자 파일은 R2(lib/userStorage.ts의 userStorageClient), 테스트는 가짜.
+type ListEntry = { name: string; id: string | null };
+type StorageLike = {
+  storage: {
+    from(bucket: string): {
+      list(dir: string, opts?: { limit?: number; offset?: number }): Promise<{ data: ListEntry[] | null; error: { message: string } | null }>;
+      remove(paths: string[]): Promise<{ error: { message: string } | null }>;
+    };
+  };
+};
 
 // Supabase Storage 폴더 통째로 나열·지우기. list()는 한 겹·한 페이지(최대 1000)만
 // 돌려주므로 폴더 BFS + offset 페이지 반복이 필요하다. 예전 삭제 경로 셋(탈퇴·초안
@@ -8,7 +17,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 export const STORAGE_LIST_PAGE = 1000;
 
 export async function listFilesDeep(
-  admin: SupabaseClient,
+  admin: StorageLike,
   bucket: string,
   root: string,
 ): Promise<string[]> {
@@ -34,7 +43,7 @@ export async function listFilesDeep(
 
 // remove()는 한 번에 너무 많이 주면 거절되므로 100개씩.
 export async function removeFiles(
-  admin: SupabaseClient,
+  admin: StorageLike,
   bucket: string,
   paths: string[],
 ): Promise<number> {

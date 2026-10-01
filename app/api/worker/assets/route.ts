@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { logger } from "@/lib/logger";
 import { isR2Configured, presignR2Put, pruneR2PrefixExcept } from "@/lib/r2";
 import { jobOwner } from "@/lib/workerOps";
+import { userStorage } from "@/lib/userStorage";
 
 // Storage for the recorder, without giving it storage credentials.
 //
@@ -47,15 +48,15 @@ async function signUpload(key: string, contentType: string): Promise<SignedTarge
   return signSupabaseUpload(key, contentType);
 }
 
-// Recursive walk of a storage prefix. Supabase returns directory placeholders
-// with id === null.
+// Recursive walk of an uploaded-source prefix — user files live in R2 since
+// 2026-10-01 (lib/userStorage.ts, same {uid}/{folder}/… paths). Folders come back
+// with id === null, the supabase-js convention the shim keeps.
 async function listRecursive(prefix: string): Promise<string[]> {
-  const admin = createAdminClient();
   const out: string[] = [];
   const queue: string[] = [prefix];
   while (queue.length) {
     const dir = queue.shift()!;
-    const { data, error } = await admin.storage.from(DEMO_BUCKET).list(dir, { limit: 1000 });
+    const { data, error } = await userStorage.from("project-files").list(dir, { limit: 100_000 });
     if (error) throw new Error(`storage list failed at ${dir}: ${error.message}`);
     for (const entry of data ?? []) {
       const full = `${dir}/${entry.name}`;
@@ -195,8 +196,8 @@ export async function POST(req: NextRequest) {
         if (!paths.length) {
           return NextResponse.json({ ok: true, prefix: sourceValue, files: [] });
         }
-        const { data: signed, error: signErr } = await admin.storage
-          .from(DEMO_BUCKET)
+        const { data: signed, error: signErr } = await userStorage
+          .from("project-files")
           .createSignedUrls(paths, DOWNLOAD_TTL_S);
         if (signErr || !signed) {
           return apiError({

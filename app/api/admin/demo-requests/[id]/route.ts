@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { detectDemoSource, liveUrlIssue } from "@/lib/demoSource";
 import { resolveBuildPayload, DemoSourceError } from "@/lib/demoPayload";
+import { userStorageClient } from "@/lib/userStorage";
 import { assertSafePublicUrl, SsrfError } from "@/lib/ssrf";
 import { apiError } from "@/lib/apiError";
 import { requireAdmin } from "@/lib/routeAuth";
@@ -120,7 +121,7 @@ export async function POST(
     // upload (F3). Throws DemoSourceError on a foreign preview path.
     let payload;
     try {
-      payload = await resolveBuildPayload(admin, project.id, project.user_id, source, req.nextUrl.origin);
+      payload = await resolveBuildPayload(userStorageClient, project.id, project.user_id, source, req.nextUrl.origin);
     } catch (e) {
       if (e instanceof DemoSourceError) {
         return apiError({ status: 400, message: "소스 주소를 확인해 주세요.", code: "UNSUPPORTED_SOURCE" });

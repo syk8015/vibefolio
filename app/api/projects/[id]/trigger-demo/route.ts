@@ -10,6 +10,7 @@ import { getT } from "@/lib/i18n/server";
 import { trackServerEvent } from "@/lib/analytics";
 import { AnalyticsEvent } from "@/lib/analytics-events";
 import { mailApprovalRequest } from "@/lib/approvalMail";
+import { userStorageClient } from "@/lib/userStorage";
 
 // Shape returned by the request_demo() SQL function (supabase/migration_demo_quota.sql).
 type QuotaResult = {
@@ -171,8 +172,9 @@ export async function POST(
     // source to its owner so it can't point the recorder at another user's upload.
     let payload: BuildPayload;
     try {
+      // 업로드 폴더 목록은 R2에서 본다(lib/userStorage.ts) — 소유자 접두사 검사는 함수 안에서 먼저 한다.
       payload = await resolveBuildPayload(
-        supabase,
+        userStorageClient,
         id,
         user.id,
         source,

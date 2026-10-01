@@ -7,7 +7,11 @@ import { logger } from "@/lib/logger";
 import { isR2Configured, deleteR2Prefix } from "@/lib/r2";
 import { listFilesDeep, removeFiles } from "@/lib/storageList";
 import { removeStaleFiles } from "@/lib/ingestStore";
+import { userStorageClient, userFilePathFromUrl, withUserStorage } from "@/lib/userStorage";
 
+// 사용자 파일은 2026-10-01부터 R2(files/…, lib/userStorage.ts), 그 전 것은 옛 Supabase 버킷에
+// 있다 — 경로 모양이 같아서 지울 땐 두 곳 모두에서 지운다(없는 키 지우기는 둘 다 무해).
+//
 // Purge ALL of a project's storage when it is deleted:
 //   - Supabase project-files: the {userId}/{projectId}/ folder (uploaded source +
 //     auto-demo mp4/poster) plus the standalone uploaded video ({userId}/videos/…)
@@ -20,15 +24,26 @@ import { removeStaleFiles } from "@/lib/ingestStore";
 // the client calls this before deleting the row.
 
 const BUCKET = "project-files";
-const PUBLIC_OBJECT_PREFIX = "/storage/v1/object/public/project-files/";
 const PREVIEW_PREFIX = "/api/preview/";
 
+// R2 주소(media.nookframe.com/files/…)와 옛 Supabase 공개 주소 둘 다 같은 경로로 읽는다.
 function storagePathFromPublicUrl(url: string | null | undefined): string | null {
-  if (!url) return null;
-  const i = url.indexOf(PUBLIC_OBJECT_PREFIX);
-  if (i === -1) return null;
-  const path = url.slice(i + PUBLIC_OBJECT_PREFIX.length);
-  return path ? decodeURIComponent(path) : null;
+  const r = userFilePathFromUrl(url);
+  return r && r.bucket === BUCKET ? r.path : null;
+}
+
+type Admin = ReturnType<typeof createAdminClient>;
+/** 두 저장소(R2 = 지금, Supabase = 옛 파일)에서 같은 경로들을 지운다. R2 쪽 개수를 돌려준다. */
+async function removeEverywhere(admin: Admin, paths: string[]): Promise<number> {
+  const n = await removeFiles(userStorageClient, BUCKET, paths);
+  await removeFiles(admin, BUCKET, paths);
+  return n;
+}
+/** 폴더를 두 저장소에서 통째로 지운다. */
+async function removeFolderEverywhere(admin: Admin, dir: string): Promise<number> {
+  const n = await removeFiles(userStorageClient, BUCKET, await listFilesDeep(userStorageClient, BUCKET, dir));
+  await removeFiles(admin, BUCKET, await listFilesDeep(admin, BUCKET, dir));
+  return n;
 }
 
 // 업로드한 소스 폴더는 행이 생기기 전에 클라이언트가 만든 UUID 아래로 올라간다
@@ -81,15 +96,14 @@ export async function DELETE(
     const admin = createAdminClient();
 
     // 폴더 BFS·페이지 넘김(1000개 초과 폴더)은 listFilesDeep.
-    const listFolderFiles = (root: string) => listFilesDeep(admin, BUCKET, root);
-
-    // Supabase: project folder + the uploaded-source folder (different id — see
-    // uploadFolderFromPreviewUrl) + standalone video/thumbnail.
-    const paths: string[] = await listFolderFiles(`${project.user_id}/${id}`);
+    // Project folder + the uploaded-source folder (different id — see
+    // uploadFolderFromPreviewUrl) + standalone video/thumbnail, in R2 and legacy Supabase.
+    let sbRemoved = await removeFolderEverywhere(admin, `${project.user_id}/${id}`);
     const uploadDir = uploadFolderFromPreviewUrl(project.demo_url, project.user_id);
     if (uploadDir && uploadDir !== `${project.user_id}/${id}`) {
-      paths.push(...(await listFolderFiles(uploadDir)));
+      sbRemoved += await removeFolderEverywhere(admin, uploadDir);
     }
+    const paths: string[] = [];
     // video_url and thumbnail are user-writable columns: a user could point them at
     // another account's storage object and have this service-role remove wipe it.
     // Ownership of the project is verified above, so a legitimate own-asset path is
@@ -101,7 +115,7 @@ export async function DELETE(
     const thumbPath = storagePathFromPublicUrl(project.thumbnail);
     if (thumbPath && thumbPath.startsWith(ownerPrefix)) paths.push(thumbPath);
 
-    const sbRemoved = await removeFiles(admin, BUCKET, paths);
+    sbRemoved += await removeEverywhere(admin, paths);
 
     // R2: demo mp4 + poster.
     let r2Removed = 0;
@@ -202,17 +216,16 @@ export async function POST(
     const admin = createAdminClient();
     let removed = 0;
     if (stale.length) {
-      const { error } = await admin.storage.from(BUCKET).remove(stale);
-      if (error) throw new Error(`storage remove failed: ${error.message}`);
-      removed += stale.length;
+      removed += await removeEverywhere(admin, stale);
     }
     if (folderGone && oldFolder === id) {
       const keep = new Set(
         [...inUse, storagePathFromPublicUrl(project.demo_video_url)].filter((p): p is string => !!p),
       );
-      removed += await removeStaleFiles(admin, user.id, id, keep);
+      removed += await removeStaleFiles(withUserStorage(admin), user.id, id, keep);
+      await removeStaleFiles(admin, user.id, id, keep);
     } else if (folderGone) {
-      removed += await removeFiles(admin, BUCKET, await listFilesDeep(admin, BUCKET, oldDir!));
+      removed += await removeFolderEverywhere(admin, oldDir!);
     }
 
     logger.info("swapped assets purged", { projectId: id, removed, folder: folderGone });
