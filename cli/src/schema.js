@@ -1262,8 +1262,21 @@ export const TOOLS = [
     }
   },
   {
+    "name": "get_nookframe_status",
+    "description": "Check where my Nookframe works stand: draft or public, and whether the demo video is filmed (not-started / queued / in-progress / done / failed / held), with the video link when it is ready and the reason when filming failed. Pass id (from a publish result or list_nookframe_drafts) for one work; omit it to list all my works, published ones included. Filming starts only after the owner publishes and runs in batches, so it can take hours — check now and then, never in a tight loop.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "(optional) Work id — omit to list every work"
+        }
+      }
+    }
+  },
+  {
     "name": "list_nookframe_drafts",
-    "description": "List my Nookframe drafts (not yet published). Published projects do not appear.",
+    "description": "List my Nookframe drafts (not yet published). Published projects do not appear here — get_nookframe_status lists those too, with their filming state.",
     "inputSchema": {
       "type": "object",
       "properties": {}

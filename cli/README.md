@@ -55,6 +55,7 @@ nookframe rerecord <id>      Unhappy with the video — submit a rewritten demo 
   --json -                   Same JSON from standard input
   --json '<json>'            Same JSON inline
   --note <text>              One line on what changed and why
+nookframe status [id]        Is the demo video filmed yet? (published works too — see "Filming status" below)
 nookframe drafts             List your drafts
 nookframe drafts update <id>  Edit draft metadata (--title/--description/--note/--hint, or JSON via --file/--json)
 nookframe drafts delete <id>  Delete a draft (published projects cannot be deleted)
@@ -137,6 +138,19 @@ when you publish. Running `publish` again with the same URL does not create a ne
 existing one**. A folder upload (`--dir`) has no URL to match, so pass `--id <draft id>` (printed after every
 publish) to replace its files; the same flag also lets you change a draft's URL.
 
+## Filming status (status)
+
+Filming starts only after the owner publishes, and Nookframe films in batches — so the video can take a few
+hours. Instead of asking the human to look at the dashboard, ask Nookframe:
+
+```bash
+npx nookframe status            # every work you uploaded, published ones included
+npx nookframe status <id>       # one work: what is happening, what comes next, the video link or failure reason
+```
+
+States: `not-started` (still a draft) · `queued` · `in-progress` · `done` · `failed` · `held` · `no-auto-demo`.
+It only reads — check now and then, never in a tight loop.
+
 ## Re-recording (rerecord)
 
 If the video is not right, **the human writes the complaint in words and the AI rewrites the script.** Nobody has
@@ -168,6 +182,6 @@ to hand-edit CSS selectors.
 }
 ```
 
-Exposes `publish_to_nookframe` · `rerecord_nookframe_demo` · `list_nookframe_drafts` · `update_nookframe_draft` · `delete_nookframe_draft`.
+Exposes `publish_to_nookframe` · `check_nookframe_payload` · `get_nookframe_status` · `rerecord_nookframe_demo` · `list_nookframe_drafts` · `update_nookframe_draft` · `delete_nookframe_draft`.
 Three of them (`publish_to_nookframe`, `rerecord_nookframe_demo`, `update_nookframe_draft`) take the `demoScript` schema above as-is.
-`rerecord_nookframe_demo` is the only tool that works on an **already published** work — and even there the new script is only stored as pending (see above).
+`rerecord_nookframe_demo` is the only tool that changes anything on an **already published** work — and even there the new script is only stored as pending (see above). `get_nookframe_status` reads published works too, but only their filming state.

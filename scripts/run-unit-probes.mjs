@@ -31,6 +31,7 @@ const PROBES = [
   "scripts/probe-link-patrol-unit.mts",     // 공개 작품 링크 순찰 — 넘김·3일 죽음·위험 판정, 대상 고르기
   "scripts/probe-site-patrol-unit.mts",     // 점검 크론의 사이트 순찰 — 발견 문서 두 항목·MCP 401·명함 무대 영상 대상 고르기
   "scripts/probe-promo-unit.mts",           // 홍보 예약 — 피드 언어로 채널 고르기·하루 1편 한국 시각 칸·채널별 캡션 꼬리
+  "scripts/probe-filming-status-unit.mts",  // AI가 묻는 촬영 상태 — 초안·몰아서 찍기·오래 걸림·실패 원문·보류 한국어 안 샘
   "scripts/probe-cli-input.mjs",            // CLI --file·표준입력·schema (127.0.0.1 가짜 서버, 네트워크 없음)
   "local-runner/probe-focus-coalesce.ts",   // 스크롤 병합·focus 카메라 산식
   "local-runner/probe-zoomexpr.ts",         // zoompan 식 가드

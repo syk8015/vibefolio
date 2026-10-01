@@ -62,6 +62,35 @@ function echo(body: Json): string {
   return body.accepted ? `\naccepted: ${JSON.stringify(body.accepted)}` : "";
 }
 
+/**
+ * 촬영 상태 응답 → AI가 읽을 글. 한 줄 요약(summary)은 서버가 만들어 싣는다 — CLI도
+ * 같은 줄을 찍으니 여기서 문장을 새로 짓지 않는다. 한 작품이면 무슨 일이 일어나는지와
+ * 다음 할 일까지, 목록이면 끝나지 않은 작품만 한 줄씩 덧붙인다.
+ */
+function formatStatus(body: Json): string {
+  const one = body.work as Json | undefined;
+  const works = one ? [one] : ((body.works ?? []) as Json[]);
+  if (!works.length) return "No works yet.";
+  const lines: string[] = [];
+  for (const w of works) {
+    const f = (w.filming ?? {}) as Json;
+    lines.push(`- ${w.summary}`);
+    if (one || (f.state !== "done" && f.state !== "no-auto-demo")) {
+      lines.push(`  ${f.message} ${f.next}`);
+      const failure = f.failure as Json | null;
+      if (failure?.detail) lines.push(`  failure detail: ${failure.detail}`);
+      const pending = f.pendingScript as Json | null;
+      if (pending) lines.push(`  ${pending.message}`);
+    }
+    if (one) {
+      if (w.publicUrl) lines.push(`  work page: ${w.publicUrl}`);
+      if (w.reviewUrl) lines.push(`  review: ${w.reviewUrl}`);
+    }
+  }
+  const head = one ? "" : `${works.length} work(s):\n`;
+  return head + lines.join("\n");
+}
+
 function needId(args: Json): string | null {
   const id = args.id;
   return typeof id === "string" && id.trim() ? id.trim() : null;
@@ -93,7 +122,8 @@ export async function callTool(
           isError: false,
           text:
             `${verb} on Nookframe (draft id: ${id} — pass it as draftId to update this draft). ` +
-            `Nothing is public yet: the owner reviews it and presses publish at ${r.body.reviewUrl}.${echo(r.body)}`,
+            `Nothing is public yet: the owner reviews it and presses publish at ${r.body.reviewUrl}. ` +
+            `After that, get_nookframe_status with this id tells you when the demo video is filmed.${echo(r.body)}`,
         };
       }
 
@@ -125,6 +155,17 @@ export async function callTool(
           ` / ${d.content_type || "no type"} / ${d.target_device || "screen not answered"}]`,
         );
         return { isError: false, text: `${drafts.length} draft(s):\n${lines.join("\n")}` };
+      }
+
+      case "get_nookframe_status": {
+        const id = needId(args);
+        const r = await forward(
+          "GET",
+          `${origin}/api/ingest/status${id ? `?id=${encodeURIComponent(id)}` : ""}`,
+          bearer,
+        );
+        if (r.status !== 200 || !r.body.ok) return failure(r);
+        return { isError: false, text: formatStatus(r.body) };
       }
 
       case "update_nookframe_draft": {

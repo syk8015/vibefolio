@@ -307,6 +307,7 @@ MCP 규격이 2026-07-28에 갈아엎였다: `initialize`·세션·`ping`이 사
   M16(업로드 UUID≠행 id) 문제가 없고, R2 데모 산출물은 발행 후에만 생겨 초안엔 없다.
 - CLI: `nookframe drafts` / `drafts update <id> --title …` / `drafts delete <id>` (≥0.1.4).
   MCP 툴: `list_nookframe_drafts` · `update_nookframe_draft` · `delete_nookframe_draft`.
+  공개된 작품과 촬영 결과는 아래 촬영 상태 API(`/api/ingest/status`)가 본다.
 
 ### 보안 불변식
 - **인제스트는 데모 파이프라인 컬럼을 절대 안 만진다.** `request_demo()`는 `auth.uid()`(쿠키) 기반이라
@@ -317,6 +318,28 @@ MCP 규격이 2026-07-28에 갈아엎였다: `initialize`·세션·`ping`이 사
   assert + zip-bomb 스트리밍 캡 + 본문 크기 캡(`lib/upload-safety.ts`). SSRF는 `assertSafePublicUrl` 재사용.
 - 한계: `/api/preview`는 경로만으로 서빙 → 초안 업로드 **바이트는 URL 아는 자에게 열림**(rowId=추측불가 uuid라
   발견 불가). 메타데이터는 숨겨지나 바이트는 URL기밀(발행 업로드와 동일 포스처).
+
+## 촬영 상태 API — `GET /api/ingest/status[?id=]` (2026-10-02)
+
+09-17 외부 AI 피드백의 마지막 항목(ⓑ). 예전엔 AI가 "영상 다 찍혔어?"를 알 길이 없었다 — 촬영은
+주인이 **공개한 뒤**에야 시작되는데 `/api/ingest/drafts`는 초안만 보여 줘서, 공개되는 순간 작품이
+AI 눈에서 사라졌다. 그래서 사람이 대시보드를 보고 말로 옮겨야 했다.
+
+- PAT 또는 쿠키. **공개된 작품도 보인다**(읽기 전용, 토큰 주인 것만, 촬영 칸만). 공개 작품을 바꾸는
+  길은 여전히 없다. 남의 id·지워진 id = 같은 404 `NOT_FOUND`(있는지도 안 알려 준다). id 모양이 틀리면 400 `BAD_ID`.
+  레이트리밋 `ingest-status` 120/h(발행·초안 관리와 별도 버킷).
+- 응답: 목록 `{ ok, filmingPaused, count, works:[…] }`(최근 50개) / 한 작품 `{ ok, filmingPaused, work }`.
+  작품 = `{ id, title, state: draft|public, reviewUrl, publicUrl, summary, filming }`.
+  `filming.state` = `not-started`(초안) · `queued` · `in-progress`(`stage`: preparing-app/filming/editing)
+  · `done` · `failed`(`failure: {code,title,body,detail}`) · `held` · `no-auto-demo`, 그리고 `message`(지금
+  무슨 일)·`next`(다음에 일어날 일/할 일)·`videoUrl`·`otherLanguageVideos`·`pendingScript`.
+- 판정은 `lib/filmingStatus.ts`(순수 함수, `npm test`의 `probe-filming-status-unit`) — 대시보드 배지와 같은
+  규칙: `demo_paused`(몰아서 찍기)면 "몇 시간 걸릴 수 있음", 한 단계 5분 초과면 `slow`, 실패 문장은
+  `t.demoFailure` 표. 보류 표시(`[moderation]`·`[credit]` 한국어 원문)는 넘기지 않는다. 문장은 영어 고정.
+- `summary`(한 줄)는 서버가 만든다 — CLI와 원격 MCP가 같은 줄을 찍게(포맷터 두 벌 방지).
+- MCP 툴 `get_nookframe_status { id? }` · CLI `nookframe status [id]`(0.1.22~). 발행 툴 결과가
+  "공개 뒤 이 툴로 확인하라"고 알려 준다. 프롬프트에는 npm 배포 확인 뒤에 넣는다(옛 CLI는 모르는 명령).
+- 검증: `scripts/probe-ingest-status.mjs`(실서버, 일회용 토큰·행).
 
 ## 재촬영 API — `POST /api/ingest/rerecord/[id]` (2026-08-25 루프, 08-26 클라이언트)
 
@@ -408,7 +431,7 @@ MCP 규격이 2026-07-28에 갈아엎였다: `initialize`·세션·`ping`이 사
 - 마이그레이션: `supabase/migration_api_ingest.sql` (api_tokens · is_draft · RLS 정책 교체) ·
   `supabase/migration_connect_code.sql` (connect_codes — 페어링 코드)
 - libs: `lib/apiToken.ts` · `lib/connectCode.ts` · `lib/upload-safety.ts` · `lib/projectTaxonomy.ts` · `lib/connectSnippets.ts`
-- API: `app/api/ingest/route.ts` · `app/api/ingest/finalize/route.ts` · `app/api/ingest/drafts/*`
+- API: `app/api/ingest/route.ts` · `app/api/ingest/finalize/route.ts` · `app/api/ingest/drafts/*` · `app/api/ingest/status/route.ts`
   (공용 인증·URL 게이트=`app/api/ingest/shared.ts`) · `app/api/tokens/route.ts` · `app/api/tokens/[id]/route.ts` ·
   `app/api/connect/code/route.ts` · `app/api/connect/exchange/route.ts`
 - UI: `components/dashboard/ConnectPanel.tsx`(연결 패널) · `ProjectsTab.tsx`(초안 검토·발행) · `app/publish/*`

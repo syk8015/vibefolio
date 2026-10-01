@@ -3,6 +3,7 @@ import { runPublish } from "./publish.js";
 import { formatAccepted } from "./echo.js";
 import { listDrafts, updateDraft, deleteDraft } from "./drafts.js";
 import { submitRerecord, formatRerecord } from "./rerecord.js";
+import { getStatus, formatStatus } from "./status.js";
 import { runDryRun, declareUploads, formatDryRun } from "./check.js";
 // 툴 정의 전부가 생성물에서 온다(2026-09-17). 원본은 레포의 schema/publish.json이고
 // `npm run schema:build`가 이 파일이 읽는 schema.js를 만든다 — 예전엔 아래에 손으로
@@ -56,7 +57,7 @@ export async function runMcp() {
           // 초안 id도 싣는다 — 다음 수정에 draftId로 넘겨야 파일 업로드 초안이 중복되지 않는다.
           const echo = formatAccepted(body.accepted);
           return { content: [{ type: "text", text:
-            `${verb} on Nookframe (draft id: ${body.projectId} — pass it as draftId to update this draft). Review and publish: ${body.reviewUrl}${echo.length ? `\n${echo.join("\n")}` : ""}` }] };
+            `${verb} on Nookframe (draft id: ${body.projectId} — pass it as draftId to update this draft). Review and publish: ${body.reviewUrl} — after that, get_nookframe_status tells you when the demo video is filmed.${echo.length ? `\n${echo.join("\n")}` : ""}` }] };
         }
         case "check_nookframe_payload": {
           const { dir, screenshot, video, ...payload } = a;
@@ -79,6 +80,10 @@ export async function runMcp() {
           const lines = drafts.map((d) => `- ${d.id} · ${d.title}${d.demo_url ? ` · ${d.demo_url}` : ""}`
             + ` · [${d.tags?.length ? d.tags.join(", ") : "no AI tools"} / ${d.content_type || "no type"} / ${d.target_device || "screen not answered"}]`);
           return { content: [{ type: "text", text: `${drafts.length} draft(s):\n${lines.join("\n")}` }] };
+        }
+        case "get_nookframe_status": {
+          const body = await getStatus(a.id || null, conn);
+          return { content: [{ type: "text", text: formatStatus(body).join("\n") }] };
         }
         case "update_nookframe_draft": {
           const { id, ...payload } = a;

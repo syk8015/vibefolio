@@ -44,6 +44,9 @@ Commands:
     --json -           Same JSON from standard input
     --json '<json>'    Same JSON inline
     --note <text>      One line on what changed and why
+  status [id]        Is the demo video filmed yet? Every work you uploaded — published ones too — with its
+                     filming state (not-started / queued / in-progress / done / failed / held), the video link
+                     when it is ready and the reason when it failed. Filming starts after the owner publishes.
   drafts             List your drafts (publish --id <id>, or publishing the same URL again, updates a draft)
     update <id>        Edit draft metadata (--title/--description/--note/--hint, or JSON via --file/--json —
                         to swap the URL or files, run publish --id <id>)
@@ -110,6 +113,11 @@ try {
     case "rerecord": {
       const { rerecordCommand } = await import("../src/rerecord.js");
       await rerecordCommand(args);
+      break;
+    }
+    case "status": {
+      const { statusCommand } = await import("../src/status.js");
+      await statusCommand(args);
       break;
     }
     case "drafts": {
