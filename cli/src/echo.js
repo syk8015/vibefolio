@@ -88,7 +88,7 @@ export function formatAccepted(accepted) {
       // 예상 필름 길이(2026-09-16) — 구버전 서버는 film이 없어 이 칸만 빠진다.
       ...(review.film ? [`≈${review.film.seconds}s of ~${review.film.budget}s`] : []),
       `interactive ${review.interactive}`,
-      `selector ${review.wired}/${review.steps}`,
+      selectorCount(review),
       `expect ${review.withExpect}/${review.steps}`,
     ];
     const sel = review.selectors;
@@ -107,6 +107,10 @@ export function formatAccepted(accepted) {
   for (const w of formatScriptReviewWarnings(review)) warn.push(w);
   if (accepted.droppedTags?.length) {
     warn.push(`⚠ Dropped AI tools: ${accepted.droppedTags.join(", ")} — the spelling does not match the supported list, so they were not saved.`);
+  }
+  // 조용히 버려지거나 잘린 대본 칸(2026-10-02, NF-11) — 서버가 경로를 붙여 준다. 구버전 서버는 키가 없다.
+  if (Array.isArray(accepted.demoScriptNotes)) {
+    for (const note of accepted.demoScriptNotes) warn.push(`⚠ ${note}`);
   }
   if (accepted.demoScriptDropped) {
     warn.push("⚠ Dropped demo script: the demoScript shape was invalid and was not saved — it must be { steps: [{ goal, where?, action?, text?, expect? }] }.");
@@ -138,6 +142,18 @@ export function formatAccepted(accepted) {
   return lines;
 }
 
+// "selector 8/8 + back 1"(2026-10-02, NF-20) — 뒤로가기·셀렉터 없는 기다리기는 셀렉터가 필요 없는
+// 스텝이라 분모에서 빼고 따로 센다. 예전엔 셀렉터 8개 + 뒤로가기 1이 "9/9"로 보였다.
+// 구버전 서버는 backSteps가 없어 예전 표기 그대로다.
+function selectorCount(review) {
+  const back = review.backSteps ?? 0;
+  const pause = review.pauseSteps ?? 0;
+  const parts = [`selector ${review.wired - back - pause}/${review.steps - back - pause}`];
+  if (back) parts.push(`back ${back}`);
+  if (pause) parts.push(`pause ${pause}`);
+  return parts.join(" + ");
+}
+
 // 서버의 scriptReview(숫자·셀렉터 확인 결과) → 경고 문구. 서버 hints를 그대로 찍지
 // 않고 여기서 만드는 이유: 이 출력은 사람도 읽는 자리라 다른 줄과 같은 말투여야
 // 한다. 판정 기준(6스텝·조작 2개)은 서버 lib/demoScriptReview.ts와 같다.
@@ -160,6 +176,10 @@ export function formatScriptReviewWarnings(review) {
   }
   if ((review.withExpect ?? 0) < total) {
     out.push(`⚠ ${total - review.withExpect} step(s) have no expect — without "what should appear afterwards" the robot cannot tell whether the step landed.`);
+  }
+  if (Array.isArray(review.focusWholePage) && review.focusWholePage.length) {
+    const n = review.focusWholePage;
+    out.push(`⚠ Step${n.length > 1 ? "s" : ""} ${n.join(", ")} focus on the whole page (body, main, #root…) — focus zooms until its element fills ~85% of the 1280×720 frame, at most 2×, so a page-sized element gets no zoom. Point it at the one card, chart or panel to look at.`);
   }
   if (!review.hasSkip) {
     out.push("· No skip list — listing things that must not be filmed (a dark-mode toggle, say) keeps the film on topic.");

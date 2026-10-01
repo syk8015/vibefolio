@@ -37,6 +37,15 @@ export type ScriptStats = {
   steps: number;
   // 셀렉터+action이 갖춰져 비전 없이 조립되는 스텝(isStepWired).
   wired: number;
+  // wired 가운데 셀렉터가 필요 없는 스텝(2026-10-02, 외부 AI 피드백 NF-20) — 뒤로가기(navigate)와
+  // 셀렉터 없는 기다리기. "selector 9/9"가 셀렉터 8개 + 뒤로가기 1을 한데 세어 보이던 것을
+  // "8/8 + back 1"로 가르려고 따로 센다. 구버전 CLI는 이 키를 몰라 예전 표기 그대로다.
+  backSteps: number;
+  pauseSteps: number;
+  // focus가 페이지 전체(body·main·#root…)를 가리키는 스텝 번호(1부터, NF-18) — 화면만 한
+  // 상자를 화면에 맞추면 확대가 일어나지 않는다. 정적 HTML로 대상의 크기를 잴 수는 없지만
+  // "통째 틀"을 고른 실수는 셀렉터 글자만으로 잡힌다.
+  focusWholePage: number[];
   interactive: number;
   withExpect: number;
   withHold: number;
@@ -44,11 +53,27 @@ export type ScriptStats = {
   hasPrep: boolean;
 };
 
+// 페이지를 통째로 감싸는 틀 — focus가 이걸 가리키면 카메라가 확대할 게 없다(러너 camera.ts
+// focusRegion: 상자가 화면의 85%를 채우게 맞추고 1.12~2배로 자른다). 쉼표 대안이 여럿이면
+// 하나라도 틀이면 짚는다. 여기 없는 큰 상자(.container 등)는 이름만으로 판정하지 않는다.
+const WHOLE_PAGE_SELECTORS = new Set([
+  "html", "body", ":root", "main", "*", "#root", "#app", "#__next", "#__nuxt", "#svelte",
+  "[role=main]", "[role=\"main\"]", "[role='main']", "body > div", "#root > div", "#__next > div",
+]);
+
+export function isWholePageSelector(selector: string | undefined): boolean {
+  if (!selector) return false;
+  return selector.split(",").some((alt) => WHOLE_PAGE_SELECTORS.has(alt.trim().toLowerCase().replace(/\s*>\s*/g, " > ")));
+}
+
 export function scriptStats(script: DemoScript): ScriptStats {
   const steps = script.steps;
   return {
     steps: steps.length,
     wired: steps.filter(isStepWired).length,
+    backSteps: steps.filter((s) => s.action === "navigate").length,
+    pauseSteps: steps.filter((s) => s.action !== "navigate" && !s.selector && isStepWired(s)).length,
+    focusWholePage: steps.flatMap((s, i) => (s.action === "focus" && isWholePageSelector(s.selector) ? [i + 1] : [])),
     interactive: steps.filter((s) => !!s.action && INTERACTIVE_ACTIONS.has(s.action)).length,
     withExpect: steps.filter((s) => !!s.expect).length,
     withHold: steps.filter((s) => typeof s.hold === "number").length,

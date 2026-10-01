@@ -54,7 +54,9 @@ async function forward(
 function failure(r: { status: number; body: Json }): ToolResult {
   const code = (r.body.code as string) ?? `HTTP ${r.status}`;
   const message = (r.body.error as string) ?? "the server sent no message";
-  return { isError: true, text: `Rejected (${code}): ${message}` };
+  // 거절이 가리키는 payload 경로(2026-10-02, NF-11) — 예: `at demoAccess.note`.
+  const field = typeof r.body.field === "string" ? ` at ${r.body.field}` : "";
+  return { isError: true, text: `Rejected (${code}${field}): ${message}` };
 }
 
 /** 저장 직전 값 요약(accepted). 사람이 아니라 AI가 읽는 물건이라 JSON 그대로가 낫다. */

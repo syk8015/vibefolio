@@ -38,7 +38,8 @@ export async function runPublish({ payload = {}, dir = null, screenshotPath = nu
   if (!dir && !screenshotPath && !videoPath) {
     const res = await fetch(endpoint, { method: "POST", headers: authJson, body: JSON.stringify(payload) });
     const body = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(body.error || `Upload failed (HTTP ${res.status})`);
+    // field = 거절이 가리키는 payload 경로(2026-10-02, NF-11). 구버전 서버는 키가 없다.
+    if (!res.ok) throw new Error(`${body.error || `Upload failed (HTTP ${res.status})`}${body.field ? ` [field: ${body.field}]` : ""}`);
     return body;
   }
 
@@ -56,7 +57,7 @@ export async function runPublish({ payload = {}, dir = null, screenshotPath = nu
     body: JSON.stringify({ ...payload, uploads }),
   });
   const body1 = await step1.json().catch(() => ({}));
-  if (!step1.ok) throw new Error(body1.error || `Could not start the upload (HTTP ${step1.status})`);
+  if (!step1.ok) throw new Error(`${body1.error || `Could not start the upload (HTTP ${step1.status})`}${body1.field ? ` [field: ${body1.field}]` : ""}`);
 
   const files = {
     bundle: dir ? await zipDir(dir) : null,

@@ -952,6 +952,8 @@ export const en: Dictionary = {
         `${n} of ${total} steps have no expect — without "what should be visible afterwards" the robot cannot tell whether the action took. Write the actual text or number that appears on screen.`,
       noSkip:
         "No skip list — name the things that must not be filmed (dark-mode toggle, language switch…) so the film doesn't wander off.",
+      focusWholePage: (steps: number[]) =>
+        `Step${steps.length > 1 ? "s" : ""} ${steps.join(", ")} focus on the whole page (body, main, #root…). A focus beat zooms until its element fills about 85% of the 1280×720 frame, at most 2× — a page-sized element leaves nothing to zoom into. Point focus at the one card, chart or panel you want people to look at.`,
       selectorsMissing: (missing: string[], url: string) =>
         `These first-screen selectors are not in the HTML ${url} sends first: ${missing.join(", ")}. That is normal if JavaScript draws them after the page loads (lists fetched from an API, parts shown after a session check) — the robot waits for them. If they should already be in that HTML, compare the spelling with your code, or add a where label for each.`,
       selectorsUnverifiable: (url: string) =>

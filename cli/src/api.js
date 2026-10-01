@@ -15,7 +15,8 @@ export async function api(method, path, { token, origin, body } = {}) {
     body: body ? JSON.stringify(body) : undefined,
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || `Request failed (HTTP ${res.status})`);
+  // field = 거절 사유가 가리키는 payload 경로(2026-10-02, NF-11). 구버전 서버는 키가 없다.
+  if (!res.ok) throw new Error(`${data.error || `Request failed (HTTP ${res.status})`}${data.field ? ` [field: ${data.field}]` : ""}`);
   return data;
 }
 

@@ -7,6 +7,7 @@ import { readdirSync } from "node:fs";
 
 const PROBES = [
   "scripts/probe-script-review-unit.mts",   // lib/demoScriptReview 대본 점검표
+  "scripts/probe-nf-feedback-unit.mts",     // 외부 AI 피드백 — 셀렉터 수 "8/8 + back 1"·focus 통째 틀·대본 칸 경로·거절 field
   "scripts/probe-embeddable-unit.mts",      // lib/embeddable 임베드 헤더 판정
   "scripts/probe-ssrf-unit.mts",            // lib/ssrf 내부 주소 차단 — 숫자·IPv6 표기, localhost, 프로토콜
   "scripts/probe-prompt-secrets-unit.mts",  // 프롬프트 3종에 토큰이 안 실리는지(1회용 코드만)

@@ -166,6 +166,7 @@ export async function POST(req: NextRequest) {
           status: 400,
           message: t.api.htmlBodyIssue(issue.kind, Math.round(HTML_BODY_MAX_BYTES / (1024 * 1024))),
           code: "HTML_BODY_INVALID",
+          field: "htmlBody",
         });
       }
       bundle = new File([await htmlBodyToZip(payload.htmlBody)], "index.zip", { type: "application/zip" });
@@ -221,12 +222,13 @@ export async function POST(req: NextRequest) {
     // 4. payload 검증.
     const title = strOrNull(payload?.title);
     if (!title) {
-      return apiError({ status: 400, message: t.api.titleRequired, code: "TITLE_REQUIRED" });
+      return apiError({ status: 400, message: t.api.titleRequired, code: "TITLE_REQUIRED", field: "title" });
     }
     const description = strOrNull(payload?.description) ?? "";
     if (descriptionTooLong(description)) {
       return apiError({
         status: 400, message: t.api.descriptionTooLong(DESCRIPTION_MAX), code: "DESCRIPTION_TOO_LONG",
+        field: "description",
       });
     }
     // 소개글 3줄 규격(2026-09-03). 길이 상한 바로 뒤에 오는 이유: 둘 다 "명함에서
@@ -237,6 +239,7 @@ export async function POST(req: NextRequest) {
         status: 400,
         message: descriptionShapeMessage(descIssue, t),
         code: "DESCRIPTION_SHAPE",
+        field: "description",
       });
     }
     const comment = strOrNull(payload?.builderNote) ?? "";
@@ -260,13 +263,14 @@ export async function POST(req: NextRequest) {
     {
       const norm = normalizeDemoAccess(payload?.demoAccess);
       if (norm.issue === "bad-url") {
-        return apiError({ status: 400, message: t.api.demoAccessBadUrl, code: "BAD_DEMO_ACCESS" });
+        return apiError({ status: 400, message: t.api.demoAccessBadUrl, code: "BAD_DEMO_ACCESS", field: "demoAccess.url" });
       }
       if (norm.issue === "secret-param") {
         return apiError({
           status: 400,
           message: t.api.demoAccessSecretParam(norm.secretName ?? ""),
           code: "DEMO_ACCESS_SECRET",
+          field: norm.secretName ? `demoAccess.params.${norm.secretName}` : "demoAccess.params",
         });
       }
       demoAccess = norm.access;
@@ -316,10 +320,10 @@ export async function POST(req: NextRequest) {
     if (!hasOwnVideo) {
       const steps = demoScript?.steps.length ?? 0;
       if (steps === 0) {
-        return apiError({ status: 400, message: t.api.scriptRequired, code: "SCRIPT_REQUIRED" });
+        return apiError({ status: 400, message: t.api.scriptRequired, code: "SCRIPT_REQUIRED", field: "demoScript" });
       }
       if (steps < DEMO_SCRIPT_MIN_STEPS) {
-        return apiError({ status: 400, message: t.api.scriptTooThin(steps), code: "SCRIPT_TOO_THIN" });
+        return apiError({ status: 400, message: t.api.scriptTooThin(steps), code: "SCRIPT_TOO_THIN", field: "demoScript.steps" });
       }
       // 스텝 수는 채웠지만 내용이 목차뿐인 대본(2026-09-03). goal만 있는 줄은 로봇에게
       // 아무것도 알려주지 않아서, 픽셀 추측 촬영이라는 옛 경로로 그대로 되돌아간다.
@@ -329,6 +333,7 @@ export async function POST(req: NextRequest) {
           status: 400,
           message: t.api.scriptStepsVague(solid, steps),
           code: "SCRIPT_STEPS_VAGUE",
+          field: "demoScript.steps",
         });
       }
       // 로그인 게이트(2026-08-27 사용자 확정). 대본 게이트와 같은 자리, 같은 이유다.
@@ -342,6 +347,7 @@ export async function POST(req: NextRequest) {
           status: 400,
           message: t.api.demoAccessRequired,
           code: "DEMO_ACCESS_REQUIRED",
+          field: "demoAccess",
         });
       }
       // 답은 했는데 근거가 없는 경우(2026-09-03). noLogin·impossible은 한 줄 선언이라
@@ -352,6 +358,7 @@ export async function POST(req: NextRequest) {
           status: 400,
           message: t.api.demoAccessEvidence(missing),
           code: "DEMO_ACCESS_EVIDENCE",
+          field: "demoAccess.note",
         });
       }
     }
@@ -369,9 +376,10 @@ export async function POST(req: NextRequest) {
           status: 400,
           message: t.api.targetDeviceInvalid(typeof sent === "string" ? sent : JSON.stringify(sent)),
           code: "TARGET_DEVICE_INVALID",
+          field: "targetDevice",
         });
       }
-      return apiError({ status: 400, message: t.api.targetDeviceRequired, code: "TARGET_DEVICE_REQUIRED" });
+      return apiError({ status: 400, message: t.api.targetDeviceRequired, code: "TARGET_DEVICE_REQUIRED", field: "targetDevice" });
     }
 
     // 작품 두 언어 게이트(2026-09-29 사용자 확정). 영미권이 주 대상인데 올라오는 앱은 대부분
@@ -414,11 +422,14 @@ export async function POST(req: NextRequest) {
     if (!bundle && !declared.includes("bundle")) {
       const entryUrl = strOrNull(payload?.appUrl) ?? strOrNull(payload?.deployUrl);
       if (!entryUrl) {
-        return apiError({ status: 400, message: t.api.artifactRequired, code: "NO_ARTIFACT" });
+        return apiError({ status: 400, message: t.api.artifactRequired, code: "NO_ARTIFACT", field: "deployUrl" });
       }
       const source = detectDemoSource(entryUrl);
       if (!source) {
-        return apiError({ status: 400, message: t.api.badUrl, code: "BAD_URL" });
+        return apiError({
+          status: 400, message: t.api.badUrl, code: "BAD_URL",
+          field: strOrNull(payload?.appUrl) ? "appUrl" : "deployUrl",
+        });
       }
       // 외부 live_url은 콘텐츠호스트·사설망 조기 차단(실 SSRF 게이트는 발행 시 trigger-demo).
       if (source.type === "live_url") {

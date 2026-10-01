@@ -1061,6 +1061,8 @@ export const ko = {
         `${total}스텝 중 ${n}개에 expect가 없어요 — "하고 나면 무엇이 보여야 하는지"가 없으면 로봇이 먹었는지 판정을 못 해요. 화면에 실제로 나타나는 글자·숫자로 적으세요.`,
       noSkip:
         "skip 목록이 없어요 — 다크모드 토글·언어 전환처럼 찍으면 안 되는 것을 적어두면 영상이 엉뚱한 데로 새지 않아요.",
+      focusWholePage: (steps: number[]) =>
+        `${steps.join(", ")}번 스텝의 focus가 페이지 전체(body·main·#root…)를 가리켜요. focus는 그 요소가 1280×720 화면의 약 85%를 채우도록 최대 2배까지 확대하는데, 페이지만 한 요소는 확대할 게 없어요. 보여 주고 싶은 카드·차트·패널 하나를 가리키세요.`,
       selectorsMissing: (missing: string[], url: string) =>
         `첫 화면에서 쓰는 셀렉터가 ${url} 이 처음 보내는 HTML에 없어요: ${missing.join(", ")}. 페이지가 뜬 뒤 자바스크립트가 그리는 요소(API로 받아 오는 목록 등)라면 정상이에요 — 로봇이 기다렸다가 찾아요. 처음부터 HTML에 있어야 하는 요소라면 코드와 철자를 대조하거나, where에 눈으로 찾는 법을 적으세요.`,
       selectorsUnverifiable: (url: string) =>

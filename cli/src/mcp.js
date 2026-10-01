@@ -66,7 +66,7 @@ export async function runMcp() {
           const { status, body } = await runDryRun({ payload, ...conn });
           if (status !== 200 || !body?.ok) {
             return { isError: true, content: [{ type: "text", text:
-              `This payload would be REJECTED (${body?.code ?? `HTTP ${status}`}): ${body?.error ?? "the server sent no message"}\nNothing was uploaded — fix the payload and check again.` }] };
+              `This payload would be REJECTED (${body?.code ?? `HTTP ${status}`}${body?.field ? ` at ${body.field}` : ""}): ${body?.error ?? "the server sent no message"}\nNothing was uploaded — fix the payload and check again.` }] };
           }
           if (!body.dryRun) {
             return { isError: true, content: [{ type: "text", text:

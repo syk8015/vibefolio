@@ -7,6 +7,7 @@ import { getDictionary } from "@/lib/i18n/dictionaries";
 import { verifyToken, bearerFromHeader } from "@/lib/apiToken";
 import { looksLikeConnectCode } from "@/lib/connectCode";
 import type { DemoScript } from "@/lib/demoScript";
+import { demoScriptNotes } from "@/lib/demoScriptNotes";
 import {
   scriptStats, estimateFilm, SCRIPT_REVIEW_IDEAL_STEPS, SCRIPT_REVIEW_MIN_INTERACTIVE,
   type ScriptStats, type SelectorCheck, type FilmEstimate,
@@ -107,6 +108,9 @@ export type AcceptedEcho = {
   // 형식이 어긋나 통째로 버려짐" — 조용한 폐기를 에코가 알리는 기존 원칙 그대로.
   demoScriptSteps: number;
   demoScriptDropped: boolean;
+  // 조용히 버려지거나 잘린 대본 칸을 경로로(2026-10-02, 외부 AI 피드백 NF-11) —
+  // `demoScript.steps[3].action: "tap" is not one of …`. 없으면 키 자체를 싣지 않는다.
+  demoScriptNotes?: string[];
   tags: string[];
   droppedTags: string[];
   contentType: string | null;
@@ -166,6 +170,7 @@ export function buildScriptReview(
   if (s.wired < s.steps) hints.push(r.unwired(s.steps - s.wired, s.steps));
   if (s.withExpect < s.steps) hints.push(r.noExpect(s.steps - s.withExpect, s.steps));
   if (!s.hasSkip) hints.push(r.noSkip);
+  if (s.focusWholePage.length) hints.push(r.focusWholePage(s.focusWholePage));
   if (selectors?.status === "checked" && selectors.missing.length) {
     hints.push(r.selectorsMissing(selectors.missing, selectors.url));
   } else if (selectors?.status === "skipped" && (selectors.reason === "js-rendered" || selectors.reason === "no-match")) {
@@ -217,12 +222,18 @@ export {
 /** 주인 인터뷰 사유 → 400 응답. 생성·수정 두 라우트가 같은 문구·코드를 쓰도록 한 곳에서. */
 export function ownerInterviewRejection(issue: OwnerInterviewIssue, t: IngestDict): NextResponse {
   if (issue.kind === "incomplete") {
-    return apiError({ status: 400, message: t.api.ownerInterviewIncomplete(issue.keys), code: "OWNER_INTERVIEW_INCOMPLETE" });
+    return apiError({
+      status: 400, message: t.api.ownerInterviewIncomplete(issue.keys), code: "OWNER_INTERVIEW_INCOMPLETE",
+      field: issue.keys.length ? `ownerInterview.${issue.keys[0]}` : "ownerInterview",
+    });
   }
   if (issue.kind === "too-long") {
-    return apiError({ status: 400, message: t.api.ownerInterviewTooLong(issue.key, issue.max), code: "OWNER_INTERVIEW_TOO_LONG" });
+    return apiError({
+      status: 400, message: t.api.ownerInterviewTooLong(issue.key, issue.max), code: "OWNER_INTERVIEW_TOO_LONG",
+      field: `ownerInterview.${issue.key}`,
+    });
   }
-  return apiError({ status: 400, message: t.api.ownerInterviewRequired, code: "OWNER_INTERVIEW_REQUIRED" });
+  return apiError({ status: 400, message: t.api.ownerInterviewRequired, code: "OWNER_INTERVIEW_REQUIRED", field: "ownerInterview" });
 }
 
 /** 작품 두 언어 사유 → 400 응답. 생성·수정 두 라우트가 같은 문구·코드를 쓰도록 한 곳에서. */
@@ -230,11 +241,11 @@ export function workLanguageRejection(issue: WorkLanguageIssue, t: IngestDict): 
   const a = t.api;
   switch (issue.kind) {
     case "language-missing":
-      return apiError({ status: 400, message: a.languageRequired, code: "LANGUAGE_REQUIRED" });
+      return apiError({ status: 400, message: a.languageRequired, code: "LANGUAGE_REQUIRED", field: "language" });
     case "language-invalid":
-      return apiError({ status: 400, message: a.languageInvalid(issue.got), code: "LANGUAGE_INVALID" });
+      return apiError({ status: 400, message: a.languageInvalid(issue.got), code: "LANGUAGE_INVALID", field: "language" });
     case "app-languages-missing":
-      return apiError({ status: 400, message: a.appLanguagesRequired, code: "APP_LANGUAGES_REQUIRED" });
+      return apiError({ status: 400, message: a.appLanguagesRequired, code: "APP_LANGUAGES_REQUIRED", field: "appLanguages" });
     case "translation": {
       const tr = issue.issue;
       if (tr.kind === "description-shape") {
@@ -242,20 +253,30 @@ export function workLanguageRejection(issue: WorkLanguageIssue, t: IngestDict): 
           status: 400,
           message: `translation.description: ${descriptionShapeMessage(tr.issue, t)}`,
           code: "TRANSLATION_SHAPE",
+          field: "translation.description",
         });
       }
       return apiError({
         status: 400,
         message: a.translationIssue(tr.kind, issue.locale, tr.kind === "title-too-long" ? tr.max : 0),
         code: tr.kind === "missing" ? "TRANSLATION_REQUIRED" : "TRANSLATION_INVALID",
+        field: tr.kind === "missing" ? "translation"
+          : tr.kind === "description-too-long" ? "translation.description" : "translation.title",
       });
     }
     case "captions": {
       const c = issue.issue;
       if (c.kind === "too-long") {
-        return apiError({ status: 400, message: a.captionTooLong(c.locale, c.step, c.max), code: "CAPTION_TOO_LONG" });
+        return apiError({
+          status: 400, message: a.captionTooLong(c.locale, c.step, c.max), code: "CAPTION_TOO_LONG",
+          field: `demoScript.steps[${c.step - 1}].caption.${c.locale}`,
+        });
       }
-      return apiError({ status: 400, message: a.captionsRequired(c.locale, c.steps), code: "CAPTIONS_REQUIRED" });
+      // 빠진 장면이 여럿이면 경로는 첫 장면 — 문장이 나머지 번호를 전부 든다.
+      return apiError({
+        status: 400, message: a.captionsRequired(c.locale, c.steps), code: "CAPTIONS_REQUIRED",
+        field: `demoScript.steps[${(c.steps[0] ?? 1) - 1}].caption.${c.locale}`,
+      });
     }
   }
 }
@@ -305,6 +326,7 @@ export function buildAccepted(
   const rawHint = typeof raw?.demoHighlights === "string" ? raw.demoHighlights.trim() : "";
   const rawType = typeof raw?.contentType === "string" ? raw.contentType.trim() : "";
   const access = stored.demoAccess;
+  const scriptNotes = demoScriptNotes(raw?.demoScript);
   return {
     ...(scriptReview ? { scriptReview } : {}),
     title: stored.title,
@@ -320,6 +342,7 @@ export function buildAccepted(
     demoHighlightsTruncated: [...rawHint].length > DEMO_HIGHLIGHTS_MAX,
     demoScriptSteps: stored.demoScript?.steps.length ?? 0,
     demoScriptDropped: !!raw?.demoScript && !stored.demoScript,
+    ...(scriptNotes.length ? { demoScriptNotes: scriptNotes } : {}),
     tags: stored.tags,
     droppedTags: droppedTagsOf(raw?.tags, stored.tags, normalizeTags),
     contentType: stored.contentTypeId,

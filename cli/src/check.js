@@ -72,7 +72,7 @@ export async function checkCommand(args) {
   const { status, body } = await runDryRun({ payload, token, origin });
 
   if (status !== 200 || !body?.ok) {
-    console.error(`✗ This payload would be REJECTED (HTTP ${status}${body?.code ? ` ${body.code}` : ""}):\n`);
+    console.error(`✗ This payload would be REJECTED (HTTP ${status}${body?.code ? ` ${body.code}` : ""}${body?.field ? ` at ${body.field}` : ""}):\n`);
     console.error(`  ${body?.error || "(the server sent no message)"}`);
     console.error("\nNothing was uploaded. Fix the payload and run check again.");
     process.exitCode = 1;

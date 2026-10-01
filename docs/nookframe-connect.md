@@ -404,6 +404,11 @@ AI 눈에서 사라졌다. 그래서 사람이 대시보드를 보고 말로 옮
 - 조립: `lib/demoScriptReview.ts`(순수 통계 + 셀렉터 확인) → `shared.ts` `buildScriptReview()`(문장).
   발행·초안 PATCH·재촬영 세 입구 공통. 자동 촬영이 없는 경우(영상 동봉)엔 아예 없다.
 - 숫자: `steps` · `wired`(셀렉터+action) · `interactive`(click/type/drag/draw) · `withExpect` · `withHold` · `hasSkip` · `hasPrep`.
+  `backSteps`(navigate)·`pauseSteps`(셀렉터 없는 wait)는 wired에 들지만 셀렉터가 필요 없는 스텝이라 따로 센다 —
+  CLI는 `selector 8/8 + back 1`로 찍는다(2026-10-02, 외부 AI 피드백 NF-20: 예전엔 "9/9"로 섞여 보였다).
+  `focusWholePage`(NF-18)= focus가 body·main·#root 같은 통째 틀을 가리키는 스텝 번호 — 러너의 focus는
+  상자가 1280×720의 85%를 채우게 1.12~2배로 자르므로 페이지만 한 상자는 확대가 안 된다. 힌트 `focusWholePage`.
+  대상의 실제 크기는 정적 HTML로 못 잰다(촬영 전 실행은 2026-09-04 결정으로 없음) — 셀렉터 글자로 잡히는 실수만 짚는다.
 - `film`(2026-09-16, 외부 AI 피드백 NF-05/17): 예상 촬영 길이 `{seconds, budget:30, cutFromStep}`.
   `lib/demoScriptReview.ts estimateFilm` — 러너 페이싱(`local-runner/replay.ts`·`camera.ts`)을 옮겨 온
   어림 계산이다(커서 활강 1.0초 · 클릭 전 정지 0.18 · 타이핑 0.055/자 · focus 0.7 · 기본 hold 0.9,
@@ -430,6 +435,17 @@ AI 눈에서 사라졌다. 그래서 사람이 대시보드를 보고 말로 옮
   0.1.13부터다. 판정 자체는 서버에 있어 배포 즉시 모든 CLI에 적용된다(옛 CLI는 js-rendered만 한 줄로
   말하고 no-match는 조용히 넘어간다).
 - 검증: `node scripts/probe-script-review.mjs`(prod E2E) + `npx -y tsx scripts/probe-script-review-unit.mts`(순수 함수).
+
+### 칸 경로 — 거절의 `field`, 에코의 `demoScriptNotes` (2026-10-02, 외부 AI 피드백 NF-11)
+
+- 400 거절 본문에 `field`(요청 JSON 안의 경로, 번호는 0부터): `description` · `demoAccess.note` ·
+  `demoAccess.params.<이름>` · `demoScript.steps` · `demoScript.steps[2].caption.en` · `ownerInterview.mustSee` ·
+  `translation.title` · `targetDevice` · `appUrl`/`deployUrl` 등. `lib/apiError.ts`의 선택 칸이라 다른 API 모양은 그대로다.
+  CLI는 `REJECTED (HTTP 400 CODE at <field>)`, 원격 MCP는 `Rejected (CODE at <field>)`로 보여 준다.
+- `accepted.demoScriptNotes[]`: 대본에서 **조용히 버려지거나 바뀐 칸**을 경로와 한 문장으로 — 모르는 action
+  (`"tap"`)·goal 없는 스텝·모르는 칸(`value`·`waitFor`)·잘린 셀렉터·hold 범위·자막 모양·navigate의 `to`·10스텝 초과.
+  `lib/demoScriptNotes.ts`가 스텝 하나씩 `normalizeDemoScript`에 다시 태워 원본과 비교한다(규칙 사본 없음). 영어 고정, 최대 12줄.
+- 검증: `npx -y tsx scripts/probe-nf-feedback-unit.mts`(순수 함수, `npm test`에 포함).
 
 ## 관련 파일
 
