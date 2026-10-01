@@ -1132,3 +1132,43 @@ SNS/검색 로봇은 JS를 안 돌려 OG·크롤러 노출 문구(루트 descrip
 | publish.fixHint | ~~AI가 고친 JSON을 주면 위에 다시 붙여넣고 올리면 돼요.~~ | ~~Paste the corrected JSON back above and publish again.~~ | 삭제 |
 | errorState.notFoundEyebrow | ~~404 · 페이지 없음~~ | ~~404 · Not found~~ | 삭제 |
 | errorState.notFoundBody | ~~주소가 바뀌었거나 사라진 페이지일 수 있어요. 홈으로 돌아가 시작해 주세요.~~ | ~~The address may have changed or the page may be gone. Head home to start over.~~ | 삭제 |
+
+## 사이트 덜어내기 — 업그레이드(라 위에 그림 더하기) (2026-10-01)
+
+사용자가 8화면 모두 "업그레이드"를 골랐다 — 라 화면에 글 대신 보이는 것(진행 표시·미리보기 카드·연결 그림·빈 액자)을 더했다. 페이지 전체를 가리키는 말은 브랜드 규칙대로 **프레임**(명함은 신원 칸에만). `비고`의 **변경**은 옛 값을 적었다.
+
+| 키 | 한국어 | English | 비고 |
+|---|---|---|---|
+| onboarding.previewCaption | 이 주소로 내 프레임이 생겨요 | Your frame will live at this address | 신규 |
+| projects.reviewVisitorView | 방문자에게 이렇게 보여요 | This is what visitors see | 신규 |
+| projects.reviewAutoDemo | 자동 시연 · 약 {s}초 (함수: s) | Auto demo · ~{s}s (함수: s) | 신규 |
+| projects.reviewTrailPublish | 공개 | Publish | 신규 |
+| projects.reviewTrailFilm | 촬영 | Filming | 신규 |
+| projects.reviewTrailCard | 프레임에 영상 | Video on your frame | 신규 |
+| projects.reviewTrailWaiting | 촬영 대기 중 | Waiting to film | 신규 |
+| projects.reviewTrailFilming | 촬영 중 | Filming now | 신규 |
+| projects.reviewPublishedBadge | 공개됨 · 누구나 볼 수 있어요 | Public · anyone can see it | 신규 |
+| projects.reviewPublishedTitle | 공개했어요 | It's public | 신규 |
+| projects.reviewCopyLink | 링크 복사 | Copy link | 신규 |
+| projects.reviewLinkCopied | 복사했어요 | Copied | 신규 |
+| projects.reviewViewCard | 내 프레임 보기 | View my frame | 신규 |
+| projectForm.preview | 미리보기 | Preview | 신규 |
+| projectForm.unsaved | 아직 저장 안 했어요 | Not saved yet | 신규 |
+| connect.valueLine | AI가 올리면 시연 영상은 Nookframe이 찍어요 | Your AI uploads it — we film the demo | 신규 |
+| connect.recentTag | 최근 | Last used | 신규 |
+| connect.journey.label | 진행 단계 | Progress | 신규 |
+| connect.journey.copyPrompt | 프롬프트 복사 | Copy prompt | 신규 |
+| connect.journey.copyUrl | 주소 복사 | Copy the URL | 신규 |
+| connect.journey.aiUploads | AI가 올려요 | AI uploads it | 신규 |
+| connect.journey.pasteReply | 답 붙여넣기 | Paste the reply | 신규 |
+| connect.journey.onCard | 프레임에 걸려요 | On your frame | 신규 |
+| oauth.localBadge | 내 컴퓨터 | Your computer | 신규 |
+| publish.trail.label | 진행 단계 | Progress | 신규 |
+| publish.trail.copy | AI 답 복사 | Copy the AI reply | 신규 |
+| publish.trail.paste | 붙여넣기 | Paste | 신규 |
+| publish.trail.check | 초안 확인 | Check the draft | 신규 |
+| publish.previewLabel | 초안 미리보기 | Draft preview | 신규 |
+| publish.previewEmpty | 붙여넣으면 여기서 초안을 미리 봐요 | Paste it and your draft shows up here | 신규 |
+| publish.draftBadge | 초안 | Draft | 신규 |
+| errorState.notFoundBody | 주소가 바뀌었거나 사라졌어요 | The address changed, or the page is gone. | 신규 |
+| errorState.notFoundMyCard | 내 프레임 보기 | View my frame | 신규 |

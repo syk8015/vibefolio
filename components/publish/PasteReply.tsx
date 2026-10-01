@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { useT } from "@/lib/i18n/client";
 import { buildPublishFixPrompt } from "@/lib/publishFixPrompt";
 import { copyText } from "@/lib/clipboard";
@@ -23,6 +23,10 @@ import { extractPublishJson } from "@/lib/extractPublishJson";
 // - compact(연결 창): [AI 답 붙여넣기] = 클립보드를 읽어 바로 올린다. "파일도 있어요"와 펼친 파일 칸은
 //   버튼 **위**에 선다 — 누르는 순간 올라가서 파일은 먼저 골라야 같이 간다(B4).
 //   글상자는 클립보드 읽기가 막혔거나 읽은 글이 올릴 답이 아닐 때 펼친다 — 실패는 숨기지 않는다.
+//
+// 업그레이드(2026-10-01): /publish는 칸 오른쪽에 '초안 미리보기' 판(aside)을 두고, 칸의 글을 페이지에
+// 알린다(onBoxChange — 맨 위 3단계 길이 따라간다). 연결 창은 실패 문구가 떠 있는지를 받아(onFailedChange)
+// 진행 줄의 붙여넣기 칸을 빨간 테로 그리고, 올린 뒤엔 소개글까지 받아 작은 초안 카드를 그린다.
 type Kind = "bundle" | "screenshot" | "video";
 const MB = 1024 * 1024;
 // 서버 캡과 같은 값으로 미리 막는다 — 20MB를 올려놓고 finalize에서 거절당하면 사람은 왜 안 되는지 모른다.
@@ -41,6 +45,9 @@ export function PasteReply({
   compact = false,
   lead,
   note,
+  aside,
+  onBoxChange,
+  onFailedChange,
   onSuccess,
 }: {
   compact?: boolean;
@@ -48,7 +55,13 @@ export function PasteReply({
   lead?: React.ReactNode;
   /** compact: 버튼 바로 아래 한 줄(공개 범위). */
   note?: React.ReactNode;
-  onSuccess: (projectId: string, title: string | null) => void;
+  /** /publish: 칸 오른쪽 판(초안 미리보기). 좁은 화면에선 버튼 아래로 내려간다. */
+  aside?: React.ReactNode;
+  /** /publish: 칸의 글이 바뀔 때마다 — rejected = 서버가 거절한 그 글 그대로(다시 붙여넣을 차례). */
+  onBoxChange?: (text: string, rejected: boolean) => void;
+  /** compact: 실패 문구가 떠 있는 동안 true(사라지거나 이 칸이 내려가면 false). */
+  onFailedChange?: (failed: boolean) => void;
+  onSuccess: (projectId: string, title: string | null, description: string | null) => void;
 }) {
   const { t, locale } = useT();
   const tp = t.publish;
@@ -77,6 +90,18 @@ export function PasteReply({
   // compact: 클립보드 읽기를 브라우저가 막았을 때 펼치는 글상자.
   const [typing, setTyping] = useState(false);
   const boxRef = useRef<HTMLTextAreaElement>(null);
+
+  // 부모에게 알리기 — 부르는 쪽이 매번 새 함수를 넘겨도 다시 돌지 않게 Effect Event로 감싼다.
+  const reportBox = useEffectEvent((text: string, rejected: boolean) => onBoxChange?.(text, rejected));
+  useEffect(() => {
+    reportBox(raw, raw !== "" && raw === failedText);
+  }, [raw, failedText]);
+  const reportFailed = useEffectEvent((failed: boolean) => onFailedChange?.(failed));
+  useEffect(() => {
+    if (error === null) return;
+    reportFailed(true);
+    return () => reportFailed(false);
+  }, [error]);
 
   // 파일을 바꾸거나 새로 붙여넣으면 다음 보내기는 다른 요청이다 — 거절 표식(failedText)도 같이 지운다.
   function reset() {
@@ -197,7 +222,8 @@ export function PasteReply({
         if (!fin.ok) return reject(fin.status, finBody.error, tp.errors.uploadFailed, false);
       }
       const title = typeof payload.title === "string" && payload.title.trim() ? payload.title.trim() : null;
-      onSuccess(body.projectId as string, title);
+      const description = typeof payload.description === "string" && payload.description.trim() ? payload.description : null;
+      onSuccess(body.projectId as string, title, description);
     } catch {
       setError(tp.errors.network);
       stop();
@@ -401,52 +427,60 @@ export function PasteReply({
     );
   }
 
-  // /publish — 큰 칸 · "파일도 있어요" · 버튼 하나.
+  // /publish — 큰 칸 · "파일도 있어요" · 버튼 하나. 넓은 화면에선 칸 오른쪽에 aside(초안 미리보기)가 서고,
+  // 좁으면 그 판이 버튼 아래로 내려간다 — 칸 → 버튼으로 이어지는 라 흐름은 그대로 둔다.
   const rows: { kind: Kind; label: string; accept: string }[] = [
     { kind: "bundle", label: tp.pickHtml, accept: ".html,.htm,.zip" },
     { kind: "screenshot", label: tp.pickShot, accept: "image/*" },
     { kind: "video", label: tp.pickVideo, accept: "video/*" },
   ];
-  return (
-    <div className="flex flex-col items-stretch gap-5">
-      {textarea}
-      {showFiles ? (
-        // 한 줄에 "이름 … [파일 고르기]"(2026-09-24) — 브라우저 기본 파일 칸은 "파일 선택 선택된 파일 없음"이
-        // 글자로만 보여 누르는 곳인 줄 몰랐다. 진짜 입력칸은 버튼 모양 라벨(.vf-file-pick) 안에 숨긴다.
-        <div className="rounded-2xl flex flex-col gap-2.5" style={{ background: "var(--surface-soft)", padding: "14px 18px" }}>
-          {rows.map((row) => {
-            const file = files[row.kind];
-            return (
-              <div key={row.kind} className="flex items-center justify-between gap-3">
-                <span style={{ flex: "1 1 0", minWidth: 0, color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontSize: "0.875rem", lineHeight: 1.5, wordBreak: "keep-all" }}>
-                  {row.label}
+  // 한 줄에 "이름 … [파일 고르기]"(2026-09-24) — 브라우저 기본 파일 칸은 "파일 선택 선택된 파일 없음"이
+  // 글자로만 보여 누르는 곳인 줄 몰랐다. 진짜 입력칸은 버튼 모양 라벨(.vf-file-pick) 안에 숨긴다.
+  const fileBox = (
+    <div className="rounded-2xl flex flex-col gap-2.5" style={{ background: "var(--surface-soft)", padding: "14px 18px" }}>
+      {rows.map((row) => {
+        const file = files[row.kind];
+        return (
+          <div key={row.kind} className="flex items-center justify-between gap-3">
+            <span style={{ flex: "1 1 0", minWidth: 0, color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontSize: "0.875rem", lineHeight: 1.5, wordBreak: "keep-all" }}>
+              {row.label}
+            </span>
+            {file ? (
+              <div className="flex items-center gap-2" style={{ flexShrink: 0, maxWidth: "60%" }}>
+                <span title={file.name} style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", fontSize: "0.8125rem" }}>
+                  {tp.fileChosen(file.name)}
                 </span>
-                {file ? (
-                  <div className="flex items-center gap-2" style={{ flexShrink: 0, maxWidth: "60%" }}>
-                    <span title={file.name} style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", fontSize: "0.8125rem" }}>
-                      {tp.fileChosen(file.name)}
-                    </span>
-                    <button type="button" disabled={submitting} onClick={() => { reset(); setFiles((prev) => ({ ...prev, [row.kind]: null })); }} className="vf-file-pick" style={{ fontSize: "0.8125rem", fontWeight: 500, padding: "0.3rem 0.8rem" }}>
-                      {tp.fileClear}
-                    </button>
-                  </div>
-                ) : (
-                  <label className="vf-file-pick" data-disabled={submitting || undefined}>
-                    {tp.pickFile}
-                    <input
-                      type="file" accept={row.accept} disabled={submitting}
-                      className="sr-only" aria-label={row.label}
-                      onChange={(e) => pickOne(row.kind, e.target.files?.[0] ?? null, e.target)}
-                    />
-                  </label>
-                )}
+                <button type="button" disabled={submitting} onClick={() => { reset(); setFiles((prev) => ({ ...prev, [row.kind]: null })); }} className="vf-file-pick" style={{ fontSize: "0.8125rem", fontWeight: 500, padding: "0.3rem 0.8rem" }}>
+                  {tp.fileClear}
+                </button>
               </div>
-            );
-          })}
-        </div>
-      ) : filesLink}
-      {errorBlock}
-      {mainButton}
+            ) : (
+              <label className="vf-file-pick" data-disabled={submitting || undefined}>
+                {tp.pickFile}
+                <input
+                  type="file" accept={row.accept} disabled={submitting}
+                  className="sr-only" aria-label={row.label}
+                  onChange={(e) => pickOne(row.kind, e.target.files?.[0] ?? null, e.target)}
+                />
+              </label>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+  return (
+    <div className={`grid gap-5${aside ? " lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-x-6" : ""}`}>
+      <div className="flex flex-col gap-3.5 min-w-0">
+        {textarea}
+        {showFiles && fileBox}
+      </div>
+      {aside && <div className="order-last flex lg:order-none lg:col-start-2 lg:row-start-1">{aside}</div>}
+      <div className={`flex flex-col items-stretch gap-5${aside ? " lg:col-span-2" : ""}`}>
+        {!showFiles && filesLink}
+        {errorBlock}
+        {mainButton}
+      </div>
     </div>
   );
 }

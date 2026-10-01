@@ -16,6 +16,10 @@ import { InlineConfirm, List, Row, Section, TEXT, pillStyle } from "./ui";
 // 라 시안(2026-10-01 덜어내기): 연결 창에 있던 MCP 연결(명령·설정 복사 — 누를 때 내 열쇠를 새로
 // 발급해 채운다)과 연결 관리가 여기로 옮겨 왔다. 연결 창은 "올리기" 하나만 하고, 가끔 쓰는 이 둘은
 // 여기가 정본이다(창 맨 아래 링크가 #ai로 데려온다). 무엇이 복사되는지는 맨 아래 접힌 줄에서 본다.
+//
+// 업그레이드(2026-10-01): 연결 줄마다 무엇으로 이어졌는지 표시(프롬프트 = 터미널, claude.ai 커넥터 =
+// Claude, MCP·그 밖 = 플러그 — 로그인 관리 줄과 같은 18px 자리)와 작은 점(최근 7일 안에 쓰였으면 초록,
+// 아니면 옅은 회색). 점은 바로 옆 "최근 사용 …/사용 전" 글이 이미 말하는 것을 한눈에 보이게 할 뿐이다.
 interface TokenRow {
   id: string;
   token_prefix: string;
@@ -42,12 +46,50 @@ function fetchTokens() {
 }
 
 const CLAUDE_ORANGE = "#D97757";
+// 성공·켜짐의 초록 — 복사 완료 표시(CopyLinkButton)와 같은 값. 라이트·다크 바탕 둘 다에서 보인다.
+const ACTIVE_GREEN = "#22c55e";
+const RECENT_MS = 7 * 24 * 60 * 60 * 1000;
+
+/** 연결이 어디로 이어졌는지 — 공식 로고가 있는 건 그 로고, 없으면 같은 굵기의 선 아이콘. */
+function ConnectionIcon({ name }: { name: string | null }) {
+  const host = name?.startsWith("oauth:") ? name.slice("oauth:".length).toLowerCase() : null;
+  const logo = host?.includes("claude") ? { d: AI_TOOL_PATHS.claude, fill: CLAUDE_ORANGE }
+    : host && /chatgpt|openai/.test(host) ? { d: AI_TOOL_PATHS.openai, fill: "currentColor" }
+      : null;
+  if (logo) {
+    return (
+      <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+        <path d={logo.d} fill={logo.fill} />
+      </svg>
+    );
+  }
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {name === AUTO_TOKEN_NAME ? (
+        // 프롬프트 = `npx nookframe login <코드>`를 돌린 터미널 AI
+        <>
+          <rect x="3.5" y="4.5" width="17" height="15" rx="3" />
+          <path d="m7.5 10 3 2.5-3 2.5M12.5 15.5h4" />
+        </>
+      ) : (
+        // MCP 연결·그 밖의 연결 — 꽂아 둔 플러그
+        <>
+          <path d="M9 3.5v4M15 3.5v4" />
+          <path d="M6.5 7.5h11V11a5.5 5.5 0 0 1-11 0z" />
+          <path d="M12 16.5v4" />
+        </>
+      )}
+    </svg>
+  );
+}
 
 export default function AiConnections() {
   const { t, locale } = useT();
   const ts = t.settings;
   const tc = t.connect;
   const [tokens, setTokens] = useState<TokenRow[] | null>(null);
+  // 목록을 받은 시각 — "최근 7일" 점의 기준(그리는 중엔 시계를 읽지 않는다).
+  const [loadedAt, setLoadedAt] = useState(0);
   const [loadFailed, setLoadFailed] = useState(false);
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -65,7 +107,10 @@ export default function AiConnections() {
     fetchTokens().then(({ data, error }) => {
       if (!alive) return;
       if (error) setLoadFailed(true);
-      else setTokens((data as TokenRow[]) ?? []);
+      else {
+        setLoadedAt(Date.now());
+        setTokens((data as TokenRow[]) ?? []);
+      }
     });
     return () => { alive = false; };
   }, []);
@@ -74,6 +119,7 @@ export default function AiConnections() {
     const { data, error } = await fetchTokens();
     if (error) return;
     setLoadFailed(false);
+    setLoadedAt(Date.now());
     setTokens((data as TokenRow[]) ?? []);
   }
 
@@ -156,10 +202,16 @@ export default function AiConnections() {
           <Row divider name={ts.aiConnected(count)}
             detail={loadFailed ? ts.aiLoadFailed : tokens === null ? "…" : count === 0 ? ts.aiEmpty : undefined} />
           {tokens?.map((row) => (
-            <Row key={row.id} divider name={tokenName(row.name, t)}
+            <Row key={row.id} divider icon={<ConnectionIcon name={row.name} />} name={tokenName(row.name, t)}
               // 앞자리만 고정폭 — 날짜까지 고정폭이면 폰에서 "2026. 9. / 22."처럼 날짜 가운데가 끊겼다.
               detail={
                 <>
+                  <span aria-hidden="true" className="inline-block rounded-full" style={{
+                    width: 7, height: 7, marginRight: 7, verticalAlign: 1,
+                    ...(row.last_used_at && loadedAt - Date.parse(row.last_used_at) < RECENT_MS
+                      ? { background: ACTIVE_GREEN }
+                      : { background: "var(--text-muted)", opacity: 0.5 }),
+                  }} />
                   <span className="vf-mono">{row.token_prefix}</span>
                   {" · "}
                   <span style={{ whiteSpace: "nowrap" }}>
@@ -175,7 +227,7 @@ export default function AiConnections() {
                 </button>
               )}>
               {confirmId === row.id && (
-                <InlineConfirm locked={locked}
+                <InlineConfirm indent locked={locked}
                   text={tc.revokeConfirm}
                   yes={busy === row.id ? ts.revoking : tc.revoke}
                   no={ts.cancel}

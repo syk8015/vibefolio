@@ -9,18 +9,21 @@ import { isStepWired } from "@/lib/demoScript";
 import { detectDemoSource } from "@/lib/demoSource";
 import { descriptionShapeIssue, descriptionTooLong, lineCols, DESCRIPTION_LINE_COLS_MAX } from "@/lib/descriptionShape";
 import { buildDraftFixPrompt } from "@/lib/draftFixPrompt";
-import { copyTextLater } from "@/lib/clipboard";
+import { copyText, copyTextLater } from "@/lib/clipboard";
 import { useMediaQuery } from "@/lib/useMediaQuery";
 import { ManualCopyBox } from "@/components/dashboard/ManualCopyBox";
 import { AiToolLogo } from "./helpers";
 import { DemoScriptPanel, holdOf } from "./DemoScriptPanel";
 import { OwnerInterviewPanel } from "./OwnerInterviewPanel";
 import { LanguagePanel, type DetailRow } from "./LanguagePanel";
+import { VisitorFrame, DemoChip } from "./VisitorFrame";
+import { PublishTrail, PublishedMark, type TrailStep } from "./PublishTrail";
 import { filmPlan, normalizeAppLanguages, normalizeLocale, otherLocale, readTranslations } from "@/lib/workLanguages";
 import { PreviewDevice, PHONE_VIEW, DESKTOP_VIEW } from "./PreviewDevice";
 import { type DBProject } from "./types";
 import { readOwnerInterview, type OwnerInterview } from "@/lib/ownerInterview";
 import { useT } from "@/lib/i18n/client";
+import { getDictionary } from "@/lib/i18n/dictionaries";
 
 // 초안 검토 모달 — [공개하기]의 "확인"을 실제로 할 수 있는 화면.
 //
@@ -38,19 +41,30 @@ import { useT } from "@/lib/i18n/client";
 // 버튼은 가운데 [고칠 점 적기] + [공개하고 촬영 요청]. 버튼 아래 안내 문장은 두지 않는다.
 // 작품 유형·연도·AI 도구·주소·촬영 힌트는 ⋯ [직접 고치기](수정 창)에서 보고 고친다.
 //
+// 2026-10-01 "업그레이드"(라 위에 더한 것): 배지는 제목과 한 줄에. 명함은 방문자가 볼 작은 브라우저 틀
+// (주소 nookframe.com/아이디, KO/EN은 그 주소 줄) 안에, 명함 구석엔 "▶ 자동 시연 · 약 N초".
+// 버튼 바로 위 작은 세 단계 "공개 → 촬영 → 명함에 영상". 공개하면 창을 닫지 않고 이 자리가
+// "공개했어요"(큰 체크 · 작은 명함 · [링크 복사] [명함 보기])로 바뀐다 — draft.is_draft가 false가 되는
+// 것으로 안다(ProjectsTab이 공개 목록으로 옮긴 같은 행을 계속 넘긴다. 실패하면 초안으로 돌아와 검토 화면으로).
+//
 // 살짝 고치기: 명함 렌더의 제목·소개글·한마디는 글자를 누르면 그 자리에서 고쳐진다
 // (서버 게이트와 같은 규칙으로 막는다 — lib/descriptionShape). 대본은 빼기·순서만.
 // 그 이상은 [고칠 점 적기] → 수정 프롬프트 복사 — 사람은 불만 한 줄, 고치는 건 AI(재촬영 루프와 동일).
 // 사이트가 AI에게 무엇을 보내는 게 아니다: 사람이 복사해 AI 채팅창에 붙여넣는다(문구도 그렇게).
 export type DraftPatch = Partial<Pick<DBProject, "title" | "description" | "comment" | "demo_script" | "translations">>;
 
-export function DraftReviewModal({ draft, privateReady = true, onClose, onPublish, onEdit, onDelete, onSave, onSaveInterview }: {
+export function DraftReviewModal({ draft, privateReady = true, username, demoPaused = false, onClose, onPublish, onEdit, onDelete, onSave, onSaveInterview }: {
   draft: DBProject;
   // 비공개 칸(대본·로그인 답·로봇 메모)을 서버에서 받았나. 못 받은 동안엔 "대본 없음"이라
   // 거짓으로 보이거나, 빈 값으로 AI 수정 프롬프트를 만들어 AI가 멀쩡한 대본을 덮게 된다.
   privateReady?: boolean;
+  /** 주인의 프레임 아이디 — 브라우저 틀 주소 줄과 공개 뒤 [링크 복사]·[명함 보기]. 모르면 주소만 nookframe.com */
+  username?: string;
+  /** 촬영을 몰아서 하는 중(배치 모드) — 공개 뒤 "촬영 대기 중"의 툴팁이 언제 찍히는지 맞게 말한다 */
+  demoPaused?: boolean;
   onClose: () => void;
-  onPublish: () => void;
+  /** 공개 요청 — 끝날 때까지(성공·실패) 기다린다. 그동안 버튼은 "공개 중…"으로 잠긴다 */
+  onPublish: () => Promise<unknown> | void;
   onEdit: () => void;
   onDelete: () => void;
   onSave: (patch: DraftPatch) => Promise<void>;
@@ -228,13 +242,37 @@ export function DraftReviewModal({ draft, privateReady = true, onClose, onPublis
 
   // 공개 — 글을 고치던 중이면 먼저 저장하고, 저장이 안 되면 공개하지 않는다.
   // 전엔 편집 칸이 열린 채 [공개]를 누르면 고친 내용이 조용히 버려졌다(B9).
+  // 창은 공개 뒤에도 열려 있다(업그레이드) — 결과가 올 때까지 버튼을 잠가 두 번 공개되지 않게 한다.
   const [publishing, setPublishing] = useState(false);
   const publish = async () => {
     if (publishing || saving || scriptSaving > 0 || !canPublish) return;
     setPublishing(true);
-    const ok = await save();
-    setPublishing(false);
-    if (ok) onPublish();
+    try {
+      if (await save()) await onPublish();
+    } finally {
+      setPublishing(false);
+    }
+  };
+  // 공개됐다 — ProjectsTab이 공개 목록으로 옮긴 같은 행을 넘긴다(실패하면 초안으로 돌아온다).
+  const published = !draft.is_draft;
+  // "공개했어요"로 바뀌는 순간 읽기 초점을 그 제목에 둔다(누른 버튼이 사라지므로).
+  const publishedHeadingRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    if (published) publishedHeadingRef.current?.focus();
+  }, [published]);
+  const [linkCopied, setLinkCopied] = useState(false);
+  const [manualLink, setManualLink] = useState<string | null>(null);
+  const copyLink = async () => {
+    if (!username) return;
+    const url = `${window.location.origin}/${encodeURIComponent(username)}`;
+    if (await copyText(url)) {
+      setManualLink(null);
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 1600);
+    } else {
+      // 복사가 막힌 곳(인앱 브라우저 등) — "복사했어요"라고 거짓말하지 않고 주소를 펼친다.
+      setManualLink(url);
+    }
   };
 
   // ── 고칠 점 적기 → 수정 프롬프트 복사 ─────────────────────────────────────
@@ -381,6 +419,37 @@ export function DraftReviewModal({ draft, privateReady = true, onClose, onPublis
       : draft.demo_url.replace(/^https?:\/\//, "").replace(/\/$/, "");
   const title = draft.title || t.projects.untitled;
 
+  // ── 업그레이드: 브라우저 틀 주소 · 명함 구석 표시 · 버튼 위 세 단계 ─────────
+  const frameAddress = username ? `nookframe.com/${username}` : "nookframe.com";
+  // 명함 구석 표시는 명함이 보이는 언어로(방문자가 보는 그대로) — KO/EN을 바꾸면 그 언어로 바뀐다.
+  const cardT = getDictionary(onOther && otherLoc ? otherLoc : primaryLoc ?? locale).projects;
+  // 자동 시연이면 위 촬영 줄과 같은 "약 N초", 직접 준 영상이면 숫자 없이 지금 쓰는 말 그대로.
+  // 대본을 아직 못 받았거나 장면이 없으면 숫자를 지어내지 않고 표시를 두지 않는다.
+  const chipText = hasOwnVideo
+    ? capitalize(cardT.reviewVideoOwn)
+    : films && privateReady && steps.length ? cardT.reviewAutoDemo(filmSeconds) : null;
+  // 세 단계 — 공개해도 찍을 게 없으면(직접 준 영상·찍을 수 없는 주소) 두지 않는다. 버튼 이름과 같은 판정(films).
+  const reviewTrail: TrailStep[] | null = films ? [
+    { state: "cur", label: t.projects.reviewTrailPublish },
+    { state: "todo", label: t.projects.reviewTrailFilm },
+    { state: "todo", label: t.projects.reviewTrailCard },
+  ] : null;
+  // 공개한 뒤엔 촬영 상태(실시간으로 바뀐다)를 그대로 따른다. 촬영이 안 걸렸으면(직접 준 영상·요청 실패) 두지 않는다 —
+  // 실패는 목록의 토스트·행 배지가 말한다.
+  const status = draft.demo_build_status;
+  const filmStep: TrailStep | null =
+    status === "pending" || status === "held"
+      ? { state: "wait", label: t.projects.reviewTrailWaiting, title: demoPaused ? t.projects.pausedTip : t.projects.progressRunningBody }
+      : status === "building" || status === "recording" || status === "editing"
+        ? { state: "wait", label: t.projects.reviewTrailFilming, title: t.projects.progressRunningBody }
+        : status === "done" ? { state: "done", label: t.projects.reviewTrailFilm } : null;
+  const publishedTrail: TrailStep[] | null = filmStep ? [
+    { state: "done", label: t.projects.reviewTrailPublish },
+    filmStep,
+    { state: status === "done" ? "done" : "todo", label: t.projects.reviewTrailCard },
+  ] : null;
+  const trail = published ? publishedTrail : mode === "review" ? reviewTrail : null;
+
   // ── 스타일 ─────────────────────────────────────────────────────────────
   // 명함 렌더는 실제 명함(TheaterStage)처럼 작품 위에 얹힌 흰 글씨다 — 테마와 무관하게
   // 어두운 바탕이 정직하다(라이트에서도 명함은 포스터 위에 뜬다).
@@ -396,8 +465,6 @@ export function DraftReviewModal({ draft, privateReady = true, onClose, onPublis
   // 답·촬영을 펼치거나 고칠 점을 적는 동안엔 명함을 한 단계 줄여 아래 내용에 자리를 준다.
   const compactCard = answersOpen || filmOpen || mode !== "review";
   const cardTitleSize = compactCard ? "1.3rem" : "1.45rem";
-  // 구석 KO/EN과 제목이 겹치지 않게 제목 오른쪽을 비운다.
-  const toggleRoom = langToggle ? 84 : 0;
   const textLink: React.CSSProperties = { flexShrink: 0, textDecoration: "underline", textUnderlineOffset: 3 };
   const footButton: React.CSSProperties = { fontSize: "0.9375rem", padding: "0.72rem 1.4rem" };
   // 틀 안의 글자는 틀째 축소되므로(폰 ~0.8·PC ~0.6배) 크게 쓴다.
@@ -436,6 +503,29 @@ export function DraftReviewModal({ draft, privateReady = true, onClose, onPublis
   );
 
   const deviceGlyph = device === "mobile" ? <PhoneGlyph /> : <LaptopGlyph />;
+
+  // 두 언어(2026-09-29) — 보는 사람 언어마다 명함이 이렇게 뜬다. 업그레이드부터 브라우저 틀 주소 줄 끝의 작은 KO/EN.
+  const langSwitch = langToggle && (
+    <div role="tablist" aria-label={t.projects.reviewLangTitle} className="flex" style={{ padding: 2, borderRadius: 999, background: "var(--surface-soft)" }}>
+      {(["primary", "other"] as const).map((k, i) => {
+        const loc = langToggle[i];
+        const active = cardLang === k;
+        return (
+          <button
+            key={k} type="button" role="tab" aria-selected={active} aria-label={t.projects.langNames[loc]}
+            onClick={() => { if (editing) cancel(); setCardLang(k); }}
+            style={{
+              padding: "1px 8px", border: "none", borderRadius: 999, cursor: "pointer",
+              fontFamily: "var(--font-nunito)", fontSize: 12, fontWeight: 600, lineHeight: 1.5,
+              background: active ? "var(--text-primary)" : "transparent", color: active ? "var(--bg)" : "var(--text-secondary)",
+            }}
+          >
+            {loc.toUpperCase()}
+          </button>
+        );
+      })}
+    </div>
+  );
 
   return (
     <div
@@ -490,17 +580,35 @@ export function DraftReviewModal({ draft, privateReady = true, onClose, onPublis
         {/* ── 오른쪽: 판단 ── */}
         <section className="vf-review-main">
           <header className="vf-review-head" data-scrolled={edges.scrolled ? "true" : "false"}>
-            <div className="flex items-center justify-between gap-3" style={{ minHeight: 34 }}>
-              <span
-                className="rounded-full"
-                style={{
-                  padding: "4px 10px", background: "var(--surface-soft)", color: "var(--text-secondary)",
-                  fontFamily: "var(--font-nunito)", fontSize: "0.72rem", fontWeight: 600,
-                }}
-              >
-                {t.projects.draftBadge}
-              </span>
-              <div ref={menuRef} className="relative flex items-center gap-1.5">
+            {/* 제목과 배지를 한 줄에(업그레이드 — 틀과 세 단계가 들어갈 자리를 만든다). 좁으면 배지가 밑으로 접힌다 */}
+            <div className="flex items-center gap-3" style={{ minHeight: 36 }}>
+              <div className="flex flex-wrap items-center" style={{ flex: 1, minWidth: 0, gap: "4px 10px" }}>
+                {!published && (
+                  <h2
+                    id={`${uid}-title`}
+                    style={{
+                      margin: 0, fontFamily: "var(--font-nunito)", fontSize: "clamp(1.3rem, 2.1vw, 1.6rem)",
+                      fontWeight: 700, lineHeight: 1.35, letterSpacing: "-0.02em", color: "var(--text-primary)",
+                      wordBreak: "keep-all", overflowWrap: "anywhere",
+                    }}
+                  >
+                    {t.projects.reviewAsk}
+                  </h2>
+                )}
+                {/* 누가 보는지는 늘 보인다 — 공개 전 "나만", 공개 뒤 "누구나"(진한 배지) */}
+                <span
+                  className="rounded-full"
+                  style={{
+                    padding: "4px 10px", fontFamily: "var(--font-nunito)", fontSize: "0.72rem", fontWeight: 600,
+                    background: published ? "var(--text-primary)" : "var(--surface-soft)",
+                    color: published ? "var(--bg)" : "var(--text-secondary)",
+                  }}
+                >
+                  {published ? t.projects.reviewPublishedBadge : t.projects.draftBadge}
+                </span>
+              </div>
+              <div ref={menuRef} className="relative flex items-center gap-1.5" style={{ flexShrink: 0 }}>
+                {!published && (
                 <button
                   type="button"
                   onClick={() => setMenuOpen((v) => !v)}
@@ -517,6 +625,7 @@ export function DraftReviewModal({ draft, privateReady = true, onClose, onPublis
                     <circle cx="3.5" cy="8" r="1.4" /><circle cx="8" cy="8" r="1.4" /><circle cx="12.5" cy="8" r="1.4" />
                   </svg>
                 </button>
+                )}
                 <button
                   type="button"
                   onClick={onClose}
@@ -528,7 +637,7 @@ export function DraftReviewModal({ draft, privateReady = true, onClose, onPublis
                     <path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
                   </svg>
                 </button>
-                {menuOpen && (
+                {menuOpen && !published && (
                   <div
                     role="menu"
                     className="absolute right-0 flex flex-col"
@@ -549,21 +658,16 @@ export function DraftReviewModal({ draft, privateReady = true, onClose, onPublis
                 )}
               </div>
             </div>
-            <h2
-              id={`${uid}-title`}
-              style={{
-                margin: "8px 0 0", fontFamily: "var(--font-nunito)", fontSize: "clamp(1.3rem, 2.1vw, 1.6rem)",
-                fontWeight: 700, lineHeight: 1.35, letterSpacing: "-0.02em", color: "var(--text-primary)",
-                wordBreak: "keep-all", overflowWrap: "anywhere",
-              }}
-            >
-              {t.projects.reviewAsk}
-            </h2>
           </header>
 
-          <div ref={bodyRef} className="vf-review-body" onScroll={measureEdges}>
-            <div ref={contentRef} className="vf-review-content" style={{ gap: 16 }}>
-              {!wide && previewSrc && (
+          {/* 아래 여백을 줄여(36→16) 틀·세 단계가 들어와도 펼친 답까지 한 화면에 든다. 끝까지 내리면 흐림은 사라진다 */}
+          <div ref={bodyRef} className="vf-review-body" onScroll={measureEdges} style={{ paddingBottom: 16 }}>
+            <div
+              ref={contentRef} className="vf-review-content"
+              // 공개한 뒤엔 체크·작은 명함을 칸 한가운데에
+              style={published ? { gap: 12, minHeight: "100%", justifyContent: "center" } : { gap: 12 }}
+            >
+              {!wide && previewSrc && !published && (
                 <a
                   href={previewSrc} target="_blank" rel="noopener noreferrer"
                   className="vf-review-start" style={{ marginBottom: 0, color: "var(--text-primary)", textDecoration: "none" }}
@@ -575,42 +679,18 @@ export function DraftReviewModal({ draft, privateReady = true, onClose, onPublis
                 </a>
               )}
 
-              {/* ① 명함 렌더 — 방문자가 볼 모습. 글자를 누르면 그 자리에서 고친다 */}
+              {/* ① 명함 렌더 — 방문자가 볼 모습(브라우저 틀 안, 주소 줄 끝에 KO/EN). 글자를 누르면 그 자리에서 고친다 */}
+              {!published && (
               <div className="flex flex-col" style={{ gap: 8 }}>
-                <div className="relative rounded-2xl" style={{ background: cardBg, padding: compactCard ? "16px 20px 14px" : "20px 24px 18px" }}>
-                  {/* 두 언어(2026-09-29) — 보는 사람 언어마다 이 명함이 이렇게 뜬다. 구석의 작은 KO/EN */}
-                  {langToggle && (
-                    <div
-                      role="tablist" aria-label={t.projects.reviewLangTitle} className="absolute flex"
-                      style={{ top: compactCard ? 12 : 16, right: compactCard ? 14 : 16, padding: 2, borderRadius: 999, background: "rgba(255,255,255,0.1)" }}
-                    >
-                      {(["primary", "other"] as const).map((k, i) => {
-                        const loc = langToggle[i];
-                        const active = cardLang === k;
-                        return (
-                          <button
-                            key={k} type="button" role="tab" aria-selected={active} aria-label={t.projects.langNames[loc]}
-                            onClick={() => { if (editing) cancel(); setCardLang(k); }}
-                            style={{
-                              padding: "2px 9px", border: "none", borderRadius: 999, cursor: "pointer",
-                              fontFamily: "var(--font-nunito)", fontSize: 13, fontWeight: 600, lineHeight: 1.5,
-                              background: active ? "#fff" : "transparent", color: active ? "#1a1612" : "rgba(255,255,255,0.72)",
-                            }}
-                          >
-                            {loc.toUpperCase()}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-
+                <VisitorFrame address={frameAddress} right={langSwitch} tight={compactCard}>
+                <div className="relative" style={{ borderRadius: 12, background: cardBg, padding: compactCard ? "15px 20px 14px" : "20px 22px 18px" }}>
                   {editing === "title" ? (
                     <input ref={inputRef as React.RefObject<HTMLInputElement>} value={value} onChange={e => setValue(e.target.value)}
                       onKeyDown={e => onKey(e, false)} disabled={saving}
-                      className="vf-serif-display" style={{ ...inputStyle, fontSize: cardTitleSize, fontWeight: 500, width: `calc(100% - ${toggleRoom}px)` }} />
+                      className="vf-serif-display" style={{ ...inputStyle, fontSize: cardTitleSize, fontWeight: 500 }} />
                   ) : (
                     <h3 className="vf-serif-display" onClick={() => begin("title")} title={t.projects.reviewEditHint}
-                      style={{ ...editableStyle, fontSize: cardTitleSize, fontWeight: 500, margin: 0, color: "#fff", textShadow: "0 2px 16px rgba(0,0,0,0.55)", padding: `2px ${4 + toggleRoom}px 2px 4px`, marginLeft: -4 }}>
+                      style={{ ...editableStyle, fontSize: cardTitleSize, fontWeight: 500, margin: 0, color: "#fff", textShadow: "0 2px 16px rgba(0,0,0,0.55)", padding: "2px 4px", marginLeft: -4 }}>
                       {fieldValue("title") || t.projects.untitled}
                     </h3>
                   )}
@@ -653,14 +733,16 @@ export function DraftReviewModal({ draft, privateReady = true, onClose, onPublis
                     </div>
                   )}
 
-                  {draft.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5" style={{ marginTop: compactCard ? 10 : 12 }}>
+                  {/* 도구 칩 · 오른쪽 끝에 "▶ 자동 시연 · 약 N초" */}
+                  {(draft.tags.length > 0 || chipText) && (
+                    <div className="flex flex-wrap items-center gap-1.5" style={{ marginTop: compactCard ? 10 : 12 }}>
                       {draft.tags.map(tag => (
                         <span key={tag} className="flex items-center gap-1 px-2 py-0.5 rounded-full"
                           style={{ background: "rgba(255,255,255,0.10)", color: "rgba(255,255,255,0.88)", fontFamily: "var(--font-nunito)", fontSize: "0.72rem" }}>
                           <AiToolLogo id={tag} size={11} />{tag}
                         </span>
                       ))}
+                      {chipText && <DemoChip>{chipText}</DemoChip>}
                     </div>
                   )}
 
@@ -683,6 +765,7 @@ export function DraftReviewModal({ draft, privateReady = true, onClose, onPublis
                     </div>
                   )}
                 </div>
+                </VisitorFrame>
                 {/* 다른 언어 판이 빠진 초안 — 방문자 절반이 빈 명함을 보게 되니 늘 보이게 */}
                 {primaryLoc && otherLoc && !otherTr && (
                   <p style={{ ...smallText, padding: "0 4px", color: "var(--danger)" }}>
@@ -690,10 +773,11 @@ export function DraftReviewModal({ draft, privateReady = true, onClose, onPublis
                   </p>
                 )}
               </div>
+              )}
 
               {/* 검토 칸들은 [고칠 점 적기]로 바꿔도 **숨기기만** 한다 — 내리면(unmount) 고치던 답·자막이
-                  말없이 사라졌다(10-01 검토). 돌아오면 하던 그대로다. */}
-              <div className="flex flex-col" style={{ gap: 16 }} hidden={mode !== "review"}>
+                  말없이 사라졌다(10-01 검토). 돌아오면 하던 그대로다(공개가 실패해 돌아올 때도). */}
+              <div className="flex flex-col" style={{ gap: 12 }} hidden={mode !== "review" || published}>
                   {/* ② 주인 인터뷰 확인 — 체크해야 공개된다(2026-09-29, 필수) */}
                   <OwnerInterviewPanel
                     interview={interview}
@@ -724,7 +808,7 @@ export function DraftReviewModal({ draft, privateReady = true, onClose, onPublis
                       <p key={w} style={{ ...smallText, padding: "0 4px", color: "var(--danger)" }}>{w}</p>
                     ))}
                     {filmOpen && (
-                      <div id={`${uid}-film`} className="flex flex-col" style={{ gap: 14, marginTop: 6 }}>
+                      <div id={`${uid}-film`} className="flex flex-col" style={{ gap: 10, marginTop: 4 }}>
                         {!hasOwnVideo && (
                           <DemoScriptPanel script={draft.demo_script} loading={!privateReady} onChange={saveScript} compact />
                         )}
@@ -742,7 +826,48 @@ export function DraftReviewModal({ draft, privateReady = true, onClose, onPublis
                     )}
                   </div>
               </div>
-              {mode === "fix" ? (
+              {published ? (
+                // 공개했어요 — 큰 체크 · 방문자가 볼 작은 명함. 다음에 무슨 일이 일어나는지는 버튼 위 세 단계가 말한다
+                <div className="vf-step-enter flex flex-col items-center text-center" style={{ gap: 14 }}>
+                  <PublishedMark />
+                  <h2
+                    id={`${uid}-title`} ref={publishedHeadingRef} tabIndex={-1}
+                    className="vf-serif-display" style={{ margin: "6px 0 0", fontSize: "1.625rem", fontWeight: 600, lineHeight: 1.3, outline: "none" }}
+                  >
+                    {t.projects.reviewPublishedTitle}
+                  </h2>
+                  <div style={{ width: "min(360px, 100%)", textAlign: "left" }}>
+                    <VisitorFrame address={frameAddress} tight center>
+                      <div className="flex flex-col" style={{ gap: 6, borderRadius: 10, background: cardBg, padding: "16px 18px" }}>
+                        <h3 className="vf-serif-display" style={{ margin: 0, fontSize: "1.125rem", fontWeight: 500, lineHeight: 1.35, color: "#fff" }}>
+                          {title}
+                        </h3>
+                        {draft.description && (
+                          <p style={{
+                            margin: 0, fontFamily: "var(--font-nunito)", fontSize: 13, lineHeight: 1.5, color: "rgba(255,255,255,0.84)",
+                            whiteSpace: "pre-line", display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 3, overflow: "hidden",
+                          }}>
+                            {draft.description}
+                          </p>
+                        )}
+                        {draft.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5" style={{ marginTop: 2 }}>
+                            {draft.tags.map(tag => (
+                              <span key={tag} className="flex items-center gap-1 px-2 py-0.5 rounded-full"
+                                style={{ background: "rgba(255,255,255,0.10)", color: "rgba(255,255,255,0.88)", fontFamily: "var(--font-nunito)", fontSize: "0.72rem" }}>
+                                <AiToolLogo id={tag} size={11} />{tag}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </VisitorFrame>
+                  </div>
+                  {manualLink && (
+                    <div style={{ width: "min(360px, 100%)" }}><ManualCopyBox text={manualLink} rows={1} /></div>
+                  )}
+                </div>
+              ) : mode === "fix" ? (
                 // 고칠 점 적기 — 이 창의 일이 "무엇을 고칠까요?" 하나로 바뀐다
                 <div ref={revealFix} className="rounded-2xl flex flex-col" style={{ gap: 12, padding: 18, background: "var(--surface-soft)" }}>
                   <label htmlFor={`${uid}-fix`} style={{ fontFamily: "var(--font-nunito)", fontSize: 15, fontWeight: 600, lineHeight: 1.5, color: "var(--text-primary)" }}>
@@ -768,9 +893,36 @@ export function DraftReviewModal({ draft, privateReady = true, onClose, onPublis
             </div>
           </div>
 
-          {/* 아래 버튼 줄 — 가운데 모아서. 안내 문장 없이 버튼 이름이 결과를 말한다 */}
-          <footer className="vf-review-foot" data-at-end={edges.atEnd ? "true" : "false"} style={{ justifyContent: "center" }}>
-            {mode === "review" ? (
+          {/* 아래 버튼 줄 — 가운데 모아서. 안내 문장 없이 버튼 이름이 결과를 말한다.
+              검토·공개 뒤엔 버튼 바로 위에 작은 세 단계(고칠 점을 적는 동안엔 없다) */}
+          <footer
+            className="vf-review-foot" data-at-end={edges.atEnd ? "true" : "false"}
+            style={{ flexDirection: "column", justifyContent: "center", gap: 12, ...(trail ? { paddingTop: 12, paddingBottom: 16 } : null) }}
+          >
+            {trail && <PublishTrail steps={trail} />}
+            <div className="flex flex-wrap items-center justify-center" style={{ gap: "8px 12px" }}>
+            {published ? (
+              username ? (
+                <>
+                  <button type="button" onClick={() => void copyLink()} className="vf-button-ghost" style={footButton}>
+                    {linkCopied ? t.projects.reviewLinkCopied : t.projects.reviewCopyLink}
+                  </button>
+                  <a
+                    href={`/${encodeURIComponent(username)}`} target="_blank" rel="noopener noreferrer"
+                    className="vf-button-primary" style={footButton}
+                  >
+                    {t.projects.reviewViewCard}
+                    <svg width="11" height="11" viewBox="0 0 13 13" fill="none" aria-hidden>
+                      <path d="M1.5 11.5L11.5 1.5M11.5 1.5H5.5M11.5 1.5V7.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </a>
+                </>
+              ) : (
+                <button type="button" onClick={onClose} className="vf-button-primary" style={footButton}>
+                  {t.projects.reviewClose}
+                </button>
+              )
+            ) : mode === "review" ? (
               <>
                 <button type="button" onClick={openFix} className="vf-button-ghost" style={footButton}>
                   {t.projects.reviewFixWithAi}
@@ -782,7 +934,7 @@ export function DraftReviewModal({ draft, privateReady = true, onClose, onPublis
                   className="vf-button-primary"
                   style={footButton}
                 >
-                  {films ? t.projects.reviewPublishAndFilm : t.projects.reviewPublishCta}
+                  {publishing ? t.projects.publishing : films ? t.projects.reviewPublishAndFilm : t.projects.reviewPublishCta}
                 </button>
               </>
             ) : mode === "fix" ? (
@@ -803,11 +955,17 @@ export function DraftReviewModal({ draft, privateReady = true, onClose, onPublis
                 {t.projects.reviewClose}
               </button>
             )}
+            </div>
           </footer>
         </section>
       </div>
     </div>
   );
+}
+
+// "your own video, as-is"처럼 문장 가운데에 쓰던 말을 따로 세울 때 첫 글자만 키운다(한국어는 그대로).
+function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
 function PhoneGlyph() {

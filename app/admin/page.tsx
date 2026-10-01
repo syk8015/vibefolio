@@ -13,6 +13,8 @@ import { ModerationInbox, type ModerationItem } from "./ModerationInbox";
 import { LinksMenu, type AdminLink } from "./LinksMenu";
 import {
   Verdict,
+  TodayChips,
+  MiniTrend,
   Ledger,
   type LedgerEntry,
   type LedgerState,
@@ -34,8 +36,9 @@ import {
 } from "./panels";
 
 // 관제탑 — the whole admin surface on one screen, "라" layout (2026-10-01):
-// ① 판정 한 줄 (does anything need me right now, in words) → ② 상태 6칸, one
-// compact row (click → sub-lines + alert log) → ③ 결정 카드 (approvals ·
+// ① 판정 한 줄 (does anything need me right now, in words; 업그레이드 adds the
+// breathing dot, today's chips and a 14-day visits line) → ② 상태 6칸, one
+// compact row with state-colored top lines (click → sub-lines + alert log) → ③ 결정 카드 (approvals ·
 // reports · moderation) only while something waits → ④ everything else
 // (pipeline, growth, traffic, raw events) inside one "숫자 보기" fold.
 // Gated to ADMIN_EMAILS; 404 to everyone else. Always rendered fresh — a
@@ -73,6 +76,11 @@ const WINDOW_DAYS = 30;
 const CHART_DAYS = 14;
 const DAY_MS = 86_400_000;
 const dayKey = (iso: string) => iso.slice(0, 10); // YYYY-MM-DD (UTC)
+// 판정 밑 "오늘" 숫자와 14일 방문 선은 주인 시계(KST)로 하루를 자른다 — 위 dayKey(UTC)로
+// 자르면 아침 9시 전까지 "오늘"이 어제 9시부터가 된다. 한국은 서머타임이 없어 +9시간 고정.
+const KST_OFFSET_MS = 9 * 3_600_000;
+const kstDayKey = (t: number) =>
+  Number.isFinite(t) ? new Date(t + KST_OFFSET_MS).toISOString().slice(0, 10) : ""; // 깨진 시각은 어느 날에도 안 들어간다
 
 // Referrer URL → bare host for ranking ("어디서 왔나"). Nulls (direct visits,
 // referrer-stripping browsers) bucket together instead of disappearing.
@@ -121,7 +129,9 @@ function bump(map: Record<string, number>, key: string) {
 // [data-theme="dark"] override, no media query.
 // The two folds are native <details>: .nf-ops-status (the status row — opening
 // it shows each cell's sub-line + the alert log) and .nf-ops-fold ("숫자 보기";
-// chevron like components/FoldToggle).
+// chevron like components/FoldToggle). .nf-ops-pulse = the verdict dot and its
+// two rings in the tone color (currentColor); the rings breathe only when the
+// viewer allows motion — otherwise they sit still at full size.
 const OPS_TOKENS = `
 .nf-ops { --ops-ok: #2e7d4a; --ops-warn: #a5741f; --ops-bad: #b53f3f; }
 [data-theme="dark"] .nf-ops { --ops-ok: #3f9e60; --ops-warn: #bd831f; --ops-bad: #cd5f4a; }
@@ -139,6 +149,15 @@ const OPS_TOKENS = `
 .nf-ops-fold > summary svg { flex-shrink: 0; transition: transform 0.15s; }
 .nf-ops-fold[open] > summary svg { transform: rotate(90deg); }
 @media (prefers-reduced-motion: reduce) { .nf-ops-fold > summary svg { transition: none; } }
+.nf-ops-pulse { position: relative; display: inline-block; width: 12px; height: 12px; border-radius: 9999px; background: currentColor; }
+.nf-ops-pulse::before, .nf-ops-pulse::after { content: ""; position: absolute; border-radius: inherit; background: currentColor; pointer-events: none; }
+.nf-ops-pulse::before { inset: -5px; opacity: 0.16; }
+.nf-ops-pulse::after { inset: -11px; opacity: 0.07; }
+@keyframes nf-ops-breathe { 0%, 100% { transform: scale(0.6); } 50% { transform: scale(1); } }
+@media (prefers-reduced-motion: no-preference) {
+  .nf-ops-pulse::before { animation: nf-ops-breathe 3.6s ease-in-out infinite; }
+  .nf-ops-pulse::after { animation: nf-ops-breathe 3.6s ease-in-out -0.35s infinite; }
+}
 `;
 
 export default async function AdminPage() {
@@ -147,8 +166,11 @@ export default async function AdminPage() {
   if (!user || !isAdminEmail(user.email)) notFound();
 
   const admin = createAdminClient();
+  // eslint-disable-next-line react-hooks/purity -- 서버 컴포넌트(force-dynamic): 요청마다 한 번 그린다, 다시 그려질 일이 없다.
   const now = Date.now();
   const since = new Date(now - WINDOW_DAYS * DAY_MS).toISOString();
+  const todayKst = kstDayKey(now);
+  const todayStart = new Date(Date.parse(todayKst) - KST_OFFSET_MS).toISOString(); // KST 0시
 
   const [
     reqsRes,
@@ -160,6 +182,7 @@ export default async function AdminPage() {
     moderationRes,
     eventsRes,
     viewsRes,
+    draftsTodayRes,
   ] = await Promise.all([
     admin
       .from("demo_requests")
@@ -215,6 +238,9 @@ export default async function AdminPage() {
         .order("viewed_at", { ascending: false })
         .order("id")
         .range(from, to)),
+    // 오늘 들어온 초안 수(판정 밑 칩). 프로젝트 행은 인제스트로만 생기고 늘 초안으로 태어나니
+    // 오늘 생긴 행 = 오늘 온 초안이다(그 뒤 공개된 것 포함). 행 없이 개수만 받는다.
+    admin.from("projects").select("id", { count: "exact", head: true }).gte("created_at", todayStart),
   ]);
 
   // ── approval queue ─────────────────────────────────────────────────────────
@@ -486,6 +512,32 @@ export default async function AdminPage() {
   const signups30 = counts[AnalyticsEvent.SignupCompleted] ?? 0;
   const overallConv = signups30 > 0 ? Math.round((shares / signups30) * 100) : null;
 
+  // ── 오늘 숫자 · 14일 방문 (판정 줄, 업그레이드 10-01) ───────────────────────
+  // 방문 = 랜딩·작품 페이지 핑 + 프레임 조회 — 워치독 수요 경보(cron/health 3.7)와 같은 정의.
+  // 프레임 조회만 세면 홍보가 데려오는 랜딩 방문이 빠진다. 하루는 KST(kstDayKey).
+  // 읽기가 실패했거나 잘렸으면 0을 지어내지 않고 그 칩·선을 뺀다 — 이벤트는 오래된 순으로
+  // 읽어서, 잘리면 빠지는 쪽이 바로 오늘이다.
+  const eventsOk = !eventsRes.error && !eventsRes.truncated;
+  const visitsOk = eventsOk && !viewsRes.error && !viewsRes.truncated;
+  const visitDays: string[] = [];
+  for (let i = CHART_DAYS - 1; i >= 0; i--) visitDays.push(kstDayKey(now - i * DAY_MS));
+  const visitsByDay: Record<string, number> = {};
+  for (const r of rows) {
+    if (r.event === AnalyticsEvent.LandingView || r.event === AnalyticsEvent.WatchView) {
+      bump(visitsByDay, kstDayKey(Date.parse(r.created_at)));
+    }
+  }
+  for (const v of views) bump(visitsByDay, kstDayKey(Date.parse(v.viewed_at as string)));
+  const visitSpark = visitDays.map((d) => visitsByDay[d] ?? 0);
+  const signupsToday = rows.filter(
+    (r) => r.event === AnalyticsEvent.SignupCompleted && kstDayKey(Date.parse(r.created_at)) === todayKst,
+  ).length;
+  const todayChips = [
+    visitsOk ? { label: "방문", value: visitSpark[CHART_DAYS - 1] } : null,
+    draftsTodayRes.error ? null : { label: "초안", value: draftsTodayRes.count ?? 0 },
+    eventsOk ? { label: "가입", value: signupsToday } : null,
+  ].filter((c): c is { label: string; value: number } => c !== null);
+
   // ── storage ────────────────────────────────────────────────────────────────
   let storage: { objects: number; bytes: number } | null = null;
   let storageError = false;
@@ -644,15 +696,21 @@ export default async function AdminPage() {
         <LinksMenu links={ADMIN_LINKS} />
       </div>
 
-      {/* ① 판정 한 줄 */}
-      <div className="mt-7">
-        <Verdict tone={verdict.tone} headline={verdict.headline} detail={verdict.detail} />
+      {/* ① 판정 한 줄 — 밑에 오늘 숫자, 오른쪽에 14일 방문 선(좁으면 밑으로 내려간다) */}
+      <div className="mt-7 flex flex-wrap items-center justify-between gap-x-8 gap-y-4">
+        <div className="flex flex-col gap-3.5 min-w-0">
+          <Verdict tone={verdict.tone} headline={verdict.headline} detail={verdict.detail} />
+          {todayChips.length > 0 && <TodayChips items={todayChips} />}
+        </div>
+        {visitsOk && (
+          <MiniTrend label={`방문 · ${CHART_DAYS}일`} unit="방문" days={visitDays} points={visitSpark} />
+        )}
       </div>
 
-      {/* ② 상태 6칸 — 누르면 칸마다 세부 줄(하트비트·틱·파일 수…)과 경보 로그 */}
+      {/* ② 상태 6칸 — 칸 위 얇은 줄이 상태 색. 누르면 칸마다 세부 줄(하트비트·틱·파일 수…)과 경보 로그 */}
       <details className="nf-ops-status mt-5">
         <summary>
-          <Ledger entries={ledger} compact />
+          <Ledger entries={ledger} compact stateLines />
         </summary>
         <AlertTicker entries={alertEntries} now={now} />
       </details>

@@ -5,6 +5,7 @@ import { getT, getLocale } from "@/lib/i18n/server";
 import LanguageToggle from "@/components/LanguageToggle";
 import { validateAuthorizeParams } from "@/lib/oauth";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
+import ConnectPair from "./ConnectPair";
 
 // /oauth/authorize — 원격 MCP 커넥터의 인증 화면(2026-09-17). OAuth의 authorization
 // endpoint는 기계가 부르는 API가 아니라 **사람이 보고 누르는 페이지**라 여기 있다.
@@ -12,6 +13,7 @@ import type { Dictionary } from "@/lib/i18n/dictionaries";
 // 이 화면의 핵심은 예쁜 것이 아니라 **무엇을 크게 보여 주느냐**다. 클라이언트가 스스로
 // 올린 설명서의 이름(client_name)은 아무나 "Claude"라고 적을 수 있다. 그래서 큰 글씨는
 // 언제나 client_id URL의 **호스트**이고, 이름은 "스스로 밝힌 이름"이라고 못박아 작게 쓴다.
+// 맨 위 짝 그림(ConnectPair)의 Claude 그림도 같은 규칙 — 이름이 아니라 호스트를 보고 붙인다.
 
 export async function generateMetadata() {
   const locale = await getLocale();
@@ -79,8 +81,10 @@ export default async function AuthorizePage({ searchParams }: { searchParams: Se
 
   // 가운데 정렬 한 줄기(10-01 덜어내기 라): 주소 → 이름 → 질문 → 할 수 있는 일 두 줄 → 못 하는 일 한 줄
   // → (내 컴퓨터면 경고) → [닫기][허용하고 돌아가기] → 돌아갈 곳 → 끊는 곳.
+  // 업그레이드(10-01): 맨 위에 [요청한 쪽] ··🔒·· [Nookframe] 짝 그림.
   return (
     <Card>
+      <ConnectPair verifiedHost={clientHost} local={isLoopback} localLabel={t.oauth.localBadge} />
       {/* 가장 큰 글씨 = 주소. 이름이 아니다. */}
       <p className="vf-serif-display" style={{ fontSize: "clamp(1.6rem, 6vw, 2.0625rem)", fontWeight: 600, lineHeight: 1.15, margin: 0, wordBreak: "break-all" }}>
         {clientHost}
@@ -159,9 +163,11 @@ function Card({ children }: { children: React.ReactNode }) {
 }
 
 // 오류는 쉬운 말 한 줄 + [대시보드로]. 받은 원문(영어)은 '자세히' 안에 — 만든 쪽에 전할 때 그대로 복사한다.
+// 맨 위 짝 그림은 끊긴 선 — 누가 불렀는지 믿을 수 없으니 왼쪽은 중립 그림.
 function ErrorBody({ t, message }: { t: Dictionary; message: string }) {
   return (
     <>
+      <ConnectPair broken />
       <h1 className="vf-serif-display" style={{ fontSize: "1.625rem", fontWeight: 500, lineHeight: 1.3, margin: "0 0 6px" }}>
         {t.oauth.errorTitle}
       </h1>

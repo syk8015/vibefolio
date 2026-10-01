@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { AnalyticsEvent, trackClientEvent, firstTouch, type FirstTouchData } from "@/lib/analytics-client";
 import Logo from "@/components/Logo";
+import BrandMark from "@/components/BrandMark";
 import { isReservedUsername } from "@/lib/reservedUsernames";
 import { safeNext } from "@/lib/safeNext";
 import { hasBlockedTerm } from "@/lib/nameFilter";
@@ -15,6 +16,9 @@ import {
 import { useT } from "@/lib/i18n/client";
 
 type UsernameStatus = "idle" | "checking" | "available" | "taken" | "invalid" | "reserved";
+
+// 주소 칸의 자리표시 글 — 명함 미리보기도 칸이 비면 같은 글을 옅게 보여 준다.
+const USERNAME_PLACEHOLDER = "alexvibe";
 
 // 온보딩이 끝나면 갈 곳. 미들웨어가 원래 가려던 주소를 ?next=로 실어 보낸다
 // (/publish에서 가입한 사람은 JSON을 들고 왔으니 거기로 돌려보낸다). 없거나
@@ -240,15 +244,19 @@ export default function OnboardingPage() {
   }
 
   // 할 일은 '내 주소 정하기' 하나(10-01 덜어내기 라) — 단계 표시·이름 동그라미·부제·한 줄 소개를 뺐다.
+  // 업그레이드(10-01): 제목 밑에 명함 미리보기를 얹고, 그만큼 위 여백을 줄였다.
   return (
     <main className="min-h-screen flex flex-col items-center px-6 pt-12 pb-16" style={{ background: "var(--bg)" }}>
       <Logo href={null} />
 
-      <div className="w-full max-w-sm" style={{ marginTop: "clamp(3.5rem, 13vh, 7.5rem)" }}>
+      <div className="w-full max-w-sm" style={{ marginTop: "clamp(2rem, 6vh, 3.25rem)" }}>
         <h1 className="vf-serif-display text-center"
           style={{ fontSize: "1.875rem", fontWeight: 600, lineHeight: 1.25, margin: "0 0 1.75rem" }}>
           {t.onboarding.title}
         </h1>
+
+        <CardPreview name={form.name} username={form.username}
+          namePlaceholder={t.signup.namePlaceholder} caption={t.onboarding.previewCaption} />
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-5">
           <Field htmlFor="onboarding-name" label={t.onboarding.nameLabel}>
@@ -263,7 +271,7 @@ export default function OnboardingPage() {
             <div className="vf-input flex items-center cursor-text" onClick={focusUsername}
               style={usernameFocused ? { background: "var(--surface)", borderColor: "var(--text-primary)" } : undefined}>
               <span aria-hidden className="shrink-0" style={{ color: "var(--text-muted)" }}>nookframe.com/</span>
-              <input ref={usernameRef} id="onboarding-username" type="text" name="username" placeholder="alexvibe"
+              <input ref={usernameRef} id="onboarding-username" type="text" name="username" placeholder={USERNAME_PLACEHOLDER}
                 className="flex-1 min-w-0 outline-none"
                 value={form.username} onChange={handleChange} required
                 onFocus={() => setUsernameFocused(true)} onBlur={() => setUsernameFocused(false)}
@@ -340,6 +348,63 @@ function UsernameStatusIcon({ status, availableLabel }: { status: UsernameStatus
     );
   }
   return null;
+}
+
+// 업그레이드(10-01): 내 명함이 어떻게 생길지 미리 보여 주는 작은 카드 — 칸에 쓰는 대로 이름·주소가 바로 바뀐다.
+// 잉크 카드라 라이트에선 까만 카드, 다크에선 종이색 카드다(주 버튼과 같은 뒤집기 — 어두운 바탕에 묻히지 않게).
+// 칸과 같은 내용을 되풀이하는 그림이라 스크린리더에서는 숨긴다(밑의 한 줄은 읽힌다).
+function CardPreview({ name, username, namePlaceholder, caption }: {
+  name: string; username: string; namePlaceholder: string; caption: string;
+}) {
+  const typedName = name.trim();
+  // 첫 글자 동그라미 — 명함 탭(CardTab)과 같은 규칙(이름, 없으면 아이디). Array.from은 이모지 반쪽을 막는다.
+  const initial = (Array.from(typedName || username)[0] ?? "").toUpperCase();
+  const FAINT = 0.6;   // 고정 글자(주소 앞부분·표식)
+  const EMPTY = 0.45;  // 아직 안 쓴 칸의 자리표시 글
+  return (
+    <div className="flex flex-col items-center" style={{ gap: 12, marginBottom: "1.75rem" }}>
+      <div aria-hidden className="relative w-full flex flex-col overflow-hidden"
+        style={{
+          maxWidth: 336, aspectRatio: "336 / 184", borderRadius: 18, padding: "20px 22px",
+          background: "var(--text-primary)", color: "var(--bg)", boxShadow: "var(--shadow-card-big)",
+        }}>
+        {/* 오른쪽 위 옅은 빛 + 안쪽 테두리 한 줄 — 카드의 결 */}
+        <span className="absolute inset-0 pointer-events-none"
+          style={{ background: "radial-gradient(120% 90% at 100% 0%, rgba(255,255,255,0.08), transparent 55%)" }} />
+        <span className="absolute pointer-events-none"
+          style={{ inset: 8, borderRadius: 12, boxShadow: "inset 0 0 0 1px color-mix(in srgb, var(--bg) 10%, transparent)" }} />
+
+        <div className="relative flex items-center justify-between">
+          <span className="flex items-center justify-center rounded-full shrink-0"
+            style={{
+              width: 38, height: 38, fontSize: "0.9375rem", fontWeight: 700,
+              background: "color-mix(in srgb, var(--bg) 10%, transparent)",
+              boxShadow: "inset 0 0 0 1px color-mix(in srgb, var(--bg) 18%, transparent)",
+            }}>
+            {initial}
+          </span>
+          <span style={{ opacity: FAINT }}><BrandMark size="0.875rem" /></span>
+        </div>
+
+        <div className="relative" style={{ marginTop: "auto" }}>
+          <p className="vf-serif-display"
+            style={{
+              color: "inherit", fontSize: "1.5rem", fontWeight: 600, lineHeight: 1.25, margin: 0,
+              whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", opacity: typedName ? 1 : EMPTY,
+            }}>
+            {typedName || namePlaceholder}
+          </p>
+          <p className="vf-mono" style={{ fontSize: "0.8125rem", lineHeight: 1.45, margin: "5px 0 0", overflowWrap: "anywhere" }}>
+            <span style={{ opacity: FAINT }}>nookframe.com/</span>
+            <span style={{ opacity: username ? 1 : EMPTY }}>{username || USERNAME_PLACEHOLDER}</span>
+          </p>
+        </div>
+      </div>
+      <p className="text-center" style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", margin: 0 }}>
+        {caption}
+      </p>
+    </div>
+  );
 }
 
 function Field({ htmlFor, label, children }: { htmlFor: string; label: string; children: React.ReactNode }) {

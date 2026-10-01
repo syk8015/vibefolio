@@ -6,7 +6,9 @@
 // in page.tsx, validated against both paper surfaces (dataviz six-checks).
 // A colored dot never stands alone — every state ships with its text label.
 // Chart series NEVER reuse status colors: magnitude/trend is always the ink
-// pair (--blue solid / --blue-tint-strong), a same-hue lightness pair.
+// pair (--blue solid / --blue-tint-strong), a same-hue lightness pair. The
+// verdict's mini trend is the one de-emphasised line (--text-muted) so its
+// ink endpoint — today — is the loud mark.
 
 export type LedgerState = "ok" | "warn" | "bad" | "plain";
 
@@ -36,7 +38,8 @@ const STATE_COLOR: Record<Exclude<LedgerState, "plain">, string> = {
 
 // ── Verdict line (라, 2026-10-01) ────────────────────────────────────────────
 // 맨 위 한 줄 — "지금 손 볼 게 있나"를 말로. 문장은 page.tsx가 상태 데이터에서
-// 만든다. 점은 색만으로 말하지 않는다(늘 문장과 같이).
+// 만든다. 점은 색만으로 말하지 않는다(늘 문장과 같이). 점 둘레의 숨 쉬는 테두리
+// (업그레이드)는 page.tsx의 .nf-ops-pulse — 움직임 줄이기 설정이면 멈춘 테두리.
 
 export function Verdict({
   tone,
@@ -49,10 +52,11 @@ export function Verdict({
 }) {
   return (
     <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+      {/* 테두리가 점 밖 11px까지 퍼지니 글자와 4px 더 띄운다(TodayChips 들여쓰기 28px = 12+4+12). */}
       <span
         aria-hidden
-        className="w-3 h-3 rounded-full shrink-0 self-center"
-        style={{ background: STATE_COLOR[tone] }}
+        className="nf-ops-pulse shrink-0 self-center"
+        style={{ color: STATE_COLOR[tone], marginRight: 4 }}
       />
       <p className="vf-serif-display" style={{ margin: 0, fontSize: "1.6rem", fontWeight: 600, lineHeight: 1.25 }}>
         {headline}
@@ -64,6 +68,101 @@ export function Verdict({
   );
 }
 
+// 판정 밑 "오늘" 숫자 칩(업그레이드). 누르는 것이 아니라 .vf-chip(호버·포인터)은 안 쓴다.
+// 들여쓰기는 판정 문장 첫 글자에 맞춘다(점 12 + 여백 4 + 간격 12).
+export function TodayChips({ items }: { items: { label: string; value: number }[] }) {
+  return (
+    <div className="flex flex-wrap items-center gap-2" style={{ paddingLeft: 28 }}>
+      <span className="vf-label" style={{ margin: "0 2px 0 0", color: "var(--text-muted)" }}>
+        오늘
+      </span>
+      {items.map((c) => (
+        <span
+          key={c.label}
+          className="inline-flex items-baseline gap-1.5"
+          style={{
+            padding: "0.3rem 0.8rem",
+            borderRadius: 999,
+            background: "var(--surface)",
+            boxShadow: "inset 0 0 0 1px var(--border)",
+            fontSize: "0.8125rem",
+            color: "var(--text-secondary)",
+          }}
+        >
+          {c.label}
+          <b style={{ fontSize: "0.875rem", fontWeight: 700, color: "var(--text-primary)", fontVariantNumeric: "tabular-nums" }}>
+            {c.value}
+          </b>
+        </span>
+      ))}
+    </div>
+  );
+}
+
+// 판정 오른쪽 작은 추이 카드(업그레이드) — 한 계열이라 범례 없이 이름표가 계열을 말한다.
+// 선은 옅게(--text-muted), 오늘인 끝점만 진한 잉크 + 바탕색 2px 고리. 날마다 보이지 않는
+// 칸을 깔아 마우스를 올리면 그날 숫자가 뜬다(<title>). days = "YYYY-MM-DD", points와 같은 길이.
+export function MiniTrend({
+  label,
+  unit,
+  days,
+  points,
+}: {
+  label: string;
+  unit: string;
+  days: string[];
+  points: number[];
+}) {
+  const n = points.length;
+  if (n === 0) return null;
+  const W = 232;
+  const H = 46;
+  const P = 5;
+  const max = Math.max(1, ...points);
+  const step = n > 1 ? (W - 2 * P) / (n - 1) : 0;
+  const xy = points.map((v, i) => [P + i * step, H - P - (v / max) * (H - 2 * P)] as const);
+  const line = xy.map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(1)} ${y.toFixed(1)}`).join(" ");
+  const [lx, ly] = xy[n - 1];
+  const md = (d: string) => `${Number(d.slice(5, 7))}/${Number(d.slice(8, 10))}`;
+  return (
+    <div
+      className="shrink-0"
+      style={{
+        background: "var(--surface)",
+        borderRadius: 14,
+        boxShadow: "inset 0 0 0 1px var(--border)",
+        padding: "12px 16px 10px",
+      }}
+    >
+      <span className="vf-label" style={{ margin: "0 0 8px", color: "var(--text-muted)" }}>
+        {label}
+      </span>
+      <svg
+        width={W}
+        height={H}
+        viewBox={`0 0 ${W} ${H}`}
+        role="img"
+        aria-label={`${label} · 오늘 ${points[n - 1]} · 최대 ${Math.max(...points)}`}
+        style={{ display: "block", overflow: "visible" }}
+      >
+        <path d={`${line} L${lx} ${H - P} L${P} ${H - P} Z`} fill="var(--blue-tint-strong)" />
+        <path d={`M${P} ${H - P} H${W - P}`} stroke="var(--border)" strokeWidth={1} />
+        <path d={line} fill="none" stroke="var(--text-muted)" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+        <circle cx={lx} cy={ly} r={4} fill="var(--text-primary)" stroke="var(--surface)" strokeWidth={2} />
+        {xy.map(([x], i) => {
+          const x0 = i === 0 ? 0 : x - step / 2;
+          const x1 = i === n - 1 ? W : x + step / 2;
+          return (
+            <rect key={days[i]} x={x0} y={0} width={x1 - x0} height={H} fill="transparent">
+              <title>{`${md(days[i])} · ${unit} ${points[i]}`}</title>
+            </rect>
+          );
+        })}
+      </svg>
+    </div>
+  );
+}
+
 // ── Annunciator ledger ───────────────────────────────────────────────────────
 // A strip of label + value (+ sub-line) cells; bad/warn values take the status
 // color so a scan of the strip surfaces problems. The control tower uses the
@@ -71,6 +170,9 @@ export function Verdict({
 // the owner opens the row — page.tsx wraps it in <details className=
 // "nf-ops-status">). /admin/promo uses the full-size strip. Spans, not divs:
 // the compact ledger sits inside <summary>, which takes phrasing content only.
+// `stateLines` (control tower, 업그레이드) adds a thin top line per cell in its
+// state color — ok/warn/bad tokens, plain = neutral rule — sitting on the
+// strip's top hairline, inset to the cell padding.
 
 export type LedgerEntry = {
   label: string;
@@ -79,7 +181,15 @@ export type LedgerEntry = {
   state: LedgerState;
 };
 
-export function Ledger({ entries, compact = false }: { entries: LedgerEntry[]; compact?: boolean }) {
+export function Ledger({
+  entries,
+  compact = false,
+  stateLines = false,
+}: {
+  entries: LedgerEntry[];
+  compact?: boolean;
+  stateLines?: boolean;
+}) {
   return (
     <span
       className="flex flex-wrap"
@@ -88,13 +198,25 @@ export function Ledger({ entries, compact = false }: { entries: LedgerEntry[]; c
       {entries.map((e, i) => (
         <span
           key={e.label}
-          className={`block px-4 ${compact ? "py-3" : "py-4"}`}
+          className={`block px-4 ${compact ? "py-3" : "py-4"}${stateLines ? " relative" : ""}`}
           style={{
             flex: "1 1 0%",
             minWidth: compact ? "8rem" : "9rem",
             ...(i > 0 ? { borderLeft: "1px solid var(--border)" } : {}),
           }}
         >
+          {stateLines && (
+            <span
+              aria-hidden
+              className="absolute left-4 right-4"
+              style={{
+                top: -1,
+                height: 2,
+                borderRadius: 2,
+                background: e.state === "plain" ? "var(--border-bright)" : STATE_COLOR[e.state],
+              }}
+            />
+          )}
           <span className="flex items-center gap-1.5">
             {e.state !== "plain" && (
               <span

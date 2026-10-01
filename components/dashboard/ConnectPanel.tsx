@@ -5,7 +5,9 @@ import Link from "next/link";
 import { copyText, copyTextLater } from "@/lib/clipboard";
 import { ManualCopyBox } from "@/components/dashboard/ManualCopyBox";
 import { AI_TOOL_PATHS } from "@/components/dashboard/aiToolPaths";
+import { JourneyStrip, StepCheckIcon, type JourneyIcon, type JourneyState, type JourneyStep } from "@/components/dashboard/JourneyStrip";
 import { PasteReply } from "@/components/publish/PasteReply";
+import { DraftMiniCard, descriptionLines } from "@/components/publish/DraftPreview";
 import { pastePrompt, remoteMcpUrl } from "@/lib/connectSnippets";
 import { useT } from "@/lib/i18n/client";
 import { aiStarted } from "@/lib/connectActivity";
@@ -25,6 +27,10 @@ import { aiStarted } from "@/lib/connectActivity";
 // 조용한 "복사했어요" 줄 → [AI 답 붙여넣기] → "초안이 왔어요"). 공개 범위 한 줄은 버튼 바로 아래에
 // 늘 있고, 실패(오류 문구·직접 복사 칸·직접 붙여넣는 칸)도 숨기지 않는다. MCP 연결과 연결 관리는
 // 설정 → AI 연결로 옮겼다 — 창엔 맨 아래 작은 링크 하나만 남는다.
+//
+// 업그레이드(2026-10-01, 사용자 확정 — 라 위에 보여 주는 그림만 더함): 창 머리의 가치 한 줄
+// (AddProjectModal), 큰 버튼 위 3칸 진행 줄(JourneyStrip — 이 창의 실제 상태를 그대로 그린다),
+// 고르기 화면의 "최근" 딱지, 창 안에서 올린 초안을 작은 어두운 명함 카드로.
 type AiPath = "terminal" | "claude" | "chat";
 type ToolId =
   | "claude-code" | "codex" | "cursor" | "copilot" | "antigravity" | "other-cli"
@@ -146,8 +152,12 @@ export default function ConnectPanel() {
   // 채팅 AI의 답을 들고 창을 다시 연 사람("AI 답을 이미 받았어요", D6) — 프롬프트를 또 복사하면
   // 클립보드의 답이 지워지므로 복사 없이 붙여넣기로 바로 간다.
   const [haveReply, setHaveReply] = useState(false);
-  // 창 안에서 AI 답을 올린 직후 — "초안이 왔어요".
-  const [arrived, setArrived] = useState<{ id: string; title: string | null } | null>(null);
+  // 창 안에서 AI 답을 올린 직후 — "초안이 왔어요" + 그 초안의 작은 카드(제목·소개 세 줄).
+  const [arrived, setArrived] = useState<{ id: string; title: string | null; description: string | null } | null>(null);
+  // 붙여넣기 칸(PasteReply)에 실패 문구가 떠 있는 동안 — 진행 줄의 붙여넣기 칸이 빨간 테가 된다.
+  const [pasteFailed, setPasteFailed] = useState(false);
+  // 창을 연 순간 기억해 둔 도구(지난번 답) — 고르기 화면에서 그 칩에 "최근" 딱지. 이번에 바꿔도 그대로다.
+  const [recentTool, setRecentTool] = useState<ToolId | null>(null);
   const pastedTimer = useRef<number | null>(null);
   useEffect(() => () => { if (pastedTimer.current) window.clearTimeout(pastedTimer.current); }, []);
   const origin = typeof window !== "undefined" ? window.location.origin : "https://nookframe.com";
@@ -159,8 +169,11 @@ export default function ConnectPanel() {
   useEffect(() => {
     try {
       const saved = localStorage.getItem(TOOL_KEY) as ToolId | null;
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      if (saved && [...AGENT_TOOLS, ...CHAT_TOOLS].includes(saved)) setTool(saved);
+      if (saved && [...AGENT_TOOLS, ...CHAT_TOOLS].includes(saved)) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setTool(saved);
+        setRecentTool(saved);
+      }
     } catch {
       // 저장소가 막힌 브라우저 — 매번 묻는 것으로 충분하다.
     }
@@ -178,6 +191,7 @@ export default function ConnectPanel() {
       setShowPaste(false);
       setHaveReply(false);
       setArrived(null);
+      setPasteFailed(false);
     }
     setError(null);
     try { localStorage.setItem(TOOL_KEY, id); } catch { /* 위와 같음 */ }
@@ -235,8 +249,8 @@ export default function ConnectPanel() {
   function openReview(projectId: string) {
     window.location.assign(`/dashboard?review=${encodeURIComponent(projectId)}`);
   }
-  function onPasted(projectId: string, title: string | null) {
-    setArrived({ id: projectId, title });
+  function onPasted(projectId: string, title: string | null, description: string | null) {
+    setArrived({ id: projectId, title, description });
     if (pastedTimer.current) window.clearTimeout(pastedTimer.current);
     pastedTimer.current = window.setTimeout(() => openReview(projectId), 2500);
   }
@@ -268,7 +282,7 @@ export default function ConnectPanel() {
               role="radio"
               aria-checked={on}
               onClick={() => choose(id)}
-              className="rounded-xl flex items-center gap-2 text-left"
+              className="relative rounded-xl flex items-center gap-2 text-left"
               style={{
                 padding: "0.55rem 0.75rem", minHeight: 44,
                 background: on ? "var(--surface)" : "var(--surface-soft)",
@@ -279,6 +293,16 @@ export default function ConnectPanel() {
             >
               <ToolIcon id={id} />
               <span style={{ fontFamily: "var(--font-nunito)", fontWeight: 600, lineHeight: 1.3, fontSize: "0.9375rem" }}>{toolName(id)}</span>
+              {id === recentTool && (
+                // 칩 오른쪽 위에 걸친 작은 딱지 — 칩 글자를 밀지 않게 띄워 둔다.
+                <span className="absolute rounded-full" style={{
+                  top: -10, right: 10, padding: "4px 9px", background: "var(--text-primary)", color: "var(--bg)",
+                  fontFamily: "var(--font-nunito)", fontSize: "0.8125rem", fontWeight: 700, lineHeight: 1,
+                  boxShadow: "0 2px 6px rgba(0, 0, 0, 0.16)",
+                }}>
+                  {tc.recentTag}
+                </span>
+              )}
             </button>
           );
         })}
@@ -350,17 +374,20 @@ export default function ConnectPanel() {
     </div>
   );
   const copyLabel = copying ? tc.copying : error ? tc.copyAgain : tc.copyPrompt;
+  // 창 안에서 올린 초안 — ✓ 한 줄 + 그 초안의 작은 어두운 카드(제목·소개 세 줄·"초안" 딱지) + [확인하러 가기].
   const arrivedView = arrived && (
     <>
-      <div role="status" className="flex flex-col items-center gap-1 text-center" style={{ paddingTop: 4 }}>
-        <span aria-hidden="true" className="flex items-center justify-center rounded-full" style={{
-          width: 44, height: 44, background: "var(--surface-active)", color: "var(--text-primary)", fontSize: "1.25rem", fontWeight: 700,
-        }}>✓</span>
-        <p className="vf-serif-display" style={{ fontSize: "1.3125rem", fontWeight: 600, lineHeight: 1.35, margin: "8px 0 0" }}>{tc.arrivedTitle}</p>
-        {arrived.title && (
-          <p style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", fontSize: "0.9375rem", lineHeight: 1.5, margin: 0 }}>{arrived.title}</p>
-        )}
+      <div role="status" className="flex items-center justify-center gap-2.5" style={{ marginTop: 4 }}>
+        <span aria-hidden="true" className="flex items-center justify-center rounded-full shrink-0" style={{
+          width: 26, height: 26, background: "var(--surface-active)", color: "var(--text-primary)",
+        }}>
+          <StepCheckIcon size={14} />
+        </span>
+        <p className="vf-serif-display" style={{ fontSize: "1.3125rem", fontWeight: 600, lineHeight: 1.35, margin: 0 }}>{tc.arrivedTitle}</p>
       </div>
+      {arrived.title && (
+        <DraftMiniCard title={arrived.title} lines={descriptionLines(arrived.description)} style={{ alignSelf: "center", maxWidth: 412 }} />
+      )}
       {bigButton(tc.reviewNow, () => openReview(arrived.id))}
       {visibility}
     </>
@@ -368,6 +395,34 @@ export default function ConnectPanel() {
 
   const showChooser = !tool || chooserOpen;
   const showPath = path !== null && !showChooser;
+
+  // 큰 버튼 위 3칸 진행 줄(업그레이드) — 이 창의 실제 상태를 그대로 옮긴다. 빨간 테 = 복사 실패(error, 첫 칸)·
+  // 붙여넣기 실패(PasteReply의 오류 문구, 가운데 칸). 자동 복사가 막혀 직접 복사 칸을 편 동안은 아직 첫 칸이
+  // 내 차례다 — 서버에 AI 흔적이 생기면(useAiStarted) 기다림 칸으로 넘어간다.
+  const journey = ((): JourneyStep[] | null => {
+    if (!showPath) return null;
+    const tj = tc.journey;
+    const at = (icon: JourneyIcon, label: string) => (state: JourneyState): JourneyStep => ({ icon, label, state });
+    const copy = at("copy", tj.copyPrompt);
+    const paste = at("paste", tj.pasteReply);
+    const upload = at("upload", tj.aiUploads);
+    const card = at("frame", tj.onCard);
+    // 창 안에서 올린 초안은 늘 붙여넣기로 왔다 — AI가 직접 올리면 ProjectsTab이 이 창을 닫고 확인 화면을 연다.
+    if (arrived) return [copy("done"), paste("done"), card("now")];
+    if (path === "claude") {
+      const sent = urlStep === "copied" || (urlStep === "manual" && claudeStarted);
+      return [at("link", tj.copyUrl)(sent ? "done" : "now"), upload(sent ? "wait" : "todo"), card("todo")];
+    }
+    if (path === "terminal") {
+      if (!prompted) return [copy(error ? "err" : "now"), upload("todo"), card("todo")];
+      if (showPaste) return [copy("done"), paste(pasteFailed ? "err" : "now"), card("todo")];
+      const sent = !manualPrompt || terminalStarted;
+      return [copy(sent ? "done" : "now"), upload(sent ? "wait" : "todo"), card("todo")];
+    }
+    if (!prompted && !haveReply) return [copy(error ? "err" : "now"), paste("todo"), card("todo")];
+    if (pasteFailed) return [copy("done"), paste("err"), card("todo")];
+    return manualPrompt ? [copy("now"), paste("todo"), card("todo")] : [copy("done"), paste("now"), card("todo")];
+  })();
 
   return (
     // keep-all: 폰에서 "붙여넣어/요."처럼 한 글자만 다음 줄로 떨어지지 않게 단어 단위로 접는다
@@ -398,6 +453,8 @@ export default function ConnectPanel() {
         </div>
       )}
 
+      {journey && <JourneyStrip label={tc.journey.label} steps={journey} />}
+
       {/* 명령을 직접 실행하는 AI — [프롬프트 복사] → 기다림 한 줄. AI가 답만 주고 끝났으면 "답만 받았어요". */}
       {showPath && path === "terminal" && (
         arrived ? arrivedView
@@ -408,7 +465,8 @@ export default function ConnectPanel() {
               {visibility}
             </>
           ) : showPaste ? (
-            <PasteReply compact lead={<>{errorLine}{promptLead(tc.copiedTerminal(named))}</>} note={visibility} onSuccess={onPasted} />
+            <PasteReply compact lead={<>{errorLine}{promptLead(tc.copiedTerminal(named))}</>} note={visibility}
+              onFailedChange={setPasteFailed} onSuccess={onPasted} />
           ) : (
             <>
               {promptLead(tc.copiedTerminal(named))}
@@ -457,7 +515,7 @@ export default function ConnectPanel() {
           ) : (
             <PasteReply compact
               lead={<>{errorLine}{prompted ? promptLead(tc.copiedChat(named)) : smallLink(copying ? tc.copying : tc.copyPrompt, copyPromptWithCode)}</>}
-              note={visibility} onSuccess={onPasted} />
+              note={visibility} onFailedChange={setPasteFailed} onSuccess={onPasted} />
           )
       )}
 

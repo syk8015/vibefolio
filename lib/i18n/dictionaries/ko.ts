@@ -154,6 +154,8 @@ export const ko = {
   },
   onboarding: {
     title: "내 주소를 정해요",
+    // 제목 밑 명함 미리보기 카드 바로 아래 한 줄(10-01 업그레이드).
+    previewCaption: "이 주소로 내 프레임이 생겨요",
     nameLabel: "이름",
     usernameLabel: "주소",
     // 한 줄 소개 칸은 명함 탭(CardTab)만 쓴다 — 온보딩에서는 뺐다(10-01).
@@ -379,6 +381,19 @@ export const ko = {
     reviewNoLiveNote: "배포 주소 없이 파일로 올린 작품이라, 공개하면 라이브 체험 없이 영상만 보여요. 배포한 주소로 올리면 체험도 켜져요.",
     reviewMenuEdit: "직접 고치기",
     reviewMenuDelete: "삭제하기",
+    // 업그레이드(2026-10-01): 명함을 방문자 브라우저 틀에 · 명함 구석 자동 시연 표시 · 버튼 위 세 단계 · 공개한 뒤 화면.
+    reviewVisitorView: "방문자에게 이렇게 보여요",
+    reviewAutoDemo: (s: number) => `자동 시연 · 약 ${s}초`,
+    reviewTrailPublish: "공개",
+    reviewTrailFilm: "촬영",
+    reviewTrailCard: "프레임에 영상",
+    reviewTrailWaiting: "촬영 대기 중",
+    reviewTrailFilming: "촬영 중",
+    reviewPublishedBadge: "공개됨 · 누구나 볼 수 있어요",
+    reviewPublishedTitle: "공개했어요",
+    reviewCopyLink: "링크 복사",
+    reviewLinkCopied: "복사했어요",
+    reviewViewCard: "내 프레임 보기",
     stripHint: (total: string) => `칸 너비는 장면마다 머무는 시간이에요 · 합계 약 ${total}초`,
     sceneCount: (i: number, n: number) => `장면 ${i} / ${n}`,
     sceneHold: (s: string) => `${s}초 머물러요`,
@@ -466,7 +481,9 @@ export const ko = {
     rowYear: "연도",
     rowTools: "AI 도구",
     videoLabel: "직접 만든 영상",
-    // 수정 창은 안 쓴다(초안 검토 창용 이름표). 검토 창도 안 쓰게 되면 지울 것.
+    // 업그레이드안(10-01): 맨 위 명함 카드 미리보기 이름표, 고친 칸 이름표 옆 점의 풍선·낭독 글.
+    preview: "미리보기",
+    unsaved: "아직 저장 안 했어요",
   },
   card: {
     imageTooLarge: "이미지는 5MB 이하만 업로드할 수 있어요.",
@@ -650,6 +667,8 @@ export const ko = {
     // 하나. 번호 단계·"어느 쪽인지 헷갈려요"·설명 접힌 줄은 없앴다 — 버튼 이름이 할 일을 말하고,
     // 공개 범위는 버튼 바로 아래 한 줄이 늘 말한다. 말은 쉬운 말로(셸·JSON·토큰 → 채팅 AI·AI 답·연결).
     title: "AI로 올리기",
+    // 업그레이드(2026-10-01, 사용자 확정): 제목 아래 가치 한 줄(창 머리 AddProjectModal).
+    valueLine: "AI가 올리면 시연 영상은 Nookframe이 찍어요",
     visibility: "초안으로 와요. 공개는 내가 눌러야 돼요.",
     // 두 줄은 "쓰는 곳"이 아니라 "할 수 있는 일"로 나눈다(2026-09-22 사용자 확정). 쓰는 곳
     // (터미널·앱·웹)으로 나누면 Claude Code·Codex가 두 줄에 겹치고, Claude 데스크탑 앱은
@@ -660,6 +679,8 @@ export const ko = {
     toolClaudeChat: "Claude 채팅",
     toolOtherChat: "그 밖의 채팅",
     changeTool: "바꾸기",
+    // 고르기 화면에서 지난번 고른 도구 칩에 붙는 작은 딱지(업그레이드).
+    recentTag: "최근",
     copyPrompt: "프롬프트 복사",
     copyAgain: "다시 복사",
     copying: "준비 중…",
@@ -686,6 +707,16 @@ export const ko = {
     // 창 안에서 AI 답을 올린 직후 — 곧 확인 화면이 저절로 열린다.
     arrivedTitle: "초안이 왔어요",
     reviewNow: "확인하러 가기",
+    // 큰 버튼 위 3칸 진행 줄(업그레이드, components/dashboard/JourneyStrip) — 할 일 그 자체를 이름으로.
+    // label은 화면 읽기 프로그램이 읽는 줄 이름.
+    journey: {
+      label: "진행 단계",
+      copyPrompt: "프롬프트 복사",
+      copyUrl: "주소 복사",
+      aiUploads: "AI가 올려요",
+      pasteReply: "답 붙여넣기",
+      onCard: "프레임에 걸려요",
+    },
     settingsLink: "MCP·연결 관리는 설정에서",
     // 자동 복사가 막힌 브라우저(사파리 등)의 출구 — 받은 글을 읽기 전용 칸에 펼친다(A2). 재촬영 요청 창도 쓴다.
     manualCopyLead: "자동 복사가 막혔어요. 아래 칸을 누르면 전체가 선택돼요 — 그대로 복사해 주세요.",
@@ -722,6 +753,8 @@ export const ko = {
     // 버튼 바로 밑 — 허용하면 어디로 가는지(속임 방지로 늘 보인다).
     returnTo: (host: string) => `${host}로 돌아가요`,
     loopbackWarn: "내 컴퓨터에서 도는 프로그램이에요. 직접 설치한 게 맞나요?",
+    // 맨 위 짝 그림에서 요청한 쪽 동그라미 밑 작은 표시 — 돌아갈 곳이 이 컴퓨터일 때(10-01 업그레이드).
+    localBadge: "내 컴퓨터",
     allow: "허용하고 돌아가기",
     deny: "닫기",
     // 끊기는 설정 > AI 연결(components/settings/AiConnections)이 정본.
@@ -800,6 +833,13 @@ export const ko = {
     // 버튼 하나. /publish 버튼은 칸이 비면 [클립보드에서 붙여넣기](칸만 채움), 차면 [초안으로 올리기].
     title: "AI 답 붙여넣기",
     lead: "초안으로 올라가요. 공개는 내가 눌러요.",
+    // 업그레이드(2026-10-01, 사용자 확정): 맨 위 작은 3단계 길 + 오른쪽 '초안 미리보기' 판(붙여넣은 답을
+    // 작은 명함 카드로 미리 본다 — components/publish/DraftPreview). label은 화면 읽기 프로그램용.
+    trail: { label: "진행 단계", copy: "AI 답 복사", paste: "붙여넣기", check: "초안 확인" },
+    previewLabel: "초안 미리보기",
+    previewEmpty: "붙여넣으면 여기서 초안을 미리 봐요",
+    // 초안 카드의 작은 딱지 — 연결 창의 "초안이 왔어요" 카드도 같이 쓴다.
+    draftBadge: "초안",
     // 입력칸 예시(첫인상 #9) — 코드 모양 예시는 "내가 채워야 하는 양식"으로 읽혔다.
     pastePlaceholder: "여기에 AI 답을 통째로 붙여넣어요",
     clipboardButton: "클립보드에서 붙여넣기",
@@ -881,8 +921,11 @@ export const ko = {
     errorCode: "오류 코드",
     rootTitle: "페이지를 불러오지 못했어요",
     rootBody: "잠시 문제가 생겼어요. 다시 시도하거나 홈으로 돌아가 주세요.",
-    // 404(app/not-found.tsx)는 제목 한 줄 + [홈으로]뿐이다(10-01 덜어내기).
+    // 404(app/not-found.tsx) — 빈 액자 그림 + 제목 + 한 줄 + [홈으로](10-01 덜어내기 + 업그레이드).
+    // [내 명함 보기]는 로그인한 사람(아이디가 있는)에게만 보인다.
     notFoundTitle: "페이지를 찾을 수 없어요",
+    notFoundBody: "주소가 바뀌었거나 사라졌어요",
+    notFoundMyCard: "내 프레임 보기",
     notFoundHome: "홈으로",
   },
   // 서버 API 에러 응답(apiError message) — 클라이언트가 그대로 표시한다.

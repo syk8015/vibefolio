@@ -13,18 +13,22 @@ import {
   summarizeDropped,
 } from "./helpers";
 import { type ProjectForm, AI_TOOLS_INITIAL } from "./types";
+import { WorkCardPreview } from "./WorkCardPreview";
 import { useT } from "@/lib/i18n/client";
 
-// 대시보드 작품 **수정** 창 '작품 고치기'(2026-10-01 덜어내기 · 라안).
+// 대시보드 작품 **수정** 창 '작품 고치기'(2026-10-01 덜어내기 · 라안 + 업그레이드안).
 //
 // 자주 고치는 세 칸(이름·설명·한 마디)과 작품 주소 한 줄만 먼저 보인다. 나머지(유형·연도·
 // AI 도구·썸네일·직접 만든 영상·핵심 기능 소개)는 '더 보기' 목록에 한 줄씩 있고, 줄의 작은
 // 버튼을 누르면 그 자리에서 편집 칸이 열린다. 핵심 기능 소개(demo_user_hint)는 촬영 워커가
 // 아직 읽는다(local-runner explore 브리핑) — 빼지 말 것.
 //
-// 작품 주소·파일 교체는 [바꾸기] → 작은 창. 거기서 올린 파일·적은 주소는 창의 [바꾸기]를
-// 눌러야 폼에 들어가고, 닫으면 버린다. DB 저장은 예전처럼 [저장하기] 한 번이고, 업로드 경로·
-// 검사·저장 로직은 그대로다.
+// 업그레이드안: 맨 위 '미리보기' 명함 카드(WorkCardPreview)가 이름·설명·한 마디·첫 AI 도구를 고치는
+// 대로 보여 주고, 연 뒤 값이 바뀐 칸은 이름표 옆에 작은 점이 붙는다(저장하면 창이 닫히며 같이 사라진다).
+//
+// 작품 주소·파일 교체는 [바꾸기] → 작은 창. 파일은 다 올라가는 순간 폼에 들어가고(10-01 — 한 번 더
+// 눌러야 들어가게 했더니 조용히 옛 파일로 저장됐다, applyUpload), 주소는 창의 [바꾸기]를 눌러야
+// 들어간다. DB 저장은 예전처럼 [저장하기] 한 번이고, 업로드 경로·검사·저장 로직은 그대로다.
 //
 // 2026-08-25: 단계식 추가 위저드 삭제 — 새로 올리는 길은 AI 하나로 통일(사용자 확정).
 // 이미 올린 작품의 제목·설명·파일 교체는 여전히 사람이 해야 하므로 이 창은 남는다.
@@ -96,6 +100,8 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
   useEffect(() => { uploadingRef.current = uploading; }, [uploading]);
   // 이번에 올린 파일 이름(작품 줄에 보여줄 것). 예전 업로드는 이름을 저장하지 않아 모른다.
   const [pickedName, setPickedName] = useState<string | null>(null);
+  // 연 순간의 값 — 이름표 옆 '저장 안 한 칸' 점의 기준. 부모가 다시 그려도 바뀌지 않게 처음 것만 쥔다.
+  const [base] = useState(initialForm);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
   const thumbnailInputRef = useRef<HTMLInputElement>(null);
@@ -364,6 +370,21 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
       ?? form.content_type
     : null;
   const hint = form.demo_user_hint?.trim() || "";
+  // 연 뒤 값이 바뀐 칸(이름표 옆 점). 도구는 순서도 저장되고 첫 도구가 명함에 뜨므로 순서까지 본다.
+  const changed = {
+    title: form.title !== base.title,
+    description: form.description !== base.description,
+    comment: form.comment !== base.comment,
+    link: form.demo_url !== base.demo_url,
+    type: form.content_type !== base.content_type,
+    year: form.year !== base.year,
+    tools: selectedTools.join("\n") !== base.tags.join("\n"),
+    thumb: form.thumbnail !== base.thumbnail || form.type !== base.type,
+    video: (form.video_url ?? "") !== (base.video_url ?? ""),
+    hint: (form.demo_user_hint ?? "") !== (base.demo_user_hint ?? ""),
+  };
+  // '더 보기'를 접어 두면 그 안의 점이 안 보인다 — 접힌 줄에 하나로 모아 보여 준다.
+  const moreChanged = changed.type || changed.year || changed.tools || changed.thumb || changed.video || changed.hint;
   const canApplySwap = uploadMode === "files" ? !!staged && !uploading : swapUrl.trim() !== "";
   // 파일 쪽은 올리면 바로 들어가서 [바꾸기]가 따로 없다 — 다 올라가면 [완료] 하나.
   const filesDone = uploadMode === "files" && !!staged && !uploading;
@@ -396,21 +417,35 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
 
         <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
           <div className="flex-1 min-h-0 overflow-y-auto p-6 flex flex-col gap-4">
+            {/* 미리보기 띠는 이 스크롤 칸 안에서 가장자리까지 편다 — 낮은 화면에선 칸들과 같이 올라가고,
+                아래 버튼 줄은 늘 보인다 */}
+            <div className="shrink-0 -mx-6 -mt-6 mb-2">
+              <WorkCardPreview label={t.projectForm.preview}
+                title={form.title} untitled={t.projects.untitled}
+                description={form.description} comment={form.comment} tool={selectedTools[0]} />
+            </div>
+
             <div>
-              <label htmlFor={`${uid}-name`} style={LABEL}>{t.projectForm.nameLabel}</label>
+              <label htmlFor={`${uid}-name`} style={LABEL}>
+                {t.projectForm.nameLabel}{changed.title && <UnsavedDot label={t.projectForm.unsaved} />}
+              </label>
               <input id={`${uid}-name`} className="vf-input" name="title" placeholder="My Awesome Project"
                 value={form.title} onChange={handleChange} required />
             </div>
 
             <div>
-              <label htmlFor={`${uid}-desc`} style={LABEL}>{t.projectForm.descLabel}</label>
+              <label htmlFor={`${uid}-desc`} style={LABEL}>
+                {t.projectForm.descLabel}{changed.description && <UnsavedDot label={t.projectForm.unsaved} />}
+              </label>
               <textarea id={`${uid}-desc`} className="vf-input" name="description" placeholder={t.projectForm.descPlaceholder}
                 value={form.description} onChange={handleChange} rows={3}
                 style={{ resize: "vertical", lineHeight: 1.6 }} />
             </div>
 
             <div>
-              <label htmlFor={`${uid}-comment`} style={LABEL}>{t.projectForm.commentLabel}</label>
+              <label htmlFor={`${uid}-comment`} style={LABEL}>
+                {t.projectForm.commentLabel}{changed.comment && <UnsavedDot label={t.projectForm.unsaved} />}
+              </label>
               <input id={`${uid}-comment`} className="vf-input" name="comment" placeholder={t.projectForm.commentPlaceholder}
                 value={form.comment} onChange={handleChange} />
             </div>
@@ -419,7 +454,7 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
             <div className="flex items-center gap-3 rounded-2xl"
               style={{ background: "var(--surface-soft)", padding: "0.75rem 0.75rem 0.75rem 1rem" }}>
               <div className="flex-1 min-w-0">
-                <p style={SMALL}>{linkLabel}</p>
+                <p style={SMALL}>{linkLabel}{changed.link && <UnsavedDot label={t.projectForm.unsaved} />}</p>
                 <p className="truncate" title={linkIsUpload ? undefined : form.demo_url}
                   style={{ margin: 0, fontSize: "0.9375rem", fontWeight: 600, fontFamily: "var(--font-nunito)", color: linkValue ? "var(--text-primary)" : "var(--text-muted)" }}>
                   {linkValue || t.projectForm.none}
@@ -432,13 +467,18 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
 
             <div>
               <FoldToggle open={moreOpen} onToggle={() => { setMoreOpen(v => !v); setEditing(null); }}>
-                {moreOpen ? t.projectForm.less : t.projectForm.more}
+                <span>
+                  {moreOpen ? t.projectForm.less : t.projectForm.more}
+                  {!moreOpen && moreChanged && <UnsavedDot label={t.projectForm.unsaved} />}
+                </span>
               </FoldToggle>
             </div>
 
+            {/* shrink-0: 스크롤 칸이 세로 flex라, overflow-hidden 상자는 내용보다 작게 눌린다 — 노트북 높이에서
+                아래 줄(영상·핵심 기능 소개)이 잘려 스크롤로도 못 닿았다(10-01 확인). 눌리지 말고 칸이 스크롤되게. */}
             {moreOpen && (
-              <div className="rounded-2xl overflow-hidden" style={{ background: "var(--surface-soft)" }}>
-                <MoreRow first label={t.projectForm.rowType}
+              <div className="shrink-0 rounded-2xl overflow-hidden" style={{ background: "var(--surface-soft)" }}>
+                <MoreRow first label={t.projectForm.rowType} changed={changed.type} unsavedLabel={t.projectForm.unsaved}
                   value={typeName ?? t.projectForm.none} empty={!typeName}
                   action={t.projectForm.change} doneLabel={t.projectForm.done}
                   open={editing === "type"} onToggle={() => toggleEditing("type")}>
@@ -458,7 +498,7 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
                   </div>
                 </MoreRow>
 
-                <MoreRow label={t.projectForm.rowYear}
+                <MoreRow label={t.projectForm.rowYear} changed={changed.year} unsavedLabel={t.projectForm.unsaved}
                   value={form.year || t.projectForm.none} empty={!form.year}
                   action={t.projectForm.change} doneLabel={t.projectForm.done}
                   open={editing === "year"} onToggle={() => toggleEditing("year")}>
@@ -466,7 +506,7 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
                     value={form.year} onChange={handleChange} style={{ maxWidth: 160 }} />
                 </MoreRow>
 
-                <MoreRow label={t.projectForm.rowTools}
+                <MoreRow label={t.projectForm.rowTools} changed={changed.tools} unsavedLabel={t.projectForm.unsaved}
                   value={selectedTools.length ? toolsSummary(selectedTools) : t.projectForm.none}
                   empty={!selectedTools.length}
                   action={t.projectForm.change} doneLabel={t.projectForm.done}
@@ -496,7 +536,7 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
                   </div>
                 </MoreRow>
 
-                <MoreRow label={t.projectForm.thumbLabel}
+                <MoreRow label={t.projectForm.thumbLabel} changed={changed.thumb} unsavedLabel={t.projectForm.unsaved}
                   value={form.thumbnail ? <ThumbPreview src={form.thumbnail} /> : t.projectForm.auto}
                   empty={!form.thumbnail}
                   action={form.thumbnail ? t.projectForm.change : t.projectForm.upload} doneLabel={t.projectForm.done}
@@ -552,7 +592,7 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
                   </div>
                 </MoreRow>
 
-                <MoreRow label={t.projectForm.videoLabel}
+                <MoreRow label={t.projectForm.videoLabel} changed={changed.video} unsavedLabel={t.projectForm.unsaved}
                   value={form.video_url ? t.projectForm.added : t.projectForm.none}
                   empty={!form.video_url}
                   action={form.video_url ? t.projectForm.change : t.projectForm.upload} doneLabel={t.projectForm.done}
@@ -600,7 +640,7 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
                 </MoreRow>
 
                 {/* 촬영 워커가 브리핑에 넣는 제작자 메모(demo_user_hint) — 살아 있는 칸 */}
-                <MoreRow label={t.projectForm.hintLabel}
+                <MoreRow label={t.projectForm.hintLabel} changed={changed.hint} unsavedLabel={t.projectForm.unsaved}
                   value={hint || t.projectForm.none} empty={!hint}
                   action={t.projectForm.change} doneLabel={t.projectForm.done}
                   open={editing === "hint"} onToggle={() => toggleEditing("hint")}>
@@ -748,8 +788,10 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
 }
 
 // '더 보기' 목록의 한 줄: 이름 · 지금 값 · 작은 버튼. 버튼을 누르면 줄 아래에 편집 칸이 열린다.
-function MoreRow({ label, value, empty, action, doneLabel, open, onToggle, first, children }: {
+function MoreRow({ label, changed, unsavedLabel, value, empty, action, doneLabel, open, onToggle, first, children }: {
   label: string;
+  changed: boolean;
+  unsavedLabel: string;
   value: React.ReactNode;
   empty?: boolean;
   action: string;
@@ -762,7 +804,7 @@ function MoreRow({ label, value, empty, action, doneLabel, open, onToggle, first
   return (
     <div style={first ? undefined : { borderTop: "1px solid var(--surface)" }}>
       <div className="flex items-center gap-3" style={{ minHeight: 48, padding: "0.5rem 0.75rem 0.5rem 1rem" }}>
-        <span style={{ ...SMALL, flexShrink: 0 }}>{label}</span>
+        <span style={{ ...SMALL, flexShrink: 0 }}>{label}{changed && <UnsavedDot label={unsavedLabel} />}</span>
         <span className="flex-1 min-w-0 truncate text-right"
           style={{ fontSize: "0.875rem", fontWeight: 600, fontFamily: "var(--font-nunito)", color: empty ? "var(--text-muted)" : "var(--text-primary)" }}>
           {value}
@@ -799,6 +841,19 @@ function CloseButton({ onClick, label }: { onClick: () => void; label: string })
         <path d="M4 4l12 12M16 4L4 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
       </svg>
     </button>
+  );
+}
+
+// 저장 안 한 칸 — 이름표 옆 작은 점(업그레이드안). 글은 화면 낭독기와 마우스 올림 풍선용.
+function UnsavedDot({ label }: { label: string }) {
+  return (
+    <span title={label}
+      style={{
+        display: "inline-block", width: 6, height: 6, marginLeft: 6, borderRadius: "50%",
+        background: "var(--text-primary)", verticalAlign: 2,
+      }}>
+      <span className="sr-only">{label}</span>
+    </span>
   );
 }
 

@@ -33,6 +33,7 @@ export function AddProjectModal({ onClose }: { onClose: () => void }) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="add-project-title"
+        aria-describedby="add-project-value"
         className="relative flex flex-col overflow-hidden"
         style={{
           width: "min(41.25rem, calc(100vw - 2rem))",
@@ -44,12 +45,17 @@ export function AddProjectModal({ onClose }: { onClose: () => void }) {
           boxShadow: "var(--shadow-modal)",
         }}
       >
-        {/* 제목 한 줄만(라, 2026-10-01) — 공개 범위는 창 안 버튼 바로 아래 한 줄이 늘 말한다. */}
-        <div className="flex items-center gap-3 px-6 pt-5 pb-4"
+        {/* 제목 + 가치 한 줄(업그레이드, 2026-10-01) — 공개 범위는 창 안 버튼 바로 아래 한 줄이 늘 말한다. */}
+        <div className="flex items-start gap-3 px-6 pt-5 pb-4"
           style={{ borderBottom: "1px solid var(--border)" }}>
-          <h2 id="add-project-title" className="vf-serif-display flex-1 min-w-0" style={{ fontSize: "1.25rem", fontWeight: 500, margin: 0 }}>
-            {t.connect.title}
-          </h2>
+          <div className="flex-1 min-w-0">
+            <h2 id="add-project-title" className="vf-serif-display" style={{ fontSize: "1.25rem", fontWeight: 500, margin: 0 }}>
+              {t.connect.title}
+            </h2>
+            <p id="add-project-value" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", fontSize: "0.8125rem", lineHeight: 1.5, margin: "2px 0 0" }}>
+              {t.connect.valueLine}
+            </p>
+          </div>
           <button
             type="button"
             onClick={onClose}

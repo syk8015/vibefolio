@@ -140,7 +140,8 @@ export function OwnerInterviewPanel({ interview, loading, confirmed, onConfirmCh
               <li
                 key={f}
                 style={{
-                  padding: "10px 16px", display: "flex", flexDirection: "column", gap: 2,
+                  // 업그레이드(10-01): 명함 틀·세 단계가 들어온 만큼 한 줄씩 촘촘하게(10→8)
+                  padding: "8px 16px", display: "flex", flexDirection: "column", gap: 2,
                   borderTop: i === 0 ? undefined : "1px solid var(--surface)",
                 }}
               >
@@ -193,7 +194,7 @@ export function OwnerInterviewPanel({ interview, loading, confirmed, onConfirmCh
               </li>
             ))}
             {!fields.includes("hide") && (
-              <li style={{ padding: "8px 16px 10px", borderTop: "1px solid var(--surface)" }}>
+              <li style={{ padding: "6px 16px 8px", borderTop: "1px solid var(--surface)" }}>
                 <button
                   type="button" onClick={() => begin("hide")}
                   className="vf-button-text" style={{ fontSize: 13, gap: 6 }}

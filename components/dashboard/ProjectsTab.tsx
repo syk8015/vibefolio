@@ -60,6 +60,18 @@ export default function ProjectsTab({
   // 빈 주소로 공개돼 촬영이 빠지거나 옛 대본으로 덮어쓰게 된다.
   const [reviewDraftId, setReviewDraftId] = useState<string | null>(null);
   const reviewDraft = reviewDraftId ? drafts.find((d) => d.id === reviewDraftId) ?? null : null;
+  // 공개를 눌러도 검토 창을 닫지 않고 "공개했어요"로 바꿔 보여 준다(2026-10-01 업그레이드).
+  // 초안이 공개 목록으로 옮겨지면(응답 전에 먼저 옮긴다) 창은 공개 목록의 같은 행을 그린다 — 실패해 초안으로
+  // 되돌아가면 저절로 검토 화면으로 돌아온다. 이 화면이 떠 있는 동안 성공 토스트는 띄우지 않는다(같은 말 두 번).
+  const [celebrateId, setCelebrateId] = useState<string | null>(null);
+  const celebrateRef = useRef<string | null>(null);
+  const celebrated = !reviewDraft && celebrateId ? projects.find((p) => p.id === celebrateId) ?? null : null;
+  const reviewTarget = reviewDraft ?? celebrated;
+  function closeReview() {
+    setReviewDraftId(null);
+    setCelebrateId(null);
+    celebrateRef.current = null;
+  }
   // 수정 창을 **연 순간**의 로봇 메모와 "그 값을 서버에서 받아 봤나". 창은 열릴 때 폼을 한 번
   // 채우므로, 그 뒤에 비공개 칸이 도착해도 폼엔 빈 칸이 남는다 — 그때 저장하면 "모름"을 "지움"으로
   // 보내지 않게 연 순간 기준으로 가른다(창을 다시 띄우면 입력 중인 글이 날아가서 안 띄운다).
@@ -517,7 +529,8 @@ export default function ProjectsTab({
     syncPublic();
   }
 
-  async function handlePublishDraft(stale: DBProject) {
+  // 공개됐으면 true, 실패해서 초안으로 되돌렸으면 false — 검토 창이 결과를 기다린다(그동안 버튼 잠금).
+  async function handlePublishDraft(stale: DBProject): Promise<boolean> {
     // 초안 → 공개: is_draft=false로 내리고 published 리스트로 옮긴 뒤, 기존 추가
     // 플로우와 동일하게 자동 시연을 트리거한다(쿼터·모더레이션·held 전부 상속).
     const supabase = createClient();
@@ -555,15 +568,17 @@ export default function ProjectsTab({
       setProjects(prev => prev.filter(p => p.id !== project.id));
       setDrafts(prev => (prev.some(p => p.id === project.id) ? prev : [project, ...prev]));
       setNotice(t.projects.publishFailed);
-      return;
+      return false;
     }
     syncPublic();
     trackClientEvent(AnalyticsEvent.ProjectCreated, { projectId: project.id, demoSource: source?.type ?? null });
     // 공개 직후 "다음에 무슨 일이 일어나는지"를 바로 말해준다(2026-09-04, 인터뷰 ⑤).
-    // 전엔 실패할 때만 알림이 떴고, 성공하면 모달이 닫히며 행이 목록으로 옮겨질 뿐이었다.
-    setNotice(!source
-      ? t.projects.publishedNoticeNoDemo
-      : demoPaused ? t.projects.publishedNoticePaused : t.projects.publishedNotice);
+    // 검토 창이 "공개했어요" + 세 단계로 말하고 있으면 토스트는 겹치지 않는다(창을 먼저 닫았으면 띄운다).
+    if (celebrateRef.current !== project.id) {
+      setNotice(!source
+        ? t.projects.publishedNoticeNoDemo
+        : demoPaused ? t.projects.publishedNoticePaused : t.projects.publishedNotice);
+    }
     if (source) {
       fetch(`/api/projects/${project.id}/trigger-demo`, { method: "POST" })
         .then(async (res) => {
@@ -585,6 +600,7 @@ export default function ProjectsTab({
           setNotice(t.projects.publishedDemoRequestFailed);
         });
     }
+    return true;
   }
 
   if (loading) {
@@ -687,21 +703,29 @@ export default function ProjectsTab({
           여기서 프로젝트 행을 만들지 않으므로 삽입·촬영 트리거는 /api/ingest가 맡는다. */}
       {showAddModal && <AddProjectModal onClose={() => setShowAddModal(false)} />}
 
-      {/* 초안 검토 — 행 클릭/메일 딥링크로 진입, AI가 쓴 전체 내용+미리보기 확인. */}
-      {reviewDraft && (
+      {/* 초안 검토 — 행 클릭/메일 딥링크로 진입, AI가 쓴 전체 내용+미리보기 확인.
+          공개하면 같은 창이 "공개했어요"로 바뀐다(reviewTarget이 공개 목록의 같은 행으로 넘어간다). */}
+      {reviewTarget && (
         <DraftReviewModal
           // 초안마다 새 인스턴스 — 미리보기 임베드 판정이 초안별 초기값이라,
           // 인스턴스가 재사용되면 앞 초안의 판정이 잠깐 남는다.
           // 파일 업로드가 끝나 주소가 늦게 채워지면 미리보기 판정도 다시 한다.
-          key={`${reviewDraft.id}:${reviewDraft.demo_url}`}
-          draft={reviewDraft}
-          privateReady={privLoaded.has(reviewDraft.id)}
-          onClose={() => setReviewDraftId(null)}
-          onPublish={() => { const d = reviewDraft; setReviewDraftId(null); handlePublishDraft(d); }}
-          onEdit={() => { openEdit(reviewDraft); setReviewDraftId(null); }}
-          onDelete={() => { setDeleteTarget(reviewDraft); setReviewDraftId(null); }}
-          onSave={(patch) => handleSaveDraft(reviewDraft.id, patch)}
-          onSaveInterview={(next) => handleSaveInterview(reviewDraft.id, next)}
+          key={`${reviewTarget.id}:${reviewTarget.demo_url}`}
+          draft={reviewTarget}
+          privateReady={privLoaded.has(reviewTarget.id)}
+          username={username}
+          demoPaused={demoPaused}
+          onClose={closeReview}
+          onPublish={async () => {
+            const d = reviewTarget;
+            celebrateRef.current = d.id;
+            setCelebrateId(d.id);
+            await handlePublishDraft(d);
+          }}
+          onEdit={() => { openEdit(reviewTarget); closeReview(); }}
+          onDelete={() => { setDeleteTarget(reviewTarget); closeReview(); }}
+          onSave={(patch) => handleSaveDraft(reviewTarget.id, patch)}
+          onSaveInterview={(next) => handleSaveInterview(reviewTarget.id, next)}
         />
       )}
 
