@@ -224,7 +224,10 @@ MCP 규격이 2026-07-28에 갈아엎였다: `initialize`·세션·`ping`이 사
      `{uid}/{rowId}/_upload/<session>/…` 전용, 클라 입력이 키에 안 섞임. 세션 폴더는 업로드마다 새로 만든다 —
      고정 키를 다시 쓰면 같은 초안에 다시 올릴 때 CDN 캐시의 옛 임시 파일이 새 파일 대신 읽혔다(09-15 prod
      실측). finalize는 가장 새 세션을 목록 조회(캐시 안 탐)로 찾는다. bundle 선언 시 URL 없이도 아티팩트 인정)
-  2. 각 파일을 signedUrl로 **PUT** (스토리지 직행 — Vercel 상한 우회)
+  2. 각 파일을 signedUrl로 **PUT** (스토리지 직행 — Vercel 상한 우회). 저장소는 R2(2026-10-01~,
+     `lib/userStorage.ts`) — 서명에 `Content-Type: application/octet-stream`이 묶여 있어 **그 헤더를 정확히** 보내야
+     한다(CLI는 원래 그렇게 보낸다. 다른 형식이면 403). 크기는 서명에 못 묶으므로 finalize가 25MB 넘는 임시 파일을
+     읽지 않고 400 `too-large`로 답한다.
   3. `POST /api/ingest/finalize` `{ projectId }` → 임시 오브젝트를 내려받아 **인라인과 동일 검증**
      (zip 안전 일습·미디어 매직바이트, 공유 코어=`lib/ingestStore.ts`) 후 demo_url·thumbnail·video_url
      연결, `_upload/` 삭제. 검증 실패 시 이번 발행이 만든 행만 삭제(인라인과 동일 정책 — 이미 있던 초안은

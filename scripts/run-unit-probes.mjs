@@ -25,6 +25,7 @@ const PROBES = [
   "scripts/probe-handoff-unit.mts",         // 폰→컴퓨터 넘기기 — 이메일 정리·알림 창·링크에 이메일 없음       // 채팅창이 글자로 넘긴 HTML — 잘림 감지·울타리·zip 변환
   "scripts/probe-upload-sweep-unit.mts",    // 끝맺음 안 온 업로드 청소 — 하루 지난 빈 초안·임시 세션만, 파일 붙은 초안은 제외
   "scripts/probe-connect-activity-unit.mts", // 연결 창 "AI가 작업을 시작했어요" — 기준점 뒤 새 흔적만
+  "scripts/probe-user-storage-unit.mts",    // 사용자 파일 R2 — 키 뿌리·같은 사이트 형식 규칙·주소↔경로·관리자 감싸기
   "scripts/probe-r2-sweep-unit.mts",        // R2 남은 영상 청소 — 작품 폴더만·행 없을 때만·하루 지난 것만·상한
   "scripts/probe-link-patrol-unit.mts",     // 공개 작품 링크 순찰 — 넘김·3일 죽음·위험 판정, 대상 고르기
   "scripts/probe-site-patrol-unit.mts",     // 점검 크론의 사이트 순찰 — 발견 문서 두 항목·MCP 401·명함 무대 영상 대상 고르기

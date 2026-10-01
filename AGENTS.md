@@ -20,6 +20,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 - **인제스트는 `demo_*` 파이프라인 컬럼을 절대 쓰지 않는다.** PAT 경로엔 `auth.uid()`가 없어 `request_demo()`와 안 맞는다 — 데모는 **발행 시점**의 쿠키 인증 `trigger-demo`가 유일 채널.
 - **초안 은닉은 RLS 단일 게이트**(`projects` SELECT: `is_draft=false or auth.uid()=user_id`). 공개 프로젝트 읽기에 앱 레이어 `is_draft` 필터를 달지 말 것(소유자 초안을 숨길 위험). 단 서비스롤/admin으로 **공개 출력**하는 새 경로엔 명시 필터 필수.
+- **사용자 파일은 R2**(2026-10-01, `lib/userStorage.ts`) — 키는 `files/<옛 Supabase 경로>`·`avatars/<경로>`, 브라우저는 `/api/storage/sign` 서명 URL로만 올린다(키·형식·크기는 서버가 정함). media.nookframe.com은 nookframe.com과 **같은 사이트**라 그림·영상 말고는 전부 `application/octet-stream` + `attachment`로 저장한다 — 사용자 HTML·JS·SVG가 거기서 문서로 열리면 안 된다(앱은 `/api/preview`가 미리보기 도메인에서 띄운다). 촬영 영상 트리(`{uid}/{rowId}/`)엔 사용자 파일을 두지 말 것(워커 prune이 통째로 비운다).
 - **서버 zip은 서비스롤이라 스토리지 RLS를 우회** → `safeRelativePath` + 최종 키 `{uid}/{rowId}/` prefix assert + `lib/upload-safety.ts`의 zip-bomb/본문 캡이 유일 방어. 우회 금지.
 - PAT는 `Authorization: Bearer` **헤더로만** 받는다(쿼리/폼 금지). raw 토큰은 발급 응답 1회만, DB엔 sha256만.
 - **raw 토큰을 프롬프트에 박지 않는다**(2026-09-16). 프롬프트에 들어가는 건 1회용 페어링 코드(`nf_code_`, 30분·1회, `lib/connectCode.ts`)이고 `login <코드>`가 `/api/connect/exchange`에서 토큰으로 바꾼다 — 프롬프트는 AI 채팅창에 붙여넣는 물건이라 살아 있는 크리덴셜이 대화 기록에 남는다. 코드는 Bearer로 쓸 수 없다(`ingestAuth`가 401 `PAIRING_CODE`로 짚어준다).

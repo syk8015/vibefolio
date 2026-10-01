@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { removeRowFolder } from "@/lib/ingestStore";
 import { logger } from "@/lib/logger";
+import { userStorage, withUserStorage } from "@/lib/userStorage";
 
 // 끝맺음(finalize)이 안 온 2단계 업로드 청소(2026-09-30) — 점검 크론이 틱마다 조금씩.
 //
@@ -116,7 +117,8 @@ export async function runUploadSweep(
       .select("id");
     if (error || !gone?.length) continue;
     result.emptyDrafts++;
-    await removeRowFolder(admin, row.user_id, row.id).catch((err) =>
+    // 파일은 R2(2026-10-01~, lib/userStorage.ts).
+    await removeRowFolder(withUserStorage(admin), row.user_id, row.id).catch((err) =>
       logger.warn("upload sweep: empty draft folder cleanup failed", { error: err, projectId: row.id }));
   }
 
@@ -130,7 +132,7 @@ export async function runUploadSweep(
     .order("id", { ascending: true })
     .range(win.from, win.to);
   if (rErr) throw rErr;
-  const bucket = admin.storage.from("project-files");
+  const bucket = userStorage.from("project-files");
   await Promise.all(((rows ?? []) as { id: string; user_id: string }[]).map(async (row) => {
     const prefix = `${row.user_id}/${row.id}`;
     const { data: entries, error } = await bucket.list(`${prefix}/_upload`, { limit: 1000 });

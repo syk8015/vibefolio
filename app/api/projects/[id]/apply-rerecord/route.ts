@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { detectDemoSource, liveUrlIssue } from "@/lib/demoSource";
 import { resolveBuildPayload, DemoSourceError } from "@/lib/demoPayload";
+import { userStorageClient } from "@/lib/userStorage";
 import { assertSafePublicUrl, SsrfError } from "@/lib/ssrf";
 import { apiError } from "@/lib/apiError";
 import { requireUser } from "@/lib/routeAuth";
@@ -128,7 +129,7 @@ export async function POST(
 
     let payload;
     try {
-      payload = await resolveBuildPayload(admin, project.id, project.user_id, source, req.nextUrl.origin);
+      payload = await resolveBuildPayload(userStorageClient, project.id, project.user_id, source, req.nextUrl.origin);
     } catch (e) {
       if (e instanceof DemoSourceError) {
         return apiError({ status: 400, message: t.api.badUrl, code: "UNSUPPORTED_SOURCE" });

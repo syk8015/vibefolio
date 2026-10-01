@@ -6,6 +6,7 @@ import { getT } from "@/lib/i18n/server";
 import { logger } from "@/lib/logger";
 import { isR2Configured, deleteR2Prefix } from "@/lib/r2";
 import { listFilesDeep, removeFiles } from "@/lib/storageList";
+import { removeUserPrefix } from "@/lib/userStorage";
 
 // Self-serve account deletion — honours the privacy policy's "탈퇴 즉시 파기".
 //
@@ -29,7 +30,7 @@ export async function DELETE() {
 
     const admin = createAdminClient();
 
-    // 1) Supabase Storage — everything under the user's prefix in both buckets.
+    // 1) Supabase Storage (legacy, before 2026-10-01) — everything under the user's prefix in both buckets.
     //    project-files/{uid}/…  and  avatars/{uid}/avatar.ext (+ legacy {uid}.ext at root).
     const projectFiles = await listFilesDeep(admin, "project-files", uid);
     const avatarFolder = await listFilesDeep(admin, "avatars", uid);
@@ -44,10 +45,13 @@ export async function DELETE() {
       (await removeFiles(admin, "project-files", projectFiles)) +
       (await removeFiles(admin, "avatars", [...avatarFolder, ...avatarLegacy]));
 
-    // 2) Cloudflare R2 — demo assets under the user prefix.
+    // 2) Cloudflare R2 — demo assets under the user prefix, and (2026-10-01~) the user's
+    //    own files: files/{uid}/… and avatars/{uid}/… (lib/userStorage.ts).
     let r2Removed = 0;
     if (isR2Configured()) {
       r2Removed = await deleteR2Prefix(`${uid}/`);
+      r2Removed += await removeUserPrefix("project-files", uid);
+      r2Removed += await removeUserPrefix("avatars", uid);
     }
 
     // 3) Auth user — cascades the DB rows. Irreversible, so it goes last.

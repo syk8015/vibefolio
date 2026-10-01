@@ -5,6 +5,7 @@
 // 버림 (3) 폴더의 가장 최근 파일 시각 (4) 행이 있으면 안 지움·하루 안 된 폴더 안 지움·상한.
 import {
   isR2SweepTick, groupProjectFolders, pickOrphans, R2_SWEEP_MIN_AGE_MS, R2_SWEEP_MAX_PREFIXES,
+  groupFileFolders, pickFileOrphans, previewFolderOf,
 } from "../lib/r2Sweep";
 
 let failed = 0;
@@ -47,6 +48,29 @@ const many = Array.from({ length: R2_SWEEP_MAX_PREFIXES + 7 }, (_, i) => ({
   prefix: `${U}/p${i}/`, projectId: `p${i}`, newest: 0,
 }));
 ok(`한 번에 ${R2_SWEEP_MAX_PREFIXES}개까지`, pickOrphans(many, new Set(), NOW).length === R2_SWEEP_MAX_PREFIXES);
+
+// (5) 사용자 파일 폴더(files/{uid}/{폴더}/, 2026-10-01) — 행 id이거나 demo_url이 가리키면 산다.
+{
+  const F1 = "44444444-4444-4444-8444-444444444444";
+  const F2 = "55555555-5555-4555-8555-555555555555";
+  const old = NOW - DAY - 1000;
+  const files = groupFileFolders([
+    { key: `files/${U}/${P1}/index.html`, lastModified: old },       // 행 폴더(Connect)
+    { key: `files/${U}/${F1}/index.html`, lastModified: old },       // demo_url이 가리킴
+    { key: `files/${U}/${F2}/app.js`, lastModified: old },           // 아무도 안 가리킴 → 지움
+    { key: `files/${U}/${F2}/index.html`, lastModified: NOW - 1000 }, // …그런데 방금 올라옴 → 남김
+    { key: `files/${U}/thumbnails/x.png`, lastModified: old },       // UUID 폴더 아님 → 안 봄
+    { key: `${U}/${P2}/demo-1.mp4`, lastModified: old },             // 촬영 영상 트리 → 다른 판정
+  ]);
+  ok("사용자 파일 폴더 3개만 묶음(thumbnails·촬영 트리 제외)", files.length === 3, files.map((f) => f.prefix).join(", "));
+  ok("demo_url → 폴더", previewFolderOf(`/api/preview/${U}/${F1}/index.html`) === `${U}/${F1}` && previewFolderOf("https://a.com/") === null);
+  const live = new Set([P1]);
+  const refs = new Set([`${U}/${F1}`]);
+  ok("방금 올라온 파일이 있는 폴더는 안 지움", pickFileOrphans(files, live, refs, NOW).length === 0);
+  const stale = groupFileFolders([{ key: `files/${U}/${F2}/app.js`, lastModified: old }]);
+  const picked = pickFileOrphans([...files.filter((f) => !f.prefix.includes(F2)), ...stale], live, refs, NOW);
+  ok("행도 demo_url도 아닌 하루 지난 폴더만 지움", picked.length === 1 && picked[0].prefix === `files/${U}/${F2}/`, picked.map((f) => f.prefix).join(", "));
+}
 
 if (failed) {
   console.error(`\n${failed} failed`);

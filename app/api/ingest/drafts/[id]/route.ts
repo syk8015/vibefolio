@@ -13,6 +13,7 @@ import {
 import { probeSelectors, selectorsOf, composeProbeUrl, type SelectorCheck } from "@/lib/demoScriptReview";
 import { logger } from "@/lib/logger";
 import { listFilesDeep, removeFiles } from "@/lib/storageList";
+import { userStorageClient } from "@/lib/userStorage";
 import {
   ingestAuth, publicUrlGate, strOrNull, type IngestDict, buildAccepted, buildScriptReview,
   descriptionTooLong, DESCRIPTION_MAX, missingOptionalColumn,
@@ -364,8 +365,11 @@ export async function DELETE(
     // (zip 확장·_media·_upload — 행을 먼저 만들고 그 id 폴더에 올리는 설계라,
     // demo-assets 삭제 라우트의 M16 우회 폴더 문제가 초안엔 없다). R2는 발행 후
     // 데모 산출물 전용이라 초안엔 없음. 폴더 BFS·페이지 넘김은 listFilesDeep.
-    const files = await listFilesDeep(admin, "project-files", `${userId}/${draft.id}`);
-    await removeFiles(admin, "project-files", files);
+    // 파일은 R2(2026-10-01~, lib/userStorage.ts)에, 그 전 초안은 옛 Supabase 버킷에 — 둘 다 지운다.
+    const folder = `${userId}/${draft.id}`;
+    const files = await listFilesDeep(userStorageClient, "project-files", folder);
+    await removeFiles(userStorageClient, "project-files", files);
+    await removeFiles(admin, "project-files", await listFilesDeep(admin, "project-files", folder));
 
     const { error: delErr } = await admin.from("projects").delete().eq("id", draft.id);
     if (delErr) throw new Error(`row delete failed: ${delErr.message}`);

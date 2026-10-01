@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { uploadUserFile, signAppUploads, putSigned } from "@/lib/userUploadClient";
 import { screenshotUrl } from "@/lib/thumbnail";
-import { MAX_UPLOAD_BYTES, getMimeType } from "@/lib/upload-safety";
+import { MAX_UPLOAD_BYTES } from "@/lib/upload-safety";
 import { CONTENT_TYPES, AI_TOOLS } from "@/lib/projectTaxonomy";
 import {
   AiToolLogo,
@@ -96,12 +96,9 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
     }
 
     setVideoUploading(true);
-    const supabase = createClient();
     const ext = file.name.split(".").pop()?.toLowerCase() || "mp4";
-    const videoId = crypto.randomUUID();
-    const storagePath = `${userId}/videos/${videoId}.${ext}`;
-    const { error: upErr } = await supabase.storage.from("project-files")
-      .upload(storagePath, file, { upsert: true, contentType: file.type || "video/mp4" });
+    // R2 직행(서버가 키를 정해 서명 — lib/userUploadClient.ts).
+    const { publicUrl, error: upErr } = await uploadUserFile("video", file, ext);
 
     if (upErr) {
       setVideoError(t.projectForm.uploadFailed(upErr.message));
@@ -109,8 +106,7 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
       return;
     }
 
-    const { data: { publicUrl } } = supabase.storage.from("project-files").getPublicUrl(storagePath);
-    setForm(prev => ({ ...prev, video_url: publicUrl }));
+    setForm(prev => ({ ...prev, video_url: publicUrl ?? "" }));
     setVideoUploading(false);
   }
 
@@ -148,17 +144,18 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
       return;
     }
 
-    const supabase = createClient();
     const projectId = crypto.randomUUID();
     let indexHtmlStoragePath: string | null = null;
     const uploaded: string[] = [];
     let failed = 0;
+    // R2 직행 — 파일 전부를 한 번에 서명받는다(서버가 키·크기를 정한다, lib/userUploadClient.ts).
+    const { targets, error: signErr } = await signAppUploads(projectId, entries);
+    if (signErr) failed = entries.length;
 
     for (let i = 0; i < entries.length; i++) {
       const { relativePath, data } = entries[i];
       const storagePath = `${userId}/${projectId}/${relativePath}`;
-      const { error } = await supabase.storage.from("project-files")
-        .upload(storagePath, data, { upsert: true, contentType: getMimeType(relativePath) });
+      const { error } = signErr ? { error: signErr } : await putSigned(targets.get(relativePath), data);
 
       if (error) {
         failed++;
@@ -175,9 +172,7 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
     // JS·CSS가 빠진 반쯤 깨진 작품이 저장되던 것(R7). 이번에 올린 조각은 치운다
     // (새 무작위 폴더라 지금 작품이 쓰는 파일과 겹치지 않는다).
     if (failed > 0) {
-      if (uploaded.length) {
-        await supabase.storage.from("project-files").remove(uploaded).catch(() => {});
-      }
+      // 반쯤 올라간 조각은 아무 작품도 안 가리키는 새 폴더라 R2 청소(lib/r2Sweep.ts)가 하루 뒤 지운다.
       setUploading(false);
       setUploadError(t.projectForm.uploadPartialFailed(failed, entries.length));
       return;
@@ -211,14 +206,10 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
     if (!file) return;
     setThumbnailUploading(true);
     try {
-      const supabase = createClient();
       const ext = file.name.split(".").pop() || "jpg";
-      const path = `${userId}/thumbnails/${crypto.randomUUID()}.${ext}`;
-      const { error } = await supabase.storage.from("project-files")
-        .upload(path, file, { upsert: true, contentType: file.type });
-      if (!error) {
-        const { data } = supabase.storage.from("project-files").getPublicUrl(path);
-        setForm(prev => ({ ...prev, thumbnail: data.publicUrl }));
+      const { publicUrl, error } = await uploadUserFile("thumbnail", file, ext);
+      if (!error && publicUrl) {
+        setForm(prev => ({ ...prev, thumbnail: publicUrl }));
       }
     } catch { /* ignore */ }
     setThumbnailUploading(false);

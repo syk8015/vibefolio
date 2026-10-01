@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
+import { uploadUserFile } from "@/lib/userUploadClient";
 import { isReservedUsername } from "@/lib/reservedUsernames";
 import { hasBlockedTerm } from "@/lib/nameFilter";
 import {
@@ -157,19 +158,17 @@ export default function CardTab({ user, profile }: { user: User; profile: Dashbo
     // 미뤄둔 아바타 업로드 — 저장이 확정되는 지금만 스토리지에 쓴다.
     let avatarUrl = form.avatarUrl;
     if (avatarFile) {
-      const ext = avatarFile.name.split(".").pop();
-      const path = `${user.id}/avatar.${ext}`;
-      const { error: uploadError } = await supabase.storage
-        .from("avatars")
-        .upload(path, avatarFile, { upsert: true });
-      if (uploadError) {
+      const ext = avatarFile.name.split(".").pop() ?? "";
+      // R2 직행(서버가 키를 avatars/{uid}/avatar.{ext}로 정해 서명 — lib/userUploadClient.ts).
+      const { publicUrl, error: uploadError } = await uploadUserFile("avatar", avatarFile, ext);
+      if (uploadError || !publicUrl) {
         setLoading(false);
         setError(t.card.avatarUploadFailed);
         return;
       }
       // 경로가 매번 같아서(upsert로 덮음) 주소도 같다 — ?v=를 붙이지 않으면 브라우저·CDN
       // 캐시가 옛 사진을 계속 보여 준다(B13).
-      avatarUrl = `${supabase.storage.from("avatars").getPublicUrl(path).data.publicUrl}?v=${Date.now()}`;
+      avatarUrl = `${publicUrl}?v=${Date.now()}`;
     }
 
     // 공개 명함이 읽는 profiles를 먼저 커밋한다. metadata부터 쓰면 반쪽 실패 시

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { PREVIEW_ORIGIN, APP_ORIGIN } from "@/lib/previewOrigin";
 import { secretFileKind } from "@/lib/upload-safety";
 import { logger } from "@/lib/logger";
+import { readUserFileStream } from "@/lib/userStorage";
 
 // Preview isolation is a security control, not a nicety: without a distinct sandbox
 // origin, uploaded project JS runs same-origin and can steal a logged-in session.
@@ -82,25 +83,40 @@ export async function GET(
     );
   }
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const storageUrl = `${supabaseUrl}/storage/v1/object/public/project-files/${filePath}`;
+  const ext = filePath.split("?")[0].split(".").pop()?.toLowerCase() ?? "";
+  const contentType = MIME_MAP[ext] ?? "application/octet-stream";
 
+  // 페이지가 아닌 파일(JS·CSS·그림…)은 뒤에 붙은 ?쿼리를 떼고 같은 주소로 보낸다(2026-10-01).
+  // 저장소는 쿼리를 안 보니 내용은 같은데, 쿼리마다 엣지 캐시가 새로 잡혀서 `?아무거나`를 붙여
+  // 부르면 매번 함수·전송량이 새로 들었다(퍼가기). 페이지(HTML)는 앱이 쿼리를 읽을 수 있어 그대로.
+  if (req.nextUrl.search && !contentType.startsWith("text/html")) {
+    return NextResponse.redirect(new URL(`/api/preview/${filePath}`, req.nextUrl.origin), 308);
+  }
+
+  // 파일은 R2에서 바로 읽는다(2026-10-01~, lib/userStorage.ts — CDN이 아니라 저장소라 방금 바꾼
+  // 파일도 바로 보인다). 그 전에 올린 파일은 옛 Supabase 공개 버킷에서 읽는다.
   // This route serves files for iframes, so error responses stay plain-text
   // (never JSON) to honour its content contract. The outer guard only ensures an
   // upstream network failure becomes a clean 502 instead of an unhandled 500.
-  let upstream: Response;
+  let body: ReadableStream | null = null;
   try {
-    // Cap the wait: every embed asset (JS/CSS/font/image) flows through here, and a
-    // slow storage origin would otherwise pin this function until the platform timeout.
-    upstream = await fetch(storageUrl, { signal: AbortSignal.timeout(8000) });
+    const fromR2 = await readUserFileStream("project-files", filePath);
+    if (fromR2) {
+      body = fromR2.body;
+    } else {
+      // Cap the wait: every embed asset (JS/CSS/font/image) flows through here, and a
+      // slow storage origin would otherwise pin this function until the platform timeout.
+      const legacy = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/project-files/${filePath}`,
+        { signal: AbortSignal.timeout(8000) },
+      );
+      if (legacy.ok) body = legacy.body;
+    }
   } catch (err) {
     logger.error("preview: upstream fetch failed", { error: err, filePath });
     return new NextResponse("Upstream error", { status: 502 });
   }
-  if (!upstream.ok) return new NextResponse("Not found", { status: 404 });
-
-  const ext = filePath.split("?")[0].split(".").pop()?.toLowerCase() ?? "";
-  const contentType = MIME_MAP[ext] ?? "application/octet-stream";
+  if (!body) return new NextResponse("Not found", { status: 404 });
 
   const isHtml = contentType.startsWith("text/html");
   const headers: Record<string, string> = {
@@ -121,5 +137,5 @@ export async function GET(
       `default-src * 'unsafe-inline' 'unsafe-eval' data: blob:; frame-ancestors ${APP_ORIGIN} https://www.nookframe.com`;
   }
 
-  return new NextResponse(upstream.body, { headers });
+  return new NextResponse(body, { headers });
 }

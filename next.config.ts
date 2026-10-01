@@ -29,6 +29,8 @@ const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "*.supabase.co" },
+      // 사용자 파일·촬영 영상 포스터(R2, lib/userStorage.ts) — 2026-10-01부터 프로필 사진·썸네일도 여기.
+      { protocol: "https", hostname: "media.nookframe.com" },
       { protocol: "https", hostname: "lh3.googleusercontent.com" },
       { protocol: "https", hostname: "image.thum.io" },
       { protocol: "https", hostname: "picsum.photos" },
