@@ -356,30 +356,32 @@ export default function OnboardingPage() {
       {quitOpen && (
         <Modal ariaLabel={t.onboarding.quitTitle} maxWidth="24rem"
           onClose={() => { if (!quitting) setQuitOpen(false); }}>
-          <h2 style={{ fontSize: "1.0625rem", fontWeight: 700, lineHeight: 1.4, margin: "0 0 0.75rem", color: "var(--text-primary)" }}>
-            {t.onboarding.quitTitle}
-          </h2>
-          {email && (
-            <p style={{ fontSize: "0.875rem", fontWeight: 600, margin: "0 0 0.375rem", color: "var(--text-primary)", overflowWrap: "anywhere" }}>
-              {email}
+          <div style={{ wordBreak: "keep-all" }}>
+            <h2 style={{ fontSize: "1.0625rem", fontWeight: 700, lineHeight: 1.4, margin: "0 0 0.75rem", color: "var(--text-primary)" }}>
+              {t.onboarding.quitTitle}
+            </h2>
+            {email && (
+              <p style={{ fontSize: "0.875rem", fontWeight: 600, margin: "0 0 0.375rem", color: "var(--text-primary)", overflowWrap: "anywhere" }}>
+                {email}
+              </p>
+            )}
+            <p style={{ fontSize: "0.875rem", lineHeight: 1.6, margin: 0, color: "var(--text-secondary)" }}>
+              {t.onboarding.quitBody}
             </p>
-          )}
-          <p style={{ fontSize: "0.875rem", lineHeight: 1.6, margin: 0, color: "var(--text-secondary)" }}>
-            {t.onboarding.quitBody}
-          </p>
-          {quitError && (
-            <p role="alert" style={{ fontSize: "0.875rem", margin: "0.75rem 0 0", color: "var(--danger)" }}>{quitError}</p>
-          )}
-          <div className="flex gap-2" style={{ marginTop: "1.25rem" }}>
-            <button type="button" onClick={() => setQuitOpen(false)} disabled={quitting}
-              className="vf-button-ghost flex-1" style={{ fontSize: "0.875rem" }}>
-              {t.onboarding.quitCancel}
-            </button>
-            <button type="button" onClick={handleQuit} disabled={quitting}
-              className="vf-button-ghost flex-1"
-              style={{ fontSize: "0.875rem", fontWeight: 600, background: "#b34747", color: "#fff" }}>
-              {quitting ? t.onboarding.quitDeleting : t.onboarding.quitConfirm}
-            </button>
+            {quitError && (
+              <p role="alert" style={{ fontSize: "0.875rem", margin: "0.75rem 0 0", color: "var(--danger)" }}>{quitError}</p>
+            )}
+            <div className="flex gap-2" style={{ marginTop: "1.25rem" }}>
+              <button type="button" onClick={() => setQuitOpen(false)} disabled={quitting}
+                className="vf-button-ghost flex-1" style={{ fontSize: "0.875rem" }}>
+                {t.onboarding.quitCancel}
+              </button>
+              <button type="button" onClick={handleQuit} disabled={quitting}
+                className="vf-button-ghost flex-1"
+                style={{ fontSize: "0.875rem", fontWeight: 600, background: "#b34747", color: "#fff" }}>
+                {quitting ? t.onboarding.quitDeleting : t.onboarding.quitConfirm}
+              </button>
+            </div>
           </div>
         </Modal>
       )}
