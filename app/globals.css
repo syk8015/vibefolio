@@ -1293,6 +1293,14 @@ body::before {
 }
 .vf-review-menu-item:hover { background: var(--surface-sunken); }
 .vf-review-menu-item[data-danger="true"] { color: #b34747; }
+/* 목록 한 줄이 통째로 버튼일 때(검토 창 소개 영상 장면 목록) — 바탕 없이, 올리거나 지금 재생 중이면 옅은 채움.
+   테두리로 상자를 치지 않는다(채움으로 나누기 규칙). */
+.vf-row-button {
+  display: block; width: 100%; text-align: left; border: none; border-radius: 12px;
+  background: transparent; color: var(--text-primary); cursor: pointer;
+  font-family: var(--font-nunito), sans-serif; transition: background-color 0.15s ease;
+}
+.vf-row-button:hover, .vf-row-button[data-active="true"] { background: var(--surface-soft); }
 /* 촬영 시작 한 줄 — 아이콘 · 주소 · 로그인 방법 */
 .vf-review-start {
   display: grid;

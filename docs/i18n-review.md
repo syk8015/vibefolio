@@ -1289,3 +1289,24 @@ locale도 언어별(en = "The live portfolio for vibe coders. Show your projects
 | settings.logoutAllBody | ~~폰·컴퓨터 등 로그인된 기기에서 모두 나가요.~~ | ~~Signs you out on every phone and computer.~~ | 삭제 |
 | visits.last7 | ~~최근 7일~~ | ~~Last 7 days~~ | 삭제 |
 | theater.upNextLabel | ~~상영 목록 · Up Next~~ | ~~Up Next~~ | 삭제 |
+
+## 소개 영상 칸 (2026-10-02) — 검토 창 장면 목록 덜어내기
+
+소개 영상 기능에서 새로 생긴 키(대장에 빠져 있던 것)와, 같은 날 덜어내기로 바꾼 키를 같이 적는다.
+
+| 키 | 한국어 | English | 비고 |
+|---|---|---|---|
+| projects.reviewIntroLabel | 소개 영상 | Intro film | 촬영 줄 앞말 |
+| projects.reviewIntroChip | 소개 영상 · 약 {s}초 | Intro film · ~{s}s | 방문자 미리보기 무대 띠 |
+| projects.reviewIntroText | 글자 | Text | 글자 고르기 줄 |
+| projects.reviewIntroMood | 분위기 | Mood | 분위기 고르기 줄 |
+| projects.reviewIntroStyles | 손그림 / 큰 숫자 / 시네마틱 | Hand-drawn / Big numbers / Cinematic | |
+| projects.reviewIntroKinds | 첫 숫자 / 한마디 / 항목 줄 / 흐름 / 명령 창 / 알림 / 숫자 셋 / 끝 | Opening number / One line / Row of items / Flow / Terminal / Alert / Three numbers / Ending | 장면 종류 이름 |
+| projects.reviewIntroSample | 예시 자료 | sample data | 숫자 장면의 정직 표시 |
+| projects.reviewIntroMeasured | 실측 | measured | 숫자 장면의 정직 표시 |
+| theater.chipIntroFilm | 소개 영상 | Intro film | PC 프레임 무대·작품 페이지 왼쪽 위 표시 |
+| projects.reviewIntroTooLong | {max}자까지 돼요 · 지금 {got}자 | Up to {max} characters · now {got} | 추가 · 장면 글자 칸 바로 밑 |
+| projects.reviewIntroEmpty | 비워 둘 수 없어요 | Can't be empty | 추가 |
+| projects.reviewIntroSaveFailed | 저장하지 못했어요. 잠시 뒤 다시 고쳐 주세요 | Couldn't save. Try the edit again in a moment. | ⚠️ 교체 · 전엔 "저장하지 못했어요 — {검사기 영어 문장}"을 그대로 보였다 |
+| projects.reviewIntroFixScene | 소개 영상 {n}번 장면 글자를 고쳐야 공개할 수 있어요 | Fix the text in scene {n} to publish | 추가 · 접혀 있어도 보이는 빨간 줄(공개 버튼이 잠긴 까닭) |
+| projects.reviewIntroScene | {n}번 장면 · {종류} | Scene {n} · {kind} | 추가 · 장면 줄·재생 막대 칸의 읽기용 이름 |

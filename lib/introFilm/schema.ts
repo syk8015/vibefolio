@@ -40,7 +40,8 @@ export function filmSeconds(film: Pick<IntroFilm, "scenes">): number {
   return film.scenes.reduce((s, sc) => s + (SCENE_SECONDS[sc.kind] ?? 4.6), 0);
 }
 
-export type IntroFilmIssue = { path: string; message: string };
+/** limit·length·empty = 글자 칸 문제일 때만 — 검토 창이 칸 밑에 쉬운 말로 다시 쓴다(message는 AI용 영어). */
+export type IntroFilmIssue = { path: string; message: string; limit?: number; length?: number; empty?: boolean };
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 
@@ -69,8 +70,8 @@ export function introFilmIssue(input: unknown): IntroFilmIssue | null {
 function str(v: unknown, path: string, max: number, min = 1): IntroFilmIssue | null {
   if (typeof v !== "string") return { path, message: "must be a string" };
   const n = [...v.trim()].length;
-  if (n < min) return { path, message: "must not be empty" };
-  if (n > max) return { path, message: `too long (${n} > ${max} characters) — shorten it` };
+  if (n < min) return { path, message: "must not be empty", empty: true };
+  if (n > max) return { path, message: `too long (${n} > ${max} characters) — shorten it`, limit: max, length: n };
   return null;
 }
 function loc(v: unknown, path: string, max: number): IntroFilmIssue | null {

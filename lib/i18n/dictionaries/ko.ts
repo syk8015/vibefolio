@@ -392,7 +392,13 @@ export const ko = {
     reviewIntroKinds: { hook: "첫 숫자", story: "한마디", items: "항목 줄", flow: "흐름", terminal: "명령 창", alert: "알림", stats: "숫자 셋", ending: "끝" },
     reviewIntroSample: "예시 자료",
     reviewIntroMeasured: "실측",
-    reviewIntroSaveFailed: (msg: string) => `저장하지 못했어요 — ${msg}`,
+    // 장면 글자 칸 밑 한 줄 — 검사기의 영어 문장(AI용)을 그대로 보이지 않는다.
+    reviewIntroTooLong: (max: number, got: number) => `${max}자까지 돼요 · 지금 ${got}자`,
+    reviewIntroEmpty: "비워 둘 수 없어요",
+    reviewIntroSaveFailed: "저장하지 못했어요. 잠시 뒤 다시 고쳐 주세요",
+    // 접혀 있어도 늘 보이는 빨간 줄 — 고칠 장면 번호만.
+    reviewIntroFixScene: (n: number) => `소개 영상 ${n}번 장면 글자를 고쳐야 공개할 수 있어요`,
+    reviewIntroScene: (n: number, kind: string) => `${n}번 장면 · ${kind}`,
     reviewTrailPublish: "공개",
     reviewTrailFilm: "촬영",
     reviewTrailCard: "프레임에 영상",

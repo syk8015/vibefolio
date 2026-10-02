@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { toPreviewUrl } from "@/lib/previewOrigin";
 import { detectVideoKind, getYouTubeEmbedUrl, getVimeoEmbedUrl } from "@/lib/video";
@@ -25,9 +25,10 @@ import { type PublishedTwin } from "@/lib/publishedTwin";
 import { readOwnerInterview, type OwnerInterview } from "@/lib/ownerInterview";
 import { useT } from "@/lib/i18n/client";
 import { getDictionary } from "@/lib/i18n/dictionaries";
-import { introFilmIssue, filmSeconds as introSeconds, type IntroFilm } from "@/lib/introFilm/schema";
-import IntroFilmPlayer from "@/components/introFilm/IntroFilmPlayer";
-import { IntroFilmPanel } from "./IntroFilmPanel";
+import { introFilmIssue, filmSeconds as introSeconds, SCENE_SECONDS, type IntroFilm } from "@/lib/introFilm/schema";
+import IntroFilmPlayer, { type IntroFilmHandle } from "@/components/introFilm/IntroFilmPlayer";
+import { StageChip } from "@/components/theater/StageMarks";
+import { IntroFilmPanel, issueTarget } from "./IntroFilmPanel";
 
 // 초안 검토 모달 — [공개하기]의 "확인"을 실제로 할 수 있는 화면.
 //
@@ -262,42 +263,107 @@ export function DraftReviewModal({ draft, privateReady = true, username, demoPau
   // ── 소개 영상(2026-10-02) ─────────────────────────────────────────────────
   // 찍을 화면이 없는 작품은 장면 대본을 그 자리에서 재생한다. 고르기·고치기는 바로 미리보기에 보이고,
   // 잠깐 뒤 서버 검사(초안 PATCH, 쿠키 인증)를 거쳐 저장한다 — 사용자 키로 직접 쓰면 검사를 건너뛴다.
-  const [introDraft, setIntroDraft] = useState<IntroFilm | null>(
-    draft.intro_film && !introFilmIssue(draft.intro_film) ? draft.intro_film : null,
-  );
-  const [introError, setIntroError] = useState<string | null>(null);
+  // 덜어내기(10-02): 입력칸의 판(introDraft)과 미리보기·저장의 판(introShown)을 나눈다 — 글자가 틀린 동안
+  // 무대가 하얗게 비지 않고 마지막으로 맞던 판에 머문다. 공개는 기다리던 저장이 끝나야, 틀린 글자가 없어야 된다.
+  const initialIntro = draft.intro_film && !introFilmIssue(draft.intro_film) ? draft.intro_film : null;
+  const [introDraft, setIntroDraft] = useState<IntroFilm | null>(initialIntro);
+  const [introShown, setIntroShown] = useState<IntroFilm | null>(initialIntro);
+  const [introSaveFailed, setIntroSaveFailed] = useState(false);
+  const introIssue = introDraft ? introFilmIssue(introDraft) : null;
   const introTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const introPending = useRef<IntroFilm | null>(null);
+  const introSaving = useRef<Promise<boolean> | null>(null);
   useEffect(() => () => { if (introTimer.current) clearTimeout(introTimer.current); }, []);
-  const changeIntro = (next: IntroFilm) => {
-    setIntroDraft(next);
-    if (introTimer.current) clearTimeout(introTimer.current);
-    const issue = introFilmIssue(next);
-    if (issue) { setIntroError(t.projects.reviewIntroSaveFailed(`${issue.path}: ${issue.message}`)); return; }
-    setIntroError(null);
-    introTimer.current = setTimeout(async () => {
+  const saveIntro = (next: IntroFilm): Promise<boolean> => {
+    const run = (async () => {
       try {
         const res = await fetch(`/api/ingest/drafts/${encodeURIComponent(draft.id)}`, {
           method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ introFilm: next }),
         });
-        if (!res.ok) {
-          const body = await res.json().catch(() => ({}));
-          setIntroError(t.projects.reviewIntroSaveFailed(String(body?.message ?? res.status)));
-        }
+        setIntroSaveFailed(!res.ok);
+        return res.ok;
       } catch {
-        setIntroError(t.projects.reviewIntroSaveFailed("network"));
+        setIntroSaveFailed(true);
+        return false;
       }
+    })();
+    introSaving.current = run;
+    void run.finally(() => { if (introSaving.current === run) introSaving.current = null; });
+    return run;
+  };
+  const changeIntro = (next: IntroFilm) => {
+    setIntroDraft(next);
+    if (introTimer.current) { clearTimeout(introTimer.current); introTimer.current = null; }
+    // 틀린 판은 무대에도 서버에도 보내지 않는다 — 칸 밑 한 줄과 접힌 빨간 줄이 말한다.
+    if (introFilmIssue(next)) { introPending.current = null; return; }
+    setIntroShown(next);
+    introPending.current = next;
+    introTimer.current = setTimeout(() => {
+      introTimer.current = null;
+      const pending = introPending.current;
+      introPending.current = null;
+      if (pending) void saveIntro(pending);
     }, 700);
   };
+  // 공개 직전 — 기다리던 저장을 지금 보내고 끝까지 기다린다(전엔 0.7초 안에 공개를 누르면 마지막 글자가
+  // 저장 전이었다). 지난 저장이 실패했으면 한 번 더 보낸다. 틀린 글자가 있으면 공개하지 않는다.
+  const flushIntro = async (): Promise<boolean> => {
+    if (!introDraft || introIssue) return !introIssue;
+    if (introTimer.current) { clearTimeout(introTimer.current); introTimer.current = null; }
+    const pending = introPending.current;
+    introPending.current = null;
+    if (pending) return saveIntro(pending);
+    if (introSaving.current) return introSaving.current;
+    if (introSaveFailed && introShown) return saveIntro(introShown);
+    return true;
+  };
+
+  // 무대와 장면 목록을 잇는다 — 재생 중인 장면을 목록에 칠하고, 줄을 펼치면 무대가 그 장면에 멈춘다.
+  const playerRef = useRef<IntroFilmHandle>(null);
+  const introStarts = useMemo(() => {
+    const out: number[] = [];
+    let acc = 0;
+    for (const sc of introShown?.scenes ?? []) { out.push(acc); acc += SCENE_SECONDS[sc.kind] ?? 4.6; }
+    return out;
+  }, [introShown]);
+  const [introPlaying, setIntroPlaying] = useState(0);
+  const playingRef = useRef(0);
+  const barFills = useRef<(HTMLSpanElement | null)[]>([]);
+  const onFilmTime = (time: number) => {
+    let i = 0;
+    for (let k = 0; k < introStarts.length; k++) if (time >= introStarts[k]) i = k;
+    if (i !== playingRef.current) { playingRef.current = i; setIntroPlaying(i); }
+    introStarts.forEach((s, k) => {
+      const el = barFills.current[k];
+      const len = SCENE_SECONDS[introShown?.scenes[k]?.kind ?? "hook"] ?? 4.6;
+      if (el) el.style.transform = `scaleX(${Math.max(0, Math.min(1, (time - s) / len))})`;
+    });
+  };
+  const [introOpen, setIntroOpen] = useState<number | null>(null);
+  const openScene = (i: number | null) => {
+    setIntroOpen(i);
+    const p = playerRef.current;
+    if (i == null) { p?.play(); return; }
+    const sc = introShown?.scenes[i];
+    // 글자가 다 나와 있는 순간(장면 길이의 55%)에 멈춘다 — 들어오는 움직임이 끝나고 나가기 전.
+    p?.pause();
+    p?.seek((introStarts[i] ?? 0) + (SCENE_SECONDS[sc?.kind ?? "hook"] ?? 4.6) * 0.55);
+  };
+  const introIssueScene = issueTarget(introIssue)?.scene ?? 0;
 
   // 공개 — 글을 고치던 중이면 먼저 저장하고, 저장이 안 되면 공개하지 않는다.
   // 전엔 편집 칸이 열린 채 [공개]를 누르면 고친 내용이 조용히 버려졌다(B9).
   // 창은 공개 뒤에도 열려 있다(업그레이드) — 결과가 올 때까지 버튼을 잠가 두 번 공개되지 않게 한다.
   const [publishing, setPublishing] = useState(false);
   const publish = async () => {
-    if (publishing || saving || scriptSaving > 0 || !canPublish) return;
+    if (publishing || saving || scriptSaving > 0 || !canPublish || introIssue) return;
     setPublishing(true);
     try {
-      if (await save()) await onPublish();
+      if (await save() && await flushIntro()) {
+        // 펼쳐 둔 장면이 있으면 접고 무대를 다시 돌린다(공개하면 목록이 사라져 멈춘 채로 남는다).
+        if (introOpen != null) openScene(null);
+        await onPublish();
+      }
     } finally {
       setPublishing(false);
     }
@@ -423,8 +489,8 @@ export function DraftReviewModal({ draft, privateReady = true, username, demoPau
   const hasOwnVideo = !!draft.video_url;
   // 공개하면 촬영을 요청하나 — 공개 처리(ProjectsTab.handlePublishDraft)와 같은 판정. 버튼 이름이 결과를 말한다.
   // 소개 영상은 촬영하지 않는다(명함이 대본을 재생).
-  const films = !hasOwnVideo && !introDraft && !!detectDemoSource(draft.demo_url);
-  const introSec = introDraft ? Math.round(introSeconds(introDraft)) : 0;
+  const films = !hasOwnVideo && !introShown && !!detectDemoSource(draft.demo_url);
+  const introSec = introShown ? Math.round(introSeconds(introShown)) : 0;
   // 미리보기에 보이는 언어 — 방문자 틀의 KO/EN과 같이 움직인다.
   const viewLoc: "en" | "ko" = (onOther && otherLoc ? otherLoc : primaryLoc ?? locale) === "en" ? "en" : "ko";
   const access = draft.demo_access;
@@ -448,8 +514,8 @@ export function DraftReviewModal({ draft, privateReady = true, username, demoPau
       ? t.projects.reviewFilmCaptions(plan.captions.map((l) => t.projects.langNames[l]))
       : plan.extra ? t.projects.reviewFilmAlso(t.projects.langNames[plan.extra]) : null;
   const filmSeconds = Math.max(1, Math.round(steps.reduce((sum, s) => sum + holdOf(s), 0)));
-  const filmLine = introDraft
-    ? `${t.projects.reviewIntroLabel}: ${t.projects.reviewFilmScenes(introDraft.scenes.length)} · ${t.projects.reviewFilmAbout(introSec)}`
+  const filmLine = introShown
+    ? `${t.projects.reviewIntroLabel}: ${t.projects.reviewFilmScenes(introShown.scenes.length)} · ${t.projects.reviewFilmAbout(introSec)}`
     : `${t.projects.reviewFilmLabel}: ${
     hasOwnVideo
       ? t.projects.reviewVideoOwn
@@ -459,7 +525,10 @@ export function DraftReviewModal({ draft, privateReady = true, username, demoPau
           .filter(Boolean).join(" · ")
   }`;
   // 늘 보이는 문제 줄 — 접혀 있어도 빨갛게(짧지만 정확하게). 정상이면 아무 말도 안 한다.
-  const filmWarnings = hasOwnVideo || introDraft || !privateReady ? [] : [
+  // 소개 영상은 틀린 글자(공개가 막힌 까닭)와 저장 실패만.
+  const filmWarnings = introShown
+    ? [...(introIssue ? [t.projects.reviewIntroFixScene(introIssueScene + 1)] : []), ...(introSaveFailed ? [t.projects.reviewIntroSaveFailed] : [])]
+    : hasOwnVideo || !privateReady ? [] : [
     ...(steps.length && wired < steps.length ? [t.projects.reviewShootPartWired(wired, steps.length)] : []),
     ...(accessLine.warn ? [`${t.projects.reviewVerdictAccess}: ${accessText}`] : []),
   ];
@@ -485,7 +554,7 @@ export function DraftReviewModal({ draft, privateReady = true, username, demoPau
   const cardDict = onOther && otherLoc ? getDictionary(otherLoc) : primaryDict;
   // 자동 시연이면 위 촬영 줄과 같은 "약 N초", 직접 준 영상이면 숫자 없이 지금 쓰는 말 그대로.
   // 대본을 아직 못 받았거나 장면이 없으면 숫자를 지어내지 않고 표시를 두지 않는다.
-  const chipText = introDraft
+  const chipText = introShown
     ? cardDict.projects.reviewIntroChip(introSec)
     : hasOwnVideo
     ? capitalize(cardDict.projects.reviewVideoOwn)
@@ -535,11 +604,7 @@ export function DraftReviewModal({ draft, privateReady = true, username, demoPau
   };
 
   // ── 미리보기 틀 안 ──────────────────────────────────────────────────────
-  const frame = introDraft ? (
-    <div className="absolute inset-0">
-      <IntroFilmPlayer film={introDraft} locale={viewLoc} title={title} fit="contain" />
-    </div>
-  ) : directVideo ? (
+  const frame = directVideo ? (
     <video src={directVideo} controls playsInline className="absolute inset-0 w-full h-full"
       style={{ objectFit: "contain", background: "#000" }} />
   ) : videoEmbed ? (
@@ -626,7 +691,44 @@ export function DraftReviewModal({ draft, privateReady = true, username, demoPau
         style={{ width: "min(1360px, 100%)", height: "min(880px, 100%)" }}
       >
         {/* ── 왼쪽: 미리보기(AI가 답한 화면) ── */}
-        {wide && (
+        {wide && introShown && (
+          // 소개 영상(덜어내기 10-02) — 앱 화면 틀(PC/폰 표시·크기 숫자) 대신 방문자가 PC 프레임에서 볼 무대 그대로:
+          // 16:10 · 잘라 채우기 · 왼쪽 위 "소개 영상". 바닥의 장면 막대는 진짜 재생 위치이고, 칸을 누르면 그 장면으로 간다.
+          <aside className="vf-review-preview" aria-label={t.projects.reviewPreviewLabel}>
+            <div className="flex items-center justify-end gap-3" style={{ minHeight: 34 }}>
+              {previewSrc && (
+                <a href={previewSrc} target="_blank" rel="noopener noreferrer" className="vf-review-link">
+                  {t.projects.menuOpen}
+                </a>
+              )}
+            </div>
+            <div className="vf-review-stage">
+              <div style={{ position: "relative", width: "100%", maxHeight: "100%", aspectRatio: "16 / 10", borderRadius: 14, overflow: "hidden", background: "#0a0a0a" }}>
+                <div className="absolute inset-0">
+                  <IntroFilmPlayer ref={playerRef} film={introShown} locale={viewLoc} title={title} fit="cover" onTime={onFilmTime} />
+                </div>
+                <StageChip label={cardDict.theater.chipIntroFilm} inset={16} />
+                {/* 바닥 줄은 프레임 무대의 재생 막대(StageProgress)와 같은 색·두께를 장면마다 끊어 그린다.
+                    움직임 줄이기에서도 둔다 — 꾸밈이 아니라 장면으로 가는 길이다. */}
+                <div className="absolute flex" style={{ left: 0, right: 0, bottom: 0, gap: 3, zIndex: 5 }}>
+                  {introShown.scenes.map((sc, k) => (
+                    <button
+                      key={k} type="button" aria-label={t.projects.reviewIntroScene(k + 1, t.projects.reviewIntroKinds[sc.kind])}
+                      onClick={() => (introOpen != null ? openScene(k) : playerRef.current?.seek(introStarts[k] ?? 0))}
+                      style={{ flex: `${SCENE_SECONDS[sc.kind] ?? 4.6} 1 0`, height: 14, padding: "11px 0 0", border: "none", background: "transparent", cursor: "pointer" }}
+                    >
+                      <span style={{ display: "block", height: 3, background: "linear-gradient(rgba(255,255,255,0.16), rgba(255,255,255,0.16)), rgba(0,0,0,0.28)" }}>
+                        <span ref={(el) => { barFills.current[k] = el; }}
+                          style={{ display: "block", height: "100%", background: "#f4ede0", transformOrigin: "left center", transform: "scaleX(0)" }} />
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </aside>
+        )}
+        {wide && !introShown && (
           <aside className="vf-review-preview" aria-label={t.projects.reviewPreviewLabel}>
             <div className="flex items-center justify-between gap-3" style={{ minHeight: 34 }}>
               <span className="vf-review-badge">
@@ -880,7 +982,8 @@ export function DraftReviewModal({ draft, privateReady = true, username, demoPau
                     {filmOpen && (
                       <div id={`${uid}-film`} className="flex flex-col" style={{ gap: 10, marginTop: 4 }}>
                         {introDraft ? (
-                          <IntroFilmPanel film={introDraft} locale={viewLoc} error={introError} onChange={changeIntro} />
+                          <IntroFilmPanel film={introDraft} locale={viewLoc} playing={introPlaying} open={introOpen}
+                            issue={introIssue} onOpen={openScene} onChange={changeIntro} />
                         ) : (<>
                         {!hasOwnVideo && (
                           <DemoScriptPanel script={draft.demo_script} loading={!privateReady} onChange={saveScript} compact />
@@ -986,7 +1089,7 @@ export function DraftReviewModal({ draft, privateReady = true, username, demoPau
                 <button
                   type="button"
                   onClick={() => void publish()}
-                  disabled={publishing || saving || scriptSaving > 0 || !canPublish}
+                  disabled={publishing || saving || scriptSaving > 0 || !canPublish || !!introIssue}
                   className="vf-button-primary"
                   style={footButton}
                 >

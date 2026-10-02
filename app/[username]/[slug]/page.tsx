@@ -13,6 +13,7 @@ import JsonLd from "@/components/JsonLd";
 import { localizeWork } from "@/lib/workLanguages";
 import { introFilmIssue, type IntroFilm } from "@/lib/introFilm/schema";
 import IntroFilmPlayer from "@/components/introFilm/IntroFilmPlayer";
+import { StageChip } from "@/components/theater/StageMarks";
 
 // The public per-project watch page. Its whole job is to unfurl the demo mp4 as
 // og:video (Discord/Slack/Telegram/iMessage inline-play it) and hand the viewer a
@@ -220,7 +221,11 @@ export default async function WatchPage({ params }: Params) {
             style={{ padding: 0, borderRadius: 18, aspectRatio: "16 / 9", background: "#0b0b0f" }}
           >
             {introFilm ? (
-              <IntroFilmPlayer film={introFilm} locale={viewer} title={project.title} fit="contain" />
+              // 프레임 무대와 같은 왼쪽 위 표시 "소개 영상"(PC만 — 폰 화면은 동결 중).
+              <div className="relative w-full h-full">
+                <IntroFilmPlayer film={introFilm} locale={viewer} title={project.title} fit="contain" />
+                <div className="hidden md:contents"><StageChip label={t.theater.chipIntroFilm} inset={16} /></div>
+              </div>
             ) : video ? (
               <WatchPlayer
                 src={video}

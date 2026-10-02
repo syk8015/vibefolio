@@ -9,6 +9,7 @@ import { onThemeChange, setStoredTheme, type Theme } from "@/lib/theme";
 import type { Locale } from "@/lib/i18n/config";
 import { isInAppBrowser } from "@/lib/traffic-source";
 import AppNav from "@/components/AppNav";
+import { Segmented } from "@/components/Segmented";
 import LoginMethods from "./LoginMethods";
 import AiConnections from "./AiConnections";
 import DeleteAccount from "./DeleteAccount";
@@ -48,31 +49,6 @@ export default function SettingsClient({ email, username }: { email: string; use
   );
 }
 
-// 두 칸 고르기(토스 세그먼트) — 고른 쪽은 한 단계 진한 채움 + 굵게(시각 언어의 "선택" 규칙).
-function Segmented<V extends string>({ label, value, options, onPick }: {
-  label: string; value: V | null; options: { value: V; label: string }[]; onPick: (v: V) => void;
-}) {
-  return (
-    <div role="group" aria-label={label} className="flex gap-0.5 p-[3px] rounded-full shrink-0" style={{ background: "var(--bg)" }}>
-      {options.map((o) => {
-        const on = o.value === value;
-        return (
-          <button key={o.value} type="button" aria-pressed={on} onClick={() => onPick(o.value)}
-            className="rounded-full transition-colors"
-            style={{
-              padding: "0.375rem 0.875rem", border: "none", cursor: "pointer",
-              background: on ? "var(--surface-active)" : "transparent",
-              color: on ? "var(--text-primary)" : "var(--text-secondary)",
-              fontSize: "0.875rem", fontWeight: on ? 600 : 500, fontFamily: "var(--font-nunito)",
-            }}>
-            {o.label}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
 // 지금 테마는 <html data-theme>이 정본이다(lib/theme — 부트 스크립트·nav 토글이 같은 속성을 쓴다).
 // 바뀔 때마다 오는 이벤트를 구독해 nav 토글로 바꿔도 여기 표시가 따라온다.
 const readTheme = (): Theme => (document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark");
@@ -87,12 +63,12 @@ function DisplaySettings() {
     <Section label={ts.displayLabel}>
       <List>
         <Row name={ts.language} action={
-          <Segmented<Locale> label={ts.language} value={ready ? locale : null}
+          <Segmented<Locale> label={ts.language} value={ready ? locale : null} track="var(--bg)"
             options={[{ value: "ko", label: "한국어" }, { value: "en", label: "English" }]}
             onPick={(v) => { if (v !== locale) setLocale(v); }} />
         } />
         <Row divider name={ts.theme} action={
-          <Segmented<Theme> label={ts.theme} value={theme}
+          <Segmented<Theme> label={ts.theme} value={theme} track="var(--bg)"
             options={[{ value: "light", label: ts.light }, { value: "dark", label: ts.dark }]}
             onPick={(v) => setStoredTheme(v)} />
         } />
