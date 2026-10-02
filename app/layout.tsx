@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, Hahmlet, JetBrains_Mono } from "next/font/google";
 import FirstTouch from "@/components/FirstTouch";
 import { LocaleProvider } from "@/lib/i18n/client";
+import { getLocale } from "@/lib/i18n/server";
 import "./globals.css";
 
 const inter = Inter({
@@ -43,13 +44,18 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // 언어는 서버가 정한다(쿠키 → Accept-Language → ko, lib/i18n/server.ts). <html lang>이 늘 "ko"면
+  // 영어 화면도 JS를 안 돌리는 검색·미리보기 로봇에겐 한국어 페이지로 읽힌다(2026-10-02).
+  // 이걸 읽으면 루트 아래 전부가 매 요청 렌더가 된다 — 이미 랜딩·명함·로그인·가입·대시보드·설정이
+  // 그랬고, 새로 동적이 되는 건 비밀번호 찾기·재설정·온보딩 같은 가벼운 화면뿐이다.
+  const locale = await getLocale();
   return (
-    <html lang="ko" className={`${inter.variable} ${hahmlet.variable} ${mono.variable}`} suppressHydrationWarning>
+    <html lang={locale} className={`${inter.variable} ${hahmlet.variable} ${mono.variable}`} suppressHydrationWarning>
       <head>
         {/* CSS가 도착하기 전에도 브라우저가 캔버스를 어둡게 칠하도록 알려준다
             (없으면 다크 테마에서 새로고침할 때마다 흰 화면이 번쩍인다).
@@ -74,14 +80,10 @@ function apply(t){r.setAttribute('data-theme',t);r.style.colorScheme=t;var m=doc
 apply(resolve());
 try{new MutationObserver(function(){if(!r.getAttribute('data-theme')||!r.style.colorScheme)apply(resolve());}).observe(r,{attributes:true,attributeFilter:['data-theme','style']});}catch(e){}
 })();
-(function(){try{var m=document.cookie.match(/(?:^|;\\s*)NEXT_LOCALE=(ko|en)/);var l=m?m[1]:(String(navigator.language||'').toLowerCase().indexOf('en')===0?'en':null);if(l)document.documentElement.lang=l;}catch(e){}})();
         `.trim() }} />
       </head>
       <body className="min-h-screen">
-        {/* 쿠키를 서버에서 읽지 않는다 — 루트 레이아웃에서 cookies()를 읽으면
-            정적/60s 캐시 페이지 전부가 동적 렌더링으로 강등되기 때문.
-            프로바이더가 마운트 후 클라이언트에서 감지한다. */}
-        <LocaleProvider>
+        <LocaleProvider initialLocale={locale}>
           <FirstTouch />
           {children}
         </LocaleProvider>

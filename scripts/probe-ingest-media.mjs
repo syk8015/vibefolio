@@ -65,15 +65,25 @@ const jsonPost = (path, body) => fetch(`${ORIGIN}${path}`, {
   headers: { Authorization: `Bearer ${raw}`, "Content-Type": "application/json" },
   body: JSON.stringify(body),
 });
-// 행 폴더 전체 정리(루트 + _media + _upload 1레벨).
+// 행 정리 — 파일은 R2에 있고(2026-10-01, lib/userStorage.ts) 이 맥엔 R2 키가 없어서, 초안 삭제 API가
+// 행 폴더를 통째로 지우게 한다(R2·옛 버킷 둘 다). 이미 지워졌거나 실패한 행은 행만 지운다.
 const wipeProject = async (pid) => {
-  for (const sub of ["", "_media", "_upload"]) {
-    const prefix = `${prof.id}/${pid}${sub ? `/${sub}` : ""}`;
-    const { data } = await svc.storage.from("project-files").list(prefix, { limit: 100 });
-    const keys = (data ?? []).filter((f) => f.id).map((f) => `${prefix}/${f.name}`);
-    if (keys.length) await svc.storage.from("project-files").remove(keys);
-  }
+  await fetch(`${ORIGIN}/api/ingest/drafts/${pid}`, { method: "DELETE", headers: { Authorization: `Bearer ${raw}` } }).catch(() => {});
   await svc.from("projects").delete().eq("id", pid);
+};
+
+// CLI가 PUT한 서명 URL을 엿봐 둔다 — 그 키의 공개 주소로 임시 파일이 지워졌는지 본다.
+const putUrls = [];
+const realFetch = globalThis.fetch;
+globalThis.fetch = (input, init) => {
+  if ((init?.method ?? "GET").toUpperCase() === "PUT") putUrls.push(String(input));
+  return realFetch(input, init);
+};
+// 서명 URL(…/files/<uid>/<pid>/_upload/<session>/video.bin?X-Amz-…) → media.nookframe.com 공개 주소.
+const publicOfPut = (u) => {
+  const path = new URL(u).pathname;
+  const i = path.indexOf("/files/");
+  return i < 0 ? null : `https://media.nookframe.com${path.slice(i)}?nfp=${Date.now()}`;
 };
 const cleanupAll = async () => {
   const { data } = await svc.from("projects").select("id").like("title", "__probe_%");
@@ -115,8 +125,10 @@ try {
     const v = await fetch(row.video_url);
     const len = Number(v.headers.get("content-length") ?? 0);
     ok("영상 공개 서빙 · 10MB · video/mp4", v.ok && len > 10_000_000 && v.headers.get("content-type")?.includes("video/mp4"), `${v.status} ${len}B`);
-    const { data: up } = await svc.storage.from("project-files").list(`${prof.id}/${r2.projectId}/_upload`, { limit: 10 });
-    ok("_upload 임시 오브젝트 삭제됨", (up ?? []).filter((f) => f.id).length === 0);
+    const temp = putUrls.filter((u) => u.includes(`/${r2.projectId}/_upload/`)).map(publicOfPut);
+    const left = [];
+    for (const u of temp) if (!u || (await realFetch(u, { method: "HEAD" })).status !== 404) left.push(u);
+    ok("_upload 임시 오브젝트 삭제됨(R2 공개 주소 404)", temp.length >= 2 && left.length === 0, `${temp.length}개 중 남음 ${left.length}`);
     // (5) finalize 멱등 재호출 — 200 성공 + 행 상태 불변이면 합격 (deduped 플래그는
     // CDN 캐시에 따라 빠질 수 있는 best-effort, docs 참고).
     const again = await jsonPost("/api/ingest/finalize", { projectId: r2.projectId });
