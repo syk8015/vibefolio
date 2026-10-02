@@ -7,6 +7,7 @@
 // 사용: node scripts/probe-runnable-zip.mjs  (ingest 레이트리밋 20/h — 폴링 포함 ~10회 소비)
 // 서비스롤 키는 macOS 키체인에서 온다(파일 폴백) — scripts/_secrets.mjs 참조.
 import "./_secrets.mjs";
+import { wipeProbeDraft } from "./_probeFiles.mjs";
 import { createClient } from "@supabase/supabase-js";
 import { createHash, randomBytes } from "node:crypto";
 import { execFileSync } from "node:child_process";
@@ -37,7 +38,7 @@ for (const d of ["py", "cli", "junk"]) {
   execFileSync("zip", ["-qr", join(S, `${d}.zip`), "."], { cwd: join(S, d) });
 }
 
-const { data: prof } = await svc.from("profiles").select("id").limit(1).maybeSingle();
+const { data: prof } = await svc.from("profiles").select("id").eq("username", "vivestarter").maybeSingle();
 const raw = `nf_live_${randomBytes(32).toString("base64url")}`;
 const { data: tok } = await svc.from("api_tokens").insert({
   user_id: prof.id,
@@ -74,12 +75,7 @@ const postZip = async (zipPath, title) => {
   return { status: res.status, body: await res.json().catch(() => ({})) };
 };
 
-const wipeProject = async (pid) => {
-  const { data } = await svc.storage.from("project-files").list(`${prof.id}/${pid}`, { limit: 100 });
-  const keys = (data ?? []).filter((f) => f.id).map((f) => `${prof.id}/${pid}/${f.name}`);
-  if (keys.length) await svc.storage.from("project-files").remove(keys);
-  await svc.from("projects").delete().eq("id", pid);
-};
+const wipeProject = (pid) => wipeProbeDraft({ svc, token: raw, id: pid });
 
 const made = [];
 try {

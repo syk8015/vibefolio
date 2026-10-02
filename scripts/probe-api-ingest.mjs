@@ -39,7 +39,7 @@ function ok(name, pass, detail = "") {
 
 // (3) 초안 RLS 에어타이트 — throwaway 행으로 실증
 {
-  const { data: prof } = await svc.from("profiles").select("id").limit(1).maybeSingle();
+  const { data: prof } = await svc.from("profiles").select("id").eq("username", "vivestarter").maybeSingle();
   if (!prof) {
     console.log("~ profiles 행이 없어 RLS 행 테스트 건너뜀 (스키마 단언만).");
   } else {

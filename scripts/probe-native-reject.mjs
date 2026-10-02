@@ -9,6 +9,7 @@
 // 사용: node scripts/probe-native-reject.mjs  (ingest 레이트리밋 20/h — 폴링 포함 ~10회 소비)
 // 서비스롤 키는 macOS 키체인에서 온다(파일 폴백) — scripts/_secrets.mjs 참조.
 import "./_secrets.mjs";
+import { wipeProbeDraft } from "./_probeFiles.mjs";
 import { createClient } from "@supabase/supabase-js";
 import { createHash, randomBytes } from "node:crypto";
 import { execFileSync } from "node:child_process";
@@ -104,31 +105,7 @@ const postZip = async (name, title) => {
   return { status: res.status, body: await res.json().catch(() => ({})) };
 };
 
-// 스토리지는 **BFS로** 훑는다: list()는 한 단계만 보여줘서 평면 목록만 지우면
-// ios/App.xcodeproj/… 같은 하위 폴더가 그대로 남는다(2026-08-26에 실제로 남겼다 —
-// 계정 탈퇴 경로가 대신 치워줬다). app/api/account의 listUserObjects와 같은 방식.
-const listAll = async (bucket, root) => {
-  const out = [];
-  const queue = [root];
-  while (queue.length) {
-    const dir = queue.shift();
-    const { data } = await svc.storage.from(bucket).list(dir, { limit: 1000 });
-    for (const e of data ?? []) {
-      const full = `${dir}/${e.name}`;
-      if (e.id === null) queue.push(full); // 디렉터리 자리표시자 → 내려간다
-      else out.push(full);
-    }
-  }
-  return out;
-};
-
-const wipeProject = async (pid) => {
-  const keys = await listAll("project-files", `${prof.id}/${pid}`);
-  for (let i = 0; i < keys.length; i += 100) {
-    await svc.storage.from("project-files").remove(keys.slice(i, i + 100));
-  }
-  await svc.from("projects").delete().eq("id", pid);
-};
+const wipeProject = (pid) => wipeProbeDraft({ svc, token: raw, id: pid });
 
 const made = [];
 const startedAt = new Date().toISOString();

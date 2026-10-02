@@ -10,6 +10,7 @@
 // 다른 ingest 프로브와 같이 돌리면 429.
 // 서비스롤 키는 macOS 키체인에서 온다(파일 폴백) — scripts/_secrets.mjs 참조.
 import "./_secrets.mjs";
+import { pathOfSignedPut, userFileExists, wipeProbeDraft } from "./_probeFiles.mjs";
 import { createClient } from "@supabase/supabase-js";
 import { createHash, randomBytes } from "node:crypto";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
@@ -55,7 +56,7 @@ const SITE1 = site("site1", { "index.html": "<!doctype html><h1>v1</h1>", "old.t
 const SITE2 = site("site2", { "index.html": "<!doctype html><h1>v2</h1>", "new.txt": "only in v2" });
 const SITE3 = site("site3", { "readme.md": "no page, no runnable code" });
 
-const { data: prof } = await svc.from("profiles").select("id").limit(1).maybeSingle();
+const { data: prof } = await svc.from("profiles").select("id").eq("username", "vivestarter").maybeSingle();
 const raw = `nf_live_${randomBytes(32).toString("base64url")}`;
 const { data: tok } = await svc.from("api_tokens").insert({
   user_id: prof.id,
@@ -72,22 +73,26 @@ const post = async (path, body) => {
   });
   return { status: res.status, body: await res.json().catch(() => ({})) };
 };
-// 행 폴더의 한 겹 파일 이름(폴더 제외).
-const files = async (pid, sub = "") => {
-  const prefix = `${prof.id}/${pid}${sub ? `/${sub}` : ""}`;
-  const { data } = await svc.storage.from("project-files").list(prefix, { limit: 100 });
-  return (data ?? []).filter((f) => f.id).map((f) => f.name).sort();
+// 파일은 R2(2026-10-01~)라 목록을 못 본다 — 이름을 찍어 공개 주소로 있는지 묻는다(scripts/_probeFiles.mjs).
+const has = (pid, name) => userFileExists(`${prof.id}/${pid}/${name}`);
+// CLI·프로브가 PUT한 서명 URL(= _upload 임시 파일 키)을 모아 둔다. 다 지워졌는지 보려고.
+const putUrls = [];
+const realFetch = globalThis.fetch;
+globalThis.fetch = (input, init) => {
+  if ((init?.method ?? "GET").toUpperCase() === "PUT") putUrls.push(String(input));
+  return realFetch(input, init);
+};
+// 그 행의 임시 파일 중 아직 남은 것(+ 교체 표식).
+const uploadLeft = async (pid) => {
+  const keys = putUrls.map(pathOfSignedPut).filter((k) => k?.startsWith(`${prof.id}/${pid}/_upload/`));
+  keys.push(`${prof.id}/${pid}/_upload/replace.marker`);
+  const left = [];
+  for (const k of keys) if (await userFileExists(k)) left.push(k.split("/_upload/")[1]);
+  return left;
 };
 const rowOf = async (pid) =>
   (await svc.from("projects").select("id, title, demo_url, is_draft").eq("id", pid).maybeSingle()).data;
-const wipeProject = async (pid) => {
-  for (const sub of ["", "_media", "_upload"]) {
-    const prefix = `${prof.id}/${pid}${sub ? `/${sub}` : ""}`;
-    const names = await files(pid, sub);
-    if (names.length) await svc.storage.from("project-files").remove(names.map((n) => `${prefix}/${n}`));
-  }
-  await svc.from("projects").delete().eq("id", pid);
-};
+const wipeProject = (pid) => wipeProbeDraft({ svc, token: raw, id: pid });
 const cleanupAll = async () => {
   const { data } = await svc.from("projects").select("id").like("title", "__probe_%");
   for (const r of data ?? []) await wipeProject(r.id);
@@ -131,17 +136,17 @@ try {
   // (3)(4) 폴더 초안 → draftId로 zip 교체(CLI runPublish 2단계 그대로).
   const b1 = await publish({ title: "__probe_did_B1__" }, SITE1);
   const B = b1.projectId;
-  const filesB1 = await files(B ?? "none");
-  ok("(3) 폴더(zip) 초안 생성 — old.txt 포함", !!B && filesB1.includes("old.txt"), JSON.stringify(filesB1));
+  const oldB1 = !!B && (await has(B, "old.txt"));
+  ok("(3) 폴더(zip) 초안 생성 — old.txt 포함", oldB1, `B=${B}`);
   const b2 = await publish({ title: "__probe_did_B2__", draftId: B }, SITE2);
   const rowB = await rowOf(B);
-  const filesB = await files(B);
+  const filesB = { old: await has(B, "old.txt"), new: await has(B, "new.txt") };
   const { count: nB } = await svc.from("projects").select("id", { count: "exact", head: true }).like("title", "__probe_did_B%");
   ok("(4) draftId + 새 zip → 같은 행·upserted, 새 행 없음",
     b2.projectId === B && b2.upserted === true && rowB?.title === "__probe_did_B2__" && nB === 1,
     `${JSON.stringify(b2).slice(0, 120)} rows=${nB}`);
   ok("(4) 옛 파일(old.txt) 삭제 · 새 파일(new.txt) 있음 · demo_url=새 index.html",
-    !filesB.includes("old.txt") && filesB.includes("new.txt") &&
+    !filesB.old && filesB.new &&
       !!rowB?.demo_url?.startsWith(`/api/preview/${prof.id}/${B}/`) && rowB.demo_url.endsWith("index.html"),
     `${JSON.stringify(filesB)} ${rowB?.demo_url}`);
 
@@ -153,11 +158,11 @@ try {
     err5 = e instanceof Error ? e.message : String(e);
   }
   const rowB5 = await rowOf(B);
-  const filesB5 = await files(B);
-  const upload5 = await files(B, "_upload");
+  const filesB5 = { new: await has(B, "new.txt"), index: await has(B, "index.html") };
+  const upload5 = await uploadLeft(B);
   ok("(5) 불량 zip 교체는 거절된다", !!err5, err5 ?? "no error");
   ok("(5) 거절돼도 초안·파일·주소가 그대로(행 삭제 안 함)",
-    !!rowB5 && rowB5.demo_url === rowB?.demo_url && filesB5.includes("new.txt") && filesB5.includes("index.html"),
+    !!rowB5 && rowB5.demo_url === rowB?.demo_url && filesB5.new && filesB5.index,
     `${JSON.stringify(rowB5)} ${JSON.stringify(filesB5)}`);
   ok("(5) 임시 파일·교체 표식 정리됨(_upload 비어 있음)", upload5.length === 0, JSON.stringify(upload5));
 
@@ -173,14 +178,16 @@ try {
   // (7) zip 초안을 URL로 교체 → 옛 zip 파일 전부 삭제.
   const b7 = await post("/api/ingest", { ...GATE, title: "__probe_did_B7__", deployUrl: U("c"), draftId: B });
   const rowB7 = await rowOf(B);
-  const filesB7 = await files(B);
+  const left7 = ["index.html", "new.txt"];
+  const filesB7 = [];
+  for (const n of left7) if (await has(B, n)) filesB7.push(n);
   ok("(7) draftId + URL → zip 초안이 URL 초안으로, 옛 zip 파일 삭제",
     b7.status === 200 && b7.body.projectId === B && rowB7?.demo_url === U("c") && filesB7.length === 0,
     `${b7.status} ${rowB7?.demo_url} ${JSON.stringify(filesB7)}`);
 
   // (8) 같은 URL 재발행 + 불량 스크린샷 → finalize가 거절해도 기존 초안은 남는다(예전엔 지워졌다).
   const a8 = await post("/api/ingest", { ...GATE, title: "__probe_did_A8__", deployUrl: U("b"), uploads: ["screenshot"] });
-  const marker8 = await files(A, "_upload");
+  const marker8 = (await has(A, "_upload/replace.marker")) ? ["replace.marker"] : [];
   ok("(8) 같은 URL 재발행 = upsert + 교체 표식",
     a8.body.projectId === A && a8.body.upserted === true && marker8.includes("replace.marker"),
     `${JSON.stringify(a8.body).slice(0, 100)} ${JSON.stringify(marker8)}`);
@@ -191,7 +198,8 @@ try {
   }
   const f8 = await post("/api/ingest/finalize", { projectId: A });
   const rowA8 = await rowOf(A);
-  const upload8 = await files(A, "_upload");
+  if (a8.body.uploads?.screenshot) putUrls.push(a8.body.uploads.screenshot);
+  const upload8 = await uploadLeft(A);
   ok("(8) 불량 스크린샷 finalize 400 · 기존 초안 유지 · _upload 정리",
     f8.status === 400 && !!rowA8 && upload8.length === 0,
     `${f8.status} ${f8.body.code} row=${!!rowA8} upload=${JSON.stringify(upload8)}`);

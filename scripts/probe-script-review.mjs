@@ -10,6 +10,7 @@
 // 사용: 레포 루트에서 `node scripts/probe-script-review.mjs`
 // 주의: ingest 발행 버킷(20/h) 2회 + 관리 버킷 2회 소비. 서비스롤 키는 키체인(_secrets.mjs).
 import "./_secrets.mjs";
+import { wipeProbeDraft } from "./_probeFiles.mjs";
 import { createClient } from "@supabase/supabase-js";
 import { createHash, randomBytes } from "node:crypto";
 
@@ -157,10 +158,7 @@ try {
   ok("영상 동봉 → scriptReview 없음", v.body?.accepted && !("scriptReview" in v.body.accepted), JSON.stringify(Object.keys(v.body?.accepted ?? {})));
 } finally {
   for (const pid of made) {
-    const { data } = await svc.storage.from("project-files").list(`${prof.id}/${pid}`, { limit: 100 });
-    const keys = (data ?? []).filter((f) => f.id).map((f) => `${prof.id}/${pid}/${f.name}`);
-    if (keys.length) await svc.storage.from("project-files").remove(keys);
-    await svc.from("projects").delete().eq("id", pid);
+    await wipeProbeDraft({ svc, token: rawToken, id: pid });
   }
   await svc.from("api_tokens").delete().eq("id", tok.id);
   console.log(`\n정리 완료: 프로젝트 ${made.length}건 · 토큰 1건`);

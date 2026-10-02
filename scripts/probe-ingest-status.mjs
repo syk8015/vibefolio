@@ -25,7 +25,7 @@ const ok = (name, pass, detail = "") => {
 const { data: pub } = await svc.from("projects").select("user_id").eq("is_draft", false).limit(1).maybeSingle();
 const { data: prof } = pub
   ? { data: { id: pub.user_id } }
-  : await svc.from("profiles").select("id").limit(1).maybeSingle();
+  : await svc.from("profiles").select("id").eq("username", "vivestarter").maybeSingle();
 
 const raw = `nf_live_${randomBytes(32).toString("base64url")}`;
 const { data: tok, error: tokErr } = await svc.from("api_tokens").insert({
