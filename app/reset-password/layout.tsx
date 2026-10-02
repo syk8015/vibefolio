@@ -1,13 +1,10 @@
 import type { Metadata } from "next";
-import LocalizedTitle from "@/components/LocalizedTitle";
+import { localizedTitle } from "@/lib/i18n/metadata";
 
-export const metadata: Metadata = { title: "비밀번호 재설정 | Nookframe" };
+export function generateMetadata(): Promise<Metadata> {
+  return localizedTitle("비밀번호 재설정 | Nookframe", "Reset password | Nookframe");
+}
 
 export default function ResetPasswordLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <>
-      <LocalizedTitle ko="비밀번호 재설정 | Nookframe" en="Reset password | Nookframe" />
-      {children}
-    </>
-  );
+  return children;
 }

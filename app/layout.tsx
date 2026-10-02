@@ -25,24 +25,37 @@ const mono = JetBrains_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: "Nookframe — Vibe Coding Portfolio",
-  description: "바이브코더를 위한 라이브 포트폴리오. 프로젝트를 전시하고, 링크 하나로 나를 소개하세요.",
-  metadataBase: new URL("https://nookframe.com"),
-  openGraph: {
-    title: "Nookframe — Vibe Coding Portfolio",
-    description: "바이브코더를 위한 라이브 포트폴리오. 프로젝트를 전시하고, 링크 하나로 나를 소개하세요.",
-    url: "https://nookframe.com",
-    siteName: "Nookframe",
-    type: "website",
-    locale: "ko_KR",
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "Nookframe — Vibe Coding Portfolio",
-    description: "바이브코더를 위한 라이브 포트폴리오. 프로젝트를 전시하고, 링크 하나로 나를 소개하세요.",
-  },
-};
+// 설명·OG 언어도 보는 사람 언어로(2026-10-02) — 제목은 브랜드라 두 언어가 같다. 하위 화면의
+// generateMetadata가 title·description·openGraph를 덮어쓴다(openGraph는 통째로 바뀐다).
+const SITE_TITLE = "Nookframe — Vibe Coding Portfolio";
+const SITE_DESCRIPTION = {
+  ko: "바이브코더를 위한 라이브 포트폴리오. 프로젝트를 전시하고, 링크 하나로 나를 소개하세요.",
+  en: "The live portfolio for vibe coders. Show your projects and introduce yourself with one link.",
+} as const;
+
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getLocale();
+  const description = SITE_DESCRIPTION[locale];
+  return {
+    title: SITE_TITLE,
+    description,
+    metadataBase: new URL("https://nookframe.com"),
+    openGraph: {
+      title: SITE_TITLE,
+      description,
+      url: "https://nookframe.com",
+      siteName: "Nookframe",
+      type: "website",
+      locale: locale === "en" ? "en_US" : "ko_KR",
+      alternateLocale: locale === "en" ? "ko_KR" : "en_US",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: SITE_TITLE,
+      description,
+    },
+  };
+}
 
 export default async function RootLayout({
   children,

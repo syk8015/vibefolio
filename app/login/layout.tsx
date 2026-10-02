@@ -1,14 +1,11 @@
 import type { Metadata } from "next";
-import LocalizedTitle from "@/components/LocalizedTitle";
+import { localizedTitle } from "@/lib/i18n/metadata";
 import ServerLocaleProvider from "@/components/ServerLocaleProvider";
 
-export const metadata: Metadata = { title: "로그인 | Nookframe" };
+export function generateMetadata(): Promise<Metadata> {
+  return localizedTitle("로그인 | Nookframe", "Log in | Nookframe");
+}
 
 export default function LoginLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <ServerLocaleProvider>
-      <LocalizedTitle ko="로그인 | Nookframe" en="Log in | Nookframe" />
-      {children}
-    </ServerLocaleProvider>
-  );
+  return <ServerLocaleProvider>{children}</ServerLocaleProvider>;
 }

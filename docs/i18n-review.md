@@ -688,16 +688,20 @@ grep 게이트에서 잡힌 유저 노출 한글 잔존 수리분.
 
 ## 탭 제목 (⑥ 메타데이터 절충안 — 2026-08-14, ②안 사용자 확정)
 
-정적 페이지 탭 제목은 마운트 후 클라이언트에서 바꿔치기(`components/LocalizedTitle.tsx`, 사전 밖 props).
-SNS/검색 로봇은 JS를 안 돌려 OG·크롤러 노출 문구(루트 description 등)는 ko 유지 — ③ /en 경로는 보류 결정 그대로.
+~~정적 페이지 탭 제목은 마운트 후 클라이언트에서 바꿔치기(`components/LocalizedTitle.tsx`).~~
+**2026-10-02 바뀜**: 루트 레이아웃이 `getLocale()`을 읽어 모든 화면이 매 요청 렌더가 됐다 → 제목은 서버가
+`generateMetadata`로 정한다(`lib/i18n/metadata.ts` `localizedTitle`), LocalizedTitle 삭제. 루트 description·OG
+locale도 언어별(en = "The live portfolio for vibe coders. Show your projects and introduce yourself with one link.").
+언어 판정은 쿠키 → Accept-Language → ko라, 언어 머리말을 안 보내는 로봇은 여전히 ko를 본다 — ③ /en 경로는 보류 그대로.
 
 | 페이지 | 한국어 | English | 비고 |
 |---|---|---|---|
-| /login | 로그인 \| Nookframe | Log in \| Nookframe | LocalizedTitle |
-| /signup | 회원가입 \| Nookframe | Sign up \| Nookframe | LocalizedTitle |
-| /forgot-password | 비밀번호 찾기 \| Nookframe | Forgot password \| Nookframe | LocalizedTitle |
-| /reset-password | 비밀번호 재설정 \| Nookframe | Reset password \| Nookframe | LocalizedTitle |
+| /login | 로그인 \| Nookframe | Log in \| Nookframe | 서버 generateMetadata |
+| /signup | 회원가입 \| Nookframe | Sign up \| Nookframe | 서버 generateMetadata |
+| /forgot-password | 비밀번호 찾기 \| Nookframe | Forgot password \| Nookframe | 서버 generateMetadata |
+| /reset-password | 비밀번호 재설정 \| Nookframe | Reset password \| Nookframe | 서버 generateMetadata |
 | /publish | AI 초안 붙여넣기 · Nookframe | Paste your AI draft · Nookframe | 동적 페이지라 generateMetadata 서버 분기 |
+| /send | 컴퓨터로 보내기 \| Nookframe | Send to your computer \| Nookframe | 서버 generateMetadata |
 
 ## 초안 검토 화면 재편 (2026-09-04, 인터뷰 ④⑤⑥)
 
