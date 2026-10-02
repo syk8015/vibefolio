@@ -383,6 +383,16 @@ export const ko = {
     // 업그레이드(2026-10-01): 명함을 방문자 브라우저 틀에 · 명함 구석 자동 시연 표시 · 버튼 위 세 단계 · 공개한 뒤 화면.
     reviewVisitorView: "방문자에게 이렇게 보여요",
     reviewAutoDemo: (s: number) => `자동 시연 · 약 ${s}초`,
+    // 소개 영상(2026-10-02) — 찍을 화면이 없는 작품은 AI가 쓴 장면 대본을 그 자리에서 재생한다(촬영 없음).
+    reviewIntroLabel: "소개 영상",
+    reviewIntroChip: (s: number) => `소개 영상 · 약 ${s}초`,
+    reviewIntroText: "글자",
+    reviewIntroMood: "분위기",
+    reviewIntroStyles: { hand: "손그림", bignum: "큰 숫자", cinematic: "시네마틱" },
+    reviewIntroKinds: { hook: "첫 숫자", story: "한마디", items: "항목 줄", flow: "흐름", terminal: "명령 창", alert: "알림", stats: "숫자 셋", ending: "끝" },
+    reviewIntroSample: "예시 자료",
+    reviewIntroMeasured: "실측",
+    reviewIntroSaveFailed: (msg: string) => `저장하지 못했어요 — ${msg}`,
     reviewTrailPublish: "공개",
     reviewTrailFilm: "촬영",
     reviewTrailCard: "프레임에 영상",

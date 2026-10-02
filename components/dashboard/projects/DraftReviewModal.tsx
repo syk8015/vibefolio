@@ -25,6 +25,9 @@ import { type PublishedTwin } from "@/lib/publishedTwin";
 import { readOwnerInterview, type OwnerInterview } from "@/lib/ownerInterview";
 import { useT } from "@/lib/i18n/client";
 import { getDictionary } from "@/lib/i18n/dictionaries";
+import { introFilmIssue, filmSeconds as introSeconds, type IntroFilm } from "@/lib/introFilm/schema";
+import IntroFilmPlayer from "@/components/introFilm/IntroFilmPlayer";
+import { IntroFilmPanel } from "./IntroFilmPanel";
 
 // 초안 검토 모달 — [공개하기]의 "확인"을 실제로 할 수 있는 화면.
 //
@@ -256,6 +259,36 @@ export function DraftReviewModal({ draft, privateReady = true, username, demoPau
   const [answersOpen, setAnswersOpen] = useState(false);
   const [filmOpen, setFilmOpen] = useState(false);
 
+  // ── 소개 영상(2026-10-02) ─────────────────────────────────────────────────
+  // 찍을 화면이 없는 작품은 장면 대본을 그 자리에서 재생한다. 고르기·고치기는 바로 미리보기에 보이고,
+  // 잠깐 뒤 서버 검사(초안 PATCH, 쿠키 인증)를 거쳐 저장한다 — 사용자 키로 직접 쓰면 검사를 건너뛴다.
+  const [introDraft, setIntroDraft] = useState<IntroFilm | null>(
+    draft.intro_film && !introFilmIssue(draft.intro_film) ? draft.intro_film : null,
+  );
+  const [introError, setIntroError] = useState<string | null>(null);
+  const introTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (introTimer.current) clearTimeout(introTimer.current); }, []);
+  const changeIntro = (next: IntroFilm) => {
+    setIntroDraft(next);
+    if (introTimer.current) clearTimeout(introTimer.current);
+    const issue = introFilmIssue(next);
+    if (issue) { setIntroError(t.projects.reviewIntroSaveFailed(`${issue.path}: ${issue.message}`)); return; }
+    setIntroError(null);
+    introTimer.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/ingest/drafts/${encodeURIComponent(draft.id)}`, {
+          method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ introFilm: next }),
+        });
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          setIntroError(t.projects.reviewIntroSaveFailed(String(body?.message ?? res.status)));
+        }
+      } catch {
+        setIntroError(t.projects.reviewIntroSaveFailed("network"));
+      }
+    }, 700);
+  };
+
   // 공개 — 글을 고치던 중이면 먼저 저장하고, 저장이 안 되면 공개하지 않는다.
   // 전엔 편집 칸이 열린 채 [공개]를 누르면 고친 내용이 조용히 버려졌다(B9).
   // 창은 공개 뒤에도 열려 있다(업그레이드) — 결과가 올 때까지 버튼을 잠가 두 번 공개되지 않게 한다.
@@ -389,7 +422,11 @@ export function DraftReviewModal({ draft, privateReady = true, username, demoPau
   const wired = steps.filter(isStepWired).length;
   const hasOwnVideo = !!draft.video_url;
   // 공개하면 촬영을 요청하나 — 공개 처리(ProjectsTab.handlePublishDraft)와 같은 판정. 버튼 이름이 결과를 말한다.
-  const films = !hasOwnVideo && !!detectDemoSource(draft.demo_url);
+  // 소개 영상은 촬영하지 않는다(명함이 대본을 재생).
+  const films = !hasOwnVideo && !introDraft && !!detectDemoSource(draft.demo_url);
+  const introSec = introDraft ? Math.round(introSeconds(introDraft)) : 0;
+  // 미리보기에 보이는 언어 — 방문자 틀의 KO/EN과 같이 움직인다.
+  const viewLoc: "en" | "ko" = (onOther && otherLoc ? otherLoc : primaryLoc ?? locale) === "en" ? "en" : "ko";
   const access = draft.demo_access;
   // 비공개 칸을 아직 못 받았으면 "로그인 답 없음" 경고는 거짓이다 — 중립 자리표시만.
   const accessLine = !privateReady
@@ -411,7 +448,9 @@ export function DraftReviewModal({ draft, privateReady = true, username, demoPau
       ? t.projects.reviewFilmCaptions(plan.captions.map((l) => t.projects.langNames[l]))
       : plan.extra ? t.projects.reviewFilmAlso(t.projects.langNames[plan.extra]) : null;
   const filmSeconds = Math.max(1, Math.round(steps.reduce((sum, s) => sum + holdOf(s), 0)));
-  const filmLine = `${t.projects.reviewFilmLabel}: ${
+  const filmLine = introDraft
+    ? `${t.projects.reviewIntroLabel}: ${t.projects.reviewFilmScenes(introDraft.scenes.length)} · ${t.projects.reviewFilmAbout(introSec)}`
+    : `${t.projects.reviewFilmLabel}: ${
     hasOwnVideo
       ? t.projects.reviewVideoOwn
       : !privateReady
@@ -420,7 +459,7 @@ export function DraftReviewModal({ draft, privateReady = true, username, demoPau
           .filter(Boolean).join(" · ")
   }`;
   // 늘 보이는 문제 줄 — 접혀 있어도 빨갛게(짧지만 정확하게). 정상이면 아무 말도 안 한다.
-  const filmWarnings = hasOwnVideo || !privateReady ? [] : [
+  const filmWarnings = hasOwnVideo || introDraft || !privateReady ? [] : [
     ...(steps.length && wired < steps.length ? [t.projects.reviewShootPartWired(wired, steps.length)] : []),
     ...(accessLine.warn ? [`${t.projects.reviewVerdictAccess}: ${accessText}`] : []),
   ];
@@ -446,7 +485,9 @@ export function DraftReviewModal({ draft, privateReady = true, username, demoPau
   const cardDict = onOther && otherLoc ? getDictionary(otherLoc) : primaryDict;
   // 자동 시연이면 위 촬영 줄과 같은 "약 N초", 직접 준 영상이면 숫자 없이 지금 쓰는 말 그대로.
   // 대본을 아직 못 받았거나 장면이 없으면 숫자를 지어내지 않고 표시를 두지 않는다.
-  const chipText = hasOwnVideo
+  const chipText = introDraft
+    ? cardDict.projects.reviewIntroChip(introSec)
+    : hasOwnVideo
     ? capitalize(cardDict.projects.reviewVideoOwn)
     : films && privateReady && steps.length ? cardDict.projects.reviewAutoDemo(filmSeconds) : null;
   // 이름표의 흐린 한 줄 — 공개 페이지와 같은 "AI 도구 · 연도"(옛 도구 칩 자리). 도구 이름은 두 언어 공통.
@@ -494,7 +535,11 @@ export function DraftReviewModal({ draft, privateReady = true, username, demoPau
   };
 
   // ── 미리보기 틀 안 ──────────────────────────────────────────────────────
-  const frame = directVideo ? (
+  const frame = introDraft ? (
+    <div className="absolute inset-0">
+      <IntroFilmPlayer film={introDraft} locale={viewLoc} title={title} fit="contain" />
+    </div>
+  ) : directVideo ? (
     <video src={directVideo} controls playsInline className="absolute inset-0 w-full h-full"
       style={{ objectFit: "contain", background: "#000" }} />
   ) : videoEmbed ? (
@@ -834,6 +879,9 @@ export function DraftReviewModal({ draft, privateReady = true, username, demoPau
                     ))}
                     {filmOpen && (
                       <div id={`${uid}-film`} className="flex flex-col" style={{ gap: 10, marginTop: 4 }}>
+                        {introDraft ? (
+                          <IntroFilmPanel film={introDraft} locale={viewLoc} error={introError} onChange={changeIntro} />
+                        ) : (<>
                         {!hasOwnVideo && (
                           <DemoScriptPanel script={draft.demo_script} loading={!privateReady} onChange={saveScript} compact />
                         )}
@@ -847,6 +895,7 @@ export function DraftReviewModal({ draft, privateReady = true, username, demoPau
                           lead={loginRow}
                           onSaveScript={async (next) => { await onSave({ demo_script: next }); }}
                         />
+                        </>)}
                       </div>
                     )}
                   </div>

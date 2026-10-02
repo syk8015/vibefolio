@@ -561,7 +561,8 @@ export default function ProjectsTab({
     const project: DBProject = fresh ? mergeRow(stale, fresh as unknown as UserKeyRow) : stale;
     // 인제스트로 들어온 수동 시연 영상(video_url)이 있으면 자동 촬영 생략 — 위
     // handleAdd와 같은 이유(노출 순위상 촬영본이 보이지 않음).
-    const source = project.video_url ? null : detectDemoSource(project.demo_url);
+    // 소개 영상(2026-10-02)도 촬영하지 않는다 — 명함이 장면 대본을 그 자리에서 재생한다.
+    const source = project.video_url || project.intro_film ? null : detectDemoSource(project.demo_url);
     // 방금 공개한 작품은 맨 앞에 — 인제스트는 sort_order를 "기존 행 수"로 넣어
     // 그대로 두면 명함 맨 뒤에 붙고, 첫 화면에서 안 보여 "올라간 게 맞나?"가 된다.
     const sortOrder = projects.reduce((min, p) => Math.min(min, p.sort_order ?? 0), 0) - 1;

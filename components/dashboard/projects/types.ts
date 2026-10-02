@@ -2,6 +2,7 @@ import type { DemoScript } from "@/lib/demoScript";
 import type { DemoAccess } from "@/lib/demoAccess";
 import type { OwnerInterview } from "@/lib/ownerInterview";
 import type { WorkTranslations } from "@/lib/workLanguages";
+import type { IntroFilm } from "@/lib/introFilm/schema";
 // Shared types + constants for the dashboard Projects tab. Extracted verbatim from
 // ProjectsTab.tsx (no behavior change) so the row components, hooks, and form modal
 // can share one definition instead of re-declaring it.
@@ -100,6 +101,10 @@ export interface DBProject {
   primary_locale: "ko" | "en" | null;
   app_locales: ("ko" | "en")[] | null;
   translations: WorkTranslations | null;
+  // 소개 영상(2026-10-02) — 찍을 화면이 없는 작품의 장면 대본(공개 칸). 있으면 촬영 대신 그 자리에서 재생한다.
+  intro_film?: IntroFilm | null;
+  // 워커가 대본으로 만든 영상 파일 정보(워커 전용 칸).
+  intro_render?: { hash?: string; video?: string; poster?: string; at?: string } | null;
 }
 
 export type ProjectForm = Omit<
@@ -132,5 +137,8 @@ export type ProjectForm = Omit<
   | "primary_locale"
   | "app_locales"
   | "translations"
+  // 소개 영상도 검토 창에서만(서버 검사를 거쳐 저장한다).
+  | "intro_film"
+  | "intro_render"
 >;
 
