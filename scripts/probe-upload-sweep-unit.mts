@@ -25,6 +25,7 @@ ok("파일 없는 초안, 25시간 → 청소", isAbandonedEmptyDraft(base, now)
 ok("demo_url null도 빈 초안", isAbandonedEmptyDraft({ ...base, demo_url: null }, now));
 ok("23시간은 아직 둔다", !isAbandonedEmptyDraft({ ...base, created_at: ago(23 * H) }, now));
 ok("zip이 붙은 초안은 안 건드림", !isAbandonedEmptyDraft({ ...base, demo_url: "/api/preview/u/p/index.html" }, now));
+ok("소개 영상 대본만 있는 초안은 안 건드림(명함이 대본을 재생)", !isAbandonedEmptyDraft({ ...base, intro_film: { style: {}, scenes: [] } }, now));
 ok("URL 초안은 안 건드림", !isAbandonedEmptyDraft({ ...base, demo_url: "https://a.com" }, now));
 ok("영상 초안은 안 건드림", !isAbandonedEmptyDraft({ ...base, video_url: "https://r2/x.mp4" }, now));
 ok("공개 작품은 안 건드림", !isAbandonedEmptyDraft({ ...base, is_draft: false }, now));

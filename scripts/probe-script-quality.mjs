@@ -16,6 +16,7 @@
 // 주의: ingest 발행 버킷(20/h)을 판당 ~12회 소비한다 — 같은 시간에 다른 인제스트
 // 프로브를 연달아 돌리면 429가 난다. 서비스롤 키는 macOS 키체인(scripts/_secrets.mjs).
 import "./_secrets.mjs";
+import { wipeProbeDraft } from "./_probeFiles.mjs";
 import { createClient } from "@supabase/supabase-js";
 import { createHash, randomBytes } from "node:crypto";
 
@@ -206,10 +207,7 @@ try {
   }
 } finally {
   for (const pid of made) {
-    const { data } = await svc.storage.from("project-files").list(`${prof.id}/${pid}`, { limit: 100 });
-    const keys = (data ?? []).filter((f) => f.id).map((f) => `${prof.id}/${pid}/${f.name}`);
-    if (keys.length) await svc.storage.from("project-files").remove(keys);
-    await svc.from("projects").delete().eq("id", pid);
+    await wipeProbeDraft({ svc, token: rawToken, id: pid });
   }
   await svc.from("api_tokens").delete().eq("id", tok.id);
   console.log(`\n정리 완료: 프로젝트 ${made.length}건 · 토큰 1건`);

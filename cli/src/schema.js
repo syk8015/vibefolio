@@ -206,7 +206,7 @@ export const DEMO_ACCESS_SCHEMA = {
   }
 };
 
-export const PUBLISH_DESCRIPTION = "Upload this project to Nookframe (a portfolio for vibe-coded work) as a draft. First take a quick look at the project, then interview the owner: ask them the ownerInterview questions in the chat, in plain words, and wait for their answers — it is REQUIRED (the server rejects the upload without it) and it must be their own words, not yours. Nookframe shows every work in Korean and English: set language (the owner's language, the one you write title/description in), put the same copy in the other language in translation, and list in appLanguages which of ko/en the app's own screens can show — the robot films once per language listed, and for a language the app cannot show, give every demoScript step a caption in it. If the app has no English, ask the owner whether to add an English version before you upload (their app, their call); if it has no Korean, just write Korean captions. You are the AI that built it, so write title/description/demoScript yourself from the repo (README, routes, git log) and pass them in, shaped by those answers. The description must NOT be one paragraph: it is 2-3 lines separated by newlines (\\n) — it is the first-impression copy laid over the work on the card, and a long line wraps and gets cut off on phones (a single paragraph, or any line over 52 columns where a CJK character counts as 2, is rejected). Give either deployUrl (a deployed public URL) or dir (absolute path to a local folder — static build output for web apps, the source folder itself for Python/CLI projects). If it is not deployed and needs a server or DB so a file upload will not do, you may pass a public GitHub repo URL as deployUrl instead (a last resort: the repo is cloned and run — JS repos via npm run dev/start, Python web apps by detecting Streamlit/Gradio/Dash/Django/Flask/FastAPI then pip install + run (Django also gets migrate run for it), and projects with no web screen (CLI tools, bots, backends) are filmed as a live terminal session where the robot types the commands (put the exact commands in demoScript and it gets much better). Private repos fail; apps needing a remote DB get a read-only demo). If the landing page and the actual app screen are different URLs, also pass appUrl (the demo and the embed open appUrl). demoAccess is REQUIRED — the filming robot never logs in, so decide 'what actually works before login' and answer with exactly one of: { url, params, note } if there is a way in without login; { noLogin: true, note: \"one line on what you checked\" } if no login is needed at all and every feature is usable from the first screen (noLogin without note is rejected); { impossible: true, note: \"why\" } if a guest path is fundamentally impossible (E2E encryption, mandatory device pairing). In that last case only the landing page gets filmed, so attaching a video is strongly recommended. Without one of the three the server rejects with 400. Account credentials are not accepted. The film and card are public, so screens the robot opens must show fake or sample data, never real people's records; if the app needs a demo mode to be filmable, ask the human before changing their code or deploying. targetDevice is REQUIRED too: \"mobile\" if the app was designed mainly for phone screens, \"desktop\" if for computer browsers (not the same as contentType) — the owner's draft preview is framed from it, while the robot always films a 1280x720 desktop browser. If you have your own screenshot or demo video, pass absolute paths in screenshot/video (supplying a video skips automatic filming). Order demoScript.steps by importance — step 1 is the feature that absolutely cannot be missing. Uploading the same URL again does not create a new draft, it updates the existing one (use this to edit content); a draft made from an uploaded file has no URL to match, so to replace its files — or to change the URL — pass draftId, the draft id from the publish result. When you report back, tell the human it is a DRAFT: nothing is public until they open the review link and press publish.";
+export const PUBLISH_DESCRIPTION = "Upload this project to Nookframe (a portfolio for vibe-coded work) as a draft. First take a quick look at the project, then interview the owner: ask them the ownerInterview questions in the chat, in plain words, and wait for their answers — it is REQUIRED (the server rejects the upload without it) and it must be their own words, not yours. Nookframe shows every work in Korean and English: set language (the owner's language, the one you write title/description in), put the same copy in the other language in translation, and list in appLanguages which of ko/en the app's own screens can show — the robot films once per language listed, and for a language the app cannot show, give every demoScript step a caption in it. If the app has no English, ask the owner whether to add an English version before you upload (their app, their call); if it has no Korean, just write Korean captions. If the work has no screen worth filming (a CLI, backend, bot, hardware, or an app behind a private access code), send introFilm instead of demoScript/demoAccess — Nookframe plays it live, no robot filming, no URL needed (see introFilm). You are the AI that built it, so write title/description/demoScript yourself from the repo (README, routes, git log) and pass them in, shaped by those answers. The description must NOT be one paragraph: it is 2-3 lines separated by newlines (\\n) — it is the first-impression copy laid over the work on the card, and a long line wraps and gets cut off on phones (a single paragraph, or any line over 52 columns where a CJK character counts as 2, is rejected). Give either deployUrl (a deployed public URL) or dir (absolute path to a local folder — static build output for web apps, the source folder itself for Python/CLI projects). If it is not deployed and needs a server or DB so a file upload will not do, you may pass a public GitHub repo URL as deployUrl instead (a last resort: the repo is cloned and run — JS repos via npm run dev/start, Python web apps by detecting Streamlit/Gradio/Dash/Django/Flask/FastAPI then pip install + run (Django also gets migrate run for it), and projects with no web screen (CLI tools, bots, backends) are filmed as a live terminal session where the robot types the commands (put the exact commands in demoScript and it gets much better). Private repos fail; apps needing a remote DB get a read-only demo). If the landing page and the actual app screen are different URLs, also pass appUrl (the demo and the embed open appUrl). demoAccess is REQUIRED (unless you send introFilm or attach a video) — the filming robot never logs in, so decide 'what actually works before login' and answer with exactly one of: { url, params, note } if there is a way in without login; { noLogin: true, note: \"one line on what you checked\" } if no login is needed at all and every feature is usable from the first screen (noLogin without note is rejected); { impossible: true, note: \"why\" } if a guest path is fundamentally impossible (E2E encryption, mandatory device pairing). In that last case only the landing page gets filmed, so attaching a video is strongly recommended. Without one of the three the server rejects with 400. Account credentials are not accepted. The film and card are public, so screens the robot opens must show fake or sample data, never real people's records; if the app needs a demo mode to be filmable, ask the human before changing their code or deploying. targetDevice is REQUIRED too: \"mobile\" if the app was designed mainly for phone screens, \"desktop\" if for computer browsers (not the same as contentType) — the owner's draft preview is framed from it, while the robot always films a 1280x720 desktop browser. If you have your own screenshot or demo video, pass absolute paths in screenshot/video (supplying a video skips automatic filming). Order demoScript.steps by importance — step 1 is the feature that absolutely cannot be missing. Uploading the same URL again does not create a new draft, it updates the existing one (use this to edit content); a draft made from an uploaded file has no URL to match, so to replace its files — or to change the URL — pass draftId, the draft id from the publish result. When you report back, tell the human it is a DRAFT: nothing is public until they open the review link and press publish.";
 
 export const PUBLISH_INPUT_SCHEMA = {
   "type": "object",
@@ -493,6 +493,78 @@ export const PUBLISH_INPUT_SCHEMA = {
         }
       }
     },
+    "introFilm": {
+      "type": "object",
+      "description": "Intro film for a work with NO screen worth filming — a CLI tool, backend, bot, hardware/IoT project, or an app locked behind a private access code. Instead of robot filming, Nookframe plays these scenes live on the card in one of its own motion styles, so send introFilm INSTEAD of demoScript/demoAccess (those gates are skipped, no deployUrl needed). Apps with a real screen must keep robot filming — do not use introFilm for them. You only fill text slots; layout, timing and animation are Nookframe's. Every on-screen text is { \"en\": \"...\", \"ko\": \"...\" } (both languages, the owner's meaning, short). Numbers must be honest: scenes that show numbers (hook, items, terminal, alert, stats) need data: \"sample\" (made-up example values — the film is labelled 'Sample data') or \"measured\" (real, with source: the file/log/doc it came from). Never present invented numbers as measured, and never put real people's names, addresses, room names, keys or private usage in a film. Write the story from the ownerInterview answers: why they built it (story/hook), what it does (flow/terminal/items), the moment they are proud of (alert/stats), then ending. 3–8 scenes, about 20–35 seconds total. Scene kinds and their fields — hook: { label, value (e.g. \"68%\", \"12,480\", ≤12 chars), alarm?, line }; story: { line, line2 }; items: { items: [{ value, label, alarm? }] ×2–6, line }; flow: { nodes: [label] ×2–5, line }; terminal: { command (≤60), output: [plain text lines] ×1–8, line }; alert: { title, body, line, line2 } (a phone notification + a headline); stats: { stats: [{ value (≤6), unit, label }] ×2–4, line }; ending: { line, line2, name }. Text limits: line ≤60, line2 ≤40–48, labels ≤20–40 characters; the server tells you the exact field if one is too long. style picks the look: text = fonts/layout/entrances, mood = colors/light/texture/camera, each one of hand (hand-drawn, warm paper), bignum (bold numbers, strong color), cinematic (dark, light, slow camera). Recommend what fits; the owner can change it in the review window.",
+      "properties": {
+        "style": {
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "string",
+              "enum": [
+                "hand",
+                "bignum",
+                "cinematic"
+              ]
+            },
+            "mood": {
+              "type": "string",
+              "enum": [
+                "hand",
+                "bignum",
+                "cinematic"
+              ]
+            }
+          },
+          "required": [
+            "text",
+            "mood"
+          ]
+        },
+        "scenes": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 8,
+          "items": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "hook",
+                  "story",
+                  "items",
+                  "flow",
+                  "terminal",
+                  "alert",
+                  "stats",
+                  "ending"
+                ]
+              },
+              "data": {
+                "type": "string",
+                "enum": [
+                  "sample",
+                  "measured"
+                ]
+              },
+              "source": {
+                "type": "string",
+                "description": "Where measured numbers came from (file, log, doc). Required when data is \"measured\"."
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          }
+        }
+      },
+      "required": [
+        "style",
+        "scenes"
+      ]
+    },
     "htmlBody": {
       "type": "string",
       "description": "The COMPLETE HTML of a single-file app, as text — use it when the work is not deployed anywhere and you cannot upload a file (a Claude artifact, a one-file page you wrote in this chat). It is stored as index.html and filmed like any static site, so it must be the whole document, not a fragment: send everything from <!doctype html> through </html>, with the CSS and JS inlined. If your answer would be cut off before the end, do NOT send a partial document — the server rejects it, and a half-written app would be published if it did not. Only for single-file works; anything with separate CSS/JS/asset files needs a real upload instead. Max 2MB."
@@ -532,7 +604,7 @@ export const TOOLS = [
       "idempotentHint": false,
       "openWorldHint": false
     },
-    "description": "Upload this project to Nookframe (a portfolio for vibe-coded work) as a draft. First take a quick look at the project, then interview the owner: ask them the ownerInterview questions in the chat, in plain words, and wait for their answers — it is REQUIRED (the server rejects the upload without it) and it must be their own words, not yours. Nookframe shows every work in Korean and English: set language (the owner's language, the one you write title/description in), put the same copy in the other language in translation, and list in appLanguages which of ko/en the app's own screens can show — the robot films once per language listed, and for a language the app cannot show, give every demoScript step a caption in it. If the app has no English, ask the owner whether to add an English version before you upload (their app, their call); if it has no Korean, just write Korean captions. You are the AI that built it, so write title/description/demoScript yourself from the repo (README, routes, git log) and pass them in, shaped by those answers. The description must NOT be one paragraph: it is 2-3 lines separated by newlines (\\n) — it is the first-impression copy laid over the work on the card, and a long line wraps and gets cut off on phones (a single paragraph, or any line over 52 columns where a CJK character counts as 2, is rejected). Give either deployUrl (a deployed public URL) or dir (absolute path to a local folder — static build output for web apps, the source folder itself for Python/CLI projects). If it is not deployed and needs a server or DB so a file upload will not do, you may pass a public GitHub repo URL as deployUrl instead (a last resort: the repo is cloned and run — JS repos via npm run dev/start, Python web apps by detecting Streamlit/Gradio/Dash/Django/Flask/FastAPI then pip install + run (Django also gets migrate run for it), and projects with no web screen (CLI tools, bots, backends) are filmed as a live terminal session where the robot types the commands (put the exact commands in demoScript and it gets much better). Private repos fail; apps needing a remote DB get a read-only demo). If the landing page and the actual app screen are different URLs, also pass appUrl (the demo and the embed open appUrl). demoAccess is REQUIRED — the filming robot never logs in, so decide 'what actually works before login' and answer with exactly one of: { url, params, note } if there is a way in without login; { noLogin: true, note: \"one line on what you checked\" } if no login is needed at all and every feature is usable from the first screen (noLogin without note is rejected); { impossible: true, note: \"why\" } if a guest path is fundamentally impossible (E2E encryption, mandatory device pairing). In that last case only the landing page gets filmed, so attaching a video is strongly recommended. Without one of the three the server rejects with 400. Account credentials are not accepted. The film and card are public, so screens the robot opens must show fake or sample data, never real people's records; if the app needs a demo mode to be filmable, ask the human before changing their code or deploying. targetDevice is REQUIRED too: \"mobile\" if the app was designed mainly for phone screens, \"desktop\" if for computer browsers (not the same as contentType) — the owner's draft preview is framed from it, while the robot always films a 1280x720 desktop browser. If you have your own screenshot or demo video, pass absolute paths in screenshot/video (supplying a video skips automatic filming). Order demoScript.steps by importance — step 1 is the feature that absolutely cannot be missing. Uploading the same URL again does not create a new draft, it updates the existing one (use this to edit content); a draft made from an uploaded file has no URL to match, so to replace its files — or to change the URL — pass draftId, the draft id from the publish result. When you report back, tell the human it is a DRAFT: nothing is public until they open the review link and press publish.",
+    "description": "Upload this project to Nookframe (a portfolio for vibe-coded work) as a draft. First take a quick look at the project, then interview the owner: ask them the ownerInterview questions in the chat, in plain words, and wait for their answers — it is REQUIRED (the server rejects the upload without it) and it must be their own words, not yours. Nookframe shows every work in Korean and English: set language (the owner's language, the one you write title/description in), put the same copy in the other language in translation, and list in appLanguages which of ko/en the app's own screens can show — the robot films once per language listed, and for a language the app cannot show, give every demoScript step a caption in it. If the app has no English, ask the owner whether to add an English version before you upload (their app, their call); if it has no Korean, just write Korean captions. If the work has no screen worth filming (a CLI, backend, bot, hardware, or an app behind a private access code), send introFilm instead of demoScript/demoAccess — Nookframe plays it live, no robot filming, no URL needed (see introFilm). You are the AI that built it, so write title/description/demoScript yourself from the repo (README, routes, git log) and pass them in, shaped by those answers. The description must NOT be one paragraph: it is 2-3 lines separated by newlines (\\n) — it is the first-impression copy laid over the work on the card, and a long line wraps and gets cut off on phones (a single paragraph, or any line over 52 columns where a CJK character counts as 2, is rejected). Give either deployUrl (a deployed public URL) or dir (absolute path to a local folder — static build output for web apps, the source folder itself for Python/CLI projects). If it is not deployed and needs a server or DB so a file upload will not do, you may pass a public GitHub repo URL as deployUrl instead (a last resort: the repo is cloned and run — JS repos via npm run dev/start, Python web apps by detecting Streamlit/Gradio/Dash/Django/Flask/FastAPI then pip install + run (Django also gets migrate run for it), and projects with no web screen (CLI tools, bots, backends) are filmed as a live terminal session where the robot types the commands (put the exact commands in demoScript and it gets much better). Private repos fail; apps needing a remote DB get a read-only demo). If the landing page and the actual app screen are different URLs, also pass appUrl (the demo and the embed open appUrl). demoAccess is REQUIRED (unless you send introFilm or attach a video) — the filming robot never logs in, so decide 'what actually works before login' and answer with exactly one of: { url, params, note } if there is a way in without login; { noLogin: true, note: \"one line on what you checked\" } if no login is needed at all and every feature is usable from the first screen (noLogin without note is rejected); { impossible: true, note: \"why\" } if a guest path is fundamentally impossible (E2E encryption, mandatory device pairing). In that last case only the landing page gets filmed, so attaching a video is strongly recommended. Without one of the three the server rejects with 400. Account credentials are not accepted. The film and card are public, so screens the robot opens must show fake or sample data, never real people's records; if the app needs a demo mode to be filmable, ask the human before changing their code or deploying. targetDevice is REQUIRED too: \"mobile\" if the app was designed mainly for phone screens, \"desktop\" if for computer browsers (not the same as contentType) — the owner's draft preview is framed from it, while the robot always films a 1280x720 desktop browser. If you have your own screenshot or demo video, pass absolute paths in screenshot/video (supplying a video skips automatic filming). Order demoScript.steps by importance — step 1 is the feature that absolutely cannot be missing. Uploading the same URL again does not create a new draft, it updates the existing one (use this to edit content); a draft made from an uploaded file has no URL to match, so to replace its files — or to change the URL — pass draftId, the draft id from the publish result. When you report back, tell the human it is a DRAFT: nothing is public until they open the review link and press publish.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -817,6 +889,78 @@ export const TOOLS = [
               "description": "Declares that no login is needed at all and every feature is usable from the first screen. Do not set it just because the landing page looks fine — only after checking the actual routes and guards."
             }
           }
+        },
+        "introFilm": {
+          "type": "object",
+          "description": "Intro film for a work with NO screen worth filming — a CLI tool, backend, bot, hardware/IoT project, or an app locked behind a private access code. Instead of robot filming, Nookframe plays these scenes live on the card in one of its own motion styles, so send introFilm INSTEAD of demoScript/demoAccess (those gates are skipped, no deployUrl needed). Apps with a real screen must keep robot filming — do not use introFilm for them. You only fill text slots; layout, timing and animation are Nookframe's. Every on-screen text is { \"en\": \"...\", \"ko\": \"...\" } (both languages, the owner's meaning, short). Numbers must be honest: scenes that show numbers (hook, items, terminal, alert, stats) need data: \"sample\" (made-up example values — the film is labelled 'Sample data') or \"measured\" (real, with source: the file/log/doc it came from). Never present invented numbers as measured, and never put real people's names, addresses, room names, keys or private usage in a film. Write the story from the ownerInterview answers: why they built it (story/hook), what it does (flow/terminal/items), the moment they are proud of (alert/stats), then ending. 3–8 scenes, about 20–35 seconds total. Scene kinds and their fields — hook: { label, value (e.g. \"68%\", \"12,480\", ≤12 chars), alarm?, line }; story: { line, line2 }; items: { items: [{ value, label, alarm? }] ×2–6, line }; flow: { nodes: [label] ×2–5, line }; terminal: { command (≤60), output: [plain text lines] ×1–8, line }; alert: { title, body, line, line2 } (a phone notification + a headline); stats: { stats: [{ value (≤6), unit, label }] ×2–4, line }; ending: { line, line2, name }. Text limits: line ≤60, line2 ≤40–48, labels ≤20–40 characters; the server tells you the exact field if one is too long. style picks the look: text = fonts/layout/entrances, mood = colors/light/texture/camera, each one of hand (hand-drawn, warm paper), bignum (bold numbers, strong color), cinematic (dark, light, slow camera). Recommend what fits; the owner can change it in the review window.",
+          "properties": {
+            "style": {
+              "type": "object",
+              "properties": {
+                "text": {
+                  "type": "string",
+                  "enum": [
+                    "hand",
+                    "bignum",
+                    "cinematic"
+                  ]
+                },
+                "mood": {
+                  "type": "string",
+                  "enum": [
+                    "hand",
+                    "bignum",
+                    "cinematic"
+                  ]
+                }
+              },
+              "required": [
+                "text",
+                "mood"
+              ]
+            },
+            "scenes": {
+              "type": "array",
+              "minItems": 3,
+              "maxItems": 8,
+              "items": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "hook",
+                      "story",
+                      "items",
+                      "flow",
+                      "terminal",
+                      "alert",
+                      "stats",
+                      "ending"
+                    ]
+                  },
+                  "data": {
+                    "type": "string",
+                    "enum": [
+                      "sample",
+                      "measured"
+                    ]
+                  },
+                  "source": {
+                    "type": "string",
+                    "description": "Where measured numbers came from (file, log, doc). Required when data is \"measured\"."
+                  }
+                },
+                "required": [
+                  "kind"
+                ]
+              }
+            }
+          },
+          "required": [
+            "style",
+            "scenes"
+          ]
         },
         "htmlBody": {
           "type": "string",
@@ -1140,6 +1284,78 @@ export const TOOLS = [
               "description": "Declares that no login is needed at all and every feature is usable from the first screen. Do not set it just because the landing page looks fine — only after checking the actual routes and guards."
             }
           }
+        },
+        "introFilm": {
+          "type": "object",
+          "description": "Intro film for a work with NO screen worth filming — a CLI tool, backend, bot, hardware/IoT project, or an app locked behind a private access code. Instead of robot filming, Nookframe plays these scenes live on the card in one of its own motion styles, so send introFilm INSTEAD of demoScript/demoAccess (those gates are skipped, no deployUrl needed). Apps with a real screen must keep robot filming — do not use introFilm for them. You only fill text slots; layout, timing and animation are Nookframe's. Every on-screen text is { \"en\": \"...\", \"ko\": \"...\" } (both languages, the owner's meaning, short). Numbers must be honest: scenes that show numbers (hook, items, terminal, alert, stats) need data: \"sample\" (made-up example values — the film is labelled 'Sample data') or \"measured\" (real, with source: the file/log/doc it came from). Never present invented numbers as measured, and never put real people's names, addresses, room names, keys or private usage in a film. Write the story from the ownerInterview answers: why they built it (story/hook), what it does (flow/terminal/items), the moment they are proud of (alert/stats), then ending. 3–8 scenes, about 20–35 seconds total. Scene kinds and their fields — hook: { label, value (e.g. \"68%\", \"12,480\", ≤12 chars), alarm?, line }; story: { line, line2 }; items: { items: [{ value, label, alarm? }] ×2–6, line }; flow: { nodes: [label] ×2–5, line }; terminal: { command (≤60), output: [plain text lines] ×1–8, line }; alert: { title, body, line, line2 } (a phone notification + a headline); stats: { stats: [{ value (≤6), unit, label }] ×2–4, line }; ending: { line, line2, name }. Text limits: line ≤60, line2 ≤40–48, labels ≤20–40 characters; the server tells you the exact field if one is too long. style picks the look: text = fonts/layout/entrances, mood = colors/light/texture/camera, each one of hand (hand-drawn, warm paper), bignum (bold numbers, strong color), cinematic (dark, light, slow camera). Recommend what fits; the owner can change it in the review window.",
+          "properties": {
+            "style": {
+              "type": "object",
+              "properties": {
+                "text": {
+                  "type": "string",
+                  "enum": [
+                    "hand",
+                    "bignum",
+                    "cinematic"
+                  ]
+                },
+                "mood": {
+                  "type": "string",
+                  "enum": [
+                    "hand",
+                    "bignum",
+                    "cinematic"
+                  ]
+                }
+              },
+              "required": [
+                "text",
+                "mood"
+              ]
+            },
+            "scenes": {
+              "type": "array",
+              "minItems": 3,
+              "maxItems": 8,
+              "items": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "hook",
+                      "story",
+                      "items",
+                      "flow",
+                      "terminal",
+                      "alert",
+                      "stats",
+                      "ending"
+                    ]
+                  },
+                  "data": {
+                    "type": "string",
+                    "enum": [
+                      "sample",
+                      "measured"
+                    ]
+                  },
+                  "source": {
+                    "type": "string",
+                    "description": "Where measured numbers came from (file, log, doc). Required when data is \"measured\"."
+                  }
+                },
+                "required": [
+                  "kind"
+                ]
+              }
+            }
+          },
+          "required": [
+            "style",
+            "scenes"
+          ]
         },
         "htmlBody": {
           "type": "string",
@@ -1514,6 +1730,78 @@ export const TOOLS = [
           "required": [
             "title",
             "description"
+          ]
+        },
+        "introFilm": {
+          "type": "object",
+          "description": "Intro film for a work with NO screen worth filming — a CLI tool, backend, bot, hardware/IoT project, or an app locked behind a private access code. Instead of robot filming, Nookframe plays these scenes live on the card in one of its own motion styles, so send introFilm INSTEAD of demoScript/demoAccess (those gates are skipped, no deployUrl needed). Apps with a real screen must keep robot filming — do not use introFilm for them. You only fill text slots; layout, timing and animation are Nookframe's. Every on-screen text is { \"en\": \"...\", \"ko\": \"...\" } (both languages, the owner's meaning, short). Numbers must be honest: scenes that show numbers (hook, items, terminal, alert, stats) need data: \"sample\" (made-up example values — the film is labelled 'Sample data') or \"measured\" (real, with source: the file/log/doc it came from). Never present invented numbers as measured, and never put real people's names, addresses, room names, keys or private usage in a film. Write the story from the ownerInterview answers: why they built it (story/hook), what it does (flow/terminal/items), the moment they are proud of (alert/stats), then ending. 3–8 scenes, about 20–35 seconds total. Scene kinds and their fields — hook: { label, value (e.g. \"68%\", \"12,480\", ≤12 chars), alarm?, line }; story: { line, line2 }; items: { items: [{ value, label, alarm? }] ×2–6, line }; flow: { nodes: [label] ×2–5, line }; terminal: { command (≤60), output: [plain text lines] ×1–8, line }; alert: { title, body, line, line2 } (a phone notification + a headline); stats: { stats: [{ value (≤6), unit, label }] ×2–4, line }; ending: { line, line2, name }. Text limits: line ≤60, line2 ≤40–48, labels ≤20–40 characters; the server tells you the exact field if one is too long. style picks the look: text = fonts/layout/entrances, mood = colors/light/texture/camera, each one of hand (hand-drawn, warm paper), bignum (bold numbers, strong color), cinematic (dark, light, slow camera). Recommend what fits; the owner can change it in the review window.",
+          "properties": {
+            "style": {
+              "type": "object",
+              "properties": {
+                "text": {
+                  "type": "string",
+                  "enum": [
+                    "hand",
+                    "bignum",
+                    "cinematic"
+                  ]
+                },
+                "mood": {
+                  "type": "string",
+                  "enum": [
+                    "hand",
+                    "bignum",
+                    "cinematic"
+                  ]
+                }
+              },
+              "required": [
+                "text",
+                "mood"
+              ]
+            },
+            "scenes": {
+              "type": "array",
+              "minItems": 3,
+              "maxItems": 8,
+              "items": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "hook",
+                      "story",
+                      "items",
+                      "flow",
+                      "terminal",
+                      "alert",
+                      "stats",
+                      "ending"
+                    ]
+                  },
+                  "data": {
+                    "type": "string",
+                    "enum": [
+                      "sample",
+                      "measured"
+                    ]
+                  },
+                  "source": {
+                    "type": "string",
+                    "description": "Where measured numbers came from (file, log, doc). Required when data is \"measured\"."
+                  }
+                },
+                "required": [
+                  "kind"
+                ]
+              }
+            }
+          },
+          "required": [
+            "style",
+            "scenes"
           ]
         }
       },

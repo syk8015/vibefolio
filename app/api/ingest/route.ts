@@ -31,6 +31,7 @@ import {
   UPLOAD_KINDS, UPLOAD_TEMP_KEYS, UPLOAD_REPLACE_MARKER, newUploadSession, type SniffedMedia, type UploadKind,
 } from "@/lib/ingestStore";
 import { htmlBodyIssue, htmlBodyToZip, HTML_BODY_MAX_BYTES } from "@/lib/htmlBody";
+import { introFilmIssue, filmSeconds, type IntroFilm } from "@/lib/introFilm/schema";
 import { uploadErrorResponse } from "./uploadError";
 import { logger } from "@/lib/logger";
 import { withUserStorage } from "@/lib/userStorage";
@@ -71,6 +72,8 @@ interface IngestPayload {
   uploads?: unknown;
   // 파일 하나짜리 작품의 HTML 전문(2026-09-17) — 셸 없는 채팅창 AI가 파일 대신 넘기는 길.
   htmlBody?: unknown;
+  // 소개 영상(2026-10-02) — 찍을 화면이 없는 작품의 장면 대본 { style, scenes }. lib/introFilm/schema.ts.
+  introFilm?: unknown;
   draftId?: unknown;
   newDraft?: unknown;
   dryRun?: unknown;
@@ -252,7 +255,26 @@ export async function POST(req: NextRequest) {
     let scriptStored = !!demoScript; // 컬럼 부재 디그레이드 시 false로 — 에코가 진실을 말하게
     const tags = normalizeTags(payload?.tags);
     const contentTypeId = normalizeContentType(payload?.contentType);
-    const targetDevice = normalizeTargetDevice(payload?.targetDevice);
+
+    // 소개 영상(2026-10-02, docs/intro-film.md). 찍을 화면이 없는 작품(CLI·백엔드·기기·잠긴 앱)은
+    // 촬영 대본 대신 장면 대본을 보낸다 — 명함이 그 자리에서 재생하므로 로봇 촬영이 없다. 그래서
+    // 직접 만든 영상과 같은 자리에서 대본·로그인 게이트를 면제하고, 대본 자체가 작품의 결과물이라
+    // 진입 주소 없이도 받는다(5단계). 검사는 lib/introFilm/schema.ts 한 벌 — 초안 수정·주인 수정과 같다.
+    let introFilm: IntroFilm | null = null;
+    if (payload?.introFilm !== undefined && payload?.introFilm !== null) {
+      const issue = introFilmIssue(payload.introFilm);
+      if (issue) {
+        return apiError({
+          status: 400, message: `introFilm is not valid at ${issue.path}: ${issue.message}`,
+          code: "INTRO_FILM_INVALID", field: issue.path,
+        });
+      }
+      introFilm = payload.introFilm as IntroFilm;
+    }
+    const hasIntroFilm = !!introFilm;
+    let introStored = hasIntroFilm; // 컬럼 부재 디그레이드 시 false로 — 에코가 진실을 말하게
+    // 소개 영상은 16:9 하나라 미리보기 틀을 물을 필요가 없다 — 답이 없으면 PC로 둔다.
+    const targetDevice = normalizeTargetDevice(payload?.targetDevice) ?? (hasIntroFilm ? "desktop" : null);
     let deviceStored = !!targetDevice; // 컬럼 부재 디그레이드 시 false로 — 에코가 진실을 말하게
 
     // demoAccess — 로그인 필요 앱의 데모 모드 진입 정보(url·params·note만, 계정
@@ -317,7 +339,7 @@ export async function POST(req: NextRequest) {
     // 보면 고쳐서 다시 보내므로, 이 거절이 곧 품질을 끌어올리는 유일한 순간이다.
     // 면제: 직접 만든 시연 영상을 준 경우(자동 촬영 자체를 건너뛴다).
     const hasOwnVideo = !!video || declared.includes("video");
-    if (!hasOwnVideo) {
+    if (!hasOwnVideo && !hasIntroFilm) {
       const steps = demoScript?.steps.length ?? 0;
       if (steps === 0) {
         return apiError({ status: 400, message: t.api.scriptRequired, code: "SCRIPT_REQUIRED", field: "demoScript" });
@@ -391,7 +413,8 @@ export async function POST(req: NextRequest) {
       appLanguages: payload?.appLanguages,
       translation: payload?.translation,
       script: demoScript,
-      hasOwnVideo,
+      // 소개 영상은 글이 이미 두 언어(장면마다 en·ko)라 장면 자막이 따로 필요 없다.
+      hasOwnVideo: hasOwnVideo || hasIntroFilm,
     });
     if (langCheck.issue) return workLanguageRejection(langCheck.issue, t);
     const languages = langCheck.value;
@@ -421,39 +444,42 @@ export async function POST(req: NextRequest) {
     let thumbnail = "";
     if (!bundle && !declared.includes("bundle")) {
       const entryUrl = strOrNull(payload?.appUrl) ?? strOrNull(payload?.deployUrl);
-      if (!entryUrl) {
+      if (!entryUrl && !hasIntroFilm) {
         return apiError({ status: 400, message: t.api.artifactRequired, code: "NO_ARTIFACT", field: "deployUrl" });
       }
-      const source = detectDemoSource(entryUrl);
-      if (!source) {
+      const source = entryUrl ? detectDemoSource(entryUrl) : null;
+      if (entryUrl && !source) {
         return apiError({
           status: 400, message: t.api.badUrl, code: "BAD_URL",
           field: strOrNull(payload?.appUrl) ? "appUrl" : "deployUrl",
         });
       }
-      // 외부 live_url은 콘텐츠호스트·사설망 조기 차단(실 SSRF 게이트는 발행 시 trigger-demo).
-      if (source.type === "live_url") {
-        const gate = await publicUrlGate(source.value, t);
-        if (gate) return gate;
-        // 외부 URL은 theater가 iframe하지 않으므로 썸네일이 없으면 밋밋하다 → thum.io로 찍는다.
-        thumbnail = screenshotUrl(source.value);
-      }
-      demoUrl = source.value;
+      // 소개 영상만 있고 주소가 없으면 여기서 끝 — 명함은 대본을 재생한다.
+      if (source) {
+        // 외부 live_url은 콘텐츠호스트·사설망 조기 차단(실 SSRF 게이트는 발행 시 trigger-demo).
+        if (source.type === "live_url") {
+          const gate = await publicUrlGate(source.value, t);
+          if (gate) return gate;
+          // 외부 URL은 theater가 iframe하지 않으므로 썸네일이 없으면 밋밋하다 → thum.io로 찍는다.
+          thumbnail = screenshotUrl(source.value);
+        }
+        demoUrl = source.value;
 
-      // 고르지 않은 쪽을 버리지 않고 demo_access.altUrl로 남긴다(피드백 B-4):
-      // "랜딩과 앱 중 뭘 찍을지"를 발행자가 미리 못 정해도, 촬영 직전 로컬 워커가
-      // 두 화면을 한 장씩 훑어 정보량 많은 쪽을 고를 수 있다. 지금까지는 loser가
-      // DB에 아예 도달하지 못해 그 판단 자체가 불가능했다. 로봇이 여는 주소이므로
-      // winner와 똑같은 게이트를 통과한 것만 남긴다. 게이트에서 걸리면 요청 전체를
-      // 400 내지 않고 alt만 포기한다 — 본 아티팩트(winner)는 멀쩡한데 부가 후보
-      // 하나 때문에 발행이 막히면 안 된다.
-      const appUrlRaw = strOrNull(payload?.appUrl);
-      const deployUrlRaw = strOrNull(payload?.deployUrl);
-      if (source.type === "live_url" && appUrlRaw && deployUrlRaw && !demoAccess?.altUrl) {
-        const altSource = detectDemoSource(deployUrlRaw);
-        if (altSource?.type === "live_url" && altSource.value !== source.value) {
-          if (!(await publicUrlGate(altSource.value, t))) {
-            demoAccess = { ...(demoAccess ?? {}), altUrl: altSource.value };
+        // 고르지 않은 쪽을 버리지 않고 demo_access.altUrl로 남긴다(피드백 B-4):
+        // "랜딩과 앱 중 뭘 찍을지"를 발행자가 미리 못 정해도, 촬영 직전 로컬 워커가
+        // 두 화면을 한 장씩 훑어 정보량 많은 쪽을 고를 수 있다. 지금까지는 loser가
+        // DB에 아예 도달하지 못해 그 판단 자체가 불가능했다. 로봇이 여는 주소이므로
+        // winner와 똑같은 게이트를 통과한 것만 남긴다. 게이트에서 걸리면 요청 전체를
+        // 400 내지 않고 alt만 포기한다 — 본 아티팩트(winner)는 멀쩡한데 부가 후보
+        // 하나 때문에 발행이 막히면 안 된다.
+        const appUrlRaw = strOrNull(payload?.appUrl);
+        const deployUrlRaw = strOrNull(payload?.deployUrl);
+        if (source.type === "live_url" && appUrlRaw && deployUrlRaw && !demoAccess?.altUrl) {
+          const altSource = detectDemoSource(deployUrlRaw);
+          if (altSource?.type === "live_url" && altSource.value !== source.value) {
+            if (!(await publicUrlGate(altSource.value, t))) {
+              demoAccess = { ...(demoAccess ?? {}), altUrl: altSource.value };
+            }
           }
         }
       }
@@ -464,7 +490,7 @@ export async function POST(req: NextRequest) {
     // 그대로 간다. DB 작업과 겹치게 지금 시작하고 응답 직전에 받는다(응답 지연 최소).
     // zip(미리보기) 경로는 아직 파일이 안 올라와 볼 HTML이 없어 건너뛴다.
     let selectorProbe: Promise<SelectorCheck> | null = null;
-    if (!hasOwnVideo && demoScript && /^https?:\/\//i.test(demoUrl)) {
+    if (!hasOwnVideo && !hasIntroFilm && demoScript && /^https?:\/\//i.test(demoUrl)) {
       selectorProbe = probeSelectors(composeProbeUrl(demoUrl, demoAccess), selectorsOf(demoScript));
     }
 
@@ -537,7 +563,7 @@ export async function POST(req: NextRequest) {
     // 하나 더 만들면 서버와 답이 갈라진다. 검사 못 하는 것은 파일 자체(zip 안전성·미디어
     // 매직바이트 일부)와 초안 개수 상한(쓰기 분기에서 센다)뿐이다.
     if (dryRun) {
-      const review = !hasOwnVideo && demoScript
+      const review = !hasOwnVideo && !hasIntroFilm && demoScript
         ? buildScriptReview(demoScript, selectorProbe ? await selectorProbe : null, t)
         : undefined;
       return NextResponse.json({
@@ -551,6 +577,7 @@ export async function POST(req: NextRequest) {
           title, description, comment, demoHint, tags, demoScript,
           contentTypeId, demoAccess, entryUrl: demoUrl, targetDevice, ownerInterview, languages,
         }, normalizeTags, review),
+        ...(introFilm ? { introFilm: introFilmEcho(introFilm) } : {}),
       });
     }
 
@@ -573,6 +600,8 @@ export async function POST(req: NextRequest) {
         target_device: targetDevice,
         owner_interview: ownerInterview,
         ...languageCols,
+        // 재발행 = 최신 페이로드가 진실 — 소개 영상을 빼고 다시 올리면 지운다.
+        intro_film: introFilm,
       };
       // 대본·로그인 답은 **영상이 아직 안 온 2단계 발행에서는 덮지 않는다**(2026-09-16).
       // 게이트가 `uploads:["video"]` 선언만 보고 면제해 주므로 이런 요청엔 대본이 없는
@@ -602,6 +631,7 @@ export async function POST(req: NextRequest) {
         if (col === "demo_script") scriptStored = false;
         if (col === "target_device") deviceStored = false;
         if (col === "owner_interview") interviewStored = false;
+        if (col === "intro_film") introStored = false;
         if (col in languageCols) languagesStored = false;
         ({ data: updRows, error: updErr } = await updateDraftRow());
       }
@@ -652,6 +682,7 @@ export async function POST(req: NextRequest) {
         target_device: targetDevice,
         owner_interview: ownerInterview,
         ...languageCols,
+        intro_film: introFilm,
         type: videoBuf ? "video" : "image",
         year: new Date().getFullYear().toString(),
         demo_url: demoUrl,
@@ -667,6 +698,7 @@ export async function POST(req: NextRequest) {
         if (col === "demo_script") scriptStored = false;
         if (col === "target_device") deviceStored = false;
         if (col === "owner_interview") interviewStored = false;
+        if (col === "intro_film") introStored = false;
         if (col in languageCols) languagesStored = false;
         ({ data: created, error: insErr } = await admin
           .from("projects").insert(row).select("id").single());
@@ -776,7 +808,7 @@ export async function POST(req: NextRequest) {
     // 9. 응답 — reviewUrl은 하드코딩 SITE_URL이 아니라 요청 origin 기준.
     const reviewUrl = `${req.nextUrl.origin}/dashboard?review=${projectId}`;
     // 대본 점검표 — 자동 촬영이 실제로 일어날 때만(영상 동봉·대본 미저장이면 없음).
-    const scriptReview = !hasOwnVideo && scriptStored && demoScript
+    const scriptReview = !hasOwnVideo && !hasIntroFilm && scriptStored && demoScript
       ? buildScriptReview(demoScript, selectorProbe ? await selectorProbe : null, t)
       : undefined;
     return NextResponse.json({
@@ -791,6 +823,7 @@ export async function POST(req: NextRequest) {
         ownerInterview: interviewStored ? ownerInterview : null,
         languages: languagesStored ? languages : null,
       }, normalizeTags, scriptReview),
+      ...(introFilm ? { introFilm: introStored ? introFilmEcho(introFilm) : { stored: false } } : {}),
       ...(upserted ? { upserted: true } : {}),
       // 안전상 빼고 저장한 파일(.env·.git/ 등). accepted가 "무엇이 들어갔나"라면
       // 이건 "무엇이 빠졌나" — 조용히 버리면 "왜 내 앱이 안 도나"가 된다.
@@ -804,4 +837,15 @@ export async function POST(req: NextRequest) {
     const tc = await pickApiT(req);
     return apiError({ status: 500, message: tc.api.retryLater, code: "INTERNAL", cause: err });
   }
+}
+
+/** 소개 영상 에코 — 무엇이 저장됐고 어떻게 보일지(장면 수·길이·스타일). 명함은 공개 즉시 이걸 재생한다. */
+function introFilmEcho(f: IntroFilm) {
+  return {
+    stored: true,
+    scenes: f.scenes.map((s) => s.kind),
+    seconds: Math.round(filmSeconds(f) * 10) / 10,
+    style: f.style,
+    note: "No robot filming for this work — the card plays these scenes live. The owner can change the style and fix text in the review window.",
+  };
 }

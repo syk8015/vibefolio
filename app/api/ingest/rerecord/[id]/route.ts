@@ -73,7 +73,7 @@ export async function POST(
     const admin = createAdminClient();
     const { data: project, error: selErr } = await admin
       .from("projects")
-      .select("id, user_id, title, demo_url, demo_access")
+      .select("id, user_id, title, demo_url, demo_access, is_draft")
       .eq("id", id)
       .maybeSingle();
     if (selErr || !project) {
@@ -82,6 +82,12 @@ export async function POST(
     // 서비스롤로 읽었으니 소유권은 여기서 직접 본다(RLS가 안 걸린다).
     if (project.user_id !== userId) {
       return apiError({ status: 403, message: t.api.projectForbidden, code: "FORBIDDEN" });
+    }
+    // 초안은 재촬영 대상이 아니다 — 영상도 [재촬영] 버튼도 없어서, 받아 두면 AI가 주인에게
+    // "대시보드에서 누르세요"라고 없는 버튼을 안내하게 된다(2026-10-02 커넥터 실사용 검사에서 발견).
+    // 초안 대본은 초안 수정 경로가 고친다.
+    if (project.is_draft) {
+      return apiError({ status: 409, message: t.api.rerecordDraft, code: "DRAFT_NOT_PUBLISHED" });
     }
 
     // 자막(2026-09-29, 작품 두 언어) — 발행 게이트와 같은 판정. 앱 화면 언어가 저장된 작품만

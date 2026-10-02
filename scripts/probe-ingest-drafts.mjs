@@ -8,6 +8,7 @@
 // 주의: ingest 발행 버킷(20/h)을 판당 ~3회, 관리 버킷(ingest-manage 60/h)을 ~8회 소비.
 // 서비스롤 키는 macOS 키체인에서 온다(파일 폴백) — scripts/_secrets.mjs 참조.
 import "./_secrets.mjs";
+import { wipeProbeDraft } from "./_probeFiles.mjs";
 import { createClient } from "@supabase/supabase-js";
 import { createHash, randomBytes } from "node:crypto";
 
@@ -38,7 +39,7 @@ const GATE = {
   description: "프로브가 만든 임시 행\n곧 지워집니다",
 };
 
-const { data: prof } = await svc.from("profiles").select("id").limit(1).maybeSingle();
+const { data: prof } = await svc.from("profiles").select("id").eq("username", "vivestarter").maybeSingle();
 const raw = `nf_live_${randomBytes(32).toString("base64url")}`;
 const { data: tok } = await svc.from("api_tokens").insert({
   user_id: prof.id,
@@ -52,15 +53,7 @@ const call = (method, path, body) => fetch(`${ORIGIN}${path}`, {
   headers: { Authorization: `Bearer ${raw}`, "Content-Type": "application/json" },
   body: body ? JSON.stringify(body) : undefined,
 });
-const wipeProject = async (pid) => {
-  for (const sub of ["", "_media", "_upload"]) {
-    const prefix = `${prof.id}/${pid}${sub ? `/${sub}` : ""}`;
-    const { data } = await svc.storage.from("project-files").list(prefix, { limit: 100 });
-    const keys = (data ?? []).filter((f) => f.id).map((f) => `${prefix}/${f.name}`);
-    if (keys.length) await svc.storage.from("project-files").remove(keys);
-  }
-  await svc.from("projects").delete().eq("id", pid);
-};
+const wipeProject = (pid) => wipeProbeDraft({ svc, token: raw, id: pid });
 const cleanupAll = async () => {
   const { data } = await svc.from("projects").select("id").like("title", "__probe_%");
   for (const r of data ?? []) await wipeProject(r.id);
@@ -119,14 +112,16 @@ try {
   await svc.from("projects").update({ is_draft: true }).eq("id", c3.projectId);
   // 공개 행은 목록에도 없어야 한다 — 플립 상태에서 이미 검증됐으므로 재확인 생략.
 
-  // (7) DELETE = 행 + 스토리지 정리 (더미 파일 심어 확인).
+  // (7) DELETE = 행 + 스토리지 정리. 더미는 옛 Supabase 버킷에 심는다(서비스롤은 닫힌 버킷에도 쓴다) —
+  // 이 맥엔 R2 키가 없어 R2엔 못 심고, 10-01 전 초안의 파일이 거기 남아 있을 수 있어 그 길도 지켜야 한다.
+  // R2 쪽 삭제는 probe-user-storage (5)·probe-ingest-draft-id가 본다.
   await svc.storage.from("project-files").upload(`${prof.id}/${c1.projectId}/_media/dummy.bin`, new Uint8Array([1, 2, 3]), { upsert: true });
   const d1 = await call("DELETE", `/api/ingest/drafts/${c1.projectId}`);
   const d1b = await d1.json().catch(() => ({}));
   const { data: gone } = await svc.from("projects").select("id").eq("id", c1.projectId).maybeSingle();
   const { data: leftover } = await svc.storage.from("project-files").list(`${prof.id}/${c1.projectId}/_media`, { limit: 10 });
   ok("DELETE 초안 → 행 삭제", d1.ok && d1b.deleted === true && gone == null, JSON.stringify(d1b));
-  ok("DELETE 초안 → 스토리지 파일 정리", (leftover ?? []).filter((f) => f.id).length === 0);
+  ok("DELETE 초안 → 옛 버킷 파일도 정리", (leftover ?? []).filter((f) => f.id).length === 0);
 
   const d2 = await call("DELETE", `/api/ingest/drafts/${c3.projectId}`);
   const { data: gone2 } = await svc.from("projects").select("id").eq("id", c3.projectId).maybeSingle();

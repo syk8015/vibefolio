@@ -20,6 +20,9 @@ export const NPX_SCHEMA = "npx nookframe@latest schema";
 // 발행 전 사전 검사(서버 드라이런, 0.1.15). 거절 사유를 **올리기 전에** 같은 코드로
 // 받아보는 유일한 길 — 게이트 판정을 CLI에 복제하지 않기로 한 결정의 다른 쪽 절반이다.
 export const NPX_CHECK = "npx nookframe@latest check";
+// 촬영 상태(0.1.23, 2026-10-02). 촬영은 주인이 공개한 뒤 몰아서 돌아 몇 시간 걸린다 — 알려주지
+// 않으면 CLI로 올린 AI는 "영상 다 찍혔어?"에 답할 길이 있는 줄 모르고 사람에게 대시보드를 보라고 한다.
+export const NPX_STATUS = "npx nookframe@latest status";
 
 // 자동발급 토큰의 name 센티널 — 서버(app/api/tokens)가 재발급 시 이전 것을 찾아
 // 폐기하는 키이자, 목록 UI가 현지화 라벨로 바꿔 보여주는 판별값. 클라이언트에서도
@@ -172,5 +175,6 @@ ${curlFallback(origin, code ?? CONNECT_CODE_PLACEHOLDER, [
   ])}
    A folder or zip upload needs the CLI; over plain HTTP send a deployUrl or htmlBody instead (screenshots and your own video are CLI-only too).
    If you don't have a shell: print the JSON in one \`\`\`json code block, then put this link on its own line right after it so I can click straight through: ${origin}/publish — I'll paste the JSON there.
-   To revise something already pushed, publish again with --id <the draft id it printed> — that draft is updated in place, no duplicates.`;
+   To revise something already pushed, publish again with --id <the draft id it printed> — that draft is updated in place, no duplicates.
+7) Filming starts only after I press publish, and it can take a few hours. When I ask whether the video is ready, don't send me to the dashboard — run ${NPX_STATUS} <the draft id> (or call get_nookframe_status if you have the MCP tools). It says whether it is still a draft, queued, filming, done (with the video link) or failed (with the reason and what to fix). Check when asked — don't sit in a loop waiting for it.`;
 }

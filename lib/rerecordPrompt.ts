@@ -1,5 +1,5 @@
 import type { DemoScript } from "@/lib/demoScript";
-import { CONNECT_CODE_PLACEHOLDER, curlFallback, loginCommand, outputLanguageLine } from "@/lib/connectSnippets";
+import { CONNECT_CODE_PLACEHOLDER, NPX_STATUS, curlFallback, loginCommand, outputLanguageLine } from "@/lib/connectSnippets";
 
 // 재촬영 프롬프트 (2026-08-25 사용자 확정 설계).
 //
@@ -116,6 +116,7 @@ ${curlFallback(base, codeArg, [
     { url: submitUrl, body: `-d '{"demoScript": <your script>, "note": "one line on what you changed and why"}'` },
   ])}
 Then tell the owner what you changed AND that nothing is re-recorded yet — they have to open Nookframe and press re-record.
+After they do, ${NPX_STATUS} ${c.projectId} (or the "get_nookframe_status" tool) tells you when the new film is done, or why it failed — check when asked, don't loop.
 
 Script shape:
 \`\`\`json

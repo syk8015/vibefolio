@@ -12,6 +12,7 @@ import {
 } from "@/lib/demoScript";
 import { probeSelectors, selectorsOf, composeProbeUrl, type SelectorCheck } from "@/lib/demoScriptReview";
 import { logger } from "@/lib/logger";
+import { introFilmIssue, type IntroFilm } from "@/lib/introFilm/schema";
 import { listFilesDeep, removeFiles } from "@/lib/storageList";
 import { userStorageClient } from "@/lib/userStorage";
 import {
@@ -70,13 +71,14 @@ async function loadDraft(
   id: string,
   userId: string,
   t: IngestDict,
-): Promise<{ id: string; hasOwnVideo: boolean; demoUrl: string; demoAccess: DemoAccess | null } | NextResponse> {
+): Promise<{ id: string; hasOwnVideo: boolean; hasIntroFilm: boolean; demoUrl: string; demoAccess: DemoAccess | null } | NextResponse> {
   const { data: row, error } = await admin
     .from("projects")
     // video_url = 제작자가 직접 준 시연 영상(있으면 자동 촬영을 안 한다) —
     // 대본 게이트의 면제 근거라 여기서 같이 읽는다. demo_url·demo_access는 대본이
     // 바뀔 때 셀렉터 실재 확인(점검표)이 여는 주소.
-    .select("id, user_id, is_draft, video_url, demo_url, demo_access")
+    // intro_film = 소개 영상 대본(2026-10-02) — 있으면 역시 자동 촬영이 없다(명함이 대본을 재생).
+    .select("id, user_id, is_draft, video_url, demo_url, demo_access, intro_film")
     .eq("id", id)
     .maybeSingle();
   if (error || !row) {
@@ -91,6 +93,7 @@ async function loadDraft(
   return {
     id: row.id as string,
     hasOwnVideo: !!(row.video_url as string | null),
+    hasIntroFilm: row.intro_film != null,
     demoUrl: (row.demo_url as string | null) ?? "",
     demoAccess: normalizeDemoAccess(row.demo_access).access,
   };
@@ -131,8 +134,27 @@ export async function PATCH(
     if (draft instanceof NextResponse) return draft;
 
     // 보낸 키만 갱신 — 검증은 /api/ingest 생성 경로와 같은 규칙.
-    const { hasOwnVideo } = draft;
     const upd: Record<string, unknown> = {};
+    // 소개 영상(2026-10-02) — 생성 경로와 같은 검사(lib/introFilm/schema.ts). null이면 빼고 다시 촬영 쪽으로.
+    // 대본·로그인 게이트 면제는 "고친 뒤 상태" 기준: 이번에 넣으면 면제, 이번에 빼면 면제 아님.
+    let introAfter = draft.hasIntroFilm;
+    if ("introFilm" in payload) {
+      if (payload.introFilm === null) {
+        upd.intro_film = null;
+        introAfter = false;
+      } else {
+        const issue = introFilmIssue(payload.introFilm);
+        if (issue) {
+          return apiError({
+            status: 400, message: `introFilm is not valid at ${issue.path}: ${issue.message}`,
+            code: "INTRO_FILM_INVALID", field: issue.path,
+          });
+        }
+        upd.intro_film = payload.introFilm as IntroFilm;
+        introAfter = true;
+      }
+    }
+    const hasOwnVideo = draft.hasOwnVideo || introAfter;
     if ("title" in payload) {
       const title = strOrNull(payload.title);
       if (!title) {

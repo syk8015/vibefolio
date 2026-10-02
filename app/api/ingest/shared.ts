@@ -195,6 +195,7 @@ export const OPTIONAL_COLUMN_MIGRATION = {
   primary_locale: "migration_work_languages.sql",
   app_locales: "migration_work_languages.sql",
   translations: "migration_work_languages.sql",
+  intro_film: "migration_intro_film.sql",
 } as const;
 export type OptionalColumn = keyof typeof OPTIONAL_COLUMN_MIGRATION;
 

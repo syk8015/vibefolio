@@ -15,6 +15,7 @@
 // 버킷(ingest-check 60/h). `__probe_dry_%` 행만 만들고 지운다.
 // 서비스롤 키는 macOS 키체인에서 온다(파일 폴백) — scripts/_secrets.mjs 참조.
 import "./_secrets.mjs";
+import { wipeProbeDraft } from "./_probeFiles.mjs";
 import { createClient } from "@supabase/supabase-js";
 import { createHash, randomBytes } from "node:crypto";
 
@@ -167,10 +168,7 @@ try {
   ok("payload 경로도 행을 안 만든다", (await probeRowCount()) === 1, "발행으로 만든 1건만 남아야 함");
 } finally {
   for (const pid of made) {
-    const { data } = await svc.storage.from("project-files").list(`${prof.id}/${pid}`, { limit: 100 });
-    const keys = (data ?? []).filter((f) => f.id).map((f) => `${prof.id}/${pid}/${f.name}`);
-    if (keys.length) await svc.storage.from("project-files").remove(keys);
-    await svc.from("projects").delete().eq("id", pid);
+    await wipeProbeDraft({ svc, token: raw, id: pid });
   }
   await svc.from("projects").delete().eq("user_id", prof.id).like("title", "__probe_dry_%");
   await svc.from("api_tokens").delete().eq("id", tok.id);

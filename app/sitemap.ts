@@ -20,6 +20,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${BASE}/login`, changeFrequency: "yearly", priority: 0.3 },
     { url: `${BASE}/terms`, changeFrequency: "yearly", priority: 0.2 },
     { url: `${BASE}/privacy`, changeFrequency: "yearly", priority: 0.2 },
+    { url: `${BASE}/docs/claude-connector`, changeFrequency: "monthly", priority: 0.4 },
   ];
 
   let dynamicRoutes: MetadataRoute.Sitemap = [];

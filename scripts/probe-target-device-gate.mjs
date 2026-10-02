@@ -13,6 +13,7 @@
 // 주의: ingest 발행 버킷(20/h)을 판당 6회, 관리 버킷을 2회 소비한다.
 // 서비스롤 키는 macOS 키체인에서 온다(파일 폴백) — scripts/_secrets.mjs 참조.
 import "./_secrets.mjs";
+import { wipeProbeDraft } from "./_probeFiles.mjs";
 import { createClient } from "@supabase/supabase-js";
 import { createHash, randomBytes } from "node:crypto";
 
@@ -114,7 +115,7 @@ try {
 
   // (2) 목록 밖의 값은 답으로 치지 않는다.
   const odd = keep(await post({ targetDevice: "tablet" }));
-  ok('엉뚱한 값("tablet") → 400', odd.status === 400 && odd.body?.code === "TARGET_DEVICE_REQUIRED", `status ${odd.status}`);
+  ok('엉뚱한 값("tablet") → 400 TARGET_DEVICE_INVALID(필요해요가 아니라 그 값은 안 돼요)', odd.status === 400 && odd.body?.code === "TARGET_DEVICE_INVALID", `status ${odd.status} ${odd.body?.code}`);
 
   // (3) 정상 답은 행과 에코 양쪽에 남는다.
   const MOBILE_URL = `https://example.com/probe-device-${STAMP}-mobile`;
@@ -174,10 +175,7 @@ try {
   ok("DB CHECK가 두 값 밖을 거부(23514)", chk?.code === "23514", chk ? `${chk.code} ${chk.message}` : "insert가 통과해 버림");
 } finally {
   for (const pid of made) {
-    const { data } = await svc.storage.from("project-files").list(`${prof.id}/${pid}`, { limit: 100 });
-    const keys = (data ?? []).filter((f) => f.id).map((f) => `${prof.id}/${pid}/${f.name}`);
-    if (keys.length) await svc.storage.from("project-files").remove(keys);
-    await svc.from("projects").delete().eq("id", pid);
+    await wipeProbeDraft({ svc, token: raw, id: pid });
   }
   await svc.from("api_tokens").delete().eq("id", tok.id);
   console.log(`\n정리 완료: 프로젝트 ${made.length}건 · 토큰 1건`);
