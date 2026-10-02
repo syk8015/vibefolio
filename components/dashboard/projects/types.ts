@@ -101,6 +101,8 @@ export interface DBProject {
   primary_locale: "ko" | "en" | null;
   app_locales: ("ko" | "en")[] | null;
   translations: WorkTranslations | null;
+  // 찍힌 영상 위 자막 시간표(공개 칸, 워커가 쓴다 — 주인은 /api/projects/[id]/captions로 글만 고친다).
+  demo_captions?: unknown;
   // 소개 영상(2026-10-02) — 찍을 화면이 없는 작품의 장면 대본(공개 칸). 있으면 촬영 대신 그 자리에서 재생한다.
   intro_film?: IntroFilm | null;
   // 워커가 대본으로 만든 영상 파일 정보(워커 전용 칸).
@@ -137,6 +139,8 @@ export type ProjectForm = Omit<
   | "primary_locale"
   | "app_locales"
   | "translations"
+  // 자막은 수정 창이 따로 저장한다(CaptionEditor — 폼의 [저장하기]에 실리지 않는다).
+  | "demo_captions"
   // 소개 영상도 검토 창에서만(서버 검사를 거쳐 저장한다).
   | "intro_film"
   | "intro_render"

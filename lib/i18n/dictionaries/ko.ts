@@ -494,6 +494,11 @@ export const ko = {
     rowYear: "연도",
     rowTools: "AI 도구",
     videoLabel: "직접 만든 영상",
+    // 공개된 영상의 자막 고치기(10-02) — 줄을 누르면 그 자리에서 고치고, Enter면 바로 저장된다([저장하기]와 따로).
+    captionsLabel: "자막",
+    captionsCount: (n: number) => `${n}줄`,
+    captionsNote: "줄을 눌러 고치면 바로 저장되고, 영상 위 자막이 그 자리에서 바뀌어요.",
+    captionSaved: "저장했어요",
     // 업그레이드안(10-01): 맨 위 명함 카드 미리보기 이름표, 고친 칸 이름표 옆 점의 풍선·낭독 글.
     preview: "미리보기",
     unsaved: "아직 저장 안 했어요",
@@ -974,6 +979,11 @@ export const ko = {
     rerecordReasonRequired: "무엇을 어떻게 바꾸고 싶은지 적어주세요.",
     rerecordInFlight: "지금 시연 영상을 만드는 중이에요. 끝난 뒤에 요청해 주세요.",
     rerecordSaveFailed: "요청을 저장하지 못했어요. 잠시 후 다시 시도해 주세요.",
+    // 공개된 영상 자막 고치기 (projects/[id]/captions)
+    captionNotFound: "이 자막을 찾지 못했어요. 창을 닫았다가 다시 열어 주세요.",
+    captionEmpty: "자막을 비울 수는 없어요.",
+    captionEditTooLong: (max: number) => `${max}자 안으로 써 주세요.`,
+    captionInFlight: "지금 영상을 다시 찍는 중이에요. 끝난 뒤에 고쳐 주세요.",
     // 자동 시연 소스 검증 (trigger-demo · ingest 공유)
     unsupportedSource: "자동 시연을 만들 수 없는 소스예요.",
     contentHost: (host: string) =>

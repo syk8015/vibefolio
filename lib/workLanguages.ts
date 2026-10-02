@@ -273,6 +273,39 @@ export function normalizeCaptionTrack(raw: unknown): CaptionTrack | null {
   return Object.keys(out).length ? out : null;
 }
 
+/**
+ * 공개된 영상의 자막 한 줄 글 고치기(2026-10-02) — 시각은 그대로, 글만. 촬영 뒤 시간표는 워커만 쓰는
+ * 칸이라 주인은 서버 라우트(/api/projects/[id]/captions)로만 고친다. 거절 이유는 그대로 화면 문구가 된다.
+ */
+export type CueEditIssue = "no-cue" | "empty" | "too-long";
+export function editCaptionCue(
+  raw: unknown, locale: SiteLocale, index: number, text: string,
+): { track: CaptionTrack; oldText: string; text: string } | { issue: CueEditIssue } {
+  const track = normalizeCaptionTrack(raw);
+  const cues = track?.[locale];
+  if (!track || !cues || !Number.isInteger(index) || index < 0 || index >= cues.length) return { issue: "no-cue" };
+  const v = text.replace(/\s+/g, " ").trim();
+  if (!v) return { issue: "empty" };
+  if ([...v].length > CAPTION_MAX) return { issue: "too-long" };
+  const oldText = cues[index].text;
+  return { track: { ...track, [locale]: cues.map((c, i) => (i === index ? { ...c, text: v } : c)) }, oldText, text: v };
+}
+
+/** 같은 글을 단 대본 장면의 자막도 같이 고친다 — 다시 찍어도 고친 글이 되살아나지 않게. 바뀐 게 없으면 null. */
+export function renameScriptCaption(
+  script: DemoScript | null, locale: SiteLocale, oldText: string, text: string,
+): DemoScript | null {
+  if (!script || oldText === text) return null;
+  let hit = false;
+  const steps = script.steps.map((st) => {
+    const cur = st.caption?.[locale];
+    if (typeof cur !== "string" || cur.replace(/\s+/g, " ").trim() !== oldText) return st;
+    hit = true;
+    return { ...st, caption: { ...st.caption, [locale]: text } };
+  });
+  return hit ? { ...script, steps } : null;
+}
+
 /** 다른 언어로 한 번 더 찍은 영상 주소 — { en: "https://…" }. https만 받는다. */
 export function normalizeLocaleVideos(raw: unknown): Partial<Record<SiteLocale, string>> | null {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;

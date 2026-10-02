@@ -1299,3 +1299,18 @@ locale도 언어별(en = "The live portfolio for vibe coders. Show your projects
 | common.stepDone | 끝남 | done | 숨김 글(sr-only) |
 | common.stepFailed | 실패 | failed | 숨김 글(sr-only) — 연결 창만 |
 | common.stepWaiting | 기다리는 중 | waiting | 숨김 글(sr-only) — 연결 창만 |
+
+## 공개된 영상 자막 고치기 (2026-10-02)
+
+수정 창 '더 보기 › 자막' 줄(CaptionEditor)과 서버 경로 `/api/projects/[id]/captions`.
+
+| 키 | 한국어 | English | 비고 |
+|---|---|---|---|
+| projectForm.captionsLabel | 자막 | Captions | 더 보기 줄 이름 |
+| projectForm.captionsCount | {n}줄 | {n} line(s) | 함수: n |
+| projectForm.captionsNote | 줄을 눌러 고치면 바로 저장되고, 영상 위 자막이 그 자리에서 바뀌어요. | Click a line to fix it — it saves right away and the caption over the video changes on the spot. | |
+| projectForm.captionSaved | 저장했어요 | Saved | ✓ 옆 |
+| api.captionNotFound | 이 자막을 찾지 못했어요. 창을 닫았다가 다시 열어 주세요. | Couldn't find this caption. Close the window and open it again. | |
+| api.captionEmpty | 자막을 비울 수는 없어요. | A caption can't be empty. | |
+| api.captionEditTooLong | {max}자 안으로 써 주세요. | Keep it under {max} characters. | 함수: max |
+| api.captionInFlight | 지금 영상을 다시 찍는 중이에요. 끝난 뒤에 고쳐 주세요. | The video is being re-filmed right now. Edit captions once it's done. | |
