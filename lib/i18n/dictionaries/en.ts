@@ -29,7 +29,7 @@ export const en: Dictionary = {
     githubContinue: "Continue with GitHub",
     emailContinue: "Continue with email",
     lastUsed: "Last used",
-    passwordInstead: "Sign in with a password",
+    passwordInstead: "Log in with a password",
     codeInstead: "Use a code instead",
     codeCheckTitle: "Check your email",
     codeSentBefore: "We sent a 6-digit code to ",
@@ -71,7 +71,7 @@ export const en: Dictionary = {
     title: "Continue to Nookframe",
     forgotPassword: "Forgot password?",
     submitting: "Signing in...",
-    submit: "Sign in",
+    submit: "Log in",
     otherWays: "Other ways",
     agreePrefix: "By continuing, you agree to the ",
     termsLink: "Terms",
@@ -96,7 +96,7 @@ export const en: Dictionary = {
     title: "Forgot password",
     submitting: "Sending...",
     submit: "Send reset link",
-    backToLogin: "Back to sign in",
+    backToLogin: "Back to log in",
     sentTitle: "Check your email",
     sentBefore: "We sent a reset link to ",
     sentAfter: "",
@@ -512,7 +512,7 @@ export const en: Dictionary = {
     cancel: "Cancel",
     loadFailed: "Couldn't load your sign-in methods.",
     retry: "Try again",
-    linked: (p: string) => `${p} linked. You can now sign in with ${p} too.`,
+    linked: (p: string) => `${p} linked. You can now log in with ${p} too.`,
     unlinked: (p: string) => `${p} unlinked.`,
     takenTitle: (p: string) => `This ${p} account is already linked to another Nookframe account.`,
     takenBody: "To delete that account or merge the two, contact us.",
@@ -534,7 +534,7 @@ export const en: Dictionary = {
     logoutHere: "This device",
     logoutAll: "All devices",
     logoutAllBtn: "Log out all",
-    logoutAllConfirm: "Log out on every device? This one goes back to the sign-in page too.",
+    logoutAllConfirm: "Log out on every device? This one goes back to the login page too.",
     loggingOut: "Logging out…",
     logoutFailed: "Couldn't log out. Please try again in a moment.",
     thisDevice: (d: string) => `This device: ${d}`,
@@ -703,9 +703,9 @@ export const en: Dictionary = {
     errorBody: "Please start the connection again.",
     errorDetails: "Details",
     backToDashboard: "Back to dashboard",
-    loginTitle: "Please sign in first",
-    loginBody: "Sign in, then press Connect once more in the program that asked. This screen opens straight away that time.",
-    loginCta: "Sign in",
+    loginTitle: "Please log in first",
+    loginBody: "Log in, then press Connect once more in the program that asked. This screen opens straight away that time.",
+    loginCta: "Log in",
   },
   share: {
     share: "Share",
@@ -884,7 +884,7 @@ export const en: Dictionary = {
     jsonBodyInvalid: "Couldn't parse the JSON body.",
     titleRequired: "title is required.",
     descriptionTooLong: (max: number) =>
-      `description is too long (max ${max} characters). Only 2–3 sentences show on the card — please shorten it.`,
+      `description is too long (max ${max} characters). Only 2–3 sentences show on the frame — please shorten it.`,
     draftLimit: (max: number) =>
       `Too many drafts are waiting for review (max ${max}). Publish or clean some up on your dashboard first.`,
     artifactRequired: "One of deployUrl (or appUrl), a file bundle, or htmlBody (the full HTML of a single-file work) is required.",
@@ -996,9 +996,9 @@ export const en: Dictionary = {
         kind === "empty"
           ? "description is required."
           : kind === "lines"
-            ? `description has ${n} line(s). Only 3 lines show on the card.`
+            ? `description has ${n} line(s). Keep it to 3 lines at most.`
             : `Line ${n} of description is too long (max ${maxCols} columns — one CJK character counts as 2). On a phone that line wraps and the last line gets cut off.`;
-      return `${head} The description sits ON TOP of the work on your public card, so write it as 2–3 short lines separated by newlines (\\n), not as a paragraph. ${example}`;
+      return `${head} The description is the first thing people read, right under the work on your frame, so write it as 2–3 short lines separated by newlines (\\n), not as a paragraph. ${example}`;
     },
     mediaImageTooLarge: (maxMb: number) => `The screenshot image is too large (max ${maxMb}MB).`,
     mediaVideoTooLarge: (maxMb: number) => `The demo video is too large (max ${maxMb}MB).`,
@@ -1011,7 +1011,7 @@ export const en: Dictionary = {
     draftIdNotDraft: "That project is already published — draftId only updates drafts. To change a published work's demo video, submit a new script with rerecord.",
     newDraftConflict: "newDraft and draftId are opposites — newDraft always creates a new draft, draftId updates that one. Send only one of them.",
     publishedTwin: (title: string, id: string, byUrl: boolean) =>
-      `The owner already has a PUBLISHED work with the same ${byUrl ? "entry URL" : "title"}: "${title}" (id ${id}). Publishing this would put the same work on their public card twice, so nothing was saved. (drafts lists only unpublished work — that is why you did not see it.) Ask the owner before sending again: to change that work's demo video, use rerecord with id ${id}; its text they edit in the dashboard. If they want this as a separate card (a new version, or a genuinely different work), publish again with "newDraft": true (CLI --new) — and if it replaces "${title}", tell them to delete the old one in the dashboard after publishing this one.`,
+      `The owner already has a PUBLISHED work with the same ${byUrl ? "entry URL" : "title"}: "${title}" (id ${id}). Publishing this would put the same work on their frame twice, so nothing was saved. (drafts lists only unpublished work — that is why you did not see it.) Ask the owner before sending again: to change that work's demo video, use rerecord with id ${id}; its text they edit in the dashboard. If they want this as a separate card (a new version, or a genuinely different work), publish again with "newDraft": true (CLI --new) — and if it replaces "${title}", tell them to delete the old one in the dashboard after publishing this one.`,
     draftNoFields: "No fields to update.",
     draftUrlImmutable: "To change the URL or files, run publish again with \"draftId\": \"<this draft's id>\" in the payload — that draft is updated in place (publishing the same URL again also updates it).",
     projectCreateFailed: "Couldn't create the project.",

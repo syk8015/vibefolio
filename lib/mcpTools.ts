@@ -50,7 +50,7 @@ export const MCP_TOOLS: McpTool[] = [
         },
         "builderNote": {
           "type": "string",
-          "description": "(optional) Short one-liner shown as a speech bubble on the public card, drawn from ownerInterview.howIUse in the owner's voice. One line, not a paragraph — e.g. \"I check it every Monday morning\""
+          "description": "(optional) Short one-liner shown as a speech bubble on the owner's frame, drawn from ownerInterview.howIUse in the owner's voice. One line, not a paragraph — e.g. \"I check it every Monday morning\""
         },
         "demoHighlights": {
           "type": "string",
@@ -433,7 +433,7 @@ export const MCP_TOOLS: McpTool[] = [
         },
         "builderNote": {
           "type": "string",
-          "description": "(optional) Short one-liner shown as a speech bubble on the public card, drawn from ownerInterview.howIUse in the owner's voice. One line, not a paragraph — e.g. \"I check it every Monday morning\""
+          "description": "(optional) Short one-liner shown as a speech bubble on the owner's frame, drawn from ownerInterview.howIUse in the owner's voice. One line, not a paragraph — e.g. \"I check it every Monday morning\""
         },
         "demoHighlights": {
           "type": "string",

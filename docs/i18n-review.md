@@ -1346,3 +1346,14 @@ locale도 언어별(en = "The live portfolio for vibe coders. Show your projects
 | publish.errors.bouncedFiles | 파일에 고칠 곳이 있어 올리지 못했어요. | Couldn't upload — a file needs a fix. | 추가 · 파일 단계(finalize) 거절 |
 | publish.fixWithAi | 수정 프롬프트 복사 | Copy fix prompt | ⚠️ 교체 · 전엔 "이 사유를 AI에게 전달하기" / "Hand this reason to your AI" — 사이트가 AI에게 보내는 게 아니라 복사하는 것(검토 창과 같은 이름) |
 | publish.bounceWhy | 까닭 보기 | See why | 추가 · 접힌 사유 원문 |
+
+## 남은 말 3건 (2026-10-02) — 페이지 이름 · 옛 소개글 안내 · Log in 통일
+
+| 키 | 한국어 | English | 비고 |
+|---|---|---|---|
+| email.profileTakedownSubject | 프레임을 비공개로 돌렸어요 — {handle} | Your page was made private — {handle} | ⚠️ 교체 · 전엔 "명함을 비공개로 전환했어요"(페이지 전체는 프레임) |
+| email.profileTakedownBody | 신고가 접수되어 검토한 결과, {handle} 프레임과 공개 작품을 비공개로 돌렸어요. … | (그대로) | ⚠️ 교체 · 명함 → 프레임 |
+| api.descriptionTooLong | … 프레임에는 2~3문장만 보이니 짧게 줄여 주세요. | … Only 2–3 sentences show on the frame — please shorten it. | 교체 · 명함/card → 프레임/frame |
+| api.descriptionShape | … 소개글은 3줄까지예요. / 소개글은 프레임에서 작품 바로 아래 뜨는 첫인상 글이라 … 써야 해요. | … Keep it to 3 lines at most. / The description is the first thing people read, right under the work on your frame … | ⚠️ 교체 · 2차 덜어내기 뒤로 소개글은 작품 위가 아니라 바로 아래 · 합니다체 → 해요체 |
+| api.publishedTwin | (그대로) | … would put the same work on their frame twice … | 교체 · public card → frame |
+| auth 등 7곳 | (그대로) | Sign in → Log in | ⚠️ 영어 통일 — Log out과 짝. "Log in with a password", "Back to log in", "Please log in first", "You can now log in with {p} too" 등 |

@@ -157,7 +157,7 @@
     "properties": {
       "title": { "type": "string", "description": "Short, clear product name" },
       "description": { "type": "string", "description": "2-3 lines separated by newlines (if unfinished, say where it is headed)" },
-      "builderNote": { "type": "string", "description": "(optional) Short one-liner shown as a speech bubble on the public card, drawn from ownerInterview.howIUse in the owner's voice. One line, not a paragraph — e.g. \"I check it every Monday morning\"" },
+      "builderNote": { "type": "string", "description": "(optional) Short one-liner shown as a speech bubble on the owner's frame, drawn from ownerInterview.howIUse in the owner's voice. One line, not a paragraph — e.g. \"I check it every Monday morning\"" },
       "demoHighlights": { "type": "string", "description": "(legacy — can be omitted when demoScript is present) 3-5 highlights in prose, max 500 chars" },
       "ownerInterview": { "$use": "ownerInterview" },
       "language": { "$use": "language" },

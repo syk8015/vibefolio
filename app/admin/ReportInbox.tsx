@@ -125,7 +125,7 @@ export function ReportInbox({ items }: { items: ReportItem[] }) {
                 className="px-4 py-1.5 rounded-full text-sm transition-colors disabled:opacity-50"
                 style={{ background: "rgba(179,71,71,0.14)", color: "#8e3535", cursor: "pointer" }}
               >
-                {r.targetType === "profile" ? "명함 정지" : "비공개로 내리기"}
+                {r.targetType === "profile" ? "프레임 정지" : "비공개로 내리기"}
               </button>
               <button
                 onClick={() => act(r.id, "resolve")}

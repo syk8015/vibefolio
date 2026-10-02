@@ -1022,7 +1022,7 @@ export const ko = {
     jsonBodyInvalid: "JSON 본문을 읽을 수 없어요.",
     titleRequired: "title이 필요해요.",
     descriptionTooLong: (max: number) =>
-      `description이 너무 길어요(최대 ${max}자). 명함 화면에는 2~3문장만 보이니 짧게 줄여주세요.`,
+      `description이 너무 길어요(최대 ${max}자). 프레임에는 2~3문장만 보이니 짧게 줄여 주세요.`,
     draftLimit: (max: number) =>
       `검토 대기 중인 초안이 너무 많아요 (최대 ${max}개). 대시보드에서 먼저 공개하거나 정리해 주세요.`,
     artifactRequired: "deployUrl(또는 appUrl), 파일 번들(bundle), 또는 htmlBody(파일 하나짜리 작품의 HTML 전문) 중 하나가 필요해요.",
@@ -1137,9 +1137,9 @@ export const ko = {
         kind === "empty"
           ? "description(소개글)이 필요해요."
           : kind === "lines"
-            ? `description이 ${n}줄이에요. 명함에는 3줄까지만 보입니다.`
+            ? `description이 ${n}줄이에요. 소개글은 3줄까지예요.`
             : `description의 ${n}번째 줄이 너무 길어요(최대 ${maxCols}칸 — 한글 한 글자가 2칸). 폰에서 그 줄이 접히면서 마지막 줄이 잘려요.`;
-      return `${head} 소개글은 명함에서 작품 위에 겹쳐 뜨는 첫인상 글이라, 한 문단이 아니라 줄바꿈(\\n)으로 끊은 2~3줄로 써야 합니다. ${example}`;
+      return `${head} 소개글은 프레임에서 작품 바로 아래 뜨는 첫인상 글이라, 한 문단이 아니라 줄바꿈(\\n)으로 끊은 2~3줄로 써야 해요. ${example}`;
     },
     mediaImageTooLarge: (maxMb: number) => `스크린샷 이미지가 너무 커요 (최대 ${maxMb}MB).`,
     mediaVideoTooLarge: (maxMb: number) => `시연 영상이 너무 커요 (최대 ${maxMb}MB).`,
@@ -1292,8 +1292,8 @@ export const ko = {
     takedownReason: (reason: string) => `신고 사유: ${reason}`,
     takedownAppeal: "판단에 이의가 있으면 이 메일에 답장하거나 vivestarter@gmail.com 으로 알려주세요. 다시 검토할게요.",
     takedownCta: "대시보드에서 보기",
-    profileTakedownSubject: (handle: string) => `명함을 비공개로 전환했어요 — ${handle}`,
-    profileTakedownBody: (handleHtml: string) => `신고가 접수되어 검토한 결과, ${handleHtml} 명함과 공개 작품을 비공개로 돌렸어요. 작품과 파일은 그대로 남아 있고 대시보드에서 볼 수 있어요.`,
+    profileTakedownSubject: (handle: string) => `프레임을 비공개로 돌렸어요 — ${handle}`,
+    profileTakedownBody: (handleHtml: string) => `신고가 접수되어 검토한 결과, ${handleHtml} 프레임과 공개 작품을 비공개로 돌렸어요. 작품과 파일은 그대로 남아 있고 대시보드에서 볼 수 있어요.`,
     // 관리자가 촬영·재촬영 요청을 거절했을 때 (2026-09-22 R4). 예전엔 아무 소식이 없어
     // 사용자가 같은 요청을 계속 다시 넣었다.
     declinedSubject: (title: string) => `촬영 요청이 승인되지 않았어요 — ${title}`,
