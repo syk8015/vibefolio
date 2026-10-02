@@ -7,6 +7,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { introFilmIssue, filmSeconds, honestyLabel, type IntroFilm } from "../lib/introFilm/schema";
 import { resolveStyle, mixHex, STYLES } from "../lib/introFilm/styles";
 import { SAMPLE_HOME_CLIMATE, SAMPLE_CLI } from "../lib/introFilm/samples";
+import { introFilmHash } from "../lib/introFilm/hash";
 
 let failed = 0;
 const ok = (name: string, pass: boolean, detail = "") => {
@@ -49,6 +50,16 @@ ok("(4e) 고른 결과를 고쳐도 원본 토큰은 그대로", STYLES.cinemati
 ok("(4f) 같은 걸 고르면 순수 스타일", JSON.stringify(resolveStyle({ text: "hand", mood: "hand" }).texture) === JSON.stringify(STYLES.hand.texture));
 ok("(4g) 색 섞기 양 끝", mixHex("#000000", "#ffffff", 0) === "#000000" && mixHex("#000000", "#ffffff", 1) === "#ffffff");
 ok("(4h) 색 섞기 가운데는 회색", /^#[6-9a-c][0-9a-f]{5}$/.test(mixHex("#000000", "#ffffff", 0.5)), mixHex("#000000", "#ffffff", 0.5));
+
+// ── 4.5 대본 지문(워커가 다시 만들지 가르는 값) ─────────────────────────────────────
+{
+  const a = introFilmHash(SAMPLE_HOME_CLIMATE);
+  const reordered = JSON.parse(JSON.stringify({ scenes: SAMPLE_HOME_CLIMATE.scenes, style: { mood: "cinematic", text: "bignum" } }));
+  ok("(4i) 키 순서가 달라도 같은 지문", introFilmHash(reordered) === a);
+  ok("(4j) 스타일을 바꾸면 지문이 바뀜", introFilmHash({ ...SAMPLE_HOME_CLIMATE, style: { text: "hand", mood: "cinematic" } }) !== a);
+  const edited = clone(SAMPLE_HOME_CLIMATE); edited.scenes[0].line = { en: "Too damp.", ko: "너무 습해요." };
+  ok("(4k) 글자를 고치면 지문이 바뀜", introFilmHash(edited) !== a);
+}
 
 // ── 5. 틀의 결정성: 시계·타이머·난수 금지 ─────────────────────────────────────────
 const BANNED: [RegExp, string][] = [
