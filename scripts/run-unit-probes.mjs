@@ -12,6 +12,7 @@ const PROBES = [
   "scripts/probe-ssrf-unit.mts",            // lib/ssrf 내부 주소 차단 — 숫자·IPv6 표기, localhost, 프로토콜
   "scripts/probe-body-cap-unit.mts",        // 요청 본문 상한 — 머리표 없는 조각 전송도 실제 바이트로 끊기
   "scripts/probe-small-holes-unit.mts",     // 작은 구멍 — 유입 주소는 호스트만·소셜 배지 www. 앞만·길이 상한 SQL not valid
+  "scripts/probe-media-scan-unit.mts",      // 공개 그림 내용 검사 — 본 주소 건너뛰기·오류 하루 뒤 다시·답 다듬기·신고 사유·키 없으면 꺼짐
   "scripts/probe-prompt-secrets-unit.mts",  // 프롬프트 3종에 토큰이 안 실리는지(1회용 코드만)
   "scripts/probe-schema-drift.mts",         // 생성물(cli/src/schema.js·lib/mcpTools.ts)이 원본과 어긋났는지
   "scripts/probe-oauth-unit.mts",           // 원격 MCP OAuth — CIMD 두 항목·client_id 규칙·PKCE
