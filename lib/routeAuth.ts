@@ -3,6 +3,7 @@ import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { apiError, type ApiErrorBody } from "./apiError";
 import { isAdminEmail } from "./adminEmails";
+import { noteAdminDenied, noteAdminAllowed } from "./adminWatch";
 
 // Cookie-session gates for API routes and server pages. Same contract as
 // lib/workerAuth.ts (`requireWorker`): the helper either hands back what the
@@ -37,7 +38,9 @@ export async function requireAdmin(): Promise<RouteSession | NextResponse<ApiErr
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user || !isAdminEmail(user.email)) {
+    await noteAdminDenied("관리자 API", user);
     return apiError({ status: 404, message: "찾을 수 없어요.", code: "NOT_FOUND" });
   }
+  await noteAdminAllowed("관리자 API", user);
   return { user, supabase };
 }

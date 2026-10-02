@@ -19,10 +19,15 @@ import { logger } from "@/lib/logger";
 // only as a last resort and only its LAST hop. Hashed with the service key as
 // pepper so raw IPs never sit in a table; stable per deploy, all a bucket needs.
 export function clientIpKey(req: NextRequest): string {
+  return clientIpKeyFromHeaders(req.headers);
+}
+
+// 같은 규칙 — 요청 객체 없이 headers()만 있는 서버 컴포넌트·헬퍼용.
+export function clientIpKeyFromHeaders(h: Pick<Headers, "get">): string {
   const ip =
-    req.headers.get("x-vercel-forwarded-for") ??
-    req.headers.get("x-real-ip") ??
-    (req.headers.get("x-forwarded-for")?.split(",").pop()?.trim() || "unknown");
+    h.get("x-vercel-forwarded-for") ??
+    h.get("x-real-ip") ??
+    (h.get("x-forwarded-for")?.split(",").pop()?.trim() || "unknown");
   const pepper = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
   return createHash("sha256").update(`${pepper}:${ip}`).digest("hex").slice(0, 32);
 }
