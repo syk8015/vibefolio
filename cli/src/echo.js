@@ -196,3 +196,20 @@ export function formatScriptReviewWarnings(review) {
   }
   return out;
 }
+
+// 파일 쪽 알림(2026-10-02). droppedFiles = 안전상 저장하지 않은 비밀 파일(.env 등),
+// privacyWarnings = 막지 않고 알리는 개인정보(이메일·MAC·데이터 폴더). 둘 다 서버가 판정하고
+// 여기선 그대로 편다 — 판정 규칙을 CLI에 복사하지 않는다(AGENTS.md).
+export function formatFileNotes(body) {
+  const lines = [];
+  if (body?.gitignored) {
+    lines.push(`  Skipped ${body.gitignored} item(s) listed in the folder's .gitignore.`);
+  }
+  if (Array.isArray(body?.droppedFiles) && body.droppedFiles.length) {
+    lines.push(`  ⚠ Not uploaded, for safety: ${body.droppedFiles.join("; ")}`);
+  }
+  if (Array.isArray(body?.privacyWarnings)) {
+    for (const w of body.privacyWarnings) lines.push(`  ⚠ ${w}`);
+  }
+  return lines;
+}

@@ -2,8 +2,8 @@ import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join, basename, resolve } from "node:path";
 import { getToken, getOrigin } from "./config.js";
-import { zipDir } from "./zip.js";
-import { formatAccepted } from "./echo.js";
+import { zipDirWithInfo } from "./zip.js";
+import { formatAccepted, formatFileNotes } from "./echo.js";
 import { readJsonObject } from "./jsonInput.js";
 
 const BUILD_DIRS = ["dist", "out", "build", "public"];
@@ -59,8 +59,9 @@ export async function runPublish({ payload = {}, dir = null, screenshotPath = nu
   const body1 = await step1.json().catch(() => ({}));
   if (!step1.ok) throw new Error(`${body1.error || `Could not start the upload (HTTP ${step1.status})`}${body1.field ? ` [field: ${body1.field}]` : ""}`);
 
+  const zipped = dir ? await zipDirWithInfo(dir) : null;
   const files = {
-    bundle: dir ? await zipDir(dir) : null,
+    bundle: zipped ? zipped.buffer : null,
     screenshot: screenshotPath ? await readFile(screenshotPath) : null,
     video: videoPath ? await readFile(videoPath) : null,
   };
@@ -92,6 +93,8 @@ export async function runPublish({ payload = {}, dir = null, screenshotPath = nu
     ...body2,
     accepted: body2.accepted ?? body1.accepted,
     ...(body1.upserted ? { upserted: true } : {}),
+    // .gitignore 때문에 zip에서 뺀 항목 수 — 서버는 모르는 값이라 여기서 붙인다(출력은 호출부).
+    ...(zipped?.gitignored ? { gitignored: zipped.gitignored } : {}),
   };
 }
 
@@ -208,6 +211,7 @@ export async function publishCommand(args) {
       ? "\n✓ Updated the existing draft with the same URL."
       : "\n✓ Uploaded to Nookframe as a draft.");
   for (const line of formatAccepted(body.accepted)) console.log(line);
+  for (const line of formatFileNotes(body)) console.log(line);
   console.log(`\n  Review and publish: ${body.reviewUrl}`);
   // 다음 수정이 중복 초안을 만들지 않게 id와 방법을 같이 알려준다 — 파일 업로드 초안은 URL로 못 찾는다.
   if (body.projectId) {

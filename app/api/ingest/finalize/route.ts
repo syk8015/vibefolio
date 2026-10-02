@@ -123,6 +123,7 @@ export async function POST(req: NextRequest) {
     // 새어나가야 하므로 try 밖에 선언한다 — 알려주지 않으면 발행자는 자기 앱이 왜
     // 안 도는지 모른다.
     let droppedFiles: string[] = [];
+    let privacyWarnings: string[] = [];
     try {
       const updates: Record<string, string> = {};
       if (oversized) throw new UploadError(t.api.uploadTooLarge, "too-large");
@@ -144,6 +145,7 @@ export async function POST(req: NextRequest) {
         const stored = await storeZipBundle(files, userId, projectId, bundleBuf.buffer as ArrayBuffer);
         const { entryPath, runnable } = stored;
         droppedFiles = summarizeDropped(stored.dropped, t.api.secretFileKinds);
+        privacyWarnings = stored.warnings;
         keep = new Set(stored.keys);
         updates.demo_url = `/api/preview/${userId}/${projectId}/${entryPath}`;
         // runnable 앵커(소스 zip)는 미리보기 화면이 없다 — 인라인 경로와 동일하게
@@ -178,6 +180,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       ok: true, projectId, reviewUrl,
       ...(droppedFiles.length ? { droppedFiles } : {}),
+      // 막지 않은 개인정보 경고(lib/uploadWarnings.ts) — AI가 주인에게 물어보게 한다.
+      ...(privacyWarnings.length ? { privacyWarnings } : {}),
     });
   } catch (err) {
     const tc = await pickApiT(req);

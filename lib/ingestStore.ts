@@ -13,6 +13,7 @@ import {
   type DroppedFile,
 } from "./upload-safety";
 import { detectNativeApp } from "./nativeApp";
+import { scanUploadWarnings, formatUploadWarnings } from "./uploadWarnings";
 import { logger } from "./logger";
 
 // 서비스롤 admin 클라이언트 중 여기서 쓰는 표면만 (demoPayload.ts의 선례).
@@ -154,7 +155,7 @@ export async function storeZipBundle(
   userId: string,
   projectId: string,
   buf: ArrayBuffer,
-): Promise<{ entryPath: string; runnable: boolean; dropped: DroppedFile[]; keys: string[] }> {
+): Promise<{ entryPath: string; runnable: boolean; dropped: DroppedFile[]; keys: string[]; warnings: string[] }> {
   if (buf.byteLength > MAX_UPLOAD_BYTES) {
     throw new UploadError("업로드가 너무 커요.", "too-large");
   }
@@ -225,6 +226,8 @@ export async function storeZipBundle(
     runnable: anchor.kind === "runnable",
     dropped, // 언어별 라벨은 라우트가 사전으로 붙인다(PAT 응답은 영어 고정).
     keys,
+    // 막지 않고 알리는 개인정보 경고(이메일·MAC·데이터 폴더) — 발행 응답의 privacyWarnings.
+    warnings: formatUploadWarnings(scanUploadWarnings(entries)),
   };
 }
 

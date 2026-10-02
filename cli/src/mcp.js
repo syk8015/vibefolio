@@ -1,6 +1,6 @@
 import { getToken, getOrigin } from "./config.js";
 import { runPublish } from "./publish.js";
-import { formatAccepted } from "./echo.js";
+import { formatAccepted, formatFileNotes } from "./echo.js";
 import { listDrafts, updateDraft, deleteDraft } from "./drafts.js";
 import { submitRerecord, formatRerecord } from "./rerecord.js";
 import { getStatus, formatStatus } from "./status.js";
@@ -55,7 +55,7 @@ export async function runMcp() {
           // 저장 에코를 툴 결과에 실어야 호출한 AI가 자기 payload가 어디까지
           // 살아남았는지(태그 철자·분류·500자 절단) 스스로 확인하고 고칠 수 있다.
           // 초안 id도 싣는다 — 다음 수정에 draftId로 넘겨야 파일 업로드 초안이 중복되지 않는다.
-          const echo = formatAccepted(body.accepted);
+          const echo = [...formatAccepted(body.accepted), ...formatFileNotes(body)];
           return { content: [{ type: "text", text:
             `${verb} on Nookframe (draft id: ${body.projectId} — pass it as draftId to update this draft). Review and publish: ${body.reviewUrl} — after that, get_nookframe_status tells you when the demo video is filmed.${echo.length ? `\n${echo.join("\n")}` : ""}` }] };
         }

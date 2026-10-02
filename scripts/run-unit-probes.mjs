@@ -11,6 +11,8 @@ const PROBES = [
   "scripts/probe-embeddable-unit.mts",      // lib/embeddable 임베드 헤더 판정
   "scripts/probe-ssrf-unit.mts",            // lib/ssrf 내부 주소 차단 — 숫자·IPv6 표기, localhost, 프로토콜
   "scripts/probe-body-cap-unit.mts",        // 요청 본문 상한 — 머리표 없는 조각 전송도 실제 바이트로 끊기
+  "scripts/probe-upload-warnings-unit.mts", // 올린 파일 속 이메일·MAC·데이터 폴더 경고 — 자리표시는 안 잡고 값은 안 실음
+  "scripts/probe-cli-gitignore-unit.mjs",   // CLI zip이 올리는 폴더 안 .gitignore를 따름 — 되살리기·하위 폴더·dist 위 규칙 무시
   "scripts/probe-small-holes-unit.mts",     // 작은 구멍 — 유입 주소는 호스트만·소셜 배지 www. 앞만·길이 상한 SQL not valid
   "scripts/probe-media-scan-unit.mts",      // 공개 그림 내용 검사 — 본 주소 건너뛰기·오류 하루 뒤 다시·답 다듬기·신고 사유·키 없으면 꺼짐
   "scripts/probe-prompt-secrets-unit.mts",  // 프롬프트 3종에 토큰이 안 실리는지(1회용 코드만)
