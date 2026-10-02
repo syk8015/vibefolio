@@ -20,10 +20,20 @@ import { sniffImage, MAX_MEDIA_IMAGE_BYTES } from "@/lib/upload-safety";
 // 그림이 5MB를 넘거나 png·jpeg·gif·webp가 아니면 'error'로 남기고 하루 뒤 다시 본다(SVG는 안 본다).
 // 한계: 직접 올린 영상(video_url)은 서버에서 프레임을 못 뽑아 여기서 안 본다. 같은 주소에 내용만
 // 바꿔 올리는 경로(초안 재발행의 _media 키 재사용)는 다시 안 본다 → 신고가 받친다.
-// 키(ANTHROPIC_API_KEY)가 없으면 아무것도 안 한다.
+//
+// 분류기 두 가지(MEDIA_SCAN_PROVIDER, 2026-10-02 사용자 결정 = 무료 우선):
+//   openai(기본) — OpenAI 무료 검사(omni-moderation-latest, OPENAI_API_KEY). 그림은 성인물·폭력·자해만
+//                  본다(혐오·불법은 글자만). 피싱 화면은 못 잡는다 → 신고·링크 순찰이 받친다.
+//   anthropic    — Claude 비전(유료, 한 장 10원 안팎, ANTHROPIC_API_KEY). 피싱까지 본다. 명시해야만 켜진다
+//                  — 다른 용도로 넣은 키 때문에 몰래 돈이 나가지 않게.
+// 고른 쪽 키가 없으면 아무것도 안 한다. 아는 아동 음란물은 Cloudflare CSAM 검사(대시보드 설정)가 따로 본다.
 
-export const MEDIA_SCAN_MODEL = process.env.MEDIA_SCAN_MODEL || "claude-opus-5-5";
-// 틱마다 3장을 동시에 — 점검 크론 응답이 늦어지지 않게(한 장 5~15초). 5분마다라 하루 864장.
+export const MEDIA_SCAN_PROVIDER: "openai" | "anthropic" =
+  process.env.MEDIA_SCAN_PROVIDER === "anthropic" ? "anthropic" : "openai";
+export const MEDIA_SCAN_MODEL =
+  process.env.MEDIA_SCAN_MODEL || (MEDIA_SCAN_PROVIDER === "anthropic" ? "claude-opus-5-5" : "omni-moderation-latest");
+// 틱마다 3장을 동시에 — 점검 크론 응답이 늦어지지 않게(한 장 1~15초). 5분마다라 하루 864장
+// (OpenAI 무료 한도 하루 5,000건 안).
 const PER_TICK = 3;
 const CANDIDATE_LIMIT = 200;
 const ERROR_RETRY_MS = 24 * 3_600_000;
@@ -131,6 +141,54 @@ async function fetchImage(url: string): Promise<{ mime: "image/png" | "image/jpe
   return { mime: kind.mime as "image/png" | "image/jpeg" | "image/gif" | "image/webp", data: Buffer.from(buf).toString("base64") };
 }
 
+// OpenAI 무료 검사의 분류 → 우리 분류. 일반 'violence'는 뺀다 — 만화풍 게임 화면이 걸린다
+// (워커 기준과 같이 "실제 잔혹함"만). harassment는 제목 글자에서만 나와 other로.
+const OPENAI_CATEGORY_MAP: Record<string, Category> = {
+  sexual: "adult",
+  "sexual/minors": "csam",
+  "violence/graphic": "violence",
+  "self-harm": "other",
+  "self-harm/intent": "other",
+  "self-harm/instructions": "other",
+  hate: "hate",
+  "hate/threatening": "hate",
+  illicit: "illegal",
+  "illicit/violent": "illegal",
+  harassment: "other",
+  "harassment/threatening": "other",
+};
+
+/** OpenAI moderation 결과 한 줄 → 우리 판정. 순수 함수(프로브가 본다). */
+export function verdictFromOpenAI(result: unknown): Verdict {
+  const r = (result ?? {}) as { categories?: Record<string, boolean>; category_scores?: Record<string, number> };
+  const hits = Object.entries(r.categories ?? {}).filter(([k, v]) => v && OPENAI_CATEGORY_MAP[k]);
+  if (!hits.length) return { verdict: "ok", categories: [], reason: "" };
+  const categories = [...new Set(hits.map(([k]) => OPENAI_CATEGORY_MAP[k]))];
+  const detail = hits
+    .map(([k]) => `${k} ${(r.category_scores?.[k] ?? 0).toFixed(2)}`)
+    .join(", ");
+  return { verdict: "flag", categories, reason: `OpenAI 무료 검사가 걸었어요: ${detail}` };
+}
+
+async function classifyWithOpenAI(item: MediaItem): Promise<Verdict> {
+  const img = await fetchImage(item.url);
+  const res = await fetch("https://api.openai.com/v1/moderations", {
+    method: "POST",
+    headers: { "content-type": "application/json", authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
+    body: JSON.stringify({
+      model: MEDIA_SCAN_MODEL,
+      input: [
+        { type: "image_url", image_url: { url: `data:${img.mime};base64,${img.data}` } },
+        { type: "text", text: item.label.slice(0, 200) || "(no label)" },
+      ],
+    }),
+    signal: AbortSignal.timeout(30_000),
+  });
+  if (!res.ok) throw new Error(`openai moderation ${res.status}: ${(await res.text().catch(() => "")).slice(0, 200)}`);
+  const body = (await res.json()) as { results?: unknown[] };
+  return verdictFromOpenAI(body.results?.[0]);
+}
+
 export async function classifyImage(client: Anthropic, item: MediaItem): Promise<Verdict> {
   const img = await fetchImage(item.url);
   const res = await client.messages.create({
@@ -193,7 +251,8 @@ async function loadCandidates(admin: SupabaseClient): Promise<MediaItem[]> {
 export type MediaScanResult = { off: true } | { off: false; scanned: number; flagged: number; errors: number };
 
 export async function runMediaScan(admin: SupabaseClient, { now }: { now: number }): Promise<MediaScanResult> {
-  if (!process.env.ANTHROPIC_API_KEY) return { off: true };
+  const key = MEDIA_SCAN_PROVIDER === "anthropic" ? process.env.ANTHROPIC_API_KEY : process.env.OPENAI_API_KEY;
+  if (!key) return { off: true };
 
   const items = await loadCandidates(admin);
   if (!items.length) return { off: false, scanned: 0, flagged: 0, errors: 0 };
@@ -207,13 +266,13 @@ export async function runMediaScan(admin: SupabaseClient, { now }: { now: number
   );
   const todo = pickUnscanned(items, scanned, now);
 
-  const client = new Anthropic({ maxRetries: 1, timeout: 60_000 });
+  const client = MEDIA_SCAN_PROVIDER === "anthropic" ? new Anthropic({ maxRetries: 1, timeout: 60_000 }) : null;
   let flagged = 0;
   let errors = 0;
   await Promise.all(todo.map(async (item) => {
     let v: Verdict;
     try {
-      v = await classifyImage(client, item);
+      v = client ? await classifyImage(client, item) : await classifyWithOpenAI(item);
     } catch (err) {
       // 그림을 못 받아 왔거나(404·형식) 분류기 장애 — 하루 뒤 다시 본다.
       errors++;
