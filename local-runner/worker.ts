@@ -26,6 +26,7 @@ import { AnalyticsEvent } from "../lib/analytics-events";
 import type { DemoFailureCode } from "../lib/demo-failure";
 import { apiPost, apiPostQuiet } from "./api";
 import { renderNextIntro } from "./intro-render";
+import { transcodeNextVideo } from "./video-transcode";
 import {
   CreditExhaustedError, TransientApiError,
   BuildFailedError, NotAWebappError, BlankCaptureError,
@@ -441,6 +442,12 @@ while (!stopping) {
     return false;
   });
   if (introDid) continue;
+  // 주인이 올린 영상 줄이기(2026-10-02) — 그다음 차례. 한 편씩, 실패해도 워커는 계속 돈다.
+  const videoDid = await transcodeNextVideo().catch((err) => {
+    console.error(`[video] claim failed (non-fatal): ${err instanceof Error ? err.message : err}`);
+    return false;
+  });
+  if (videoDid) continue;
   if (BATCH_MODE) break; // queue empty — batch done
   await new Promise((r) => setTimeout(r, POLL_MS));
 }

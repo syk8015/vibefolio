@@ -26,6 +26,10 @@ E2B가 빌드/서빙(공개 URL만 넘어옴), 이 맥북이 탐색·녹화·후
 npm run demo:batch   # unpause → 큐 소화(빈 큐면 즉시) → repause → 종료
 ```
 
+촬영 큐가 비면 같은 배치가 돈이 안 드는 뒷일을 한 편씩 더 한다: 낡은 소개 영상 파일 만들기
+(`intro-render.ts`, `/api/worker/intro`) → 주인이 올린 영상 줄이기(`video-transcode.ts`,
+`/api/worker/video` — H.264 CRF 24·긴 변 1920·faststart, 다 되면 video_url을 `…-nf.mp4`로 바꾸고 원본을 지운다).
+
 Ctrl-C·크레딧 킬스위치 등 모든 종료 경로에서 repause가 보장된다. 상시화로
 되돌리려면 `bash local-runner/launchd/install.sh` + `demo_paused=false`.
 
