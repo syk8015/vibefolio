@@ -817,14 +817,14 @@ export default function ProjectsTab({
           <p className="text-sm mt-3" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", lineHeight: 1.6 }}>
             {t.projects.deleteBody}
           </p>
-          <div className="flex justify-end gap-2 mt-5">
+          <div className="flex justify-center gap-2 mt-5">
             <button type="button" className="vf-button-ghost" onClick={() => setDeleteTarget(null)}>
               {t.projects.deleteCancel}
             </button>
             <button
               type="button"
               className="vf-button-primary"
-              style={{ background: "var(--danger)" }}
+              data-danger="true"
               onClick={() => { const id = deleteTarget.id; setDeleteTarget(null); void handleDelete(id); }}
             >
               {t.projects.deleteCta}

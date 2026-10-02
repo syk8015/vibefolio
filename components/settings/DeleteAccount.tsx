@@ -102,23 +102,14 @@ export default function DeleteAccount({ username }: { username: string }) {
             {error && (
               <p className="text-sm mt-2" style={{ color: "var(--danger)", fontFamily: "var(--font-nunito)" }}>{error}</p>
             )}
-            <div className="flex gap-2 mt-5">
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                disabled={deleting}
-                className="flex-1 py-2.5 rounded-xl text-sm font-bold transition-opacity hover:opacity-80"
-                style={{ background: "var(--surface-soft)", color: "var(--text-primary)", border: "none", cursor: deleting ? "not-allowed" : "pointer", fontFamily: "var(--font-nunito)" }}
-              >
+            {/* 버튼은 글자만큼의 알약을 가운데에(10-02 — 전엔 반씩 꽉 찬 네모 두 개) */}
+            <div className="flex justify-center gap-2 mt-5">
+              <button type="button" onClick={() => setOpen(false)} disabled={deleting}
+                className="vf-button-ghost" style={{ fontSize: "0.875rem" }}>
                 {t.card.cancel}
               </button>
-              <button
-                type="button"
-                onClick={handleDelete}
-                disabled={deleting || mismatch}
-                className="flex-1 py-2.5 rounded-xl text-sm font-bold transition-opacity"
-                style={{ background: "var(--danger)", color: "var(--bg)", border: "none", cursor: (deleting || mismatch) ? "not-allowed" : "pointer", opacity: (deleting || mismatch) ? 0.5 : 1, fontFamily: "var(--font-nunito)" }}
-              >
+              <button type="button" onClick={handleDelete} disabled={deleting || mismatch}
+                className="vf-button-primary" data-danger="true" style={{ fontSize: "0.875rem" }}>
                 {deleting ? t.card.deleting : t.card.deleteForever}
               </button>
             </div>

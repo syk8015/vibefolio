@@ -373,14 +373,13 @@ export default function OnboardingPage() {
             {quitError && (
               <p role="alert" style={{ fontSize: "0.875rem", margin: "0.75rem 0 0", color: "var(--danger)" }}>{quitError}</p>
             )}
-            <div className="flex gap-2" style={{ marginTop: "1.25rem" }}>
+            <div className="flex justify-center gap-2" style={{ marginTop: "1.25rem" }}>
               <button type="button" onClick={() => setQuitOpen(false)} disabled={quitting}
-                className="vf-button-ghost flex-1" style={{ fontSize: "0.875rem" }}>
+                className="vf-button-ghost" style={{ fontSize: "0.875rem" }}>
                 {t.onboarding.quitCancel}
               </button>
               <button type="button" onClick={handleQuit} disabled={quitting}
-                className="vf-button-ghost flex-1"
-                style={{ fontSize: "0.875rem", fontWeight: 600, background: "var(--danger)", color: "var(--bg)" }}>
+                className="vf-button-primary" data-danger="true" style={{ fontSize: "0.875rem" }}>
                 {quitting ? t.onboarding.quitDeleting : t.onboarding.quitConfirm}
               </button>
             </div>

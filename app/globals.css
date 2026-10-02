@@ -482,6 +482,9 @@ body::before {
 }
 .vf-button-primary:hover { opacity: 0.85; }
 .vf-button-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+/* 되돌릴 수 없는 일을 확정하는 진한 버튼(삭제·탈퇴, 10-02) — 같은 알약에 빨강만. 글자는 var(--bg)
+   (다크의 --danger는 밝은 빨강이라 흰 글자가 묻힌다). 확인 창 버튼 줄은 가운데에 글자만큼(꽉 찬 막대 금지). */
+.vf-button-primary[data-danger="true"] { background: var(--danger); border-color: var(--danger); color: var(--bg); }
 
 .vf-button-ghost {
   display: inline-flex;
