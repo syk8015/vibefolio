@@ -390,6 +390,7 @@ export const ko = {
     reviewAutoDemo: (s: number) => `자동 시연 · 약 ${s}초`,
     // 소개 영상(2026-10-02) — 찍을 화면이 없는 작품은 AI가 쓴 장면 대본을 그 자리에서 재생한다(촬영 없음).
     reviewIntroLabel: "소개 영상",
+    reviewNoteAdd: "+ 말풍선 추가",
     reviewIntroChip: (s: number) => `소개 영상 · 약 ${s}초`,
     reviewIntroText: "글자",
     reviewIntroMood: "분위기",

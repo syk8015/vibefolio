@@ -347,6 +347,7 @@ export const en: Dictionary = {
     reviewVisitorView: "This is what visitors see",
     reviewAutoDemo: (s: number) => `Auto demo · ~${s}s`,
     reviewIntroLabel: "Intro film",
+    reviewNoteAdd: "+ Add a note",
     reviewIntroChip: (s: number) => `Intro film · ~${s}s`,
     reviewIntroText: "Text",
     reviewIntroMood: "Mood",

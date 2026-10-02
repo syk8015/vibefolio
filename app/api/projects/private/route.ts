@@ -42,13 +42,15 @@ export async function GET(req: NextRequest) {
       if (ids) q = q.in("id", ids);
       return q;
     };
-    let { data, error } = await run(PRIVATE_PROJECT_SELECT);
-    if (
-      error && (error.code === "42703" || error.code === "PGRST204") &&
-      LATE_PRIVATE_COLUMNS.some((c) => (error?.message ?? "").includes(c))
-    ) {
-      const without = PRIVATE_PROJECT_SELECT.split(", ").filter((c) => !LATE_PRIVATE_COLUMNS.includes(c)).join(", ");
-      ({ data, error } = await run(without));
+    // 없는 칸 **그 칸만** 뺀다(2026-10-02). 전엔 하나만 없어도 늦게 생긴 칸을 통째로 빼서, 신고 잠금 칸(SQL 미적용)
+    // 하나 때문에 멀쩡한 주인 인터뷰까지 사라졌다 — 검토 창이 "인터뷰 없이 올라왔어요"라고 거짓말을 했다.
+    let cols = PRIVATE_PROJECT_SELECT.split(", ");
+    let { data, error } = await run(cols.join(", "));
+    for (let i = 0; i < LATE_PRIVATE_COLUMNS.length && error && (error.code === "42703" || error.code === "PGRST204"); i++) {
+      const missing = LATE_PRIVATE_COLUMNS.find((c) => cols.includes(c) && (error?.message ?? "").includes(c));
+      if (!missing) break;
+      cols = cols.filter((c) => c !== missing);
+      ({ data, error } = await run(cols.join(", ")));
     }
     if (error) {
       return apiError({ status: 500, message: t.api.retryLater, code: "INTERNAL", cause: error });
