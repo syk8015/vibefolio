@@ -81,6 +81,26 @@ function host(ref: string): string | null {
   }
 }
 
+// 브라우저가 보내 주는 유입 주소(document.referrer)를 저장 전에 다듬는다(2026-10-02).
+// 이 값은 브라우저가 스스로 적어 보내는 것이라 서버가 진위를 확인할 수 없다 — 아무 글자나 넣어
+// 주인 방문 탭에 가짜 유입처를 띄울 수 있었다. 그래서 http(s) 주소이고 호스트가 도메인 모양일 때만
+// 받고, 남기는 건 "https://호스트"뿐이다(경로·쿼리에는 남의 토큰·이메일이 실려 올 수 있다).
+// 분류(classifyTrafficSource)와 관제탑(refHost)은 호스트만 보므로 잃는 게 없다.
+const HOSTNAME_RE = /^(?=.{1,253}$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*$/;
+export function cleanReferrer(v: unknown): string | null {
+  if (typeof v !== "string" || !v.trim() || v.length > 2048) return null;
+  try {
+    const u = new URL(v.trim());
+    if (u.protocol !== "https:" && u.protocol !== "http:") return null;
+    const h = u.hostname.toLowerCase();
+    if (!HOSTNAME_RE.test(h)) return null;
+    if (!h.includes(".") && h !== "localhost") return null;
+    return `${u.protocol}//${h}`;
+  } catch {
+    return null;
+  }
+}
+
 export function classifyTrafficSource(input: {
   referrer?: unknown;
   userAgent?: unknown;

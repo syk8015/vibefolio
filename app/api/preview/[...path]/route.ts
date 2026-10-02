@@ -124,6 +124,11 @@ export async function GET(
     // and cross-origin isolation already prevents them from touching the app origin.
     headers["Content-Security-Policy"] =
       `default-src * 'unsafe-inline' 'unsafe-eval' data: blob:; frame-ancestors ${APP_ORIGIN} https://www.nookframe.com`;
+  } else if (contentType.startsWith("image/svg")) {
+    // SVG는 그림이지만 주소를 직접 열면 문서라 안의 <script>가 돈다(2026-10-02). 미리보기 도메인이라
+    // 앱 쿠키엔 못 닿지만, 그림 파일이 피싱 페이지 노릇을 하지 못하게 스크립트·플러그인을 끈다.
+    // <img>로 쓸 땐 원래 스크립트가 안 돌아서 작품 화면은 그대로다.
+    headers["Content-Security-Policy"] = "script-src 'none'; object-src 'none'; base-uri 'none'";
   }
 
   return new NextResponse(body, { headers });

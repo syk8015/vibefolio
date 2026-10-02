@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logger } from "@/lib/logger";
 import { rateLimit, clientIpKey } from "@/lib/rate-limit";
+import { cleanReferrer } from "@/lib/traffic-source";
 
 // Usernames are alphanumeric + _ . - (see onboarding); reject anything else early
 // so a junk/huge value never reaches the DB lookup.
@@ -70,7 +71,8 @@ export async function POST(req: NextRequest) {
     // rate-limited route is the only writer, via the service role.
     await createAdminClient().from("portfolio_views").insert({
       profile_id: profile.id,
-      referrer: clampStr((body as { referrer?: unknown }).referrer, MAX_REFERRER_LEN),
+      // 유입 주소는 "https://호스트"만 — 브라우저가 적어 보내는 값이라 모양을 걸러 둔다(cleanReferrer).
+      referrer: clampStr(cleanReferrer((body as { referrer?: unknown }).referrer), MAX_REFERRER_LEN),
       country: clampStr(req.headers.get("x-vercel-ip-country"), 8),
       user_agent: clampStr(req.headers.get("user-agent"), MAX_UA_LEN),
     });
