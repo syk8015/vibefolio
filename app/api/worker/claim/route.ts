@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireWorker } from "@/lib/workerAuth";
-import { apiError } from "@/lib/apiError";
+import { apiError, bodyTooLarge } from "@/lib/apiError";
 import { claimNext } from "@/lib/workerOps";
+import { BODY_TOO_LARGE, readJsonOr, MAX_MEDIUM_JSON_BYTES } from "@/lib/upload-safety";
 
 // Atomically hand the worker its next job: wallet ceiling check → poll pending →
 // conditional claim (pending → building) → log the drain event. The worker gets a
@@ -15,7 +16,8 @@ export async function POST(req: NextRequest) {
   const denied = requireWorker(req);
   if (denied) return denied;
   try {
-    const body = await req.json().catch(() => ({}));
+    const body = await readJsonOr(req, MAX_MEDIUM_JSON_BYTES, {});
+    if (body === BODY_TOO_LARGE) return bodyTooLarge();
     const skipIds: string[] = Array.isArray(body?.skipIds)
       ? body.skipIds.filter((v: unknown): v is string => typeof v === "string").slice(0, 200)
       : [];

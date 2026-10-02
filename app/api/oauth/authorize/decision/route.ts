@@ -3,6 +3,7 @@ import { APP_ORIGIN } from "@/lib/previewOrigin";
 import { createClient } from "@/lib/supabase/server";
 import { logger } from "@/lib/logger";
 import { validateAuthorizeParams, issueAuthCode, oauthIssuer } from "@/lib/oauth";
+import { BODY_TOO_LARGE, readTextOr, MAX_SMALL_JSON_BYTES } from "@/lib/upload-safety";
 
 // POST /api/oauth/authorize/decision — 동의 화면의 [허용]·[취소]를 받는다.
 //
@@ -28,7 +29,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "invalid_request", error_description: "bad origin" }, { status: 403 });
     }
 
-    const form = new URLSearchParams(await req.text());
+    const text = await readTextOr(req, MAX_SMALL_JSON_BYTES);
+
+    if (text === BODY_TOO_LARGE) return NextResponse.json({ error: "invalid_request", error_description: "body too large" }, { status: 413 });
+
+    const form = new URLSearchParams(text);
 
     // 로그인 확인. 화면을 이미 봤다면 있는 게 정상이고, 없으면 승인할 사람이 없다.
     const supabase = await createClient();

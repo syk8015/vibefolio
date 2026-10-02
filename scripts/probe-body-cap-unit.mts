@@ -1,7 +1,10 @@
 // 요청 본문 상한(2026-10-02, 위협 목록 F4). 네트워크 없음.
 // 지키는 것: content-length 머리표가 없거나 거짓이어도(조각 전송) 실제로 읽은 바이트로 끊는다.
+import { readdirSync, readFileSync, statSync } from "node:fs";
+import { join } from "node:path";
 import {
   BodyTooLargeError, readBodyCapped, readJsonCapped, readFormCapped,
+  readJsonOr, readTextOr, BODY_TOO_LARGE,
 } from "../lib/upload-safety";
 
 let failed = 0;
@@ -72,6 +75,39 @@ await rejects("머리표 1000 > 상한 10", readBodyCapped(new Request("https://
   const big = new Uint8Array(await new Request("https://x.test", { method: "POST", body: fd2 }).arrayBuffer());
   const ct = new Request("https://x.test", { method: "POST", body: fd2 }).headers.get("content-type") ?? "";
   await rejects("multipart 조각 전송 초과", readFormCapped(chunkedRequest([big], { "content-type": ct }), 100));
+}
+
+// 7. 나머지 라우트용(F55) — 깨졌거나 빈 본문은 fallback, 넘치면 BODY_TOO_LARGE(삼키지 않는다).
+{
+  const v = await readJsonOr(new Request("https://x.test", { method: "POST", body: '{"op":"claim"}' }), 100, {});
+  ok("readJsonOr 정상 파싱", v?.op === "claim");
+  ok("readJsonOr 깨진 JSON → fallback", (await readJsonOr(new Request("https://x.test", { method: "POST", body: "{bad" }), 100, null)) === null);
+  const empty = await readJsonOr(new Request("https://x.test", { method: "POST" }), 100, {});
+  ok("readJsonOr 빈 본문 → fallback", typeof empty === "object" && empty !== null && Object.keys(empty).length === 0);
+  ok("readJsonOr 조각 전송 초과 → BODY_TOO_LARGE",
+    (await readJsonOr(chunkedRequest([bytes(60), bytes(60)]), 100, null)) === BODY_TOO_LARGE);
+  ok("readTextOr 정상", (await readTextOr(new Request("https://x.test", { method: "POST", body: "a=1&b=2" }), 100)) === "a=1&b=2");
+  ok("readTextOr 조각 전송 초과 → BODY_TOO_LARGE",
+    (await readTextOr(chunkedRequest([bytes(101)]), 100)) === BODY_TOO_LARGE);
+}
+
+// 8. 앞으로 생길 라우트도 상한 없이 본문을 통째로 읽지 못하게 — app/api 아래 raw 읽기 금지.
+{
+  const RAW = /\b(?:req|request)\.(?:json|text|formData|arrayBuffer|blob)\(\)/;
+  const hits: string[] = [];
+  const walk = (dir: string) => {
+    for (const name of readdirSync(dir)) {
+      const full = join(dir, name);
+      if (statSync(full).isDirectory()) walk(full);
+      else if (/\.tsx?$/.test(name)) {
+        readFileSync(full, "utf8").split("\n").forEach((line, i) => {
+          if (RAW.test(line)) hits.push(`${full}:${i + 1}`);
+        });
+      }
+    }
+  };
+  walk(join(import.meta.dirname, "..", "app", "api"));
+  ok("app/api에 상한 없는 본문 읽기 없음(readJsonOr·readJsonCapped·readTextOr를 쓸 것)", hits.length === 0, hits.join(", "));
 }
 
 if (failed) {

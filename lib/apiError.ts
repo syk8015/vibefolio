@@ -59,3 +59,9 @@ export function apiError({
     { status },
   );
 }
+
+// 본문 상한을 넘긴 요청(F55, 2026-10-02). 진짜 화면은 이 크기를 보내지 않아 사람이 볼 일이
+// 없는 답이다 — 그래서 사전 문구 없이 한 줄로 둔다.
+export function bodyTooLarge(): NextResponse<ApiErrorBody> {
+  return apiError({ status: 413, message: "Request body too large.", code: "TOO_LARGE" });
+}

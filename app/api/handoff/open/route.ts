@@ -6,6 +6,7 @@ import { trackServerEvent } from "@/lib/analytics";
 import { AnalyticsEvent } from "@/lib/analytics-events";
 import { isHandoffId } from "@/lib/handoff";
 import { findLiveHandoff } from "@/lib/handoffStore";
+import { BODY_TOO_LARGE, readJsonOr, MAX_SMALL_JSON_BYTES } from "@/lib/upload-safety";
 
 // POST /api/handoff/open — 컴퓨터에서 메일 링크(/signup?h=<id>)가 열렸을 때 가입 화면이
 // 부른다. 이메일 채우기는 이제 서버(app/signup/page.tsx)가 처음부터 하고, 이 주소는
@@ -16,7 +17,9 @@ import { findLiveHandoff } from "@/lib/handoffStore";
 // id는 추측 불가 uuid지만 IP당 분당 20번으로 한 번 더 막는다.
 export async function POST(req: NextRequest) {
   try {
-    const body = (await req.json().catch(() => null)) as { id?: unknown } | null;
+    const rawBody = await readJsonOr(req, MAX_SMALL_JSON_BYTES, null);
+    if (rawBody === BODY_TOO_LARGE) return NextResponse.json({ ok: false }, { status: 413 });
+    const body = rawBody as { id?: unknown } | null;
     const id = body?.id;
     if (!isHandoffId(id)) return NextResponse.json({ ok: false });
     if (!(await rateLimit({ name: "handoff-open", key: clientIpKey(req), windowSeconds: 60, max: 20 }))) {

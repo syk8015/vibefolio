@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireWorker } from "@/lib/workerAuth";
-import { apiError } from "@/lib/apiError";
+import { apiError, bodyTooLarge } from "@/lib/apiError";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logger } from "@/lib/logger";
 import { isR2Configured, presignR2Put, pruneR2PrefixExcept } from "@/lib/r2";
 import { jobOwner } from "@/lib/workerOps";
 import { userStorage } from "@/lib/userStorage";
+import { BODY_TOO_LARGE, readJsonOr, MAX_MEDIUM_JSON_BYTES } from "@/lib/upload-safety";
 
 // Storage for the recorder, without giving it storage credentials.
 //
@@ -71,7 +72,8 @@ export async function POST(req: NextRequest) {
   const denied = requireWorker(req);
   if (denied) return denied;
   try {
-    const body = await req.json().catch(() => ({}));
+    const body = await readJsonOr(req, MAX_MEDIUM_JSON_BYTES, {});
+    if (body === BODY_TOO_LARGE) return bodyTooLarge();
     const op = body?.op;
 
     // Promo clips live outside the project tree (promo/{clipId}/) and own no user

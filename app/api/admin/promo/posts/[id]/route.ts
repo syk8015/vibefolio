@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { apiError } from "@/lib/apiError";
+import { apiError, bodyTooLarge } from "@/lib/apiError";
 import { requireAdmin } from "@/lib/routeAuth";
+import { BODY_TOO_LARGE, readJsonOr, MAX_SMALL_JSON_BYTES } from "@/lib/upload-safety";
 
 // DELETE = 채널 기록 취소(채널 버튼의 ×). PATCH = [올렸음] — 사람이 실제로 올린 뒤
 // 누르는 게시 표시. 둘 다 서버가 올리는 중(publishing)인 행은 건드리지 않는다 — 게시
@@ -21,7 +22,9 @@ export async function PATCH(
     const auth = await requireAdmin();
     if (auth instanceof NextResponse) return auth;
 
-    const body = await req.json().catch(() => null);
+    const body = await readJsonOr(req, MAX_SMALL_JSON_BYTES, null);
+
+    if (body === BODY_TOO_LARGE) return bodyTooLarge();
     if (body?.status !== "posted") {
       return apiError({ status: 400, message: "status는 posted만 받아요.", code: "BAD_REQUEST" });
     }

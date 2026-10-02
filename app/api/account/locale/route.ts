@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { isLocale } from "@/lib/i18n/config";
+import { BODY_TOO_LARGE, readJsonOr, MAX_SMALL_JSON_BYTES } from "@/lib/upload-safety";
 
 // POST /api/account/locale — 언어 토글이 fire-and-forget으로 쏘는 저장 경로.
 // UI 언어는 NEXT_LOCALE 쿠키가 담당하고, 여기서는 로그인 상태일 때만
@@ -13,7 +14,8 @@ import { isLocale } from "@/lib/i18n/config";
 // 무시하는 fire-and-forget 계약).
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json().catch(() => null);
+    const body = await readJsonOr(req, MAX_SMALL_JSON_BYTES, null);
+    if (body === BODY_TOO_LARGE) return NextResponse.json({ ok: false }, { status: 413 });
     const locale = body?.locale;
     if (!isLocale(locale)) {
       return NextResponse.json({ ok: false }, { status: 400 });

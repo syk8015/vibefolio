@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { apiError } from "@/lib/apiError";
+import { apiError, bodyTooLarge } from "@/lib/apiError";
 import { requireUser } from "@/lib/routeAuth";
 import { getT } from "@/lib/i18n/server";
 import { mailApprovalRequest } from "@/lib/approvalMail";
+import { BODY_TOO_LARGE, readJsonOr, MAX_SMALL_JSON_BYTES } from "@/lib/upload-safety";
 
 // A project gets ONE auto demo. Re-recording a landed video (or getting another
 // take after the retry budget is spent) is not self-serve — the owner files a
@@ -27,7 +28,8 @@ export async function POST(
 
     let reason = "";
     try {
-      const body = await req.json();
+      const body = await readJsonOr(req, MAX_SMALL_JSON_BYTES, null);
+      if (body === BODY_TOO_LARGE) return bodyTooLarge();
       reason = typeof body?.reason === "string" ? body.reason.trim() : "";
     } catch {
       reason = "";

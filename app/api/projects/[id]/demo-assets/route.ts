@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { apiError } from "@/lib/apiError";
+import { apiError, bodyTooLarge } from "@/lib/apiError";
 import { requireUser } from "@/lib/routeAuth";
 import { getT } from "@/lib/i18n/server";
 import { logger } from "@/lib/logger";
@@ -8,6 +8,7 @@ import { isR2Configured, deleteR2Prefix } from "@/lib/r2";
 import { listFilesDeep, removeFiles } from "@/lib/storageList";
 import { removeStaleFiles } from "@/lib/ingestStore";
 import { userStorageClient, userFilePathFromUrl, withUserStorage } from "@/lib/userStorage";
+import { BODY_TOO_LARGE, readJsonOr, MAX_SMALL_JSON_BYTES } from "@/lib/upload-safety";
 
 // 사용자 파일은 2026-10-01부터 R2(files/…, lib/userStorage.ts), 그 전 것은 옛 Supabase 버킷에
 // 있다 — 경로 모양이 같아서 지울 땐 두 곳 모두에서 지운다(없는 키 지우기는 둘 다 무해).
@@ -170,7 +171,9 @@ export async function POST(
     if (auth instanceof NextResponse) return auth;
     const { user, supabase } = auth;
 
-    const body = await req.json().catch(() => null);
+    const body = await readJsonOr(req, MAX_SMALL_JSON_BYTES, null);
+
+    if (body === BODY_TOO_LARGE) return bodyTooLarge();
     const candidates = [body?.prevVideoUrl, body?.prevThumbnail]
       .filter((u): u is string => typeof u === "string" && u.length > 0);
     const prevDemoUrl = typeof body?.prevDemoUrl === "string" ? body.prevDemoUrl : null;

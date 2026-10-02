@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { apiError } from "@/lib/apiError";
+import { apiError, bodyTooLarge } from "@/lib/apiError";
 import { requireAdmin } from "@/lib/routeAuth";
 import { recipientLocale } from "@/lib/i18n/user-locale";
 import { getDictionary } from "@/lib/i18n/dictionaries";
@@ -8,6 +8,7 @@ import { sendEmail, isEmailConfigured } from "@/lib/email";
 import { takedownEmail } from "@/lib/email-templates";
 import { logger } from "@/lib/logger";
 import { revalidatePortfolio } from "@/lib/revalidatePortfolio";
+import { BODY_TOO_LARGE, readJsonOr, MAX_SMALL_JSON_BYTES } from "@/lib/upload-safety";
 
 // Admin decision on a content report (/admin 신고 인박스).
 //   resolve  → 문제 없음으로 종결. Resolution frees the partial-unique dedup slot,
@@ -48,7 +49,8 @@ export async function POST(
     // 본문 없는 POST = 기존 "처리됨" 버튼(하위 호환).
     let action = "resolve";
     try {
-      const body = await req.json();
+      const body = await readJsonOr(req, MAX_SMALL_JSON_BYTES, null);
+      if (body === BODY_TOO_LARGE) return bodyTooLarge();
       if (typeof body?.action === "string") action = body.action;
     } catch { /* 본문 없음 = resolve */ }
     if (action !== "resolve" && action !== "takedown") {

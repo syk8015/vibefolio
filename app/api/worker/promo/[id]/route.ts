@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireWorker } from "@/lib/workerAuth";
-import { apiError } from "@/lib/apiError";
+import { apiError, bodyTooLarge } from "@/lib/apiError";
 import { markClipDone, markClipFailed } from "@/lib/promoWorkerOps";
+import { BODY_TOO_LARGE, readJsonOr, MAX_MEDIUM_JSON_BYTES } from "@/lib/upload-safety";
 
 // Terminal state for one promo clip.
 export const dynamic = "force-dynamic";
@@ -14,7 +15,8 @@ export async function POST(
   if (denied) return denied;
   try {
     const { id } = await params;
-    const body = await req.json().catch(() => ({}));
+    const body = await readJsonOr(req, MAX_MEDIUM_JSON_BYTES, {});
+    if (body === BODY_TOO_LARGE) return bodyTooLarge();
     if (body?.op === "done") {
       if (typeof body?.videoUrl !== "string" || typeof body?.videoKey !== "string") {
         return apiError({ status: 400, message: "videoUrl/videoKey required", code: "BAD_REQUEST" });

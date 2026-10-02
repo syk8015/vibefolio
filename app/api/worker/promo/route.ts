@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireWorker } from "@/lib/workerAuth";
-import { apiError } from "@/lib/apiError";
+import { apiError, bodyTooLarge } from "@/lib/apiError";
 import { recoverStuckClips, claimNextClip } from "@/lib/promoWorkerOps";
+import { BODY_TOO_LARGE, readJsonOr, MAX_MEDIUM_JSON_BYTES } from "@/lib/upload-safety";
 
 // Promo-clip queue: startup recovery + claim-next.
 export const dynamic = "force-dynamic";
@@ -10,7 +11,8 @@ export async function POST(req: NextRequest) {
   const denied = requireWorker(req);
   if (denied) return denied;
   try {
-    const body = await req.json().catch(() => ({}));
+    const body = await readJsonOr(req, MAX_MEDIUM_JSON_BYTES, {});
+    if (body === BODY_TOO_LARGE) return bodyTooLarge();
     if (body?.op === "recover") {
       const recovered = await recoverStuckClips();
       return NextResponse.json({ ok: true, recovered });

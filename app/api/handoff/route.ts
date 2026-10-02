@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { apiError } from "@/lib/apiError";
+import { apiError, bodyTooLarge } from "@/lib/apiError";
 import { getT } from "@/lib/i18n/server";
 import { requireUser } from "@/lib/routeAuth";
 import { rateLimit, clientIpKey } from "@/lib/rate-limit";
@@ -16,6 +16,7 @@ import {
   sanitizeTouch,
   type HandoffTouch,
 } from "@/lib/handoff";
+import { BODY_TOO_LARGE, readJsonOr, MAX_SMALL_JSON_BYTES } from "@/lib/upload-safety";
 
 // POST /api/handoff — 폰에서 [내 컴퓨터로 보내기]. docs/desktop-handoff.md.
 //
@@ -34,7 +35,9 @@ const IP_MAX = 5;
 export async function POST(req: NextRequest) {
   const { t, locale } = await getT();
   try {
-    const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
+    const rawBody = await readJsonOr(req, MAX_SMALL_JSON_BYTES, null);
+    if (rawBody === BODY_TOO_LARGE) return bodyTooLarge();
+    const body = rawBody as Record<string, unknown> | null;
     const self = body?.self === true;
 
     let email: string | null;

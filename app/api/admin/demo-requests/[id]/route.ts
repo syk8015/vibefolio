@@ -4,7 +4,7 @@ import { detectDemoSource, liveUrlIssue } from "@/lib/demoSource";
 import { resolveBuildPayload, DemoSourceError } from "@/lib/demoPayload";
 import { userStorageClient } from "@/lib/userStorage";
 import { assertSafePublicUrl, SsrfError } from "@/lib/ssrf";
-import { apiError } from "@/lib/apiError";
+import { apiError, bodyTooLarge } from "@/lib/apiError";
 import { requireAdmin } from "@/lib/routeAuth";
 import { logger } from "@/lib/logger";
 import { formatDemoFailure } from "@/lib/demo-failure";
@@ -12,6 +12,7 @@ import { recipientLocale } from "@/lib/i18n/user-locale";
 import { getDictionary } from "@/lib/i18n/dictionaries";
 import { sendEmail, isEmailConfigured } from "@/lib/email";
 import { demoRequestDeclinedEmail } from "@/lib/email-templates";
+import { BODY_TOO_LARGE, readJsonOr, MAX_SMALL_JSON_BYTES } from "@/lib/upload-safety";
 
 // Admin decision on a held / re-record request. Approving is the ONE privileged
 // path that enqueues a demo past the normal caps: it sets the project to pending
@@ -31,7 +32,8 @@ export async function POST(
     let action = "";
     let note: string | null = null;
     try {
-      const body = await req.json();
+      const body = await readJsonOr(req, MAX_SMALL_JSON_BYTES, null);
+      if (body === BODY_TOO_LARGE) return bodyTooLarge();
       action = typeof body?.action === "string" ? body.action : "";
       note = typeof body?.note === "string" && body.note.trim() ? body.note.trim().slice(0, 1000) : null;
     } catch {

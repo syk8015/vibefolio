@@ -137,6 +137,40 @@ export async function readFormCapped(req: Request, maxBytes: number): Promise<Fo
 // 작은 JSON 본문(코드 하나·id 하나)과 대본·초안 수정 같은 큰 JSON 본문의 상한.
 export const MAX_SMALL_JSON_BYTES = 64 * 1024;
 export const MAX_JSON_BODY_BYTES = 5 * 1024 * 1024;
+// 워커 본문(캡션·실패 기록)과 파일 목록 서명(최대 2000개 경로)처럼 64KB를 넘을 수 있는 중간 크기.
+export const MAX_MEDIUM_JSON_BYTES = 1024 * 1024;
+
+// 나머지 라우트용(2026-10-02, F55). 옛 `req.json().catch(() => fallback)`과 같은 뜻 —
+// 깨졌거나 빈 본문은 fallback — 이되, 상한을 넘으면 BODY_TOO_LARGE를 돌려준다. 넘친 걸
+// fallback으로 삼키면 400·빈 값으로 흘러 "커서 끊었다"가 안 보이니 라우트가 413으로 답한다.
+// 반환형이 any인 건 req.json()과 같은 자리에 그대로 끼우려는 것이다(호출부는 원래 any를 좁혀 쓴다).
+export const BODY_TOO_LARGE: unique symbol = Symbol("BODY_TOO_LARGE");
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function readJsonOr<F>(req: Request, maxBytes: number, fallback: F): Promise<any> {
+  let buf: Uint8Array;
+  try {
+    buf = await readBodyCapped(req, maxBytes);
+  } catch (e) {
+    if (e instanceof BodyTooLargeError) return BODY_TOO_LARGE;
+    return fallback;
+  }
+  try {
+    return JSON.parse(new TextDecoder().decode(buf));
+  } catch {
+    return fallback;
+  }
+}
+
+// x-www-form-urlencoded(OAuth) 본문용. 넘치면 BODY_TOO_LARGE.
+export async function readTextOr(req: Request, maxBytes: number): Promise<string | typeof BODY_TOO_LARGE> {
+  try {
+    return new TextDecoder().decode(await readBodyCapped(req, maxBytes));
+  } catch (e) {
+    if (e instanceof BodyTooLargeError) return BODY_TOO_LARGE;
+    return "";
+  }
+}
 
 // 매직바이트 스니핑 — 확장자/Content-Type 자칭은 신뢰하지 않는다(서비스롤 업로드라
 // 스토리지 RLS 우회 → 여기서 실제 미디어인지 확정하고 저장 확장자·MIME도 여기서

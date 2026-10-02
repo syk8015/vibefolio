@@ -1,11 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { requireWorker } from "@/lib/workerAuth";
-import { apiError } from "@/lib/apiError";
+import { apiError, bodyTooLarge } from "@/lib/apiError";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logger } from "@/lib/logger";
 import { isR2Configured, r2PublicBase } from "@/lib/r2";
-import { MAX_UPLOAD_BYTES } from "@/lib/upload-safety";
+import { MAX_UPLOAD_BYTES, BODY_TOO_LARGE, readJsonOr, MAX_MEDIUM_JSON_BYTES } from "@/lib/upload-safety";
 import { presignUserPut, userFilePathFromUrl, userStorage } from "@/lib/userStorage";
 import { revalidatePortfolio } from "@/lib/revalidatePortfolio";
 import { TRANSCODED_SUFFIX, isTranscodable } from "@/lib/videoTranscode";
@@ -34,7 +34,8 @@ export async function POST(req: NextRequest) {
   if (denied) return denied;
   const admin = createAdminClient();
   try {
-    const body = await req.json().catch(() => ({}));
+    const body = await readJsonOr(req, MAX_MEDIUM_JSON_BYTES, {});
+    if (body === BODY_TOO_LARGE) return bodyTooLarge();
     const op = body?.op;
 
     if (op === "claim") {

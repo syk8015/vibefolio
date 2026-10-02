@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { apiError } from "@/lib/apiError";
+import { apiError, bodyTooLarge } from "@/lib/apiError";
 import { requireAdmin } from "@/lib/routeAuth";
 import { promoTrackingUrl } from "@/lib/promo";
+import { BODY_TOO_LARGE, readJsonOr, MAX_SMALL_JSON_BYTES } from "@/lib/upload-safety";
 
 // 클립을 특정 채널에 올린 기록. 실제 업로드는 사람이 채널에 직접 하고(반자동),
 // 이 포스트 row가 발급하는 트래킹 링크(promoTrackingUrl)로 유입·가입이 자동
@@ -20,7 +21,8 @@ export async function POST(req: NextRequest) {
     let caption = "";
     let status: "draft" | "posted" = "draft";
     try {
-      const body = await req.json();
+      const body = await readJsonOr(req, MAX_SMALL_JSON_BYTES, null);
+      if (body === BODY_TOO_LARGE) return bodyTooLarge();
       clipId = typeof body?.clipId === "string" ? body.clipId : "";
       channel = typeof body?.channel === "string" ? body.channel.trim() : "";
       caption = typeof body?.caption === "string" ? body.caption : "";

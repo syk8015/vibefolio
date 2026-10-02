@@ -4,6 +4,7 @@ import { trackServerEvent } from "@/lib/analytics";
 import { AnalyticsEvent, isClientEvent } from "@/lib/analytics-events";
 import { rateLimit, clientIpKey } from "@/lib/rate-limit";
 import { classifyTrafficSource, cleanReferrer } from "@/lib/traffic-source";
+import { BODY_TOO_LARGE, readJsonOr, MAX_SMALL_JSON_BYTES } from "@/lib/upload-safety";
 
 // Client-reported analytics sink (P0.2 unit 2). Browser-sent, so best-effort by
 // definition: events outside CLIENT_EVENTS are dropped (the server-authoritative
@@ -13,7 +14,8 @@ import { classifyTrafficSource, cleanReferrer } from "@/lib/traffic-source";
 // error a user flow.
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json().catch(() => null);
+    const body = await readJsonOr(req, MAX_SMALL_JSON_BYTES, null);
+    if (body === BODY_TOO_LARGE) return NextResponse.json({ ok: false }, { status: 413 });
     const event = body?.event;
     if (!isClientEvent(event)) return NextResponse.json({ ok: true });
 

@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { apiError } from "@/lib/apiError";
+import { apiError, bodyTooLarge } from "@/lib/apiError";
 import { requireAdmin } from "@/lib/routeAuth";
 import { loggedInTaglines, loggedInTaglinesEn } from "@/lib/loggedInTaglines";
 import { isPromoOpening } from "@/lib/promo";
+import { BODY_TOO_LARGE, readJsonOr, MAX_SMALL_JSON_BYTES } from "@/lib/upload-safety";
 
 // 홍보 클립 촬영 큐에 태그라인 하나를 등록한다. 실제 촬영은
 // local-runner/promo-worker.ts(npm run promo:batch)가 pending 행을 claim해서
@@ -19,7 +20,8 @@ export async function POST(req: NextRequest) {
     let format = "";
     let opening: unknown = "hook";
     try {
-      const body = await req.json();
+      const body = await readJsonOr(req, MAX_SMALL_JSON_BYTES, null);
+      if (body === BODY_TOO_LARGE) return bodyTooLarge();
       locale = typeof body?.locale === "string" ? body.locale : "";
       text = typeof body?.text === "string" ? body.text : "";
       format = typeof body?.format === "string" ? body.format : "";

@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { apiError } from "@/lib/apiError";
+import { apiError, bodyTooLarge } from "@/lib/apiError";
 import { requireUser } from "@/lib/routeAuth";
 import { getT } from "@/lib/i18n/server";
 import { issueToken, MAX_TOKENS_PER_USER } from "@/lib/apiToken";
 import { AUTO_TOKEN_NAME, MCP_TOKEN_NAME } from "@/lib/connectSnippets";
+import { BODY_TOO_LARGE, readJsonOr, MAX_SMALL_JSON_BYTES } from "@/lib/upload-safety";
 
 // POST /api/tokens — 로그인한 유저가 새 개인 액세스 토큰(PAT)을 발급한다.
 // raw 토큰은 이 응답에서 딱 한 번만 노출된다(DB엔 sha256 해시만 저장). 발급/조회는
@@ -20,7 +21,8 @@ export async function POST(req: NextRequest) {
     // 둘 다 "복사할 때마다 새 토큰, 이전 것은 즉시 무효" 규칙을 같이 탄다.
     let sentinel: string | null = null;
     try {
-      const body = await req.json();
+      const body = await readJsonOr(req, MAX_SMALL_JSON_BYTES, null);
+      if (body === BODY_TOO_LARGE) return bodyTooLarge();
       if (body?.auto === true) sentinel = AUTO_TOKEN_NAME;
       else if (body?.mcp === true) sentinel = MCP_TOKEN_NAME;
       if (typeof body?.name === "string") name = body.name.trim().slice(0, 80) || null;

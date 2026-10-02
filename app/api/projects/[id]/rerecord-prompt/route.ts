@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { apiError } from "@/lib/apiError";
+import { apiError, bodyTooLarge } from "@/lib/apiError";
 import { requireUser } from "@/lib/routeAuth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getT, getLocale } from "@/lib/i18n/server";
 import { issueConnectCode } from "@/lib/connectCode";
 import { rerecordPrompt } from "@/lib/rerecordPrompt";
 import { normalizeDemoScript } from "@/lib/demoScript";
+import { BODY_TOO_LARGE, readJsonOr, MAX_SMALL_JSON_BYTES } from "@/lib/upload-safety";
 
 // POST /api/projects/[id]/rerecord-prompt — 재촬영 프롬프트를 만들어 준다.
 //
@@ -33,7 +34,8 @@ export async function POST(
 
     let note = "";
     try {
-      const body = await req.json();
+      const body = await readJsonOr(req, MAX_SMALL_JSON_BYTES, null);
+      if (body === BODY_TOO_LARGE) return bodyTooLarge();
       note = typeof body?.note === "string" ? body.note.trim() : "";
     } catch {
       note = "";

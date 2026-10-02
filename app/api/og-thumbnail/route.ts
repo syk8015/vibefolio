@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { safeFetch, SsrfError, readResponseCapped } from "@/lib/ssrf";
 import { rateLimit } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
+import { BODY_TOO_LARGE, readJsonOr, MAX_SMALL_JSON_BYTES } from "@/lib/upload-safety";
 
 // 본문 파싱은 200KB까지만 og:image 정규식에 태운다(과대 응답 DoS 방지).
 const MAX_HTML_BYTES = 200_000;
@@ -26,7 +27,9 @@ export async function POST(req: NextRequest) {
 
     let url = "";
     try {
-      ({ url } = await req.json());
+      const raw = await readJsonOr(req, MAX_SMALL_JSON_BYTES, null);
+      if (raw === BODY_TOO_LARGE) return NextResponse.json({ imageUrl: null }, { status: 413 });
+      ({ url } = raw ?? {});
     } catch {
       return NextResponse.json({ imageUrl: null });
     }

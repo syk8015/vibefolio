@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireWorker } from "@/lib/workerAuth";
-import { apiError } from "@/lib/apiError";
+import { apiError, bodyTooLarge } from "@/lib/apiError";
 import {
   DEMO_FAILURE_CODES, formatDemoFailure, type DemoFailureCode,
 } from "@/lib/demo-failure";
@@ -10,6 +10,7 @@ import {
   IN_FLIGHT_STATUSES, setLocaleVideo,
 } from "@/lib/workerOps";
 import { normalizeCaptionTrack, normalizeLocale } from "@/lib/workLanguages";
+import { BODY_TOO_LARGE, readJsonOr, MAX_MEDIUM_JSON_BYTES } from "@/lib/upload-safety";
 
 // Every state transition the recorder used to write directly with the service-role
 // key. One route, an `op` discriminator, so the auth gate and the "look the row up
@@ -40,7 +41,8 @@ export async function POST(
   if (denied) return denied;
   try {
     const { id } = await params;
-    const body = await req.json().catch(() => ({}));
+    const body = await readJsonOr(req, MAX_MEDIUM_JSON_BYTES, {});
+    if (body === BODY_TOO_LARGE) return bodyTooLarge();
     const op = body?.op;
 
     switch (op) {

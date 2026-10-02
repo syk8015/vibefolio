@@ -6,6 +6,7 @@ import { rateLimit } from "@/lib/rate-limit";
 import { safeFetch } from "@/lib/ssrf";
 import { embedVerdict } from "@/lib/embeddable";
 import { APP_ORIGIN } from "@/lib/previewOrigin";
+import { BODY_TOO_LARGE, readJsonOr, MAX_SMALL_JSON_BYTES } from "@/lib/upload-safety";
 
 // POST /api/embed-check { url } → { embeddable, reason? }
 //
@@ -34,7 +35,9 @@ export async function POST(req: NextRequest) {
 
     let url = "";
     try {
-      ({ url } = await req.json());
+      const raw = await readJsonOr(req, MAX_SMALL_JSON_BYTES, null);
+      if (raw === BODY_TOO_LARGE) return NextResponse.json(UNREACHABLE, { status: 413 });
+      ({ url } = raw ?? {});
     } catch {
       return NextResponse.json(UNREACHABLE);
     }

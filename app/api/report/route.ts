@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { apiError } from "@/lib/apiError";
+import { apiError, bodyTooLarge } from "@/lib/apiError";
 import { getT } from "@/lib/i18n/server";
 import { rateLimit, clientIpKey } from "@/lib/rate-limit";
 import { sendEmail, alertRecipients } from "@/lib/email";
 import { adminAlertEmail, SITE_URL } from "@/lib/email-templates";
+import { BODY_TOO_LARGE, readJsonOr, MAX_SMALL_JSON_BYTES } from "@/lib/upload-safety";
 
 // Public content report (T6) — the 신고 button on /@user and /@user/:id.
 // Logged-out visitors can report (the audience that matters for moderation is
@@ -29,7 +30,8 @@ const DETAIL_MAX = 500;
 export async function POST(req: NextRequest) {
   const { t } = await getT();
   try {
-    const body = await req.json().catch(() => null);
+    const body = await readJsonOr(req, MAX_SMALL_JSON_BYTES, null);
+    if (body === BODY_TOO_LARGE) return bodyTooLarge();
     const targetType = body?.targetType;
     const targetId = body?.targetId;
     const reason = body?.reason;

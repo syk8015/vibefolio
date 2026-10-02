@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireWorker } from "@/lib/workerAuth";
-import { apiError } from "@/lib/apiError";
+import { apiError, bodyTooLarge } from "@/lib/apiError";
 import { trackServerEvent } from "@/lib/analytics";
 import { AnalyticsEvent, type AnalyticsEventName } from "@/lib/analytics-events";
+import { BODY_TOO_LARGE, readJsonOr, MAX_MEDIUM_JSON_BYTES } from "@/lib/upload-safety";
 
 // Product analytics from the recorder. Fire-and-forget by contract, but the event
 // NAME is validated against the known list so a compromised worker secret cannot
@@ -13,7 +14,8 @@ export async function POST(req: NextRequest) {
   const denied = requireWorker(req);
   if (denied) return denied;
   try {
-    const body = await req.json().catch(() => ({}));
+    const body = await readJsonOr(req, MAX_MEDIUM_JSON_BYTES, {});
+    if (body === BODY_TOO_LARGE) return bodyTooLarge();
     const event = body?.event;
     const known = Object.values(AnalyticsEvent) as string[];
     if (typeof event !== "string" || !known.includes(event)) {

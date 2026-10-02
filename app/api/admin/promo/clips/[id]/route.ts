@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { apiError } from "@/lib/apiError";
+import { apiError, bodyTooLarge } from "@/lib/apiError";
 import { requireAdmin } from "@/lib/routeAuth";
+import { BODY_TOO_LARGE, readJsonOr, MAX_SMALL_JSON_BYTES } from "@/lib/upload-safety";
 
 // 클립 캡션 저장. 캡션은 채널마다가 아니라 **클립 하나에 하나**다
 // (2026-08-27, migration_promo_caption.sql) — 어느 SNS에 올리든 같은 글을 쓰기
@@ -19,7 +20,8 @@ export async function PATCH(
 
     let caption: string | null = null;
     try {
-      const body = await req.json();
+      const body = await readJsonOr(req, MAX_SMALL_JSON_BYTES, null);
+      if (body === BODY_TOO_LARGE) return bodyTooLarge();
       if (typeof body?.caption === "string") caption = body.caption;
     } catch {
       // falls through to validation below

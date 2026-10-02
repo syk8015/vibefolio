@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { logger } from "@/lib/logger";
 import { rateLimit, clientIpKey } from "@/lib/rate-limit";
 import { cleanReferrer } from "@/lib/traffic-source";
+import { BODY_TOO_LARGE, readJsonOr, MAX_SMALL_JSON_BYTES } from "@/lib/upload-safety";
 
 // Usernames are alphanumeric + _ . - (see onboarding); reject anything else early
 // so a junk/huge value never reaches the DB lookup.
@@ -30,7 +31,8 @@ function clampStr(v: unknown, max: number): string | null {
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json().catch(() => null);
+    const body = await readJsonOr(req, MAX_SMALL_JSON_BYTES, null);
+    if (body === BODY_TOO_LARGE) return NextResponse.json({ ok: false }, { status: 413 });
     if (!body || typeof body !== "object") return NextResponse.json({ ok: false });
 
     const username = (body as { username?: unknown }).username;

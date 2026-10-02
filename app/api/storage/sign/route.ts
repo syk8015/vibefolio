@@ -1,13 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { apiError } from "@/lib/apiError";
+import { apiError, bodyTooLarge } from "@/lib/apiError";
 import { requireUser } from "@/lib/routeAuth";
 import { getT } from "@/lib/i18n/server";
 import { rateLimit } from "@/lib/rate-limit";
 import { presignUserPut, type PresignedPut, type UserBucket } from "@/lib/userStorage";
-import {
-  MAX_UPLOAD_BYTES, MAX_ZIP_ENTRIES, MAX_MEDIA_IMAGE_BYTES, MAX_MEDIA_VIDEO_BYTES,
-  safeRelativePath, secretFileKind,
-} from "@/lib/upload-safety";
+import { MAX_UPLOAD_BYTES, MAX_ZIP_ENTRIES, MAX_MEDIA_IMAGE_BYTES, MAX_MEDIA_VIDEO_BYTES, safeRelativePath, secretFileKind, BODY_TOO_LARGE, readJsonOr, MAX_MEDIUM_JSON_BYTES } from "@/lib/upload-safety";
 
 // POST /api/storage/sign — 대시보드가 파일을 R2에 바로 올릴 서명 URL(2026-10-01, lib/userStorage.ts).
 //
@@ -46,7 +43,11 @@ export async function POST(req: NextRequest) {
       return apiError({ status: 429, message: t.api.tooManyRequests, code: "RATE_LIMITED" });
     }
 
-    const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
+    const rawBody = await readJsonOr(req, MAX_MEDIUM_JSON_BYTES, null);
+
+    if (rawBody === BODY_TOO_LARGE) return bodyTooLarge();
+
+    const body = rawBody as Record<string, unknown> | null;
     const kind = body?.kind as Kind | undefined;
     const contentType = typeof body?.contentType === "string" ? body.contentType : null;
 

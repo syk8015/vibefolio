@@ -4,6 +4,7 @@ import { logger } from "@/lib/logger";
 import {
   redeemAuthCode, verifyPkce, issueGrant, rotateGrant, parseClientId, OAuthError,
 } from "@/lib/oauth";
+import { BODY_TOO_LARGE, readTextOr, MAX_SMALL_JSON_BYTES } from "@/lib/upload-safety";
 
 // POST /api/oauth/token — 인증 코드·갱신 토큰을 액세스 토큰으로 바꿔 준다(OAuth 2.1).
 //
@@ -50,7 +51,9 @@ export async function POST(req: NextRequest) {
 
     let form: URLSearchParams;
     try {
-      form = new URLSearchParams(await req.text());
+      const text = await readTextOr(req, MAX_SMALL_JSON_BYTES);
+      if (text === BODY_TOO_LARGE) return oauthError("invalid_request", "Request body too large.", 413);
+      form = new URLSearchParams(text);
     } catch {
       return oauthError("invalid_request", "The body must be application/x-www-form-urlencoded.");
     }

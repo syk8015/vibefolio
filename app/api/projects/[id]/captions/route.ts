@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { apiError } from "@/lib/apiError";
+import { apiError, bodyTooLarge } from "@/lib/apiError";
 import { requireUser } from "@/lib/routeAuth";
 import { getT } from "@/lib/i18n/server";
 import { rateLimit } from "@/lib/rate-limit";
 import { revalidatePortfolio } from "@/lib/revalidatePortfolio";
 import type { DemoScript } from "@/lib/demoScript";
 import { CAPTION_MAX, editCaptionCue, normalizeLocale, renameScriptCaption } from "@/lib/workLanguages";
+import { BODY_TOO_LARGE, readJsonOr, MAX_SMALL_JSON_BYTES } from "@/lib/upload-safety";
 
 // PATCH /api/projects/[id]/captions — 이미 찍힌 영상의 자막 한 줄 글 고치기(2026-10-02).
 // body { locale, index, text } → 200 { ok, captions }
@@ -33,7 +34,11 @@ export async function PATCH(
       return apiError({ status: 429, message: t.api.retryLater, code: "RATE_LIMITED" });
     }
 
-    const body = await req.json().catch(() => null) as { locale?: unknown; index?: unknown; text?: unknown } | null;
+    const rawBody = await readJsonOr(req, MAX_SMALL_JSON_BYTES, null);
+
+    if (rawBody === BODY_TOO_LARGE) return bodyTooLarge();
+
+    const body = rawBody as { locale?: unknown; index?: unknown; text?: unknown } | null;
     const locale = normalizeLocale(body?.locale);
     if (!locale || typeof body?.index !== "number" || typeof body?.text !== "string") {
       return apiError({ status: 400, message: t.api.captionNotFound, code: "BAD_REQUEST" });

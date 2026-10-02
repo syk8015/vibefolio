@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { apiError } from "@/lib/apiError";
+import { apiError, bodyTooLarge } from "@/lib/apiError";
 import { requireAdmin } from "@/lib/routeAuth";
 import { isR2Configured, deleteR2Objects } from "@/lib/r2";
 import { formatDemoFailure, demoFailureCopy } from "@/lib/demo-failure";
@@ -11,6 +11,7 @@ import { logger } from "@/lib/logger";
 import { demoReadyEmail, demoFailedEmail, SITE_URL } from "@/lib/email-templates";
 import { trackServerEvent } from "@/lib/analytics";
 import { AnalyticsEvent } from "@/lib/analytics-events";
+import { BODY_TOO_LARGE, readJsonOr, MAX_SMALL_JSON_BYTES } from "@/lib/upload-safety";
 
 // Admin decision on a moderation-held take (/admin 모더레이션 인박스).
 //   approve → publish: demo_video_url gets the quarantined URL, status done,
@@ -37,7 +38,8 @@ export async function POST(
 
     let action = "";
     try {
-      const body = await req.json();
+      const body = await readJsonOr(req, MAX_SMALL_JSON_BYTES, null);
+      if (body === BODY_TOO_LARGE) return bodyTooLarge();
       action = typeof body?.action === "string" ? body.action : "";
     } catch {
       action = "";
