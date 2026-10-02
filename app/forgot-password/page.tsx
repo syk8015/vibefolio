@@ -1,16 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import TurnstileWidget, { turnstileEnabled, resetTurnstile } from "@/components/TurnstileWidget";
-import Logo from "@/components/Logo";
-import LanguageToggle from "@/components/LanguageToggle";
 import { useT } from "@/lib/i18n/client";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
 import { withVia } from "@/lib/lastLogin";
+import { AuthShell, AuthTitle, ErrorLine, FieldLabel, Pill, SmallButton, SmallLink, SmallRow } from "@/components/auth/AuthParts";
 
 type Step = "form" | "sent";
+
+// [로그인으로 돌아가기]는 문을 비밀번호 칸으로 연다 — 여기 온 사람은 비밀번호로 들어오던 사람이다.
+const BACK_TO_LOGIN = "/login?mode=password";
 
 export default function ForgotPasswordPage() {
   const { t } = useT();
@@ -26,7 +27,7 @@ export default function ForgotPasswordPage() {
     setError("");
 
     const supabase = createClient();
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
       // via=password — 재설정을 마치면 로그인 화면이 "지난번에 사용"을 이메일 칸에 붙인다(lib/lastLogin).
       redirectTo: withVia(`${location.origin}/auth/callback?next=/reset-password`, "password"),
       captchaToken: captchaToken ?? undefined,
@@ -54,93 +55,44 @@ export default function ForgotPasswordPage() {
 
   if (step === "sent") {
     return (
-      <main className="min-h-screen flex flex-col items-center justify-center px-6" style={{ background: "var(--bg)" }}>
-        <div className="w-full max-w-sm text-center">
-          <div
-            className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-6"
-            style={{ background: "var(--blue-tint)", border: "1px solid var(--blue)" }}
-          >
-            📬
-          </div>
-          <h1 className="text-2xl font-black mb-3" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}>
-            {t.forgotPassword.sentTitle}
-          </h1>
-          <p className="text-sm leading-relaxed mb-6" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
-            <strong style={{ color: "var(--text-primary)" }}>{email}</strong><br />
-            {t.forgotPassword.sentBody}
-          </p>
-          <Link
-            href="/login"
-            className="text-sm font-bold"
-            style={{ color: "var(--blue)", textDecoration: "none", fontFamily: "var(--font-nunito)" }}
-          >
-            {t.auth.toLogin}
-          </Link>
-          <p className="text-xs mt-6 leading-relaxed" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
-            {t.auth.resendPrompt}{" "}
-            <button type="button" onClick={backToForm}
-              style={{ color: "var(--blue)", fontWeight: 700, background: "none", border: "none", cursor: "pointer", padding: 0, textDecoration: "underline", fontFamily: "inherit", fontSize: "inherit" }}>
-              {t.auth.reenter}
-            </button>
-          </p>
-        </div>
-      </main>
+      <AuthShell>
+        <AuthTitle>{t.forgotPassword.sentTitle}</AuthTitle>
+        <p className="mt-2.5 text-center"
+          style={{ fontSize: "0.9375rem", lineHeight: 1.6, color: "var(--text-secondary)", overflowWrap: "anywhere" }}>
+          {t.forgotPassword.sentBefore}
+          <strong style={{ color: "var(--text-primary)", fontWeight: 600 }}>{email.trim()}</strong>
+          {t.forgotPassword.sentAfter}
+        </p>
+        <SmallRow className="mt-6">
+          <SmallLink href={BACK_TO_LOGIN}>{t.forgotPassword.backToLogin}</SmallLink>
+          <span aria-hidden>·</span>
+          <SmallButton onClick={backToForm}>{t.auth.otherEmail}</SmallButton>
+        </SmallRow>
+      </AuthShell>
     );
   }
 
   return (
-    <main className="min-h-screen flex flex-col" style={{ background: "var(--bg)" }}>
-      <nav className="flex items-center justify-between px-4 md:px-8 py-4 md:py-5">
-        <Logo />
-        <div className="flex items-center gap-4">
-          <p className="text-sm font-semibold" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
-            {t.forgotPassword.rememberPrompt}
-            <Link href="/login" style={{ color: "var(--blue)", textDecoration: "none", fontWeight: 700, marginLeft: "8px" }}>{t.forgotPassword.loginLink}</Link>
-          </p>
-          <LanguageToggle />
-        </div>
-      </nav>
+    <AuthShell>
+      <AuthTitle className="mb-7">{t.forgotPassword.title}</AuthTitle>
+      <form onSubmit={handleSubmit} className="flex flex-col">
+        <FieldLabel htmlFor="forgot-email">{t.auth.emailLabel}</FieldLabel>
+        <input id="forgot-email" className="vf-input" type="email" name="email" placeholder="hello@example.com"
+          value={email} onChange={(e) => { setEmail(e.target.value); setError(""); }}
+          required autoComplete="email" autoCapitalize="none" autoCorrect="off" spellCheck={false} autoFocus />
 
-      <div className="flex-1 flex items-center justify-center px-6 py-12">
-        <div className="w-full max-w-sm">
-          <div className="mb-8">
-            <h1 className="text-3xl font-black mb-2" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", letterSpacing: "-0.02em" }}>
-              {t.forgotPassword.title}
-            </h1>
-            <p className="text-sm font-semibold" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
-              {t.forgotPassword.subtitle}
-            </p>
-          </div>
+        {error && <ErrorLine text={error} />}
 
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-            <div>
-              <label className="block text-xs font-bold mb-1.5"
-                style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", letterSpacing: "0.05em" }}>
-                {t.auth.emailLabel}
-              </label>
-              <input className="vf-input" type="email" name="email" placeholder="hello@example.com"
-                value={email} onChange={(e) => { setEmail(e.target.value); setError(""); }}
-                required autoComplete="email" autoFocus />
-            </div>
+        <TurnstileWidget onToken={setCaptchaToken} />
 
-            {error && (
-              <p className="text-sm font-semibold text-center py-2 px-3 rounded-xl"
-                style={{ color: "#ef4444", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", fontFamily: "var(--font-nunito)" }}>
-                {error}
-              </p>
-            )}
-
-            <TurnstileWidget onToken={setCaptchaToken} />
-
-            <button type="submit" disabled={loading || (turnstileEnabled && !captchaToken)}
-              className="w-full py-3.5 rounded-xl font-black text-sm mt-2 transition-opacity hover:opacity-85 disabled:opacity-50"
-              style={{ background: "var(--blue)", color: "var(--bg)", fontFamily: "var(--font-nunito)", cursor: loading ? "not-allowed" : "pointer", border: "none", boxShadow: "0 0 20px var(--blue-glow)" }}>
-              {loading ? t.forgotPassword.submitting : t.forgotPassword.submit}
-            </button>
-          </form>
-        </div>
-      </div>
-    </main>
+        <Pill type="submit" disabled={loading || (turnstileEnabled && !captchaToken)} className="mt-6">
+          {loading ? t.forgotPassword.submitting : t.forgotPassword.submit}
+        </Pill>
+        <SmallRow>
+          <SmallLink href={BACK_TO_LOGIN}>{t.forgotPassword.backToLogin}</SmallLink>
+        </SmallRow>
+      </form>
+    </AuthShell>
   );
 }
 

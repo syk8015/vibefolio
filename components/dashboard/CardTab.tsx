@@ -15,6 +15,7 @@ import {
 // 링크 판정은 명함이 실제로 렌더하는 것과 같은 매처 하나만 쓴다 — 여기서 따로
 // 넓게 인식해주면 "확인됐다"고 보여놓고 명함에선 조용히 버려진다.
 import { getSocialMeta } from "@/components/SocialBadge";
+import { MeishiBig } from "@/components/theater/Meishi";
 import type { DashboardProfile } from "./DashboardClient";
 import { useT } from "@/lib/i18n/client";
 
@@ -27,6 +28,8 @@ const FIELD_LABEL: React.CSSProperties = {
 const HELP: React.CSSProperties = {
   marginTop: 8, fontSize: "0.8125rem", lineHeight: 1.5, color: "var(--text-secondary)", fontFamily: "var(--font-nunito)",
 };
+// 미리보기의 "고치는 대로 바뀌어요" 앞 점 — 켜짐의 초록. 설정 AI 연결·링크 복사 표시와 같은 값(라이트·다크 둘 다 보인다).
+const LIVE_GREEN = "#22c55e";
 
 function migrateOldLinks(profile: DashboardProfile): string[] {
   const links: string[] = [];
@@ -36,8 +39,7 @@ function migrateOldLinks(profile: DashboardProfile): string[] {
 }
 
 // 명함 탭(옛 ProfileTab) — 남에게 보여줄 명함에 찍히는 것만 고친다. 로그인 방법·회원 탈퇴는
-// 09-26에 설정 화면(/settings)으로 옮겼다. 상단 아이덴티티 미리보기는 헤더의 미니 명함(실물
-// 문법)이 대체해서 여기선 폼만 남았다.
+// 09-26에 설정 화면(/settings)으로 옮겼다. 맨 위는 방문자가 받는 명함 미리보기(10-02), 그 아래 폼.
 export default function CardTab({ user, profile }: { user: User; profile: DashboardProfile }) {
   const { t } = useT();
   // 폼의 초기값도 공개 명함이 읽는 profiles 행 — auth metadata는 표시 값의
@@ -64,6 +66,20 @@ export default function CardTab({ user, profile }: { user: User; profile: Dashbo
   const [error, setError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
+  // 미리보기 명함의 No. — 공개 명함과 같은 정의(공개 작품 수, 헤더 미니 명함과 같은 값). 탭이 따로
+  // 받지 않아서 서버 페이지와 같은 count 질의로 센다(id 칸만, 행은 안 받는다). 오기 전엔 빈칸.
+  const [publicCount, setPublicCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    createClient()
+      .from("projects")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .eq("is_draft", false)
+      .then(({ count }) => { if (alive && typeof count === "number") setPublicCount(count); });
+    return () => { alive = false; };
+  }, [user.id]);
 
   useEffect(() => {
     return () => {
@@ -220,15 +236,49 @@ export default function CardTab({ user, profile }: { user: User; profile: Dashbo
   const avatarInitial = (form.name || form.username || "?").charAt(0).toUpperCase();
   const bioCount = form.bio.length;
   const displayAvatar = avatarPreview ?? form.avatarUrl;
+  // 아이디 칸을 비운 순간에도 미리보기가 "@"·빈 주소로 깨지지 않게 저장된 아이디로 받친다.
+  const previewUsername = form.username || savedUsername;
 
   return (
     // 제목 있는 카드 두 장(09-26 사용자 확정 "B안 수정", 시안=claude.ai/artifact/JG1rHep7VpWvfWbBBJo6og).
     // 한 폼을 두 칸으로 반씩 자르면 칸 높이가 달라 눈이 지그재그로 움직였다 — 무리마다 카드로 묶고
     // PC는 나란히(스크롤이 거의 없다), 폰은 위아래로.
     <form onSubmit={handleSave} className="flex flex-col gap-6">
+      {/* 미리보기(10-02 덜어내기 2차 업그레이드) — 방문자가 받는 명함을 공개 프레임과 같은 부품(MeishiBig)·
+          같은 값으로 그리고, 그 밑에 한 줄 소개(프레임과 같은 글꼴). 칸을 고치는 대로(저장 전에도) 바뀐다.
+          showcase = 명함 아래 주소를 링크 대신 글자로 — 저장 전 아이디로 누르면 없는 주소로 가고 고치던
+          내용도 날아간다. PC에선 설명이 명함 오른쪽 가운데. */}
+      <div className="grid grid-cols-1 gap-x-9 gap-y-4 md:grid-cols-[380px_minmax(0,1fr)] md:items-center mb-2">
+        <div className="flex flex-col gap-1.5 md:col-start-2 md:row-start-1">
+          <p style={{ margin: 0, fontSize: "0.9375rem", fontWeight: 600, color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}>
+            {t.card.previewTitle}
+          </p>
+          <p className="flex items-center gap-2" style={{ ...HELP, marginTop: 0 }}>
+            <span aria-hidden="true" className="shrink-0 rounded-full" style={{ width: 7, height: 7, background: LIVE_GREEN }} />
+            {t.card.previewLive}
+          </p>
+        </div>
+        {/* PC: 1440 화면 프레임 오른쪽 칸 폭(460px)으로 그린 뒤 시안 크기(380px)로 줄인다 — zoom은 차지하는
+            자리까지 같이 줄어 칸에 딱 맞는다. 폰은 줄이지 않고 화면 폭 그대로. */}
+        <div className="md:w-[460px] md:[zoom:0.826]">
+          <MeishiBig
+            profile={{ username: previewUsername, name: form.name }}
+            profileUrl={`https://nookframe.com/${previewUsername}`}
+            socialLinks={form.socialLinks.filter((l) => l.trim())}
+            number={publicCount === null ? "\u00a0\u00a0" : String(publicCount).padStart(2, "0")}
+            showcase
+          />
+        </div>
+        {form.bio && (
+          <p className="whitespace-pre-line" style={{ fontSize: 13, lineHeight: 1.7, color: "var(--text-secondary)", margin: 0, fontFamily: "var(--font-nunito)", fontWeight: 400 }}>
+            {form.bio}
+          </p>
+        )}
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
-        <Panel title={t.card.basicTitle} body={t.card.basicBody}>
-          {/* 사진 — 큰 아이덴티티 미리보기는 헤더의 미니 명함이 맡는다(감사 A10). */}
+        <Panel title={t.card.basicTitle}>
+          {/* 사진 — PC 명함(위 미리보기)엔 안 찍히고 폰 화면의 명함·첫 화면과 공유 카드에 쓰인다. */}
           <div>
             <span style={FIELD_LABEL}>{t.card.avatarLabel}</span>
             <div className="flex items-center gap-3">
@@ -272,7 +322,7 @@ export default function CardTab({ user, profile }: { user: User; profile: Dashbo
                 autoCapitalize="none" autoCorrect="off" spellCheck={false} autoComplete="off" />
             </div>
             <p style={HELP}>
-              {t.card.cardAddress}{" "}
+              {t.card.frameAddress}{" "}
               <span className="vf-mono" style={{ color: "var(--text-primary)", overflowWrap: "anywhere" }}>nookframe.com/{form.username || "username"}</span>
             </p>
             {/* 아이디를 바꾸면 옛 주소는 바로 404다(옛 주소 이어주기 없음) — 저장 전에 알린다(C11). */}
@@ -284,7 +334,7 @@ export default function CardTab({ user, profile }: { user: User; profile: Dashbo
           </div>
         </Panel>
 
-        <Panel title={t.card.aboutTitle} body={t.card.aboutBody}>
+        <Panel title={t.card.aboutTitle}>
           <div>
             <div className="flex items-baseline justify-between gap-3">
               <label htmlFor="card-bio" style={FIELD_LABEL}>{t.card.bioLabel}</label>
@@ -381,18 +431,14 @@ export default function CardTab({ user, profile }: { user: User; profile: Dashbo
   );
 }
 
-// 무리 하나 — 흰 카드 + 제목·설명(토스 ListHeader). 크림 바탕 위라 --shadow-panel로 띄운다.
-function Panel({ title, body, children }: { title: string; body: string; children: React.ReactNode }) {
+// 무리 하나 — 흰 카드 + 제목. 크림 바탕 위라 --shadow-panel로 띄운다. 설명 줄은 10-02에 뺐다 —
+// 어디에 보이는지는 맨 위 미리보기가 보여 준다.
+function Panel({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="rounded-2xl p-6 flex flex-col gap-6" style={{ background: "var(--surface)", boxShadow: "var(--shadow-panel)" }}>
-      <header className="flex flex-col gap-1">
-        <h2 style={{ margin: 0, fontSize: "1.0625rem", fontWeight: 700, letterSpacing: "-0.01em", color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}>
-          {title}
-        </h2>
-        <p style={{ margin: 0, fontSize: "0.8125rem", lineHeight: 1.5, color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
-          {body}
-        </p>
-      </header>
+      <h2 style={{ margin: 0, fontSize: "1.0625rem", fontWeight: 700, letterSpacing: "-0.01em", color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}>
+        {title}
+      </h2>
       {children}
     </section>
   );

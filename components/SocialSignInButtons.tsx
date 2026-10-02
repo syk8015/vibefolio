@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useT } from "@/lib/i18n/client";
 import { readLastLoginMethod, withVia } from "@/lib/lastLogin";
 
-// 로그인·가입 화면이 같이 쓰는 소셜 버튼(구글·깃허브). 둘 다 콜백으로 돌아와
+// 로그인·가입 문(components/auth/AuthDoor)의 소셜 버튼(구글·깃허브). 둘 다 콜백으로 돌아와
 // 코드 교환 → 프로필이 없으면 미들웨어가 온보딩으로 보낸다.
 // 구글은 앱 안 브라우저(웹뷰)를 403 disallowed_useragent로 막는다고 알려져 있지만, 09-24
 // 사용자 실기기(인스타 앱 안)에선 구글도 됐다 — 막힘은 앱·기기마다 다르다. 깃허브는 막는 정책이 없다.
@@ -17,18 +17,15 @@ const noopSubscribe = () => () => {};
 
 export default function SocialSignInButtons({
   redirectTo,
-  onBeforeRedirect,
 }: {
   /** 클릭 시점에 부른다 — ?next=를 location에서 읽으므로 렌더 때 계산하지 않는다. */
   redirectTo: () => string;
-  onBeforeRedirect?: () => void;
 }) {
   const { t } = useT();
   // 쿠키는 브라우저에서만 읽는다 — 서버 렌더엔 표시가 없고 하이드레이션 뒤에 붙는다.
   const last = useSyncExternalStore(noopSubscribe, readLastLoginMethod, () => null);
 
   async function signIn(provider: Provider) {
-    onBeforeRedirect?.();
     await createClient().auth.signInWithOAuth({
       provider,
       options: { redirectTo: withVia(redirectTo(), provider) },
@@ -60,7 +57,7 @@ function ProviderButton({ onClick, icon, label, lastUsed }: {
   );
 }
 
-/** "지난번에 사용" 알약 — 소셜 버튼 테두리 위(onBorder), 로그인 화면의 메일 코드 링크·이메일 칸 옆.
+/** "지난번에 사용" 알약 — 소셜 버튼 테두리 위(onBorder), 문의 이메일 이름표·방법 바꾸기 링크 옆.
  *  onBorder는 테두리 선을 가려야 해서 불투명 바탕(--bg)+테두리, 나머지는 옅은 바탕(--blue-tint는 반투명). */
 export function LastUsedTag({ onBorder = false }: { onBorder?: boolean }) {
   const { t } = useT();

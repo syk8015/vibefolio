@@ -10,6 +10,7 @@ import { detectVideoKind, getYouTubeEmbedUrl, getVimeoEmbedUrl } from "@/lib/vid
 import { toPreviewUrl } from "@/lib/previewOrigin";
 import type { MeishiProfile } from "./Meishi";
 import type { IdentityLine } from "@/lib/identityLine";
+import { StageChip, StageProgress } from "./StageMarks";
 
 function isFileUpload(url: string | undefined): boolean {
   return !!url && url.startsWith("/api/preview/");
@@ -67,7 +68,6 @@ function useSrcWhenVisible(
 function LivePreview({ project, variant }: { project: Project; variant: "mobile" | "desktop" }) {
   const videoKind = project.videoUrl ? detectVideoKind(project.videoUrl) : "unknown";
   const hasManualVideo = project.videoUrl && videoKind !== "unknown";
-  const isFile = isFileUpload(project.demoUrl);
   // On mobile the stage is a 16:9 box (see TheaterStage); show videos in full
   // with `contain` so a landscape demo is never vertically cropped. Desktop's
   // 16:10 stage keeps `cover`.
@@ -214,98 +214,197 @@ function DirectVideo({ url, poster, fit, captions }: { url: string; poster: stri
       src={src}
     />
   );
-  // 자막이 없는 작품은 위 한 줄 그대로(옛 화면과 같다). 무대 아래쪽엔 제목·소개가 겹쳐 있어 위에 얹는다.
-  if (!captions?.length) return video;
+  // 무대엔 이제 작품만 있다(제목·소개는 무대 밑 이름표, 2026-10-02) — 자막은 작품 페이지처럼 아래에 얹는다.
+  // 위쪽엔 왼쪽 위 표시(StageChip)가 있어 긴 자막 줄이 그것과 겹친다. 바닥엔 실제 재생 위치 막대.
   return (
     <>
       {video}
-      <CaptionOverlay videoRef={ref} captions={captions} placement="top" mediaKey={url} />
+      {captions?.length ? (
+        <CaptionOverlay videoRef={ref} captions={captions} placement="bottom" mediaKey={url} />
+      ) : null}
+      <StageProgress videoRef={ref} mediaKey={url} />
     </>
   );
 }
 
 // ────────────────────────────────────────────────────────────────
-// Stage chrome — title plate, voice bubble, CTA, tags. These bits
-// sit on top of LivePreview and are reused across mobile/desktop.
+// Stage caption (PC) — 무대 밑 이름표(미술관 작품 이름표처럼, 2026-10-02 덜어내기 2차
+// "업그레이드"). 우리 글은 더 이상 작품 위에 얹지 않는다 — 작품 화면의 글과 겹쳤다.
+// 왼쪽: 제목 · 설명 · 흐린 한 줄 "AI 도구 · 연도". 오른쪽: 체험 버튼 하나와 그 밑 만든이 메모.
+// 첫 화면(1440×818) 안에 다 들어오게 제목·설명·메모는 두 줄에서 자른다.
 // ────────────────────────────────────────────────────────────────
 
-function NowPlayingBadge() {
-  return (
-    <div
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 6,
-        padding: "5px 11px",
-        borderRadius: 999,
-        background: "rgba(0,0,0,0.45)",
-        backdropFilter: "blur(8px)",
-      }}
-    >
-      <span className="vf-live-dot" style={{ width: 5, height: 5 }} />
-      <span
-        style={{
-          fontSize: 9,
-          color: "#fff",
-          fontWeight: 800,
-          letterSpacing: "0.22em",
-          textTransform: "uppercase",
-          fontFamily: "var(--font-nunito)",
-        }}
-      >
-        Now playing
-      </span>
-    </div>
-  );
-}
-
-function StageVoiceBubble({ text }: { text: string }) {
+// 만든이 메모 — 사이트의 흰 말풍선(작은 꼬리 · 작은 글씨 '만든이 메모'). 체험 버튼 밑에 붙는다.
+function MakerNote({ text }: { text: string }) {
   const { t } = useT();
   return (
     <div
       style={{
         position: "relative",
-        maxWidth: 220,
-        padding: "10px 13px",
+        maxWidth: 300,
+        padding: "9px 14px 10px",
         background: "var(--surface)",
-        borderRadius: 10,
-        boxShadow: "0 6px 24px rgba(0,0,0,0.25), 0 1.5px 4px rgba(0,0,0,0.15)",
+        borderRadius: 12,
+        boxShadow: "var(--shadow-card-small)",
         fontFamily: "var(--font-nunito)",
-        fontSize: 12,
-        lineHeight: 1.5,
-        color: "var(--text-primary)",
-        fontWeight: 600,
+        wordBreak: "keep-all",
       }}
     >
       <span
+        aria-hidden
         style={{
           position: "absolute",
           left: -5,
-          bottom: 12,
-          width: 10,
-          height: 10,
+          top: 19,
+          width: 11,
+          height: 11,
+          borderRadius: 2,
           background: "var(--surface)",
           transform: "rotate(45deg)",
-          boxShadow: "-1.5px 1.5px 3px rgba(0,0,0,0.06)",
+          boxShadow: "-2px 2px 3px rgba(0,0,0,0.05)",
         }}
       />
-      <div style={{ position: "relative" }}>
-        <span
+      <span
+        style={{
+          position: "relative",
+          display: "block",
+          marginBottom: 2,
+          fontFamily: "var(--font-mono)",
+          fontSize: 11,
+          fontWeight: 700,
+          letterSpacing: "0.2em",
+          textTransform: "uppercase",
+          color: "var(--text-muted)",
+        }}
+      >
+        {t.theater.makerNote}
+      </span>
+      <span
+        title={text}
+        style={{
+          position: "relative",
+          display: "-webkit-box",
+          WebkitBoxOrient: "vertical",
+          WebkitLineClamp: 2,
+          overflow: "hidden",
+          fontSize: 14,
+          fontWeight: 600,
+          lineHeight: 1.45,
+          color: "var(--text-primary)",
+        }}
+      >
+        {text}
+      </span>
+    </div>
+  );
+}
+
+// nav = 작품이 둘 이상일 때 TheaterShell이 주는 ← → (체험 버튼 왼쪽에 선다).
+export function StageCaption({ project, nav }: { project: Project; nav?: React.ReactNode }) {
+  const { t } = useT();
+  const href = safeHref(project.demoUrl);
+  const isFile = isFileUpload(project.demoUrl);
+  // 옛 무대 밑 AI 도구 칩은 이 한 줄로 들어왔다.
+  const meta = [...project.tags, project.year].filter(Boolean).join(" · ");
+  const hasSide = !!(href || nav || project.comment);
+
+  return (
+    // 좁은 PC·태블릿(무대 폭이 좁을 때)엔 오른쪽 덩어리가 글 밑으로 내려가 오른쪽에 붙는다 —
+    // 글 칸이 320px보다 좁아지지 않게. 1440 폭에선 한 줄(시안 그대로).
+    <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-start", columnGap: 28, rowGap: 14, marginTop: 18 }}>
+      <div style={{ flex: "1 1 320px", minWidth: 0 }}>
+        <h2
+          className="vf-serif-display"
           style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: 8,
-            letterSpacing: "0.2em",
-            textTransform: "uppercase",
-            color: "var(--text-muted)",
-            display: "block",
-            marginBottom: 3,
-            fontWeight: 800,
+            margin: 0,
+            fontSize: 30,
+            fontWeight: 600,
+            lineHeight: 1.15,
+            display: "-webkit-box",
+            WebkitBoxOrient: "vertical",
+            WebkitLineClamp: 2,
+            overflow: "hidden",
           }}
         >
-          {t.theater.makerNote}
-        </span>
-        {text}
+          {project.title}
+        </h2>
+        {project.description && (
+          // 설명은 2~3줄로 끊어 쓴 카피지만 여기선 줄바꿈을 풀어 흘린다(기본 white-space) —
+          // 두 줄 안에 더 많이 들어간다. 줄을 살린 전문은 작품 페이지에 있다.
+          <p
+            style={{
+              margin: "4px 0 0",
+              maxWidth: 600,
+              fontFamily: "var(--font-nunito)",
+              fontSize: 14,
+              lineHeight: 1.55,
+              color: "var(--text-secondary)",
+              wordBreak: "keep-all",
+              textWrap: "balance",
+              display: "-webkit-box",
+              WebkitBoxOrient: "vertical",
+              WebkitLineClamp: 2,
+              overflow: "hidden",
+            }}
+          >
+            {project.description}
+          </p>
+        )}
+        {meta && (
+          <p
+            style={{
+              margin: "6px 0 0",
+              fontFamily: "var(--font-nunito)",
+              fontSize: 13,
+              lineHeight: 1.5,
+              color: "var(--text-muted)",
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            }}
+          >
+            {meta}
+          </p>
+        )}
       </div>
+
+      {hasSide && (
+        <div style={{ flex: "none", marginLeft: "auto", maxWidth: "100%", display: "grid", justifyItems: "end", gap: 10, marginTop: -3 }}>
+          {(nav || href) && (
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              {nav}
+              {href && (
+                // 올린 파일 → 격리 도메인의 전체 화면 ▸, 배포 주소 → 새 탭 ↗. 둘 다 새 탭.
+                <a
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="vf-button-primary"
+                  style={{ padding: "10px 20px", fontSize: 14, gap: 9, whiteSpace: "nowrap" }}
+                >
+                  {isFile ? t.theater.ctaFullscreen : t.theater.ctaVisit}
+                  {isFile ? (
+                    <span
+                      aria-hidden
+                      style={{
+                        display: "inline-block",
+                        width: 0,
+                        height: 0,
+                        borderLeft: "6px solid currentColor",
+                        borderTop: "4px solid transparent",
+                        borderBottom: "4px solid transparent",
+                      }}
+                    />
+                  ) : (
+                    <span aria-hidden>↗</span>
+                  )}
+                </a>
+              )}
+            </div>
+          )}
+          {project.comment && <MakerNote text={project.comment} />}
+        </div>
+      )}
     </div>
   );
 }
@@ -336,6 +435,14 @@ export default function TheaterStage({ project, index, variant, profile, identit
   // vertically cropped by a portrait box. Live-site iframes and thumbnails don't.
   const videoKind = project.videoUrl ? detectVideoKind(project.videoUrl) : "unknown";
   const isVideo = (!!project.videoUrl && videoKind !== "unknown") || !!project.demoVideoUrl;
+  // 왼쪽 위 표시 — LivePreview와 같은 순서: 사람이 직접 준 영상이 자동 촬영보다 먼저다.
+  // 라이브 화면(iframe)·대표 이미지엔 표시가 없다.
+  const stageChip =
+    !!project.videoUrl && videoKind !== "unknown"
+      ? t.theater.chipOwnVideo
+      : project.demoVideoUrl
+      ? t.theater.chipAutoDemo
+      : null;
 
   // Mobile video stage: the demo is letterboxed inside a 1:1 box, so the chrome
   // moves OUT of the video and into the dark bars — meta on top, title + CTA on
@@ -494,151 +601,9 @@ export default function TheaterStage({ project, index, variant, profile, identit
           </div>
         </>
       ) : (
-      <>
-
-      {/* Dark gradient — keeps title legible without crushing the demo.
-          A whisper-light scrim at the very top seats the "Now playing" badge
-          and gives a light demo an upper edge instead of bleeding into the page. */}
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          background: isFile
-            ? "linear-gradient(180deg, rgba(0,0,0,0.16) 0%, transparent 14%, transparent 50%, rgba(0,0,0,0.78) 100%)"
-            : "linear-gradient(180deg, rgba(0,0,0,0.16) 0%, transparent 14%, transparent 48%, rgba(0,0,0,0.82) 100%)",
-        }}
-      />
-
-      {/* Top-left: Now playing badge */}
-      <div style={{ position: "absolute", top: isDesktop ? 18 : 14, left: isDesktop ? 18 : 14, zIndex: 4 }}>
-        <NowPlayingBadge />
-      </div>
-
-      {/* Owner's note bubble — sits above the title block, doesn't collide
-          with the CTA. Hidden if there's no comment to show. */}
-      {project.comment && (
-        <div
-          style={{
-            position: "absolute",
-            right: isDesktop ? 24 : 16,
-            bottom: isDesktop ? 130 : 110,
-            zIndex: 4,
-          }}
-        >
-          <StageVoiceBubble text={project.comment} />
-        </div>
-      )}
-
-      {/* Bottom: title plate */}
-      <div
-        style={{
-          position: "absolute",
-          left: isDesktop ? 28 : 18,
-          right: isDesktop ? 28 : 18,
-          bottom: isDesktop ? 26 : 20,
-          zIndex: 4,
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-          <span
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: isDesktop ? 10 : 9,
-              color: "rgba(255,255,255,0.65)",
-              letterSpacing: "0.22em",
-            }}
-          >
-            NO. {numberLabel}
-          </span>
-          <span style={{ width: 16, height: 1, background: "rgba(255,255,255,0.35)" }} />
-          <span
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: isDesktop ? 10 : 9,
-              color: "rgba(255,255,255,0.65)",
-              letterSpacing: "0.18em",
-              textTransform: "uppercase",
-            }}
-          >
-            {project.type === "video" ? "Video" : "Live"} · {project.year}
-          </span>
-        </div>
-        <h2
-          className="vf-serif-display"
-          style={{
-            fontWeight: 700,
-            fontSize: isDesktop ? 44 : 30,
-            color: "#fff",
-            lineHeight: 0.98,
-            margin: 0,
-            textShadow: "0 2px 16px rgba(0,0,0,0.55)",
-          }}
-        >
-          {project.title}
-        </h2>
-        {project.description && (
-          <p
-            style={{
-              fontSize: isDesktop ? 14 : 12,
-              color: "rgba(255,255,255,0.82)",
-              marginTop: 8,
-              lineHeight: 1.55,
-              maxWidth: isDesktop ? 440 : 280,
-              fontFamily: "var(--font-nunito)",
-              fontWeight: 400,
-              textShadow: "0 1px 8px rgba(0,0,0,0.5)",
-              // 설명은 일부러 3줄로 끊어 쓰는 카피다("~을 위한 / ~해주는 / ~포트폴리오")
-              // → 줄바꿈을 살린다. 이게 없으면 세 줄이 한 문단으로 뭉개진다.
-              whiteSpace: "pre-line",
-              // 작품 위에 겹치는 글이라 길면 포스터를 덮어버린다 → 3줄에서 끊는다.
-              // 전문은 상세 페이지(ClampText, 폰 8줄)에서 볼 수 있으니 여기선
-              // 더보기 토글을 두지 않는다 — 첫 화면은 미끼지 본문이 아니다.
-              display: "-webkit-box",
-              WebkitBoxOrient: "vertical",
-              WebkitLineClamp: 3,
-              overflow: "hidden",
-            }}
-          >
-            {project.description}
-          </p>
-        )}
-        {href && (
-          <a
-            href={href}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              marginTop: isDesktop ? 18 : 14,
-              background: "#fff",
-              color: "#1a1612",
-              padding: isDesktop ? "11px 20px" : "9px 16px",
-              borderRadius: 999,
-              border: "none",
-              fontFamily: "var(--font-nunito)",
-              fontSize: isDesktop ? 13 : 11,
-              fontWeight: 800,
-              letterSpacing: "0.04em",
-              cursor: "pointer",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 8,
-              textDecoration: "none",
-            }}
-          >
-            {isFile ? t.theater.ctaFullscreen : t.theater.ctaVisit}
-            <span
-              style={{
-                display: "inline-block",
-                width: 0,
-                height: 0,
-                borderLeft: "6px solid currentColor",
-                borderTop: "4px solid transparent",
-                borderBottom: "4px solid transparent",
-              }}
-            />
-          </a>
-        )}
-      </div>
-      </>
+        // PC 무대엔 작품만(2026-10-02 덜어내기 2차): Now playing·번호 줄·제목·소개·메모·체험 버튼은
+        // 무대 밑 이름표(StageCaption)로 옮겼다. 남은 건 영상일 때 왼쪽 위 작은 표시 하나.
+        stageChip ? <StageChip label={stageChip} inset={18} /> : null
       )}
 
       {/* Frame ring — a crisp hairline painted ABOVE the demo so the card edge

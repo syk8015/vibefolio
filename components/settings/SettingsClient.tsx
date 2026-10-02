@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useT } from "@/lib/i18n/client";
 import { onThemeChange, setStoredTheme, type Theme } from "@/lib/theme";
 import type { Locale } from "@/lib/i18n/config";
+import { isInAppBrowser } from "@/lib/traffic-source";
 import AppNav from "@/components/AppNav";
 import LoginMethods from "./LoginMethods";
 import AiConnections from "./AiConnections";
@@ -100,6 +101,33 @@ function DisplaySettings() {
   );
 }
 
+// 지금 이 기기 — "Mac · Chrome"(10-02 덜어내기 2차): 어느 기기에서 나가는지 로그아웃 줄에서 바로 보이게.
+// 모르는 쪽은 빼고, 둘 다 모르면 줄을 그리지 않는다. 브라우저는 순서가 중요하다 — Samsung·Whale·Edge UA에도
+// Chrome/이, Chrome UA에도 Safari/가 들어 있다. 앱 안 브라우저(카톡·인스타…)와 Opera는 Chrome이라 부르면
+// 틀려서 뺀다.
+function deviceLabel(ua: string, touchPoints: number): string | null {
+  // iPadOS 13부터 아이패드 사파리는 맥 UA를 보낸다 — 터치가 되면 아이패드.
+  const os = /iPad/.test(ua) || (/Macintosh/.test(ua) && touchPoints > 1) ? "iPad"
+    : /iPhone/.test(ua) ? "iPhone"
+    : /Android/.test(ua) ? "Android"
+    : /Windows/.test(ua) ? "Windows"
+    : /Macintosh|Mac OS X/.test(ua) ? "Mac"
+    : /Linux/.test(ua) ? "Linux"
+    : null;
+  const browser = isInAppBrowser(ua) || /OPR\/|OPiOS\/|Opera/.test(ua) ? null
+    : /SamsungBrowser\//.test(ua) ? "Samsung Internet"
+    : /Whale\//.test(ua) ? "Whale"
+    : /Edg(e|A|iOS)?\//.test(ua) ? "Edge"
+    : /Firefox\/|FxiOS\//.test(ua) ? "Firefox"
+    : /Chrome\/|CriOS\//.test(ua) ? "Chrome"
+    : /Version\/.*Safari\//.test(ua) ? "Safari"
+    : null;
+  return [os, browser].filter(Boolean).join(" · ") || null;
+}
+// UA는 바뀌지 않으니 구독할 것이 없다 — 서버 렌더(null)엔 줄이 없고 하이드레이션 뒤에 붙는다.
+const noopSubscribe = () => () => {};
+const readDevice = () => deviceLabel(navigator.userAgent, navigator.maxTouchPoints);
+
 function SessionSettings() {
   const { t } = useT();
   const ts = t.settings;
@@ -107,6 +135,7 @@ function SessionSettings() {
   const [busy, setBusy] = useState<"local" | "global" | null>(null);
   const [confirmAll, setConfirmAll] = useState(false);
   const [failed, setFailed] = useState(false);
+  const device = useSyncExternalStore(noopSubscribe, readDevice, () => null);
 
   // local = 이 기기만(09-25 기본). global = 이 계정의 모든 세션을 끊는다 — 다른 기기는 다음
   // 요청에서 미들웨어의 getUser가 세션 없음으로 읽고 로그인 화면으로 간다.
@@ -123,19 +152,21 @@ function SessionSettings() {
     router.refresh();
   }
 
+  // 한 줄 "로그아웃" + [이 기기만] [모든 기기](10-02 덜어내기 2차). 모든 기기는 예전처럼 줄 안 확인을
+  // 한 번 거친다 — 확인 중엔 두 버튼을 거두고 확인만 남긴다.
   const locked = busy !== null;
   return (
     <Section label={ts.sessionsLabel}>
       {failed && <p role="alert" className="text-sm mb-3" style={{ ...TEXT, color: "var(--danger)" }}>{ts.logoutFailed}</p>}
       <List>
-        <Row name={ts.logoutHere} detail={ts.logoutHereBody} action={
-          <button type="button" onClick={() => signOut("local")} disabled={locked} style={pillStyle(locked)}>{ts.logoutHereBtn}</button>
-        } />
-        <Row divider name={ts.logoutAll} detail={ts.logoutAllBody}
+        <Row wrap name={ts.logout} detail={device ? ts.thisDevice(device) : undefined}
           action={confirmAll ? undefined : (
-            <button type="button" onClick={() => { setConfirmAll(true); setFailed(false); }} disabled={locked} style={pillStyle(locked)}>
-              {ts.logoutAllBtn}
-            </button>
+            <div className="flex gap-2 shrink-0">
+              <button type="button" onClick={() => signOut("local")} disabled={locked} style={pillStyle(locked)}>{ts.logoutHere}</button>
+              <button type="button" onClick={() => { setConfirmAll(true); setFailed(false); }} disabled={locked} style={pillStyle(locked)}>
+                {ts.logoutAll}
+              </button>
+            </div>
           )}>
           {confirmAll && (
             <InlineConfirm locked={locked}

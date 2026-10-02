@@ -4,10 +4,9 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import Logo from "@/components/Logo";
-import LanguageToggle from "@/components/LanguageToggle";
 import { useT } from "@/lib/i18n/client";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
+import { AuthShell, AuthTitle, ErrorLine, FieldLabel, PILL_STYLE, Pill } from "@/components/auth/AuthParts";
 
 type Step = "loading" | "form" | "done" | "invalid";
 
@@ -71,118 +70,74 @@ export default function ResetPasswordPage() {
     );
   }
 
+  // 만료·잘못된 링크 — 경고 표시 + 제목 + 할 일 하나(설명 두 줄은 10-02에 뺐다).
   if (step === "invalid") {
     return (
-      <main className="min-h-screen flex flex-col items-center justify-center px-6" style={{ background: "var(--bg)" }}>
-        <div className="w-full max-w-sm text-center">
-          <div
-            className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-6"
-            style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.3)" }}
-          >
+      <AuthShell header={false}>
+        <div className="flex flex-col items-center text-center">
+          <div aria-hidden className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl"
+            style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.3)" }}>
             ⚠️
           </div>
-          <h1 className="text-2xl font-black mb-3" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}>
-            {t.resetPassword.invalidTitle}
-          </h1>
-          <p className="text-sm leading-relaxed mb-6" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
-            {t.resetPassword.invalidBody1}<br />
-            {t.resetPassword.invalidBody2}
-          </p>
-          <Link
-            href="/forgot-password"
-            className="text-sm font-bold"
-            style={{ color: "var(--blue)", textDecoration: "none", fontFamily: "var(--font-nunito)" }}
-          >
+          <AuthTitle className="mt-6" size="1.6875rem">{t.resetPassword.invalidTitle}</AuthTitle>
+          <Link href="/forgot-password" className="vf-button-primary mt-7" style={PILL_STYLE}>
             {t.resetPassword.requestAgain}
           </Link>
         </div>
-      </main>
+      </AuthShell>
     );
   }
 
   if (step === "done") {
     return (
-      <main className="min-h-screen flex flex-col items-center justify-center px-6" style={{ background: "var(--bg)" }}>
-        <div className="w-full max-w-sm text-center">
-          <div
-            className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-6"
-            style={{ background: "var(--blue-tint)", border: "1px solid var(--blue)" }}
-          >
+      <AuthShell header={false}>
+        <div className="flex flex-col items-center text-center">
+          <div aria-hidden className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl"
+            style={{ background: "var(--blue-tint)", border: "1px solid var(--blue)", color: "var(--text-primary)" }}>
             ✓
           </div>
-          <h1 className="text-2xl font-black mb-3" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}>
-            {t.resetPassword.doneTitle}
-          </h1>
-          <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
+          <AuthTitle className="mt-6" size="1.6875rem">{t.resetPassword.doneTitle}</AuthTitle>
+          <p className="mt-2.5" style={{ fontSize: "0.9375rem", lineHeight: 1.6, color: "var(--text-secondary)" }}>
             {t.resetPassword.doneBody}
           </p>
         </div>
-      </main>
+      </AuthShell>
     );
   }
 
   return (
-    <main className="min-h-screen flex flex-col" style={{ background: "var(--bg)" }}>
-      <nav className="flex items-center justify-between px-4 md:px-8 py-4 md:py-5">
-        <Logo />
-        <LanguageToggle />
-      </nav>
+    <AuthShell>
+      <AuthTitle>{t.resetPassword.title}</AuthTitle>
+      <p className="mt-2.5 mb-7 text-center" style={{ fontSize: "0.9375rem", lineHeight: 1.6, color: "var(--text-secondary)" }}>
+        {t.resetPassword.subtitle}
+      </p>
 
-      <div className="flex-1 flex items-center justify-center px-6 py-12">
-        <div className="w-full max-w-sm">
-          <div className="mb-8">
-            <h1 className="text-3xl font-black mb-2" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", letterSpacing: "-0.02em" }}>
-              {t.resetPassword.title}
-            </h1>
-            <p className="text-sm font-semibold" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
-              {t.resetPassword.subtitle}
-            </p>
-          </div>
-
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-            <div>
-              <label className="block text-xs font-bold mb-1.5"
-                style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", letterSpacing: "0.05em" }}>
-                {t.resetPassword.newPasswordLabel}
-              </label>
-              <div className="relative">
-                <input className="vf-input" style={{ paddingRight: "3rem" }}
-                  type={show ? "text" : "password"} name="password" placeholder={t.signup.passwordPlaceholder}
-                  value={form.password} onChange={handleChange} required minLength={8} autoComplete="new-password" autoFocus />
-                <button type="button" onClick={() => setShow((v) => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2"
-                  style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", padding: "4px" }}>
-                  {show ? <EyeOff /> : <Eye />}
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold mb-1.5"
-                style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", letterSpacing: "0.05em" }}>
-                {t.resetPassword.confirmLabel}
-              </label>
-              <input className="vf-input"
-                type={show ? "text" : "password"} name="confirm" placeholder={t.resetPassword.confirmPlaceholder}
-                value={form.confirm} onChange={handleChange} required minLength={8} autoComplete="new-password" />
-            </div>
-
-            {error && (
-              <p className="text-sm font-semibold text-center py-2 px-3 rounded-xl"
-                style={{ color: "#ef4444", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", fontFamily: "var(--font-nunito)" }}>
-                {error}
-              </p>
-            )}
-
-            <button type="submit" disabled={loading}
-              className="w-full py-3.5 rounded-xl font-black text-sm mt-2 transition-opacity hover:opacity-85 disabled:opacity-50"
-              style={{ background: "var(--blue)", color: "var(--bg)", fontFamily: "var(--font-nunito)", cursor: loading ? "not-allowed" : "pointer", border: "none", boxShadow: "0 0 20px var(--blue-glow)" }}>
-              {loading ? t.resetPassword.submitting : t.resetPassword.submit}
-            </button>
-          </form>
+      <form onSubmit={handleSubmit} className="flex flex-col">
+        <FieldLabel htmlFor="reset-password">{t.resetPassword.newPasswordLabel}</FieldLabel>
+        <div className="relative">
+          <input id="reset-password" className="vf-input" style={{ paddingRight: "3rem" }}
+            type={show ? "text" : "password"} name="password" placeholder={t.resetPassword.passwordPlaceholder}
+            value={form.password} onChange={handleChange} required minLength={8} autoComplete="new-password" autoFocus />
+          <button type="button" onClick={() => setShow((v) => !v)}
+            aria-label={show ? t.auth.hidePassword : t.auth.showPassword}
+            className="absolute right-3 top-1/2 -translate-y-1/2 flex"
+            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", padding: "4px" }}>
+            {show ? <EyeOff /> : <Eye />}
+          </button>
         </div>
-      </div>
-    </main>
+
+        <FieldLabel htmlFor="reset-confirm" className="mt-[18px]">{t.resetPassword.confirmLabel}</FieldLabel>
+        <input id="reset-confirm" className="vf-input"
+          type={show ? "text" : "password"} name="confirm" placeholder={t.resetPassword.confirmPlaceholder}
+          value={form.confirm} onChange={handleChange} required minLength={8} autoComplete="new-password" />
+
+        {error && <ErrorLine text={error} />}
+
+        <Pill type="submit" disabled={loading} className="mt-6">
+          {loading ? t.resetPassword.submitting : t.resetPassword.submit}
+        </Pill>
+      </form>
+    </AuthShell>
   );
 }
 
@@ -195,14 +150,14 @@ function errorMessage(msg: string, t: Dictionary) {
 
 function Eye() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
     </svg>
   );
 }
 function EyeOff() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/>
       <line x1="1" y1="1" x2="23" y2="23"/>
     </svg>

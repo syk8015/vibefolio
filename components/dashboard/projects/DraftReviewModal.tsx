@@ -12,11 +12,11 @@ import { buildDraftFixPrompt } from "@/lib/draftFixPrompt";
 import { copyText, copyTextLater } from "@/lib/clipboard";
 import { useMediaQuery } from "@/lib/useMediaQuery";
 import { ManualCopyBox } from "@/components/dashboard/ManualCopyBox";
-import { AiToolLogo } from "./helpers";
 import { DemoScriptPanel, holdOf } from "./DemoScriptPanel";
 import { OwnerInterviewPanel } from "./OwnerInterviewPanel";
 import { LanguagePanel, type DetailRow } from "./LanguagePanel";
-import { VisitorFrame, DemoChip } from "./VisitorFrame";
+import { VisitorFrame } from "./VisitorFrame";
+import { MiniStage, MiniWork, NoteBubble, captionText } from "./WorkCardPreview";
 import { PublishTrail, PublishedMark, type TrailStep } from "./PublishTrail";
 import { filmPlan, normalizeAppLanguages, normalizeLocale, otherLocale, readTranslations } from "@/lib/workLanguages";
 import { PreviewDevice, PHONE_VIEW, DESKTOP_VIEW } from "./PreviewDevice";
@@ -35,20 +35,27 @@ import { getDictionary } from "@/lib/i18n/dictionaries";
 //   사람이 바꾸는 스위치는 일부러 없다. 답이 없는 예전 초안은 분류로 짐작(previewDevice).
 //
 // 2026-10-01 덜어내기 "라"(사용자가 고른 시안): 판단 칸은 "공개할까요?" 아래에
-// ① 방문자가 볼 명함(구석의 KO/EN으로 두 언어 판을 번갈아 봄)
+// ① 방문자가 볼 모습(구석의 KO/EN으로 두 언어 판을 번갈아 봄)
 // ② 체크 한 줄 "인터뷰 답이 내 말과 같아요" + [답 보기] — 체크해야 공개 버튼이 눌린다(09-29 필수)
 // ③ 촬영 한 줄 "N장면 · 약 N초 · 영어 자막 포함" + [보기] — 펼치면 장면 막대(장면을 누르면
 //    옮기기·빼기 카드)·자막·언어/로그인 작은 표. 문제(위치 모르는 장면·로그인 답 없음)만 늘 빨갛게.
 // 버튼은 가운데 [고칠 점 적기] + [공개하고 촬영 요청]. 버튼 아래 안내 문장은 두지 않는다.
 // 작품 유형·연도·AI 도구·주소·촬영 힌트는 ⋯ [직접 고치기](수정 창)에서 보고 고친다.
 //
-// 2026-10-01 "업그레이드"(라 위에 더한 것): 배지는 제목과 한 줄에. 명함은 방문자가 볼 작은 브라우저 틀
-// (주소 nookframe.com/아이디, KO/EN은 그 주소 줄) 안에, 명함 구석엔 "▶ 자동 시연 · 약 N초".
-// 버튼 바로 위 작은 세 단계 "공개 → 촬영 → 명함에 영상". 공개하면 창을 닫지 않고 이 자리가
-// "공개했어요"(큰 체크 · 작은 명함 · [링크 복사] [명함 보기])로 바뀐다 — draft.is_draft가 false가 되는
+// 2026-10-01 "업그레이드"(라 위에 더한 것): 배지는 제목과 한 줄에. 방문자 미리보기는 방문자가 볼 작은
+// 브라우저 틀(주소 nookframe.com/아이디, KO/EN은 그 주소 줄) 안에 있다.
+// 버튼 바로 위 작은 세 단계 "공개 → 촬영 → 프레임에 영상". 공개하면 창을 닫지 않고 이 자리가
+// "공개했어요"(큰 체크 · 작은 프레임 · [링크 복사] [내 프레임 보기])로 바뀐다 — draft.is_draft가 false가 되는
 // 것으로 안다(ProjectsTab이 공개 목록으로 옮긴 같은 행을 계속 넘긴다. 실패하면 초안으로 돌아와 검토 화면으로).
 //
-// 살짝 고치기: 명함 렌더의 제목·소개글·한마디는 글자를 누르면 그 자리에서 고쳐진다
+// 2026-10-02 덜어내기 2차: 틀 안은 새 공개 프레임 페이지(TheaterStage 무대 + StageCaption 이름표)를 작게
+// 그린 것이다 — 우리 글을 더는 어두운 카드 위 흰 글씨로 얹지 않는다. 위에 짧은 어두운 무대 띠(왼쪽 위
+// "▶ 자동 시연 · 약 N초", 바닥에 꾸밈용 재생 막대), 그 밑 페이지 바탕에 이름표 — 세리프 제목 · 줄바꿈을
+// 풀어 흘린 소개글(둘 다 2줄) · 흐린 한 줄 "AI 도구 · 연도" · 한마디는 '만든이 메모' 말풍선(칸이 좁으면
+// 공개 페이지처럼 글 밑 오른쪽). 무대 띠만 늘 어둡고 나머지는 테마 변수다. 띠·말풍선·글 모양은
+// 작품 고치기 창 미리보기(WorkCardPreview)와 같은 조각을 쓴다.
+//
+// 살짝 고치기: 미리보기의 제목·소개글·한마디는 글자를 누르면 그 자리에서 밝은 입력칸(.vf-input)으로 고쳐진다
 // (서버 게이트와 같은 규칙으로 막는다 — lib/descriptionShape). 대본은 빼기·순서만.
 // 그 이상은 [고칠 점 적기] → 수정 프롬프트 복사 — 사람은 불만 한 줄, 고치는 건 AI(재촬영 루프와 동일).
 // 사이트가 AI에게 무엇을 보내는 게 아니다: 사람이 복사해 AI 채팅창에 붙여넣는다(문구도 그렇게).
@@ -431,15 +438,19 @@ export function DraftReviewModal({ draft, privateReady = true, username, demoPau
       : draft.demo_url.replace(/^https?:\/\//, "").replace(/\/$/, "");
   const title = draft.title || t.projects.untitled;
 
-  // ── 업그레이드: 브라우저 틀 주소 · 명함 구석 표시 · 버튼 위 세 단계 ─────────
+  // ── 업그레이드: 브라우저 틀 주소 · 무대 띠 왼쪽 위 표시 · 버튼 위 세 단계 ─────────
   const frameAddress = username ? `nookframe.com/${username}` : "nookframe.com";
-  // 명함 구석 표시는 명함이 보이는 언어로(방문자가 보는 그대로) — KO/EN을 바꾸면 그 언어로 바뀐다.
-  const cardT = getDictionary(onOther && otherLoc ? otherLoc : primaryLoc ?? locale).projects;
+  // 미리보기 안의 작은 말(무대 띠 표시 · 말풍선 이름표)은 보이는 판의 언어로(방문자가 보는 그대로) —
+  // KO/EN을 바꾸면 그 언어로 바뀐다. '공개했어요'의 작은 프레임은 기본 언어 판이라 기본 언어로.
+  const primaryDict = getDictionary(primaryLoc ?? locale);
+  const cardDict = onOther && otherLoc ? getDictionary(otherLoc) : primaryDict;
   // 자동 시연이면 위 촬영 줄과 같은 "약 N초", 직접 준 영상이면 숫자 없이 지금 쓰는 말 그대로.
   // 대본을 아직 못 받았거나 장면이 없으면 숫자를 지어내지 않고 표시를 두지 않는다.
   const chipText = hasOwnVideo
-    ? capitalize(cardT.reviewVideoOwn)
-    : films && privateReady && steps.length ? cardT.reviewAutoDemo(filmSeconds) : null;
+    ? capitalize(cardDict.projects.reviewVideoOwn)
+    : films && privateReady && steps.length ? cardDict.projects.reviewAutoDemo(filmSeconds) : null;
+  // 이름표의 흐린 한 줄 — 공개 페이지와 같은 "AI 도구 · 연도"(옛 도구 칩 자리). 도구 이름은 두 언어 공통.
+  const cardMeta = [...(draft.tags ?? []), draft.year].filter(Boolean).join(" · ");
   // 세 단계 — 공개해도 찍을 게 없으면(직접 준 영상·찍을 수 없는 주소) 두지 않는다. 버튼 이름과 같은 판정(films).
   const reviewTrail: TrailStep[] | null = films ? [
     { state: "cur", label: t.projects.reviewTrailPublish },
@@ -463,18 +474,15 @@ export function DraftReviewModal({ draft, privateReady = true, username, demoPau
   const trail = published ? publishedTrail : mode === "review" ? reviewTrail : null;
 
   // ── 스타일 ─────────────────────────────────────────────────────────────
-  // 명함 렌더는 실제 명함(TheaterStage)처럼 작품 위에 얹힌 흰 글씨다 — 테마와 무관하게
-  // 어두운 바탕이 정직하다(라이트에서도 명함은 포스터 위에 뜬다).
-  const cardBg = "linear-gradient(180deg, #2a241f 0%, #1a1612 100%)";
+  // 방문자 미리보기는 새 프레임 페이지처럼 이름표 글이 페이지 바탕(테마 변수) 위에 있다 — 늘 어두운 건
+  // 무대 띠(MiniStage)뿐. 그 자리 고치기 칸·버튼도 밝은 바탕의 기본 모양(.vf-input·.vf-button-*)을 작게 쓴다.
   const editableStyle: React.CSSProperties = { cursor: "text", borderRadius: 6, transition: "background 0.15s" };
-  const inputStyle: React.CSSProperties = {
-    width: "100%", background: "rgba(255,255,255,0.08)", color: "#fff", border: "none", outline: "none",
-    borderRadius: 8, padding: "6px 8px", fontFamily: "var(--font-nunito)",
-  };
+  const editInput: React.CSSProperties = { padding: "5px 9px", borderRadius: 8 };
+  const editButton: React.CSSProperties = { padding: "5px 14px", fontSize: "0.8rem" };
   const smallText: React.CSSProperties = {
     margin: 0, fontFamily: "var(--font-nunito)", fontSize: 13, lineHeight: 1.55, color: "var(--text-secondary)",
   };
-  // 답·촬영을 펼치거나 고칠 점을 적는 동안엔 명함을 한 단계 줄여 아래 내용에 자리를 준다.
+  // 답·촬영을 펼치거나 고칠 점을 적는 동안엔 미리보기를 한 단계 줄여 아래 내용에 자리를 준다.
   const compactCard = answersOpen || filmOpen || mode !== "review";
   const cardTitleSize = compactCard ? "1.3rem" : "1.45rem";
   const textLink: React.CSSProperties = { flexShrink: 0, textDecoration: "underline", textUnderlineOffset: 3 };
@@ -536,6 +544,25 @@ export function DraftReviewModal({ draft, privateReady = true, username, demoPau
           </button>
         );
       })}
+    </div>
+  );
+
+  // 그 자리 고치기의 [저장] [닫기] + 저장 실패 — 고치는 칸 가까이에(제목·소개글은 글 칸 끝, 한마디는 그 칸 밑).
+  const editRow = editing && (
+    <div className="flex flex-wrap items-center gap-2" style={{ marginTop: 10 }}>
+      <button type="button" onClick={() => void save()} disabled={saving || !!descIssue}
+        className="vf-button-primary" style={editButton}>
+        {t.projects.reviewEditSave}
+      </button>
+      <button type="button" onClick={cancel} disabled={saving} className="vf-button-ghost" style={editButton}>
+        {t.projects.reviewEditCancel}
+      </button>
+      {saveError && editing !== "description" && (
+        <span className="text-xs" style={{ color: "var(--danger)", fontFamily: "var(--font-nunito)" }}>{saveError}</span>
+      )}
+      {saveError && editing === "description" && !descIssue && (
+        <span className="text-xs" style={{ color: "var(--danger)", fontFamily: "var(--font-nunito)" }}>{saveError}</span>
+      )}
     </div>
   );
 
@@ -691,91 +718,72 @@ export function DraftReviewModal({ draft, privateReady = true, username, demoPau
                 </a>
               )}
 
-              {/* ① 명함 렌더 — 방문자가 볼 모습(브라우저 틀 안, 주소 줄 끝에 KO/EN). 글자를 누르면 그 자리에서 고친다 */}
+              {/* ① 방문자가 볼 모습 — 프레임 페이지를 작게(브라우저 틀 안, 주소 줄 끝에 KO/EN): 어두운 무대 띠 +
+                  페이지 바탕의 이름표. 제목·소개글·한마디는 글자를 누르면 그 자리에서 고친다 */}
               {!published && (
               <div className="flex flex-col" style={{ gap: 8 }}>
                 <VisitorFrame address={frameAddress} right={langSwitch} tight={compactCard}>
-                <div className="relative" style={{ borderRadius: 12, background: cardBg, padding: compactCard ? "15px 20px 14px" : "20px 22px 18px" }}>
-                  {editing === "title" ? (
-                    <input ref={inputRef as React.RefObject<HTMLInputElement>} value={value} onChange={e => setValue(e.target.value)}
-                      onKeyDown={e => onKey(e, false)} disabled={saving}
-                      className="vf-serif-display" style={{ ...inputStyle, fontSize: cardTitleSize, fontWeight: 500 }} />
-                  ) : (
-                    <h3 className="vf-serif-display" onClick={() => begin("title")} title={t.projects.reviewEditHint}
-                      style={{ ...editableStyle, fontSize: cardTitleSize, fontWeight: 500, margin: 0, color: "#fff", textShadow: "0 2px 16px rgba(0,0,0,0.55)", padding: "2px 4px", marginLeft: -4 }}>
-                      {fieldValue("title") || t.projects.untitled}
-                    </h3>
-                  )}
+                <div style={{ padding: compactCard ? "2px 2px 6px" : "4px 4px 10px" }}>
+                  <MiniStage height={compactCard ? 52 : 64} label={chipText} />
 
-                  {editing === "description" ? (
-                    <div style={{ marginTop: 8 }}>
-                      <textarea ref={inputRef as React.RefObject<HTMLTextAreaElement>} value={value} onChange={e => setValue(e.target.value)}
-                        onKeyDown={e => onKey(e, true)} rows={3} disabled={saving}
-                        style={{ ...inputStyle, fontSize: compactCard ? 14 : 15, lineHeight: 1.55, resize: "vertical", maxWidth: 460 }} />
-                      <p className="text-xs" style={{ margin: "4px 0 0", fontFamily: "var(--font-nunito)", color: descIssue ? "#f0a3a3" : "rgba(255,255,255,0.6)" }}>
-                        {descIssue ?? t.projects.reviewDescMeter(descLines.length, descMaxCols, DESCRIPTION_LINE_COLS_MAX)}
-                      </p>
-                    </div>
-                  ) : (
-                    <p onClick={() => begin("description")} title={t.projects.reviewEditHint}
-                      style={{
-                        ...editableStyle, fontSize: compactCard ? 14 : 15, color: fieldValue("description") ? "rgba(255,255,255,0.84)" : "rgba(255,255,255,0.4)",
-                        marginTop: 8, lineHeight: 1.55, maxWidth: 460, fontFamily: "var(--font-nunito)",
-                        textShadow: "0 1px 8px rgba(0,0,0,0.5)", whiteSpace: "pre-line",
-                        display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 3, overflow: "hidden",
-                        padding: "2px 4px", marginLeft: -4,
-                      }}>
-                      {fieldValue("description") || t.projects.reviewDescEmpty}
-                    </p>
-                  )}
-
-                  {editing === "comment" ? (
-                    <input ref={inputRef as React.RefObject<HTMLInputElement>} value={value} onChange={e => setValue(e.target.value)}
-                      onKeyDown={e => onKey(e, false)} disabled={saving} placeholder={t.projects.reviewNotePlaceholder}
-                      style={{ ...inputStyle, fontSize: compactCard ? 13 : 14, marginTop: compactCard ? 10 : 12, maxWidth: 460 }} />
-                  ) : (
-                    <div onClick={() => begin("comment")} title={t.projects.reviewEditHint}
-                      className="inline-block"
-                      style={{
-                        ...editableStyle, marginTop: compactCard ? 10 : 12, fontSize: compactCard ? 13 : 14, fontFamily: "var(--font-nunito)",
-                        background: "rgba(255,255,255,0.12)", color: fieldValue("comment") ? "#fff" : "rgba(255,255,255,0.45)",
-                        padding: compactCard ? "6px 13px" : "7px 14px", borderRadius: 14, maxWidth: 460,
-                      }}>
-                      {fieldValue("comment") || t.projects.reviewNotePlaceholder}
-                    </div>
-                  )}
-
-                  {/* 도구 칩 · 오른쪽 끝에 "▶ 자동 시연 · 약 N초" */}
-                  {(draft.tags.length > 0 || chipText) && (
-                    <div className="flex flex-wrap items-center gap-1.5" style={{ marginTop: compactCard ? 10 : 12 }}>
-                      {draft.tags.map(tag => (
-                        <span key={tag} className="flex items-center gap-1 px-2 py-0.5 rounded-full"
-                          style={{ background: "rgba(255,255,255,0.10)", color: "rgba(255,255,255,0.88)", fontFamily: "var(--font-nunito)", fontSize: "0.72rem" }}>
-                          <AiToolLogo id={tag} size={11} />{tag}
-                        </span>
-                      ))}
-                      {chipText && <DemoChip>{chipText}</DemoChip>}
-                    </div>
-                  )}
-
-                  {editing && (
-                    <div className="flex items-center gap-2" style={{ marginTop: 12 }}>
-                      <button type="button" onClick={() => void save()} disabled={saving || !!descIssue}
-                        className="rounded-full" style={{ background: "#fff", color: "#1a1612", border: "none", padding: "6px 14px", fontSize: "0.8rem", fontWeight: 600, fontFamily: "var(--font-nunito)", cursor: "pointer", opacity: saving || descIssue ? 0.5 : 1 }}>
-                        {t.projects.reviewEditSave}
-                      </button>
-                      <button type="button" onClick={cancel} disabled={saving}
-                        style={{ background: "transparent", color: "rgba(255,255,255,0.7)", border: "none", padding: "6px 10px", fontSize: "0.8rem", fontFamily: "var(--font-nunito)", cursor: "pointer" }}>
-                        {t.projects.reviewEditCancel}
-                      </button>
-                      {saveError && editing !== "description" && (
-                        <span className="text-xs" style={{ color: "#f0a3a3", fontFamily: "var(--font-nunito)" }}>{saveError}</span>
+                  {/* 이름표 — 왼쪽 글 칸(제목·소개글·흐린 한 줄), 한마디 말풍선은 그 오른쪽. 칸이 좁으면 공개 페이지처럼
+                      말풍선이 글 밑 오른쪽으로 내려간다. 한마디를 고치는 칸은 한 줄을 통째로 쓴다 */}
+                  <div className="flex flex-wrap items-start" style={{ columnGap: 20, rowGap: compactCard ? 8 : 10, marginTop: compactCard ? 10 : 12 }}>
+                    <div style={{ flex: "1 1 300px", minWidth: 0 }}>
+                      {editing === "title" ? (
+                        <input ref={inputRef as React.RefObject<HTMLInputElement>} value={value} onChange={e => setValue(e.target.value)}
+                          onKeyDown={e => onKey(e, false)} disabled={saving}
+                          className="vf-input vf-serif-display" style={{ ...editInput, fontSize: cardTitleSize, fontWeight: 600, lineHeight: 1.25 }} />
+                      ) : (
+                        // 2줄에서 자르는 글이라 세로 여백은 두지 않는다(여백에 셋째 줄 윗부분이 비친다)
+                        <h3 className="vf-serif-display" onClick={() => begin("title")} title={t.projects.reviewEditHint}
+                          style={{
+                            ...captionText.title(cardTitleSize), ...editableStyle, padding: "0 4px", marginLeft: -4,
+                            color: fieldValue("title") ? undefined : "var(--text-muted)",
+                          }}>
+                          {fieldValue("title") || t.projects.untitled}
+                        </h3>
                       )}
-                      {saveError && editing === "description" && !descIssue && (
-                        <span className="text-xs" style={{ color: "#f0a3a3", fontFamily: "var(--font-nunito)" }}>{saveError}</span>
+
+                      {editing === "description" ? (
+                        <div style={{ marginTop: 6 }}>
+                          <textarea ref={inputRef as React.RefObject<HTMLTextAreaElement>} value={value} onChange={e => setValue(e.target.value)}
+                            onKeyDown={e => onKey(e, true)} rows={3} disabled={saving}
+                            className="vf-input" style={{ ...editInput, lineHeight: 1.55, resize: "vertical" }} />
+                          <p className="text-xs" style={{ margin: "4px 0 0", fontFamily: "var(--font-nunito)", color: descIssue ? "var(--danger)" : "var(--text-muted)" }}>
+                            {descIssue ?? t.projects.reviewDescMeter(descLines.length, descMaxCols, DESCRIPTION_LINE_COLS_MAX)}
+                          </p>
+                        </div>
+                      ) : (
+                        // 소개글은 2~3줄로 끊어 쓴 카피지만 프레임 이름표처럼 줄바꿈을 풀어 흘린다(줄을 살린 전문은 작품 페이지)
+                        <p onClick={() => begin("description")} title={t.projects.reviewEditHint}
+                          style={{
+                            ...captionText.description(compactCard ? 13 : 14), ...editableStyle, marginTop: 4, padding: "0 4px", marginLeft: -4,
+                            color: fieldValue("description") ? "var(--text-secondary)" : "var(--text-muted)",
+                          }}>
+                          {fieldValue("description") || t.projects.reviewDescEmpty}
+                        </p>
                       )}
+
+                      {cardMeta && <p style={{ ...captionText.meta(compactCard ? 12 : 13), marginTop: compactCard ? 4 : 6 }}>{cardMeta}</p>}
+                      {editing !== "comment" && editRow}
                     </div>
-                  )}
+
+                    {editing === "comment" ? (
+                      <div style={{ flex: "1 1 100%", minWidth: 0 }}>
+                        <input ref={inputRef as React.RefObject<HTMLInputElement>} value={value} onChange={e => setValue(e.target.value)}
+                          onKeyDown={e => onKey(e, false)} disabled={saving} placeholder={t.projects.reviewNotePlaceholder}
+                          className="vf-input" style={editInput} />
+                        {editRow}
+                      </div>
+                    ) : (
+                      <NoteBubble label={cardDict.theater.makerNote} size={compactCard ? "sm" : "md"} muted={!fieldValue("comment")}
+                        onClick={() => begin("comment")} title={t.projects.reviewEditHint}
+                        style={{ flex: "none", marginLeft: "auto", cursor: "text" }}>
+                        {fieldValue("comment") || t.projects.reviewNotePlaceholder}
+                      </NoteBubble>
+                    )}
+                  </div>
                 </div>
                 </VisitorFrame>
                 {/* 다른 언어 판이 빠진 초안 — 방문자 절반이 빈 명함을 보게 되니 늘 보이게 */}
@@ -844,7 +852,8 @@ export function DraftReviewModal({ draft, privateReady = true, username, demoPau
                   </div>
               </div>
               {published ? (
-                // 공개했어요 — 큰 체크 · 방문자가 볼 작은 명함. 다음에 무슨 일이 일어나는지는 버튼 위 세 단계가 말한다
+                // 공개했어요 — 큰 체크 · 방문자가 볼 작은 프레임(무대 띠 + 이름표, 기본 언어 판). 다음에 무슨 일이
+                // 일어나는지는 버튼 위 세 단계가 말한다
                 <div className="vf-step-enter flex flex-col items-center text-center" style={{ gap: 14 }}>
                   <PublishedMark />
                   <h2
@@ -855,28 +864,9 @@ export function DraftReviewModal({ draft, privateReady = true, username, demoPau
                   </h2>
                   <div style={{ width: "min(360px, 100%)", textAlign: "left" }}>
                     <VisitorFrame address={frameAddress} tight center>
-                      <div className="flex flex-col" style={{ gap: 6, borderRadius: 10, background: cardBg, padding: "16px 18px" }}>
-                        <h3 className="vf-serif-display" style={{ margin: 0, fontSize: "1.125rem", fontWeight: 500, lineHeight: 1.35, color: "#fff" }}>
-                          {title}
-                        </h3>
-                        {draft.description && (
-                          <p style={{
-                            margin: 0, fontFamily: "var(--font-nunito)", fontSize: 13, lineHeight: 1.5, color: "rgba(255,255,255,0.84)",
-                            whiteSpace: "pre-line", display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 3, overflow: "hidden",
-                          }}>
-                            {draft.description}
-                          </p>
-                        )}
-                        {draft.tags.length > 0 && (
-                          <div className="flex flex-wrap gap-1.5" style={{ marginTop: 2 }}>
-                            {draft.tags.map(tag => (
-                              <span key={tag} className="flex items-center gap-1 px-2 py-0.5 rounded-full"
-                                style={{ background: "rgba(255,255,255,0.10)", color: "rgba(255,255,255,0.88)", fontFamily: "var(--font-nunito)", fontSize: "0.72rem" }}>
-                                <AiToolLogo id={tag} size={11} />{tag}
-                              </span>
-                            ))}
-                          </div>
-                        )}
+                      <div style={{ padding: "2px 2px 8px" }}>
+                        <MiniWork title={draft.title} untitled={t.projects.untitled} description={draft.description}
+                          meta={cardMeta} note={draft.comment} noteLabel={primaryDict.theater.makerNote} />
                       </div>
                     </VisitorFrame>
                   </div>

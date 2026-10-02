@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
-import { classifyTrafficSource } from "@/lib/traffic-source";
+import { classifyTrafficSource, isOutsideSource } from "@/lib/traffic-source";
 import { useT } from "@/lib/i18n/client";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
 import type { Locale } from "@/lib/i18n/config";
@@ -27,10 +27,37 @@ const COUNTRY_EMOJI: Record<string, string> = {
 // 카톡·인스타 인앱 브라우저(Referer 미전송)가 전부 "직접 방문"으로 붕괴하는데,
 // user_agent는 처음부터 저장돼 있었다 — 그걸 조회해서 채널을 되살린다.
 // 분류기는 admin(한국어 고정)과 공유라 한국어 라벨을 뱉는다 — 표시할 때만 번역.
-function sourceLabel(v: Pick<ViewRow, "referrer" | "user_agent">, t: Dictionary): string {
-  const label = classifyTrafficSource({ referrer: v.referrer, userAgent: v.user_agent });
+function sourceName(label: string, t: Dictionary): string {
   return (t.visits.sourceLabels as Record<string, string>)[label] ?? label;
 }
+
+function sourceLabel(v: Pick<ViewRow, "referrer" | "user_agent">, t: Dictionary): string {
+  return sourceName(classifyTrafficSource({ referrer: v.referrer, userAgent: v.user_agent }), t);
+}
+
+// 출처 이름의 끝소리에 받침이 있는지 — "카카오톡이 / 유튜브가"의 이/가 고르기. 한글은 글자로 정확히,
+// 영문 이름·도메인은 읽는 소리로 어림한다(LinkedIn·Reddit·Slack·Google·.com·.app → 받침,
+// X·Threads·.io·.dev → 없음). "공유 링크(앱 미상)"처럼 끝의 (…)는 떼고 본다.
+function endsWithFinalSound(name: string): boolean {
+  const w = name.replace(/\s*\([^)]*\)\s*$/, "").trim().toLowerCase();
+  const c = w.charCodeAt(w.length - 1);
+  if (c >= 0xac00 && c <= 0xd7a3) return (c - 0xac00) % 28 !== 0;
+  if (/\d$/.test(w)) return /[013678]$/.test(w); // 0·1·3·6·7·8은 읽는 소리에 받침이 있다
+  const tail = w.slice(w.lastIndexOf(".") + 1);
+  // 한두 글자 끝(X, .kr, .io)은 글자 이름으로 읽는다 — L·M·N·R만 받침
+  if (/^[a-z]{1,2}$/.test(tail)) return /[lmnr]$/.test(tail);
+  return /(?:[lmn]|ng|le|[aeiou]c?k|[aeiou]t|[aeiou]p|pp)$/.test(w);
+}
+
+// 칸 제목 — 본문 글꼴 14px(10-02 덜어내기 2차). 전역 .vf-label(고정폭·자간)은 한글을 "유 입 경 로"처럼
+// 띄엄띄엄 읽히게 해서 이 탭에서만 바꾼다 — 명함 탭 이름표와 같은 이유(09-26). .vf-label은 다른 화면이 쓴다.
+const SECTION_LABEL: React.CSSProperties = {
+  margin: 0, fontSize: "0.875rem", fontWeight: 600, color: "var(--text-primary)", fontFamily: "var(--font-nunito)",
+};
+// 제목 옆·아래 작은 글(일 최고·500회 기준) — 한글이 섞여 있어 고정폭 대신 본문 글꼴.
+const SIDE_NOTE: React.CSSProperties = {
+  fontSize: "0.8125rem", color: "var(--text-secondary)", fontFamily: "var(--font-nunito)",
+};
 
 function countryName(code: string, t: Dictionary): string {
   return (t.visits.countryNames as Record<string, string>)[code] ?? code;
@@ -48,29 +75,43 @@ function timeAgo(date: string, t: Dictionary, locale: Locale): string {
   return new Date(date).toLocaleDateString(locale === "ko" ? "ko-KR" : "en-US");
 }
 
-// 타일 4개는 동급 — 예전엔 "오늘"만 거대했는데, 프리런치에선 오늘=0이 대부분이라
-// 빈 숫자가 화면을 지배했고 나머지 창과 크기 위계도 근거가 없었다(시안 확정).
-function StatCard({ label, value }: { label: string; value: number }) {
+// 요약 카드 오른쪽의 7일 선 그래프 — 아래 14일 막대의 마지막 7칸과 같은 숫자. 점은 방문이 있던 날과
+// 오늘에만(오늘은 채운 점). 숫자는 카드 글이 이미 말하므로 그림은 화면 읽기에서 뺀다.
+function Sparkline({ days, counts }: { days: Date[]; counts: number[] }) {
+  const { t } = useT();
+  const W = 168, H = 44;
+  const max = Math.max(...counts, 1);
+  const last = counts.length - 1;
+  const x = (i: number) => 5 + i * ((W - 10) / last);
+  const y = (n: number) => H - 5 - (n / max) * (H - 14);
+  const pts = counts.map((n, i) => `${x(i).toFixed(1)},${y(n).toFixed(1)}`);
   return (
-    <div className="vf-card" style={{ padding: "1.1rem 1.2rem" }}>
-      <p className="vf-label" style={{ marginBottom: "0.35rem" }}>
-        {label}
-      </p>
-      <p
-        className="vf-serif-display"
-        style={{
-          fontSize: "clamp(1.5rem, 3vw, 1.9rem)",
-          fontWeight: 500,
-          lineHeight: 1.1,
-          margin: 0,
-          fontVariantNumeric: "tabular-nums",
-        }}
-      >
-        {value.toLocaleString()}
-      </p>
+    <div className="shrink-0" style={{ width: W, display: "grid", gap: 5 }}>
+      <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} fill="none" aria-hidden="true"
+        style={{ display: "block", color: "var(--text-primary)" }}>
+        <path d={`M${pts.join(" L")} L${x(last).toFixed(1)},${H - 5} L${x(0).toFixed(1)},${H - 5} Z`}
+          fill="currentColor" fillOpacity={0.06} />
+        <polyline points={pts.join(" ")} stroke="currentColor" strokeWidth={1.6} strokeLinejoin="round" strokeLinecap="round" />
+        {counts.map((n, i) => (n > 0 || i === last) && (
+          <circle key={i} cx={x(i)} cy={y(n)} r={i === last ? 3.4 : 2.4}
+            stroke="currentColor" strokeWidth={1.3}
+            style={{ fill: i === last ? "var(--text-primary)" : "var(--surface)" }} />
+        ))}
+      </svg>
+      <div className="vf-mono flex justify-between" style={{ fontSize: "0.75rem", color: "var(--text-muted)", letterSpacing: "0.02em" }}>
+        <span>{days[0].getMonth() + 1}/{days[0].getDate()}</span>
+        <span style={{ color: "var(--text-primary)", fontWeight: 600 }}>{t.visits.today}</span>
+      </div>
     </div>
   );
 }
+
+// 요약 카드 작은 줄의 숫자 하나 — 진하게.
+function Num({ n }: { n: number }) {
+  return <b style={{ color: "var(--text-primary)", fontWeight: 600 }}>{n.toLocaleString()}</b>;
+}
+
+const DOT = <span aria-hidden="true" style={{ opacity: 0.5, margin: "0 0.45em" }}>·</span>;
 
 function BarChart({ days, counts }: { days: Date[]; counts: number[] }) {
   const { t } = useT();
@@ -239,9 +280,9 @@ function ViewGroup({
 export default function VisitsTab({ user }: { user: User }) {
   const { t } = useT();
   const [views, setViews] = useState<ViewRow[]>([]);
-  // 타일 숫자는 행 표본이 아니라 DB count — 행 조회는 500행에서 멈추므로 그걸
-  // 세면 "전체 조회"가 501부터 얼어붙는다. 네 창 모두 로컬 0시 기준 캘린더
-  // 경계("최근 7일" = 오늘 포함 7일)로 통일해 타일끼리 시간 정의가 안 갈린다.
+  // 요약 카드 숫자는 행 표본이 아니라 DB count — 행 조회는 500행에서 멈추므로 그걸
+  // 세면 "전체"가 501부터 얼어붙는다. 네 숫자 모두 로컬 0시 기준 캘린더
+  // 경계("최근 7일" = 오늘 포함 7일)로 통일해 숫자끼리 시간 정의가 안 갈린다.
   const [totals, setTotals] = useState({ total: 0, today: 0, last7: 0, last30: 0 });
   const [loading, setLoading] = useState(true);
 
@@ -302,15 +343,19 @@ export default function VisitsTab({ user }: { user: User }) {
     return { chartDays: days, chartCounts: counts };
   }, [views]);
 
-  // 유입 경로
-  const topReferrers = useMemo(() => {
-    const counts: Record<string, number> = {};
-    views.forEach(v => {
-      const r = sourceLabel(v, t);
-      counts[r] = (counts[r] ?? 0) + 1;
-    });
-    return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 5);
-  }, [views, t]);
+  // 유입 경로 — 분류기 라벨(한국어)로 세고 표시할 때만 번역한다. 요약 카드의 "밖에서 온 방문" 한 줄도
+  // 같은 숫자에서 고른다(우리 사이트 안·직접/알 수 없음·로컬 테스트는 뺀 1위, 없으면 줄을 숨긴다).
+  const sourceCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const v of views) {
+      const label = classifyTrafficSource({ referrer: v.referrer, userAgent: v.user_agent });
+      counts.set(label, (counts.get(label) ?? 0) + 1);
+    }
+    return [...counts.entries()].sort((a, b) => b[1] - a[1]);
+  }, [views]);
+  const topReferrers = sourceCounts.slice(0, 5);
+  const topOutsideLabel = sourceCounts.find(([label]) => isOutsideSource(label))?.[0];
+  const topOutside = topOutsideLabel ? sourceName(topOutsideLabel, t) : null;
 
   // 국가
   const topCountries = useMemo(() => {
@@ -348,29 +393,48 @@ export default function VisitsTab({ user }: { user: User }) {
 
   const noData = totals.total === 0;
   // 행 표본(최대 500)이 전체를 못 덮으면, 표본으로 그리는 섹션(차트·유입·기록)에
-  // 그 사실을 밝힌다 — 타일은 count 기반이라 영향 없음.
+  // 그 사실을 밝힌다 — 요약 카드 숫자는 count 기반이라 영향 없음.
   const capped = totals.total > views.length;
 
   return (
     <div className="max-w-2xl mx-auto w-full flex flex-col gap-5">
 
-      {/* Stat cards — 동급 2×2 */}
-      <div className="grid grid-cols-2 gap-3">
-        <StatCard label={t.visits.today} value={totals.today} />
-        <StatCard label={t.visits.last7} value={totals.last7} />
-        <StatCard label={t.visits.last30} value={totals.last30} />
-        <StatCard label={t.visits.total} value={totals.total} />
+      {/* 요약 카드(10-02 덜어내기 2차) — 숫자 네 칸을 한 장으로: 큰 줄 "최근 7일 방문 N회" + 작은 줄
+          "오늘 · 30일 · 전체". 오른쪽은 같은 7일 선 그래프, 아래는 밖에서 온 방문 1위 한 줄.
+          세는 건 사람이 아니라 방문(회)이다. */}
+      <div className="vf-card" style={{ padding: "22px 24px" }}>
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-4">
+          <div className="flex-1" style={{ minWidth: "12rem" }}>
+            <p className="vf-serif-display" style={{ margin: 0, fontSize: "1.875rem", fontWeight: 600, lineHeight: 1.25, fontVariantNumeric: "tabular-nums" }}>
+              {t.visits.weekBefore && <span style={{ color: "var(--text-secondary)", fontWeight: 400 }}>{t.visits.weekBefore}</span>}
+              {t.visits.weekCount(totals.last7)}
+              {t.visits.weekAfter && <span style={{ color: "var(--text-secondary)", fontWeight: 400 }}>{t.visits.weekAfter}</span>}
+            </p>
+            <p style={{ ...SIDE_NOTE, margin: "8px 0 0" }}>
+              {t.visits.today} <Num n={totals.today} />{DOT}
+              {t.visits.last30} <Num n={totals.last30} />{DOT}
+              {t.visits.total} <Num n={totals.total} />
+            </p>
+          </div>
+          {!noData && !capped && <Sparkline days={chartDays.slice(-7)} counts={chartCounts.slice(-7)} />}
+        </div>
+        {topOutside && (
+          <p style={{ margin: "18px 0 0", paddingTop: 14, borderTop: "1px solid var(--border)", fontSize: "0.875rem", color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}>
+            {t.visits.topSourceBefore}
+            <b style={{ fontWeight: 600 }}>{topOutside}</b>
+            {t.visits.topSourceAfter(endsWithFinalSound(topOutside))}
+          </p>
+        )}
       </div>
 
       {/* 14-day bar chart */}
       <div className="vf-card p-5">
-        <div className="flex items-center justify-between mb-4">
-          <p className="vf-label" style={{ marginBottom: 0 }}>
+        <div className="flex items-center justify-between gap-3 mb-4">
+          <p style={SECTION_LABEL}>
             {t.visits.chartTitle}
           </p>
           {!noData && (
-            <span className="text-xs vf-mono"
-              style={{ color: "var(--text-secondary)", letterSpacing: "0.04em", fontSize: "0.8125rem" }}>
+            <span style={SIDE_NOTE}>
               {capped ? t.visits.cappedPrefix : ""}{t.visits.dailyMax(Math.max(...chartCounts).toLocaleString())}
             </span>
           )}
@@ -391,7 +455,7 @@ export default function VisitsTab({ user }: { user: User }) {
           {/* 유입 경로 — noData가 아니면 행이 있고, 분류기는 행마다 라벨을
               반드시 뱉으므로(최소 "직접/알 수 없음") 빈 배열 분기가 없다 */}
           <div className="vf-card p-5">
-              <p className="vf-label" style={{ marginBottom: "1rem" }}>
+              <p style={{ ...SECTION_LABEL, marginBottom: "1rem" }}>
                 {t.visits.referrers}
               </p>
               <div className="flex flex-col gap-3">
@@ -399,7 +463,7 @@ export default function VisitsTab({ user }: { user: User }) {
                   <div key={ref}>
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-sm truncate" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)", fontWeight: 500 }}>
-                        {ref}
+                        {sourceName(ref, t)}
                       </span>
                       <span className="text-sm vf-mono ml-2 shrink-0" style={{ color: "var(--text-secondary)", letterSpacing: "0.04em" }}>
                         {count}
@@ -419,7 +483,7 @@ export default function VisitsTab({ user }: { user: User }) {
           {/* 국가 분포 */}
           {topCountries.length > 0 && (
             <div className="vf-card p-5">
-              <p className="vf-label" style={{ marginBottom: "1rem" }}>
+              <p style={{ ...SECTION_LABEL, marginBottom: "1rem" }}>
                 {t.visits.countries}
               </p>
               <div className="flex flex-col gap-3">
@@ -454,11 +518,11 @@ export default function VisitsTab({ user }: { user: User }) {
           className="px-5 py-3 flex items-center justify-between"
           style={{ borderBottom: "1px solid var(--border)" }}
         >
-          <p className="vf-label" style={{ marginBottom: 0 }}>
+          <p style={SECTION_LABEL}>
             {t.visits.history}
           </p>
           {capped && (
-            <span className="text-xs vf-mono" style={{ color: "var(--text-muted)", fontSize: "0.8125rem" }}>
+            <span style={{ ...SIDE_NOTE, color: "var(--text-muted)" }}>
               {t.visits.capped}
             </span>
           )}

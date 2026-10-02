@@ -3,16 +3,17 @@
 import type { ReactNode } from "react";
 import { useT } from "@/lib/i18n/client";
 
-// 초안 검토 창 "업그레이드"(2026-10-01, 사용자가 고른 시안): 명함을 방문자가 볼 작은 브라우저 틀에 넣는다.
+// 초안 검토 창 "업그레이드"(2026-10-01, 사용자가 고른 시안): 방문자 미리보기를 방문자가 볼 작은 브라우저 틀에 넣는다.
 // 주소 줄은 주인의 프레임 주소(nookframe.com/아이디), 위에 한 줄 "방문자에게 이렇게 보여요".
 // 주소 줄 오른쪽 칸(right)은 KO/EN 스위치 자리 — 보는 사람의 언어를 고르는 것이라 브라우저 쪽에 둔다.
-// 색은 전부 테마 변수(틀) — 안의 명함만 늘 어두운 바탕이다(DraftReviewModal 명함 렌더 주석).
+// 색은 전부 테마 변수(틀) — 안은 프레임 페이지를 작게 그린 것이라(10-02) 늘 어두운 건 무대 띠뿐이다
+// (WorkCardPreview의 MiniStage, DraftReviewModal 머리 주석).
 export function VisitorFrame({ address, right, tight = false, center = false, children }: {
   /** 주소 줄 글자 — "nookframe.com/아이디"(아이디를 모르면 "nookframe.com") */
   address: string;
   /** 주소 줄 오른쪽 끝 칸 */
   right?: ReactNode;
-  /** 아래 내용이 펼쳐져 명함이 작아질 때 — 틀도 한 단계 좁힌다 */
+  /** 아래 내용이 펼쳐져 미리보기가 작아질 때 — 틀도 한 단계 좁힌다 */
   tight?: boolean;
   /** 위 한 줄을 가운데로(공개한 뒤 화면) */
   center?: boolean;
@@ -67,26 +68,6 @@ export function VisitorFrame({ address, right, tight = false, center = false, ch
         <div style={{ padding: tight ? 6 : 8 }}>{children}</div>
       </div>
     </div>
-  );
-}
-
-// 명함 오른쪽 아래의 작은 표시 — "▶ 자동 시연 · 약 5초"(직접 준 영상이면 그 말). 명함은 늘 어두운 바탕이라 밝은 글씨.
-export function DemoChip({ children }: { children: ReactNode }) {
-  return (
-    <span
-      className="inline-flex items-center"
-      style={{
-        gap: 6, flexShrink: 0, marginLeft: "auto", padding: "3px 11px 3px 9px", borderRadius: 999,
-        background: "rgba(255,255,255,0.07)", boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.26)",
-        color: "rgba(255,255,255,0.92)", fontFamily: "var(--font-nunito)", fontSize: 12, fontWeight: 600,
-        lineHeight: 1.5, whiteSpace: "nowrap",
-      }}
-    >
-      <svg width="8" height="9" viewBox="0 0 8 9" aria-hidden>
-        <path d="M1 1.2v6.6L6.8 4.5z" fill="currentColor" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />
-      </svg>
-      {children}
-    </span>
   );
 }
 

@@ -636,31 +636,32 @@ export default function ProjectsTab({
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        {/* 초안도 세어서 보여준다 — "0 projects" 바로 밑에 초안 카드가 깔리면
-            카운터가 거짓말이 된다. */}
-        <p className="text-sm vf-mono" style={{ color: "var(--text-secondary)", letterSpacing: "0.02em" }}>
-          {t.projects.projectsCount(projects.length)}
-          {drafts.length > 0 && ` · ${t.projects.pendingReview(drafts.length)}`}
-        </p>
-        {/* 작품이 하나도 없을 땐 아래 빈 칸의 [AI 연결하고 첫 작품 올리기] 하나만 둔다(09-30 실사용 피드백:
-            같은 창을 여는 버튼 두 개가 서로 다른 일처럼 보였다). */}
-        {(projects.length > 0 || drafts.length > 0) && (
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="vf-button-primary"
-          style={{ fontSize: "0.9375rem" }}
-        >
-          <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
-            <path d="M7 1v12M1 7h12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-          </svg>
-          {t.projects.addProject}
-        </button>
-        )}
-      </div>
+      {/* 머리줄 — 작품 수는 탭 이름 옆 숫자가 이미 말해서 뺐다(10-02 덜어내기 2차). 기다리는 초안이 있을
+          때만 "검토 대기 N". 작품이 하나도 없을 땐 이 줄 없이 아래 빈 칸의 [AI 연결하고 첫 작품 올리기]
+          하나만 둔다(09-30 실사용 피드백: 같은 창을 여는 버튼 두 개가 서로 다른 일처럼 보였다). */}
+      {(projects.length > 0 || drafts.length > 0) && (
+        <div className="flex items-center justify-between gap-4 mb-6">
+          {drafts.length > 0 && (
+            <p className="text-sm" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
+              {t.projects.pendingReview(drafts.length)}
+            </p>
+          )}
+          {/* 버튼 이름 = 여는 창의 제목(connect.title "AI로 올리기") — 둘이 다르면 다른 일처럼 보인다. */}
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="vf-button-primary ml-auto"
+            style={{ fontSize: "0.9375rem" }}
+          >
+            <svg width="13" height="13" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+              <path d="M7 1v12M1 7h12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+            </svg>
+            {t.connect.title}
+          </button>
+        </div>
+      )}
 
       {/* 초안과 공개를 한 리스트, 같은 행 언어로(시안 A) — 초안은 좌측 잉크
-          바와 1차 버튼("확인하고 공개")만 다르다. 카운터가 이미 둘을 나눠 센다. */}
+          바와 1차 버튼("확인하고 공개")만 다르다. */}
       <div className="vf-card overflow-hidden">
         {drafts.length === 0 && projects.length === 0 ? (
           <div className="text-center py-20 px-6">

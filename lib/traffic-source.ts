@@ -5,9 +5,15 @@
 // portfolio_views has stored user_agent from day one — so this classifies
 // retroactively too.
 //
-// Priority: in-app UA signature (definitive) → referrer host map → bare
-// referrer host → share-link `via` param → 직접/알 수 없음. Pure TS, shared by
+// Priority: in-app UA signature (definitive) → referrer host map (this app's
+// own Vercel preview deploys → 로컬 테스트) → bare referrer host → share-link
+// `via` param → 직접/알 수 없음. Pure TS, shared by
 // the admin tower (batch) and /api/analytics (per-event, server-side).
+
+// 바깥 유입이 아닌 세 칸 — 방문 탭의 "밖에서 온 방문은 …이 가장 많아요"가 이 셋을 뺀다.
+const INSIDE = "Nookframe 안에서";
+const LOCAL_TEST = "로컬 테스트(localhost)";
+const DIRECT = "직접/알 수 없음";
 
 const UA_SIGNATURES: [RegExp, string][] = [
   [/KAKAOTALK/i, "카카오톡"],
@@ -43,15 +49,23 @@ const REF_HOST_MAP: [string, string][] = [
   // 구글 로그인 창에서 돌아온 방문 — 명함에서 로그인하러 잠깐 나갔다 온 것이라 밖에서 새로
   // 들어온 유입이 아니다. 따로 "(구글 로그인 리턴)"이라 적었더니 주인 화면에서 뜻을 몰라
   // 안에서 넘어온 방문으로 합친다(2026-09-27 사용자 결정 2C). google.com보다 먼저 와야 한다.
-  ["accounts.google.com", "Nookframe 안에서"],
+  ["accounts.google.com", INSIDE],
   ["google.com", "구글 검색"],
   // 우리 사이트 안에서 넘어온 방문(작품 페이지 → 명함 등). 옛 도메인도 같은 곳이다 —
   // 도메인 그대로 두면 주인 화면에 "nookframe.com"이 외부 유입처처럼 떴다.
-  ["nookframe.com", "Nookframe 안에서"],
-  ["vibefolio-beta.vercel.app", "Nookframe 안에서"],
+  ["nookframe.com", INSIDE],
+  ["vibefolio-beta.vercel.app", INSIDE],
   // 개발 서버 화면에서 누른 링크 — 방문자가 아니라 만드는 사람의 테스트.
-  ["localhost", "로컬 테스트(localhost)"],
-  ["127.0.0.1", "로컬 테스트(localhost)"],
+  ["localhost", LOCAL_TEST],
+  ["127.0.0.1", LOCAL_TEST],
+];
+
+// 이 앱의 Vercel 미리보기 배포 — 커밋마다(vibefolio-<해시>-syk8015s-projects.vercel.app)·
+// 브랜치마다(vibefolio-git-<브랜치>-…) 생기는 주소도 만드는 사람의 시험이라 localhost와 같은 칸이다.
+// 도메인 그대로 두면 주인 화면 유입 경로에 "vibefolio-odycvyr93-syk8015s-projec…"이 바깥 사이트처럼
+// 떴다(2026-10-02). 운영 별칭 vibefolio-beta.vercel.app은 위 표대로 안에서.
+const PREVIEW_HOSTS = [
+  /^vibefolio-[a-z0-9-]+-syk8015s-projects\.vercel\.app$/,
 ];
 
 const VIA_LABEL: Record<string, string> = {
@@ -84,6 +98,7 @@ export function classifyTrafficSource(input: {
       for (const [suffix, label] of REF_HOST_MAP) {
         if (h === suffix || h.endsWith(`.${suffix}`)) return label;
       }
+      if (PREVIEW_HOSTS.some((re) => re.test(h))) return LOCAL_TEST;
       return h; // 모르는 도메인은 도메인 그대로 — 새 유입처가 스스로 드러나게
     }
   }
@@ -91,7 +106,12 @@ export function classifyTrafficSource(input: {
   const via = typeof input.via === "string" ? VIA_LABEL[input.via] : undefined;
   if (via) return via;
 
-  return "직접/알 수 없음";
+  return DIRECT;
+}
+
+// classifyTrafficSource의 라벨이 바깥에서 온 방문인가 — 우리 사이트 안·직접/알 수 없음·로컬 테스트는 아니다.
+export function isOutsideSource(label: string): boolean {
+  return label !== INSIDE && label !== LOCAL_TEST && label !== DIRECT;
 }
 
 // 앱 안 브라우저(웹뷰)인가 — 가입·로그인 화면이 "외부 브라우저로 열어 주세요"를

@@ -1,24 +1,28 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { useSearchParams } from "next/navigation";
 import type { UserIdentity } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import { useT } from "@/lib/i18n/client";
+import { readLastLoginMethod } from "@/lib/lastLogin";
 import { GitHubIcon, GoogleIcon } from "@/components/SocialSignInButtons";
 import {
   LINK_PROVIDERS, LINK_RETURN_PATH, canUnlink, isLinkProvider, isLinkResult, linkRedirectTo,
   type LinkProvider,
 } from "@/lib/identityLink";
-import { InlineConfirm, List, Row, Section, TEXT, pillStyle } from "./ui";
+import { InlineConfirm, List, Row, Section, TEXT, Tag, pillStyle } from "./ui";
 
 // 설정 "로그인 방법"(2026-09-25, 09-26 명함 탭에서 옮김) — 이 계정에 붙은 방법 목록 + 구글·깃허브
 // [연결]/[해제]. 왜·함정은 lib/identityLink 머리 주석. 이메일 줄은 늘 맨 위이고 버튼이 없다 —
 // 메일 코드 로그인은 계정 메일로 언제나 되고(구글로 가입한 계정도), 계정 메일을 쥔 방법은
 // 떼지 않는다(canUnlink).
+// 이 기기에서 지난번에 쓴 방법엔 "지난번에 사용" 딱지(10-02 덜어내기 2차 — 로그인 화면과 같은 표시,
+// lib/lastLogin). 메일 코드·비밀번호는 이메일 줄. 연결 안 된 줄엔 붙이지 않는다(다른 계정이 쓴 흔적일 수 있다).
 const NAME: Record<LinkProvider, string> = { google: "Google", github: "GitHub" };
 const ICON: Record<LinkProvider, () => React.ReactElement> = { google: GoogleIcon, github: GitHubIcon };
 const CONTACT = "mailto:vivestarter@gmail.com";
+const noopSubscribe = () => () => {};
 
 type Notice =
   | { kind: "linked" | "taken" | "unlinked"; provider: LinkProvider }
@@ -44,6 +48,10 @@ export default function LoginMethods({ accountEmail }: { accountEmail: string })
   // 누른 공급자(연결 — 곧 공급자 화면으로 넘어간다) 또는 해제 중인 identity_id. 있으면 버튼을 다 잠근다.
   const [busy, setBusy] = useState<string | null>(null);
   const [confirmId, setConfirmId] = useState<string | null>(null);
+  // 쿠키는 브라우저에서만 읽는다 — 서버 렌더엔 딱지가 없고 하이드레이션 뒤에 붙는다(SocialSignInButtons와 같다).
+  const last = useSyncExternalStore(noopSubscribe, readLastLoginMethod, () => null);
+  const lastRow = last === "code" || last === "password" ? "email" : last;
+  const lastTag = <Tag>{tl.lastUsed}</Tag>;
 
   useEffect(() => {
     let alive = true;
@@ -126,7 +134,9 @@ export default function LoginMethods({ accountEmail }: { accountEmail: string })
       {notice && <NoticeView notice={notice} />}
 
       <List>
-        {hasEmailRow && <Row icon={<MailIcon />} name={tl.email} detail={accountEmail} />}
+        {hasEmailRow && (
+          <Row icon={<MailIcon />} name={tl.email} tag={lastRow === "email" ? lastTag : undefined} detail={accountEmail} />
+        )}
 
         {identities === null ? (
           <li className="px-4 py-3.5 flex items-center gap-3 flex-wrap" style={hasEmailRow ? { borderTop: "1px solid var(--bg)" } : undefined}>
@@ -159,7 +169,8 @@ export default function LoginMethods({ accountEmail }: { accountEmail: string })
           const removable = canUnlink(identity, identities, accountEmail);
           const confirming = confirmId === identity.identity_id;
           return (
-            <Row key={identity.identity_id} divider={divider} icon={<Icon />} name={NAME[provider]} detail={email}
+            <Row key={identity.identity_id} divider={divider} icon={<Icon />} name={NAME[provider]}
+              tag={lastRow === provider ? lastTag : undefined} detail={email}
               action={removable && !confirming ? (
                 <button type="button" className="vf-button-text shrink-0" disabled={locked}
                   onClick={() => { setConfirmId(identity.identity_id); setNotice(null); }}

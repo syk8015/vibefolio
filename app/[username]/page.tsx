@@ -280,15 +280,8 @@ export default async function UserPortfolioPage({
         }}
       >
         <Logo href={isEmbed ? null : "/"} />
+        {/* 작품 개수("작품 N개")는 뺐다(2026-10-02 덜어내기 2차) — 오른쪽 목록과 무대가 이미 보여준다. */}
         <div className="flex items-center gap-3">
-          <span
-            className="hidden sm:inline text-xs tracking-widest uppercase"
-            style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}
-          >
-            {locale === "ko"
-              ? `작품 ${projects.length}개`
-              : `${projects.length} Project${projects.length === 1 ? "" : "s"}`}
-          </span>
           {isOwner && !isEmbed && (
             <div className="hidden md:block">
               <ViewportModeToggle />
@@ -348,17 +341,19 @@ export default async function UserPortfolioPage({
           ) : isEmbed ? (
             <EmbedLoginButton />
           ) : (
+            // 로그아웃 방문자(PC) — 남의 프레임을 본 사람이 할 다음 일은 로그인이 아니라 자기 것 만들기.
+            // 가입 화면이 로그인도 받는다. 폰은 ⋯ 메뉴의 로그인 그대로(MobileNavMenu).
             <Link
-              href="/login"
+              href="/signup"
               className="hidden md:inline-block px-3.5 py-1.5 rounded-full text-xs font-bold transition-opacity hover:opacity-80"
               style={{
-                border: "1px solid var(--border-bright)",
-                color: "var(--text-secondary)",
+                background: "var(--blue)",
+                color: "var(--bg)",
                 fontFamily: "var(--font-nunito)",
                 textDecoration: "none",
               }}
             >
-              {t.theater.login}
+              {t.theater.makeYourOwn}
             </Link>
           )}
 

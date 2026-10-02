@@ -5,7 +5,7 @@ import { useT } from "@/lib/i18n/client";
 import Image from "next/image";
 import type { Project } from "@/lib/data";
 import { buildIdentityLine } from "@/lib/identityLine";
-import TheaterStage from "./TheaterStage";
+import TheaterStage, { StageCaption } from "./TheaterStage";
 import { MeishiBig, MeishiInline, type MeishiProfile } from "./Meishi";
 
 // A horizontal divider with a centered label — used to break the body
@@ -293,6 +293,13 @@ export default function TheaterShell({ profile, profileUrl, projects, initialAct
     Math.min(Math.max(initialActiveIndex, 0), Math.max(projects.length - 1, 0))
   );
   const { t, locale } = useT();
+  // 모바일 히어로 정체성 한 줄 — 기존 프로젝트 데이터에서 파생(새 DB 필드 없음).
+  // 데스크탑 경로는 이 값을 사용하지 않으므로 영향 없음. 훅이라 아래 빈 화면 return보다 먼저
+  // 부른다(조건부 훅 금지 — 빈 목록이면 빈 값이 나올 뿐).
+  const identity = useMemo(
+    () => buildIdentityLine(projects, { name: profile.name, bio: profile.bio }, locale),
+    [projects, profile.name, profile.bio, locale]
+  );
 
   if (projects.length === 0) {
     // Empty state — kept inline rather than spinning up a separate
@@ -338,12 +345,6 @@ export default function TheaterShell({ profile, profileUrl, projects, initialAct
 
   const activeProject = projects[activeIndex];
   const total = projects.length;
-  // 모바일 히어로 정체성 한 줄 — 기존 프로젝트 데이터에서 파생(새 DB 필드 없음).
-  // 데스크탑 경로는 이 값을 사용하지 않으므로 영향 없음.
-  const identity = useMemo(
-    () => buildIdentityLine(projects, { name: profile.name, bio: profile.bio }, locale),
-    [projects, profile.name, profile.bio, locale]
-  );
   const goPrev = () => setActiveIndex((i) => (i - 1 + total) % total);
   const goNext = () => setActiveIndex((i) => (i + 1) % total);
 
@@ -413,78 +414,40 @@ export default function TheaterShell({ profile, profileUrl, projects, initialAct
             className="grid gap-7"
             style={{ gridTemplateColumns: "minmax(0, 1.95fr) minmax(0, 1fr)" }}
           >
-            {/* LEFT — Stage + tags + navigation */}
+            {/* LEFT — Stage(작품만) + 무대 밑 이름표. ← →는 작품이 둘 이상일 때만,
+                이름표의 체험 버튼 왼쪽에 — 진한 버튼은 체험 하나라 둘 다 옅은 동그라미. */}
             <div>
               <TheaterStage project={activeProject} index={activeIndex} variant="desktop" />
-
-              <div className="flex items-center gap-3 mt-4">
-                <div className="flex flex-wrap gap-1.5">
-                  {activeProject.tags.map((t) => (
-                    <span
-                      key={t}
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        padding: "3px 9px",
-                        borderRadius: 999,
-                        background: "var(--surface-soft)",
-                        color: "var(--text-secondary)",
-                        fontFamily: "var(--font-mono)",
-                        fontSize: 9,
-                        letterSpacing: "0.08em",
-                        textTransform: "uppercase",
-                        fontWeight: 700,
-                      }}
-                    >
-                      {t}
-                    </span>
-                  ))}
-                </div>
-                <div className="flex-1" />
-                <button
-                  type="button"
-                  onClick={goPrev}
-                  aria-label={t.theater.prevWork}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = "var(--surface-soft)"; e.currentTarget.style.borderColor = "var(--text-primary)"; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "var(--border-bright)"; }}
-                  style={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: 999,
-                    border: "1px solid var(--border-bright)",
-                    background: "transparent",
-                    cursor: "pointer",
-                    color: "var(--text-primary)",
-                    fontFamily: "var(--font-mono)",
-                    transition: "background-color 0.18s ease, border-color 0.18s ease",
-                  }}
-                >
-                  ←
-                </button>
-                <button
-                  type="button"
-                  onClick={goNext}
-                  aria-label={t.theater.nextWork}
-                  onMouseEnter={(e) => { e.currentTarget.style.opacity = "0.85"; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.opacity = "1"; }}
-                  style={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: 999,
-                    border: "1px solid var(--text-primary)",
-                    background: "var(--text-primary)",
-                    color: "var(--bg)",
-                    cursor: "pointer",
-                    fontFamily: "var(--font-mono)",
-                    transition: "opacity 0.18s ease",
-                  }}
-                >
-                  →
-                </button>
-              </div>
+              <StageCaption
+                project={activeProject}
+                nav={
+                  total > 1 ? (
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={goPrev}
+                        aria-label={t.theater.prevWork}
+                        className="vf-icon-button"
+                        style={{ width: 32, height: 32, padding: 0, color: "var(--text-primary)", fontFamily: "var(--font-mono)" }}
+                      >
+                        ←
+                      </button>
+                      <button
+                        type="button"
+                        onClick={goNext}
+                        aria-label={t.theater.nextWork}
+                        className="vf-icon-button"
+                        style={{ width: 32, height: 32, padding: 0, color: "var(--text-primary)", fontFamily: "var(--font-mono)" }}
+                      >
+                        →
+                      </button>
+                    </div>
+                  ) : null
+                }
+              />
             </div>
 
-            {/* RIGHT — Identity card + bio + Up Next list */}
+            {/* RIGHT — Identity card + bio + 작품 목록(둘 이상일 때만) */}
             <aside className="flex flex-col gap-4 min-w-0">
               <MeishiBig
                 profile={profile}
@@ -510,20 +473,25 @@ export default function TheaterShell({ profile, profileUrl, projects, initialAct
                 </p>
               )}
 
-              <div className="mt-2">
-                <SectionHeader label={t.theater.upNextLabel} />
-              </div>
-              <div className="flex flex-col gap-0">
-                {projects.map((p, i) => (
-                  <UpNextRow
-                    key={p.id}
-                    project={p}
-                    index={i}
-                    active={i === activeIndex}
-                    onClick={() => setActiveIndex(i)}
-                  />
-                ))}
-              </div>
+              {/* 작품이 하나면 목록은 무대와 같은 것을 한 번 더 보여줄 뿐이라 뺀다(폰 릴과 같은 규칙). */}
+              {total > 1 && (
+                <>
+                  <div className="mt-2">
+                    <SectionHeader label={t.theater.worksLabel} />
+                  </div>
+                  <div className="flex flex-col gap-0">
+                    {projects.map((p, i) => (
+                      <UpNextRow
+                        key={p.id}
+                        project={p}
+                        index={i}
+                        active={i === activeIndex}
+                        onClick={() => setActiveIndex(i)}
+                      />
+                    ))}
+                  </div>
+                </>
+              )}
             </aside>
           </div>
         </div>

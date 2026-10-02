@@ -24,32 +24,34 @@ export const ko = {
     editFrame: "프레임 수정",
     settings: "설정",
   },
-  // 인증 화면들(로그인·회원가입·비밀번호 찾기/재설정)이 공유하는 문구
+  // 인증 화면들(로그인·가입 문, 비밀번호 찾기/재설정)이 공유하는 문구
   auth: {
     googleContinue: "Google로 계속하기",
     githubContinue: "GitHub로 계속하기",
+    // 메일 6자리 코드로 들어가기(components/EmailCodeForm) — 문의 기본 길. 처음 보는 주소면 계정이 생긴다
+    emailContinue: "이메일로 계속하기",
     lastUsed: "지난번에 사용",
-    // 메일 6자리 코드로 들어가기(components/EmailCodeForm) — 처음 보는 주소면 계정이 생긴다
-    codeInstead: "비밀번호 없이 메일 코드로 로그인",
-    codeInsteadSignup: "비밀번호 없이 메일 코드로 가입",
-    passwordInstead: "비밀번호로 하기",
-    codeNewAccountHint: "처음이면 이 주소로 계정이 새로 만들어져요.",
-    codeSend: "코드 받기",
-    codeSentTo: "6자리 코드를 보냈어요. 스팸함도 확인해 주세요.",
-    codeLabel: "코드",
+    // 문의 두 칸(메일 코드 ↔ 비밀번호)을 오가는 작은 링크
+    passwordInstead: "비밀번호로 로그인",
+    codeInstead: "코드로 할래요",
+    // 코드 단계 — "<이메일>으로 6자리 코드를 보냈어요"(주소는 굵게, 앞뒤 조각으로 조립)
+    codeCheckTitle: "메일을 확인해 주세요",
+    codeSentBefore: "",
+    codeSentAfter: " 주소로 6자리 코드를 보냈어요",
+    // 여섯 칸 밑의 진짜 입력칸 이름(화면엔 안 보이고 스크린리더가 읽는다)
+    codeLabel: "6자리 코드",
     codeVerify: "확인",
     codeVerifying: "확인 중...",
     codeResend: "코드 다시 받기",
     codeResent: "새 코드를 보냈어요. 먼저 받은 코드는 이제 안 돼요.",
-    codeChangeEmail: "다른 이메일 쓰기",
+    // 코드 단계·재설정 메일 보낸 뒤 — 주소를 고치러 돌아간다
+    otherEmail: "다른 이메일로",
     or: "또는",
     emailLabel: "이메일",
     passwordLabel: "비밀번호",
     showPassword: "비밀번호 표시",
     hidePassword: "비밀번호 숨기기",
-    toLogin: "로그인 페이지로 →",
-    resendPrompt: "이메일을 잘못 입력했나요?",
-    reenter: "다시 입력하기",
+    // 비밀번호 로그인이 "이메일 미인증"으로 막혔을 때(옛 비밀번호 가입 계정)
     resendButton: "인증 메일 다시 보내기",
     resending: "보내는 중...",
     resendSent: "인증 메일을 다시 보냈어요. 스팸함도 확인해 주세요.",
@@ -75,16 +77,21 @@ export const ko = {
       codeWait: "코드는 1분에 한 번만 보낼 수 있어요. 잠시 뒤에 다시 눌러 주세요.",
     },
   },
+  // 로그인·가입 = 문 하나(/login = /signup, components/auth/AuthDoor, 2026-10-02 덜어내기 2차).
+  // 새 계정은 메일 코드·구글·깃허브로만 생긴다 — 비밀번호 가입 폼은 없앴고 비밀번호 로그인은 남았다.
   login: {
-    noAccount: "계정이 없나요?",
-    signupLink: "회원가입",
-    welcomeBack: "다시 돌아왔군요",
-    welcome: "환영합니다",
-    welcomeBackSub: "프레임이 기다리고 있어요.",
-    welcomeSub: "새로운 프레임을 만들 차례입니다.",
+    title: "Nookframe 시작하기",
     forgotPassword: "비밀번호 찾기",
     submitting: "로그인 중...",
     submit: "로그인",
+    // 폰에서 보낸 메일 링크(/signup?h=)로 오면 구글·깃허브·비밀번호를 이 링크 뒤로 접는다(09-24)
+    otherWays: "다른 방법으로",
+    // 문 맨 아래 한 줄 — "계속하면 [이용약관]·[개인정보처리방침]에 동의하게 돼요"
+    agreePrefix: "계속하면 ",
+    termsLink: "이용약관",
+    agreeAnd: "·",
+    privacyLink: "개인정보처리방침",
+    agreeSuffix: "에 동의하게 돼요",
     errors: {
       invalid: "이메일 또는 비밀번호가 올바르지 않아요.",
       unconfirmed: "이메일 인증을 먼저 완료해주세요.",
@@ -93,55 +100,35 @@ export const ko = {
     callbackConfirmFailed: "이 브라우저에서는 링크를 이어서 열 수 없었어요. 메일 인증은 끝났으니 아래에서 로그인해 주세요.",
     callbackResetFailed: "재설정 링크가 만료됐거나 다른 브라우저에서 열렸어요.",
     callbackResetAgain: "재설정 메일 다시 받기 →",
-    callbackOauthFailed: "로그인이 취소됐거나 끝나지 못했어요. 다시 해 보거나 다른 방법으로 들어와 주세요.",
+    callbackOauthFailed: "로그인이 취소됐어요. 다시 하거나 다른 방법을 골라 주세요.",
   },
+  // 가입 폼은 10-02에 없어졌다(문 하나 = login). 남은 건 온보딩·명함 탭이 쓰는 이름 칸 글.
   signup: {
-    haveAccount: "이미 계정이 있나요?",
-    loginLink: "로그인",
-    title: "시작하기",
-    subtitle: "무료로 나만의 프레임을 만들어보세요.",
-    // 폰 → 컴퓨터 넘기기 메일 링크로 왔을 때(09-24). 소셜 버튼은 접히고 아래 링크로 펼친다.
-    handoffSubtitle: "폰에서 이어서 왔어요. 메일로 코드를 받아 들어가세요.",
-    otherWays: "Google·GitHub로 가입하기",
     nameLabel: "이름",
     namePlaceholder: "홍길동",
     usernameLabel: "사용자 이름",
-    passwordPlaceholder: "8자 이상",
-    submitting: "가입 중...",
-    submit: "무료로 시작하기",
-    agreePrefix: "가입하면 ",
-    termsLink: "이용약관",
-    agreeAnd: " 및 ",
-    privacyLink: "개인정보처리방침",
-    agreeSuffix: "에 동의하게 됩니다.",
-    checkEmailTitle: "이메일을 확인해주세요",
-    checkEmailBody: "위 주소로 인증 링크를 보냈어요. 메일함을 확인해주세요.",
-    orEnterCode: "메일에 적힌 6자리 코드를 여기 넣어도 돼요. 다른 기기에서 메일을 열었을 때 편해요.",
-    errors: {
-      emailTaken: "이미 가입된 이메일이에요. 로그인하거나, 구글·GitHub로 가입했다면 그 버튼을 눌러 주세요.",
-    },
   },
   forgotPassword: {
-    rememberPrompt: "비밀번호가 기억났나요?",
-    loginLink: "로그인",
     title: "비밀번호 찾기",
-    subtitle: "가입한 이메일로 재설정 링크를 보내드릴게요.",
     submitting: "보내는 중...",
     submit: "재설정 링크 보내기",
-    sentTitle: "메일을 확인해주세요",
-    sentBody: "위 주소로 비밀번호 재설정 링크를 보냈어요.",
+    // 문을 비밀번호 칸으로 연다(/login?mode=password)
+    backToLogin: "로그인으로 돌아가기",
+    sentTitle: "메일을 확인해 주세요",
+    // "<이메일>으로 재설정 링크를 보냈어요" — 주소는 굵게, 앞뒤 조각으로 조립
+    sentBefore: "",
+    sentAfter: " 주소로 재설정 링크를 보냈어요",
   },
   resetPassword: {
     checking: "확인 중...",
     invalidTitle: "링크가 만료되었어요",
-    invalidBody1: "재설정 링크가 유효하지 않거나 만료되었어요.",
-    invalidBody2: "다시 요청해주세요.",
-    requestAgain: "재설정 링크 다시 받기 →",
+    requestAgain: "재설정 링크 다시 받기",
     doneTitle: "비밀번호가 변경됐어요",
     doneBody: "잠시 후 대시보드로 이동합니다.",
     title: "새 비밀번호 설정",
     subtitle: "앞으로 사용할 비밀번호를 입력해주세요.",
     newPasswordLabel: "새 비밀번호",
+    passwordPlaceholder: "8자 이상",
     confirmLabel: "비밀번호 확인",
     confirmPlaceholder: "다시 입력해주세요",
     submitting: "변경 중...",
@@ -218,13 +205,13 @@ export const ko = {
     pendingScriptBadge: "새 대본 도착",
     // 영상을 찍은 주소와 지금 주소가 다를 때(심사 뒤 주소 바꿔치기 차단, 2026-09-30).
     linkHiddenBadge: "체험 버튼 숨김",
-    linkHiddenHint: "영상을 찍은 주소와 지금 주소가 달라서 명함의 [체험하기]를 숨겼어요. 새 주소로 다시 찍으면 돌아와요.",
-    linkChangedNotice: "주소가 바뀌어서 명함의 [체험하기]를 숨겼어요. [재촬영 요청]으로 새 주소를 찍으면 돌아와요.",
+    linkHiddenHint: "영상을 찍은 주소와 지금 주소가 달라서 프레임의 [체험하기]를 숨겼어요. 새 주소로 다시 찍으면 돌아와요.",
+    linkChangedNotice: "주소가 바뀌어서 프레임의 [체험하기]를 숨겼어요. [재촬영 요청]으로 새 주소를 찍으면 돌아와요.",
     // 링크 순찰(lib/linkPatrol.ts)이 막은 이유 — 배지 툴팁. 누르면 수정 창.
     linkMovedHint: (host: string | null): string =>
-      `이 주소가 지금 다른 사이트${host ? `(${host})` : ""}로 넘어가서 명함의 [체험하기]를 숨겼어요. 주소를 고치면 몇 분 안에 다시 확인해요.`,
-    linkDeadHint: "이 주소가 3일째 열리지 않아서 명함의 [체험하기]를 숨겼어요. 사이트가 다시 열리면 하루 안에, 주소를 고치면 몇 분 안에 다시 확인해요.",
-    linkUnsafeHint: "구글이 이 주소를 위험한 사이트로 분류해서 명함의 [체험하기]를 숨겼어요. 사이트가 해킹당했을 수 있어요 — 구글 Search Console에서 확인해 보세요.",
+      `이 주소가 지금 다른 사이트${host ? `(${host})` : ""}로 넘어가서 프레임의 [체험하기]를 숨겼어요. 주소를 고치면 몇 분 안에 다시 확인해요.`,
+    linkDeadHint: "이 주소가 3일째 열리지 않아서 프레임의 [체험하기]를 숨겼어요. 사이트가 다시 열리면 하루 안에, 주소를 고치면 몇 분 안에 다시 확인해요.",
+    linkUnsafeHint: "구글이 이 주소를 위험한 사이트로 분류해서 프레임의 [체험하기]를 숨겼어요. 사이트가 해킹당했을 수 있어요 — 구글 Search Console에서 확인해 보세요.",
     reviewPendingScript: "새 대본 확인하고 재촬영",
     scriptLabel: "촬영 대본",
     scriptSteps: (n: number) => `${n}스텝`,
@@ -242,9 +229,9 @@ export const ko = {
       hover: "가리키기", draw: "그리기", focus: "확대 강조",
       navigate: "뒤로 가기", wait: "기다리기",
     },
+    // 작품 탭 머리줄 — 기다리는 초안이 있을 때만. 작품 수는 탭 이름 옆 숫자가 말하고, 올리기 버튼
+    // 이름은 여는 창 제목(connect.title)을 그대로 쓴다(10-02 덜어내기 2차).
     pendingReview: (n: number) => `검토 대기 ${n}`,
-    projectsCount: (n: number) => `작품 ${n}개`,
-    addProject: "프로젝트 추가",
     emptyTitle: "아직 프로젝트가 없어요",
     // 올리는 길은 AI 하나뿐이다(08-25 수동 위저드 폐기) — 빈 화면이 그 길을 말해야 한다.
     emptyBody: "작품을 만든 AI에게 한 줄만 붙여넣으면, 소개글과 시연 대본까지 써서 여기에 초안으로 올려줘요",
@@ -301,9 +288,9 @@ export const ko = {
     reviewLangTitle: "언어",
     reviewLangLegacy: "두 언어 칸이 없는 옛 초안이에요 — [고칠 점 적기]로 채울 수 있어요",
     reviewLangMissingTr: (name: string) => `${name} 판 글이 없어요 — [고칠 점 적기]로 채워 주세요`,
-    // 이미 공개된 같은 작품(NF-19) — 공개하면 명함에 둘이 뜬다
+    // 이미 공개된 같은 작품(NF-19) — 공개하면 프레임에 둘이 뜬다
     reviewPublishedTwin: (title: string, byUrl: boolean) =>
-      `이미 공개된 「${title}」와 ${byUrl ? "주소가" : "제목이"} 같아요. 공개하면 명함에 둘 다 떠요 — 바꾸려는 거면 공개한 뒤 옛 것을 지우세요.`,
+      `이미 공개된 「${title}」와 ${byUrl ? "주소가" : "제목이"} 같아요. 공개하면 프레임에 둘 다 떠요 — 바꾸려는 거면 공개한 뒤 옛 것을 지우세요.`,
     reviewLangPrimaryRow: "기본 언어",
     reviewLangAppRow: "앱 화면",
     reviewLangAppNone: "한국어·영어 둘 다 아님",
@@ -320,10 +307,10 @@ export const ko = {
     reviewTitleEmpty: "제목은 비울 수 없어요",
     reviewDescMeter: (lines: number, cols: number, max: number) => `${lines}줄 · 가장 긴 줄 ${cols}/${max}칸`,
     reviewDescEmpty: "소개글이 비어 있어요 — 2~3줄로 써 주세요",
-    reviewDescLines: (n: number) => `${n}줄이에요 — 명함에는 2~3줄이 맞아요`,
+    reviewDescLines: (n: number) => `${n}줄이에요 — 프레임에는 2~3줄이 맞아요`,
     reviewDescLongLine: (line: number) => `${line}번째 줄이 너무 길어요 — 폰에서 접혀 잘려요`,
     reviewSaveFailed: "저장하지 못했어요. 잠시 후 다시 시도해 주세요.",
-    reviewNotePlaceholder: "한마디 (명함 말풍선, 비워도 돼요)",
+    reviewNotePlaceholder: "한마디 (말풍선, 비워도 돼요)",
     reviewVerdictAccess: "로그인",
     reviewAccessNoLogin: "로그인 없이 시연",
     reviewAccessUrl: "데모 경로로 들어가요",
@@ -501,19 +488,22 @@ export const ko = {
     imageTooLarge: "이미지는 5MB 이하만 업로드할 수 있어요.",
     avatarUploadFailed: "이미지 업로드에 실패했어요. 잠시 후 다시 시도해주세요.",
     deleteFailed: "탈퇴 처리에 실패했어요.",
+    // 맨 위 미리보기(10-02 덜어내기 2차 업그레이드) — 방문자가 받는 명함 그대로, 칸을 고치는 대로 바뀐다.
+    previewTitle: "방문자에게 이렇게 보여요",
+    previewLive: "고치는 대로 바뀌어요",
     // 09-26 명함 탭 = 제목 있는 카드 두 장(기본 정보 / 소개와 링크). 이름표는 쉬운 말로(사진·아이디).
+    // 카드 설명 줄은 10-02에 뺐다 — 어디에 보이는지는 위 미리보기가 보여 준다.
     basicTitle: "기본 정보",
-    basicBody: "명함에 크게 찍히는 이름과 주소예요.",
     aboutTitle: "소개와 링크",
-    aboutBody: "명함 아래쪽에 한 줄 소개와 링크 아이콘으로 보여요.",
     avatarLabel: "사진",
     changeImage: "사진 바꾸기",
     uploadImage: "사진 올리기",
-    photoHelp: "모바일 명함과 공유 카드에 쓰여요. JPG·PNG·GIF, 5MB까지.",
+    photoHelp: "JPG·PNG·GIF, 5MB까지",
     avatarPendingNote: "저장하기를 누르면 반영돼요",
     nameLabel: "표시 이름",
     usernameLabel: "아이디",
-    cardAddress: "명함 주소",
+    // 아이디 밑 주소 줄 — 공개 페이지 전체의 이름은 "프레임"(명함은 카드 위젯·이 탭 이름만).
+    frameAddress: "프레임 주소",
     bioLabel: "한 줄 소개",
     socialLabel: "소셜 링크",
     removeLink: "링크 삭제",
@@ -524,9 +514,6 @@ export const ko = {
     savedMsg: "저장됐어요",
     accountLabel: "계정",
     deleteTitle: "회원 탈퇴",
-    deleteBody1: "프로필과 모든 작품·업로드한 파일이 ",
-    deleteBodyStrong: "즉시·영구 삭제",
-    deleteBody2: "되며, 되돌릴 수 없어요.",
     deleteBtn: "회원 탈퇴",
     deleteModalTitle: "정말 탈퇴하시겠어요?",
     deleteModalBody: "의 프로필과 모든 프로젝트·업로드 파일이 즉시·영구 삭제돼요. 이 작업은 되돌릴 수 없어요.",
@@ -537,12 +524,14 @@ export const ko = {
     deleteForever: "영구 삭제",
     usernameChangeWarning: (old: string) => `저장하면 옛 주소 nookframe.com/${old}는 바로 열리지 않아요. 이미 공유한 링크가 끊겨요.`,
   },
-  // 명함 탭 "로그인 방법" — 구글·깃허브 연결/해제(components/dashboard/LoginMethods, 09-25).
+  // 설정 "로그인 방법" — 구글·깃허브 연결/해제(components/settings/LoginMethods, 09-25).
   // p = 공급자 이름(Google·GitHub). 조사는 받침이 갈리는 "은/는·이에요"를 피해 "계정은"·"로" 앞에만 붙인다.
   loginMethods: {
     label: "로그인 방법",
-    intro: "여기 연결한 방법이면 어느 것으로 로그인해도 이 계정이에요.",
+    intro: "어느 방법으로 들어와도 같은 계정이에요.",
     email: "이메일",
+    // 이 기기에서 지난번에 쓴 방법의 줄 딱지(10-02) — 로그인 화면의 auth.lastUsed와 같은 말.
+    lastUsed: "지난번에 사용",
     notLinked: "연결 안 됨",
     link: "연결",
     linking: "이동 중…",
@@ -565,7 +554,8 @@ export const ko = {
     startFailed: "연결을 시작하지 못했어요. 잠시 뒤에 다시 눌러 주세요.",
     unlinkFailed: "해제하지 못했어요. 잠시 뒤에 다시 눌러 주세요.",
   },
-  // 설정 화면(/settings, 09-26 — components/settings/*). 로그인 방법 문구는 loginMethods, 회원 탈퇴는 card.*.
+  // 설정 화면(/settings, 09-26 — components/settings/*). 로그인 방법 문구는 loginMethods, 회원 탈퇴는 card.*
+  // (칸의 경고 한 줄만 여기 deleteBody).
   settings: {
     title: "설정",
     back: "대시보드",
@@ -575,15 +565,18 @@ export const ko = {
     light: "라이트",
     dark: "다크",
     sessionsLabel: "로그인 관리",
-    logoutHere: "이 기기에서 로그아웃",
-    logoutHereBody: "지금 쓰는 기기만 나가요.",
-    logoutHereBtn: "로그아웃",
-    logoutAll: "모든 기기에서 로그아웃",
-    logoutAllBody: "폰·컴퓨터 등 로그인된 기기에서 모두 나가요.",
+    // 로그아웃은 한 줄에 버튼 둘(10-02 덜어내기 2차). 모든 기기는 줄 안 확인을 거친다 — 그 확인 버튼이 logoutAllBtn.
+    logout: "로그아웃",
+    logoutHere: "이 기기만",
+    logoutAll: "모든 기기",
     logoutAllBtn: "모두 로그아웃",
     logoutAllConfirm: "모든 기기에서 로그아웃할까요? 이 기기도 로그인 화면으로 돌아가요.",
     loggingOut: "로그아웃 중…",
     logoutFailed: "로그아웃하지 못했어요. 잠시 뒤에 다시 눌러 주세요.",
+    // 로그아웃 줄 아래 옅은 한 줄 — d = "Mac · Chrome"(브라우저 UA, 모르는 쪽은 뺀다).
+    thisDevice: (d: string) => `지금 이 기기: ${d}`,
+    // 회원 탈퇴 칸의 경고 — 되돌릴 수 없는 일이라 늘 보이게, 한 줄로(10-02). 확인 창 문구는 card.deleteModal*.
+    deleteBody: "프로필·작품·올린 파일이 바로 지워지고 되돌릴 수 없어요.",
     // AI 연결(components/settings/AiConnections) — MCP 연결·연결 관리가 연결 창에서 옮겨 왔다(라, 2026-10-01).
     // MCP 버튼·끊기 문구는 connect.*를 같이 쓴다.
     aiLabel: "AI 연결",
@@ -606,9 +599,16 @@ export const ko = {
     hoursAgo: (n: number) => `${n}시간 전`,
     daysAgo: (n: number) => `${n}일 전`,
     today: "오늘",
-    last7: "최근 7일",
-    last30: "최근 30일",
-    total: "전체 조회",
+    // 요약 카드(10-02 덜어내기 2차) — 큰 줄 "최근 7일 방문 N회"(숫자만 진하게) + 작은 줄 "오늘 N · 30일 N · 전체 N".
+    // 사람 수가 아니라 방문 횟수라 "회". 큰 줄은 앞·숫자·뒤로 나눠 영어 어순("N visits in …")도 담는다.
+    weekBefore: "최근 7일 방문 ",
+    weekCount: (n: number) => `${n.toLocaleString()}회`,
+    weekAfter: "",
+    last30: "30일",
+    total: "전체",
+    // 요약 카드 아래 한 줄 — 사이에 밖에서 온 방문 1위 출처 이름이 굵게 들어간다. 조사는 이름 끝소리의 받침(final)을 따른다.
+    topSourceBefore: "밖에서 온 방문은 ",
+    topSourceAfter: (final: boolean) => `${final ? "이" : "가"} 가장 많아요`,
     chartTitle: "최근 14일 방문 추이",
     cappedPrefix: "최근 500회 기준 · ",
     dailyMax: (n: string) => `일 최고 ${n}회`,
@@ -903,14 +903,20 @@ export const ko = {
     myFrame: "내 프레임",
     menu: "메뉴",
     mobilePreview: "모바일 미리보기",
+    // login은 폰 ⋯ 메뉴·모바일 미리보기 안내가 쓴다. PC 머리줄의 로그아웃 방문자 버튼은 makeYourOwn(→ /signup).
     login: "로그인",
+    makeYourOwn: "나도 만들기",
     emptyTitle: "아직 공개된 프로젝트가 없어요",
     emptyBody: "곧 새로운 작업물이 올라올 예정이에요.",
     screenings: (total: number) => `상영 목록 · ${total} works`,
     aboutLabel: "명함 · About",
-    upNextLabel: "상영 목록 · Up Next",
+    // PC 오른쪽 작품 목록 이름(작품이 둘 이상일 때만 나온다) — 극장 말("상영 목록") 대신 쉬운 말.
+    worksLabel: "작품",
     prevWork: "이전 작품",
     nextWork: "다음 작품",
+    // 무대 왼쪽 위 표시 — 자동 촬영 영상 / 주인이 직접 준 영상. 라이브 화면엔 없다.
+    chipAutoDemo: "자동 시연",
+    chipOwnVideo: "시연 영상",
     makerNote: "만든이 메모",
     ctaFullscreen: "전체화면으로 체험",
     ctaFullscreenShort: "전체화면 체험",
@@ -1107,7 +1113,7 @@ export const ko = {
     newDraftConflict: "newDraft와 draftId는 서로 반대예요 — newDraft는 늘 새 초안을 만들고, draftId는 그 초안을 갱신해요. 둘 중 하나만 보내세요.",
     // NF-19(10-02): 이미 공개된 같은 작품 — 이 응답은 사람이 붙여넣기 창에서 본다(AI는 영어판을 받는다).
     publishedTwin: (title: string, id: string, byUrl: boolean) =>
-      `이미 공개된 작품 「${title}」(${id})와 ${byUrl ? "주소가" : "제목이"} 같아요 — 이대로 올리면 명함에 같은 작품이 두 번 떠요. 아무것도 저장하지 않았어요. 그 작품을 고치려면 대시보드에서 그 작품을 고치세요. 따로 하나 더 올리는 게 맞다면 AI에게 "newDraft": true를 넣어 다시 달라고 하세요.`,
+      `이미 공개된 작품 「${title}」(${id})와 ${byUrl ? "주소가" : "제목이"} 같아요 — 이대로 올리면 프레임에 같은 작품이 두 번 떠요. 아무것도 저장하지 않았어요. 그 작품을 고치려면 대시보드에서 그 작품을 고치세요. 따로 하나 더 올리는 게 맞다면 AI에게 "newDraft": true를 넣어 다시 달라고 하세요.`,
     draftNoFields: "수정할 항목이 없어요.",
     draftUrlImmutable: "URL이나 파일 교체는 payload에 \"draftId\": \"<이 초안 id>\"를 넣고 publish를 다시 실행하세요 — 그 초안이 그대로 갱신돼요(같은 URL로 다시 올려도 갱신돼요).",
     projectCreateFailed: "프로젝트를 만들지 못했어요.",
@@ -1162,7 +1168,7 @@ export const ko = {
     // 페어링 코드(2026-09-16) — 프롬프트에 박히던 raw 토큰을 1회용 코드로 대체.
     pairingCodeFailed: "연결 코드를 만들지 못했어요. 잠시 후 다시 시도해 주세요.",
     pairingCodeInvalid:
-      "이 연결 코드는 이미 썼거나 시간이 지났어요(코드는 30분 동안, 한 번만 써요). 대시보드의 [프로젝트 추가] 창에서 프롬프트를 다시 복사하면 새 코드가 같이 들어가요.",
+      "이 연결 코드는 이미 썼거나 시간이 지났어요(코드는 30분 동안, 한 번만 써요). 대시보드의 [AI로 올리기] 창에서 프롬프트를 다시 복사하면 새 코드가 같이 들어가요.",
     pairingCodeAsToken:
       "이건 액세스 토큰이 아니라 연결 코드예요. 먼저 `npx nookframe@latest login <코드>`를 실행해 주세요 — 코드를 토큰으로 바꿔 저장해요(nookframe 0.1.15 이상. 옛 버전은 코드를 그대로 저장해서 이 호출이 거절됐어요).",
     tokenNotFound: "토큰을 찾을 수 없어요.",

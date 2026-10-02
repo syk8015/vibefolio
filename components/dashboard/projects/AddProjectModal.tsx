@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import ConnectPanel from "@/components/dashboard/ConnectPanel";
 import { useT } from "@/lib/i18n/client";
 
-// [프로젝트 추가] 오버레이 모달 — 화면은 AI 연결(ConnectPanel) 하나뿐이다.
+// [AI로 올리기] 오버레이 모달 — 화면은 AI 연결(ConnectPanel) 하나뿐이다.
 //
 // 2026-08-25(사용자 확정): 새로 올리는 길을 AI 경로로 통일하고 수동 추가 위저드를
 // 폐기했다. 이유는 품질 — 만든 AI만이 "어떤 화면에서 뭘 눌러야 핵심이 보이는지"를

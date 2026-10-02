@@ -35,7 +35,7 @@ const COPY = {
     rendering: "시연 영상을 찍는 중…",
     showMore: "더 보기",
     showLess: "접기",
-    viewFrame: (name: string) => `${name}의 Nookframe 보기`,
+    viewFrame: (name: string) => `${name}의 프레임 보기`,
     makeYourOwn: "내 작품도 올리기",
     madeWith: "Nookframe으로 만든 페이지",
   },
@@ -45,7 +45,7 @@ const COPY = {
     rendering: "Demo is rendering…",
     showMore: "Show more",
     showLess: "Show less",
-    viewFrame: (name: string) => `View ${name}'s Nookframe`,
+    viewFrame: (name: string) => `View ${name}'s frame`,
     makeYourOwn: "Put your own work up",
     madeWith: "Made with Nookframe",
   },
@@ -216,7 +216,13 @@ export default async function WatchPage({ params }: Params) {
             style={{ padding: 0, borderRadius: 18, aspectRatio: "16 / 9", background: "#0b0b0f" }}
           >
             {video ? (
-              <WatchPlayer src={video} poster={poster} captions={clip?.auto ? lw.captions : null} />
+              <WatchPlayer
+                src={video}
+                poster={poster}
+                captions={clip?.auto ? lw.captions : null}
+                // 프레임 무대와 같은 왼쪽 위 표시 — 자동 촬영이면 "자동 시연", 직접 올린 영상이면 "시연 영상".
+                chip={clip?.auto ? t.theater.chipAutoDemo : t.theater.chipOwnVideo}
+              />
             ) : (
               <div className="relative w-full h-full flex items-center justify-center">
                 {poster && (

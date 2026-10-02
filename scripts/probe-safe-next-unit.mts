@@ -1,11 +1,11 @@
 // 로그인 뒤 돌아갈 곳(?next=) 거르기(2026-09-22). 네트워크 없음.
 // 지키는 것: 같은 사이트 경로는 살리고, 밖으로 튕기는 모양은 전부 "/"로.
 // 같은 가입·로그인 흐름의 순수 함수도 여기서 본다: 아이디 소문자 접기(lib/username)
-// · 앱 안 브라우저 판별(lib/traffic-source — 구글 로그인 차단 안내의 근거)
+// · 앱 안 브라우저 판별(lib/traffic-source — 구글 로그인 차단 안내의 근거)과 같은 파일의 유입 경로 분류
 // · 로그인 방법 연결(lib/identityLink — 콜백이 싣는 결과·[해제] 규칙).
 import { safeNext } from "../lib/safeNext";
 import { normalizeUsername, isValidUsername, usernameIlikePattern, USERNAME_MAX } from "../lib/username";
-import { isInAppBrowser } from "../lib/traffic-source";
+import { isInAppBrowser, classifyTrafficSource, isOutsideSource } from "../lib/traffic-source";
 import { hasBlockedTerm } from "../lib/nameFilter";
 import { canUnlink, linkErrorResult, linkRedirectTo, linkReturnUrl } from "../lib/identityLink";
 import { execFileSync } from "node:child_process";
@@ -73,6 +73,24 @@ ok("in-app: Threads", isInAppBrowser(THREADS));
 ok("in-app: Facebook", isInAppBrowser(FB));
 ok("not in-app: Safari", !isInAppBrowser(SAFARI));
 ok("not in-app: Chrome", !isInAppBrowser(CHROME));
+
+// 유입 경로(같은 lib/traffic-source) — 이 앱의 Vercel 미리보기 주소는 바깥 사이트가 아니라 로컬 테스트(10-02).
+// 운영 별칭은 그대로 안에서, 남의 vercel.app은 도메인 그대로. 방문 탭의 "밖에서 온 방문" 한 줄은 앞의 셋을 뺀다.
+const src = (referrer: string, want: string) => {
+  const got = classifyTrafficSource({ referrer });
+  ok(`유입 ${referrer} → ${want}`, got === want, got);
+};
+src("https://vibefolio-odycvyr93-syk8015s-projects.vercel.app/vivestarter", "로컬 테스트(localhost)");
+src("https://vibefolio-git-feat-minimal-2-syk8015s-projects.vercel.app/", "로컬 테스트(localhost)");
+src("http://localhost:3000/dashboard", "로컬 테스트(localhost)");
+src("https://vibefolio-beta.vercel.app/vivestarter", "Nookframe 안에서");
+src("https://someone-else.vercel.app/", "someone-else.vercel.app");
+ok("밖에서 온 방문 아님: 안에서·로컬 테스트·직접",
+  !isOutsideSource(classifyTrafficSource({ referrer: "https://nookframe.com/x" }))
+  && !isOutsideSource(classifyTrafficSource({ referrer: "https://vibefolio-git-x-syk8015s-projects.vercel.app/" }))
+  && !isOutsideSource(classifyTrafficSource({})));
+ok("밖에서 온 방문: 카카오톡·도메인", isOutsideSource(classifyTrafficSource({ userAgent: "Mozilla/5.0 KAKAOTALK 10.8.1" }))
+  && isOutsideSource(classifyTrafficSource({ referrer: "https://someone-else.vercel.app/" })));
 
 // 금지어 — 막을 것과 살릴 것(오탐)
 const blk = (v: string, kind: "username" | "name", want: boolean) =>

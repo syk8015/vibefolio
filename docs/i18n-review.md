@@ -1172,3 +1172,115 @@ SNS/검색 로봇은 JS를 안 돌려 OG·크롤러 노출 문구(루트 descrip
 | publish.draftBadge | 초안 | Draft | 신규 |
 | errorState.notFoundBody | 주소가 바뀌었거나 사라졌어요 | The address changed, or the page is gone. | 신규 |
 | errorState.notFoundMyCard | 내 프레임 보기 | View my frame | 신규 |
+
+## 사이트 덜어내기 2차 — 프레임 페이지 · 대시보드 탭 · 설정 · 로그인 한 문 (2026-10-02)
+
+사용자가 고른 안: 내 프레임 페이지·대시보드 탭·설정 = 업그레이드, 로그인·가입 = 수정 후(한 문 — /login과 /signup이 같은 화면, 새 가입은 메일 코드·구글·깃허브, 비밀번호는 로그인만). 첫 화면은 그대로. 방문 숫자는 사람이 아니라 방문 횟수라 "회"로 센다. 페이지 전체를 "명함"이라 부르던 안내문(링크 점검·같은 작품 경고·한마디 칸)도 "프레임"으로 맞췄다. `비고`의 **변경**은 옛 값을 적었다.
+
+| 키 | 한국어 | English | 비고 |
+|---|---|---|---|
+| auth.emailContinue | 이메일로 계속하기 | Continue with email | 신규 |
+| auth.passwordInstead | 비밀번호로 로그인 | Sign in with a password | 변경 · 전: 비밀번호로 하기 / Use a password instead |
+| auth.codeInstead | 코드로 할래요 | Use a code instead | 변경 · 전: 비밀번호 없이 메일 코드로 로그인 / Sign in with an email code instead |
+| auth.codeCheckTitle | 메일을 확인해 주세요 | Check your email | 신규 |
+| auth.codeSentBefore |  | We sent a 6-digit code to  | 신규 |
+| auth.codeSentAfter |  주소로 6자리 코드를 보냈어요 |  | 신규 |
+| auth.codeLabel | 6자리 코드 | 6-digit code | 변경 · 전: 코드 / Code |
+| auth.otherEmail | 다른 이메일로 | Use another email | 신규 |
+| login.title | Nookframe 시작하기 | Continue to Nookframe | 신규 |
+| login.otherWays | 다른 방법으로 | Other ways | 신규 |
+| login.agreePrefix | 계속하면  | By continuing, you agree to the  | 신규 |
+| login.termsLink | 이용약관 | Terms | 신규 |
+| login.agreeAnd | · |  and  | 신규 |
+| login.privacyLink | 개인정보처리방침 | Privacy Policy | 신규 |
+| login.agreeSuffix | 에 동의하게 돼요 |  | 신규 |
+| login.callbackOauthFailed | 로그인이 취소됐어요. 다시 하거나 다른 방법을 골라 주세요. | Sign-in was cancelled. Try again or pick another way. | 변경 · 전: 로그인이 취소됐거나 끝나지 못했어요. 다시 해 보거나 다른 방법으로 들어와 주세요. / Sign-in was cancelled or didn't finish. Try again, or use another option. |
+| forgotPassword.backToLogin | 로그인으로 돌아가기 | Back to sign in | 신규 |
+| forgotPassword.sentTitle | 메일을 확인해 주세요 | Check your email | 변경 · 전: 메일을 확인해주세요 / Check your email |
+| forgotPassword.sentBefore |  | We sent a reset link to  | 신규 |
+| forgotPassword.sentAfter |  주소로 재설정 링크를 보냈어요 |  | 신규 |
+| resetPassword.requestAgain | 재설정 링크 다시 받기 | Get a new reset link | 변경 · 전: 재설정 링크 다시 받기 → / Get a new reset link → |
+| resetPassword.passwordPlaceholder | 8자 이상 | 8+ characters | 신규 |
+| projects.linkHiddenHint | 영상을 찍은 주소와 지금 주소가 달라서 프레임의 [체험하기]를 숨겼어요. 새 주소로 다시 찍으면 돌아와요. | The link no longer matches the filmed video, so the Try button is hidden on your frame. Film the new link to bring it back. | 변경 · 전: 영상을 찍은 주소와 지금 주소가 달라서 명함의 [체험하기]를 숨겼어요. 새 주소로 다시 찍으면 돌아와요. / The link no longer matches the filmed video, so the Try button is hidden on your card. Film the new link to bring it back. |
+| projects.linkChangedNotice | 주소가 바뀌어서 프레임의 [체험하기]를 숨겼어요. [재촬영 요청]으로 새 주소를 찍으면 돌아와요. | The link changed, so the Try button is hidden on your frame. Use [Request re-record] to film the new link and bring it back. | 변경 · 전: 주소가 바뀌어서 명함의 [체험하기]를 숨겼어요. [재촬영 요청]으로 새 주소를 찍으면 돌아와요. / The link changed, so the Try button is hidden on your card. Use [Request re-record] to film the new link and bring it back. |
+| projects.linkMovedHint | 이 주소가 지금 다른 사이트({host})로 넘어가서 프레임의 [체험하기]를 숨겼어요. 주소를 고치면 몇 분 안에 다시 확인해요. (함수: host) | This link now sends visitors to a different site ({host}), so the Try button is hidden on your frame. Fix the link and we'll recheck within minutes. (함수: host) | 변경 · 전: 이 주소가 지금 다른 사이트({host})로 넘어가서 명함의 [체험하기]를 숨겼어요. 주소를 고치면 몇 분 안에 다시 확인해요. (함수: host) / This link now sends visitors to a different site ({host}), so the Try button is hidden on your card. Fix the link and we'll recheck within minutes. (함수: host) |
+| projects.linkDeadHint | 이 주소가 3일째 열리지 않아서 프레임의 [체험하기]를 숨겼어요. 사이트가 다시 열리면 하루 안에, 주소를 고치면 몇 분 안에 다시 확인해요. | This link hasn't opened for 3 days, so the Try button is hidden on your frame. We recheck within a day once the site is back, or within minutes after you fix the link. | 변경 · 전: 이 주소가 3일째 열리지 않아서 명함의 [체험하기]를 숨겼어요. 사이트가 다시 열리면 하루 안에, 주소를 고치면 몇 분 안에 다시 확인해요. / This link hasn't opened for 3 days, so the Try button is hidden on your card. We recheck within a day once the site is back, or within minutes after you fix the link. |
+| projects.linkUnsafeHint | 구글이 이 주소를 위험한 사이트로 분류해서 프레임의 [체험하기]를 숨겼어요. 사이트가 해킹당했을 수 있어요 — 구글 Search Console에서 확인해 보세요. | Google lists this link as a dangerous site, so the Try button is hidden on your frame. Your site may have been hacked — check it in Google Search Console. | 변경 · 전: 구글이 이 주소를 위험한 사이트로 분류해서 명함의 [체험하기]를 숨겼어요. 사이트가 해킹당했을 수 있어요 — 구글 Search Console에서 확인해 보세요. / Google lists this link as a dangerous site, so the Try button is hidden on your card. Your site may have been hacked — check it in Google Search Console. |
+| projects.reviewPublishedTwin | 이미 공개된 「{title}」와 주소가 같아요. 공개하면 프레임에 둘 다 떠요 — 바꾸려는 거면 공개한 뒤 옛 것을 지우세요. (함수: title, byUrl) | This has the same address as “{title}”, which is already public. Publishing puts both on your frame — if this replaces it, delete the old one afterwards. (함수: title, byUrl) | 변경 · 전: 이미 공개된 「{title}」와 주소가 같아요. 공개하면 명함에 둘 다 떠요 — 바꾸려는 거면 공개한 뒤 옛 것을 지우세요. (함수: title, byUrl) / This has the same address as “{title}”, which is already public. Publishing puts both on your card — if this replaces it, delete the old one afterwards. (함수: title, byUrl) |
+| projects.reviewDescLines | {n}줄이에요 — 프레임에는 2~3줄이 맞아요 (함수: n) | {n} line(s) — your frame wants 2–3 (함수: n) | 변경 · 전: {n}줄이에요 — 명함에는 2~3줄이 맞아요 (함수: n) / {n} line(s) — the card wants 2–3 (함수: n) |
+| projects.reviewNotePlaceholder | 한마디 (말풍선, 비워도 돼요) | A one-liner (speech bubble, optional) | 변경 · 전: 한마디 (명함 말풍선, 비워도 돼요) / A one-liner (speech bubble on the card, optional) |
+| card.previewTitle | 방문자에게 이렇게 보여요 | This is what visitors see | 신규 |
+| card.previewLive | 고치는 대로 바뀌어요 | It updates as you type | 신규 |
+| card.photoHelp | JPG·PNG·GIF, 5MB까지 | JPG, PNG or GIF, up to 5MB | 변경 · 전: 모바일 명함과 공유 카드에 쓰여요. JPG·PNG·GIF, 5MB까지. / Used on your mobile card and share cards. JPG, PNG or GIF, up to 5MB. |
+| card.frameAddress | 프레임 주소 | Frame address | 신규 |
+| loginMethods.intro | 어느 방법으로 들어와도 같은 계정이에요. | Whichever you use, it's the same account. | 변경 · 전: 여기 연결한 방법이면 어느 것으로 로그인해도 이 계정이에요. / Any method linked here signs you in to this same account. |
+| loginMethods.lastUsed | 지난번에 사용 | Last used | 신규 |
+| settings.logout | 로그아웃 | Log out | 신규 |
+| settings.logoutHere | 이 기기만 | This device | 변경 · 전: 이 기기에서 로그아웃 / Log out on this device |
+| settings.logoutAll | 모든 기기 | All devices | 변경 · 전: 모든 기기에서 로그아웃 / Log out everywhere |
+| settings.thisDevice | 지금 이 기기: {d} (함수: d) | This device: {d} (함수: d) | 신규 |
+| settings.deleteBody | 프로필·작품·올린 파일이 바로 지워지고 되돌릴 수 없어요. | Your profile, works and files are deleted at once — this can't be undone. | 신규 |
+| visits.weekBefore | 최근 7일 방문  |  | 신규 |
+| visits.weekCount | {n}회 (함수: n) | {n} visits (함수: n) | 신규 |
+| visits.weekAfter |  |  in the last 7 days | 신규 |
+| visits.last30 | 30일 | 30 days | 변경 · 전: 최근 30일 / Last 30 days |
+| visits.total | 전체 | All-time | 변경 · 전: 전체 조회 / All-time views |
+| visits.topSourceBefore | 밖에서 온 방문은  | Most outside visits came from  | 신규 |
+| visits.topSourceAfter | 이 가장 많아요 (함수: final) |  | 신규 |
+| theater.makeYourOwn | 나도 만들기 | Make your own | 신규 |
+| theater.worksLabel | 작품 | Works | 신규 |
+| theater.chipAutoDemo | 자동 시연 | Auto demo | 신규 |
+| theater.chipOwnVideo | 시연 영상 | Demo video | 신규 |
+| api.publishedTwin | 이미 공개된 작품 「{title}」({id})와 주소가 같아요 — 이대로 올리면 프레임에 같은 작품이 두 번 떠요. 아무것도 저장하지 않았어요. 그 작품을 고치려면 대시보드에서 그 작품을 고치세요. 따로 하나 더 올리는 게 맞다면 AI에게 "newDraft": true를 넣어 다시 달라고 하세요. (함수: title, id, byUrl) | The owner already has a PUBLISHED work with the same entry URL: "{title}" (id {id}). Publishing this would put the same work on their public card twice, so nothing was saved. (drafts lists only unpublished work — that is why you did not see it.) Ask the owner before sending again: to change that work's demo video, use rerecord with id {id}; its text they edit in the dashboard. If they want this as a separate card (a new version, or a genuinely different work), publish again with "newDraft": true (CLI --new) — and if it replaces "{title}", tell them to delete the old one in the dashboard after publishing this one. (함수: title, id, byUrl) | 변경 · 전: 이미 공개된 작품 「{title}」({id})와 주소가 같아요 — 이대로 올리면 명함에 같은 작품이 두 번 떠요. 아무것도 저장하지 않았어요. 그 작품을 고치려면 대시보드에서 그 작품을 고치세요. 따로 하나 더 올리는 게 맞다면 AI에게 "newDraft": true를 넣어 다시 달라고 하세요. (함수: title, id, byUrl) / The owner already has a PUBLISHED work with the same entry URL: "{title}" (id {id}). Publishing this would put the same work on their public card twice, so nothing was saved. (drafts lists only unpublished work — that is why you did not see it.) Ask the owner before sending again: to change that work's demo video, use rerecord with id {id}; its text they edit in the dashboard. If they want this as a separate card (a new version, or a genuinely different work), publish again with "newDraft": true (CLI --new) — and if it replaces "{title}", tell them to delete the old one in the dashboard after publishing this one. (함수: title, id, byUrl) |
+| api.pairingCodeInvalid | 이 연결 코드는 이미 썼거나 시간이 지났어요(코드는 30분 동안, 한 번만 써요). 대시보드의 [AI로 올리기] 창에서 프롬프트를 다시 복사하면 새 코드가 같이 들어가요. | This connect code is already used or has expired (a code lasts 30 minutes and works once). Copy the prompt again from the Upload with AI window on your Nookframe dashboard and a fresh code comes with it. | 변경 · 전: 이 연결 코드는 이미 썼거나 시간이 지났어요(코드는 30분 동안, 한 번만 써요). 대시보드의 [프로젝트 추가] 창에서 프롬프트를 다시 복사하면 새 코드가 같이 들어가요. / This connect code is already used or has expired (a code lasts 30 minutes and works once). Copy the prompt again from the Add project window on your Nookframe dashboard and a fresh code comes with it. |
+| auth.codeInsteadSignup | ~~비밀번호 없이 메일 코드로 가입~~ | ~~Sign up with an email code instead~~ | 삭제 |
+| auth.codeNewAccountHint | ~~처음이면 이 주소로 계정이 새로 만들어져요.~~ | ~~New here? This creates your account.~~ | 삭제 |
+| auth.codeSend | ~~코드 받기~~ | ~~Email me a code~~ | 삭제 |
+| auth.codeSentTo | ~~6자리 코드를 보냈어요. 스팸함도 확인해 주세요.~~ | ~~We sent a 6-digit code to this address. Check spam too.~~ | 삭제 |
+| auth.codeChangeEmail | ~~다른 이메일 쓰기~~ | ~~Use a different email~~ | 삭제 |
+| auth.toLogin | ~~로그인 페이지로 →~~ | ~~Go to login →~~ | 삭제 |
+| auth.resendPrompt | ~~이메일을 잘못 입력했나요?~~ | ~~Typed the email wrong?~~ | 삭제 |
+| auth.reenter | ~~다시 입력하기~~ | ~~Try again~~ | 삭제 |
+| login.noAccount | ~~계정이 없나요?~~ | ~~No account yet?~~ | 삭제 |
+| login.signupLink | ~~회원가입~~ | ~~Sign up~~ | 삭제 |
+| login.welcomeBack | ~~다시 돌아왔군요~~ | ~~Welcome back~~ | 삭제 |
+| login.welcome | ~~환영합니다~~ | ~~Welcome~~ | 삭제 |
+| login.welcomeBackSub | ~~프레임이 기다리고 있어요.~~ | ~~Your frame has been waiting.~~ | 삭제 |
+| login.welcomeSub | ~~새로운 프레임을 만들 차례입니다.~~ | ~~Time to build your new frame.~~ | 삭제 |
+| signup.haveAccount | ~~이미 계정이 있나요?~~ | ~~Already have an account?~~ | 삭제 |
+| signup.loginLink | ~~로그인~~ | ~~Log in~~ | 삭제 |
+| signup.title | ~~시작하기~~ | ~~Get started~~ | 삭제 |
+| signup.subtitle | ~~무료로 나만의 프레임을 만들어보세요.~~ | ~~Create your own frame for free.~~ | 삭제 |
+| signup.handoffSubtitle | ~~폰에서 이어서 왔어요. 메일로 코드를 받아 들어가세요.~~ | ~~Picking up from your phone — get a code by email to continue.~~ | 삭제 |
+| signup.otherWays | ~~Google·GitHub로 가입하기~~ | ~~Sign up with Google or GitHub instead~~ | 삭제 |
+| signup.passwordPlaceholder | ~~8자 이상~~ | ~~8+ characters~~ | 삭제 |
+| signup.submitting | ~~가입 중...~~ | ~~Signing up...~~ | 삭제 |
+| signup.submit | ~~무료로 시작하기~~ | ~~Start for free~~ | 삭제 |
+| signup.agreePrefix | ~~가입하면 ~~ | ~~By signing up, you agree to our ~~ | 삭제 |
+| signup.termsLink | ~~이용약관~~ | ~~Terms of Service~~ | 삭제 |
+| signup.agreeAnd | ~~ 및 ~~ | ~~ and ~~ | 삭제 |
+| signup.privacyLink | ~~개인정보처리방침~~ | ~~Privacy Policy~~ | 삭제 |
+| signup.agreeSuffix | ~~에 동의하게 됩니다.~~ | ~~.~~ | 삭제 |
+| signup.checkEmailTitle | ~~이메일을 확인해주세요~~ | ~~Check your email~~ | 삭제 |
+| signup.checkEmailBody | ~~위 주소로 인증 링크를 보냈어요. 메일함을 확인해주세요.~~ | ~~We sent a verification link to this address. Check your inbox.~~ | 삭제 |
+| signup.orEnterCode | ~~메일에 적힌 6자리 코드를 여기 넣어도 돼요. 다른 기기에서 메일을 열었을 때 편해요.~~ | ~~Or type the 6-digit code from the email here — handy if you opened it on another device.~~ | 삭제 |
+| signup.errors.emailTaken | ~~이미 가입된 이메일이에요. 로그인하거나, 구글·GitHub로 가입했다면 그 버튼을 눌러 주세요.~~ | ~~This email already has an account. Log in, or use Google or GitHub if you signed up that way.~~ | 삭제 |
+| forgotPassword.rememberPrompt | ~~비밀번호가 기억났나요?~~ | ~~Remembered your password?~~ | 삭제 |
+| forgotPassword.loginLink | ~~로그인~~ | ~~Log in~~ | 삭제 |
+| forgotPassword.subtitle | ~~가입한 이메일로 재설정 링크를 보내드릴게요.~~ | ~~We'll send a reset link to your signup email.~~ | 삭제 |
+| forgotPassword.sentBody | ~~위 주소로 비밀번호 재설정 링크를 보냈어요.~~ | ~~We sent a password reset link to this address.~~ | 삭제 |
+| resetPassword.invalidBody1 | ~~재설정 링크가 유효하지 않거나 만료되었어요.~~ | ~~This reset link is invalid or has expired.~~ | 삭제 |
+| resetPassword.invalidBody2 | ~~다시 요청해주세요.~~ | ~~Please request a new one.~~ | 삭제 |
+| projects.projectsCount | ~~작품 {n}개 (함수: n)~~ | ~~{n} projects (함수: n)~~ | 삭제 |
+| projects.addProject | ~~프로젝트 추가~~ | ~~Add project~~ | 삭제 |
+| card.basicBody | ~~명함에 크게 찍히는 이름과 주소예요.~~ | ~~The name and address printed big on your card.~~ | 삭제 |
+| card.aboutBody | ~~명함 아래쪽에 한 줄 소개와 링크 아이콘으로 보여요.~~ | ~~Shown at the bottom of your card as a one-line bio and link icons.~~ | 삭제 |
+| card.cardAddress | ~~명함 주소~~ | ~~Card address~~ | 삭제 |
+| card.deleteBody1 | ~~프로필과 모든 작품·업로드한 파일이 ~~ | ~~Your profile and all work & uploaded files are ~~ | 삭제 |
+| card.deleteBodyStrong | ~~즉시·영구 삭제~~ | ~~deleted immediately and permanently~~ | 삭제 |
+| card.deleteBody2 | ~~되며, 되돌릴 수 없어요.~~ | ~~ — this cannot be undone.~~ | 삭제 |
+| settings.logoutHereBody | ~~지금 쓰는 기기만 나가요.~~ | ~~Only the device you're using now.~~ | 삭제 |
+| settings.logoutHereBtn | ~~로그아웃~~ | ~~Log out~~ | 삭제 |
+| settings.logoutAllBody | ~~폰·컴퓨터 등 로그인된 기기에서 모두 나가요.~~ | ~~Signs you out on every phone and computer.~~ | 삭제 |
+| visits.last7 | ~~최근 7일~~ | ~~Last 7 days~~ | 삭제 |
+| theater.upNextLabel | ~~상영 목록 · Up Next~~ | ~~Up Next~~ | 삭제 |
