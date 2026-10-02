@@ -25,9 +25,8 @@
 1. **장면 대본 = 칸 채우기.** AI는 정해진 장면 종류의 칸 값만 보낸다. 배치·움직임은 틀 몫.
    자유 타임라인 금지 (Plainly·JSON2Video·supercut 방식).
 2. **스타일 = 같은 장면 구조 위의 토큰 묶음** (색·글꼴·움직임 곡선·전환·질감·카메라).
-3. **섞기 = 축별 고르기 + 숫자 비율 섞기.** 색·속도·흐림·입자 세기처럼 숫자인 것은 비율로 섞고
-   (예: 큰 숫자 80 + 시네마틱 20), 글꼴·배치는 축마다 한 스타일을 고른다
-   (Flutter `ThemeData.lerp`, CSS `color-mix`, Midjourney 가중치와 같은 원리).
+3. **섞기 = 글자 + 분위기 두 줄 고르기** (10-02). 글자(글꼴·배치·등장)와 분위기(색·빛·질감·카메라)를 따로 골라 9가지 조합.
+   비율 섞기는 사용자가 "너무 복잡하다"고 해서 쓰지 않는다.
 4. **한 묶음(번들)을 세 곳에서** — 검토 창 미리보기 · 명함/작품 페이지 재생 · 워커 mp4 렌더가
    같은 코드라서 미리보기와 결과가 어긋나지 않는다. 번들 해시를 결과와 함께 저장.
 5. **결정적 렌더** — `render(t)`는 시간 t의 순수 함수. 틀 안에서 `Date`·`requestAnimationFrame`
@@ -39,8 +38,7 @@
 
 ```jsonc
 "introFilm": {
-  "style": { "base": "bignum", "mix": { "cinematic": 20 },          // 섞기: 비율
-             "axes": { "type": "bignum", "color": "cinematic", "motion": "bignum", "texture": "cinematic" } },
+  "style": { "text": "bignum", "mood": "cinematic" },               // 글자 + 분위기
   "scenes": [
     { "kind": "hook",     "value": "68%", "label": {"en":"My bathroom","ko":"우리 집 욕실"},
                           "line": {"en":"Always too damp.","ko":"늘 너무 습해요."}, "data": "sample" },
@@ -67,13 +65,13 @@
 - 확인할 결정: 섞기 칸 모양, 폰 화면 처리(아래 "폰" 참조).
 
 - 0단계 시안(움직이는 검토 창): https://claude.ai/artifact/JBGocmNdCYppQ8C4MaoZMV — 엔진 원형 코드가 여기 있다(1단계에서 TS로 옮김).
-  섞기 규칙(시안 기준): 스타일 카드 = 시작점(누르면 섞기 초기화) · [+ 다른 스타일] 고르면 0–50% 비율로 색(OKLab)·속도·흐림·질감 숫자가 섞임 ·
-  "항목별로 통째로 가져오기"(색·글꼴·움직임·질감)는 그 항목을 섞을 스타일에서 다 가져옴. 글꼴·배치는 비율로 섞지 않음.
+  **고르기 = 두 줄 (10-02 사용자 결정, 비율 막대·항목별 칸은 복잡해서 폐기)**: "글자"(글꼴·배치·등장 방식) 한 줄 + "분위기"(색·빛·질감·카메라) 한 줄,
+  각각 손그림·큰 숫자·시네마틱 중 하나. 같으면 순수 스타일, 다르면 섞인 스타일(3×3=9가지). 처음엔 AI 추천 조합. 각 칸 미리보기는 "그걸 고르면 이렇게"를 보여준다.
   큰 숫자 등장 = 선 뒤에서 올라오는 마스크(2차에서 좋다고 한 방식), 시네마틱 = 흐림에서 또렷, 손그림 = 살짝 기울며 그려짐.
 
 ### 1단계 — 영상 틀 엔진 (`lib/introFilm/`)
 - `schema.ts` 장면 대본 타입 + 검사(`introFilmIssue` — 글자 길이, 장면 수, 길이, 정직 표시, ko·en).
-- `styles.ts` 토큰 3벌(hand · bignum · cinematic) + `mixStyle(spec)` (축 고르기 + 숫자 섞기).
+- `styles.ts` 토큰 3벌(hand · bignum · cinematic) + `resolveStyle({text, mood})` (글자 쪽: type·등장 / 분위기 쪽: color·texture·카메라).
 - `render.ts` `createFilm(svg, spec, {surface, locale})` → `{duration, render(t)}`. 온습도계 2차 코드를 장면 종류별 모듈로 나눈다.
   장면마다 3스타일 배치(손그림은 흔들리는 선·종이 질감, 큰 숫자는 굵은 고딕·면, 시네마틱은 어둠·빛·카메라).
 - `safeZones.ts` 표면별 금지 구역 + 배치 검사.
@@ -102,7 +100,7 @@
 
 ### 4단계 — 검토 창
 - `DraftReviewModal`: intro_film이 있으면 왼쪽 미리보기 = `IntroFilmPlayer`(재생 막대·장면 이동),
-  오른쪽 = 스타일 3장(AI 추천 표시) + 섞기 칸 + 장면 목록(ko/en 탭, 글자 직접 고치기) + [AI에게 고쳐달라기](`lib/draftFixPrompt.ts`에 대본 문맥).
+  오른쪽 = 글자·분위기 두 줄(AI 추천 표시) + 장면 목록(ko/en 탭, 글자 직접 고치기) + [AI에게 고쳐달라기](`lib/draftFixPrompt.ts`에 대본 문맥).
 - 저장은 2단계의 서버 경로. **미니멀 작업 세션과 겹치는 파일이라 착수 전에 그 세션과 맞춘다.**
 - 공개: `handlePublishDraft`가 intro_film이면 촬영 대신 **렌더 요청**을 건다.
 
