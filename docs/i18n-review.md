@@ -514,6 +514,7 @@
 | rerecordReasonRequired | 무엇을 어떻게 바꾸고 싶은지 적어주세요. | Tell us what you'd like changed and how. | |
 | rerecordInFlight | 지금 시연 영상을 만드는 중이에요. 끝난 뒤에 요청해 주세요. | A demo video is being made right now. Please ask again once it's done. | |
 | rerecordSaveFailed | 요청을 저장하지 못했어요. 잠시 후 다시 시도해 주세요. | Couldn't save the request. Please try again in a moment. | |
+| rerecordDraft | 아직 초안이라 다시 찍을 영상이 없어요. 대본은 update_nookframe_draft(또는 `nookframe drafts update`)로 고쳐 주세요. | This work is still a draft, so there is no video to re-record. Change its script with update_nookframe_draft (or `nookframe drafts update`) instead. | AI 재촬영 대본 입구에 초안 id가 오면(409) |
 | unsupportedSource | 자동 시연을 만들 수 없는 소스예요. | This source can't be turned into an auto demo. | |
 | contentHost | {host}는 자동 시연으로 촬영하는 '내 작품' 주소가 아니에요. 영상 링크라면 '구동 영상' 칸에 넣어주세요. | {host} isn't a "my work" address the auto demo can film. If it's a video link, put it in the "Video clip" field instead. | 함수(host). '구동 영상'=projectForm videoLabel(Video clip)과 용어 일치 |
 | contentHostShort | {host}는 자동 시연으로 촬영하는 '내 작품' 주소가 아니에요. | {host} isn't a "my work" address the auto demo can film. | 함수(host), 인제스트용 축약 |

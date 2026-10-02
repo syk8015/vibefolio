@@ -1036,6 +1036,8 @@ export const ko = {
     },
     captionTooLong: (locale: "ko" | "en", step: number, max: number) =>
       `${step}번 장면의 caption.${locale}이 너무 길어요 — 자막마다 ${max}자 안으로 써 주세요(영상 위에 두 줄 안으로 얹혀요).`,
+    rerecordDraft:
+      "아직 초안이라 다시 찍을 영상이 없어요. 대본은 update_nookframe_draft(또는 `nookframe drafts update`)로 고쳐 주세요.",
     rerecordPendingNext: "새 대본을 접수했어요. 작품 주인이 대시보드에서 확인하고 [이 대본으로 재촬영]을 눌러야 촬영이 시작돼요.",
     rerecordNoPendingScript: "대기 중인 새 대본이 없어요. 재촬영 프롬프트를 AI에게 주고, AI가 새 대본을 제출한 뒤에 눌러 주세요.",
     rerecordAlreadyUsed: "이 작품의 셀프 재촬영 1회는 이미 썼어요. 다음부터는 관리자 승인이 필요해요.",

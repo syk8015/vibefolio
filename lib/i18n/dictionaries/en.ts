@@ -929,6 +929,8 @@ export const en: Dictionary = {
     },
     captionTooLong: (locale: "ko" | "en", step: number, max: number) =>
       `step ${step}'s caption.${locale} is too long — keep each caption under ${max} characters (it sits over the video in two lines at most).`,
+    rerecordDraft:
+      "This work is still a draft, so there is no video to re-record. Change its script with update_nookframe_draft (or `nookframe drafts update`) instead.",
     rerecordPendingNext: "New script received. It starts nothing yet — the owner reviews it in their dashboard and presses re-record.",
     rerecordNoPendingScript: "No new script is waiting. Hand the re-record prompt to your AI first — press this once it has submitted a new script.",
     rerecordAlreadyUsed: "This project already used its one self-serve re-record. Further takes need admin approval.",
