@@ -56,7 +56,8 @@ export function RerecordRequestModal({
       body: JSON.stringify({ note: trimmed }),
     }).then(async (res) => {
       const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+      // 화면에 HTTP 숫자를 내지 않는다 — 까닭이 없으면 우리 문장.
+      if (!res.ok) throw new Error(typeof body.error === "string" && body.error ? body.error : t.rerecord.requestFailed);
       prompt = body.prompt as string;
       return prompt;
     });
@@ -65,7 +66,7 @@ export function RerecordRequestModal({
         if (ok) setCopied(true);
         else setManual(prompt);
       })
-      .catch((err) => setError(err instanceof Error ? err.message : t.rerecord.requestFailed))
+      .catch((err) => setError(err instanceof Error && !(err instanceof TypeError) ? err.message : t.rerecord.requestFailed))
       .finally(() => setBusy(false));
   }
 
@@ -75,10 +76,11 @@ export function RerecordRequestModal({
     try {
       const res = await fetch(`/api/projects/${project.id}/apply-rerecord`, { method: "POST" });
       const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+      if (!res.ok) throw new Error(typeof body.error === "string" && body.error ? body.error : t.rerecord.requestFailed);
       onDone(body.status === "queued" ? t.rerecord.queued : t.rerecord.awaitingApproval);
     } catch (err) {
-      setError(err instanceof Error ? err.message : t.rerecord.requestFailed);
+      // fetch가 던진 네트워크 오류(TypeError)는 브라우저 영어라 우리 문장으로.
+      setError(err instanceof Error && !(err instanceof TypeError) ? err.message : t.rerecord.requestFailed);
       setBusy(false);
     }
   }

@@ -233,7 +233,8 @@ export default function OnboardingPage() {
       const res = await fetch("/api/account", { method: "DELETE" });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error(body.message || t.onboarding.quitFailed);
+        // 서버 실패 응답은 { error }(lib/apiError) — message를 읽으면 늘 비어 까닭이 사라졌다.
+        throw new Error(typeof body.error === "string" && body.error ? body.error : t.onboarding.quitFailed);
       }
       // 계정이 사라졌다 — 이 기기에 남은 세션 쿠키만 비운다.
       await createClient().auth.signOut({ scope: "local" });
@@ -241,7 +242,8 @@ export default function OnboardingPage() {
       router.refresh();
     } catch (err) {
       setQuitting(false);
-      setQuitError(err instanceof Error ? err.message : t.onboarding.quitFailed);
+      // fetch가 던진 네트워크 오류(TypeError: Failed to fetch)는 브라우저 영어라 우리 문장으로 바꾼다.
+      setQuitError(err instanceof Error && !(err instanceof TypeError) ? err.message : t.onboarding.quitFailed);
     }
   }
 

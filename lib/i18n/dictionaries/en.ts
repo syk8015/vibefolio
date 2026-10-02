@@ -798,8 +798,11 @@ export const en: Dictionary = {
       network: "A network error kept it from uploading.",
       noJson: "Couldn't find a { … } JSON object in what you pasted. Pasting the AI's whole reply is fine.",
       copyFailed: "Copy failed — press it once more.",
+      bounced: "Couldn't upload — the AI's answer needs a fix.",
+      bouncedFiles: "Couldn't upload — a file needs a fix.",
     },
-    fixWithAi: "Hand this reason to your AI",
+    fixWithAi: "Copy fix prompt",
+    bounceWhy: "See why",
     fixCopied: "Copied — paste it to your AI",
   },
   theater: {

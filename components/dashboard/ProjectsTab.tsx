@@ -403,18 +403,21 @@ export default function ProjectsTab({
           if (project) setRerecordId(project.id);
           return;
         }
-        throw new Error(body.error || `HTTP ${res.status}`);
+        // 화면(실패 줄)에 HTTP 숫자를 내지 않는다 — 까닭이 없으면 우리 문장.
+        throw new Error(typeof body.error === "string" && body.error ? body.error : t.projects.rerecordFailed);
       }
       // Held (daily cap) — reflect immediately; realtime confirms.
       if (body.held) {
         setProjects(prev => prev.map(p => p.id === id
           ? { ...p, demo_build_status: "held", demo_build_error: null }
           : p));
+        // ui-allow: raw-error 성공 응답(held)은 message를 싣는다 — 실패 응답이 아니다
         setNotice(body.message ?? t.projects.heldNotice);
       }
     } catch (err) {
       // 트리거 자체 실패 시 failed로 표시 (잡이 안 돌았으니 catchError로 잡힐 일도 없음)
-      const message = err instanceof Error ? err.message : t.projects.rerecordFailed;
+      // fetch가 던진 네트워크 오류(TypeError)는 브라우저 영어라 우리 문장으로.
+      const message = err instanceof Error && !(err instanceof TypeError) ? err.message : t.projects.rerecordFailed;
       setProjects(prev => prev.map(p => p.id === id
         ? { ...p, demo_build_status: "failed", demo_build_error: message }
         : p));
@@ -614,13 +617,15 @@ export default function ProjectsTab({
             // 바로잡는다 — 재시도 경로(handleRerecord)와 같은 처리.
             if (body.held) {
               setProjects(prev => prev.map(p => p.id === project.id ? { ...p, demo_build_status: "held", demo_build_error: null } : p));
+              // ui-allow: raw-error 성공 응답(held)은 message를 싣는다 — 실패 응답이 아니다
               setNotice(body.message ?? t.projects.heldNotice);
             }
             return;
           }
           setProjects(prev => prev.map(p => p.id === project.id ? { ...published, demo_build_status: null } : p));
           if (celebrateRef.current === project.id) setCelebrateFilm(false);
-          setNotice(body.message || t.projects.publishedDemoStartFailed);
+          // 실패 응답은 { error }(lib/apiError) — message를 읽으면 늘 비어 까닭이 사라졌다.
+          setNotice(typeof body.error === "string" && body.error ? body.error : t.projects.publishedDemoStartFailed);
         })
         .catch(() => {
           setProjects(prev => prev.map(p => p.id === project.id ? { ...published, demo_build_status: null } : p));

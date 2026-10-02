@@ -668,10 +668,10 @@ export function DraftReviewModal({ draft, privateReady = true, username, demoPau
         {t.projects.reviewEditCancel}
       </button>
       {saveError && editing !== "description" && (
-        <span className="text-xs" style={{ color: "var(--danger)", fontFamily: "var(--font-nunito)" }}>{saveError}</span>
+        <span style={{ color: "var(--danger)", fontFamily: "var(--font-nunito)", fontSize: 13 }}>{saveError}</span>
       )}
       {saveError && editing === "description" && !descIssue && (
-        <span className="text-xs" style={{ color: "var(--danger)", fontFamily: "var(--font-nunito)" }}>{saveError}</span>
+        <span style={{ color: "var(--danger)", fontFamily: "var(--font-nunito)", fontSize: 13 }}>{saveError}</span>
       )}
     </div>
   );
@@ -751,10 +751,10 @@ export function DraftReviewModal({ draft, privateReady = true, username, demoPau
             {/* 배포 주소 없이 파일(실행 코드 묶음)로 올린 작품은 라이브 체험 칸이 안
                 켜진다 — 공개 뒤 "왜 영상만 있지?"가 되지 않게 미리 말해 둔다. */}
             {isFile && !isEmbeddableFile && (
-              <p style={{ ...smallText, fontSize: 12.5 }}>{t.projects.reviewNoLiveNote}</p>
+              <p style={smallText}>{t.projects.reviewNoLiveNote}</p>
             )}
             {externalSrc && !directVideo && !videoEmbed && embedState !== "checking" && (
-              <p style={{ ...smallText, fontSize: 12.5 }}>
+              <p style={smallText}>
                 {embedState === "blocked"
                   ? t.projects.reviewEmbedBlocked
                   : embedState === "unreachable"
@@ -787,7 +787,7 @@ export function DraftReviewModal({ draft, privateReady = true, username, demoPau
                 <span
                   className="rounded-full"
                   style={{
-                    padding: "4px 10px", fontFamily: "var(--font-nunito)", fontSize: "0.72rem", fontWeight: 600,
+                    padding: "4px 11px", fontFamily: "var(--font-nunito)", fontSize: 13, fontWeight: 600,
                     background: published ? "var(--text-primary)" : "var(--surface-soft)",
                     color: published ? "var(--bg)" : "var(--text-secondary)",
                   }}
@@ -899,7 +899,7 @@ export function DraftReviewModal({ draft, privateReady = true, username, demoPau
                           <textarea ref={inputRef as React.RefObject<HTMLTextAreaElement>} value={value} onChange={e => setValue(e.target.value)}
                             onKeyDown={e => onKey(e, true)} rows={3} disabled={saving}
                             className="vf-input" style={{ ...editInput, lineHeight: 1.55, resize: "vertical" }} />
-                          <p className="text-xs" style={{ margin: "4px 0 0", fontFamily: "var(--font-nunito)", color: descIssue ? "var(--danger)" : "var(--text-muted)" }}>
+                          <p style={{ margin: "4px 0 0", fontFamily: "var(--font-nunito)", fontSize: 13, color: descIssue ? "var(--danger)" : "var(--text-muted)" }}>
                             {descIssue ?? t.projects.reviewDescMeter(descLines.length, descMaxCols, DESCRIPTION_LINE_COLS_MAX)}
                           </p>
                         </div>

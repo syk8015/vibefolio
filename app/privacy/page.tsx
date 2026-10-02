@@ -192,7 +192,7 @@ function KoBody() {
           <li>회원 탈퇴를 통한 개인정보 삭제</li>
         </ul>
         열람·수정·삭제는 대부분 직접 하실 수 있습니다. 대시보드에서 프로필과 작품을 수정·삭제할 수 있고,
-        대시보드 &quot;명함&quot; 탭 아래 <strong>회원 탈퇴</strong>를 누르면 저장소의 작품 파일·프로필 사진·촬영본까지
+        화면 위쪽의 &quot;설정&quot;에 들어가 맨 아래 <strong>회원 탈퇴</strong>를 누르면 저장소의 작품 파일·프로필 사진·촬영본까지
         함께 지운 뒤 계정이 삭제됩니다. 직접 처리하기 어렵거나 그 밖의 요청은 아래 개인정보 보호책임자에게
         이메일로 문의해 주세요.
       </Section>
@@ -330,7 +330,7 @@ function EnBody() {
           <li>Delete your personal information by deleting your account</li>
         </ul>
         You can do most of this yourself: edit or delete your profile and works from the dashboard, and use
-        <strong>Delete account</strong> at the bottom of the dashboard&apos;s &quot;Card&quot; tab — it removes your
+        <strong>Delete account</strong> at the bottom of Settings (top of the page) — it removes your
         stored project files, profile photo, and recordings first, then the account. For anything you cannot do
         yourself, email the privacy officer listed below.
       </Section>

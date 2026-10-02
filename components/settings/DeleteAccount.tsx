@@ -29,7 +29,8 @@ export default function DeleteAccount({ username }: { username: string }) {
       const res = await fetch("/api/account", { method: "DELETE" });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error(body.message || t.card.deleteFailed);
+        // 서버 실패 응답은 { error }(lib/apiError) — message를 읽으면 늘 비어 까닭이 사라졌다.
+        throw new Error(typeof body.error === "string" && body.error ? body.error : t.card.deleteFailed);
       }
       // 계정과 데이터가 사라졌다 — 이 기기의 세션만 비우고 나간다(사용자가 없어 범위는 의미 없음).
       await createClient().auth.signOut();
@@ -37,7 +38,8 @@ export default function DeleteAccount({ username }: { username: string }) {
       router.refresh();
     } catch (err) {
       setDeleting(false);
-      setError(err instanceof Error ? err.message : t.card.deleteFailed);
+      // fetch가 던진 네트워크 오류(TypeError: Failed to fetch)는 브라우저 영어라 우리 문장으로 바꾼다.
+      setError(err instanceof Error && !(err instanceof TypeError) ? err.message : t.card.deleteFailed);
     }
   }
 

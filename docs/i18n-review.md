@@ -1335,3 +1335,14 @@ locale도 언어별(en = "The live portfolio for vibe coders. Show your projects
 | projects.reviewIntroSaveFailed | 저장하지 못했어요. 잠시 뒤 다시 고쳐 주세요 | Couldn't save. Try the edit again in a moment. | ⚠️ 교체 · 전엔 "저장하지 못했어요 — {검사기 영어 문장}"을 그대로 보였다 |
 | projects.reviewIntroFixScene | 소개 영상 {n}번 장면 글자를 고쳐야 공개할 수 있어요 | Fix the text in scene {n} to publish | 추가 · 접혀 있어도 보이는 빨간 줄(공개 버튼이 잠긴 까닭) |
 | projects.reviewIntroScene | {n}번 장면 · {종류} | Scene {n} · {kind} | 추가 · 장면 줄·재생 막대 칸의 읽기용 이름 |
+
+## 급한 것 4건 정리 (2026-10-02) — 붙여넣기 화면의 거절 문구
+
+게이트 거절 사유(AI에게 쓴 긴 글)는 '까닭 보기'에 접고, 늘 보이는 건 짧은 한 줄 + [수정 프롬프트 복사].
+
+| 키 | 한국어 | English | 비고 |
+|---|---|---|---|
+| publish.errors.bounced | AI 답에 고칠 곳이 있어 올리지 못했어요. | Couldn't upload — the AI's answer needs a fix. | 추가 · 사유 원문 대신 늘 보이는 한 줄 |
+| publish.errors.bouncedFiles | 파일에 고칠 곳이 있어 올리지 못했어요. | Couldn't upload — a file needs a fix. | 추가 · 파일 단계(finalize) 거절 |
+| publish.fixWithAi | 수정 프롬프트 복사 | Copy fix prompt | ⚠️ 교체 · 전엔 "이 사유를 AI에게 전달하기" / "Hand this reason to your AI" — 사이트가 AI에게 보내는 게 아니라 복사하는 것(검토 창과 같은 이름) |
+| publish.bounceWhy | 까닭 보기 | See why | 추가 · 접힌 사유 원문 |

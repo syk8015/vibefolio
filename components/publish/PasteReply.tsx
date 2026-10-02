@@ -5,6 +5,7 @@ import { useT } from "@/lib/i18n/client";
 import { buildPublishFixPrompt } from "@/lib/publishFixPrompt";
 import { copyText } from "@/lib/clipboard";
 import { extractPublishJson } from "@/lib/extractPublishJson";
+import { FoldToggle } from "@/components/FoldToggle";
 
 // AI 답 붙여넣기 본체 — /publish 페이지와 연결 창(ConnectPanel) 두 곳에서 쓴다.
 //
@@ -72,6 +73,8 @@ export function PasteReply({
   // 서버가 되돌려보낸 사유만 따로 들고 있는다. JSON 파싱 같은 **로컬** 오류는
   // AI에게 되물을 게 아니라 사람이 다시 붙여넣으면 되는 일이라 버튼을 띄우지 않는다.
   const [bounce, setBounce] = useState<string | null>(null);
+  // 서버 사유는 AI에게 쓴 긴 글(JSON 예시·칸 이름)이라 사람에겐 접어 둔다 — '까닭 보기'를 누른 사람만.
+  const [whyOpen, setWhyOpen] = useState(false);
   const [fixCopied, setFixCopied] = useState(false);
   // 마지막으로 보낸 JSON — 되돌려보내기 프롬프트에 싣는다(칸의 설명 섞인 글이 아니라 보낸 그대로).
   const [sentJson, setSentJson] = useState("");
@@ -107,6 +110,7 @@ export function PasteReply({
   function reset() {
     setError(null);
     setBounce(null);
+    setWhyOpen(false);
     setFixCopied(false);
     setFailedText(null);
   }
@@ -153,12 +157,17 @@ export function PasteReply({
     // 있게 붙잡는다. 로그인·속도 제한·서버 오류는 잠시 뒤 같은 글로 다시 보내면 되는 일이라 제외.
     // textIsBad: /api/ingest 거절은 글(JSON) 탓이라 같은 글로는 또 거절된다. finalize 거절은 거의 파일
     // 탓(index.html 없음·용량)이라 파일만 바꾸면 같은 글로 다시 보내도 된다 — 버튼을 클립보드로 돌리지 않는다.
+    // 덜어내기(10-02): 게이트 거절의 사유는 AI에게 쓴 긴 글이라 화면엔 짧은 한 줄만 늘 보이고,
+    // 고치는 길은 [수정 프롬프트 복사](사유를 AI에게 그대로 싣는다), 원문은 '까닭 보기'로 접는다.
     const reject = (status: number, reason: unknown, fallback: string, textIsBad = true) => {
       const text = typeof reason === "string" && reason ? reason : fallback;
-      setError(text);
       if (text !== fallback && (status === 400 || status === 413 || status === 422)) {
+        setError(textIsBad ? tp.errors.bounced : tp.errors.bouncedFiles);
         setBounce(text);
+        setWhyOpen(false);
         if (textIsBad) setFailedText(source);
+      } else {
+        setError(text);
       }
       stop();
     };
@@ -347,9 +356,21 @@ export function PasteReply({
         </p>
       )}
       {bounce && (
-        <button type="button" onClick={copyFix} className="vf-button-ghost self-center" style={{ fontSize: "0.875rem", padding: "0.5rem 1.1rem" }}>
-          {fixCopied ? tp.fixCopied : tp.fixWithAi}
-        </button>
+        <div className="flex flex-col items-center" style={{ gap: 10 }}>
+          <button type="button" onClick={copyFix} className="vf-button-ghost" style={{ fontSize: "0.875rem", padding: "0.5rem 1.1rem" }}>
+            {fixCopied ? tp.fixCopied : tp.fixWithAi}
+          </button>
+          <FoldToggle open={whyOpen} onToggle={() => setWhyOpen((v) => !v)}>{tp.bounceWhy}</FoldToggle>
+          {whyOpen && (
+            <p style={{
+              margin: 0, maxWidth: "min(640px, 100%)", padding: "10px 14px", borderRadius: 12, background: "var(--surface-soft)",
+              color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", fontSize: 13, lineHeight: 1.6,
+              whiteSpace: "pre-wrap", overflowWrap: "anywhere", textAlign: "left",
+            }}>
+              {bounce}
+            </p>
+          )}
+        </div>
       )}
     </>
   );
