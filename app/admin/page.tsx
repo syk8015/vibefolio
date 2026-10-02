@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isAdminEmail } from "@/lib/routeAuth";
+import { noteAdminDenied, noteAdminAllowed } from "@/lib/adminWatch";
 import { hasErrorReporter } from "@/lib/logger";
 import { isR2Configured, r2Usage } from "@/lib/r2";
 import { parseDemoFailure } from "@/lib/demo-failure";
@@ -164,7 +165,11 @@ const OPS_TOKENS = `
 export default async function AdminPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user || !isAdminEmail(user.email)) notFound();
+  if (!user || !isAdminEmail(user.email)) {
+    await noteAdminDenied("/admin", user);
+    notFound();
+  }
+  await noteAdminAllowed("/admin", user);
 
   const admin = createAdminClient();
   // eslint-disable-next-line react-hooks/purity -- 서버 컴포넌트(force-dynamic): 요청마다 한 번 그린다, 다시 그려질 일이 없다.

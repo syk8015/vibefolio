@@ -19,10 +19,15 @@ import { logger } from "@/lib/logger";
 // only as a last resort and only its LAST hop. Hashed with the service key as
 // pepper so raw IPs never sit in a table; stable per deploy, all a bucket needs.
 export function clientIpKey(req: NextRequest): string {
+  return clientIpKeyFromHeaders(req.headers);
+}
+
+// 같은 규칙 — 요청 객체 없이 headers()만 있는 서버 컴포넌트·헬퍼용.
+export function clientIpKeyFromHeaders(h: Pick<Headers, "get">): string {
   const ip =
-    req.headers.get("x-vercel-forwarded-for") ??
-    req.headers.get("x-real-ip") ??
-    (req.headers.get("x-forwarded-for")?.split(",").pop()?.trim() || "unknown");
+    h.get("x-vercel-forwarded-for") ??
+    h.get("x-real-ip") ??
+    (h.get("x-forwarded-for")?.split(",").pop()?.trim() || "unknown");
   const pepper = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
   return createHash("sha256").update(`${pepper}:${ip}`).digest("hex").slice(0, 32);
 }
@@ -34,6 +39,9 @@ export async function rateLimit(opts: {
   key: string;
   windowSeconds: number;
   max: number;
+  /** true면 한도기 자체가 고장 났을 때 막는다(기본은 연다). 막혀도 사용자 흐름이 안 깨지는
+   *  곳(방문 기록)만 쓴다 — 고장 난 사이 조회수 부풀리기가 무제한이 되지 않게(2026-10-02). */
+  failClosed?: boolean;
 }): Promise<boolean> {
   try {
     const admin = createAdminClient();
@@ -43,12 +51,12 @@ export async function rateLimit(opts: {
       p_max: opts.max,
     });
     if (error) {
-      logger.error("rate-limit: rl_touch failed (allowing)", { error, name: opts.name });
-      return true;
+      logger.error(`rate-limit: rl_touch failed (${opts.failClosed ? "blocking" : "allowing"})`, { error, name: opts.name });
+      return !opts.failClosed;
     }
     return data === true;
   } catch (err) {
-    logger.error("rate-limit: rl_touch threw (allowing)", { error: err, name: opts.name });
-    return true;
+    logger.error(`rate-limit: rl_touch threw (${opts.failClosed ? "blocking" : "allowing"})`, { error: err, name: opts.name });
+    return !opts.failClosed;
   }
 }

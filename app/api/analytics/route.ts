@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { trackServerEvent } from "@/lib/analytics";
 import { AnalyticsEvent, isClientEvent } from "@/lib/analytics-events";
 import { rateLimit, clientIpKey } from "@/lib/rate-limit";
-import { classifyTrafficSource } from "@/lib/traffic-source";
+import { classifyTrafficSource, cleanReferrer } from "@/lib/traffic-source";
 
 // Client-reported analytics sink (P0.2 unit 2). Browser-sent, so best-effort by
 // definition: events outside CLIENT_EVENTS are dropped (the server-authoritative
@@ -32,6 +32,8 @@ export async function POST(req: NextRequest) {
       const serialized = JSON.stringify(body.props);
       if (serialized.length <= 2048) props = body.props;
     }
+    // 유입 주소는 "https://호스트"만 남긴다 — 가짜 유입처·경로에 실린 남의 정보 차단(cleanReferrer).
+    if ("referrer" in props) props = { ...props, referrer: cleanReferrer(props.referrer) };
 
     // watch_view: stamp the traffic channel server-side. In-app browsers strip
     // the Referer, but their User-Agent (this request's own header — the ping

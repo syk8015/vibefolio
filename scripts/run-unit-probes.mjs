@@ -11,6 +11,8 @@ const PROBES = [
   "scripts/probe-embeddable-unit.mts",      // lib/embeddable 임베드 헤더 판정
   "scripts/probe-ssrf-unit.mts",            // lib/ssrf 내부 주소 차단 — 숫자·IPv6 표기, localhost, 프로토콜
   "scripts/probe-body-cap-unit.mts",        // 요청 본문 상한 — 머리표 없는 조각 전송도 실제 바이트로 끊기
+  "scripts/probe-small-holes-unit.mts",     // 작은 구멍 — 유입 주소는 호스트만·소셜 배지 www. 앞만·길이 상한 SQL not valid
+  "scripts/probe-media-scan-unit.mts",      // 공개 그림 내용 검사 — 본 주소 건너뛰기·오류 하루 뒤 다시·답 다듬기·신고 사유·키 없으면 꺼짐
   "scripts/probe-prompt-secrets-unit.mts",  // 프롬프트 3종에 토큰이 안 실리는지(1회용 코드만)
   "scripts/probe-schema-drift.mts",         // 생성물(cli/src/schema.js·lib/mcpTools.ts)이 원본과 어긋났는지
   "scripts/probe-oauth-unit.mts",           // 원격 MCP OAuth — CIMD 두 항목·client_id 규칙·PKCE
@@ -35,9 +37,11 @@ const PROBES = [
   "scripts/probe-site-patrol-unit.mts",     // 점검 크론의 사이트 순찰 — 발견 문서 두 항목·MCP 401·명함 무대 영상 대상 고르기
   "scripts/probe-promo-unit.mts",           // 홍보 예약 — 피드 언어로 채널 고르기·하루 1편 한국 시각 칸·채널별 캡션 꼬리
   "scripts/probe-filming-status-unit.mts",  // AI가 묻는 촬영 상태 — 초안·몰아서 찍기·오래 걸림·실패 원문·보류 한국어 안 샘
+  "scripts/probe-video-transcode-unit.mts", // 올린 영상 줄이기 — 줄인 파일 다시 안 집기·영상만·별 효과 없으면 mp4는 상자만
   "scripts/probe-ui-rules.mjs",             // 화면·글 기준(docs/ui-rules.md) — 기준선보다 새로 어긋난 것만 실패(작은 글자·직접 쓴 색·테두리·말투…)
   "scripts/probe-cli-input.mjs",            // CLI --file·표준입력·schema (127.0.0.1 가짜 서버, 네트워크 없음)
   "local-runner/probe-focus-coalesce.ts",   // 스크롤 병합·focus 카메라 산식
+  "local-runner/probe-hover-merge.ts",      // 같은 요소 연속 호버 — 새 장면이면 합치지도 지우지도 않는다
   "local-runner/probe-zoomexpr.ts",         // zoompan 식 가드
   "scripts/test-zoom-filter-local.mts",     // 로컬 카메라 ffmpeg 체인
   "local-runner/dispatch/probe-dispatch.mjs", // 자동 실행기 — 큐·한도 게이트·산출물 수거 (node --test 53개)

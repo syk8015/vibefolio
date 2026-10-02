@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isAdminEmail } from "@/lib/routeAuth";
+import { noteAdminDenied, noteAdminAllowed } from "@/lib/adminWatch";
 import { AnalyticsEvent } from "@/lib/analytics-events";
 import { promoTrackingUrl, type PromoLocale, type PromoPostStatus } from "@/lib/promo";
 import { Panel, SectionTitle, MonoAside, Ledger, type LedgerEntry } from "../panels";
@@ -17,7 +18,11 @@ export const dynamic = "force-dynamic";
 export default async function PromoPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user || !isAdminEmail(user.email)) notFound();
+  if (!user || !isAdminEmail(user.email)) {
+    await noteAdminDenied("/admin/promo", user);
+    notFound();
+  }
+  await noteAdminAllowed("/admin/promo", user);
 
   const admin = createAdminClient();
   const now = Date.now();

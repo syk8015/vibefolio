@@ -925,12 +925,19 @@ export function DraftReviewModal({ draft, privateReady = true, username, demoPau
                           className="vf-input" style={editInput} />
                         {editRow}
                       </div>
-                    ) : (
-                      <NoteBubble label={cardDict.theater.makerNote} size={compactCard ? "sm" : "md"} muted={!fieldValue("comment")}
+                    ) : fieldValue("comment") ? (
+                      <NoteBubble label={cardDict.theater.makerNote} size={compactCard ? "sm" : "md"}
                         onClick={() => begin("comment")} title={t.projects.reviewEditHint}
                         style={{ flex: "none", marginLeft: "auto", cursor: "text" }}>
-                        {fieldValue("comment") || t.projects.reviewNotePlaceholder}
+                        {fieldValue("comment")}
                       </NoteBubble>
+                    ) : (
+                      // 비운 한마디는 방문자에게 말풍선이 안 뜬다 — 미리보기도 말풍선 대신 작은 '추가' 글자만(10-02: 지워도
+                      // 자리표시 말풍선이 그대로 떠서 "저장이 안 됐다"로 보였다).
+                      <button type="button" onClick={() => begin("comment")} className="vf-button-text"
+                        style={{ flex: "none", marginLeft: "auto", fontSize: 13, color: "var(--text-muted)" }}>
+                        {t.projects.reviewNoteAdd}
+                      </button>
                     )}
                   </div>
                 </div>

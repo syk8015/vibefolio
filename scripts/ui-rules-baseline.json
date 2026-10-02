@@ -1,14 +1,14 @@
 {
  "note": "화면·글 기준(docs/ui-rules.md) 기계 검사의 기준선 — 여기 적힌 어긋남은 봐준다. 고쳐서 줄었을 때만 `npm run ui:baseline`으로 다시 쓴다(늘리는 쓰기는 거절된다).",
  "totals": {
-  "size": 154,
+  "size": 153,
   "color": 146,
   "border": 50,
   "font": 1,
   "bar": 0,
   "raw-error": 18,
   "tone": 13,
-  "name": 5,
+  "name": 7,
   "ko-jsx": 2
  },
  "hits": {
@@ -179,6 +179,8 @@
   "name|lib/i18n/dictionaries/ko.ts|api.descriptionShape: … 소개글은 명함에서 작품 위에 겹쳐 뜨는 첫인상 글이라, 한 문단이 아니라 줄바꿈(\\n)으로 끊은 2~": 1,
   "name|lib/i18n/dictionaries/ko.ts|api.descriptionShape: description이 …줄이에요. 명함에는 3줄까지만 보입니다.": 1,
   "name|lib/i18n/dictionaries/ko.ts|api.descriptionTooLong: description이 너무 길어요(최대 …자). 명함 화면에는 2~3문장만 보이니 짧게 줄여주세요.": 1,
+  "name|lib/i18n/dictionaries/ko.ts|email.profileTakedownBody: 신고가 접수되어 검토한 결과, … 명함과 공개 작품을 비공개로 돌렸어요. 작품과 파일은 그대로 ": 1,
+  "name|lib/i18n/dictionaries/ko.ts|email.profileTakedownSubject: 명함을 비공개로 전환했어요 — …": 1,
   "raw-error|app/admin/AdminRequestList.tsx|`HTTP ${res.status}`": 1,
   "raw-error|app/admin/ModerationInbox.tsx|`HTTP ${res.status}`": 1,
   "raw-error|app/admin/promo/ClipCard.tsx|`HTTP ${res.status}`": 6,
@@ -219,7 +221,7 @@
   "size|app/admin/promo/TaglinePicker.tsx|fontSize: \"0.68rem\"": 1,
   "size|app/admin/promo/TaglinePicker.tsx|text-xs": 7,
   "size|app/admin/ReportInbox.tsx|fontSize: \"0.58rem\"": 1,
-  "size|app/admin/ReportInbox.tsx|fontSize: \"0.68rem\"": 2,
+  "size|app/admin/ReportInbox.tsx|fontSize: \"0.68rem\"": 1,
   "size|app/docs/claude-connector/page.tsx|fontSize: \"0.75rem\"": 4,
   "size|app/docs/claude-connector/page.tsx|fontSize: \"0.8rem\"": 1,
   "size|app/page.tsx|fontSize: \"0.75rem\"": 8,

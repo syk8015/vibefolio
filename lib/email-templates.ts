@@ -210,17 +210,21 @@ export function takedownEmail(input: {
   projectTitle: string;
   reasonLabel: string;
   locale?: Locale;
+  /** "profile" = 명함 정지(projectTitle 자리에 @아이디). 기본은 작품 하나. */
+  target?: "project" | "profile";
 }): RenderedEmail {
   const locale = input.locale ?? DEFAULT_LOCALE;
   const t = getDictionary(locale).email;
-  const title = t.takedownSubject(clampSubject(input.projectTitle));
+  const isProfile = input.target === "profile";
+  const title = (isProfile ? t.profileTakedownSubject : t.takedownSubject)(clampSubject(input.projectTitle));
+  const nameHtml = `<strong>${escapeHtml(input.projectTitle)}</strong>`;
   return {
     subject: title,
     html: shell(
       title,
       [
         heading(title),
-        paragraph(t.takedownBody(`<strong>${escapeHtml(input.projectTitle)}</strong>`)),
+        paragraph(isProfile ? t.profileTakedownBody(nameHtml) : t.takedownBody(nameHtml)),
         paragraph(escapeHtml(t.takedownReason(input.reasonLabel))),
         button(t.takedownCta, `${SITE_URL}/dashboard`),
         mutedLine(escapeHtml(t.takedownAppeal)),

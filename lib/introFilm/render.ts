@@ -97,7 +97,8 @@ export function createFilm(svg: SVGSVGElement, film: IntroFilm, S: ResolvedStyle
     return {
       family: fam(ko ? r.ko : r.f),
       weight: ko ? Math.max(500, Math.min(800, r.w + (r.w < 400 ? 200 : 0))) : r.w,
-      ls: ko ? Math.max(-1, Math.min(r.ls, 2)) : r.ls,
+      // 한글은 자간을 좁히면 단어가 붙어 보인다(10-02) — 라벨만 살짝 벌리고 나머지는 0.
+      ls: ko ? (role === "label" ? 2 : 0) : r.ls,
       size,
     };
   };
@@ -118,7 +119,7 @@ export function createFilm(svg: SVGSVGElement, film: IntroFilm, S: ResolvedStyle
   };
 
   /** 글자 줄 등장 — 글자 스타일의 방식(선 뒤에서 올라옴 · 흐림에서 또렷 · 살짝 기울며 그려짐). */
-  function line(parent: Element, s: string, x: number, y: number, f: Font, fill: string, anchor: string, at: number, o: { maxW?: number; whole?: boolean } = {}) {
+  function line(parent: Element, s: string, x: number, y: number, f: Font, fill: string, anchor: string, at: number, o: { maxW?: number; whole?: boolean } = {}): SVGElement {
     if (o.maxW) fit(s, f, o.maxW);
     const g = el("g", {}, parent), kind = M.enter, words = o.whole ? [s] : s.split(" ");
     if (kind === "mask") {
@@ -127,7 +128,8 @@ export function createFilm(svg: SVGSVGElement, film: IntroFilm, S: ResolvedStyle
       el("rect", { x: -1e5, y: y - f.size * 1.05, width: 2e5, height: f.size * 1.4 }, cp);
       g.setAttribute("clip-path", `url(#${cpId})`);
     }
-    const sp = measure(" ", f), ws = words.map((w) => measure(w, f));
+    // 한글 글꼴의 띄어쓰기 폭은 좁아서 단어를 따로 놓으면 붙어 보였다 — 조금 넓힌다.
+    const sp = measure(" ", f) * (loc === "ko" ? 1.25 : 1), ws = words.map((w) => measure(w, f));
     const tot = ws.reduce((a, b) => a + b, 0) + sp * (words.length - 1);
     let cx = anchor === "middle" ? x - tot / 2 : anchor === "end" ? x - tot : x;
     const nodes = words.map((w, i) => { const n = txt(g, w, cx, y, f, fill); cx += ws[i] + sp; return n; });
@@ -144,6 +146,39 @@ export function createFilm(svg: SVGSVGElement, film: IntroFilm, S: ResolvedStyle
       });
     });
     return g;
+  }
+  /**
+   * 글 묶음을 세로 가운데(cy)에 쌓는다. 긴 문장은 글자를 줄이지 않고 두 줄로 나누고, 그만큼 묶음 전체가
+   * 위아래로 자리를 다시 잡는다 — 줄마다 y를 박아 두면 두 줄이 된 문장이 다음 줄과 겹쳤다(10-02 품질 점검).
+   */
+  type StackItem = { s: string; role: "display" | "text" | "label"; size: number; fill: string; at: number; whole?: boolean };
+  function stack(parent: Element, items: StackItem[], x: number, cy: number, anchor: string, maxW: number) {
+    const laid = items.filter((it) => it.s).map((it) => {
+      const f = fnt(it.role, Math.round(it.size * (it.role === "label" ? 1 : T.scale)));
+      let lines = [it.s];
+      const words = it.s.split(" ");
+      if (!it.whole && words.length >= 3 && measure(it.s, f) > maxW * 1.08) {
+        let best = 1, bestW = Infinity;
+        for (let k = 1; k < words.length; k++) {
+          const w = Math.max(measure(words.slice(0, k).join(" "), f), measure(words.slice(k).join(" "), f));
+          if (w < bestW) { bestW = w; best = k; }
+        }
+        lines = [words.slice(0, best).join(" "), words.slice(best).join(" ")];
+      }
+      const widest = Math.max(...lines.map((l) => measure(l, f)));
+      if (widest > maxW) f.size = Math.floor((f.size * maxW) / widest);
+      return { it, f, lines };
+    });
+    const lineH = (f: Font) => f.size * 1.16;
+    const total = laid.reduce((h, l, i) => h + l.lines.length * lineH(l.f) + (i ? l.f.size * 0.3 : 0), 0);
+    let top = cy - total / 2;
+    laid.forEach((l, i) => {
+      if (i) top += l.f.size * 0.3;
+      l.lines.forEach((text, j) => {
+        line(parent, text, x, top + l.f.size * 0.86, { ...l.f }, l.it.fill, anchor, l.it.at + j * 0.12, { maxW, whole: l.it.whole });
+        top += lineH(l.f);
+      });
+    });
   }
   function pop(node: SVGElement, at: number, cx: number, cy: number) {
     ups.push((t) => {
@@ -188,10 +223,13 @@ export function createFilm(svg: SVGSVGElement, film: IntroFilm, S: ResolvedStyle
     });
   }
   /** 큰 숫자 + 단위. "68%" → 68 + %, "$0" → $0, "12,480" → 쉼표 유지하며 세기. */
-  function bigNumber(parent: Element, value: string, unitOverride: string | null, x: number, y: number, size: number, C: Palette, color: string, at: number, count: boolean) {
+  function bigNumber(parent: Element, value: string, unitOverride: string | null, x: number, y: number, size0: number, C: Palette, color: string, at: number, count: boolean, maxW = 1400) {
     const m = /^([^0-9]*)([0-9][0-9,]*)(.*)$/.exec(value);
     const pre = m ? m[1] : "", digits = m ? m[2] : value, rest = m ? m[3].trim() : "";
     const unit = unitOverride ?? rest, main = pre + digits + (unitOverride != null ? rest : "");
+    // 칸보다 넓으면 숫자째 줄인다(글꼴마다 폭이 달라 칸 밖으로 나갔다, 10-02).
+    const w0 = measure(main, fnt("display", size0)) + (unit ? measure(unit, fnt("text", Math.round(size0 * 0.42))) + size0 * 0.08 : 0);
+    const size = w0 > maxW ? Math.floor((size0 * maxW) / w0) : size0;
     const fN = fnt("display", size), fU = fnt("text", Math.round(size * 0.42)), gap = size * 0.08;
     const wN = measure(main, fN) + fN.ls, wU = unit ? measure(unit, fU) + gap : 0, left = x - (wN + wU) / 2;
     const g = el("g", {}, parent);
@@ -221,7 +259,8 @@ export function createFilm(svg: SVGSVGElement, film: IntroFilm, S: ResolvedStyle
 
   scenes.forEach((sc, i) => {
     const C = PAL[i % PAL.length], ox = i * CELL, s0 = starts[i];
-    const at = s0 + (i > 0 && pan > 0.25 ? pan * 0.4 : 0.2);
+    // 카메라가 도착하는 동안 이미 들어오기 시작한다 — 빈 화면을 두지 않는다.
+    const at = s0 + (i > 0 && pan > 0.25 ? 0.12 : 0.2);
     el("rect", { x: ox - 100, y: -400, width: CELL, height: FILM_H + 800, fill: C.bg }, world);
     const g = el("g", {}, world);
     cells.push({ g, s: s0, e: s0 + (SCENE_SECONDS[sc.kind] ?? 4.6) });
@@ -236,13 +275,15 @@ export function createFilm(svg: SVGSVGElement, film: IntroFilm, S: ResolvedStyle
   ) {
     switch (sc.kind) {
       case "hook":
-        L(tr(sc.label), 800, 205, "label", 22, C.sub, "middle", at, { whole: true, maxW: 1100 });
+        L(tr(sc.label), 800, 205, "label", 24, C.sub, "middle", at, { whole: true, maxW: 1100 });
         bigNumber(g, sc.value, null, ox + 800, 575, 380, C, sc.alarm ? C.accent : C.ink, at + 0.15, true);
-        L(tr(sc.line), 800, 745, "text", 72, C.ink, "middle", at + 1.9, { maxW: 1240 });
+        stack(g, [{ s: tr(sc.line), role: "text", size: 72, fill: C.ink, at: at + 1.9 }], ox + 800, 752, "middle", 1240);
         return;
       case "story":
-        L(tr(sc.line), 800, 400, "text", 96, C.sub, "middle", at, { maxW: 1280 });
-        L(tr(sc.line2), 800, 540, "display", 130, C.ink, "middle", at + 0.5, { maxW: 1280 });
+        stack(g, [
+          { s: tr(sc.line), role: "text", size: 84, fill: C.sub, at },
+          { s: tr(sc.line2), role: "display", size: 128, fill: C.ink, at: at + 0.5 },
+        ], ox + 800, 450, "middle", 1300);
         return;
       case "items": {
         const n = sc.items.length, gap = Math.min(300, 1240 / n), x0 = 800 - (gap * (n - 1)) / 2;
@@ -253,22 +294,25 @@ export function createFilm(svg: SVGSVGElement, film: IntroFilm, S: ResolvedStyle
             pop(b, a, ox + x, 380);
           }
           const col = it.alarm ? (shapes === "block" ? onColor(C.accent, C) : C.accent) : C.ink;
-          bigNumber(g, it.value, null, ox + x, 430, Math.min(150, gap * 0.5), C, col, a + 0.05, false);
-          L(tr(it.label).toUpperCase(), x, 495, "label", 17, shapes === "block" && it.alarm ? onColor(C.accent, C) : C.sub, "middle", a + 0.2, { whole: true, maxW: gap * 0.8 });
+          bigNumber(g, it.value, null, ox + x, 430, Math.min(150, gap * 0.5), C, col, a + 0.05, false, gap * 0.84);
+          L(tr(it.label).toUpperCase(), x, 500, "label", 22, shapes === "block" && it.alarm ? onColor(C.accent, C) : C.sub, "middle", a + 0.2, { whole: true, maxW: gap * 0.8 });
         });
-        L(tr(sc.line), 800, 745, "text", 62, C.ink, "middle", at + 1.2, { maxW: 1240 });
+        stack(g, [{ s: tr(sc.line), role: "text", size: 62, fill: C.ink, at: at + 1.2 }], ox + 800, 735, "middle", 1240);
         return;
       }
       case "flow": {
-        const nn = sc.nodes.length, step = 1080 / (nn - 1), fx = 260;
+        // 단계마다 번호가 든 큰 칸 + 그 밑에 굵은 이름(작은 고정폭 라벨은 안 읽혔다, 10-02). 마지막 칸만 강조색.
+        const nn = sc.nodes.length, step = 1080 / (nn - 1), fx = 260, cy = 330, sz = 132;
         sc.nodes.forEach((nd, k) => {
-          const x = fx + k * step, a = at + 0.3 + k * 0.55, sz = 96;
-          const b = box(g, ox + x - sz / 2, 360 - sz / 2, sz, sz, shapes === "line" ? 18 : 22, C, k === nn - 1 ? C.accent : mixHex(C.bg, C.ink, 0.12));
-          pop(b, a, ox + x, 360);
-          L(tr(nd).toUpperCase(), x, 470, "label", 17, C.sub, "middle", a + 0.1, { whole: true, maxW: step * 0.9 });
-          if (k < nn - 1) wire(g, `M${ox + x + sz / 2 + 10} 360 H ${ox + x + step - sz / 2 - 10}`, C, a + 0.15, 0.55);
+          const x = fx + k * step, a = at + 0.15 + k * 0.45, last = k === nn - 1;
+          const b = box(g, ox + x - sz / 2, cy - sz / 2, sz, sz, shapes === "line" ? 26 : 30, C, last ? C.accent : mixHex(C.bg, C.ink, 0.12));
+          const numFill = shapes === "block" && last ? onColor(C.accent, C) : last && shapes === "line" ? C.accent : C.sub;
+          txt(b, String(k + 1).padStart(2, "0"), ox + x, cy + 11, { family: fam(INTRO_FONTS.mono), weight: 500, ls: 2, size: 30 }, numFill, "middle");
+          pop(b, a, ox + x, cy);
+          L(tr(nd), x, cy + sz / 2 + 62, "text", 36, last ? C.ink : C.sub, "middle", a + 0.1, { whole: true, maxW: step * 0.92 });
+          if (k < nn - 1) wire(g, `M${ox + x + sz / 2 + 14} ${cy} H ${ox + x + step - sz / 2 - 14}`, C, a + 0.15, 0.5);
         });
-        L(tr(sc.line), 800, 720, "text", 60, C.ink, "middle", at + 0.6, { maxW: 1240 });
+        stack(g, [{ s: tr(sc.line), role: "text", size: 64, fill: C.ink, at: at + 0.5 }], ox + 800, 740, "middle", 1240);
         return;
       }
       case "terminal": {
@@ -289,7 +333,7 @@ export function createFilm(svg: SVGSVGElement, film: IntroFilm, S: ResolvedStyle
           const a2 = tStart + tDur + 0.25 + k * 0.22;
           ups.push((t) => o2.setAttribute("opacity", t >= a2 ? "1" : "0"));
         });
-        L(tr(sc.line), 800, 745, "text", 58, C.ink, "middle", tStart + tDur + 1.4, { maxW: 1240 });
+        stack(g, [{ s: tr(sc.line), role: "text", size: 58, fill: C.ink, at: tStart + tDur + 1.4 }], ox + 800, 738, "middle", 1240);
         return;
       }
       case "alert": {
@@ -304,8 +348,10 @@ export function createFilm(svg: SVGSVGElement, film: IntroFilm, S: ResolvedStyle
         txt(note, tr(sc.title), ox + px + 36, 414, fit(tr(sc.title), { family: uiFam, weight: 600, ls: 0, size: 21 }, 230), nf);
         txt(note, tr(sc.body), ox + px + 36, 442, fit(tr(sc.body), { family: uiFam, weight: 400, ls: 0, size: 18 }, 230), nf);
         pop(note as SVGElement, at + 0.9, ox + px + 150, 404);
-        L(tr(sc.line), 720, 420, "display", 110, C.ink, "start", at + 1.5, { maxW: 760 });
-        L(tr(sc.line2), 720, 535, "text", 62, C.sub, "start", at + 1.9, { maxW: 760 });
+        stack(g, [
+          { s: tr(sc.line), role: "display", size: 104, fill: C.ink, at: at + 1.5 },
+          { s: tr(sc.line2), role: "text", size: 60, fill: C.sub, at: at + 1.9 },
+        ], ox + 720, 450, "start", 780);
         return;
       }
       case "stats": {
@@ -318,16 +364,18 @@ export function createFilm(svg: SVGSVGElement, film: IntroFilm, S: ResolvedStyle
             pop(dv, a, ox + sx0 + sw * k, 370);
           }
           const tc = shapes === "block" ? onColor(fillC, C) : C.ink;
-          bigNumber(g, st.value, tr(st.unit), ox + x, 440, Math.min(190, sw * 0.42), C, tc, a + 0.05, false);
-          L(tr(st.label).toUpperCase(), x, 505, "label", 17, shapes === "block" ? tc : C.sub, "middle", a + 0.25, { whole: true, maxW: sw * 0.8 });
+          bigNumber(g, st.value, tr(st.unit), ox + x, 440, Math.min(190, sw * 0.42), C, tc, a + 0.05, false, sw * 0.82);
+          L(tr(st.label).toUpperCase(), x, 510, "label", 22, shapes === "block" ? tc : C.sub, "middle", a + 0.25, { whole: true, maxW: sw * 0.8 });
         });
-        L(tr(sc.line), 800, 720, "text", 60, C.ink, "middle", at + 1.1, { maxW: 1240 });
+        stack(g, [{ s: tr(sc.line), role: "text", size: 60, fill: C.ink, at: at + 1.1 }], ox + 800, 728, "middle", 1240);
         return;
       }
       case "ending":
-        L(tr(sc.line), 800, 390, "text", 100, C.sub, "middle", at, { maxW: 1280 });
-        L(tr(sc.line2), 800, 530, "display", 130, C.ink, "middle", at + 0.5, { maxW: 1300 });
-        L(tr(sc.name), 800, 660, "label", 20, C.sub, "middle", at + 1.4, { whole: true, maxW: 1200 });
+        stack(g, [
+          { s: tr(sc.line), role: "text", size: 92, fill: C.sub, at },
+          { s: tr(sc.line2), role: "display", size: 128, fill: C.ink, at: at + 0.5 },
+          { s: tr(sc.name), role: "label", size: 22, fill: C.sub, at: at + 1.4, whole: true },
+        ], ox + 800, 460, "middle", 1300);
         return;
     }
   }
@@ -383,7 +431,7 @@ export function createFilm(svg: SVGSVGElement, film: IntroFilm, S: ResolvedStyle
         const tw = [...label].length * 10 + 36;
         tagBg.setAttribute("x", String(1500 - tw)); tagBg.setAttribute("width", String(tw)); tagT.setAttribute("x", String(1500 - tw / 2));
       }
-      const gf = Math.floor(t * 24);
+      const gf = Math.floor(t * 12);
       if (gf !== lastGrain) { lastGrain = gf; grainR.setAttribute("transform", `translate(${(gf * 67) % 180},${(gf * 113) % 180})`); }
     },
   };

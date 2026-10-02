@@ -8,6 +8,7 @@ import { runLinkPatrol, type LinkPatrolResult } from "@/lib/linkPatrol";
 import { runUploadSweep, type UploadSweepResult } from "@/lib/uploadSweep";
 import { runR2Sweep, type R2SweepResult } from "@/lib/r2Sweep";
 import { runViewRetention } from "@/lib/viewRetention";
+import { runMediaScan, type MediaScanResult } from "@/lib/mediaScan";
 import { logger, hasErrorReporter } from "@/lib/logger";
 import { trackServerEvent } from "@/lib/analytics";
 import { AnalyticsEvent } from "@/lib/analytics-events";
@@ -435,6 +436,16 @@ export async function GET(req: NextRequest) {
     logger.warn("watchdog: view retention failed", { error: err });
   }
 
+  // ── 4h. 공개 그림 내용 검사(lib/mediaScan.ts) — 틱마다 몇 장씩 썸네일·프로필 사진을 분류기에 보낸다.
+  // 걸리면 신고 인박스 + 관리자 메일(함수 안에서). 키가 없으면 꺼짐, 터져도(SQL 전이면 표가 없다) 점검은 계속.
+  let mediaScan: MediaScanResult | null = null;
+  try {
+    mediaScan = await runMediaScan(admin, { now });
+    if (!mediaScan.off && mediaScan.flagged) logger.warn("watchdog: media scan flagged images", { ...mediaScan });
+  } catch (err) {
+    logger.warn("watchdog: media scan failed", { error: err });
+  }
+
   // ── 5. Alert email (T4) — deduped so a persistent condition mails once per
   // window, not every cron tick ────────────────────────────────────────────────
   const emailed =
@@ -477,6 +488,7 @@ export async function GET(req: NextRequest) {
     uploadSweep,
     r2Sweep,
     viewsArchived,
+    mediaScan,
     healthy: alerts.length === 0,
     // Sentry wiring diagnostics — this route is the natural probe point since the
     // external cron exercises it anyway and it's secret-gated.

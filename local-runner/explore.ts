@@ -31,7 +31,7 @@ import {
   EXPLORE_NOOP_SSIM_LOCAL,
   OUT_DIR,
 } from "./config";
-import { coalesceScrolls } from "./script";
+import { aimHoverPops, coalesceScrolls, hoverMergesIntoPrev } from "./script";
 import type { Script, ScriptAction } from "./script";
 import type { DemoScript, DemoScriptStep } from "../lib/demoScript";
 import { DEMO_SCRIPT_WAIT_MAX_SEC, DEMO_SCRIPT_WAIT_PAUSE_SEC } from "../lib/demoScript";
@@ -953,7 +953,7 @@ export async function explore(page: Page, opts: ExploreOptions = {}): Promise<Ex
       // before a click is aim, not a hover beat.
       const prevA = actions[actions.length - 1];
       let aimStep: number | undefined; // 조준 호버에 붙은 장면 시작 표시는 클릭이 물려받는다(자막 시각)
-      if (prevA && prevA.kind === "hover" && prevA.selector === (selector ?? "")) {
+      if (aimHoverPops(prevA, selector ?? "", pendingStep)) {
         aimStep = prevA.step;
         actions.pop();
         hovered.delete(selector ?? ""); // aim, so it never spent a hover beat
@@ -1047,7 +1047,7 @@ export async function explore(page: Page, opts: ExploreOptions = {}): Promise<Ex
         // Aiming hover onto the drag target is aim, not a hover beat.
         const prevD = actions[actions.length - 1];
         let aimStepD: number | undefined; // 클릭과 같은 이유로 드래그가 물려받는다
-        if (prevD && prevD.kind === "hover" && prevD.selector === (selector ?? "")) {
+        if (aimHoverPops(prevD, selector ?? "", pendingStep)) {
           aimStepD = prevD.step;
           actions.pop();
           hovered.delete(selector ?? "");
@@ -1099,9 +1099,12 @@ export async function explore(page: Page, opts: ExploreOptions = {}): Promise<Ex
         const { selector } = await evalCall<Resolved>(page, SELECTOR_SRC, state.x, state.y);
         if (selector) {
           const prevH = actions[actions.length - 1];
-          if (prevH && prevH.kind === "hover" && prevH.selector === selector) {
+          if (prevH?.kind === "hover" && hoverMergesIntoPrev(prevH, selector, pendingStep)) {
             prevH.x = state.x;
             prevH.y = state.y;
+          } else if (prevH?.kind === "hover" && prevH.selector === selector) {
+            // 대본의 새 장면이 같은 요소를 또 가리킨다 — 그 장면의 박자로 따로 남긴다(멈춤·자막 시각).
+            actions.push({ kind: "hover", selector, x: state.x, y: state.y });
           } else if (hovered.has(selector)) {
             refusalNote =
               "You already hovered that element — hovering it again adds nothing to the film. Use a " +

@@ -98,21 +98,25 @@ export function getSocialMeta(url: string): {
     name: parsed.config.name,
     color: parsed.config.color,
     handle: parsed.handle,
-    href: url.startsWith("http") ? url : `https://${url}`,
+    href: parsed.href,
     icon: parsed.config.icon,
   };
 }
 
-function parseSocialUrl(url: string): { config: PlatformConfig; handle: string } | null {
+// 호스트는 맨 앞의 www. 하나만 뗀다(2026-10-02). 예전엔 replace("www.")가 가운데 것도 지워서
+// instagram.www.com 같은 남의 주소가 인스타그램 배지를 달고 그 주소로 보냈다. 링크도 여기서
+// 파싱한 http(s) 주소만 쓴다.
+function parseSocialUrl(url: string): { config: PlatformConfig; handle: string; href: string } | null {
   if (!url.trim()) return null;
   try {
-    const normalized = url.startsWith("http") ? url : `https://${url}`;
+    const normalized = /^https?:\/\//i.test(url) ? url : `https://${url}`;
     const u = new URL(normalized);
-    const host = u.hostname.replace("www.", "");
+    if (u.protocol !== "https:" && u.protocol !== "http:") return null;
+    const host = u.hostname.toLowerCase().replace(/^www\./, "");
     const path = u.pathname.replace(/^\/+/, "").replace(/\/+$/, "");
     const config = PLATFORM_MAP[host];
     if (!config) return null;
-    return { config, handle: config.getHandle(path) };
+    return { config, handle: config.getHandle(path), href: u.href };
   } catch {
     return null;
   }
@@ -121,8 +125,7 @@ function parseSocialUrl(url: string): { config: PlatformConfig; handle: string }
 export default function SocialBadge({ url }: { url: string }) {
   const parsed = parseSocialUrl(url);
   if (!parsed) return null;
-  const { config, handle } = parsed;
-  const href = url.startsWith("http") ? url : `https://${url}`;
+  const { config, handle, href } = parsed;
 
   return (
     <a

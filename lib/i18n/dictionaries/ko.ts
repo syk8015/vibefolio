@@ -253,6 +253,7 @@ export const ko = {
     heldNotice: "관리자 승인 대기로 전환했어요.",
     rerecordFailed: "재촬영 요청 실패",
     publishFailed: "공개에 실패했어요. 잠시 후 다시 시도해 주세요.",
+    publishTakenDown: "신고 검토로 내려진 작품이라 다시 공개할 수 없어요. 받은 메일에 답장하면 다시 검토할게요.",
     publishedDemoStartFailed: "공개됐지만 자동 시연 생성을 시작하지 못했어요 — 카드에서 다시 시도할 수 있어요.",
     publishedDemoRequestFailed: "공개됐지만 자동 시연 요청이 전송되지 않았어요 — 카드에서 다시 시도할 수 있어요.",
     rerecordSent: "재촬영 요청을 보냈어요. 관리자 승인 후 다시 촬영돼요.",
@@ -389,6 +390,7 @@ export const ko = {
     reviewAutoDemo: (s: number) => `자동 시연 · 약 ${s}초`,
     // 소개 영상(2026-10-02) — 찍을 화면이 없는 작품은 AI가 쓴 장면 대본을 그 자리에서 재생한다(촬영 없음).
     reviewIntroLabel: "소개 영상",
+    reviewNoteAdd: "+ 말풍선 추가",
     reviewIntroChip: (s: number) => `소개 영상 · 약 ${s}초`,
     reviewIntroText: "글자",
     reviewIntroMood: "분위기",
@@ -1285,6 +1287,8 @@ export const ko = {
     takedownReason: (reason: string) => `신고 사유: ${reason}`,
     takedownAppeal: "판단에 이의가 있으면 이 메일에 답장하거나 vivestarter@gmail.com 으로 알려주세요. 다시 검토할게요.",
     takedownCta: "대시보드에서 보기",
+    profileTakedownSubject: (handle: string) => `명함을 비공개로 전환했어요 — ${handle}`,
+    profileTakedownBody: (handleHtml: string) => `신고가 접수되어 검토한 결과, ${handleHtml} 명함과 공개 작품을 비공개로 돌렸어요. 작품과 파일은 그대로 남아 있고 대시보드에서 볼 수 있어요.`,
     // 관리자가 촬영·재촬영 요청을 거절했을 때 (2026-09-22 R4). 예전엔 아무 소식이 없어
     // 사용자가 같은 요청을 계속 다시 넣었다.
     declinedSubject: (title: string) => `촬영 요청이 승인되지 않았어요 — ${title}`,

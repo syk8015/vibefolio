@@ -13,7 +13,7 @@ const MAX_IDS = 200;
 // 마이그레이션 전 디그레이드(2026-09-29): 나중에 생긴 비공개 칸(주인 인터뷰)은 그 SQL을
 // 돌리기 전엔 DB에 없다. 칸 하나 때문에 select 전체가 실패하면 대본·로그인 답까지 못 받아
 // 초안 검토 창이 "대본 없음"으로 거짓말을 한다 — 없는 칸만 빼고 다시 묻는다.
-const LATE_PRIVATE_COLUMNS = ["owner_interview", "owner_interview_confirmed_at"];
+const LATE_PRIVATE_COLUMNS = ["owner_interview", "owner_interview_confirmed_at", "taken_down_at"];
 
 // GET /api/projects/private[?ids=a,b] — 로그인한 주인의 작품들의 비공개 칸
 // (lib/projectColumns.ts PRIVATE_PROJECT_COLUMNS). 이 칸들은 사용자 키로 SELECT가 막혀
@@ -42,13 +42,15 @@ export async function GET(req: NextRequest) {
       if (ids) q = q.in("id", ids);
       return q;
     };
-    let { data, error } = await run(PRIVATE_PROJECT_SELECT);
-    if (
-      error && (error.code === "42703" || error.code === "PGRST204") &&
-      LATE_PRIVATE_COLUMNS.some((c) => (error?.message ?? "").includes(c))
-    ) {
-      const without = PRIVATE_PROJECT_SELECT.split(", ").filter((c) => !LATE_PRIVATE_COLUMNS.includes(c)).join(", ");
-      ({ data, error } = await run(without));
+    // 없는 칸 **그 칸만** 뺀다(2026-10-02). 전엔 하나만 없어도 늦게 생긴 칸을 통째로 빼서, 신고 잠금 칸(SQL 미적용)
+    // 하나 때문에 멀쩡한 주인 인터뷰까지 사라졌다 — 검토 창이 "인터뷰 없이 올라왔어요"라고 거짓말을 했다.
+    let cols = PRIVATE_PROJECT_SELECT.split(", ");
+    let { data, error } = await run(cols.join(", "));
+    for (let i = 0; i < LATE_PRIVATE_COLUMNS.length && error && (error.code === "42703" || error.code === "PGRST204"); i++) {
+      const missing = LATE_PRIVATE_COLUMNS.find((c) => cols.includes(c) && (error?.message ?? "").includes(c));
+      if (!missing) break;
+      cols = cols.filter((c) => c !== missing);
+      ({ data, error } = await run(cols.join(", ")));
     }
     if (error) {
       return apiError({ status: 500, message: t.api.retryLater, code: "INTERNAL", cause: error });

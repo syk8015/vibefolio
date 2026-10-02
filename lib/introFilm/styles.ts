@@ -66,12 +66,24 @@ export const STYLES: Record<IntroStyleKey, StyleTokens> = {
       label: { f: INTRO_FONTS.mono, w: 500, ls: 6, ko: INTRO_FONTS.ko },
       scale: 1,
     },
-    motion: { enter: "blur", inDur: 1.2, stagger: 0.06, count: 2.0, pan: 1.6, push: 0.045, blur: 1 },
-    texture: { grain: 0.055, paper: 0, vignette: 0.55, glow: 1, wobble: 0, shapes: "line" },
+    // 카메라 이동 0.9초(1.6초는 장면 사이마다 빈 화면이 1.5초씩 남았다, 10-02 품질 점검). 입자는 옅게 — 진하면
+    // 어두운 바탕에서 지직거리고 영상 압축에서 더 깨진다.
+    motion: { enter: "blur", inDur: 1.2, stagger: 0.06, count: 2.0, pan: 0.9, push: 0.045, blur: 1 },
+    texture: { grain: 0.028, paper: 0, vignette: 0.55, glow: 1, wobble: 0, shapes: "line" },
   },
 };
 
 export type ResolvedStyle = Pick<StyleTokens, "color" | "type" | "motion" | "texture">;
+
+/**
+ * 지금 실제로 그리는 스타일(10-02 사용자 결정): 2차 온습도계 결 하나 — 글자 큰 숫자 + 분위기 시네마틱.
+ * 9가지 조합을 한꺼번에 덮다가 어느 것도 다듬어지지 않아 품질이 낮았다. 이 하나를 제대로 다듬은 뒤 다듬은
+ * 조합만 하나씩 연다. 대본의 style 값은 그대로 저장해 두고(나중에 열 조합을 위해) 그리기만 이걸로 한다.
+ */
+export const SIGNATURE_STYLE = { text: "bignum", mood: "cinematic" } as const;
+export function filmStyle(): ResolvedStyle {
+  return resolveStyle(SIGNATURE_STYLE);
+}
 
 /** 글자 쪽: 글꼴·등장 / 분위기 쪽: 색·질감·카메라(이동·밀기·흐림). */
 export function resolveStyle(sp: { text: IntroStyleKey; mood: IntroStyleKey }): ResolvedStyle {

@@ -33,9 +33,12 @@ export function ReportInbox({ items }: { items: ReportItem[] }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  async function act(id: string, action: "resolve" | "takedown") {
-    // 되돌릴 수 있는 조치지만(초안 전환), 소유자에게 메일이 나가므로 한 번 묻는다.
-    if (action === "takedown" && !confirm("이 작품을 비공개로 내릴까요? 소유자에게 사유가 담긴 메일이 갑니다.")) {
+  async function act(id: string, action: "resolve" | "takedown", targetType: "profile" | "project" = "project") {
+    // 되돌릴 수 있는 조치지만(초안 전환·명함 정지), 소유자에게 메일이 나가므로 한 번 묻는다.
+    const ask = targetType === "profile"
+      ? "이 명함을 정지할까요? 명함과 공개 작품이 모두 비공개가 되고, 소유자에게 사유가 담긴 메일이 갑니다."
+      : "이 작품을 비공개로 내릴까요? 다시 공개할 수 없게 잠기고, 소유자에게 사유가 담긴 메일이 갑니다.";
+    if (action === "takedown" && !confirm(ask)) {
       return;
     }
     setBusy(id);
@@ -116,20 +119,14 @@ export function ReportInbox({ items }: { items: ReportItem[] }) {
               {r.reporter} · {new Date(r.createdAt).toLocaleString("ko-KR")}
             </span>
             <div className="flex items-center gap-2 shrink-0">
-              {r.targetType === "project" ? (
-                <button
-                  onClick={() => act(r.id, "takedown")}
-                  disabled={busy === r.id}
-                  className="px-4 py-1.5 rounded-full text-sm transition-colors disabled:opacity-50"
-                  style={{ background: "rgba(179,71,71,0.14)", color: "#8e3535", cursor: "pointer" }}
-                >
-                  비공개로 내리기
-                </button>
-              ) : (
-                <span style={{ fontSize: "0.68rem", color: "var(--text-muted)" }}>
-                  프로필은 개별 판단
-                </span>
-              )}
+              <button
+                onClick={() => act(r.id, "takedown", r.targetType)}
+                disabled={busy === r.id}
+                className="px-4 py-1.5 rounded-full text-sm transition-colors disabled:opacity-50"
+                style={{ background: "rgba(179,71,71,0.14)", color: "#8e3535", cursor: "pointer" }}
+              >
+                {r.targetType === "profile" ? "명함 정지" : "비공개로 내리기"}
+              </button>
               <button
                 onClick={() => act(r.id, "resolve")}
                 disabled={busy === r.id}

@@ -591,7 +591,8 @@ export default function ProjectsTab({
       // 롤백 — 다시 초안으로.
       setProjects(prev => prev.filter(p => p.id !== project.id));
       setDrafts(prev => (prev.some(p => p.id === project.id) ? prev : [project, ...prev]));
-      setNotice(t.projects.publishFailed);
+      // 신고로 내려진 작품(또는 정지된 명함)은 데이터 저장소 트리거가 막는다 — migration_takedown_lock.sql.
+      setNotice((error.message ?? "").includes("TAKEN_DOWN") ? t.projects.publishTakenDown : t.projects.publishFailed);
       setCelebrateFilm(false);
       return false;
     }

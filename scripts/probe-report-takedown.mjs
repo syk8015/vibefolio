@@ -1,7 +1,10 @@
-// 신고 인박스 "비공개로 내리기"(2026-09-01) prod E2E.
-//   (1) 배포 대기 — 구코드는 action을 무시하고 resolve만 한다
+// 신고 인박스 "비공개로 내리기"(2026-09-01) + 잠금·명함 정지(2026-10-02) prod E2E.
+// 조건: supabase/migration_takedown_lock.sql 적용 뒤.
+//   (1) 배포 대기 — 옛 코드는 프로필 신고를 400 TARGET_NOT_SUPPORTED로 거절한다
 //   (2) 작품 신고 + takedown → 200·is_draft=true·신고 resolved
-//   (3) 프로필 신고 + takedown → 400 TARGET_NOT_SUPPORTED (못 하는 일은 거절)
+//   (2b) 잠금 — 주인 키로 다시 공개·잠금 풀기 둘 다 거절(TAKEN_DOWN)
+//   (3) 프로필 신고 + takedown(일회용 계정) → 명함이 남에게 안 보임·주인은 봄·공개 작품 내려감·
+//       주인 키로 새 공개/정지 풀기 거절
 //   (4) 본문 없는 POST(구 버튼) → 여전히 resolve로 동작·작품은 공개 유지
 //   (5) 쿠키 없이 호출 → 404 (관리자 전용, 존재도 안 알림)
 //   (6) 이미 처리된 신고 재호출 → 409
@@ -67,22 +70,61 @@ const newReport = async (targetType, targetId, key) => {
   return data.id;
 };
 
-const made = { projects: [], reports: [] };
+// 세션 토큰으로 사용자 키 클라이언트(주인 입장에서 RLS·트리거를 그대로 맞는다).
+const asUser = (accessToken) => createClient(url, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY, {
+  auth: { persistSession: false },
+  global: { headers: { Authorization: `Bearer ${accessToken}` } },
+});
+const owner = asUser(sess.session.access_token);
+
+const made = { projects: [], reports: [], users: [] };
 try {
-  // (1) 배포 대기 — 구코드는 프로필 신고에도 200(그냥 resolve)을 준다.
-  const warmProj = await newProject(`${MARK} warm`);
-  made.projects.push(warmProj);
-  let ready = false;
+  // (3) 명함 정지 — 일회용 계정으로(관리자 명함을 정지하면 실서버 명함이 사라진다).
+  //     옛 코드가 400을 주는 동안은 배포 대기.
+  const tag = Date.now().toString(36);
+  const { data: tu, error: tuErr } = await svc.auth.admin.createUser({
+    email: `vivestarter+probe-td-${tag}@gmail.com`, email_confirm: true,
+  });
+  if (tuErr) throw new Error(`createUser: ${tuErr.message}`);
+  const victimId = tu.user.id;
+  made.users.push(victimId);
+  const { error: pErr } = await svc.from("profiles").insert({ id: victimId, username: `probetd${tag}`, name: "probe" });
+  if (pErr) throw new Error(`profile insert: ${pErr.message}`);
+  const { data: vPub } = await svc.from("projects").insert({
+    user_id: victimId, title: `${MARK} 정지될 명함의 작품`, description: "", demo_url: "https://example.com/", is_draft: false,
+  }).select("id").single();
+  const { data: vDraft } = await svc.from("projects").insert({
+    user_id: victimId, title: `${MARK} 정지될 명함의 초안`, description: "", demo_url: "https://example.com/", is_draft: true,
+  }).select("id").single();
+  made.projects.push(vPub.id, vDraft.id);
+
+  let suspended = null;
   const deadline = Date.now() + 5 * 60_000;
   while (Date.now() < deadline) {
-    const rid = await newReport("profile", adminId, `probe-warm-${made.reports.length}`);
+    const rid = await newReport("profile", victimId, `probe-warm-${made.reports.length}`);
     made.reports.push(rid);
     const r = await post(rid, { action: "takedown" });
-    if (r.status === 400 && r.body?.code === "TARGET_NOT_SUPPORTED") { ready = true; break; }
+    if (r.status === 200) { suspended = r; break; }
+    if (r.body?.code === "MIGRATION_PENDING") { console.log("  ✗ SQL(migration_takedown_lock.sql) 먼저 적용"); break; }
     console.log(`  … 배포 대기 (status ${r.status} ${JSON.stringify(r.body).slice(0, 90)})`);
     await new Promise((s) => setTimeout(s, 30_000));
   }
-  ok("(3) 프로필 신고 takedown은 400으로 거절", ready);
+  ok("(3) 프로필 신고 takedown 200(명함 정지)", !!suspended, JSON.stringify(suspended?.body ?? {}).slice(0, 100));
+  if (suspended) {
+    const { data: seenAnon } = await anon.from("profiles").select("id").eq("id", victimId);
+    ok("(3) 정지된 명함은 남에게 안 보임", (seenAnon ?? []).length === 0, `rows ${seenAnon?.length}`);
+    const { data: vl } = await svc.auth.admin.generateLink({ type: "magiclink", email: tu.user.email });
+    const { data: vs } = await anon.auth.verifyOtp({ type: "magiclink", token_hash: vl.properties.hashed_token });
+    const victim = asUser(vs.session.access_token);
+    const { data: seenSelf } = await victim.from("profiles").select("id").eq("id", victimId);
+    ok("(3) 주인은 자기 명함을 본다", (seenSelf ?? []).length === 1);
+    const { data: vPubAfter } = await svc.from("projects").select("is_draft, taken_down_at").eq("id", vPub.id).single();
+    ok("(3) 공개 작품이 초안 + 잠금", vPubAfter?.is_draft === true && !!vPubAfter?.taken_down_at, JSON.stringify(vPubAfter));
+    const pub = await victim.from("projects").update({ is_draft: false }).eq("id", vDraft.id).select("id");
+    ok("(3) 정지 중엔 다른 초안도 공개 못 함", !!pub.error && /TAKEN_DOWN/.test(pub.error.message), pub.error?.message ?? "통과해 버림");
+    const unsusp = await victim.from("profiles").update({ suspended_at: null }).eq("id", victimId).select("id");
+    ok("(3) 주인이 정지를 못 풂", !!unsusp.error, unsusp.error?.message ?? "통과해 버림");
+  }
 
   // (2) 작품 내리기
   const projId = await newProject(`${MARK} 내려질 작품`);
@@ -96,6 +138,12 @@ try {
   ok("(2) 작품이 실제로 비공개(초안)로 내려감", after?.is_draft === true, `is_draft=${after?.is_draft}`);
   const { data: repAfter } = await svc.from("content_reports").select("status").eq("id", repId).single();
   ok("(2) 신고가 resolved로 종결", repAfter?.status === "resolved", repAfter?.status);
+
+  // (2b) 잠금 — 주인(관리자 세션 = 이 작품 주인) 키로 다시 공개·잠금 풀기
+  const repub = await owner.from("projects").update({ is_draft: false }).eq("id", projId).select("id");
+  ok("(2b) 내려진 작품은 주인이 다시 공개 못 함", !!repub.error && /TAKEN_DOWN/.test(repub.error.message), repub.error?.message ?? "통과해 버림");
+  const unlock = await owner.from("projects").update({ taken_down_at: null }).eq("id", projId).select("id");
+  ok("(2b) 주인이 잠금을 못 풂", !!unlock.error, unlock.error?.message ?? "통과해 버림");
 
   // (6) 재호출 → 409
   const again = await post(repId, { action: "takedown" });
@@ -120,6 +168,7 @@ try {
   if (made.reports.length) await svc.from("content_reports").delete().in("id", made.reports);
   await svc.from("content_reports").delete().eq("detail", MARK);
   if (made.projects.length) await svc.from("projects").delete().in("id", made.projects);
+  for (const uid of made.users) await svc.auth.admin.deleteUser(uid).catch(() => {});
   const { data: left } = await svc.from("projects").select("id").ilike("title", `%DONOTKEEP%`);
   if (left?.length) await svc.from("projects").delete().in("id", left.map((r) => r.id));
   const { data: check } = await svc.from("projects").select("id").ilike("title", `%DONOTKEEP%`);
