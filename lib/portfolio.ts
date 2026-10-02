@@ -35,6 +35,8 @@ export type WatchProject = {
   demo_captions?: unknown;
   link_unverified?: boolean | null;
   link_state?: string | null;
+  // 소개 영상 대본(2026-10-02) — 있으면 작품 페이지가 영상 대신 이걸 그린다.
+  intro_film?: unknown;
 };
 
 // The poster JPG is uploaded next to the demo mp4 under a deterministic key
@@ -115,7 +117,7 @@ export const getProjectById = unstable_cache(
     const { data, error } = await supabase
       .from("projects")
       .select(
-        "id, title, description, comment, content_type, demo_url, video_url, demo_video_url, demo_generated_at, thumbnail, demo_build_status, primary_locale, translations, demo_locale_videos, demo_captions, link_unverified, link_state",
+        "id, title, description, comment, content_type, demo_url, video_url, demo_video_url, demo_generated_at, thumbnail, demo_build_status, primary_locale, translations, demo_locale_videos, demo_captions, link_unverified, link_state, intro_film",
       )
       .eq("user_id", userId)
       .eq("id", projectId)

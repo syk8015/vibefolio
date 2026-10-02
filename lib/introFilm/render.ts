@@ -62,6 +62,8 @@ function noise(size: number, warm: boolean): string {
 }
 
 type Font = { family: string; weight: number; ls: number; size: number };
+/** CSS 글꼴 이름. next/font가 주는 이름은 이미 따옴표·대체 글꼴 목록이 붙어 있어 그대로 쓴다. */
+const cssFamily = (f: string) => (/[',"]/.test(f) ? f : `"${f}"`);
 
 export function createFilm(svg: SVGSVGElement, film: IntroFilm, S: ResolvedStyle, opt: FilmOptions): Film {
   const loc = opt.locale, id = opt.idPrefix ?? "nf", fam = (n: string) => opt.fontMap?.[n] ?? n;
@@ -100,7 +102,7 @@ export function createFilm(svg: SVGSVGElement, film: IntroFilm, S: ResolvedStyle
     };
   };
   const measure = (s: string, f: Font) => {
-    cv.font = `${f.weight} ${f.size}px "${f.family}"`;
+    cv.font = `${f.weight} ${f.size}px ${cssFamily(f.family)}`;
     return cv.measureText(s).width + f.ls * Math.max(0, [...s].length - 1);
   };
   const fit = (s: string, f: Font, maxW: number) => {
@@ -109,7 +111,7 @@ export function createFilm(svg: SVGSVGElement, film: IntroFilm, S: ResolvedStyle
     return f;
   };
   const txt = (parent: Element, s: string, x: number, y: number, f: Font, fill: string, anchor = "start") => {
-    const t = el("text", { x, y, "font-family": `"${f.family}",sans-serif`, "font-size": f.size, "font-weight": f.weight, fill, "text-anchor": anchor }, parent);
+    const t = el("text", { x, y, "font-family": `${cssFamily(f.family)},sans-serif`, "font-size": f.size, "font-weight": f.weight, fill, "text-anchor": anchor }, parent);
     if (f.ls) t.setAttribute("letter-spacing", String(f.ls));
     t.textContent = s;
     return t;
@@ -337,7 +339,7 @@ export function createFilm(svg: SVGSVGElement, film: IntroFilm, S: ResolvedStyle
   el("rect", { width: FILM_W, height: FILM_H, fill: `url(#${id}vig)`, opacity: X.vignette }, svg);
   const tag = el("g", {}, svg);
   const tagBg = el("rect", { y: 840, height: 38, rx: 19, fill: "#000", "fill-opacity": 0.38 }, tag);
-  const tagT = el("text", { y: 865, "text-anchor": "middle", "font-family": `"${fam(INTRO_FONTS.mono)}",monospace`, "font-size": 16, fill: "#ece6da" }, tag);
+  const tagT = el("text", { y: 865, "text-anchor": "middle", "font-family": `${cssFamily(fam(INTRO_FONTS.mono))},monospace`, "font-size": 16, fill: "#ece6da" }, tag);
   if (opt.showSafe) {
     const sg = el("g", { "pointer-events": "none" }, svg);
     for (const z of SAFE_ZONES[opt.showSafe]) {

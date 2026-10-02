@@ -8,6 +8,7 @@ import type { CaptionCue } from "@/lib/workLanguages";
 import CaptionOverlay from "@/components/CaptionOverlay";
 import { detectVideoKind, getYouTubeEmbedUrl, getVimeoEmbedUrl } from "@/lib/video";
 import { toPreviewUrl } from "@/lib/previewOrigin";
+import IntroFilmPlayer from "@/components/introFilm/IntroFilmPlayer";
 import type { MeishiProfile } from "./Meishi";
 import type { IdentityLine } from "@/lib/identityLine";
 import { StageChip, StageProgress } from "./StageMarks";
@@ -78,6 +79,15 @@ function LivePreview({ project, variant }: { project: Project; variant: "mobile"
   // 3배 느리다(실측 144KB/0.61s vs 40KB/0.20s). 포스터 추출 실패분은 폴백.
   const posterSrc = project.poster ?? project.thumbnail;
 
+  // 소개 영상(화면 없는 작품, 2026-10-02): PC 무대는 대본을 이 자리에서 그린다. 폰 화면은 동결 중이라
+  // 손대지 않는다 — 폰은 아래 순서 그대로 워커가 만든 영상(demo_video_url)이나 썸네일을 본다.
+  if (variant === "desktop" && project.introFilm) {
+    return (
+      <div className="absolute inset-0">
+        <IntroFilmPlayer film={project.introFilm} locale={project.filmLocale ?? "en"} title={project.title} fit="cover" />
+      </div>
+    );
+  }
   // Priority: 수동 video_url > 자동 demo_video_url(mp4) > iframe(파일 업로드) > 썸네일
   if (hasManualVideo) {
     return <VideoBackground url={project.videoUrl!} kind={videoKind} poster={posterSrc} title={project.title} fit={videoFit} />;

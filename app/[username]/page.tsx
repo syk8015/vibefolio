@@ -23,6 +23,7 @@ import LanguageToggle from "@/components/LanguageToggle";
 import MobileNavMenu from "@/components/MobileNavMenu";
 import { getT } from "@/lib/i18n/server";
 import { localizeWork } from "@/lib/workLanguages";
+import { introFilmIssue, type IntroFilm } from "@/lib/introFilm/schema";
 
 // Public portfolio data is identical for every visitor, so we cache the two
 // Supabase reads instead of hitting the DB on every pageview. A 60s window
@@ -131,6 +132,8 @@ interface DBProject {
   link_unverified?: boolean | null;
   // 링크 순찰 결과(lib/linkPatrol.ts) — 딴 곳으로 넘김·죽음·위험 목록이면 값이 있다.
   link_state?: string | null;
+  // 소개 영상 대본(2026-10-02, migration_intro_film.sql) — 공개 칸.
+  intro_film?: unknown;
 }
 
 export default async function UserPortfolioPage({
@@ -195,6 +198,10 @@ export default async function UserPortfolioPage({
     // 컬럼이 아니라 유도값이라 파일이 없을 수 있다 — 소비 측에서 thumbnail 폴백.
     poster: posterFromDemo(v.demoVideoUrl, p.demo_generated_at),
     ...(v.captions ? { captions: v.captions } : {}),
+    // 틀린 대본(사용자 키로 직접 고친 값 등)은 그리지 않는다 — 촬영본·썸네일로 내려간다.
+    ...(p.intro_film && !introFilmIssue(p.intro_film)
+      ? { introFilm: p.intro_film as IntroFilm, filmLocale: locale === "en" ? ("en" as const) : ("ko" as const) }
+      : {}),
   }));
 
   // Theater starts on the explicitly-featured project, falling back to

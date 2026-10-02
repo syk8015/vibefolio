@@ -11,6 +11,8 @@ import ClampText from "@/components/ClampText";
 import { oneLine } from "@/lib/text";
 import JsonLd from "@/components/JsonLd";
 import { localizeWork } from "@/lib/workLanguages";
+import { introFilmIssue, type IntroFilm } from "@/lib/introFilm/schema";
+import IntroFilmPlayer from "@/components/introFilm/IntroFilmPlayer";
 
 // The public per-project watch page. Its whole job is to unfurl the demo mp4 as
 // og:video (Discord/Slack/Telegram/iMessage inline-play it) and hand the viewer a
@@ -143,6 +145,8 @@ export default async function WatchPage({ params }: Params) {
     project.thumbnail ||
     undefined;
   const video = clip?.url;
+  // 소개 영상(2026-10-02) — 찍을 화면이 없는 작품은 대본을 이 자리에서 그린다(영상 파일보다 먼저).
+  const introFilm = project.intro_film && !introFilmIssue(project.intro_film) ? (project.intro_film as IntroFilm) : null;
   const rendering = !video && FILMING.includes(project.demo_build_status ?? "");
 
   // 구조화 데이터. 영상이 실제로 있을 때만 VideoObject를 쓴다 — 구글이
@@ -210,12 +214,14 @@ export default async function WatchPage({ params }: Params) {
       <div className="flex-1 w-full max-w-[860px] mx-auto px-5 md:px-8 pb-16">
         {/* Player — 영상이 없으면 찍는 중일 때만 "rendering", 아니면 대표 이미지만.
             둘 다 없으면 칸 자체를 그리지 않는다(빈 검은 상자보다 제목이 먼저 보이는 게 낫다). */}
-        {(video || rendering || poster) && (
+        {(introFilm || video || rendering || poster) && (
           <div
             className="vf-card overflow-hidden"
             style={{ padding: 0, borderRadius: 18, aspectRatio: "16 / 9", background: "#0b0b0f" }}
           >
-            {video ? (
+            {introFilm ? (
+              <IntroFilmPlayer film={introFilm} locale={viewer} title={project.title} fit="contain" />
+            ) : video ? (
               <WatchPlayer
                 src={video}
                 poster={poster}
