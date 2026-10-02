@@ -49,7 +49,7 @@ export default function DeleteAccount({ username }: { username: string }) {
   return (
     <Section label={t.card.accountLabel}>
       <div className="rounded-2xl flex flex-wrap items-center gap-x-4 gap-y-3"
-        style={{ background: "rgba(179,71,71,0.06)", padding: "1.125rem 1.25rem" }}>
+        style={{ background: "color-mix(in srgb, var(--danger) 6%, transparent)", padding: "1.125rem 1.25rem" }}>
         <div className="min-w-0" style={{ flex: "1 1 12rem" }}>
           <h3 className="text-sm font-black" style={{ color: DANGER_ON_TINT, fontFamily: "var(--font-nunito)", lineHeight: 1.45 }}>{t.card.deleteTitle}</h3>
           <p className="text-sm" style={{ marginTop: 3, color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", lineHeight: 1.6 }}>
@@ -60,7 +60,7 @@ export default function DeleteAccount({ username }: { username: string }) {
           type="button"
           onClick={() => { setOpen(true); setConfirm(""); setError(""); }}
           className="shrink-0 text-sm font-bold rounded-full whitespace-nowrap transition-opacity hover:opacity-80 motion-reduce:transition-none"
-          style={{ padding: "0.5rem 1.125rem", color: DANGER_ON_TINT, background: "rgba(179,71,71,0.12)", border: "none", cursor: "pointer", fontFamily: "var(--font-nunito)" }}
+          style={{ padding: "0.5rem 1.125rem", color: DANGER_ON_TINT, background: "color-mix(in srgb, var(--danger) 12%, transparent)", border: "none", cursor: "pointer", fontFamily: "var(--font-nunito)" }}
         >
           {t.card.deleteBtn}
         </button>
@@ -69,6 +69,7 @@ export default function DeleteAccount({ username }: { username: string }) {
       {open && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          /* ui-allow: color 두 테마 공통 어두운 막 — 뒤 페이지를 가리는 그림자 */
           style={{ background: "rgba(0,0,0,0.55)" }}
           onClick={() => { if (!deleting) setOpen(false); }}
         >
@@ -76,7 +77,7 @@ export default function DeleteAccount({ username }: { username: string }) {
             role="dialog"
             aria-modal="true"
             className="w-full max-w-sm rounded-2xl p-6"
-            style={{ background: "var(--surface)", border: "1px solid var(--border-bright)" }}
+            style={{ background: "var(--surface)", boxShadow: "var(--shadow-modal)" }}
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-lg font-black mb-2" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}>
@@ -116,7 +117,7 @@ export default function DeleteAccount({ username }: { username: string }) {
                 onClick={handleDelete}
                 disabled={deleting || mismatch}
                 className="flex-1 py-2.5 rounded-xl text-sm font-bold transition-opacity"
-                style={{ background: "#b34747", color: "#fff", border: "none", cursor: (deleting || mismatch) ? "not-allowed" : "pointer", opacity: (deleting || mismatch) ? 0.5 : 1, fontFamily: "var(--font-nunito)" }}
+                style={{ background: "var(--danger)", color: "var(--bg)", border: "none", cursor: (deleting || mismatch) ? "not-allowed" : "pointer", opacity: (deleting || mismatch) ? 0.5 : 1, fontFamily: "var(--font-nunito)" }}
               >
                 {deleting ? t.card.deleting : t.card.deleteForever}
               </button>

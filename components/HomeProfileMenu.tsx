@@ -77,7 +77,7 @@ export default function HomeProfileMenu({ username, name, avatarUrl, locale }: P
           <button
             onClick={handleLogout}
             className="w-full text-left px-4 py-3 text-sm font-bold transition-colors hover:opacity-70"
-            style={{ color: "#ef4444", fontFamily: "var(--font-nunito)", background: "none", border: "none", cursor: "pointer", display: "block" }}
+            style={{ color: "var(--danger)", fontFamily: "var(--font-nunito)", background: "none", border: "none", cursor: "pointer", display: "block" }}
           >
             {t.dashboard.logout}
           </button>

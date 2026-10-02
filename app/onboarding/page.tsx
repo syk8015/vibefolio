@@ -380,7 +380,7 @@ export default function OnboardingPage() {
               </button>
               <button type="button" onClick={handleQuit} disabled={quitting}
                 className="vf-button-ghost flex-1"
-                style={{ fontSize: "0.875rem", fontWeight: 600, background: "#b34747", color: "#fff" }}>
+                style={{ fontSize: "0.875rem", fontWeight: 600, background: "var(--danger)", color: "var(--bg)" }}>
                 {quitting ? t.onboarding.quitDeleting : t.onboarding.quitConfirm}
               </button>
             </div>

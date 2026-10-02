@@ -76,7 +76,7 @@ export default function ResetPasswordPage() {
       <AuthShell header={false}>
         <div className="flex flex-col items-center text-center">
           <div aria-hidden className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl"
-            style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.3)" }}>
+            style={{ background: "color-mix(in srgb, var(--danger) 10%, transparent)" }}>
             ⚠️
           </div>
           <AuthTitle className="mt-6" size="1.6875rem">{t.resetPassword.invalidTitle}</AuthTitle>

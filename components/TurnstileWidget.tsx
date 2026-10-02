@@ -133,10 +133,10 @@ export default function TurnstileWidget({
       <div ref={ref} className="flex justify-center" />
       {failed && (
         <p
-          className="text-xs font-semibold text-center leading-relaxed"
-          style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}
+          className="font-semibold text-center leading-relaxed"
+          style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", fontSize: 13 }}
         >
-          <span style={{ color: "#ef4444" }}>{t.auth.turnstileFailed}</span>{" "}
+          <span style={{ color: "var(--danger)" }}>{t.auth.turnstileFailed}</span>{" "}
           {t.auth.turnstileFixPrefix}{" "}
           <button
             type="button"

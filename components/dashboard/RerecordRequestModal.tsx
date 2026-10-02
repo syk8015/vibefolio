@@ -149,7 +149,7 @@ export function RerecordRequestModal({
           </>
         )}
 
-        {error && <p className="text-sm" style={{ color: "#8e3535" }}>{error}</p>}
+        {error && <p className="text-sm" style={{ color: "var(--danger)" }}>{error}</p>}
 
         <div className="flex justify-end gap-2 flex-wrap">
           <button

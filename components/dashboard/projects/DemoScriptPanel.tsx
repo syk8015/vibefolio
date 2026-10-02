@@ -154,7 +154,7 @@ export function DemoScriptPanel({ script, loading = false, onChange, compact = f
     <div className="vf-strip-zone" data-paused={paused ? "true" : "false"}>
       {!compact && <p style={{ ...small, marginBottom: 10 }}>{t.projects.stripHint(fmtSec(total))}</p>}
       {!compact && wiredCount < n && (
-        <p style={{ ...small, marginBottom: 10, color: "#b34747" }}>{t.projects.scriptPartialHelp}</p>
+        <p style={{ ...small, marginBottom: 10, color: "var(--danger)" }}>{t.projects.scriptPartialHelp}</p>
       )}
 
       <div role="tablist" aria-label={t.projects.scriptLabel} className="vf-strip" onKeyDown={onTabKey}
@@ -255,7 +255,7 @@ export function DemoScriptPanel({ script, loading = false, onChange, compact = f
           >
             {st.goal}
           </p>
-          <p style={{ ...small, marginTop: -4, color: wiredNow ? "var(--text-secondary)" : "#b34747" }}>{meta}</p>
+          <p style={{ ...small, marginTop: -4, color: wiredNow ? "var(--text-secondary)" : "var(--danger)" }}>{meta}</p>
           {(st.expect || locator) && (
             <dl className="vf-scene-kv">
               {st.expect && (
@@ -278,7 +278,7 @@ export function DemoScriptPanel({ script, loading = false, onChange, compact = f
                     className="vf-mono"
                     style={{
                       margin: 0, fontSize: 12, lineHeight: 1.6, overflowWrap: "anywhere",
-                      color: wiredNow ? "var(--text-secondary)" : "#b34747",
+                      color: wiredNow ? "var(--text-secondary)" : "var(--danger)",
                     }}
                   >
                     {locator}

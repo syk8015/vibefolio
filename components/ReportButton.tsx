@@ -196,9 +196,9 @@ export default function ReportButton({
                   <p
                     className="mt-2"
                     style={{
-                      color: "#b34747",
+                      color: "var(--danger)",
                       fontFamily: "var(--font-nunito)",
-                      fontSize: "0.8rem",
+                      fontSize: 13,
                     }}
                   >
                     {errorMsg}

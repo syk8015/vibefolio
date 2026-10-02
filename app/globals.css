@@ -542,7 +542,7 @@ body::before {
   border-radius: 999px;
   border: 1px solid transparent;
   background: var(--surface-soft);
-  color: #b34747;
+  color: var(--danger);
   font-family: var(--font-nunito), sans-serif;
   font-size: 0.8rem;
   font-weight: 500;
@@ -550,8 +550,8 @@ body::before {
   transition: background-color 0.18s ease, color 0.18s ease;
 }
 .vf-button-danger:hover {
-  background: rgba(179, 71, 71, 0.1);
-  color: #8e3535;
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
+  color: color-mix(in srgb, var(--danger) 80%, var(--text-primary));
 }
 
 /* Soft-fill button used inside the project wizard modal.
@@ -1292,7 +1292,7 @@ body::before {
   cursor: pointer;
 }
 .vf-review-menu-item:hover { background: var(--surface-sunken); }
-.vf-review-menu-item[data-danger="true"] { color: #b34747; }
+.vf-review-menu-item[data-danger="true"] { color: var(--danger); }
 /* 목록 한 줄이 통째로 버튼일 때(검토 창 소개 영상 장면 목록) — 바탕 없이, 올리거나 지금 재생 중이면 옅은 채움.
    테두리로 상자를 치지 않는다(채움으로 나누기 규칙). */
 .vf-row-button {
@@ -1342,7 +1342,7 @@ body::before {
 /* --blue = 잉크 액센트. 다크에선 크림색이라 글자는 var(--bg) */
 .vf-strip-cell[aria-selected="true"] { background: var(--blue); color: var(--bg); }
 .vf-strip-cell:focus-visible { outline: 2px solid var(--text-primary); outline-offset: -3px; }
-.vf-strip-warn { flex-shrink: 0; width: 6px; height: 6px; border-radius: 50%; background: #b34747; }
+.vf-strip-warn { flex-shrink: 0; width: 6px; height: 6px; border-radius: 50%; background: var(--danger); }
 .vf-strip-bar {
   position: absolute;
   left: 0;
@@ -1397,8 +1397,8 @@ body::before {
 }
 .vf-scene-btn:hover:not(:disabled) { background: var(--surface-soft-hover); }
 .vf-scene-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-.vf-scene-btn[data-danger="true"] { background: transparent; color: #b34747; }
-.vf-scene-btn[data-danger="true"]:hover:not(:disabled) { background: rgba(179, 71, 71, 0.1); }
+.vf-scene-btn[data-danger="true"] { background: transparent; color: var(--danger); }
+.vf-scene-btn[data-danger="true"]:hover:not(:disabled) { background: color-mix(in srgb, var(--danger) 10%, transparent); }
 @container (max-width: 520px) {
   .vf-strip-cell { padding-left: 6px; }
   .vf-strip-cell svg, .vf-strip-warn { display: none; }

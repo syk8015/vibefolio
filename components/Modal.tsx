@@ -39,6 +39,7 @@ export default function Modal({
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      /* ui-allow: color 두 테마 공통 어두운 막 — 뒤 페이지를 가리는 그림자라 테마를 따르지 않는다 */
       style={{ background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)" }}
       onClick={onClose}
       role="dialog"
@@ -54,9 +55,9 @@ export default function Modal({
           maxWidth,
           padding,
           background: "var(--surface)",
-          border: "1px solid var(--border-bright)",
+          // 테두리 없이 그림자로만 뜬다(10-02) — 다크에선 토큰이 가장자리 빛 한 줄을 대신 그린다.
           borderRadius: 18,
-          boxShadow: "0 24px 64px rgba(0,0,0,0.28)",
+          boxShadow: "var(--shadow-modal)",
           fontFamily: "var(--font-nunito)",
           outline: "none",
         }}
