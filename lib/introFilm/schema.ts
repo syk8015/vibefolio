@@ -26,9 +26,9 @@ export type IntroFilm = {
   scenes: IntroScene[];
 };
 
-/** 장면 길이(초). 틀이 정한다 — AI가 시간을 정하지 않는다. */
+/** 장면 길이(초). 틀이 정한다 — AI가 시간을 정하지 않는다. 10-02 4차: 1.5–2초마다 새 일이 일어나게 1초쯤씩 줄였다. */
 export const SCENE_SECONDS: Record<SceneKind, number> = {
-  hook: 4.6, story: 3.8, items: 5.2, flow: 4.8, terminal: 5.8, alert: 5.2, stats: 5.2, ending: 4.8,
+  hook: 3.6, story: 3.0, items: 4.2, flow: 4.2, terminal: 4.6, alert: 4.2, stats: 4.0, ending: 5.0,
 };
 export const SCENE_KINDS = Object.keys(SCENE_SECONDS) as SceneKind[];
 export const MIN_SCENES = 3;
