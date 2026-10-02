@@ -39,6 +39,7 @@ const PROBES = [
   "scripts/probe-video-transcode-unit.mts", // 올린 영상 줄이기 — 줄인 파일 다시 안 집기·영상만·별 효과 없으면 mp4는 상자만
   "scripts/probe-cli-input.mjs",            // CLI --file·표준입력·schema (127.0.0.1 가짜 서버, 네트워크 없음)
   "local-runner/probe-focus-coalesce.ts",   // 스크롤 병합·focus 카메라 산식
+  "local-runner/probe-hover-merge.ts",      // 같은 요소 연속 호버 — 새 장면이면 합치지도 지우지도 않는다
   "local-runner/probe-zoomexpr.ts",         // zoompan 식 가드
   "scripts/test-zoom-filter-local.mts",     // 로컬 카메라 ffmpeg 체인
   "local-runner/dispatch/probe-dispatch.mjs", // 자동 실행기 — 큐·한도 게이트·산출물 수거 (node --test 53개)

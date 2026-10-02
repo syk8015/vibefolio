@@ -60,6 +60,22 @@ export type Script = {
   notes?: string;
 };
 
+// 같은 요소 위 마우스 기록 합치기(2026-10-02). explore는 같은 요소에 연달아 올린 마우스를 한 박자로
+// 합치고(조준 흔들림), 같은 요소를 바로 누르면 앞의 호버를 조준으로 보고 지운다. 그런데 대본이 장면을
+// 나눠 같은 요소를 두 번 가리키면(장면 2 "올려 보기" → 장면 3 "또 올려 보기"/"누르기") 새 장면의 첫
+// 기록이 앞 박자에 먹혀 그 장면의 멈춤 시간·자막 시작 표시가 사라졌다. 새 장면이 시작됐으면
+// (pendingStep) 합치지도 지우지도 않는다.
+export type StepTagged = { kind: string; selector?: string; step?: number };
+/** 이번 호버를 앞 호버에 합쳐도 되나 — 같은 요소이고 새 장면이 시작되지 않았을 때만. */
+export function hoverMergesIntoPrev(prev: StepTagged | undefined, selector: string, pendingStep: number | null): boolean {
+  return !!prev && prev.kind === "hover" && prev.selector === selector && pendingStep === null;
+}
+/** 같은 요소를 누르기/끌기 직전의 호버를 조준으로 보고 지워도 되나 — 앞 호버가 다른 장면의 박자면 남긴다. */
+export function aimHoverPops(prev: StepTagged | undefined, selector: string, pendingStep: number | null): boolean {
+  if (!prev || prev.kind !== "hover" || prev.selector !== selector) return false;
+  return !(pendingStep !== null && prev.step !== undefined);
+}
+
 // Collapse the explore pass's scroll fumbling (down 300 → up 100 → down 800 while
 // hunting for a section) into ONE smooth net scroll, so the film never shows the
 // search. Rules:
