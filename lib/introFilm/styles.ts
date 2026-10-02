@@ -66,9 +66,9 @@ export const STYLES: Record<IntroStyleKey, StyleTokens> = {
       label: { f: INTRO_FONTS.mono, w: 500, ls: 6, ko: INTRO_FONTS.ko },
       scale: 1,
     },
-    // 카메라 이동 0.9초(1.6초는 장면 사이마다 빈 화면이 1.5초씩 남았다, 10-02 품질 점검). 입자는 옅게 — 진하면
-    // 어두운 바탕에서 지직거리고 영상 압축에서 더 깨진다.
-    motion: { enter: "blur", inDur: 1.2, stagger: 0.06, count: 2.0, pan: 0.9, push: 0.045, blur: 1 },
+    // 카메라 이동 1.1초(1.6초는 장면 사이마다 빈 화면이 1.5초씩 남았고, 0.9초는 너무 빨라 끊겨 보였다, 10-02).
+    // 입자는 옅게 — 진하면 어두운 바탕에서 지직거리고 영상 압축에서 더 깨진다.
+    motion: { enter: "blur", inDur: 1.2, stagger: 0.06, count: 2.0, pan: 1.1, push: 0.045, blur: 1 },
     texture: { grain: 0.028, paper: 0, vignette: 0.55, glow: 1, wobble: 0, shapes: "line" },
   },
 };

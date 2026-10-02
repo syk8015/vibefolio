@@ -30,6 +30,7 @@ const E: Record<string, Ease> = {
   expoOut: (t) => (t >= 1 ? 1 : 1 - Math.pow(2, -10 * t)),
   expoInOut: (t) => (t <= 0 ? 0 : t >= 1 ? 1 : t < 0.5 ? Math.pow(2, 20 * t - 10) / 2 : (2 - Math.pow(2, -20 * t + 10)) / 2),
   quartInOut: (t) => (t < 0.5 ? 8 * t * t * t * t : 1 - Math.pow(-2 * t + 2, 4) / 2),
+  cubicInOut: (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2),
   sineInOut: (t) => -(Math.cos(Math.PI * t) - 1) / 2,
   cubicIn: (t) => t * t * t,
 };
@@ -398,7 +399,9 @@ export function createFilm(svg: SVGSVGElement, film: IntroFilm, S: ResolvedStyle
   const camX = (t: number) => {
     let x = 800;
     for (let i = 1; i < scenes.length; i++) {
-      x += CELL * (pan > 0.05 ? E.expoInOut(clamp((t - (starts[i] - pan / 2)) / pan)) : t >= starts[i] ? 1 : 0);
+      // 3차 곡선(10-02): expo는 가운데서 한 프레임에 화면 폭 14%(영상 파일 30fps면 29%)를 건너뛰어 흐림이 따라가지
+      // 못하고 끊겨 보였다("프레임이 낮다"). 3차는 가장 빠를 때도 그 3분의 1쯤이다.
+      x += CELL * (pan > 0.05 ? E.cubicInOut(clamp((t - (starts[i] - pan / 2)) / pan)) : t >= starts[i] ? 1 : 0);
     }
     return x;
   };
@@ -410,10 +413,11 @@ export function createFilm(svg: SVGSVGElement, film: IntroFilm, S: ResolvedStyle
     starts,
     render(t: number) {
       const i = sceneAt(t), C = PAL[i % PAL.length], sc = scenes[i];
-      const x = camX(t), x0 = camX(Math.max(0, t - 1 / 30));
+      const x = camX(t), x0 = camX(Math.max(0, t - 1 / 120));
       const z = 1 + M.push * E.sineInOut(clamp((t - starts[i]) / (SCENE_SECONDS[sc.kind] ?? 4.6)));
       cam.setAttribute("transform", `translate(800,450) scale(${z.toFixed(4)}) translate(${(-x).toFixed(2)},-450)`);
-      mbBlur.setAttribute("stdDeviation", `${Math.min(28, Math.abs(x - x0) * 0.45 * M.blur).toFixed(2)} 0`);
+      // 움직임 흐림 = 속도에 비례(셔터 반 바퀴만큼 번진다). 예전엔 28에서 잘려 빠른 이동이 또렷한 채로 건너뛰었다.
+      mbBlur.setAttribute("stdDeviation", `${Math.min(40, (Math.abs(x - x0) * 120 / 150) * M.blur).toFixed(2)} 0`);
       for (const c of cells) {
         c.g.style.display = t > c.s - 2.2 && t < c.e + 2.2 ? "" : "none";
         if (pan < 0.3) c.g.setAttribute("opacity", (1 - prog(t, c.e - 0.25, 0.25, "cubicIn")).toFixed(3));
@@ -431,7 +435,8 @@ export function createFilm(svg: SVGSVGElement, film: IntroFilm, S: ResolvedStyle
         const tw = [...label].length * 10 + 36;
         tagBg.setAttribute("x", String(1500 - tw)); tagBg.setAttribute("width", String(tw)); tagT.setAttribute("x", String(1500 - tw / 2));
       }
-      const gf = Math.floor(t * 12);
+      // 필름 입자는 초당 24번 바뀐다 — 12번이면 매끈한 화면 위에서 입자만 덜컥거렸다.
+      const gf = Math.floor(t * 24);
       if (gf !== lastGrain) { lastGrain = gf; grainR.setAttribute("transform", `translate(${(gf * 67) % 180},${(gf * 113) % 180})`); }
     },
   };

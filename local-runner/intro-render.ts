@@ -12,7 +12,8 @@ import { apiPost, putSigned, type SignedTarget } from "./api";
 import { OUT_DIR, PROMO_APP_URL } from "./config";
 import { run } from "./util";
 
-const FPS = 30;
+// 60fps — 명함(PC)이 그 자리에서 그리는 것과 같은 매끈함. 30fps면 카메라 이동이 끊겨 보였다(10-02).
+const FPS = 60;
 const W = 1920;
 const H = 1080;
 const POSTER_T = 3.4;
