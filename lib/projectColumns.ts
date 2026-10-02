@@ -46,6 +46,9 @@ export const PUBLIC_PROJECT_COLUMNS = [
   "demo_locale_videos",
   "link_unverified",
   "link_state",
+  // 소개 영상(2026-10-02, docs/intro-film.md) — 화면 없는 작품의 장면 대본(주인·AI가 씀)과 워커가 만든 영상 파일 정보(워커만 씀).
+  "intro_film",
+  "intro_render",
 ] as const;
 
 export const PRIVATE_PROJECT_COLUMNS = [

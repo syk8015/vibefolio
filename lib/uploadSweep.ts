@@ -30,13 +30,15 @@ export type DraftRow = {
   is_draft: boolean | null;
   demo_url: string | null;
   video_url: string | null;
+  /** 소개 영상 대본(2026-10-02) — 파일이 없어도 이게 있으면 빈 초안이 아니다(명함이 대본을 재생한다). */
+  intro_film?: unknown;
   created_at: string | null;
 };
 
 /** 파일이 하나도 안 붙은 채 하루가 지난 초안인가. */
 export function isAbandonedEmptyDraft(row: DraftRow, now: number): boolean {
   if (row.is_draft !== true) return false;
-  if ((row.demo_url ?? "").trim() || row.video_url) return false;
+  if ((row.demo_url ?? "").trim() || row.video_url || row.intro_film) return false;
   const created = Date.parse(row.created_at ?? "");
   return Number.isFinite(created) && now - created >= UPLOAD_ABANDON_MS;
 }
@@ -98,9 +100,10 @@ export async function runUploadSweep(
   // 1. 빈 초안 — 행을 지우고(조건을 다시 걸어 그 사이 파일이 붙었으면 안 지움) 폴더를 비운다.
   const { data: drafts, error: dErr } = await admin
     .from("projects")
-    .select("id, user_id, is_draft, demo_url, video_url, created_at")
+    .select("id, user_id, is_draft, demo_url, video_url, intro_film, created_at")
     .eq("is_draft", true)
     .is("video_url", null)
+    .is("intro_film", null)
     .lt("created_at", cutoff)
     .or("demo_url.is.null,demo_url.eq.")
     .limit(EMPTY_DRAFT_SWEEP_MAX);
@@ -113,6 +116,7 @@ export async function runUploadSweep(
       .eq("id", row.id)
       .eq("is_draft", true)
       .is("video_url", null)
+      .is("intro_film", null)
       .or("demo_url.is.null,demo_url.eq.")
       .select("id");
     if (error || !gone?.length) continue;
