@@ -805,6 +805,7 @@ export const en: Dictionary = {
     nextWork: "Next work",
     chipAutoDemo: "Auto demo",
     chipOwnVideo: "Demo video",
+    chipIntroFilm: "Intro film",
     makerNote: "Maker's note",
     ctaFullscreen: "Try it fullscreen",
     ctaFullscreenShort: "Try fullscreen",

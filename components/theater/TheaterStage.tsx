@@ -447,8 +447,11 @@ export default function TheaterStage({ project, index, variant, profile, identit
   const isVideo = (!!project.videoUrl && videoKind !== "unknown") || !!project.demoVideoUrl;
   // 왼쪽 위 표시 — LivePreview와 같은 순서: 사람이 직접 준 영상이 자동 촬영보다 먼저다.
   // 라이브 화면(iframe)·대표 이미지엔 표시가 없다.
+  // 소개 영상(PC 무대에서 대본을 바로 그릴 때)이 먼저다 — 폰 무대는 동결 중이라 그대로.
   const stageChip =
-    !!project.videoUrl && videoKind !== "unknown"
+    isDesktop && project.introFilm
+      ? t.theater.chipIntroFilm
+      : !!project.videoUrl && videoKind !== "unknown"
       ? t.theater.chipOwnVideo
       : project.demoVideoUrl
       ? t.theater.chipAutoDemo

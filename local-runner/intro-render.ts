@@ -54,7 +54,7 @@ async function renderLocale(browser: Browser, job: Job, locale: "en" | "ko"): Pr
   const mp4 = `${dir}/film.mp4`;
   const enc = await run("ffmpeg", [
     "-y", "-hide_banner", "-loglevel", "error", "-framerate", String(FPS), "-i", `${dir}/f%05d.jpg`,
-    "-vf", "format=yuv420p", "-c:v", "libx264", "-preset", "medium", "-crf", "21", "-maxrate", "6M", "-bufsize", "12M",
+    "-vf", "format=yuv420p", "-c:v", "libx264", "-preset", "medium", "-crf", "24", "-maxrate", "4M", "-bufsize", "8M",
     "-movflags", "+faststart", mp4,
   ], { timeoutMs: 10 * 60_000 });
   if (enc.code !== 0) throw new Error(`ffmpeg failed: ${enc.stderr.slice(0, 300)}`);

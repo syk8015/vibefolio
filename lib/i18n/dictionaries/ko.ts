@@ -927,6 +927,7 @@ export const ko = {
     // 무대 왼쪽 위 표시 — 자동 촬영 영상 / 주인이 직접 준 영상. 라이브 화면엔 없다.
     chipAutoDemo: "자동 시연",
     chipOwnVideo: "시연 영상",
+    chipIntroFilm: "소개 영상",
     makerNote: "만든이 메모",
     ctaFullscreen: "전체화면으로 체험",
     ctaFullscreenShort: "전체화면 체험",
