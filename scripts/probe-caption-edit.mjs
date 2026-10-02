@@ -78,7 +78,9 @@ try {
   const r3d = await patch(owner.cookie, { locale: "ko", index: 0, text: "x" });
   ok("(3) 없는 언어 → 400", r3d.status === 400, `got ${r3d.status}`);
   const untouched = await read();
-  ok("(2)(3) 거절된 요청은 아무것도 안 바꿈", JSON.stringify(untouched.demo_captions) === JSON.stringify(CAPTIONS));
+  // jsonb는 키 순서를 바꿔 저장한다 — 칸별로 비교.
+  const same = (a, b) => a.length === b.length && a.every((c, i) => c.start === b[i].start && c.end === b[i].end && c.text === b[i].text);
+  ok("(2)(3) 거절된 요청은 아무것도 안 바꿈", same(untouched.demo_captions?.en ?? [], CAPTIONS.en), JSON.stringify(untouched.demo_captions));
 
   const r4 = await patch(owner.cookie, { locale: "en", index: 1, text: "Tap a room to open it" });
   const j4 = await r4.json().catch(() => ({}));
