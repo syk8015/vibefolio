@@ -19,10 +19,14 @@ export const INTRO_FONT_MAP: Record<string, string> = {
   [INTRO_FONTS.mono]: mono.style.fontFamily,
 };
 
-/** 그리기 전에 글꼴을 다 받는다(글자 폭을 재서 배치하므로). 3초가 지나면 있는 대로 그린다. */
-export async function loadIntroFonts(locale: "en" | "ko"): Promise<void> {
+/**
+ * 그리기 전에 글꼴을 다 받는다(글자 폭을 재서 배치하므로). 3초가 지나면 있는 대로 그린다.
+ * text = 영상에 실제로 나올 글자 전부 — 한글 글꼴은 글자 묶음(unicode-range)별로 나뉘어 있어서, 견본 몇 자만
+ * 받으면 나머지 글자는 대체 글꼴로 재져 단어 간격이 틀렸다(10-02: "밤낮없이돌아가요"가 붙어 보였다).
+ */
+export async function loadIntroFonts(locale: "en" | "ko", text = ""): Promise<void> {
   if (typeof document === "undefined" || !document.fonts?.load) return;
-  const sample = locale === "ko" ? "가나다Aa0" : "Aa0";
+  const sample = (locale === "ko" ? "가나다Aa0" : "Aa0") + text;
   const specs: string[] = [
     `800 100px ${INTRO_FONT_MAP[INTRO_FONTS.grot]}`, `700 100px ${INTRO_FONT_MAP[INTRO_FONTS.grot]}`,
     `700 100px ${INTRO_FONT_MAP[INTRO_FONTS.hand]}`,

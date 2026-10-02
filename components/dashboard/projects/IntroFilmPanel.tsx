@@ -50,6 +50,8 @@ const textOf = (sc: IntroScene, key: string, locale: "en" | "ko") => {
   return typeof v === "string" ? v : (v as Loc)[locale] ?? "";
 };
 
+const SHOW_STYLE_PICK = false;
+
 export function IntroFilmPanel({ film, locale, playing, open, issue, onOpen, onChange }: Props) {
   const { t } = useT();
   const tp = t.projects;
@@ -78,10 +80,14 @@ export function IntroFilmPanel({ film, locale, playing, open, issue, onOpen, onC
 
   return (
     <div className="flex flex-col" style={{ gap: 12 }}>
-      <div className="flex flex-col" style={{ gap: 8, padding: "0 4px" }}>
-        {pick("text", tp.reviewIntroText)}
-        {pick("mood", tp.reviewIntroMood)}
-      </div>
+      {/* 글자/분위기 고르기는 숨겨 둔다(10-02 사용자 결정) — 지금은 다듬은 스타일 하나(lib/introFilm/styles.ts
+          SIGNATURE_STYLE)로만 그린다. 조합을 하나씩 다듬어 열 때 이 줄을 되살린다. */}
+      {SHOW_STYLE_PICK && (
+        <div className="flex flex-col" style={{ gap: 8, padding: "0 4px" }}>
+          {pick("text", tp.reviewIntroText)}
+          {pick("mood", tp.reviewIntroMood)}
+        </div>
+      )}
       <ol className="flex flex-col" style={{ listStyle: "none", margin: 0, padding: 0, gap: 2 }}>
         {film.scenes.map((sc, i) => {
           const kind = tp.reviewIntroKinds[sc.kind];

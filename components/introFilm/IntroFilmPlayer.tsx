@@ -5,7 +5,7 @@
 // 화면 밖이거나 탭이 숨으면 멈추고, 줄임 모드(움직임 줄이기)면 대표 장면 한 장만 보여준다.
 import { useEffect, useId, useImperativeHandle, useRef, useState, type Ref } from "react";
 import { introFilmIssue, type IntroFilm } from "@/lib/introFilm/schema";
-import { resolveStyle } from "@/lib/introFilm/styles";
+import { filmStyle } from "@/lib/introFilm/styles";
 import { createFilm, type Film } from "@/lib/introFilm/render";
 import type { IntroSurface } from "@/lib/introFilm/safeZones";
 import { INTRO_FONT_MAP, loadIntroFonts } from "./fonts";
@@ -44,10 +44,12 @@ export default function IntroFilmPlayer({ film, locale, title, className, fit = 
     if (!valid) return;
     let cancelled = false;
     (async () => {
-      await loadIntroFonts(locale);
+      // 영상에 나올 글자 전부(그 언어 판) — 글꼴 묶음을 빠짐없이 받게.
+      const text = JSON.stringify(film.scenes).replace(/[\x00-\x7f]/g, "");
+      await loadIntroFonts(locale, text);
       if (cancelled || !svgRef.current) return;
       const keep = filmRef.current ? now() : 0;
-      filmRef.current = createFilm(svgRef.current, film, resolveStyle(film.style), {
+      filmRef.current = createFilm(svgRef.current, film, filmStyle(), {
         locale, idPrefix: `nf${uid}`, fontMap: INTRO_FONT_MAP, showSafe,
       });
       seek(keep);

@@ -12,7 +12,7 @@ function canonical(v: unknown): string {
 }
 
 /** 틀 판이 바뀌면(그림 방식이 달라지면) 이 값을 올려 모든 영상을 다시 만들게 한다. */
-export const INTRO_TEMPLATE_VERSION = 1;
+export const INTRO_TEMPLATE_VERSION = 2; // 2 = 10-02 품질 다듬기(빈 화면·두 줄·흐름 장면·한글 간격)
 
 export function introFilmHash(film: unknown): string {
   return createHash("sha256").update(`v${INTRO_TEMPLATE_VERSION}:${canonical(film)}`).digest("hex").slice(0, 24);
