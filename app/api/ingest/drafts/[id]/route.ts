@@ -22,6 +22,7 @@ import {
   pickApiT, ownerInterviewRejection, workLanguageRejection,
 } from "../../shared";
 import { normalizeOwnerInterview, readOwnerInterview } from "@/lib/ownerInterview";
+import { BodyTooLargeError, readJsonCapped, MAX_JSON_BODY_BYTES } from "@/lib/upload-safety";
 import {
   judgeWorkLanguages, normalizeAppLanguages, normalizeLocale, otherLocale, readTranslations,
   type SiteLocale, type WorkLanguages,
@@ -116,8 +117,11 @@ export async function PATCH(
 
     let payload: Record<string, unknown>;
     try {
-      payload = (await req.json()) as Record<string, unknown>;
-    } catch {
+      payload = (await readJsonCapped(req, MAX_JSON_BODY_BYTES)) as Record<string, unknown>;
+    } catch (e) {
+      if (e instanceof BodyTooLargeError) {
+        return apiError({ status: 413, message: t.api.uploadTooLarge, code: "TOO_LARGE" });
+      }
       return apiError({ status: 400, message: t.api.jsonBodyInvalid, code: "BAD_JSON" });
     }
     if (!payload || typeof payload !== "object") {

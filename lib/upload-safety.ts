@@ -83,6 +83,61 @@ export class UploadError extends Error {
 export const MAX_MEDIA_IMAGE_BYTES = 5 * 1024 * 1024;
 export const MAX_MEDIA_VIDEO_BYTES = 20 * 1024 * 1024;
 
+// 요청 본문 상한(2026-10-02). content-length 머리표만 보면 조각 전송(chunked)이 그 칸을
+// 비워 보내 검사를 그냥 지나간다 → 실제로 읽은 바이트를 세다가 넘으면 그 자리에서 끊는다.
+// req.json()/formData() 대신 이 둘을 쓴다. Vercel도 본문을 ~4.5MB에서 자르지만 그건 배포처
+// 설정이라 코드의 방어로 치지 않는다.
+export class BodyTooLargeError extends Error {
+  constructor() {
+    super("request body too large");
+    this.name = "BodyTooLargeError";
+  }
+}
+
+export async function readBodyCapped(req: Request, maxBytes: number): Promise<Uint8Array<ArrayBuffer>> {
+  const declared = Number(req.headers.get("content-length") ?? "");
+  if (Number.isFinite(declared) && declared > maxBytes) throw new BodyTooLargeError();
+  if (!req.body) return new Uint8Array(0);
+  const reader = req.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.length;
+    if (total > maxBytes) {
+      await reader.cancel().catch(() => {});
+      throw new BodyTooLargeError();
+    }
+    chunks.push(value);
+  }
+  const out = new Uint8Array(total);
+  let offset = 0;
+  for (const c of chunks) {
+    out.set(c, offset);
+    offset += c.length;
+  }
+  return out;
+}
+
+// 넘으면 BodyTooLargeError, JSON이 깨졌으면 SyntaxError.
+export async function readJsonCapped(req: Request, maxBytes: number): Promise<unknown> {
+  const buf = await readBodyCapped(req, maxBytes);
+  return JSON.parse(new TextDecoder().decode(buf));
+}
+
+// multipart는 읽은 바이트를 같은 content-type으로 다시 감싸 표준 파서에 맡긴다(경계 문자열 포함).
+export async function readFormCapped(req: Request, maxBytes: number): Promise<FormData> {
+  const buf = await readBodyCapped(req, maxBytes);
+  return new Response(buf, {
+    headers: { "content-type": req.headers.get("content-type") ?? "" },
+  }).formData();
+}
+
+// 작은 JSON 본문(코드 하나·id 하나)과 대본·초안 수정 같은 큰 JSON 본문의 상한.
+export const MAX_SMALL_JSON_BYTES = 64 * 1024;
+export const MAX_JSON_BODY_BYTES = 5 * 1024 * 1024;
+
 // 매직바이트 스니핑 — 확장자/Content-Type 자칭은 신뢰하지 않는다(서비스롤 업로드라
 // 스토리지 RLS 우회 → 여기서 실제 미디어인지 확정하고 저장 확장자·MIME도 여기서
 // 나온 값만 쓴다). 반환 null = 지원 포맷 아님.
