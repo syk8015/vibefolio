@@ -6,6 +6,7 @@ import { redeemConnectCode } from "@/lib/connectCode";
 import { issueToken } from "@/lib/apiToken";
 import { AUTO_TOKEN_NAME } from "@/lib/connectSnippets";
 import { logger } from "@/lib/logger";
+import { BodyTooLargeError, readJsonCapped, MAX_SMALL_JSON_BYTES } from "@/lib/upload-safety";
 
 // POST /api/connect/exchange — 1회용 페어링 코드를 액세스 토큰으로 바꿔 준다(2026-09-16).
 //
@@ -28,9 +29,12 @@ export async function POST(req: NextRequest) {
 
     let code: unknown;
     try {
-      const body = await req.json();
+      const body = (await readJsonCapped(req, MAX_SMALL_JSON_BYTES)) as { code?: unknown } | null;
       code = body?.code;
-    } catch {
+    } catch (e) {
+      if (e instanceof BodyTooLargeError) {
+        return apiError({ status: 413, message: t.api.uploadTooLarge, code: "TOO_LARGE" });
+      }
       return apiError({ status: 400, message: t.api.jsonBodyInvalid, code: "BAD_JSON" });
     }
     // 코드는 본문으로만 받는다(쿼리 금지) — 서버 로그·리퍼러에 남지 않게, PAT와 같은 규율.

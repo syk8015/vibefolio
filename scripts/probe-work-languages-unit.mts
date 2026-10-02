@@ -6,6 +6,7 @@ import {
   judgeWorkLanguages, normalizeLocale, normalizeAppLanguages, captionLocalesNeeded, filmLocales,
   captionIssue, readTranslations, CAPTION_MAX,
   buildCaptionTrack, normalizeCaptionTrack, normalizeLocaleVideos, filmPlan, localizeWork, cueAt,
+  editCaptionCue, renameScriptCaption,
 } from "../lib/workLanguages";
 import { posterFromDemo } from "../lib/portfolio";
 import { coalesceScrolls } from "../local-runner/script";
@@ -172,6 +173,27 @@ ok("translation 제목 없음 → title-missing", (() => {
   ok("한 언어뿐인 옛 작품은 그대로", legacy.title === "Old" && legacy.description === "" && !legacy.translated);
   ok("자막 시각: 끝 시각은 포함하지 않음", cueAt(en.captions, 2.9) === "Every room, live." && cueAt(en.captions, 3) === null);
   ok("포스터 규약: 다른 언어 판도", posterFromDemo("https://cdn/x/demo-en-2.mp4") === "https://cdn/x/poster-en-2.jpg" && posterFromDemo("https://cdn/x/demo-2.mp4") === "https://cdn/x/poster-2.jpg");
+}
+
+// ── 공개 뒤 자막 고치기(2026-10-02) — 시각은 그대로, 글만 ──────────────────────
+{
+  const raw = { en: [{ start: 0, end: 3, text: "Every room, live." }, { start: 3, end: 6, text: "Tap a room" }] };
+  const r = editCaptionCue(raw, "en", 1, "  Tap  a room to open it ");
+  ok("자막 고치기: 그 줄 글만 바뀌고 시각은 그대로", "track" in r && r.track.en?.[1].text === "Tap a room to open it" && r.track.en?.[1].start === 3 && r.track.en?.[0].text === "Every room, live." && r.oldText === "Tap a room");
+  ok("자막 고치기: 없는 줄·없는 언어는 거절", "issue" in editCaptionCue(raw, "en", 2, "x") && "issue" in editCaptionCue(raw, "ko", 0, "x") && "issue" in editCaptionCue(null, "en", 0, "x") && "issue" in editCaptionCue(raw, "en", 0.5, "x"));
+  const empty = editCaptionCue(raw, "en", 0, "   ");
+  ok("자막 고치기: 빈 글 거절", "issue" in empty && empty.issue === "empty");
+  const long = editCaptionCue(raw, "en", 0, "가".repeat(CAPTION_MAX + 1));
+  ok("자막 고치기: 게이트와 같은 길이 상한", "issue" in long && long.issue === "too-long" && "track" in editCaptionCue(raw, "en", 0, "가".repeat(CAPTION_MAX)));
+  const script = normalizeDemoScript({ steps: [
+    { goal: "a", action: "click", selector: "#a", caption: { en: "Tap a room" } },
+    { goal: "b", action: "click", selector: "#b", caption: { en: "Other" } },
+    { goal: "c", action: "click", selector: "#c", caption: { en: "Tap a room" } },
+    { goal: "d", action: "click", selector: "#d" },
+  ] });
+  const next = renameScriptCaption(script, "en", "Tap a room", "Tap a room to open it");
+  ok("대본도 같은 글인 장면만 같이 바뀐다", next?.steps[0].caption?.en === "Tap a room to open it" && next?.steps[2].caption?.en === "Tap a room to open it" && next?.steps[1].caption?.en === "Other");
+  ok("대본에 같은 글이 없으면 null", renameScriptCaption(script, "en", "nope", "x") === null && renameScriptCaption(null, "en", "a", "b") === null);
 }
 
 // 칸 공개 여부 — 명함·작품 페이지가 익명 키로 읽어야 보는 사람 언어 판을 고른다.

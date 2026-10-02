@@ -4,7 +4,9 @@ import { apiError } from "@/lib/apiError";
 import { rateLimit } from "@/lib/rate-limit";
 import { ingestAuth, pickApiT } from "../shared";
 import { screenshotUrl } from "@/lib/thumbnail";
-import { MAX_UPLOAD_BYTES, UploadError, summarizeDropped } from "@/lib/upload-safety";
+import {
+  MAX_UPLOAD_BYTES, UploadError, summarizeDropped, BodyTooLargeError, readJsonCapped, MAX_SMALL_JSON_BYTES,
+} from "@/lib/upload-safety";
 import {
   validateMedia, uploadMedia, storeZipBundle, removeStaleFiles, dropNewRow, inspectUploads,
   UPLOAD_TEMP_KEYS, UPLOAD_REPLACE_MARKER,
@@ -44,9 +46,12 @@ export async function POST(req: NextRequest) {
     // 3. 본문 — { projectId } 하나.
     let projectId: string;
     try {
-      const body = (await req.json()) as { projectId?: unknown };
+      const body = (await readJsonCapped(req, MAX_SMALL_JSON_BYTES)) as { projectId?: unknown };
       projectId = typeof body?.projectId === "string" ? body.projectId : "";
-    } catch {
+    } catch (e) {
+      if (e instanceof BodyTooLargeError) {
+        return apiError({ status: 413, message: t.api.uploadTooLarge, code: "TOO_LARGE" });
+      }
       return apiError({ status: 400, message: t.api.jsonBodyInvalid, code: "BAD_JSON" });
     }
     if (!projectId) {

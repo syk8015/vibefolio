@@ -4,6 +4,7 @@ import { MCP_TOOLS, MCP_TOOL_NAMES } from "@/lib/mcpTools";
 import { callTool } from "@/lib/mcpDispatch";
 import { OAUTH_SCOPE } from "@/lib/oauth";
 import { logger } from "@/lib/logger";
+import { BodyTooLargeError, readJsonCapped, MAX_JSON_BODY_BYTES } from "@/lib/upload-safety";
 
 // POST /api/mcp — 원격 MCP 서버(Streamable HTTP). 셸 없는 채팅창 AI가 우리 서버를
 // **직접** 부르는 통로다(2026-09-17). 셸이 있는 AI는 `npx nookframe mcp`(stdio)를
@@ -113,11 +114,14 @@ export async function POST(req: NextRequest) {
     // 2. 본문 — 단일 JSON-RPC 메시지. 배열로 보내는 클라이언트가 있어 한 개짜리는 받아준다.
     let body: Json;
     try {
-      const parsed = (await req.json()) as unknown;
+      const parsed = await readJsonCapped(req, MAX_JSON_BODY_BYTES);
       const one = Array.isArray(parsed) ? parsed[0] : parsed;
       if (!one || typeof one !== "object") throw new Error("not an object");
       body = one as Json;
-    } catch {
+    } catch (e) {
+      if (e instanceof BodyTooLargeError) {
+        return rpcError(null, -32600, "The request body is too large.", 413);
+      }
       return rpcError(null, -32700, "Parse error: the body must be a single JSON-RPC message.", 400);
     }
 

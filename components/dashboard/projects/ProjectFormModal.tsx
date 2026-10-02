@@ -14,6 +14,8 @@ import {
 } from "./helpers";
 import { type ProjectForm, AI_TOOLS_INITIAL } from "./types";
 import { WorkCardPreview } from "./WorkCardPreview";
+import { CaptionEditor } from "./CaptionEditor";
+import type { CaptionTrack } from "@/lib/workLanguages";
 import { useT } from "@/lib/i18n/client";
 
 // 대시보드 작품 **수정** 창 '작품 고치기'(2026-10-01 덜어내기 · 라안 + 업그레이드안).
@@ -34,7 +36,7 @@ import { useT } from "@/lib/i18n/client";
 // 이미 올린 작품의 제목·설명·파일 교체는 여전히 사람이 해야 하므로 이 창은 남는다.
 // 추가 진입점은 AddProjectModal → ConnectPanel.
 
-type MoreKey = "type" | "year" | "tools" | "thumb" | "video" | "hint";
+type MoreKey = "type" | "year" | "tools" | "thumb" | "video" | "captions" | "hint";
 
 // 칸 이름표 — 명함 탭과 같은 본문 글꼴 14px(고정폭 .vf-label은 한글이 띄엄띄엄 읽혔다, 09-26).
 const LABEL: React.CSSProperties = {
@@ -58,12 +60,14 @@ const ERROR: React.CSSProperties = {
 };
 const FOOT_BUTTON: React.CSSProperties = { padding: "0.7rem 1.6rem", fontSize: "0.9375rem" };
 
-export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, userId }: {
+export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, userId, captions }: {
   title: string;
   initialForm: ProjectForm;
   onClose: () => void;
   onSubmit: (form: ProjectForm) => void;
   submitLabel: string;
+  /** 찍힌 영상 위 자막(있을 때만 '더 보기 › 자막' 줄이 생긴다). 고치면 그 자리에서 저장된다. */
+  captions?: { projectId: string; track: CaptionTrack; onSaved: (next: CaptionTrack) => void } | null;
   userId: string;
 }) {
   const { t } = useT();
@@ -629,6 +633,15 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
                     {videoError && <p className="text-center" style={ERROR}>{videoError}</p>}
                   </div>
                 </MoreRow>
+
+                {captions && (
+                  <MoreRow label={t.projectForm.captionsLabel} changed={false} unsavedLabel={t.projectForm.unsaved}
+                    value={t.projectForm.captionsCount(Object.values(captions.track).reduce((n, cues) => n + (cues?.length ?? 0), 0))}
+                    action={t.projectForm.change} doneLabel={t.projectForm.done}
+                    open={editing === "captions"} onToggle={() => toggleEditing("captions")}>
+                    <CaptionEditor projectId={captions.projectId} track={captions.track} onSaved={captions.onSaved} />
+                  </MoreRow>
+                )}
 
                 {/* 촬영 워커가 브리핑에 넣는 제작자 메모(demo_user_hint) — 살아 있는 칸 */}
                 <MoreRow label={t.projectForm.hintLabel} changed={changed.hint} unsavedLabel={t.projectForm.unsaved}

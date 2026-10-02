@@ -7,6 +7,7 @@ import { isR2Configured, r2Usage } from "@/lib/r2";
 import { parseDemoFailure } from "@/lib/demo-failure";
 import { AnalyticsEvent } from "@/lib/analytics-events";
 import { classifyTrafficSource } from "@/lib/traffic-source";
+import { normalizeDemoScript } from "@/lib/demoScript";
 import { AdminRequestList, type AdminRequestItem } from "./AdminRequestList";
 import { ReportInbox, type ReportItem } from "./ReportInbox";
 import { ModerationInbox, type ModerationItem } from "./ModerationInbox";
@@ -249,7 +250,8 @@ export default async function AdminPage() {
   const reqUserIds = [...new Set(requests.map((r) => r.user_id))];
   const [{ data: reqProjects }, { data: reqProfiles }] = await Promise.all([
     reqProjectIds.length
-      ? admin.from("projects").select("id, title, demo_url, demo_build_status, demo_video_url").in("id", reqProjectIds)
+      // 대본 두 벌(지금 · AI가 새로 낸 것)은 비공개 칸 — 관리자 권한이라 읽힌다. 승인 전에 눈으로 본다.
+      ? admin.from("projects").select("id, title, demo_url, demo_build_status, demo_video_url, demo_script, pending_demo_script, pending_script_note").in("id", reqProjectIds)
       : Promise.resolve({ data: [] as never[] }),
     reqUserIds.length
       ? admin.from("profiles").select("id, username").in("id", reqUserIds)
@@ -269,6 +271,9 @@ export default async function AdminPage() {
       demoUrl: p?.demo_url ?? null,
       hasVideo: !!p?.demo_video_url,
       username: u?.username ?? null,
+      pendingScript: normalizeDemoScript(p?.pending_demo_script),
+      currentScript: normalizeDemoScript(p?.demo_script),
+      aiNote: p?.pending_script_note ?? null,
     };
   });
 

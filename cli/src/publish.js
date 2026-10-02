@@ -15,7 +15,7 @@ const BUILD_DIRS = ["dist", "out", "build", "public"];
 export async function runPublish({ payload = {}, dir = null, screenshotPath = null, videoPath = null, token, origin }) {
   if (!token) {
     throw new Error(
-      "No token. Press [Copy prompt] at nookframe.com/dashboard -> Add project and run the `npx nookframe login <code>` step from that prompt (or set the `NOOKFRAME_TOKEN` env var).",
+      "No token. Press [Copy prompt] at nookframe.com/dashboard -> Upload with AI and run the `npx nookframe login <code>` step from that prompt (or set the `NOOKFRAME_TOKEN` env var).",
     );
   }
   const endpoint = `${origin.replace(/\/$/, "")}/api/ingest`;

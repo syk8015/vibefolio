@@ -24,7 +24,7 @@ import {
 } from "@/lib/demoScript";
 import {
   MAX_UPLOAD_BYTES, MAX_MEDIA_IMAGE_BYTES, MAX_MEDIA_VIDEO_BYTES, UploadError,
-  summarizeDropped,
+  summarizeDropped, BodyTooLargeError, readFormCapped, readJsonCapped,
 } from "@/lib/upload-safety";
 import {
   validateMedia, uploadMedia, storeZipBundle, removeStaleFiles, dropNewRow,
@@ -114,11 +114,16 @@ export async function POST(req: NextRequest) {
     let video: File | null = null;
 
     if (contentType.includes("multipart/form-data")) {
-      const declaredLen = Number(req.headers.get("content-length") ?? "0");
-      if (declaredLen > MAX_BODY_BYTES) {
-        return apiError({ status: 413, message: t.api.uploadTooLarge, code: "TOO_LARGE" });
+      // 머리표(content-length)만 믿지 않고 실제로 읽은 바이트로 끊는다(조각 전송 우회 차단).
+      let form: FormData;
+      try {
+        form = await readFormCapped(req, MAX_BODY_BYTES);
+      } catch (e) {
+        if (e instanceof BodyTooLargeError) {
+          return apiError({ status: 413, message: t.api.uploadTooLarge, code: "TOO_LARGE" });
+        }
+        return apiError({ status: 400, message: t.api.payloadPartRequired, code: "BAD_REQUEST" });
       }
-      const form = await req.formData();
       const rawPayload = form.get("payload");
       if (typeof rawPayload !== "string") {
         return apiError({ status: 400, message: t.api.payloadPartRequired, code: "BAD_REQUEST" });
@@ -143,8 +148,11 @@ export async function POST(req: NextRequest) {
     } else {
       let body: unknown;
       try {
-        body = await req.json();
-      } catch {
+        body = await readJsonCapped(req, MAX_BODY_BYTES);
+      } catch (e) {
+        if (e instanceof BodyTooLargeError) {
+          return apiError({ status: 413, message: t.api.uploadTooLarge, code: "TOO_LARGE" });
+        }
         return apiError({ status: 400, message: t.api.jsonBodyInvalid, code: "BAD_JSON" });
       }
       // { payload: {...} } 도, 필드를 최상위에 둔 { ... } 도 허용.

@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import type { DemoScript } from "@/lib/demoScript";
+import { DemoScriptPanel } from "@/components/dashboard/projects/DemoScriptPanel";
 
 export type AdminRequestItem = {
   id: string;
@@ -11,6 +13,10 @@ export type AdminRequestItem = {
   demoUrl: string | null;
   hasVideo: boolean;
   username: string | null;
+  // 재촬영: AI가 새로 낸 대본(승인하면 이걸로 찍는다) · 지금 대본 · AI 메모. 승인 전에 눈으로 본다.
+  pendingScript: DemoScript | null;
+  currentScript: DemoScript | null;
+  aiNote: string | null;
 };
 
 const KIND_LABEL: Record<AdminRequestItem["kind"], string> = {
@@ -22,6 +28,10 @@ export function AdminRequestList({ items }: { items: AdminRequestItem[] }) {
   const [rows, setRows] = useState(items);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // 펼친 대본 — 요청 id별로 "new"(새 대본) | "current"(지금 대본).
+  const [open, setOpen] = useState<Record<string, "new" | "current" | undefined>>({});
+  const toggle = (id: string, which: "new" | "current") =>
+    setOpen((prev) => ({ ...prev, [id]: prev[id] === which ? undefined : which }));
 
   async function decide(id: string, action: "approve" | "reject") {
     // 거절 이유는 사용자에게 메일로 간다(비워도 됨). 취소하면 거절하지 않는다.
@@ -102,6 +112,41 @@ export function AdminRequestList({ items }: { items: AdminRequestItem[] }) {
             >
               {r.reason}
             </p>
+          )}
+
+          {r.kind === "rerecord" && (r.pendingScript || r.currentScript) && (
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                {r.pendingScript && (
+                  <button
+                    type="button" onClick={() => toggle(r.id, "new")} aria-expanded={open[r.id] === "new"}
+                    data-active={open[r.id] === "new"} className="vf-selectable px-3 py-1 rounded-full text-xs"
+                  >
+                    새 대본 {r.pendingScript.steps.length}장면
+                  </button>
+                )}
+                {r.currentScript && (
+                  <button
+                    type="button" onClick={() => toggle(r.id, "current")} aria-expanded={open[r.id] === "current"}
+                    data-active={open[r.id] === "current"} className="vf-selectable px-3 py-1 rounded-full text-xs"
+                  >
+                    지금 대본 {r.currentScript.steps.length}장면
+                  </button>
+                )}
+                {!r.pendingScript && (
+                  <span className="text-xs" style={{ color: "var(--text-secondary)" }}>새 대본 없음 — 승인하면 지금 대본으로 다시 찍어요</span>
+                )}
+              </div>
+              {open[r.id] === "new" && r.pendingScript && (
+                <>
+                  {r.aiNote && (
+                    <p className="text-xs" style={{ color: "var(--text-secondary)", margin: 0 }}>AI 메모 · {r.aiNote}</p>
+                  )}
+                  <DemoScriptPanel script={r.pendingScript} />
+                </>
+              )}
+              {open[r.id] === "current" && r.currentScript && <DemoScriptPanel script={r.currentScript} />}
+            </div>
           )}
 
           {r.demoUrl && (

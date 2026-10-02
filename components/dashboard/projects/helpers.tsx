@@ -1,5 +1,6 @@
 import { memo } from "react";
 import { AI_TOOL_DOMAINS } from "@/lib/projectTaxonomy";
+import { AI_TOOL_MARKS } from "@/components/dashboard/aiToolPaths";
 import { safeRelativePath, secretFileKind, summarizeDropped, type DroppedFile } from "@/lib/upload-safety";
 import type { DBProject } from "./types";
 
@@ -9,6 +10,15 @@ import type { DBProject } from "./types";
 // Pure, primitive props + a fixed domain map. Memoized so it doesn't re-render
 // (and re-issue the favicon request) on unrelated dashboard state changes.
 export const AiToolLogo = memo(function AiToolLogo({ id, size = 13 }: { id: string; size?: number }) {
+  // 단색 로고가 있으면 글자색으로 — 파비콘의 검은 ChatGPT 로고는 다크 테마 칩에서 안 보였다.
+  const mark = AI_TOOL_MARKS[id];
+  if (mark) {
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" style={{ display: "block", flexShrink: 0 }}>
+        <path d={mark.d} fill={mark.fill} />
+      </svg>
+    );
+  }
   const domain = AI_TOOL_DOMAINS[id];
   if (!domain) return null;
   return (

@@ -12,6 +12,7 @@ import {
 import { probeSelectors, selectorsOf, composeProbeUrl } from "@/lib/demoScriptReview";
 import { normalizeDemoAccess } from "@/lib/demoAccess";
 import { rateLimit } from "@/lib/rate-limit";
+import { BodyTooLargeError, readJsonCapped, MAX_JSON_BODY_BYTES } from "@/lib/upload-safety";
 
 // POST /api/ingest/rerecord/[id] — AI가 다시 쓴 촬영 대본을 **대기 상태로** 받는다.
 //
@@ -45,8 +46,11 @@ export async function POST(
 
     let payload: { demoScript?: unknown; note?: unknown } = {};
     try {
-      payload = await req.json();
-    } catch {
+      payload = (await readJsonCapped(req, MAX_JSON_BODY_BYTES)) as typeof payload;
+    } catch (e) {
+      if (e instanceof BodyTooLargeError) {
+        return apiError({ status: 413, message: t.api.uploadTooLarge, code: "TOO_LARGE" });
+      }
       return apiError({ status: 400, message: t.api.jsonBodyInvalid, code: "BAD_JSON" });
     }
 

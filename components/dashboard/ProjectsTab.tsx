@@ -9,6 +9,7 @@ import Modal from "@/components/Modal";
 import { detectDemoSource } from "@/lib/demoSource";
 import { AnalyticsEvent, trackClientEvent } from "@/lib/analytics-client";
 import { PUBLIC_PROJECT_SELECT } from "@/lib/projectColumns";
+import { normalizeCaptionTrack } from "@/lib/workLanguages";
 import type { OwnerInterview } from "@/lib/ownerInterview";
 
 import { useT } from "@/lib/i18n/client";
@@ -88,6 +89,8 @@ export default function ProjectsTab({
   // 채우므로, 그 뒤에 비공개 칸이 도착해도 폼엔 빈 칸이 남는다 — 그때 저장하면 "모름"을 "지움"으로
   // 보내지 않게 연 순간 기준으로 가른다(창을 다시 띄우면 입력 중인 글이 날아가서 안 띄운다).
   const [editHint, setEditHint] = useState<{ value: string | null; known: boolean }>({ value: null, known: false });
+  // 수정 창 '더 보기 › 자막' — 찍힌 영상에 자막이 있을 때만(공개 칸이라 목록에 이미 있다).
+  const editCaptions = editProject ? normalizeCaptionTrack(editProject.demo_captions) : null;
   function openEdit(p: DBProject) {
     const live = [...projects, ...drafts].find((x) => x.id === p.id) ?? p;
     setEditHint({ value: live.demo_user_hint ?? null, known: privLoaded.has(p.id) });
@@ -771,7 +774,15 @@ export default function ProjectsTab({
           }}
           onClose={() => setEditProject(null)}
           onSubmit={form => handleEdit(editProject.id, form, editHint.known)}
-          submitLabel={t.projects.submitSave} userId={user.id} />
+          submitLabel={t.projects.submitSave} userId={user.id}
+          captions={editCaptions && {
+            projectId: editProject.id, track: editCaptions,
+            onSaved: next => {
+              setProjects(prev => prev.map(p => (p.id === editProject.id ? { ...p, demo_captions: next } : p)));
+              setEditProject(prev => (prev && prev.id === editProject.id ? { ...prev, demo_captions: next } : prev));
+              syncPublic();
+            },
+          }} />
       )}
 
       {rerecordModal && (
