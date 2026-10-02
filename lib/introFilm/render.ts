@@ -260,8 +260,8 @@ export function createFilm(svg: SVGSVGElement, film: IntroFilm, S: ResolvedStyle
 
   scenes.forEach((sc, i) => {
     const C = PAL[i % PAL.length], ox = i * CELL, s0 = starts[i];
-    // 카메라가 도착하는 동안 이미 들어오기 시작한다 — 빈 화면을 두지 않는다.
-    const at = s0 + (i > 0 && pan > 0.25 ? 0.12 : 0.2);
+    // 카메라가 도착하는 동안 이미 들어오기 시작한다 — 빈 화면을 두지 않는다(이동이 반쯤 지나면 시작).
+    const at = s0 + (i > 0 && pan > 0.25 ? 0.4 - pan / 2 : 0.2);
     el("rect", { x: ox - 100, y: -400, width: CELL, height: FILM_H + 800, fill: C.bg }, world);
     const g = el("g", {}, world);
     cells.push({ g, s: s0, e: s0 + (SCENE_SECONDS[sc.kind] ?? 4.6) });
