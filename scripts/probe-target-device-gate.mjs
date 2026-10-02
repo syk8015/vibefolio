@@ -115,7 +115,7 @@ try {
 
   // (2) 목록 밖의 값은 답으로 치지 않는다.
   const odd = keep(await post({ targetDevice: "tablet" }));
-  ok('엉뚱한 값("tablet") → 400', odd.status === 400 && odd.body?.code === "TARGET_DEVICE_REQUIRED", `status ${odd.status}`);
+  ok('엉뚱한 값("tablet") → 400 TARGET_DEVICE_INVALID(필요해요가 아니라 그 값은 안 돼요)', odd.status === 400 && odd.body?.code === "TARGET_DEVICE_INVALID", `status ${odd.status} ${odd.body?.code}`);
 
   // (3) 정상 답은 행과 에코 양쪽에 남는다.
   const MOBILE_URL = `https://example.com/probe-device-${STAMP}-mobile`;
