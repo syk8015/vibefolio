@@ -7,6 +7,7 @@ import { runSitePatrol, type PatrolResult } from "@/lib/sitePatrol";
 import { runLinkPatrol, type LinkPatrolResult } from "@/lib/linkPatrol";
 import { runUploadSweep, type UploadSweepResult } from "@/lib/uploadSweep";
 import { runR2Sweep, type R2SweepResult } from "@/lib/r2Sweep";
+import { runViewRetention } from "@/lib/viewRetention";
 import { logger, hasErrorReporter } from "@/lib/logger";
 import { trackServerEvent } from "@/lib/analytics";
 import { AnalyticsEvent } from "@/lib/analytics-events";
@@ -424,6 +425,16 @@ export async function GET(req: NextRequest) {
     logger.error("watchdog: r2 sweep failed", { error: err });
   }
 
+  // ── 4g. 방문 기록 보관 기한(lib/viewRetention.ts) — 180일 지난 줄을 틱마다 2000줄까지 지우고 주인별 수로
+  // 남긴다. 조용한 정리라 경보는 없다. 터져도(SQL 전이면 함수가 없다) 점검은 계속한다. ─────────────
+  let viewsArchived: number | null = null;
+  try {
+    viewsArchived = await runViewRetention(admin, { now });
+    if (viewsArchived) logger.info("watchdog: old portfolio views archived", { viewsArchived });
+  } catch (err) {
+    logger.warn("watchdog: view retention failed", { error: err });
+  }
+
   // ── 5. Alert email (T4) — deduped so a persistent condition mails once per
   // window, not every cron tick ────────────────────────────────────────────────
   const emailed =
@@ -465,6 +476,7 @@ export async function GET(req: NextRequest) {
     links,
     uploadSweep,
     r2Sweep,
+    viewsArchived,
     healthy: alerts.length === 0,
     // Sentry wiring diagnostics — this route is the natural probe point since the
     // external cron exercises it anyway and it's secret-gated.

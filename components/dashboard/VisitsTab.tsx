@@ -300,7 +300,7 @@ export default function VisitsTab({ user }: { user: User }) {
         if (since) q = q.gte("viewed_at", since.toISOString());
         return q;
       };
-      const [rows, all, today, last7, last30] = await Promise.all([
+      const [rows, all, today, last7, last30, archived] = await Promise.all([
         supabase
           .from("portfolio_views")
           .select("id, viewed_at, referrer, country, user_agent")
@@ -311,10 +311,17 @@ export default function VisitsTab({ user }: { user: User }) {
         countSince(todayStart),
         countSince(from7),
         countSince(from30),
+        // 180일 지난 줄은 크론이 지우고 주인별 수만 남긴다(supabase/migration_view_retention.sql).
+        // 표가 아직 없거나 행이 없으면 0.
+        supabase
+          .from("portfolio_view_totals")
+          .select("archived_views")
+          .eq("profile_id", user.id)
+          .maybeSingle(),
       ]);
       setViews((rows.data as ViewRow[]) ?? []);
       setTotals({
-        total: all.count ?? 0,
+        total: (all.count ?? 0) + Number(archived.data?.archived_views ?? 0),
         today: today.count ?? 0,
         last7: last7.count ?? 0,
         last30: last30.count ?? 0,
