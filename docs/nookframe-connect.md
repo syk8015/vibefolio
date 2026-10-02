@@ -93,6 +93,12 @@ claude.ai 웹 같은 채팅창 — 가 우리 서버를 직접 부르는 통로�
 채팅 AI에겐 우리 서버에 그 경로가 가리킬 파일이 없기 때문이고, 설명의 그 대목만
 `{{FILES}}`·`{{MEDIA}}` 자리표시로 갈라 채운다(본문은 한 벌).
 
+툴마다 `title`과 `annotations`가 붙는다(2026-10-02) — Claude 커넥터 디렉터리
+(claude.ai/directory/manage, 유료 개인 요금제도 신청 가능) 등록 요건이자 Claude의 자동 허락 기준이다.
+읽기 3개(`check_*`·`get_*_status`·`list_*`)는 `readOnlyHint: true`라 확인 없이 돌고,
+초안을 만들거나 덮어쓰거나 지우는 4개는 `destructiveHint: true`라 매번 묻는다.
+빠진 툴은 생성기(`scripts/build-schema.mts`)가 생성 단계에서 거절한다.
+
 ### 파일 대신 글자로 — `htmlBody` (09-17)
 
 채팅창 AI는 우리 서버에 파일을 올릴 수 없다. 원래 답은 "아티팩트면 공개 링크를 주라"였는데

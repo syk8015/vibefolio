@@ -71,7 +71,15 @@ const src = JSON.parse(readFileSync(SOURCE, "utf8")) as {
   localOnlyFields: string[];
   /** `{{NAME}}` 자리에 통로별로 들어갈 문장. 본문은 갈라지지 않는다. */
   descriptionFills: Record<Variant, Record<string, string>>;
-  tools: { name: string; description?: string; descriptionRef?: string; inputSchema: Json }[];
+  tools: {
+    name: string;
+    /** 사람이 읽는 툴 이름 + 동작 힌트 — 디렉터리 등록 요건이자 Claude의 자동 허락 기준(2026-10-02). */
+    title: string;
+    annotations: { [k: string]: boolean };
+    description?: string;
+    descriptionRef?: string;
+    inputSchema: Json;
+  }[];
 };
 
 // `$use`가 가리킬 수 있는 것 = fields + 최상위 publishInput(툴 셋이 이걸 그대로 쓴다).
@@ -106,10 +114,26 @@ const publishInputRemote: Json = (() => {
   return input as unknown as Json;
 })();
 
+// 디렉터리 요건을 생성 시점에 막는다: 이름 64자 이하, title, 읽기/쓰기 힌트 중 하나.
+// 빠진 채로 생성되면 커넥터 등록 화면이 툴을 "주석 없음"으로 걸러 낸다.
+for (const t of src.tools) {
+  if (t.name.length > 64) throw new Error(`툴 이름 "${t.name}"이 64자를 넘습니다`);
+  if (!t.title?.trim()) throw new Error(`툴 "${t.name}"에 title이 없습니다`);
+  const a = t.annotations ?? {};
+  if (a.readOnlyHint !== true && a.destructiveHint !== true) {
+    throw new Error(`툴 "${t.name}"에 readOnlyHint나 destructiveHint(true)가 없습니다`);
+  }
+  if (a.readOnlyHint === true && a.destructiveHint === true) {
+    throw new Error(`툴 "${t.name}"이 읽기 전용이면서 파괴적일 수는 없습니다`);
+  }
+}
+
 // 갈리는 것은 publishInput 하나뿐 — 나머지 툴은 두 통로가 글자 그대로 같다.
 const toolsFor = (variant: Variant) =>
   src.tools.map((t) => ({
     name: t.name,
+    title: t.title,
+    annotations: { title: t.title, ...t.annotations },
     description: t.descriptionRef ? fillDescription(variant) : t.description!,
     inputSchema: resolve(
       t.inputSchema,
@@ -171,6 +195,14 @@ const remote = `// 생성된 파일입니다 — 직접 고치지 마세요.
 
 export type McpTool = {
   name: string;
+  title: string;
+  annotations: {
+    title: string;
+    readOnlyHint?: boolean;
+    destructiveHint?: boolean;
+    idempotentHint?: boolean;
+    openWorldHint?: boolean;
+  };
   description: string;
   inputSchema: {
     type: "object";
