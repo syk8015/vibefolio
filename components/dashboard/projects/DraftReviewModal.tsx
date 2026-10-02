@@ -703,6 +703,7 @@ export function DraftReviewModal({ draft, privateReady = true, username, demoPau
               )}
             </div>
             <div className="vf-review-stage">
+              {/* ui-allow: color 늘 어두운 무대 — 프레임 무대(TheaterStage)와 같은 바탕 */}
               <div style={{ position: "relative", width: "100%", maxHeight: "100%", aspectRatio: "16 / 10", borderRadius: 14, overflow: "hidden", background: "#0a0a0a" }}>
                 <div className="absolute inset-0">
                   <IntroFilmPlayer ref={playerRef} film={introShown} locale={viewLoc} title={title} fit="cover" onTime={onFilmTime} />
@@ -717,8 +718,9 @@ export function DraftReviewModal({ draft, privateReady = true, username, demoPau
                       onClick={() => (introOpen != null ? openScene(k) : playerRef.current?.seek(introStarts[k] ?? 0))}
                       style={{ flex: `${SCENE_SECONDS[sc.kind] ?? 4.6} 1 0`, height: 14, padding: "11px 0 0", border: "none", background: "transparent", cursor: "pointer" }}
                     >
+                      {/* ui-allow: color 무대 재생 막대 색(StageMarks의 StageProgress와 같음) */}
                       <span style={{ display: "block", height: 3, background: "linear-gradient(rgba(255,255,255,0.16), rgba(255,255,255,0.16)), rgba(0,0,0,0.28)" }}>
-                        <span ref={(el) => { barFills.current[k] = el; }}
+                        <span ref={(el) => { barFills.current[k] = el; }} /* ui-allow: color 무대 재생 막대 색 */
                           style={{ display: "block", height: "100%", background: "#f4ede0", transformOrigin: "left center", transform: "scaleX(0)" }} />
                       </span>
                     </button>

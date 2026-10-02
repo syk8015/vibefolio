@@ -115,7 +115,7 @@ export function IntroFilmPanel({ film, locale, playing, open, issue, onOpen, onC
                           aria-label={`${name} · ${k + 1}/${fields.length}`} aria-invalid={bad || undefined}
                           onChange={(e) => setField(i, key, e.target.value)}
                           onKeyDown={(e) => { if (e.key === "Enter" || e.key === "Escape") { e.preventDefault(); onOpen(null); } }}
-                          className="vf-input"
+                          className="vf-input" /* ui-allow: border 틀린 입력칸 표시 */
                           style={{ padding: "7px 10px", borderRadius: 8, fontSize: 14, background: "var(--surface)", ...(bad ? { boxShadow: "inset 0 0 0 1px var(--danger)" } : null) }}
                         />
                         {bad && issueText && <p role="alert" style={{ ...small, margin: 0, color: "var(--danger)" }}>{issueText}</p>}
