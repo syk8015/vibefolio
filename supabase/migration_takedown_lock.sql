@@ -25,10 +25,12 @@ drop policy if exists "정지된 명함 숨김" on profiles;
 create policy "정지된 명함 숨김" on profiles as restrictive
   for select using (suspended_at is null or auth.uid() = id);
 
+-- security invoker(기본값)여야 한다 — definer면 함수 안의 current_user가 함수 주인(postgres)이 돼
+-- 아래 "일반 세션만" 검사가 늘 빠져나가 아무것도 안 막는다(10-02 실서버 프로브로 확인).
 create or replace function guard_takedown_columns()
 returns trigger
 language plpgsql
-security definer
+security invoker
 set search_path = pg_catalog, public
 as $$
 begin
