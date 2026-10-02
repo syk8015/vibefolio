@@ -24,6 +24,7 @@ const PROBES = [
   "scripts/probe-storage-list-unit.mts",    // 삭제 경로의 폴더 나열 — 1000개 넘는 폴더도 끝까지(탈퇴 즉시 파기)
   "scripts/probe-ingest-store-unit.mts",    // zip 저장 — 동시 업로드(상한 8)·실패 뒤 늦은 업로드 없음·새 행 폴더 정리
   "scripts/probe-html-body-unit.mts",
+  "scripts/probe-intro-film-unit.mts",      // 소개 영상 — 대본 검사(두 언어·길이·예시/실측)·글자/분위기 고르기·틀에 시계/난수 없음
   "scripts/probe-handoff-unit.mts",         // 폰→컴퓨터 넘기기 — 이메일 정리·알림 창·링크에 이메일 없음       // 채팅창이 글자로 넘긴 HTML — 잘림 감지·울타리·zip 변환
   "scripts/probe-upload-sweep-unit.mts",    // 끝맺음 안 온 업로드 청소 — 하루 지난 빈 초안·임시 세션만, 파일 붙은 초안은 제외
   "scripts/probe-connect-activity-unit.mts", // 연결 창 "AI가 작업을 시작했어요" — 기준점 뒤 새 흔적만
