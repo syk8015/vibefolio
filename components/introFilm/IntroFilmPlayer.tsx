@@ -22,10 +22,12 @@ type Props = {
   showSafe?: IntroSurface | null;
   /** 재생 위치가 바뀔 때(검토 창 장면 목록·재생 막대가 따라온다). */
   onTime?: (t: number, duration: number) => void;
+  /** 워커 렌더용 — 스스로 재생하지 않고 window.__introFilm.renderAt(t)로 프레임을 하나씩 그리게 한다. */
+  capture?: boolean;
   ref?: Ref<IntroFilmHandle>;
 };
 
-export default function IntroFilmPlayer({ film, locale, title, className, fit = "cover", showSafe = null, onTime, ref }: Props) {
+export default function IntroFilmPlayer({ film, locale, title, className, fit = "cover", showSafe = null, onTime, capture = false, ref }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
   const filmRef = useRef<Film | null>(null);
   const clock = useRef({ t0: 0, pausedAt: null as number | null, visible: true, lastT: 0 });
@@ -49,6 +51,10 @@ export default function IntroFilmPlayer({ film, locale, title, className, fit = 
         locale, idPrefix: `nf${uid}`, fontMap: INTRO_FONT_MAP, showSafe,
       });
       seek(keep);
+      if (capture) {
+        const f = filmRef.current;
+        (window as unknown as { __introFilm?: unknown }).__introFilm = { duration: f.duration, renderAt: (t: number) => f.render(t) };
+      }
       setReady(true);
     })();
     return () => { cancelled = true; };
@@ -73,7 +79,7 @@ export default function IntroFilmPlayer({ film, locale, title, className, fit = 
 
   // 재생 루프 — 보일 때만.
   useEffect(() => {
-    if (!ready) return;
+    if (!ready || capture) return;
     const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
     if (reduce) { clock.current.pausedAt = Math.min(3.2, (filmRef.current?.duration ?? 4) - 0.1); }
     let raf = 0;
@@ -97,7 +103,7 @@ export default function IntroFilmPlayer({ film, locale, title, className, fit = 
     });
     if (svgRef.current) io.observe(svgRef.current);
     return () => { cancelAnimationFrame(raf); io.disconnect(); };
-  }, [ready]);
+  }, [ready, capture]);
 
   if (!valid) return null;
   return (

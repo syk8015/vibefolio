@@ -25,6 +25,7 @@ import { filmPlan, normalizeAppLanguages, normalizeLocale } from "../lib/workLan
 import { AnalyticsEvent } from "../lib/analytics-events";
 import type { DemoFailureCode } from "../lib/demo-failure";
 import { apiPost, apiPostQuiet } from "./api";
+import { renderNextIntro } from "./intro-render";
 import {
   CreditExhaustedError, TransientApiError,
   BuildFailedError, NotAWebappError, BlankCaptureError,
@@ -433,6 +434,13 @@ while (!stopping) {
     busy = false;
     continue; // drain the queue before idling again
   }
+  // 소개 영상 파일(2026-10-02) — 촬영 대기열이 비면 낡은 소개 영상을 하나씩 만든다(돈이 드는 촬영이 아니라
+  // 우리 틀을 찍는 일이라 할당량과 따로). 실패해도 워커는 계속 돈다.
+  const introDid = await renderNextIntro().catch((err) => {
+    console.error(`[intro] claim failed (non-fatal): ${err instanceof Error ? err.message : err}`);
+    return false;
+  });
+  if (introDid) continue;
   if (BATCH_MODE) break; // queue empty — batch done
   await new Promise((r) => setTimeout(r, POLL_MS));
 }

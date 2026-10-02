@@ -132,8 +132,9 @@ interface DBProject {
   link_unverified?: boolean | null;
   // 링크 순찰 결과(lib/linkPatrol.ts) — 딴 곳으로 넘김·죽음·위험 목록이면 값이 있다.
   link_state?: string | null;
-  // 소개 영상 대본(2026-10-02, migration_intro_film.sql) — 공개 칸.
+  // 소개 영상 대본(2026-10-02, migration_intro_film.sql) — 공개 칸. intro_render = 워커가 만든 파일(폰·썸네일용).
   intro_film?: unknown;
+  intro_render?: { videos?: Record<string, string>; posters?: Record<string, string> } | null;
 }
 
 export default async function UserPortfolioPage({
@@ -171,6 +172,10 @@ export default async function UserPortfolioPage({
   ]);
 
   // 보는 사람 언어로 고른다(작품 두 언어) — 글·영상·자막. 한 언어로만 올라간 작품은 그대로.
+  // 소개 영상 파일(워커가 만든 mp4) — 폰 명함은 동결 중이라 기존 영상 경로(demoVideoUrl·poster)로 보여준다.
+  // PC 무대는 대본을 그 자리에서 그리므로 이 파일을 쓰지 않는다. 파일이 아직 없으면 지금처럼 썸네일.
+  const introFile = (p: DBProject, key: "videos" | "posters") =>
+    p.intro_film ? p.intro_render?.[key]?.[locale] ?? p.intro_render?.[key]?.en : undefined;
   const projects: Project[] = dbProjects.map((p) => ({ p, v: localizeWork(p, locale) })).map(({ p, v }, i) => ({
     id: i + 1,
     watchId: p.id,
@@ -189,14 +194,14 @@ export default async function UserPortfolioPage({
     // Re-records overwrite the same storage path (upsert), so the URL is
     // stable and browsers serve a stale cached copy. Version the URL by the
     // generation time so every re-record is a fresh fetch.
-    demoVideoUrl: v.demoVideoUrl
+    demoVideoUrl: introFile(p, "videos") ?? (v.demoVideoUrl
       ? p.demo_generated_at
         ? `${v.demoVideoUrl}?v=${encodeURIComponent(p.demo_generated_at)}`
         : v.demoVideoUrl
-      : undefined,
+      : undefined),
     // 영상의 첫 프레임 포스터(R2, demo-{ts}.mp4 → poster-{ts}.jpg 규약).
     // 컬럼이 아니라 유도값이라 파일이 없을 수 있다 — 소비 측에서 thumbnail 폴백.
-    poster: posterFromDemo(v.demoVideoUrl, p.demo_generated_at),
+    poster: introFile(p, "posters") ?? posterFromDemo(v.demoVideoUrl, p.demo_generated_at),
     ...(v.captions ? { captions: v.captions } : {}),
     // 틀린 대본(사용자 키로 직접 고친 값 등)은 그리지 않는다 — 촬영본·썸네일로 내려간다.
     ...(p.intro_film && !introFilmIssue(p.intro_film)
