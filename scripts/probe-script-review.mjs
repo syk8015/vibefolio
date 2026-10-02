@@ -4,8 +4,8 @@
 // 하나도 안 맞으면 확인 불가로 답하나 · 영상 동봉이면 없나 · 초안 PATCH에도 붙나"를 본다.
 //
 // 픽스처 = 소넷5가 09-03 밤에 실제로 보낸 모양(6스텝·조작 1) — 게이트는 통과하지만
-// 점검표가 "조작 적음"을 짚어야 한다. 진입 URL은 example.com(정적 HTML: h1·p·a[href]
-// 있음, id·script 없음). 같은 URL 재푸시=upsert라 판마다 쿼리로 URL을 갈라 새 행을 만든다.
+// 점검표가 "조작 적음"을 짚어야 한다. 진입 URL은 우리 고정 페이지 public/probe-fixtures/static-page.html(정적 HTML: h1·p·a[href]
+// 있음, id·script 없음 — 옛 example.com 뼈대. example.com은 2026-10에 바뀌어 기준으로 못 쓴다). 같은 URL 재푸시=upsert라 판마다 쿼리로 URL을 갈라 새 행을 만든다.
 //
 // 사용: 레포 루트에서 `node scripts/probe-script-review.mjs`
 // 주의: ingest 발행 버킷(20/h) 2회 + 관리 버킷 2회 소비. 서비스롤 키는 키체인(_secrets.mjs).
@@ -15,6 +15,7 @@ import { createClient } from "@supabase/supabase-js";
 import { createHash, randomBytes } from "node:crypto";
 
 const ORIGIN = process.env.PROBE_ORIGIN ?? "https://nookframe.com";
+const FIXTURE = `${ORIGIN}/probe-fixtures/static-page.html`;
 const svc = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, {
   auth: { persistSession: false },
 });
@@ -57,7 +58,7 @@ const patch = async (id, body) => {
 };
 
 // 소넷5 모양: 6스텝, focus 5 + click 1, 셀렉터 5개, expect 전부. 4번 click까지가 로봇의
-// 첫 화면 — example.com에 있는 것(h1·a[href]) 2개 + 없는 것(#nope-xyz·.no-such-class) 2개.
+// 첫 화면 — 고정 페이지에 있는 것(h1·a[href]) 2개 + 없는 것(#nope-xyz·.no-such-class) 2개.
 // click 뒤 스텝의 없는 셀렉터(#after-click-panel)는 다른 화면일 수 있으니 "없음"에 들면 안 된다.
 const SONNET_LIKE = {
   steps: [
@@ -82,7 +83,7 @@ const UNVERIFIABLE_HINT = "not an error";
 
 try {
   // ───────── ① 발행 응답에 점검표 ─────────
-  const a = await post({ ...BASE, title: `__probe_review_a_${run}__`, deployUrl: `https://example.com/?probe=${run}-a`, demoScript: SONNET_LIKE });
+  const a = await post({ ...BASE, title: `__probe_review_a_${run}__`, deployUrl: `${FIXTURE}?probe=${run}-a`, demoScript: SONNET_LIKE });
   ok("소넷 모양 대본 → 200(게이트 통과)", a.status === 200, `status ${a.status} ${JSON.stringify(a.body).slice(0, 160)}`);
   const rv = a.body?.accepted?.scriptReview;
   ok("accepted.scriptReview 있음", !!rv, JSON.stringify(rv ?? a.body).slice(0, 300));
@@ -94,7 +95,7 @@ try {
   ok("첫 화면 셀렉터 4개만 판정·2개 찾음(h1·a[href])", sel?.checked === 4 && sel?.found === 2, `checked ${sel?.checked} found ${sel?.found}`);
   ok("첫 화면의 없는 셀렉터 2개를 정확히 짚음", Array.isArray(sel?.missing) && sel.missing.join("|") === "#nope-xyz|.no-such-class", JSON.stringify(sel?.missing));
   ok("click 뒤 셀렉터는 later로만 실림(없음에 안 듦)", Array.isArray(sel?.later) && sel.later.join("|") === "#after-click-panel", JSON.stringify(sel?.later));
-  ok("probe url = 진입 URL(demoAccess 합성)", typeof sel?.url === "string" && sel.url.startsWith("https://example.com/?probe="), sel?.url);
+  ok("probe url = 진입 URL(demoAccess 합성)", typeof sel?.url === "string" && sel.url.startsWith(`${FIXTURE}?probe=`), sel?.url);
   const hints = rv?.hints ?? [];
   ok("hints: 조작 적음", hints.some((h) => h.includes("actually interact")), hints.join(" | ").slice(0, 200));
   ok("hints: 첫 화면 누락만 짚고 뒤 화면 셀렉터는 안 짚음",
@@ -153,7 +154,7 @@ try {
   }
 
   // ───────── ④ 영상 동봉 = 자동 촬영 없음 → 점검표 없음 ─────────
-  const v = await post({ ...BASE, title: `__probe_review_v_${run}__`, deployUrl: `https://example.com/?probe=${run}-v`, uploads: ["video"] });
+  const v = await post({ ...BASE, title: `__probe_review_v_${run}__`, deployUrl: `${FIXTURE}?probe=${run}-v`, uploads: ["video"] });
   ok("영상 동봉 → 200", v.status === 200, `status ${v.status}`);
   ok("영상 동봉 → scriptReview 없음", v.body?.accepted && !("scriptReview" in v.body.accepted), JSON.stringify(Object.keys(v.body?.accepted ?? {})));
 } finally {
