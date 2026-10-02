@@ -26,6 +26,13 @@ const SECURITY_HEADERS = [
 ];
 
 const nextConfig: NextConfig = {
+  // Turbopack 빌드 캐시(.next/cache/turbopack)를 끈다(2026-10-02). Vercel이 이전 배포의 캐시를 되살린 빌드에서
+  // globals.css를 고쳤는데도 옛 CSS가 그대로 나갔다(a129aee — 새 규칙 1개만 빠지고 화면 코드는 새 것).
+  // 같은 순서를 로컬에서 되풀이하면 멀쩡해서 언제 또 생길지 모른다 — 빌드가 조금 느려지는 편이
+  // 고친 스타일이 조용히 안 나가는 것보다 낫다.
+  experimental: {
+    turbopackFileSystemCacheForBuild: false,
+  },
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "*.supabase.co" },
