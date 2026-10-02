@@ -21,12 +21,12 @@ const ok = (name, pass, detail = "") => {
   if (!pass) failed++;
 };
 const rnd = () => Array.from({ length: 4 }, () => Math.floor(Math.random() * 223) + 1).join(".");
-const hit = (username, spoof = false) =>
+const hit = (username, spoof = false, ua = "nfprobe-track") =>
   fetch(`${ORIGIN}/api/track`, {
     method: "POST",
     headers: {
       "content-type": "application/json",
-      "user-agent": "nfprobe-track",
+      "user-agent": ua,
       ...(spoof ? { "x-forwarded-for": rnd(), "x-real-ip": rnd(), "x-vercel-forwarded-for": rnd() } : {}),
     },
     body: JSON.stringify({ username, referrer: "nfprobe" }),
@@ -50,6 +50,7 @@ try {
   const b = await makeUser("b");
   const c = await makeUser("c");
   const d = await makeUser("d");
+  const e = await makeUser("e");
 
   // (1) 같은 명함 연달아 25번
   const seq = [];
@@ -76,6 +77,18 @@ try {
   const par = await Promise.all(Array.from({ length: 25 }, () => hit(d.username)));
   const nD = await rows(d.id);
   ok("새 명함에 동시에 25번 → 기록 1줄", nD === 1, `기록=${nD} 응답 ok=${par.filter((x) => x.ok === true).length}`);
+
+  // (6) 사람 브라우저가 아닌 UA(curl·봇)는 안 센다(10-02). 같은 명함에 보통 UA로 다시 치면 1줄 —
+  //     IP 창 때문에 0줄이 된 게 아니라는 확인.
+  console.log("- 1분 기다렸다가 봇 UA 검사…");
+  await new Promise((r) => setTimeout(r, 62_000));
+  await hit(e.username, false, "curl/8.7.1");
+  await hit(e.username, false, "Mozilla/5.0 (compatible; Googlebot/2.1)");
+  const nBot = await rows(e.id);
+  ok("curl·봇 UA는 기록 0줄", nBot === 0, `기록=${nBot}`);
+  await hit(e.username);
+  const nE = await rows(e.id);
+  ok("같은 명함을 보통 UA로 치면 1줄", nE === 1, `기록=${nE}`);
 } finally {
   for (const id of users) {
     await svc.from("portfolio_views").delete().eq("profile_id", id);

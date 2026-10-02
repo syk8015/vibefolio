@@ -34,6 +34,9 @@ export async function rateLimit(opts: {
   key: string;
   windowSeconds: number;
   max: number;
+  /** true면 한도기 자체가 고장 났을 때 막는다(기본은 연다). 막혀도 사용자 흐름이 안 깨지는
+   *  곳(방문 기록)만 쓴다 — 고장 난 사이 조회수 부풀리기가 무제한이 되지 않게(2026-10-02). */
+  failClosed?: boolean;
 }): Promise<boolean> {
   try {
     const admin = createAdminClient();
@@ -43,12 +46,12 @@ export async function rateLimit(opts: {
       p_max: opts.max,
     });
     if (error) {
-      logger.error("rate-limit: rl_touch failed (allowing)", { error, name: opts.name });
-      return true;
+      logger.error(`rate-limit: rl_touch failed (${opts.failClosed ? "blocking" : "allowing"})`, { error, name: opts.name });
+      return !opts.failClosed;
     }
     return data === true;
   } catch (err) {
-    logger.error("rate-limit: rl_touch threw (allowing)", { error: err, name: opts.name });
-    return true;
+    logger.error(`rate-limit: rl_touch threw (${opts.failClosed ? "blocking" : "allowing"})`, { error: err, name: opts.name });
+    return !opts.failClosed;
   }
 }

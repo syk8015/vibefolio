@@ -13,7 +13,7 @@ const MAX_IDS = 200;
 // 마이그레이션 전 디그레이드(2026-09-29): 나중에 생긴 비공개 칸(주인 인터뷰)은 그 SQL을
 // 돌리기 전엔 DB에 없다. 칸 하나 때문에 select 전체가 실패하면 대본·로그인 답까지 못 받아
 // 초안 검토 창이 "대본 없음"으로 거짓말을 한다 — 없는 칸만 빼고 다시 묻는다.
-const LATE_PRIVATE_COLUMNS = ["owner_interview", "owner_interview_confirmed_at"];
+const LATE_PRIVATE_COLUMNS = ["owner_interview", "owner_interview_confirmed_at", "taken_down_at"];
 
 // GET /api/projects/private[?ids=a,b] — 로그인한 주인의 작품들의 비공개 칸
 // (lib/projectColumns.ts PRIVATE_PROJECT_COLUMNS). 이 칸들은 사용자 키로 SELECT가 막혀

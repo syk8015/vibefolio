@@ -68,6 +68,8 @@ export const PRIVATE_PROJECT_COLUMNS = [
   "link_checked_at",
   "link_baseline_host",
   "link_fail_since",
+  // 신고 내리기 잠금(2026-10-02, migration_takedown_lock.sql) — 값이 있으면 주인 키로 다시 공개 못 함.
+  "taken_down_at",
 ] as const;
 
 export type PrivateProjectColumn = (typeof PRIVATE_PROJECT_COLUMNS)[number];

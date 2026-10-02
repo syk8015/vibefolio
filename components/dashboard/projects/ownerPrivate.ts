@@ -35,6 +35,7 @@ const EMPTY_PRIVATE: Pick<DBProject, PrivateProjectColumn> = {
   link_checked_at: null,
   link_baseline_host: null,
   link_fail_since: null,
+  taken_down_at: null,
 };
 
 // 라우트의 ?ids= 상한(app/api/projects/private MAX_IDS). 넘으면 ids 없이 전부 받는다.

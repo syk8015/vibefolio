@@ -220,6 +220,7 @@ export const en: Dictionary = {
     heldNotice: "Moved to the admin approval queue.",
     rerecordFailed: "Re-record request failed",
     publishFailed: "Couldn't publish. Please try again shortly.",
+    publishTakenDown: "This work was taken down after a report review, so it can't be published again. Reply to the email we sent and we'll take another look.",
     publishedDemoStartFailed: "Published, but couldn't start the auto demo — you can retry from its card.",
     publishedDemoRequestFailed: "Published, but the auto demo request didn't go through — you can retry from its card.",
     rerecordSent: "Re-record request sent. It'll be re-shot after admin approval.",
@@ -1131,6 +1132,8 @@ export const en: Dictionary = {
     takedownReason: (reason: string) => `Reported for: ${reason}`,
     takedownAppeal: "If you disagree with this, reply to this email or write to vivestarter@gmail.com and we will take another look.",
     takedownCta: "Open dashboard",
+    profileTakedownSubject: (handle: string) => `Your page was made private — ${handle}`,
+    profileTakedownBody: (handleHtml: string) => `We received a report and, after review, made your page ${handleHtml} and its public works private. Your works and files are untouched and still in your dashboard.`,
     declinedSubject: (title: string) => `Your demo request wasn't approved — ${title}`,
     declinedBody: (titleHtml: string) => `We reviewed the demo request for ${titleHtml} and decided not to film it this time.`,
     declinedRerecordBody: (titleHtml: string) =>

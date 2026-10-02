@@ -22,11 +22,10 @@ import { revalidatePortfolio } from "@/lib/revalidatePortfolio";
 // 작업물을 잃지 않는다(약관이 재검토 요청을 보장한다) ⓒ 파일도 그대로 남아
 // 소유자는 대시보드에서 계속 본다.
 //
-// ⚠️ 한계(의도된 v1): 소유자가 다시 공개하면 되돌아온다. 재공개를 막으려면 새
-// 컬럼이 필요한데, 관리자가 1명인 지금은 재신고로 충분하다. 반복되면 계정 삭제가
-// 다음 수단이다.
-// ⚠️ profile 신고는 내릴 수 없다 — 프로필을 숨기는 컬럼이 없다. 사칭 등은 개별
-// 판단 후 계정 조치가 맞아, 가짜 버튼을 두는 대신 UI에서 비활성한다.
+// 잠금(2026-10-02, migration_takedown_lock.sql): 내린 작품엔 taken_down_at을 찍어 주인이
+// [공개]를 다시 눌러도 트리거가 막는다. 프로필 신고는 명함 정지(profiles.suspended_at — 주인
+// 말고는 안 보임) + 그 사람의 공개 작품 전부 내리기. 풀기는 SQL 파일 머리의 두 줄.
+// SQL 적용 전이면 칸이 없다 → 작품은 옛 방식(is_draft만)으로 내리고, 명함 정지는 409로 알린다.
 
 const REASON_LABEL: Record<string, { ko: string; en: string }> = {
   spam: { ko: "스팸/광고", en: "spam or advertising" },
@@ -74,63 +73,14 @@ export async function POST(
     //    신고만 닫히면 유해물이 공개된 채 인박스에서 사라진다.
     let takenDown = false;
     if (action === "takedown") {
-      if (report.target_type !== "project") {
-        return apiError({
-          status: 400,
-          message: "프로필 신고는 내리기로 처리할 수 없어요 — 개별 판단이 필요해요.",
-          code: "TARGET_NOT_SUPPORTED",
-        });
-      }
-      const { data: project, error: projErr } = await admin
-        .from("projects")
-        .select("id, user_id, title, is_draft")
-        .eq("id", report.target_id)
-        .maybeSingle();
-      if (projErr) {
-        return apiError({
-          status: 500, message: "작품을 불러오지 못했어요.", code: "DB_READ_FAILED",
-          cause: projErr, context: { reportId: id },
-        });
-      }
-      if (!project) {
-        // 이미 지워진 작품 — 내릴 게 없으니 신고만 닫는다.
-        logger.info("report takedown: target already gone", { reportId: id, targetId: report.target_id });
+      if (report.target_type === "profile") {
+        const res = await suspendProfile(admin, report.target_id, report.reason, id);
+        if (res instanceof NextResponse) return res;
+        takenDown = res;
       } else {
-        if (!project.is_draft) {
-          const { error: updErr } = await admin
-            .from("projects")
-            .update({ is_draft: true })
-            .eq("id", project.id);
-          if (updErr) {
-            return apiError({
-              status: 500, message: "작품을 내리지 못했어요.", code: "TAKEDOWN_FAILED",
-              cause: updErr, context: { reportId: id, projectId: project.id },
-            });
-          }
-          takenDown = true;
-          // 내린 작품이 캐시로 1분간 공개 화면에 남지 않게.
-          revalidatePortfolio();
-        }
-        // 소유자 통지 — 조용히 사라지면 "내 작품이 왜 없어졌지"가 된다.
-        // 메일 실패가 조치를 되돌리지는 않는다(로그로 남긴다).
-        if (takenDown && isEmailConfigured()) {
-          try {
-            const { data: authUser } = await admin.auth.admin.getUserById(project.user_id);
-            const to = authUser?.user?.email;
-            if (to) {
-              const locale = await recipientLocale(admin, project.user_id);
-              const label = REASON_LABEL[report.reason]?.[locale === "en" ? "en" : "ko"] ?? report.reason;
-              const mail = takedownEmail({
-                projectTitle: project.title || getDictionary(locale).email.untitledProject,
-                reasonLabel: label,
-                locale,
-              });
-              await sendEmail({ to, subject: mail.subject, html: mail.html });
-            }
-          } catch (e) {
-            logger.error("report takedown: owner email failed", { error: e, reportId: id });
-          }
-        }
+        const res = await takeDownProject(admin, report.target_id, report.reason, id);
+        if (res instanceof NextResponse) return res;
+        takenDown = res;
       }
     }
 
@@ -164,4 +114,117 @@ export async function POST(
       cause: err,
     });
   }
+}
+
+type Admin = ReturnType<typeof createAdminClient>;
+
+// 작품 내리기 — 초안으로 + 잠금(taken_down_at). 이미 초안이어도 잠근다: 주인이 스스로 숨겨 둔
+// 신고 작품을 나중에 다시 공개하지 못하게. 메일은 실제로 공개에서 내렸을 때만.
+async function takeDownProject(admin: Admin, projectId: string, reason: string, reportId: string): Promise<boolean | NextResponse> {
+  const { data: project, error: projErr } = await admin
+    .from("projects")
+    .select("id, user_id, title, is_draft")
+    .eq("id", projectId)
+    .maybeSingle();
+  if (projErr) {
+    return apiError({
+      status: 500, message: "작품을 불러오지 못했어요.", code: "DB_READ_FAILED",
+      cause: projErr, context: { reportId },
+    });
+  }
+  if (!project) {
+    // 이미 지워진 작품 — 내릴 게 없으니 신고만 닫는다.
+    logger.info("report takedown: target already gone", { reportId, targetId: projectId });
+    return false;
+  }
+
+  let { error: updErr } = await admin
+    .from("projects")
+    .update({ is_draft: true, taken_down_at: new Date().toISOString() })
+    .eq("id", project.id);
+  if (updErr && isMissingColumn(updErr, "taken_down_at")) {
+    ({ error: updErr } = await admin.from("projects").update({ is_draft: true }).eq("id", project.id));
+  }
+  if (updErr) {
+    return apiError({
+      status: 500, message: "작품을 내리지 못했어요.", code: "TAKEDOWN_FAILED",
+      cause: updErr, context: { reportId, projectId: project.id },
+    });
+  }
+  if (project.is_draft) return false;
+
+  // 내린 작품이 캐시로 1분간 공개 화면에 남지 않게.
+  revalidatePortfolio();
+  // 소유자 통지 — 조용히 사라지면 "내 작품이 왜 없어졌지"가 된다.
+  // 메일 실패가 조치를 되돌리지는 않는다(로그로 남긴다).
+  if (isEmailConfigured()) {
+    try {
+      const { data: authUser } = await admin.auth.admin.getUserById(project.user_id);
+      const to = authUser?.user?.email;
+      if (to) {
+        const locale = await recipientLocale(admin, project.user_id);
+        const label = REASON_LABEL[reason]?.[locale === "en" ? "en" : "ko"] ?? reason;
+        const mail = takedownEmail({
+          projectTitle: project.title || getDictionary(locale).email.untitledProject,
+          reasonLabel: label,
+          locale,
+        });
+        await sendEmail({ to, subject: mail.subject, html: mail.html });
+      }
+    } catch (e) {
+      logger.error("report takedown: owner email failed", { error: e, reportId });
+    }
+  }
+  return true;
+}
+
+function isMissingColumn(err: { code?: string; message?: string }, col: string): boolean {
+  return (err.code === "42703" || err.code === "PGRST204") && (err.message ?? "").includes(col);
+}
+
+// 명함 정지 — 정지 표시 → 공개 작품 전부 초안 + 잠금 → 주인 메일. 정지를 먼저 찍는다: 그 순간부터
+// 트리거가 새 공개를 막으므로, 작품을 내리는 사이에 주인이 하나 더 공개하는 틈이 없다.
+async function suspendProfile(admin: Admin, profileId: string, reason: string, reportId: string): Promise<boolean | NextResponse> {
+  const now = new Date().toISOString();
+  const { data: prof, error: profErr } = await admin
+    .from("profiles")
+    .update({ suspended_at: now })
+    .eq("id", profileId)
+    .select("id, username")
+    .maybeSingle();
+  if (profErr && isMissingColumn(profErr, "suspended_at")) {
+    return apiError({
+      status: 409, message: "명함 정지 SQL(migration_takedown_lock.sql)을 먼저 적용해 주세요.", code: "MIGRATION_PENDING",
+    });
+  }
+  if (profErr) {
+    return apiError({ status: 500, message: "명함을 내리지 못했어요.", code: "TAKEDOWN_FAILED", cause: profErr, context: { reportId } });
+  }
+  if (!prof) return false; // 이미 탈퇴한 사람
+
+  const { error: projErr } = await admin
+    .from("projects")
+    .update({ is_draft: true, taken_down_at: now })
+    .eq("user_id", profileId)
+    .eq("is_draft", false);
+  if (projErr) {
+    return apiError({ status: 500, message: "작품을 내리지 못했어요.", code: "TAKEDOWN_FAILED", cause: projErr, context: { reportId } });
+  }
+  revalidatePortfolio();
+
+  if (isEmailConfigured()) {
+    try {
+      const { data: authUser } = await admin.auth.admin.getUserById(profileId);
+      const to = authUser?.user?.email;
+      if (to) {
+        const locale = await recipientLocale(admin, profileId);
+        const label = REASON_LABEL[reason]?.[locale === "en" ? "en" : "ko"] ?? reason;
+        const mail = takedownEmail({ projectTitle: `@${prof.username}`, reasonLabel: label, locale, target: "profile" });
+        await sendEmail({ to, subject: mail.subject, html: mail.html });
+      }
+    } catch (e) {
+      logger.error("report takedown: owner email failed", { error: e, reportId });
+    }
+  }
+  return true;
 }
