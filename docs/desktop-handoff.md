@@ -1,6 +1,6 @@
 # 폰 → 컴퓨터 넘기기 (desktop handoff) — 설계
 
-2026-09-23 확정 흐름. 조사 근거: `~/Desktop/nookframe-research/mobile-to-desktop-bridge-2026-09-23.md`
+2026-09-23 확정 흐름. 조사 근거: `~/Desktop/nookframe-작업물/nookframe-research/mobile-to-desktop-bridge-2026-09-23.md`
 (표준 = Framer·Ableton의 "Email me a link" 칸 하나).
 
 ## 왜

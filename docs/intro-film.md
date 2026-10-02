@@ -1,7 +1,7 @@
 # 소개 영상 (Intro Film) — 설계와 작업 계획
 
 > 상태: **1~6단계 배포됨 (2026-10-02)** — 엔진·입구(ingest·초안 PATCH)·명함 PC/작품 페이지 재생·검토 창 고르기·워커 mp4·AI 안내. 온습도계를 대본 방식으로 옮겨 실서버 확인. 남은 것: 공개된 작품의 스타일 바꾸기 화면, claudeusage·ClaudeHelp 실제 올리기, CLI 0.1.24 npm 배포(사용자). 조사 원본은 레포 밖
-> `~/Desktop/nookframe-research-2026-09-28/arch-2026-10-01/` (A·B·C + SYNTHESIS).
+> `~/Desktop/nookframe-작업물/nookframe-research-2026-09-28/arch-2026-10-01/` (A·B·C + SYNTHESIS).
 
 ## 한 줄
 
