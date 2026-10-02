@@ -7,6 +7,8 @@
 // 천천히 숨 쉰다 — 움직임 줄이기 설정이면 멈춘 테) · done = 끝(잉크로 채운 원 + ✓) · err = 실패(빨간 테).
 // 이음선은 끝난 칸 뒤로만 잉크 실선, 나머지는 점선.
 
+import { useT } from "@/lib/i18n/client";
+
 export type JourneyState = "todo" | "now" | "wait" | "done" | "err";
 export type JourneyIcon = "copy" | "upload" | "paste" | "link" | "frame";
 export interface JourneyStep {
@@ -74,6 +76,9 @@ const INK: Record<JourneyState, React.CSSProperties> = {
 };
 
 export function JourneyStrip({ label, steps }: { label: string; steps: JourneyStep[] }) {
+  const { t } = useT();
+  // ✓·빨간 테·숨 쉬는 테는 눈에만 보이니, 화면 읽기 프로그램에는 이름 뒤에 상태를 말로 붙인다.
+  const spoken: Partial<Record<JourneyState, string>> = { done: t.common.stepDone, err: t.common.stepFailed, wait: t.common.stepWaiting };
   return (
     <div className="relative self-center w-full" style={{ maxWidth: 456, marginTop: 2 }}>
       {/* 이음선 — 칸 가운데에서 다음 칸 가운데까지. 원(z 1)이 그 위를 덮는다. */}
@@ -110,7 +115,10 @@ export function JourneyStrip({ label, steps }: { label: string; steps: JourneySt
                 )}
               </span>
             </span>
-            <span style={{ fontFamily: "var(--font-nunito)", fontSize: "0.8125rem", lineHeight: 1.3, ...INK[step.state] }}>{step.label}</span>
+            <span style={{ fontFamily: "var(--font-nunito)", fontSize: "0.8125rem", lineHeight: 1.3, ...INK[step.state] }}>
+              {step.label}
+              {spoken[step.state] && <span className="sr-only"> ({spoken[step.state]})</span>}
+            </span>
           </li>
         ))}
       </ol>

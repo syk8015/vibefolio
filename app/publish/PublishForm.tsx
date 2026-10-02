@@ -50,6 +50,7 @@ function PublishTrail({ step }: { step: 2 | 3 }) {
                 {state === "done" ? <StepCheckIcon size={11} /> : n}
               </span>
               {label}
+              {state === "done" && <span className="sr-only"> ({t.common.stepDone})</span>}
             </span>
           </Fragment>
         );

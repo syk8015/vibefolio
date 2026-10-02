@@ -1,6 +1,7 @@
 "use client";
 
 import type { CSSProperties } from "react";
+import { useT } from "@/lib/i18n/client";
 
 // 초안 검토 창 버튼 위의 작은 세 단계 "공개 → 촬영 → 명함에 영상"(2026-10-01 업그레이드).
 // 공개 전엔 1단계만 진하게, 공개한 뒤엔 "공개 ✓ → 촬영 대기 중"으로 바뀌어 "촬영을 요청했어요" 문장을 대신한다.
@@ -9,6 +10,7 @@ export type TrailState = "cur" | "done" | "wait" | "todo";
 export type TrailStep = { state: TrailState; label: string; title?: string };
 
 export function PublishTrail({ steps }: { steps: TrailStep[] }) {
+  const { t } = useT();
   return (
     <ol
       className="flex flex-wrap items-center justify-center"
@@ -30,7 +32,10 @@ export function PublishTrail({ steps }: { steps: TrailStep[] }) {
           )}
           <span className="inline-flex items-center" style={{ gap: 7 }}>
             <TrailDot state={s.state} n={i + 1} />
-            <span style={LABEL[s.state]}>{s.label}</span>
+            <span style={LABEL[s.state]}>
+              {s.label}
+              {s.state === "done" && <span className="sr-only"> ({t.common.stepDone})</span>}
+            </span>
           </span>
         </li>
       ))}

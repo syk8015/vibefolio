@@ -4,7 +4,7 @@ import { useId } from "react";
 import { useT } from "@/lib/i18n/client";
 import { extractPublishJson } from "@/lib/extractPublishJson";
 import { normalizeTags } from "@/lib/projectTaxonomy";
-import { AI_TOOL_PATHS } from "@/components/dashboard/aiToolPaths";
+import { AI_TOOL_MARKS as TOOL_MARK } from "@/components/dashboard/aiToolPaths";
 
 // 초안 미리보기(업그레이드, 2026-10-01 사용자 확정) — 붙여넣은 AI 답이 어떤 초안이 될지 작은 명함 카드로.
 // /publish 오른쪽 판과 연결 창의 "초안이 왔어요"가 같은 카드를 쓴다.
@@ -14,16 +14,6 @@ import { AI_TOOL_PATHS } from "@/components/dashboard/aiToolPaths";
 // 글은 읽기만 한다(extractPublishJson — 실행하지 않음). 보이는 건 주인이 쓴 기본 언어 판이다.
 
 const CARD_BG = "linear-gradient(180deg, #2a241f 0%, #1a1612 100%)";
-// 도구 칩 앞 표시 — 연결 창 칩과 같은 로고 경로(단색은 글자색, Claude만 공식 주황). 사이트 파비콘 그림을
-// 쓰지 않는 건 어두운 카드 위에서 검은 로고(ChatGPT 등)가 사라졌기 때문이다. 경로가 없는 도구는 이름만.
-const TOOL_MARK: Record<string, { d: string; fill: string }> = {
-  "Claude": { d: AI_TOOL_PATHS.claude, fill: "#D97757" },
-  "Claude Code": { d: AI_TOOL_PATHS.claude, fill: "#D97757" },
-  "ChatGPT": { d: AI_TOOL_PATHS.openai, fill: "currentColor" },
-  "Cursor": { d: AI_TOOL_PATHS.cursor, fill: "currentColor" },
-  "GitHub Copilot": { d: AI_TOOL_PATHS.copilot, fill: "currentColor" },
-  "Gemini": { d: AI_TOOL_PATHS.gemini, fill: "currentColor" },
-};
 
 /** 소개글은 줄바꿈으로 2~3줄(52칸) — 카드엔 앞의 세 줄까지. */
 export function descriptionLines(description: string | null | undefined): string[] {

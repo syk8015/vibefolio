@@ -13,6 +13,10 @@ export const ko = {
     ok: "확인",
     switchToDark: "다크 모드로 전환",
     switchToLight: "라이트 모드로 전환",
+    // 단계 표시(진행 줄)의 화면 읽기 프로그램용 상태 — 눈에 보이는 ✓·빨간 테를 말로 옮긴다.
+    stepDone: "끝남",
+    stepFailed: "실패",
+    stepWaiting: "기다리는 중",
   },
   // 랜딩(/) — 회전 카피 풀은 lib/taglines.ts·lib/loggedInTaglines.ts에 ko/en 별도
   landing: {

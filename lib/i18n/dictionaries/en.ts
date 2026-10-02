@@ -11,6 +11,9 @@ export const en: Dictionary = {
     ok: "OK",
     switchToDark: "Switch to dark mode",
     switchToLight: "Switch to light mode",
+    stepDone: "done",
+    stepFailed: "failed",
+    stepWaiting: "waiting",
   },
   landing: {
     login: "Log in",

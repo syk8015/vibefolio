@@ -1289,3 +1289,13 @@ locale도 언어별(en = "The live portfolio for vibe coders. Show your projects
 | settings.logoutAllBody | ~~폰·컴퓨터 등 로그인된 기기에서 모두 나가요.~~ | ~~Signs you out on every phone and computer.~~ | 삭제 |
 | visits.last7 | ~~최근 7일~~ | ~~Last 7 days~~ | 삭제 |
 | theater.upNextLabel | ~~상영 목록 · Up Next~~ | ~~Up Next~~ | 삭제 |
+
+## 덜어내기 2차 마무리 — 단계 표시 화면 읽기 상태 (2026-10-02)
+
+진행 줄(연결 창·/publish·초안 검토 창)의 ✓·빨간 테는 눈에만 보여서, 화면 읽기 프로그램에 이름 뒤 괄호로 읽힌다.
+
+| 키 | 한국어 | English | 비고 |
+|---|---|---|---|
+| common.stepDone | 끝남 | done | 숨김 글(sr-only) |
+| common.stepFailed | 실패 | failed | 숨김 글(sr-only) — 연결 창만 |
+| common.stepWaiting | 기다리는 중 | waiting | 숨김 글(sr-only) — 연결 창만 |
