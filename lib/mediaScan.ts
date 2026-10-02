@@ -170,7 +170,7 @@ export function verdictFromOpenAI(result: unknown): Verdict {
   return { verdict: "flag", categories, reason: `OpenAI 무료 검사가 걸었어요: ${detail}` };
 }
 
-async function classifyWithOpenAI(item: MediaItem): Promise<Verdict> {
+export async function classifyWithOpenAI(item: MediaItem): Promise<Verdict> {
   const img = await fetchImage(item.url);
   const res = await fetch("https://api.openai.com/v1/moderations", {
     method: "POST",
