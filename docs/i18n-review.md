@@ -1357,3 +1357,5 @@ locale도 언어별(en = "The live portfolio for vibe coders. Show your projects
 | api.descriptionShape | … 소개글은 3줄까지예요. / 소개글은 프레임에서 작품 바로 아래 뜨는 첫인상 글이라 … 써야 해요. | … Keep it to 3 lines at most. / The description is the first thing people read, right under the work on your frame … | ⚠️ 교체 · 2차 덜어내기 뒤로 소개글은 작품 위가 아니라 바로 아래 · 합니다체 → 해요체 |
 | api.publishedTwin | (그대로) | … would put the same work on their frame twice … | 교체 · public card → frame |
 | auth 등 7곳 | (그대로) | Sign in → Log in | ⚠️ 영어 통일 — Log out과 짝. "Log in with a password", "Back to log in", "Please log in first", "You can now log in with {p} too" 등 |
+| share.copyX | X 글 복사 | Copy X post | 교체 · 전엔 "X 공유문구 복사". 복사되는 본문이 작품 먼저(이름 — 소개 첫 문장)로 바뀜, 주소는 빠짐 (10-04) |
+| share.copyXReply | 답글에 붙일 링크 복사 | Copy link for your reply | ⚠️ 새 키 · X 글을 복사한 뒤 같은 버튼이 이 이름으로 바뀜. X가 본문 링크를 덜 보여 줘서 주소는 답글로 (10-04) |

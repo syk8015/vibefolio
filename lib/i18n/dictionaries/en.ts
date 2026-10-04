@@ -713,6 +713,7 @@ export const en: Dictionary = {
     copyWatch: "Copy project link",
     copyFailed: "Copying was blocked. Press and hold the text below to copy it yourself.",
     copyX: "Copy X post",
+    copyXReply: "Copy link for your reply",
     downloadMp4: "Download mp4",
   },
   rerecord: {

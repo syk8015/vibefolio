@@ -814,7 +814,8 @@ export const ko = {
     copiedFlash: "복사됨!",
     copyWatch: "작품 링크 복사",
     copyFailed: "복사가 막혔어요. 아래 글을 길게 눌러 직접 복사해 주세요.",
-    copyX: "X 공유문구 복사",
+    copyX: "X 글 복사",
+    copyXReply: "답글에 붙일 링크 복사",
     downloadMp4: "mp4 다운로드",
   },
   rerecord: {

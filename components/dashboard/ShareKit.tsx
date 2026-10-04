@@ -10,13 +10,22 @@ import { popoverAnchor, type PopoverAnchor } from "./projects/helpers";
 // Per-project share affordance, shown in the dashboard row once a video exists
 // (the auto-filmed one, or the owner's own directly playable upload).
 // A single button opens a small popover with three actions: copy the watch link,
-// copy an X post (English — the mp4 is the viral carrier and X wants native
-// uploads), and download the mp4. UI labels stay Korean; only the copied text is
-// English.
+// copy an X post, and download the mp4 (X wants native uploads).
+// X 글은 작품이 먼저다(2026-10-04): 사람들은 자기를 멋있게 보이게 하는 걸 올리고,
+// 브랜드가 앞서면 안 올린다 — 본문엔 작품 이름·한 줄 소개만, 주소는 답글로
+// (X는 본문 링크를 덜 보여 준다). 같은 버튼이 본문 → 답글 주소 순으로 두 번 복사한다.
+// 조사: nookframe-작업물/nookframe-research-2026-10-03/share-why/SYNTHESIS.md
 
 function safeFileName(title: string): string {
   const cleaned = title.replace(/[^\w가-힣 .-]/g, "").trim().slice(0, 60);
   return (cleaned || "nookframe-demo") + ".mp4";
+}
+
+// 소개글 첫 문장만(길면 자른다) — X 본문은 한눈에 읽혀야 한다.
+function firstSentence(text: string, max = 200): string {
+  const t = text.replace(/\s+/g, " ").trim();
+  const cut = t.match(/^.+?[.!?。](?=\s|$)/)?.[0] ?? t;
+  return cut.length > max ? cut.slice(0, max - 1).trimEnd() + "…" : cut;
 }
 
 export default function ShareKit({
@@ -24,14 +33,16 @@ export default function ShareKit({
   projectId,
   demoVideoUrl,
   projectTitle,
-  autoFilmed = true,
+  postTitle,
+  postBlurb,
 }: {
   username: string;
   projectId: string;
   demoVideoUrl: string;
   projectTitle: string;
-  /** false면 사용자가 직접 올린 영상 — "사람이 안 찍었다" 문구를 쓰면 거짓말이 된다. */
-  autoFilmed?: boolean;
+  /** X 글에 쓸 이름·소개 — 영어판이 있으면 영어(주 대상이 영어권). */
+  postTitle: string;
+  postBlurb: string;
 }) {
   const { t } = useT();
   // 팝오버는 fixed + body 포털 — 목록 카드(vf-card overflow-hidden)가 absolute
@@ -39,6 +50,8 @@ export default function ShareKit({
   const [anchor, setAnchor] = useState<PopoverAnchor | null>(null);
   const open = anchor !== null;
   const [copied, setCopied] = useState<"link" | "x" | null>(null);
+  // X 버튼은 두 단계 — 본문을 복사하면 다음 누름은 답글에 붙일 주소.
+  const [xStep, setXStep] = useState<"post" | "reply">("post");
   // 복사가 막히면 그 글을 펼쳐 손으로 복사하게 한다(메뉴를 닫을 때까지 유지).
   const [failedText, setFailedText] = useState<string | null>(null);
 
@@ -50,17 +63,26 @@ export default function ShareKit({
   // ?via= marks share-link provenance for channel attribution (lib/traffic-source).
   // The watch route ignores unknown query params, and OG scrapers resolve fine.
   const watchShareUrl = `${watchUrl}?via=share`;
-  const xText = autoFilmed
-    ? `${projectTitle} — no human recorded this. Nookframe filmed it straight from the live app.\n\n${watchUrl}?via=x`
-    : `${projectTitle} — watch it run, then try the live app.\n\n${watchUrl}?via=x`;
+  const blurb = firstSentence(postBlurb);
+  const xPost = blurb ? `${postTitle} — ${blurb}` : postTitle;
+  const xReply = `Watch it run, then try it live: ${watchUrl}?via=x`;
 
   // 복사가 막힌 곳(인앱 브라우저 등)에서 "복사됨!"이라고 거짓말하지 않는다.
-  async function copy(which: "link" | "x", text: string, kind: string) {
+  async function copy(which: "link" | "x", text: string, kind: string): Promise<boolean> {
     const ok = await copyText(text);
-    if (!ok) { setFailedText(text); return; }
+    if (!ok) { setFailedText(text); return false; }
     setFailedText(null);
     trackClientEvent(AnalyticsEvent.ShareCopied, { projectId, kind });
     flash(which);
+    return true;
+  }
+
+  async function copyX() {
+    if (xStep === "post") {
+      if (await copy("x", xPost, "x_post")) setXStep("reply");
+    } else if (await copy("x", xReply, "x_reply")) {
+      setXStep("post");
+    }
   }
 
   function flash(which: "link" | "x") {
@@ -115,6 +137,7 @@ export default function ShareKit({
         onClick={(e) => {
           if (open) { setAnchor(null); return; }
           setFailedText(null);
+          setXStep("post");
           trackClientEvent(AnalyticsEvent.ShareOpened, { projectId });
           setAnchor(popoverAnchor(e.currentTarget.getBoundingClientRect(), { width: 220, estHeight: 140, align: "right" }));
         }}
@@ -165,12 +188,12 @@ export default function ShareKit({
             </button>
             <button
               style={itemStyle}
-              onClick={() => void copy("x", xText, "x_post")}
+              onClick={() => void copyX()}
               onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-soft)")}
               onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
             >
               <IconX />
-              {copied === "x" ? t.share.copiedFlash : t.share.copyX}
+              {copied === "x" ? t.share.copiedFlash : xStep === "post" ? t.share.copyX : t.share.copyXReply}
             </button>
             <button
               style={itemStyle}

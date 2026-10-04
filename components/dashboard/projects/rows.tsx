@@ -5,6 +5,7 @@ import ShareKit from "@/components/dashboard/ShareKit";
 import { parseDemoFailure } from "@/lib/demo-failure";
 import { detectDemoSource } from "@/lib/demoSource";
 import { detectVideoKind } from "@/lib/video";
+import { localizeWork } from "@/lib/workLanguages";
 import { placeholderThumbnail } from "@/lib/placeholder";
 import { CONTENT_TYPES } from "@/lib/projectTaxonomy";
 import { popoverAnchor, fitPopover, formatUploadedAt, type PopoverAnchor } from "./helpers";
@@ -542,6 +543,8 @@ export function ProjectRow({ project, username, demoPaused, nowMs, onDelete, onE
   // 촬영 소스는 request_demo가 돌아야 채워진다 — 공개 때 트리거가 빠졌거나
   // 실패한 행도 주소만 있으면 여기서 다시 시작할 길을 남긴다.
   const canShoot = !!project.demo_source_value || !!detectDemoSource(project.demo_url);
+  // X 글은 영어판이 있으면 영어로(주 대상이 영어권) — 없으면 원문 그대로.
+  const shareCopy = localizeWork(project, "en");
   const shareVideo = project.demo_video_url
     || (project.video_url && detectVideoKind(project.video_url) === "direct" ? project.video_url : null);
   const rerecordLabel =
@@ -669,7 +672,8 @@ export function ProjectRow({ project, username, demoPaused, nowMs, onDelete, onE
               projectId={project.id}
               demoVideoUrl={shareVideo}
               projectTitle={project.title}
-              autoFilmed={!!project.demo_video_url}
+              postTitle={shareCopy.title}
+              postBlurb={shareCopy.description}
             />
           )}
           <RowMenu
