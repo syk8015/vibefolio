@@ -37,5 +37,9 @@ export function flattenScenes(film: IntroFilm, locale: "en" | "ko"): FlatScene[]
 }
 
 export function genreWork(film: IntroFilm, locale: "en" | "ko", meta: { id: string; title: string; handle: string; accent?: string | null; alarm?: string | null }): GenreWork {
-  return { id: meta.id, title: meta.title, handle: meta.handle, locale, accent: meta.accent ?? null, alarm: meta.alarm ?? null, scenes: flattenScenes(film, locale) };
+  const scenes = flattenScenes(film, locale);
+  // 영상 속 작품 이름은 끝 장면의 name(그 언어 판)을 쓴다 — 프로젝트 제목은 한 언어뿐이라 영어 영상에 한글 제목이 찍혔다(10-05).
+  const ending = scenes.find((s) => s.kind === "ending");
+  const title = (ending?.kind === "ending" && ending.name.trim()) || meta.title;
+  return { id: meta.id, title, handle: meta.handle, locale, accent: meta.accent ?? null, alarm: meta.alarm ?? null, scenes };
 }
