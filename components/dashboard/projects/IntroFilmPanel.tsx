@@ -1,19 +1,22 @@
 "use client";
 
-// 초안 검토 창의 소개 영상 칸(2026-10-02, docs/intro-film.md) — "글자 + 분위기" 두 줄 고르기와 장면 글자 고치기.
+// 초안 검토 창의 소개 영상 칸(2026-10-02, docs/intro-film.md) — 영상 틀 고르기(10-04)와 장면 글자 고치기.
 // 장면 순서·그림 같은 큰 변경은 이 칸이 아니라 [고칠 점 적기]로 AI에게 맡긴다(09-30 결정).
 //
 // 덜어내기(10-02, 다른 화면과 같은 기준): 장면은 한 줄씩 — 번호 · 종류 · 그 장면의 글자. 지금 재생 중인 장면은
 // 옅게 칠해지고, 줄을 누르면 그 장면만 입력칸으로 펼친다(한 번에 한 장면). 펼치면 왼쪽 무대가 그 장면에 멈춰
 // 고치는 글자를 그 자리에서 보여준다(DraftReviewModal). 글자가 길거나 비면 그 칸 바로 밑에 쉬운 말 한 줄 —
 // 검사기의 영어 문장(AI용)은 보이지 않는다. 그동안 미리보기와 저장은 마지막으로 맞던 판에 머문다.
-import { INTRO_STYLE_KEYS, type IntroFilm, type IntroFilmIssue, type IntroScene, type IntroStyleKey, type Loc, type SceneKind } from "@/lib/introFilm/schema";
+import type { IntroFilm, IntroFilmIssue, IntroScene, Loc, SceneKind } from "@/lib/introFilm/schema";
+import { GENRE_IDS, recommendGenre, type GenreId } from "@/lib/introFilm/genres/ids";
 import { Segmented } from "@/components/Segmented";
 import { useT } from "@/lib/i18n/client";
 
 type Props = {
   /** 입력칸이 보여주는 판 — 틀린 글자가 들어 있을 수 있다. */
   film: IntroFilm;
+  /** 작품 id — 틀을 안 골랐을 때 보일 추천 틀. */
+  projectId: string;
   /** 지금 미리보기에 보이는 언어 — 장면 글자는 이 언어 판을 고친다. */
   locale: "en" | "ko";
   /** 지금 재생 중인 장면 */
@@ -50,12 +53,9 @@ const textOf = (sc: IntroScene, key: string, locale: "en" | "ko") => {
   return typeof v === "string" ? v : (v as Loc)[locale] ?? "";
 };
 
-const SHOW_STYLE_PICK = false;
-
-export function IntroFilmPanel({ film, locale, playing, open, issue, onOpen, onChange }: Props) {
+export function IntroFilmPanel({ film, projectId, locale, playing, open, issue, onOpen, onChange }: Props) {
   const { t } = useT();
   const tp = t.projects;
-  const setStyle = (k: "text" | "mood", v: IntroStyleKey) => onChange({ ...film, style: { ...film.style, [k]: v } });
   const setField = (i: number, key: string, v: string) => {
     const scenes = film.scenes.map((sc, j) => {
       if (j !== i) return sc;
@@ -69,25 +69,17 @@ export function IntroFilmPanel({ film, locale, playing, open, issue, onOpen, onC
   const issueText = issue?.empty ? tp.reviewIntroEmpty
     : issue?.limit != null && issue.length != null ? tp.reviewIntroTooLong(issue.limit, issue.length)
     : null;
-  const styleOptions = INTRO_STYLE_KEYS.map((s) => ({ value: s, label: tp.reviewIntroStyles[s] }));
-  const pick = (k: "text" | "mood", label: string) => (
-    <div className="flex items-center justify-between" style={{ gap: 12, flexWrap: "wrap" }}>
-      <span style={{ fontFamily: "var(--font-nunito)", fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>{label}</span>
-      <Segmented<IntroStyleKey> label={label} value={film.style[k]} options={styleOptions} onPick={(v) => setStyle(k, v)} />
-    </div>
-  );
+  const genre = film.genre ?? recommendGenre(projectId);
+  const genreOptions = GENRE_IDS.map((g) => ({ value: g, label: tp.reviewIntroGenres[g] }));
   const small: React.CSSProperties = { fontFamily: "var(--font-nunito)", fontSize: 13, lineHeight: 1.5 };
 
   return (
     <div className="flex flex-col" style={{ gap: 12 }}>
-      {/* 글자/분위기 고르기는 숨겨 둔다(10-02 사용자 결정) — 지금은 다듬은 스타일 하나(lib/introFilm/styles.ts
-          SIGNATURE_STYLE)로만 그린다. 조합을 하나씩 다듬어 열 때 이 줄을 되살린다. */}
-      {SHOW_STYLE_PICK && (
-        <div className="flex flex-col" style={{ gap: 8, padding: "0 4px" }}>
-          {pick("text", tp.reviewIntroText)}
-          {pick("mood", tp.reviewIntroMood)}
-        </div>
-      )}
+      {/* 영상 틀(10-04) — 고르면 왼쪽 무대가 바로 그 틀로 바뀐다. 안 고르면 작품마다 정해진 추천 틀. */}
+      <div className="flex items-center justify-between" style={{ gap: 12, flexWrap: "wrap", padding: "0 4px" }}>
+        <span style={{ fontFamily: "var(--font-nunito)", fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>{tp.reviewIntroGenre}</span>
+        <Segmented<GenreId> label={tp.reviewIntroGenre} value={genre} options={genreOptions} onPick={(g) => onChange({ ...film, genre: g })} />
+      </div>
       <ol className="flex flex-col" style={{ listStyle: "none", margin: 0, padding: 0, gap: 2 }}>
         {film.scenes.map((sc, i) => {
           const kind = tp.reviewIntroKinds[sc.kind];

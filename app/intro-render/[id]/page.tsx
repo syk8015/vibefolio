@@ -21,18 +21,23 @@ export default async function IntroRenderPage({
   const { id } = await params;
   const { locale: localeParam } = await searchParams;
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
-  const { data } = await createPublicClient()
+  const supabase = createPublicClient();
+  const { data } = await supabase
     .from("projects")
-    .select("id, title, intro_film")
+    .select("id, title, intro_film, user_id")
     .eq("id", id)
     .maybeSingle();
   if (!data?.intro_film || introFilmIssue(data.intro_film)) notFound();
+  // 끝 2초 넘김 줄(nookframe.com/@handle)에 쓸 주인 아이디 — 공개 프로필 칸.
+  const { data: owner } = await supabase.from("profiles").select("username").eq("id", data.user_id).maybeSingle();
   return (
     <div style={{ position: "fixed", inset: 0, background: "#000" }}>
       <IntroFilmPlayer
         film={data.intro_film as IntroFilm}
         locale={localeParam === "ko" ? "ko" : "en"}
         title={String(data.title ?? "")}
+        projectId={data.id}
+        handle={String(owner?.username ?? "")}
         fit="contain"
         capture
       />

@@ -320,12 +320,19 @@ export function DraftReviewModal({ draft, privateReady = true, username, demoPau
 
   // 무대와 장면 목록을 잇는다 — 재생 중인 장면을 목록에 칠하고, 줄을 펼치면 무대가 그 장면에 멈춘다.
   const playerRef = useRef<IntroFilmHandle>(null);
+  // 장면 시작 시각은 틀마다 다르다 — 재생기가 영상을 만들 때 알려 준다(onTimeline). 그 전엔 대본 길이로 어림한다.
+  const [timeline, setTimeline] = useState<{ starts: number[]; duration: number } | null>(null);
   const introStarts = useMemo(() => {
+    if (timeline && timeline.starts.length === (introShown?.scenes.length ?? 0)) return timeline.starts;
     const out: number[] = [];
     let acc = 0;
     for (const sc of introShown?.scenes ?? []) { out.push(acc); acc += SCENE_SECONDS[sc.kind] ?? 4.6; }
     return out;
-  }, [introShown]);
+  }, [introShown, timeline]);
+  const sceneLen = (k: number) => {
+    const end = k + 1 < introStarts.length ? introStarts[k + 1] : (timeline?.duration ?? introStarts[k] + (SCENE_SECONDS[introShown?.scenes[k]?.kind ?? "hook"] ?? 4.6));
+    return Math.max(0.5, end - introStarts[k]);
+  };
   const [introPlaying, setIntroPlaying] = useState(0);
   const playingRef = useRef(0);
   const barFills = useRef<(HTMLSpanElement | null)[]>([]);
@@ -335,8 +342,7 @@ export function DraftReviewModal({ draft, privateReady = true, username, demoPau
     if (i !== playingRef.current) { playingRef.current = i; setIntroPlaying(i); }
     introStarts.forEach((s, k) => {
       const el = barFills.current[k];
-      const len = SCENE_SECONDS[introShown?.scenes[k]?.kind ?? "hook"] ?? 4.6;
-      if (el) el.style.transform = `scaleX(${Math.max(0, Math.min(1, (time - s) / len))})`;
+      if (el) el.style.transform = `scaleX(${Math.max(0, Math.min(1, (time - s) / sceneLen(k)))})`;
     });
   };
   const [introOpen, setIntroOpen] = useState<number | null>(null);
@@ -344,10 +350,9 @@ export function DraftReviewModal({ draft, privateReady = true, username, demoPau
     setIntroOpen(i);
     const p = playerRef.current;
     if (i == null) { p?.play(); return; }
-    const sc = introShown?.scenes[i];
-    // 글자가 다 나와 있는 순간(장면 길이의 55%)에 멈춘다 — 들어오는 움직임이 끝나고 나가기 전.
+    // 글자가 다 나와 있는 순간(장면 길이의 85%)에 멈춘다 — 틀마다 글자가 늦게 다 찍히는 곳이 있어 55%면 덜 나왔다(10-04).
     p?.pause();
-    p?.seek((introStarts[i] ?? 0) + (SCENE_SECONDS[sc?.kind ?? "hook"] ?? 4.6) * 0.55);
+    p?.seek((introStarts[i] ?? 0) + sceneLen(i) * 0.85);
   };
   const introIssueScene = issueTarget(introIssue)?.scene ?? 0;
 
@@ -490,7 +495,7 @@ export function DraftReviewModal({ draft, privateReady = true, username, demoPau
   // 공개하면 촬영을 요청하나 — 공개 처리(ProjectsTab.handlePublishDraft)와 같은 판정. 버튼 이름이 결과를 말한다.
   // 소개 영상은 촬영하지 않는다(명함이 대본을 재생).
   const films = !hasOwnVideo && !introShown && !!detectDemoSource(draft.demo_url);
-  const introSec = introShown ? Math.round(introSeconds(introShown)) : 0;
+  const introSec = introShown ? Math.round(timeline?.duration ?? introSeconds(introShown)) : 0;
   // 미리보기에 보이는 언어 — 방문자 틀의 KO/EN과 같이 움직인다.
   const viewLoc: "en" | "ko" = (onOther && otherLoc ? otherLoc : primaryLoc ?? locale) === "en" ? "en" : "ko";
   const access = draft.demo_access;
@@ -706,7 +711,7 @@ export function DraftReviewModal({ draft, privateReady = true, username, demoPau
               {/* ui-allow: color 늘 어두운 무대 — 프레임 무대(TheaterStage)와 같은 바탕 */}
               <div style={{ position: "relative", width: "100%", maxHeight: "100%", aspectRatio: "16 / 10", borderRadius: 14, overflow: "hidden", background: "#0a0a0a" }}>
                 <div className="absolute inset-0">
-                  <IntroFilmPlayer ref={playerRef} film={introShown} locale={viewLoc} title={title} fit="cover" onTime={onFilmTime} />
+                  <IntroFilmPlayer ref={playerRef} film={introShown} locale={viewLoc} title={title} projectId={draft.id} handle={username ?? ""} fit="cover" onTime={onFilmTime} onTimeline={(starts, duration) => setTimeline({ starts, duration })} />
                 </div>
                 <StageChip label={cardDict.theater.chipIntroFilm} inset={16} />
                 {/* 바닥 줄은 프레임 무대의 재생 막대(StageProgress)와 같은 색·두께를 장면마다 끊어 그린다.
@@ -991,7 +996,7 @@ export function DraftReviewModal({ draft, privateReady = true, username, demoPau
                     {filmOpen && (
                       <div id={`${uid}-film`} className="flex flex-col" style={{ gap: 10, marginTop: 4 }}>
                         {introDraft ? (
-                          <IntroFilmPanel film={introDraft} locale={viewLoc} playing={introPlaying} open={introOpen}
+                          <IntroFilmPanel film={introDraft} projectId={draft.id} locale={viewLoc} playing={introPlaying} open={introOpen}
                             issue={introIssue} onOpen={openScene} onChange={changeIntro} />
                         ) : (<>
                         {!hasOwnVideo && (

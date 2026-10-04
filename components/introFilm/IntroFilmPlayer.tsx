@@ -1,14 +1,14 @@
 "use client";
 
-// 소개 영상 재생기 — 장면 대본을 이 자리에서 그린다(영상 파일 없이). 명함 무대·작품 페이지·검토 창이 같이 쓴다.
-// 시간은 여기서만 흐른다: 엔진(lib/introFilm/render.ts)은 render(t)만 알고, 시계는 이 컴포넌트가 돌린다.
-// 화면 밖이거나 탭이 숨으면 멈추고, 줄임 모드(움직임 줄이기)면 대표 장면 한 장만 보여준다.
-import { useEffect, useId, useImperativeHandle, useRef, useState, type Ref } from "react";
+// 소개 영상 재생기 — 장면 대본을 이 자리에서 그린다(영상 파일 없이). 명함 무대·작품 페이지·검토 창·워커 렌더가 같이 쓴다.
+// 2026-10-04: 그림은 영상 틀(lib/introFilm/genres — 영수증·터미널·LCD …)이 캔버스에 그린다. 틀은 render(g, t)만 알고,
+// 시계는 이 컴포넌트가 돌린다. 화면 밖이거나 탭이 숨으면 멈추고, 줄임 모드(움직임 줄이기)면 대표 장면 한 장만 보여준다.
+import { useEffect, useImperativeHandle, useRef, useState, type Ref } from "react";
 import { introFilmIssue, type IntroFilm } from "@/lib/introFilm/schema";
-import { filmStyle } from "@/lib/introFilm/styles";
-import { createFilm, type Film } from "@/lib/introFilm/render";
-import type { IntroSurface } from "@/lib/introFilm/safeZones";
-import { INTRO_FONT_MAP, loadIntroFonts } from "./fonts";
+import { filmGenre, genreWork } from "@/lib/introFilm/genres";
+import type { GenreFilm } from "@/lib/introFilm/genres/types";
+import { W, H, hash } from "@/lib/introFilm/genres/kit";
+import { genreFonts, loadGenreFonts } from "./fonts";
 
 export type IntroFilmHandle = { seek: (t: number) => void; play: () => void; pause: () => void };
 
@@ -16,46 +16,83 @@ type Props = {
   film: IntroFilm;
   locale: "en" | "ko";
   title: string;
+  /** 작품 id — 추천 틀과 작품마다 다른 배치의 씨앗. */
+  projectId: string;
+  /** 주인 아이디(@ 없이) — 끝 2초 nookframe.com/@handle. */
+  handle: string;
   className?: string;
   /** 무대를 덮도록 잘라서(명함 16:10) 또는 다 보이게. */
   fit?: "cover" | "contain";
-  showSafe?: IntroSurface | null;
   /** 재생 위치가 바뀔 때(검토 창 장면 목록·재생 막대가 따라온다). */
   onTime?: (t: number, duration: number) => void;
+  /** 영상을 새로 만들 때마다 장면 시작 시각·전체 길이(틀마다 다르다 — 검토 창 장면 목록이 이걸로 맞춘다). */
+  onTimeline?: (starts: number[], duration: number) => void;
   /** 워커 렌더용 — 스스로 재생하지 않고 window.__introFilm.renderAt(t)로 프레임을 하나씩 그리게 한다. */
   capture?: boolean;
   ref?: Ref<IntroFilmHandle>;
 };
 
-export default function IntroFilmPlayer({ film, locale, title, className, fit = "cover", showSafe = null, onTime, capture = false, ref }: Props) {
-  const svgRef = useRef<SVGSVGElement>(null);
-  const filmRef = useRef<Film | null>(null);
+export default function IntroFilmPlayer({ film, locale, title, projectId, handle, className, fit = "cover", onTime, onTimeline, capture = false, ref }: Props) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const filmRef = useRef<GenreFilm | null>(null);
   const clock = useRef({ t0: 0, pausedAt: null as number | null, visible: true, lastT: 0 });
-  const uid = useId().replace(/[^a-zA-Z0-9]/g, "");
   const onTimeRef = useRef(onTime);
+  const onTimelineRef = useRef(onTimeline);
   const [ready, setReady] = useState(false);
   const valid = !introFilmIssue(film);
 
-  useEffect(() => { onTimeRef.current = onTime; }, [onTime]);
+  useEffect(() => { onTimeRef.current = onTime; onTimelineRef.current = onTimeline; }, [onTime, onTimeline]);
 
-  // 대본·스타일·언어가 바뀌면 다시 그린다(재생 위치는 이어서).
-  const key = JSON.stringify([film, locale, showSafe]);
+  function draw(t: number) {
+    const c = canvasRef.current, f = filmRef.current;
+    if (!c || !f) return;
+    const g = c.getContext("2d");
+    if (!g) return;
+    const s = c.width / W;
+    g.setTransform(s, 0, 0, s, 0, 0);
+    g.save();
+    g.beginPath();
+    g.rect(0, 0, W, H);
+    g.clip();
+    f.render(g, Math.max(0, Math.min(f.duration, t)));
+    g.restore();
+  }
+
+  // 캔버스 픽셀 수 = 보이는 크기 × 화면 배율(워커는 1920×1080 그대로).
+  useEffect(() => {
+    const c = canvasRef.current;
+    if (!c) return;
+    const size = () => {
+      const dpr = capture ? 1 : Math.min(2, window.devicePixelRatio || 1);
+      const w = capture ? 1920 : Math.max(320, Math.round(c.clientWidth * dpr));
+      if (c.width !== w) { c.width = w; c.height = Math.round((w * H) / W); draw(now()); }
+    };
+    size();
+    if (capture) return;
+    const ro = new ResizeObserver(size);
+    ro.observe(c);
+    return () => ro.disconnect();
+  }, [capture]);
+
+  // 대본·틀·언어가 바뀌면 다시 만든다(재생 위치는 이어서).
+  const key = JSON.stringify([film, locale, projectId, handle]);
   useEffect(() => {
     if (!valid) return;
     let cancelled = false;
     (async () => {
-      // 영상에 나올 글자 전부(그 언어 판) — 글꼴 묶음을 빠짐없이 받게.
-      const text = JSON.stringify(film.scenes).replace(/[\x00-\x7f]/g, "");
-      await loadIntroFonts(locale, text);
-      if (cancelled || !svgRef.current) return;
+      const genre = filmGenre(film, projectId);
+      const text = JSON.stringify(film.scenes);
+      await loadGenreFonts(genre.fonts, locale, text);
+      if (cancelled) return;
       const keep = filmRef.current ? now() : 0;
-      filmRef.current = createFilm(svgRef.current, film, filmStyle(), {
-        locale, idPrefix: `nf${uid}`, fontMap: INTRO_FONT_MAP, showSafe,
+      filmRef.current = genre.make(genreWork(film, locale, { id: projectId, title, handle }), {
+        seed: hash(genre.id + "|" + projectId), fonts: genreFonts(genre.fonts, locale),
       });
       seek(keep);
+      onTimelineRef.current?.(filmRef.current.starts, filmRef.current.duration);
       if (capture) {
         const f = filmRef.current;
-        (window as unknown as { __introFilm?: unknown }).__introFilm = { duration: f.duration, renderAt: (t: number) => f.render(t) };
+        (window as unknown as { __introFilm?: unknown }).__introFilm = { duration: f.duration, renderAt: (t: number) => draw(t) };
       }
       setReady(true);
     })();
@@ -71,7 +108,7 @@ export default function IntroFilmPlayer({ film, locale, title, className, fit = 
     const f = filmRef.current, c = clock.current;
     const s = Math.max(0, Math.min((f?.duration ?? 1) - 0.01, t));
     if (c.pausedAt != null) c.pausedAt = s; else c.t0 = performance.now() - s * 1000;
-    f?.render(s);
+    draw(s);
   }
   useImperativeHandle(ref, () => ({
     seek,
@@ -90,7 +127,7 @@ export default function IntroFilmPlayer({ film, locale, title, className, fit = 
       if (f && clock.current.visible && !document.hidden) {
         let t = now();
         if (t >= f.duration) { seek(0); t = 0; }
-        f.render(t);
+        draw(t);
         onTimeRef.current?.(t, f.duration);
       }
       raf = requestAnimationFrame(tick);
@@ -103,20 +140,22 @@ export default function IntroFilmPlayer({ film, locale, title, className, fit = 
       if (!was && c.visible && c.pausedAt == null) c.t0 = performance.now() - c.lastT * 1000;
       if (was && !c.visible) c.lastT = now();
     });
-    if (svgRef.current) io.observe(svgRef.current);
+    if (canvasRef.current) io.observe(canvasRef.current);
     return () => { cancelAnimationFrame(raf); io.disconnect(); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, capture]);
 
   if (!valid) return null;
   return (
-    <svg
-      ref={svgRef}
+    <canvas
+      ref={canvasRef}
       role="img"
       aria-label={title}
       className={className}
-      viewBox="0 0 1600 900"
-      preserveAspectRatio={fit === "cover" ? "xMidYMid slice" : "xMidYMid meet"}
-      style={{ display: "block", width: "100%", height: "100%", background: "#0c0b0a" }}
+      width={1600}
+      height={900}
+      style={{ display: "block", width: "100%", height: "100%", objectFit: fit, background: "#000" }}
     />
   );
 }
+

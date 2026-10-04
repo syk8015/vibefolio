@@ -3,6 +3,8 @@
 // AI는 정해진 장면 종류의 칸 값만 보낸다. 배치·움직임은 틀(render.ts) 몫이라 자유 타임라인은 없다.
 // 이 검사는 인제스트·초안 수정·주인 수정이 **같이** 쓴다 — 사본을 만들면 세 입구의 답이 갈라진다.
 
+import { GENRE_IDS, type GenreId } from "./genres/ids";
+
 export const INTRO_STYLE_KEYS = ["hand", "bignum", "cinematic"] as const;
 export type IntroStyleKey = (typeof INTRO_STYLE_KEYS)[number];
 
@@ -22,7 +24,10 @@ export type IntroScene = HookScene | StoryScene | ItemsScene | FlowScene | Termi
 export type SceneKind = IntroScene["kind"];
 
 export type IntroFilm = {
+  /** 예전 그림 방식(10-02)의 글자·분위기 — 지금은 쓰지 않지만 AI가 보내는 모양이라 그대로 받는다. */
   style: { text: IntroStyleKey; mood: IntroStyleKey };
+  /** 영상 틀(lib/introFilm/genres) — 주인이 검토 창에서 고른다. 없으면 작품마다 정해진 추천 틀. */
+  genre?: GenreId;
   scenes: IntroScene[];
 };
 
@@ -54,6 +59,9 @@ export function introFilmIssue(input: unknown): IntroFilmIssue | null {
     if (!INTRO_STYLE_KEYS.includes(st[k] as IntroStyleKey)) {
       return { path: `introFilm.style.${k}`, message: `style.${k} must be one of ${INTRO_STYLE_KEYS.join(", ")}` };
     }
+  }
+  if (input.genre != null && !GENRE_IDS.includes(input.genre as GenreId)) {
+    return { path: "introFilm.genre", message: `genre must be one of ${GENRE_IDS.join(", ")} (or leave it out)` };
   }
   const scenes = input.scenes;
   if (!Array.isArray(scenes)) return { path: "introFilm.scenes", message: "scenes must be an array" };

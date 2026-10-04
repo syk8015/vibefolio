@@ -205,7 +205,7 @@ export default async function UserPortfolioPage({
     ...(v.captions ? { captions: v.captions } : {}),
     // 틀린 대본(사용자 키로 직접 고친 값 등)은 그리지 않는다 — 촬영본·썸네일로 내려간다.
     ...(p.intro_film && !introFilmIssue(p.intro_film)
-      ? { introFilm: p.intro_film as IntroFilm, filmLocale: locale === "en" ? ("en" as const) : ("ko" as const) }
+      ? { introFilm: p.intro_film as IntroFilm, filmLocale: locale === "en" ? ("en" as const) : ("ko" as const), ownerHandle: profile.username }
       : {}),
   }));
 

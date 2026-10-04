@@ -223,7 +223,7 @@ export default async function WatchPage({ params }: Params) {
             {introFilm ? (
               // 프레임 무대와 같은 왼쪽 위 표시 "소개 영상"(PC만 — 폰 화면은 동결 중).
               <div className="relative w-full h-full">
-                <IntroFilmPlayer film={introFilm} locale={viewer} title={project.title} fit="contain" />
+                <IntroFilmPlayer film={introFilm} locale={viewer} title={project.title} projectId={project.id} handle={profile.username} fit="contain" />
                 <div className="hidden md:contents"><StageChip label={t.theater.chipIntroFilm} inset={16} /></div>
               </div>
             ) : video ? (

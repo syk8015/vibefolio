@@ -1359,3 +1359,5 @@ locale도 언어별(en = "The live portfolio for vibe coders. Show your projects
 | auth 등 7곳 | (그대로) | Sign in → Log in | ⚠️ 영어 통일 — Log out과 짝. "Log in with a password", "Back to log in", "Please log in first", "You can now log in with {p} too" 등 |
 | share.copyX | X 글 복사 | Copy X post | 교체 · 전엔 "X 공유문구 복사". 복사되는 본문이 작품 먼저(이름 — 소개 첫 문장)로 바뀜, 주소는 빠짐 (10-04) |
 | share.copyXReply | 답글에 붙일 링크 복사 | Copy link for your reply | ⚠️ 새 키 · X 글을 복사한 뒤 같은 버튼이 이 이름으로 바뀜. X가 본문 링크를 덜 보여 줘서 주소는 답글로 (10-04) |
+| projects.reviewIntroGenre | 영상 틀 | Film style | 새 키 · 검토 창 소개 영상 칸의 틀 고르기(10-04). 옛 reviewIntroText·reviewIntroMood·reviewIntroStyles는 지움 |
+| projects.reviewIntroGenres | 영수증 / 터미널 / 게임기 화면 | Receipt / Terminal / Handheld LCD | 새 키 · 틀 이름(10-04) |

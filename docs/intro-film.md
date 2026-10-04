@@ -9,6 +9,14 @@
 **장면 대본(JSON)** 을 보내고, Nookframe이 정해 둔 **영상 틀**로 보는 사람 화면에서 **바로 재생**한다.
 영상 파일(mp4)은 맥 워커가 뒤에서 만들어 썸네일·공유·폰 화면에 쓴다.
 
+## 영상 틀(장르) — 2026-10-04부터 지금의 그림 방식
+
+- 옛 그림(SVG 한 벌 + 글자·분위기 9조합, `render.ts`·`styles.ts`)은 지웠다. 사용자 평가: "세 작품이 같은 영상 같았다 · 기계적 · 사람이 만든 것 같지 않다".
+- 지금은 **틀마다 그 물건의 세계가 하나씩** 있는 캔버스 틀이다(`lib/introFilm/genres/`). 틀은 `make(work, {seed, fonts}) → { duration, starts, render(g, t) }`이고 render는 t의 순수 함수다(npm test가 폴더째 검사).
+- 들어온 틀 = 필름 실험실 24개 시안 중 사용자가 "멋있어"를 준 것만: **영수증(1등) · 터미널 · 게임기 LCD**. 실험실 원본·기준: `~/Desktop/nookframe-작업물/film-lab/`(CONTRACT.md), `.../nookframe-research-2026-10-04/film-style/STANDARD.md`.
+- 고르기: AI는 틀 이름을 보내지 않는다. 주인이 검토 창 [영상 틀]에서 고르고(`introFilm.genre`), 안 고르면 작품 id로 정해진 추천(`recommendGenre`). 틀을 바꾸면 지문이 바뀌어 워커가 다시 만든다.
+- 틀 늘리기: `genres/<id>.ts` + `ids.ts`의 `GENRE_IDS` + `index.ts`의 `GENRES` + 사전 `reviewIntroGenres` + 글꼴(`components/introFilm/fonts.ts`의 논리 이름). 한국어 판이 깨지지 않는지(두 언어 모두) 꼭 본다.
+
 ## 정한 것 (사용자 결정)
 
 - 화면 있는 앱은 지금처럼 로봇 촬영. 대본 영상은 **화면 없는 작품 전용** (10-01).

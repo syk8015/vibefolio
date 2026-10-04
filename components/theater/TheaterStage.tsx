@@ -84,7 +84,7 @@ function LivePreview({ project, variant }: { project: Project; variant: "mobile"
   if (variant === "desktop" && project.introFilm) {
     return (
       <div className="absolute inset-0">
-        <IntroFilmPlayer film={project.introFilm} locale={project.filmLocale ?? "en"} title={project.title} fit="cover" />
+        <IntroFilmPlayer film={project.introFilm} locale={project.filmLocale ?? "en"} title={project.title} projectId={project.watchId ?? String(project.id)} handle={project.ownerHandle ?? ""} fit="cover" />
       </div>
     );
   }

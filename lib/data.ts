@@ -30,4 +30,6 @@ export interface Project {
   // 소개 영상(2026-10-02) — 찍을 화면이 없는 작품의 장면 대본. PC 무대는 이걸 바로 그린다(폰은 워커가 만든 영상).
   introFilm?: IntroFilm;
   filmLocale?: "en" | "ko";
+  /** 주인 아이디 — 소개 영상 끝 2초 nookframe.com/@handle(10-04 영상 틀). */
+  ownerHandle?: string;
 }

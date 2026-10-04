@@ -12,7 +12,7 @@ function canonical(v: unknown): string {
 }
 
 /** 틀 판이 바뀌면(그림 방식이 달라지면) 이 값을 올려 모든 영상을 다시 만들게 한다. */
-export const INTRO_TEMPLATE_VERSION = 4; // 2 = 10-02 품질 다듬기(빈 화면·두 줄·흐름 장면·한글 간격), 3 = 끊김 고치기(카메라 곡선·흐림·60fps), 4 = 10-03 모션그래픽 9가지(산호색 점·계기판·굴러가는 숫자·파고들기·손그림·신호·색 판·터지는 끝)
+export const INTRO_TEMPLATE_VERSION = 5; // 5 = 10-04 영상 틀(장르) — 영수증·터미널·LCD 캔버스 틀로 갈아탔다, 2 = 10-02 품질 다듬기(빈 화면·두 줄·흐름 장면·한글 간격), 3 = 끊김 고치기(카메라 곡선·흐림·60fps), 4 = 10-03 모션그래픽 9가지(산호색 점·계기판·굴러가는 숫자·파고들기·손그림·신호·색 판·터지는 끝)
 
 export function introFilmHash(film: unknown): string {
   return createHash("sha256").update(`v${INTRO_TEMPLATE_VERSION}:${canonical(film)}`).digest("hex").slice(0, 24);
