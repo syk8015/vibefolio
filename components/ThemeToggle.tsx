@@ -16,8 +16,11 @@ export default function ThemeToggle() {
   const [theme, setTheme] = useState<Theme>("dark");
   const [mounted, setMounted] = useState(false);
 
+  // 저장된 테마는 브라우저에만 있어 마운트 뒤 1회 읽는다(서버 HTML과 어긋나지 않게).
+  // 훅 규칙은 setState를 보수 판정하지만 마운트 1회라 캐스케이드 렌더는 없다.
   useEffect(() => {
     const t = getInitialTheme();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setTheme(t);
     applyTheme(t);
     setMounted(true);

@@ -13,9 +13,11 @@ export default function ViewportModeToggle() {
   const [mounted, setMounted] = useState(false);
   const { t } = useT();
 
+  // 지난번 보기 방식 복원 — 마운트 1회 읽기라 캐스케이드 렌더는 없다.
   useEffect(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY) as ViewportMode | null;
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       if (stored === "mobile" || stored === "desktop") setMode(stored);
     } catch { /* SSR */ }
     setMounted(true);

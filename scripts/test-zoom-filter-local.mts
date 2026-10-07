@@ -48,7 +48,7 @@ const scaled = events.map((e) => ({
   fromFocalX: e.fromFocalX * sx + padX, toFocalX: e.toFocalX * sx + padX,
   fromFocalY: e.fromFocalY * sy + padY, toFocalY: e.toFocalY * sy + padY,
 }));
-const filter = buildZoomFilter(scaled as any, FPS, pw, ph, { centerBias: CENTER_BIAS, baseZoom: padScale });
+const filter = buildZoomFilter(scaled as Parameters<typeof buildZoomFilter>[0], FPS, pw, ph, { centerBias: CENTER_BIAS, baseZoom: padScale });
 console.log(`--- padded ${pw}×${ph}, padScale ${padScale}, centerBias ${CENTER_BIAS} ---`);
 console.log("--- generated zoompan filter ---\n" + filter + "\n");
 
@@ -79,7 +79,7 @@ function at(on: number) {
   return { z: padScale, fx: pw / 2, fy: ph / 2 };
 }
 const B = CENTER_BIAS;
-let maxZ = 0, maxMarginX = 0;
+let maxZ = 0;
 for (let on = 0; on <= lastFrame; on++) {
   const { z, fx, fy } = at(on);
   const xCore = fx * (1 - 1 / z) * (1 - B) + (fx - pw / (2 * z)) * B;

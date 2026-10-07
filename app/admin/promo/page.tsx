@@ -25,6 +25,7 @@ export default async function PromoPage() {
   await noteAdminAllowed("/admin/promo", user);
 
   const admin = createAdminClient();
+  // eslint-disable-next-line react-hooks/purity -- 서버 컴포넌트(force-dynamic): 요청마다 한 번 그린다, 다시 그려질 일이 없다.
   const now = Date.now();
 
   const [clipsRes, postsRes, eventsRes] = await Promise.all([

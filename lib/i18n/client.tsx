@@ -58,6 +58,8 @@ export function LocaleProvider({
       const detected =
         readCookieLocale() ??
         matchLanguageTags(navigator.languages ?? [navigator.language]);
+      // 쿠키·브라우저 언어는 마운트 뒤에만 읽힌다 — 1회라 캐스케이드 렌더는 없다.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       if (detected) setLocaleState(detected);
       setReady(true);
     }

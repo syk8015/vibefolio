@@ -39,21 +39,20 @@ export default function ViewportFrame({ username, enabled, children }: Props) {
   const deviceOuterW = MOBILE_W + BEZEL * 2;
   const deviceOuterH = MOBILE_H + BEZEL * 2;
 
-  // Reset the loading state every time the mobile preview opens.
-  useEffect(() => {
-    if (mode === "mobile") setIframeLoaded(false);
-  }, [mode]);
-
   useEffect(() => {
     if (!enabled) return;
     try {
       const stored = localStorage.getItem("vf-viewport-mode") as ViewportMode | null;
+      // 지난번 보기 방식 복원 — 마운트 1회 읽기라 캐스케이드 렌더는 없다.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       if (stored === "mobile") setMode("mobile");
     } catch { /* SSR */ }
     setMounted(true);
 
     const onChange = (e: Event) => {
       const next = (e as CustomEvent<{ mode: ViewportMode }>).detail.mode;
+      // Reset the loading state every time the mobile preview opens.
+      if (next === "mobile") setIframeLoaded(false);
       setMode(next);
     };
     document.addEventListener("vf-viewport-mode-change", onChange);
