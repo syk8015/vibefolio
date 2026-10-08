@@ -5,16 +5,32 @@
 import type { IntroFilm, IntroScene, Loc } from "../schema";
 import { GENRE_IDS, recommendGenre, type GenreId } from "./ids";
 import type { FlatScene, Genre, GenreWork } from "./types";
-import { receipt } from "./receipt";
-import { terminal } from "./terminal";
-import { lcd } from "./lcd";
 
-export const GENRES: Record<GenreId, Genre> = { receipt, terminal, lcd };
+// 틀 코드는 고른 틀 하나만 늦게 받는다(10-08, 틀 17개) — 명함·작품 페이지가 틀 전부를 싣지 않게.
+export const GENRE_LOADERS: Record<GenreId, () => Promise<Genre>> = {
+  receipt: () => import("./receipt").then((m) => m.receipt),
+  terminal: () => import("./terminal").then((m) => m.terminal),
+  lcd: () => import("./lcd").then((m) => m.lcd),
+  ascii: () => import("./ascii").then((m) => m.ascii),
+  blueprint: () => import("./blueprint").then((m) => m.blueprint),
+  chartrecorder: () => import("./chartrecorder").then((m) => m.chartrecorder),
+  cutpaper: () => import("./cutpaper").then((m) => m.cutpaper),
+  gridnik: () => import("./gridnik").then((m) => m.gridnik),
+  kinetic: () => import("./kinetic").then((m) => m.kinetic),
+  sevenseg: () => import("./sevenseg").then((m) => m.sevenseg),
+  transit: () => import("./transit").then((m) => m.transit),
+  boardingpass: () => import("./boardingpass").then((m) => m.boardingpass),
+  ticketstub: () => import("./ticketstub").then((m) => m.ticketstub),
+  cassette: () => import("./cassette").then((m) => m.cassette),
+  photobooth: () => import("./photobooth").then((m) => m.photobooth),
+  vending: () => import("./vending").then((m) => m.vending),
+  librarycard: () => import("./librarycard").then((m) => m.librarycard),
+};
 export { GENRE_IDS, recommendGenre, type GenreId };
 
-/** 이 영상이 쓸 틀 — 주인이 고른 것, 없으면 추천. */
-export function filmGenre(film: Pick<IntroFilm, "genre">, projectId: string): Genre {
-  return GENRES[film.genre ?? recommendGenre(projectId)];
+/** 이 영상이 쓸 틀 id — 주인이 고른 것, 없으면 추천. */
+export function filmGenreId(film: Pick<IntroFilm, "genre">, projectId: string): GenreId {
+  return film.genre ?? recommendGenre(projectId);
 }
 
 const pick = (v: Loc | string | undefined, locale: "en" | "ko") => (v == null ? "" : typeof v === "string" ? v : v[locale] ?? v.en);

@@ -5,10 +5,10 @@
 // 시계는 이 컴포넌트가 돌린다. 화면 밖이거나 탭이 숨으면 멈추고, 줄임 모드(움직임 줄이기)면 대표 장면 한 장만 보여준다.
 import { useEffect, useImperativeHandle, useRef, useState, type Ref } from "react";
 import { introFilmIssue, type IntroFilm } from "@/lib/introFilm/schema";
-import { filmGenre, genreWork } from "@/lib/introFilm/genres";
+import { filmGenreId, genreWork, GENRE_LOADERS } from "@/lib/introFilm/genres";
 import type { GenreFilm } from "@/lib/introFilm/genres/types";
 import { W, H, hash } from "@/lib/introFilm/genres/kit";
-import { genreFonts, loadGenreFonts } from "./fonts";
+import { genreFaces, genreFonts, loadGenreFonts } from "./fonts";
 
 export type IntroFilmHandle = { seek: (t: number) => void; play: () => void; pause: () => void };
 
@@ -80,13 +80,15 @@ export default function IntroFilmPlayer({ film, locale, title, projectId, handle
     if (!valid) return;
     let cancelled = false;
     (async () => {
-      const genre = filmGenre(film, projectId);
+      const id = filmGenreId(film, projectId);
+      const [genre, faces] = await Promise.all([GENRE_LOADERS[id](), genreFaces(id)]);
+      if (cancelled) return;
       const text = JSON.stringify(film.scenes);
-      await loadGenreFonts(genre.fonts, locale, text);
+      await loadGenreFonts(id, faces, genre.fonts, locale, text);
       if (cancelled) return;
       const keep = filmRef.current ? now() : 0;
       filmRef.current = genre.make(genreWork(film, locale, { id: projectId, title, handle }), {
-        seed: hash(genre.id + "|" + projectId), fonts: genreFonts(genre.fonts, locale),
+        seed: hash(genre.id + "|" + projectId), fonts: genreFonts(faces, genre.fonts, locale),
       });
       seek(keep);
       onTimelineRef.current?.(filmRef.current.starts, filmRef.current.duration);

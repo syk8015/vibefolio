@@ -6,7 +6,8 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { introFilmIssue, filmSeconds, honestyLabel, type IntroFilm } from "../lib/introFilm/schema";
 import { GENRE_IDS, recommendGenre } from "../lib/introFilm/genres/ids";
-import { flattenScenes, GENRES } from "../lib/introFilm/genres";
+import { flattenScenes, GENRE_LOADERS } from "../lib/introFilm/genres";
+import { build as buildGlyphs, OUT as GLYPHS_OUT } from "./build-intro-glyphs.mjs";
 import { SAMPLE_HOME_CLIMATE, SAMPLE_CLI } from "../lib/introFilm/samples";
 import { introFilmHash } from "../lib/introFilm/hash";
 
@@ -43,7 +44,11 @@ ok("(3c) 숫자 없는 장면은 표시 없음", honestyLabel(SAMPLE_HOME_CLIMAT
 // ── 4. 영상 틀(장르) ─────────────────────────────────────────────────────────────
 { const f = clone(SAMPLE_HOME_CLIMATE) as unknown as Record<string, unknown>; f.genre = "neon"; ok("(4a) 모르는 틀 → 칸 경로", introFilmIssue(f)?.path === "introFilm.genre"); }
 for (const g of GENRE_IDS) ok(`(4b) 틀 ${g} 통과`, introFilmIssue({ ...SAMPLE_HOME_CLIMATE, genre: g }) === null);
-ok("(4c) 목록과 그림 코드가 같은 틀", GENRE_IDS.every((g) => GENRES[g]?.id === g) && Object.keys(GENRES).length === GENRE_IDS.length);
+{
+  const loaded = await Promise.all(GENRE_IDS.map((g) => GENRE_LOADERS[g]()));
+  ok("(4c) 목록과 그림 코드가 같은 틀", loaded.every((x, i) => x.id === GENRE_IDS[i]) && Object.keys(GENRE_LOADERS).length === GENRE_IDS.length);
+}
+ok("(4c2) 틀이 그리는 한글 목록(koGlyphs.ts)이 틀 코드와 같다 — 어긋나면 npm run intro:glyphs", readFileSync(GLYPHS_OUT, "utf8") === buildGlyphs());
 ok("(4d) 추천은 작품마다 늘 같다", recommendGenre("abc-123") === recommendGenre("abc-123"));
 { const used = GENRE_IDS.slice(0, GENRE_IDS.length - 1); ok("(4e) 추천은 주인이 쓴 틀을 피한다", recommendGenre("abc-123", used) === GENRE_IDS[GENRE_IDS.length - 1]); }
 { const ko = flattenScenes(SAMPLE_HOME_CLIMATE, "ko"), en = flattenScenes(SAMPLE_HOME_CLIMATE, "en");

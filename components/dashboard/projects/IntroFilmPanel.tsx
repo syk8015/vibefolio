@@ -9,7 +9,8 @@
 // 검사기의 영어 문장(AI용)은 보이지 않는다. 그동안 미리보기와 저장은 마지막으로 맞던 판에 머문다.
 import type { IntroFilm, IntroFilmIssue, IntroScene, Loc, SceneKind } from "@/lib/introFilm/schema";
 import { GENRE_IDS, recommendGenre, type GenreId } from "@/lib/introFilm/genres/ids";
-import { Segmented } from "@/components/Segmented";
+import { useState } from "react";
+import { FoldToggle } from "@/components/FoldToggle";
 import { useT } from "@/lib/i18n/client";
 
 type Props = {
@@ -70,15 +71,31 @@ export function IntroFilmPanel({ film, projectId, locale, playing, open, issue, 
     : issue?.limit != null && issue.length != null ? tp.reviewIntroTooLong(issue.limit, issue.length)
     : null;
   const genre = film.genre ?? recommendGenre(projectId);
-  const genreOptions = GENRE_IDS.map((g) => ({ value: g, label: tp.reviewIntroGenres[g] }));
+  const [pickingGenre, setPickingGenre] = useState(false);
   const small: React.CSSProperties = { fontFamily: "var(--font-nunito)", fontSize: 13, lineHeight: 1.5 };
 
   return (
     <div className="flex flex-col" style={{ gap: 12 }}>
-      {/* 영상 틀(10-04) — 고르면 왼쪽 무대가 바로 그 틀로 바뀐다. 안 고르면 작품마다 정해진 추천 틀. */}
-      <div className="flex items-center justify-between" style={{ gap: 12, flexWrap: "wrap", padding: "0 4px" }}>
-        <span style={{ fontFamily: "var(--font-nunito)", fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>{tp.reviewIntroGenre}</span>
-        <Segmented<GenreId> label={tp.reviewIntroGenre} value={genre} options={genreOptions} onPick={(g) => onChange({ ...film, genre: g })} />
+      {/* 영상 틀(10-04) — 고르면 왼쪽 무대가 바로 그 틀로 바뀐다. 안 고르면 작품마다 정해진 추천 틀.
+          틀이 17개로 늘어(10-08) 한 줄 고르기 대신 지금 틀 이름만 두고, 누르면 전부 펼친다(원할 때만 보여 준다). */}
+      <div className="flex flex-col" style={{ gap: 10, padding: "0 4px" }}>
+        <div className="flex items-center justify-between" style={{ gap: 12 }}>
+          <span style={{ fontFamily: "var(--font-nunito)", fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>{tp.reviewIntroGenre}</span>
+          <FoldToggle open={pickingGenre} onToggle={() => setPickingGenre((v) => !v)}>
+            <span style={{ fontSize: 14, color: "var(--text-primary)" }}>{tp.reviewIntroGenres[genre]}</span>
+          </FoldToggle>
+        </div>
+        {pickingGenre && (
+          <div role="group" aria-label={tp.reviewIntroGenre} className="flex flex-wrap" style={{ gap: 6 }}>
+            {GENRE_IDS.map((g: GenreId) => (
+              <button key={g} type="button" aria-pressed={g === genre} data-active={g === genre ? "true" : undefined}
+                onClick={() => { onChange({ ...film, genre: g }); setPickingGenre(false); }}
+                className="vf-selectable rounded-full" style={{ padding: "6px 14px", fontSize: 14 }}>
+                {tp.reviewIntroGenres[g]}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
       <ol className="flex flex-col" style={{ listStyle: "none", margin: 0, padding: 0, gap: 2 }}>
         {film.scenes.map((sc, i) => {

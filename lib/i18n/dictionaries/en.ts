@@ -350,7 +350,7 @@ export const en: Dictionary = {
     reviewNoteAdd: "+ Add a note",
     reviewIntroChip: (s: number) => `Intro film · ~${s}s`,
     reviewIntroGenre: "Film style",
-    reviewIntroGenres: { receipt: "Receipt", terminal: "Terminal", lcd: "Handheld LCD" },
+    reviewIntroGenres: { receipt: "Receipt", terminal: "Terminal", lcd: "Handheld LCD", ascii: "Text art", blueprint: "Blueprint", chartrecorder: "Chart recorder", cutpaper: "Cut paper", gridnik: "Grid letters", kinetic: "Kinetic type", sevenseg: "Segment display", transit: "Subway", boardingpass: "Boarding pass", ticketstub: "Ticket", cassette: "Cassette", photobooth: "Photo booth", vending: "Vending machine", librarycard: "Library card" },
     reviewIntroKinds: { hook: "Opening number", story: "One line", items: "Row of items", flow: "Flow", terminal: "Terminal", alert: "Alert", stats: "Three numbers", ending: "Ending" },
     reviewIntroSample: "sample data",
     reviewIntroMeasured: "measured",

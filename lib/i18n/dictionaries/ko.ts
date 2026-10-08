@@ -393,7 +393,7 @@ export const ko = {
     reviewNoteAdd: "+ 말풍선 추가",
     reviewIntroChip: (s: number) => `소개 영상 · 약 ${s}초`,
     reviewIntroGenre: "영상 틀",
-    reviewIntroGenres: { receipt: "영수증", terminal: "터미널", lcd: "게임기 화면" },
+    reviewIntroGenres: { receipt: "영수증", terminal: "터미널", lcd: "게임기 화면", ascii: "글자 그림", blueprint: "도면", chartrecorder: "기록계", cutpaper: "오린 종이", gridnik: "칸 글자", kinetic: "박자 글자", sevenseg: "숫자판", transit: "지하철", boardingpass: "탑승권", ticketstub: "입장권", cassette: "카세트", photobooth: "사진 부스", vending: "자판기", librarycard: "도서관 카드" },
     reviewIntroKinds: { hook: "첫 숫자", story: "한마디", items: "항목 줄", flow: "흐름", terminal: "명령 창", alert: "알림", stats: "숫자 셋", ending: "끝" },
     reviewIntroSample: "예시 자료",
     reviewIntroMeasured: "실측",

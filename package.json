@@ -16,6 +16,7 @@
     "schema:build": "npx -y tsx scripts/build-schema.mts",
     "namefilter:sql": "npx -y tsx scripts/build-name-filter-sql.mts",
     "font:subset": "node scripts/build-font-subset.mjs",
+    "intro:glyphs": "npx -y tsx scripts/build-intro-glyphs.mts",
     "font:check": "node scripts/build-font-subset.mjs --check",
     "ui:baseline": "node scripts/probe-ui-rules.mjs --write",
     "prebuild": "node scripts/build-font-subset.mjs --check"
