@@ -32,6 +32,7 @@ import {
 } from "@/lib/ingestStore";
 import { htmlBodyIssue, htmlBodyToZip, HTML_BODY_MAX_BYTES } from "@/lib/htmlBody";
 import { introFilmIssue, filmSeconds, type IntroFilm } from "@/lib/introFilm/schema";
+import { assignGenre } from "@/lib/introFilm/assignGenre";
 import { uploadErrorResponse } from "./uploadError";
 import { logger } from "@/lib/logger";
 import { withUserStorage } from "@/lib/userStorage";
@@ -598,6 +599,11 @@ export async function POST(req: NextRequest) {
     if (existing) {
       const existingId = existing.id;
       existingThumbnail = existing.thumbnail;
+      // 소개 영상 틀은 대본과 같이 저장한다 — 주인이 이미 고른 틀은 AI의 재발행이 지우지 않는다(10-08, lib/introFilm/assignGenre.ts).
+      const storedIntro = introFilm
+        ? (await admin.from("projects").select("intro_film").eq("id", existingId).maybeSingle()).data?.intro_film ?? null
+        : null;
+      const filmToStore = introFilm ? await assignGenre(admin, userId, introFilm, existingId, existingId, storedIntro) : null;
       const upd: Record<string, unknown> = {
         title,
         description,
@@ -609,7 +615,7 @@ export async function POST(req: NextRequest) {
         owner_interview: ownerInterview,
         ...languageCols,
         // 재발행 = 최신 페이로드가 진실 — 소개 영상을 빼고 다시 올리면 지운다.
-        intro_film: introFilm,
+        intro_film: filmToStore,
       };
       // 대본·로그인 답은 **영상이 아직 안 온 2단계 발행에서는 덮지 않는다**(2026-09-16).
       // 게이트가 `uploads:["video"]` 선언만 보고 면제해 주므로 이런 요청엔 대본이 없는
@@ -690,7 +696,8 @@ export async function POST(req: NextRequest) {
         target_device: targetDevice,
         owner_interview: ownerInterview,
         ...languageCols,
-        intro_film: introFilm,
+        // 새 행 — id가 아직 없어 추천 씨앗은 주인+제목. 주인의 다른 작품이 쓴 틀은 피한다.
+        intro_film: introFilm ? await assignGenre(admin, userId, introFilm, null, `${userId}|${title}`, null) : null,
         type: videoBuf ? "video" : "image",
         year: new Date().getFullYear().toString(),
         demo_url: demoUrl,

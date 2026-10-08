@@ -12,6 +12,7 @@ import {
 } from "@/lib/demoScript";
 import { probeSelectors, selectorsOf, composeProbeUrl, type SelectorCheck } from "@/lib/demoScriptReview";
 import { logger } from "@/lib/logger";
+import { assignGenre } from "@/lib/introFilm/assignGenre";
 import { introFilmIssue, type IntroFilm } from "@/lib/introFilm/schema";
 import { listFilesDeep, removeFiles } from "@/lib/storageList";
 import { userStorageClient } from "@/lib/userStorage";
@@ -72,7 +73,7 @@ async function loadDraft(
   id: string,
   userId: string,
   t: IngestDict,
-): Promise<{ id: string; hasOwnVideo: boolean; hasIntroFilm: boolean; demoUrl: string; demoAccess: DemoAccess | null } | NextResponse> {
+): Promise<{ id: string; hasOwnVideo: boolean; hasIntroFilm: boolean; introFilm: unknown; demoUrl: string; demoAccess: DemoAccess | null } | NextResponse> {
   const { data: row, error } = await admin
     .from("projects")
     // video_url = 제작자가 직접 준 시연 영상(있으면 자동 촬영을 안 한다) —
@@ -95,6 +96,7 @@ async function loadDraft(
     id: row.id as string,
     hasOwnVideo: !!(row.video_url as string | null),
     hasIntroFilm: row.intro_film != null,
+    introFilm: row.intro_film ?? null,
     demoUrl: (row.demo_url as string | null) ?? "",
     demoAccess: normalizeDemoAccess(row.demo_access).access,
   };
@@ -154,7 +156,8 @@ export async function PATCH(
             code: "INTRO_FILM_INVALID", field: issue.path,
           });
         }
-        upd.intro_film = payload.introFilm as IntroFilm;
+        // 틀: 이번에 보낸 것(검토 창에서 주인이 고른 것) → 저장된 것 → 주인의 다른 작품이 안 쓴 추천(10-08).
+        upd.intro_film = await assignGenre(admin, userId, payload.introFilm as IntroFilm, draft.id, draft.id, draft.introFilm);
         introAfter = true;
       }
     }

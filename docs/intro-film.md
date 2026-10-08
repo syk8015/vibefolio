@@ -16,7 +16,7 @@
 - 들어온 틀 17개: 1차 실험실(10-04)에서 "멋있어"를 받은 **영수증(1등) · 터미널 · 게임기 LCD**, 그리고 2차 실험실(10-08)의 14개 전부 — 1차 '괜찮아'를 메모대로 고친 판(글자 그림·도면·기록계·오린 종이·칸 글자·박자 글자·숫자판·지하철) + 새 틀(탑승권·입장권·카세트·사진 부스·자판기·도서관 카드). 실험실 원본·기준: `~/Desktop/nookframe-작업물/film-lab/`(CONTRACT.md·ROUND2.md·PORT.md), `.../nookframe-research-2026-10-04/film-style/STANDARD.md`.
 - 늦게 받기(10-08): 틀 코드(`GENRE_LOADERS`)와 글꼴(`components/introFilm/faces/<틀>.ts`)은 고른 틀 하나만 `import()`로 받는다 — 명함·작품 페이지가 틀 17개와 글꼴 30여 벌을 싣지 않게. 한국어 판은 글꼴마다 그 틀이 고른 한글 짝이 붙는다(`faces.ko`). 틀이 스스로 그리는 한글은 `koGlyphs.ts`(생성물, `npm run intro:glyphs`)로 미리 받는다.
 - 작품 종류(`kind`) 칸이 없으므로 틀 안의 갈래(기계·물건·배치)는 장면 구성으로 고른다(명령 창 장면이 있나, 항목이 %인가, 첫 장면이 훅인가…) — 영어 낱말에 기대지 않는다.
-- 고르기: AI는 틀 이름을 보내지 않는다. 주인이 검토 창 [영상 틀]에서 고르고(`introFilm.genre`), 안 고르면 작품 id로 정해진 추천(`recommendGenre`). 틀을 바꾸면 지문이 바뀌어 워커가 다시 만든다.
+- 고르기: AI는 틀 이름을 보내지 않는다. 대본이 저장될 때 서버가 틀을 정해 같이 저장한다(10-08, `lib/introFilm/assignGenre.ts`): 이번에 보낸 틀(검토 창에서 주인이 고른 것) → 이미 저장된 틀 → 주인의 다른 작품이 안 쓴 틀 중 추천. 그래서 AI가 대본을 다시 올려도 주인이 고른 틀이 남고, 한 주인의 작품끼리 틀이 겹치지 않는다. 주인은 검토 창 [영상 틀]에서 바꾼다. 틀을 바꾸면 지문이 바뀌어 워커가 다시 만든다. 확인: `scripts/probe-intro-film-gate.mjs` (6).
 - 틀 늘리기: `genres/<id>.ts` + `ids.ts`의 `GENRE_IDS` + `index.ts`의 `GENRE_LOADERS` + `components/introFilm/faces/<id>.ts`(next/font, 라틴 + 한글 짝) + `fonts.ts`의 `FACES` + 사전 `reviewIntroGenres` + `npm run intro:glyphs`. 한국어 판이 깨지지 않는지(두 언어 모두) 꼭 본다(`film-lab/port/snap2.mjs <id> ko`).
 
 ## 정한 것 (사용자 결정)

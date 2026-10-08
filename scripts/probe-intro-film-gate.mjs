@@ -6,10 +6,10 @@
 //
 // 검증: (0) 칸 두 개 존재 (1) 대본만으로 사전 검사 통과 + 에코 (2) 한국어 빠진 대본 → 400 칸 경로
 // (3) 대본도 주소도 없으면 여전히 NO_ARTIFACT (4) 발행 = 저장 + 익명 키로 읽힘 + 대상 화면 기본 PC + 촬영 상태 없음
-// (5) 초안 PATCH로 스타일 바꾸기·틀린 값 거절. 끝나면 정리.
+// (5) 초안 PATCH로 스타일 바꾸기·틀린 값 거절 (6) 영상 틀 저장·주인 다른 작품과 안 겹침·주인 선택 유지. 끝나면 정리.
 //
 // 사용: 레포 루트에서 `node scripts/probe-intro-film-gate.mjs`
-// 주의: ingest 발행 버킷(20/h) 1회, 시도 버킷 2회, 검사 버킷 1회, 관리 버킷 2회를 쓴다.
+// 주의: ingest 발행 버킷(20/h) 1회, 시도 버킷 2회, 검사 버킷 1회, 관리 버킷 4회를 쓴다.
 import "./_secrets.mjs";
 import { wipeProbeDraft } from "./_probeFiles.mjs";
 import { createClient } from "@supabase/supabase-js";
@@ -99,6 +99,21 @@ try {
     ok("(5a) PATCH로 스타일 바꾸기", r5.status === 200 && row2?.intro_film?.style?.text === "hand", `${r5.status} ${r5.body.code ?? ""}`);
     const r6 = await patch(pid, { introFilm: { ...FILM, style: { text: "neon", mood: "hand" } } });
     ok("(5b) 틀린 스타일 → 400 칸 경로", r6.status === 400 && r6.body.field === "introFilm.style.text", `${r6.status} ${r6.body.field}`);
+
+    // (6) 영상 틀은 대본과 같이 저장된다(10-08, lib/introFilm/assignGenre.ts).
+    const { data: others } = await svc.from("projects").select("id, intro_film").eq("user_id", prof.id).not("intro_film", "is", null).neq("id", pid);
+    const used = new Set((others ?? []).map((o) => o.intro_film?.genre).filter(Boolean));
+    const stored = row?.intro_film?.genre;
+    ok("(6a) 발행 때 틀이 저장됨 + 주인의 다른 작품이 쓴 틀은 피함", !!stored && !used.has(stored), `${stored} / 쓰인 틀 ${[...used].join(",")}`);
+    const { data: row3 } = await svc.from("projects").select("intro_film").eq("id", pid).single();
+    ok("(6b) 틀 없이 대본을 고쳐도(AI 재전송) 저장된 틀 유지", row3?.intro_film?.genre === stored, `${row3?.intro_film?.genre}`);
+    const pick = stored === "cassette" ? "vending" : "cassette";
+    const r7 = await patch(pid, { introFilm: { ...FILM, genre: pick } });
+    const { data: row4 } = await svc.from("projects").select("intro_film").eq("id", pid).single();
+    ok("(6c) 틀을 보내면(검토 창에서 주인이 고름) 그 틀로", r7.status === 200 && row4?.intro_film?.genre === pick, `${r7.status} ${row4?.intro_film?.genre}`);
+    const r8 = await patch(pid, { introFilm: FILM });
+    const { data: row5 } = await svc.from("projects").select("intro_film").eq("id", pid).single();
+    ok("(6d) 그 뒤 틀 없는 재전송은 주인이 고른 틀을 지우지 않음", r8.status === 200 && row5?.intro_film?.genre === pick, `${r8.status} ${row5?.intro_film?.genre}`);
   }
 } finally {
   if (pid) await wipeProbeDraft({ svc, token: raw, id: pid, origin: ORIGIN });
