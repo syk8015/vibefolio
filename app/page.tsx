@@ -3,6 +3,7 @@ import { unstable_cache } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createPublicClient, throwIfReadFailed } from "@/lib/supabase/public";
 import HomeProfileMenu from "@/components/HomeProfileMenu";
+import { randomInt } from "node:crypto";
 import PortfolioPipSection from "@/components/PortfolioPipSection";
 import ThemeToggle from "@/components/ThemeToggle";
 import LanguageToggle from "@/components/LanguageToggle";
@@ -126,6 +127,10 @@ export default async function LandingPage() {
   const profiles: FeaturedProfile[] = allProfiles
     .filter((p) => (projectCounts.get(p.id) ?? 0) >= SHOWCASE_MIN_PROJECTS)
     .map(({ username, name }) => ({ username, name }));
+  // 쇼케이스 카드·제목은 서버가 요청마다 고른다 — 브라우저가 따로 고르면 서버 HTML과 달라
+  // 화면 맞추기가 깨진다(React #418, 2026-10-29). 이 페이지는 이미 요청마다 그린다.
+  const showcaseProfile = profiles[randomInt(Math.max(profiles.length, 1))];
+  const showcaseTitleSeed = randomInt(1_000_000);
 
   /* ─── Logged-in home ─── */
   if (user) {
@@ -234,7 +239,7 @@ export default async function LandingPage() {
 
       {/* PiP portfolio preview — scroll-synced, cycles through profiles */}
       {profiles.length > 0 && (
-        <PortfolioPipSection profiles={profiles} locale={locale} />
+        <PortfolioPipSection profile={showcaseProfile} titleSeed={showcaseTitleSeed} locale={locale} />
       )}
 
       <footer className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 py-6 relative z-10" style={{ borderTop: "1px solid var(--border)" }}>

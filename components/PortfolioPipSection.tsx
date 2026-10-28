@@ -50,18 +50,18 @@ interface Profile {
 }
 
 interface Props {
-  profiles: Profile[];
+  profile: Profile;
+  /** 서버가 뽑은 아무 정수 — 제목 수로 나눈 나머지가 제목 번호. */
+  titleSeed: number;
   locale: Locale;
 }
 
-export default function PortfolioPipSection({ profiles, locale }: Props) {
-  // Pick one card at random, once — random in the render body would re-roll on
-  // every render and is impure during hydration.
-  const [profile] = useState(() => profiles[Math.floor(Math.random() * profiles.length)]);
-  // Pick a title INDEX once per page load (lazy so it doesn't re-roll each
-  // render); the string resolves per render so a language toggle swaps it too.
-  const [titleIdx] = useState(() => Math.floor(Math.random() * TITLE_VARIANTS_KO.length));
-  const title = (locale === "en" ? TITLE_VARIANTS_EN : TITLE_VARIANTS_KO)[titleIdx];
+export default function PortfolioPipSection({ profile, titleSeed, locale }: Props) {
+  // 카드와 제목은 서버(app/page.tsx)가 요청마다 고른다. 여기서 Math.random으로 고르면
+  // 서버 렌더와 브라우저가 서로 다른 값을 뽑아 hydration이 깨졌다(React #418).
+  // 제목 글은 렌더마다 번호로 찾으므로 언어를 바꾸면 같은 번호의 다른 언어로 바뀐다.
+  // (제목 수는 서버로 못 넘긴다 — "use client" 파일의 상수는 서버에서 값이 아니라 참조다.)
+  const title = (locale === "en" ? TITLE_VARIANTS_EN : TITLE_VARIANTS_KO)[titleSeed % TITLE_VARIANTS_KO.length];
 
   const [loaded, setLoaded] = useState(false);
   const [shouldLoadIframe, setShouldLoadIframe] = useState(false);
