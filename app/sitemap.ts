@@ -31,7 +31,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       .from("profiles")
       .select("id, username, updated_at");
 
-    const profiles = (profileRows ?? []).filter((p) => Boolean(p.username));
+    const { data: projectRows } = await supabase
+      .from("projects")
+      .select("id, user_id, demo_generated_at, created_at")
+      .eq("is_draft", false);
+
+    // 공개 작품이 하나도 없는 명함(빈 페이지 · 심사용 계정)은 싣지 않는다.
+    const ownersWithWork = new Set((projectRows ?? []).map((r) => r.user_id as string));
+    const profiles = (profileRows ?? []).filter(
+      (p) => Boolean(p.username) && ownersWithWork.has(p.id as string),
+    );
 
     dynamicRoutes = profiles.map((p) => ({
       url: `${BASE}/${p.username}`,
@@ -45,11 +54,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     );
 
     if (usernameById.size > 0) {
-      const { data: projectRows } = await supabase
-        .from("projects")
-        .select("id, user_id, demo_generated_at, created_at")
-        .eq("is_draft", false);
-
       for (const row of projectRows ?? []) {
         const username = usernameById.get(row.user_id as string);
         if (!username) continue;

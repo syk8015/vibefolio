@@ -76,10 +76,13 @@ export async function generateMetadata({
   // 소개글은 줄바꿈을 품는다 — meta·OG는 한 줄로 눕힌다(작품 페이지와 같은 처리).
   const description = (profile.bio && oneLine(profile.bio)) || `${name}의 Nookframe — 바이브코더의 라이브 포트폴리오`;
   const url = `https://nookframe.com/${username}`;
+  // 공개 작품이 하나도 없는 명함은 검색에 안 올린다(빈 페이지 · 심사용 계정).
+  const isEmpty = (await getProjects(profile.id)).length === 0;
 
   return {
     title: `${name} | Nookframe`,
     description,
+    ...(isEmpty && { robots: { index: false } }),
     openGraph: {
       title: `${name} | Nookframe`,
       description,
