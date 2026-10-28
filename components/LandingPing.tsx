@@ -21,7 +21,18 @@ export default function LandingPing() {
       utm_source: params.get("utm_source"),
       utm_campaign: params.get("utm_campaign"),
       via: params.get("via"),
+      // 자동화 도구(Playwright·Selenium)가 켜 두는 표시 — 사람인지 가르는 단서 하나(lib/visitor.ts).
+      webdriver: navigator.webdriver === true,
     });
+
+    // 첫 스크롤·터치·클릭·키 입력 = 들어와서 실제로 움직였다. 보고 바로 나간 방문과 가른다.
+    const kinds = ["scroll", "pointerdown", "touchstart", "keydown"] as const;
+    const engaged = (e: Event) => {
+      kinds.forEach((k) => window.removeEventListener(k, engaged));
+      trackClientEvent(AnalyticsEvent.LandingEngaged, { first: e.type });
+    };
+    kinds.forEach((k) => window.addEventListener(k, engaged, { passive: true }));
+    return () => kinds.forEach((k) => window.removeEventListener(k, engaged));
   }, []);
 
   return null;

@@ -26,6 +26,9 @@ export const AnalyticsEvent = {
   HandoffRequested: "handoff_requested",
   HandoffOpened: "handoff_opened",
   HandoffReminded: "handoff_reminded",
+  // JS를 안 도는 로봇의 페이지 요청(middleware, lib/botVisit.ts, 2026-10-29) — AI가 주소를
+  // 읽으러 온 것·메신저 링크 미리보기·검색 로봇. props: kind·agent·path·country.
+  BotVisit: "bot_visit",
   // ── client-reported ─────────────────────────────────────────────────────
   SignupCompleted: "signup_completed",
   ProjectCreated: "project_created",
@@ -37,6 +40,9 @@ export const AnalyticsEvent = {
   // 비로그인 랜딩(/) 방문, 세션당 1회(components/LandingPing). 2026-09-22 이전엔
   // 랜딩 방문을 세는 장치가 0개라 홍보를 해도 효과를 잴 수 없었다.
   LandingView: "landing_view",
+  // 랜딩에서 첫 스크롤·터치·클릭·키 입력(세션당 1회, 2026-10-29). 링크 미리보기·자동
+  // 브라우저는 보통 여기까지 안 온다 — "들어와서 실제로 움직였나"를 가른다.
+  LandingEngaged: "landing_engaged",
 } as const;
 
 export type AnalyticsEventName = (typeof AnalyticsEvent)[keyof typeof AnalyticsEvent];
@@ -53,6 +59,7 @@ export const CLIENT_EVENTS = new Set<string>([
   AnalyticsEvent.WatchView,
   AnalyticsEvent.PromoLinkVisit,
   AnalyticsEvent.LandingView,
+  AnalyticsEvent.LandingEngaged,
 ]);
 
 export function isClientEvent(event: unknown): event is AnalyticsEventName {

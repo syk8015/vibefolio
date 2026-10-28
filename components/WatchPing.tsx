@@ -27,6 +27,8 @@ export default function WatchPing({
       referrer: typeof document !== "undefined" ? document.referrer || null : null,
       // 공유 링크 출처 마커(?via=share|x) — 채널 분류(lib/traffic-source)의 마지막 층.
       via: new URLSearchParams(window.location.search).get("via"),
+      // 자동화 도구가 켜 두는 표시 — 서버가 나라·기기·누구와 함께 찍는다(lib/visitor.ts).
+      webdriver: navigator.webdriver === true,
     });
   }, [projectId, username]);
 

@@ -1,10 +1,11 @@
 import { createServerClient } from "@supabase/ssr";
 import { safeNext } from "@/lib/safeNext";
-import { NextResponse, type NextRequest } from "next/server";
+import { NextResponse, type NextFetchEvent, type NextRequest } from "next/server";
 import { PREVIEW_ORIGIN, APP_ORIGIN } from "@/lib/previewOrigin";
 import { LOCALE_COOKIE, isLocale } from "@/lib/i18n/config";
+import { botVisitTask } from "@/lib/botVisit";
 
-export async function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest, event: NextFetchEvent) {
   const { pathname } = request.nextUrl;
 
   // Preview-origin isolation. The sandbox host serves untrusted, user-uploaded
@@ -27,6 +28,13 @@ export async function middleware(request: NextRequest) {
       new URL(pathname + request.nextUrl.search, APP_ORIGIN),
       307,
     );
+  }
+
+  // AI·링크 미리보기·검색 로봇의 페이지 요청 기록(lib/botVisit.ts) — 응답 뒤에 돈다.
+  // /api는 뺀다(MCP·인제스트 클라이언트가 로봇 UA를 달고 올 수 있고, 거긴 페이지가 아니다).
+  if (!pathname.startsWith("/api")) {
+    const task = botVisitTask(request);
+    if (task) event.waitUntil(task);
   }
 
   // ?lang=ko|en — 언어 쿠키 토글(B안)의 URL 오버라이드. Accept-Language를 못

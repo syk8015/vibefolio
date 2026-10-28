@@ -30,7 +30,7 @@ export default async function PrivacyPage() {
           {en ? "Privacy Policy" : "개인정보처리방침"}
         </h1>
         <p className="text-sm mb-12" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
-          {en ? "Effective date: September 22, 2026 (previous version: September 1, 2026)" : "시행일: 2026년 9월 22일 (이전 판: 2026년 9월 1일)"}
+          {en ? "Effective date: October 29, 2026 (previous version: September 22, 2026)" : "시행일: 2026년 10월 29일 (이전 판: 2026년 9월 22일)"}
         </p>
 
         <div className="flex flex-col gap-10" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", fontSize: "0.9rem", lineHeight: 1.9 }}>
@@ -119,7 +119,7 @@ function KoBody() {
         <ul className="list-disc pl-5 flex flex-col gap-1 mt-2">
           <li><strong>필수 항목:</strong> 이메일 주소, 사용자명(username), 그리고 가입 방식에 따라 Google 계정 고유 식별자(소셜 로그인) 또는 비밀번호(이메일 가입 — 단방향 암호화하여 저장)</li>
           <li><strong>선택 항목:</strong> 이름, 프로필 사진, 소개글(bio), GitHub/Twitter/기타 소셜 링크</li>
-          <li><strong>자동 수집:</strong> 서비스 이용 기록(페이지 조회·기능 사용), 접속 IP 주소, 접속 국가, 브라우저 종류(User-Agent), 유입 경로(리퍼러·UTM 값), 쿠키 및 세션 정보, 브라우저 로컬 저장소에 저장되는 익명 식별자</li>
+          <li><strong>자동 수집:</strong> 서비스 이용 기록(페이지 조회·기능 사용), 접속 IP 주소, 접속 국가·지역(도시 단위), 브라우저·기기 종류(User-Agent), 브라우저 언어 설정, 유입 경로(리퍼러·UTM 값), 쿠키 및 세션 정보, 브라우저 로컬 저장소에 저장되는 익명 식별자</li>
         </ul>
         <p className="mt-3">
           서비스는 만 14세 이상만 가입할 수 있으며, 만 14세 미만 아동의 개인정보는 수집하지 않습니다.
@@ -257,7 +257,7 @@ function EnBody() {
         <ul className="list-disc pl-5 flex flex-col gap-1 mt-2">
           <li><strong>Required:</strong> email address, username, and — depending on how you sign up — your Google account identifier (social login) or a password (email sign-up; stored with one-way encryption)</li>
           <li><strong>Optional:</strong> name, profile photo, bio, GitHub/Twitter/other social links</li>
-          <li><strong>Collected automatically:</strong> service usage records (page views, feature usage), IP address, country of access, browser type (User-Agent), referral source (referrer and UTM values), cookies and session data, and an anonymous identifier kept in your browser&apos;s local storage</li>
+          <li><strong>Collected automatically:</strong> service usage records (page views, feature usage), IP address, country and region of access (city level), browser and device type (User-Agent), browser language setting, referral source (referrer and UTM values), cookies and session data, and an anonymous identifier kept in your browser&apos;s local storage</li>
         </ul>
         <p className="mt-3">
           The Service is only available to users aged 14 or older. We do not collect personal information from
