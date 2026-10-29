@@ -8,18 +8,35 @@ import { MCP_TOOLS } from "@/lib/mcpTools";
 // Claude 커넥터 공개 안내(2026-10-02) — 커넥터 디렉터리 등록 요건인 "공개 안내 문서"가 이 페이지다.
 // 법률 페이지와 같은 틀(한/영 본문 통째 분기). 툴 이름·제목·읽기/쓰기 표시는 lib/mcpTools.ts
 // (생성물)에서 읽어서, 툴이 바뀌면 이 페이지의 목록도 같이 바뀐다 — 설명 문장만 여기 있다.
+// 10-28 디렉터리 등재 뒤 연결 순서를 '목록에서 찾아 Connect'로 바꿨다(10-29). 주소 직접 넣기는 두 번째 길.
+// 디렉터리에서 온 사람에게 없는 건 계정뿐이라 계정 만들기가 이 페이지의 진한 버튼이다.
 
 const CONNECTOR_URL = "https://nookframe.com/api/mcp";
 const SUPPORT_EMAIL = "vivestarter@gmail.com";
+const PAGE_PATH = "/docs/claude-connector";
 
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getLocale();
+  const title = locale === "en" ? "Claude connector | Nookframe" : "Claude 커넥터 | Nookframe";
+  const description =
+    locale === "en"
+      ? "Connect Claude to Nookframe and let it upload your vibe-coded work as a draft for you to review."
+      : "Claude를 Nookframe에 연결하면, 바이브 코딩한 작품을 Claude가 초안으로 올려 줍니다.";
+  // openGraph를 따로 둔다 — 안 두면 루트 것(og:url = 홈)을 물려받아 이 주소를 공유해도 홈 카드가 뜬다.
   return {
-    title: locale === "en" ? "Claude connector | Nookframe" : "Claude 커넥터 | Nookframe",
-    description:
-      locale === "en"
-        ? "Connect Claude to Nookframe and let it upload your vibe-coded work as a draft for you to review."
-        : "Claude를 Nookframe에 연결하면, 바이브 코딩한 작품을 Claude가 초안으로 올려 줍니다.",
+    title,
+    description,
+    alternates: { canonical: PAGE_PATH },
+    // 겹친 칸(openGraph·twitter)은 통째로 바뀌므로 루트의 나머지 값도 다시 적는다.
+    openGraph: {
+      title,
+      description,
+      url: PAGE_PATH,
+      siteName: "Nookframe",
+      type: "website",
+      locale: locale === "en" ? "en_US" : "ko_KR",
+    },
+    twitter: { card: "summary_large_image", title, description },
   };
 }
 
@@ -87,7 +104,7 @@ export default async function ClaudeConnectorPage() {
           {en ? "Nookframe for Claude" : "Claude용 Nookframe 커넥터"}
         </h1>
         <p className="text-sm mb-12" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
-          {en ? "Last updated: October 2, 2026" : "마지막 수정: 2026년 10월 2일"}
+          {en ? "Last updated: October 29, 2026" : "마지막 수정: 2026년 10월 29일"}
         </p>
 
         <div className="flex flex-col gap-10" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", fontSize: "0.9rem", lineHeight: 1.9 }}>
@@ -115,17 +132,20 @@ function KoBody() {
 
       <Section title="준비물">
         <ul className="list-disc pl-5 flex flex-col gap-1">
-          <li>Nookframe 계정(무료) — <Link href="/signup" style={{ color: "var(--blue)" }}>가입하기</Link></li>
-          <li>커스텀 커넥터를 쓸 수 있는 Claude 계정. Team·Enterprise 요금제는 조직 관리자가 먼저 커넥터를 허용해야 할 수 있습니다.</li>
+          <li>Nookframe 계정(무료)</li>
+          <li>Claude 계정(웹 또는 데스크톱 앱). 커넥터 목록은 폰 앱에서는 열 수 없습니다. Team·Enterprise 요금제는 조직 관리자가 먼저 커넥터를 허용해야 할 수 있습니다.</li>
         </ul>
+        <SignupButton en={false} />
       </Section>
 
       <Section title="연결하기">
         <ol className="list-decimal pl-5 flex flex-col gap-1">
-          <li>Claude에서 설정 → 커넥터 → [커스텀 커넥터 추가]를 엽니다.</li>
-          <li>주소 칸에 <Code>{CONNECTOR_URL}</Code>을 넣고 추가합니다.</li>
-          <li>[연결]을 누르면 Nookframe 로그인과 허락 화면이 뜹니다. 로그인한 뒤 [허용]을 누릅니다.</li>
+          <li>Claude에서 설정 → 커넥터 → [Browse connectors]를 열고 Nookframe을 찾습니다. 대화창 왼쪽 아래 도구 버튼 → [Add connectors]로도 열 수 있습니다.</li>
+          <li>[Connect]를 누르면 Nookframe 로그인과 허락 화면이 뜹니다. 로그인한 뒤 [허용]을 누릅니다.</li>
         </ol>
+        <p className="mt-2">
+          목록에서 안 보이면 설정 → 커넥터 → [Add custom connector]에 <Code>{CONNECTOR_URL}</Code>을 넣어도 같습니다.
+        </p>
         <p className="mt-2">
           허락 화면에는 커넥터가 할 수 있는 일(초안 올리기, 그 초안 고치기·지우기)과 할 수 없는 일(공개하기, 공개된 작품 지우기)이 적혀 있습니다.
         </p>
@@ -171,7 +191,7 @@ function KoBody() {
       <Section title="문제가 생기면">
         <ul className="list-disc pl-5 flex flex-col gap-1">
           <li>올리기가 거절되면 이유가 함께 옵니다. Claude가 이유를 읽고 고쳐서 다시 올립니다.</li>
-          <li>연결이 안 되면 커넥터를 지웠다가 다시 추가해 보세요. 그래도 안 되면 아래로 알려 주세요.</li>
+          <li>연결이 안 되면 커넥터 연결을 끊었다가 다시 [Connect]를 눌러 보세요. 그래도 안 되면 아래로 알려 주세요.</li>
         </ul>
       </Section>
 
@@ -194,17 +214,20 @@ function EnBody() {
 
       <Section title="What you need">
         <ul className="list-disc pl-5 flex flex-col gap-1">
-          <li>A Nookframe account (free) — <Link href="/signup" style={{ color: "var(--blue)" }}>sign up</Link></li>
-          <li>A Claude account that can add custom connectors. On Team and Enterprise plans, an organization owner may need to allow the connector first.</li>
+          <li>A Nookframe account (free)</li>
+          <li>A Claude account on the web or the desktop app. The connector directory can&apos;t be opened in the mobile apps. On Team and Enterprise plans, an organization owner may need to allow the connector first.</li>
         </ul>
+        <SignupButton en />
       </Section>
 
       <Section title="Connect">
         <ol className="list-decimal pl-5 flex flex-col gap-1">
-          <li>In Claude, open Settings → Connectors → Add custom connector.</li>
-          <li>Enter <Code>{CONNECTOR_URL}</Code> as the URL and add it.</li>
+          <li>In Claude, open Settings → Connectors → Browse connectors and find Nookframe. You can also get there from the tools button at the lower left of a chat → Add connectors.</li>
           <li>Press Connect. Nookframe&apos;s sign-in and consent screen opens — sign in, then press Allow.</li>
         </ol>
+        <p className="mt-2">
+          Not in the list? Add <Code>{CONNECTOR_URL}</Code> under Settings → Connectors → Add custom connector instead — it&apos;s the same connector.
+        </p>
         <p className="mt-2">
           The consent screen lists what the connector can do (upload drafts, edit or delete the drafts it uploaded) and
           what it can&apos;t (publish anything, delete public works).
@@ -253,7 +276,7 @@ function EnBody() {
       <Section title="Troubleshooting">
         <ul className="list-disc pl-5 flex flex-col gap-1">
           <li>If an upload is rejected, the reason comes back with it. Claude reads it, fixes the upload, and tries again.</li>
-          <li>If connecting fails, remove the connector and add it again. If it still fails, email us below.</li>
+          <li>If connecting fails, disconnect the connector and press Connect again. If it still fails, email us below.</li>
         </ul>
       </Section>
 
@@ -261,6 +284,14 @@ function EnBody() {
         <a href={`mailto:${SUPPORT_EMAIL}`} style={{ color: "var(--blue)" }}>{SUPPORT_EMAIL}</a>
       </Section>
     </>
+  );
+}
+
+function SignupButton({ en }: { en: boolean }) {
+  return (
+    <div className="flex justify-center mt-5">
+      <Link href="/signup" className="vf-button-primary">{en ? "Create a free account" : "무료로 계정 만들기"}</Link>
+    </div>
   );
 }
 
