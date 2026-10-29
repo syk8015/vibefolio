@@ -34,15 +34,14 @@ const nextConfig: NextConfig = {
     turbopackFileSystemCacheForBuild: false,
   },
   images: {
+    // 이미지 최적화기가 대신 받아 오는 곳 — 쓰는 호스트만 둔다(2026-10-29). 목록이 넓을수록
+    // 남의 그림을 우리 서버가 받아 주는 길이 넓어진다. 옛 Supabase 저장소·구글 사진·샘플 그림
+    // 호스트는 DB에 남은 주소가 없어 뺐다(구글·깃허브 사진은 처음부터 안 쓴다).
     remotePatterns: [
-      { protocol: "https", hostname: "*.supabase.co" },
       // 사용자 파일·촬영 영상 포스터(R2, lib/userStorage.ts) — 2026-10-01부터 프로필 사진·썸네일도 여기.
       { protocol: "https", hostname: "media.nookframe.com" },
-      { protocol: "https", hostname: "lh3.googleusercontent.com" },
+      // 자동 썸네일(배포 주소 스크린샷)
       { protocol: "https", hostname: "image.thum.io" },
-      { protocol: "https", hostname: "picsum.photos" },
-      { protocol: "https", hostname: "fastly.picsum.photos" },
-      { protocol: "https", hostname: "i.pravatar.cc" },
     ],
   },
   async redirects() {
