@@ -30,7 +30,7 @@ export default async function TermsPage() {
           {en ? "Terms of Service" : "이용약관"}
         </h1>
         <p className="text-sm mb-12" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
-          {en ? "Effective date: September 22, 2026 (previous version: September 1, 2026)" : "시행일: 2026년 9월 22일 (이전 판: 2026년 9월 1일)"}
+          {en ? "Effective date: October 30, 2026 (previous version: September 22, 2026)" : "시행일: 2026년 10월 30일 (이전 판: 2026년 9월 22일)"}
         </p>
 
         <div className="flex flex-col gap-10" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", fontSize: "0.9rem", lineHeight: 1.9 }}>
@@ -72,7 +72,7 @@ function KoBody() {
 
       <Section title="제4조 (회원가입 및 계정)">
         <ul className="list-disc pl-5 flex flex-col gap-1">
-          <li>이용자는 Google 계정을 통한 소셜 로그인, 또는 이메일 주소와 비밀번호를 등록하는 방식으로 가입할 수 있습니다.</li>
+          <li>이용자는 Google 또는 GitHub 계정을 통한 소셜 로그인, 또는 이메일로 받은 인증 코드를 입력하는 방식으로 가입할 수 있습니다.</li>
           <li>서비스는 만 14세 이상만 가입할 수 있습니다. 만 14세 미만 아동은 서비스를 이용할 수 없습니다.</li>
           <li>이용자는 자신의 계정 정보를 안전하게 관리할 책임이 있으며, 계정 도용으로 인한 피해에 대해 운영자는 책임을 지지 않습니다.</li>
           <li>이용자는 타인의 정보를 이용하거나 허위 정보를 등록해서는 안 됩니다.</li>
@@ -181,7 +181,7 @@ function EnBody() {
 
       <Section title="Article 4 (Sign-up and Accounts)">
         <ul className="list-disc pl-5 flex flex-col gap-1">
-          <li>You may sign up with a Google account (social login) or by registering an email address and password.</li>
+          <li>You may sign up with a Google or GitHub account (social login) or with a one-time code sent to your email address.</li>
           <li>The Service is only available to users aged 14 or older. Children under 14 may not use the Service.</li>
           <li>You are responsible for keeping your account credentials secure. The operator is not liable for damage caused by unauthorized use of your account.</li>
           <li>You may not use another person&apos;s information or register false information.</li>

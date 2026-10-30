@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { getProfileByUsername, getProjectById, posterFromDemo, watchVideo, watchTryHref } from "@/lib/portfolio";
-import { getT } from "@/lib/i18n/server";
+import { getLocale, getT } from "@/lib/i18n/server";
 import WatchPlayer from "./WatchPlayer";
 import WatchPing from "@/components/WatchPing";
 import ReportButton from "@/components/ReportButton";
@@ -11,6 +11,7 @@ import ClampText from "@/components/ClampText";
 import { oneLine } from "@/lib/text";
 import JsonLd from "@/components/JsonLd";
 import { localizeWork } from "@/lib/workLanguages";
+import { isGitHubUrl } from "@/lib/repoLink";
 import { introFilmIssue, type IntroFilm } from "@/lib/introFilm/schema";
 import IntroFilmPlayer from "@/components/introFilm/IntroFilmPlayer";
 import { StageChip } from "@/components/theater/StageMarks";
@@ -74,9 +75,13 @@ async function load(username: string, slug: string) {
 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { username, slug } = await params;
-  const data = await load(username, slug);
+  const [data, locale] = await Promise.all([load(username, slug), getLocale()]);
   if (!data) return {};
-  const { profile, project } = data;
+  const { profile } = data;
+  // 탭 제목·설명도 본문처럼 보는 사람 언어로(작품 두 언어). 언어를 안 보내는 로봇은
+  // 기본 언어를 받으니 링크 미리보기는 예전과 같다 — 영어 화면에서 탭만 한국어이던 것(10-30).
+  const lw = localizeWork(data.project, locale === "en" ? "en" : "ko");
+  const project = { ...data.project, title: lw.title, description: lw.description };
 
   const handle = `@${profile.username}`;
   const title = `${project.title} · ${handle} on Nookframe`;
@@ -128,7 +133,7 @@ export default async function WatchPage({ params }: Params) {
   const [data, { locale, t }] = await Promise.all([load(username, slug), getT()]);
   if (!data) notFound();
   const { profile } = data;
-  // 보는 사람 언어로 고른다(작품 두 언어) — 글·영상·자막. 메타데이터(검색·링크 미리보기)는 기본 언어 그대로.
+  // 보는 사람 언어로 고른다(작품 두 언어) — 글·영상·자막. 메타데이터도 같은 규칙(generateMetadata).
   const viewer = locale === "en" ? "en" : "ko";
   const lw = localizeWork(data.project, viewer);
   const project = { ...data.project, title: lw.title, description: lw.description, demo_video_url: lw.demoVideoUrl };
@@ -355,7 +360,7 @@ export default async function WatchPage({ params }: Params) {
               className="vf-button-primary inline-flex items-center gap-2"
               style={{ textDecoration: "none" }}
             >
-              {tryIt.isFile ? t.theater.ctaFullscreen : t.theater.ctaVisit}
+              {tryIt.isFile ? t.theater.ctaFullscreen : isGitHubUrl(tryIt.href) ? t.theater.ctaGitHub : t.theater.ctaVisit}
               <span aria-hidden>↗</span>
             </a>
           )}

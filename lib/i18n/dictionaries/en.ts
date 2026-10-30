@@ -826,6 +826,7 @@ export const en: Dictionary = {
     ctaFullscreen: "Try it fullscreen",
     ctaFullscreenShort: "Try fullscreen",
     ctaVisit: "Try it live",
+    ctaGitHub: "View on GitHub",
     viewDetail: "View details",
     errorTitle: "Couldn't load this frame",
     errorBody: "Something went wrong while showing this page. Try again or head home.",

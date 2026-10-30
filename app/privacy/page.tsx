@@ -30,7 +30,7 @@ export default async function PrivacyPage() {
           {en ? "Privacy Policy" : "개인정보처리방침"}
         </h1>
         <p className="text-sm mb-12" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
-          {en ? "Effective date: October 29, 2026 (previous version: September 22, 2026)" : "시행일: 2026년 10월 29일 (이전 판: 2026년 9월 22일)"}
+          {en ? "Effective date: October 30, 2026 (previous version: October 29, 2026)" : "시행일: 2026년 10월 30일 (이전 판: 2026년 10월 29일)"}
         </p>
 
         <div className="flex flex-col gap-10" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", fontSize: "0.9rem", lineHeight: 1.9 }}>
@@ -67,6 +67,12 @@ const PROCESSORS = [
     contact: "https://policies.google.com/privacy",
     ko: { task: "OAuth 소셜 로그인", items: "Google 로그인을 선택한 경우 Google 계정 고유 식별자, 이메일 주소, 이름, 프로필 사진" },
     en: { task: "OAuth social login", items: "if you choose Google login: Google account identifier, email address, name, profile photo" },
+  },
+  {
+    name: "GitHub, Inc.",
+    contact: "https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement",
+    ko: { task: "OAuth 소셜 로그인", items: "GitHub 로그인을 선택한 경우 GitHub 계정 고유 식별자, 이메일 주소, 사용자명, 이름, 프로필 사진" },
+    en: { task: "OAuth social login", items: "if you choose GitHub login: GitHub account identifier, email address, username, name, profile photo" },
   },
   {
     name: "Cloudflare, Inc.",
@@ -117,7 +123,7 @@ function KoBody() {
       <Section title="제1조 (수집하는 개인정보 항목)">
         서비스는 회원가입 및 서비스 제공을 위해 다음과 같은 정보를 수집합니다.
         <ul className="list-disc pl-5 flex flex-col gap-1 mt-2">
-          <li><strong>필수 항목:</strong> 이메일 주소, 사용자명(username), 그리고 가입 방식에 따라 Google 계정 고유 식별자(소셜 로그인) 또는 비밀번호(이메일 가입 — 단방향 암호화하여 저장)</li>
+          <li><strong>필수 항목:</strong> 이메일 주소, 사용자명(username), 그리고 가입 방식에 따라 Google·GitHub 계정 고유 식별자(소셜 로그인). 비밀번호를 설정한 경우 비밀번호(단방향 암호화하여 저장)</li>
           <li><strong>선택 항목:</strong> 이름, 프로필 사진, 소개글(bio), GitHub/Twitter/기타 소셜 링크</li>
           <li><strong>자동 수집:</strong> 서비스 이용 기록(페이지 조회·기능 사용), 접속 IP 주소, 접속 국가·지역(도시 단위), 브라우저·기기 종류(User-Agent), 브라우저 언어 설정, 유입 경로(리퍼러·UTM 값), 쿠키 및 세션 정보, 브라우저 로컬 저장소에 저장되는 익명 식별자</li>
         </ul>
@@ -255,7 +261,7 @@ function EnBody() {
       <Section title="Article 1 (Information We Collect)">
         The Service collects the following information for sign-up and service delivery.
         <ul className="list-disc pl-5 flex flex-col gap-1 mt-2">
-          <li><strong>Required:</strong> email address, username, and — depending on how you sign up — your Google account identifier (social login) or a password (email sign-up; stored with one-way encryption)</li>
+          <li><strong>Required:</strong> email address, username, and — depending on how you sign up — your Google or GitHub account identifier (social login). If you set a password, the password (stored with one-way encryption)</li>
           <li><strong>Optional:</strong> name, profile photo, bio, GitHub/Twitter/other social links</li>
           <li><strong>Collected automatically:</strong> service usage records (page views, feature usage), IP address, country and region of access (city level), browser and device type (User-Agent), browser language setting, referral source (referrer and UTM values), cookies and session data, and an anonymous identifier kept in your browser&apos;s local storage</li>
         </ul>

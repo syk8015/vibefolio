@@ -477,6 +477,7 @@
 | ctaFullscreen | 전체화면으로 체험 | Try it fullscreen | |
 | ctaFullscreenShort | 전체화면 체험 | Try fullscreen | 모바일 |
 | ctaVisit | 체험하러 가기 | Try it live | |
+| ctaGitHub | GitHub에서 보기 | View on GitHub | 새 키 · 체험 주소가 GitHub 저장소일 때 ctaVisit 대신. 누르면 코드 페이지가 열리므로 (10-30) |
 | errorTitle | 프레임을 불러오지 못했어요 | Couldn't load this frame | |
 | errorBody | 이 페이지를 표시하는 중 문제가 생겼어요. 다시 시도하거나 홈으로 돌아가 주세요. | Something went wrong while showing this page. Try again or head home. | |
 | copyLink | 링크 복사 | Copy link | |

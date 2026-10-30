@@ -59,10 +59,13 @@ export async function middleware(request: NextRequest, event: NextFetchEvent) {
   // 아이디는 소문자로만 저장된다(lib/username.ts) — 인스타 바이오에 대문자로 적힌
   // 링크, 폰이 첫 글자를 올려 친 주소가 404가 되지 않게. 첫 칸만 접는다(작품 slug는
   // 그대로). 앱 경로는 전부 소문자라 대문자 첫 칸은 아이디일 수밖에 없다.
-  const firstSeg = pathname.split("/")[1] ?? "";
-  if (/[A-Z]/.test(firstSeg) && /^[A-Za-z0-9_-]+$/.test(firstSeg)) {
+  // @를 %40으로 바꿔 보내는 앱(링크 복사·자동 링크)의 /%40handle도 여기서 받는다 —
+  // next.config의 /@:username 리다이렉트는 인코딩된 @를 못 알아봐 404가 났다(10-30).
+  const rawSeg = pathname.split("/")[1] ?? "";
+  const firstSeg = rawSeg.replace(/^%40/i, "");
+  if ((firstSeg !== rawSeg || /[A-Z]/.test(firstSeg)) && /^[A-Za-z0-9_-]+$/.test(firstSeg)) {
     const lower = request.nextUrl.clone();
-    lower.pathname = "/" + firstSeg.toLowerCase() + pathname.slice(firstSeg.length + 1);
+    lower.pathname = "/" + firstSeg.toLowerCase() + pathname.slice(rawSeg.length + 1);
     return NextResponse.redirect(lower, 308);
   }
 

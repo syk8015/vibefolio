@@ -8,6 +8,7 @@ import type { CaptionCue } from "@/lib/workLanguages";
 import CaptionOverlay from "@/components/CaptionOverlay";
 import { detectVideoKind, getYouTubeEmbedUrl, getVimeoEmbedUrl } from "@/lib/video";
 import { toPreviewUrl } from "@/lib/previewOrigin";
+import { isGitHubUrl } from "@/lib/repoLink";
 import IntroFilmPlayer from "@/components/introFilm/IntroFilmPlayer";
 import type { MeishiProfile } from "./Meishi";
 import type { IdentityLine } from "@/lib/identityLine";
@@ -392,7 +393,7 @@ export function StageCaption({ project, nav }: { project: Project; nav?: React.R
                   className="vf-button-primary"
                   style={{ padding: "10px 20px", fontSize: 14, gap: 9, whiteSpace: "nowrap" }}
                 >
-                  {isFile ? t.theater.ctaFullscreen : t.theater.ctaVisit}
+                  {isFile ? t.theater.ctaFullscreen : isGitHubUrl(href) ? t.theater.ctaGitHub : t.theater.ctaVisit}
                   {isFile ? (
                     <span
                       aria-hidden
@@ -598,7 +599,7 @@ export default function TheaterStage({ project, index, variant, profile, identit
                   whiteSpace: "nowrap",
                 }}
               >
-                {isFile ? t.theater.ctaFullscreen : t.theater.ctaVisit}
+                {isFile ? t.theater.ctaFullscreen : isGitHubUrl(href) ? t.theater.ctaGitHub : t.theater.ctaVisit}
                 <span
                   style={{
                     display: "inline-block",
@@ -996,7 +997,7 @@ function MobileStage({
                 whiteSpace: "nowrap",
               }}
             >
-              {isFile ? t.theater.ctaFullscreenShort : t.theater.ctaVisit}
+              {isFile ? t.theater.ctaFullscreenShort : isGitHubUrl(href) ? t.theater.ctaGitHub : t.theater.ctaVisit}
               <span
                 style={{
                   display: "inline-block",
