@@ -1,7 +1,8 @@
 import { createHash, randomBytes } from "crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logger } from "@/lib/logger";
-import { isDecoyTokenHash, tripDecoy, noteTokenUse } from "@/lib/tripwire";
+import { decoyPlaceOf, tripDecoy, tripBait, noteTokenUse } from "@/lib/tripwire";
+import { baitLabelOf } from "@/lib/bait";
 
 // Nookframe Connect — 개인 액세스 토큰(PAT) 발급/검증. SERVER-ONLY (서비스롤).
 //
@@ -86,9 +87,16 @@ export async function verifyToken(
 ): Promise<ResolvedToken | null> {
   if (!raw || !raw.startsWith(TOKEN_SCHEME)) return null;
   const hash = hashToken(raw);
-  // 미끼 토큰(lib/tripwire.ts) — 진짜 사용자는 가질 수 없다. 사이트를 잠그고, 겉으로는 그냥 틀린 토큰.
-  if (isDecoyTokenHash(hash)) {
-    await tripDecoy("미끼 토큰이 Bearer로 쓰였어요");
+  // 미끼 토큰(lib/tripwire.ts·lib/bait.ts) — 진짜 사용자는 가질 수 없다. 겉으로는 그냥 틀린 토큰.
+  // 숨긴 미끼 = 사이트 읽기 전용, 겉 미끼 = 그 IP만 하루 막기.
+  const place = decoyPlaceOf(hash);
+  if (place) {
+    await tripDecoy(place);
+    return null;
+  }
+  const bait = await baitLabelOf(raw);
+  if (bait) {
+    await tripBait(bait);
     return null;
   }
   const admin = createAdminClient();

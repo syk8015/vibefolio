@@ -29,6 +29,9 @@ export const AnalyticsEvent = {
   // JS를 안 도는 로봇의 페이지 요청(middleware, lib/botVisit.ts, 2026-10-29) — AI가 주소를
   // 읽으러 온 것·메신저 링크 미리보기·검색 로봇. props: kind·agent·path·country.
   BotVisit: "bot_visit",
+  // 겉 미끼 주소(/.env·/backup.sql·/internal/ops-notes …)를 연 횟수(middleware, lib/bait.ts, 2026-11-02).
+  // props: label·path·country·ua. 미끼마다 10분 30건 상한.
+  BaitHit: "bait_hit",
   // ── client-reported ─────────────────────────────────────────────────────
   SignupCompleted: "signup_completed",
   ProjectCreated: "project_created",

@@ -5,6 +5,7 @@ import { PREVIEW_ORIGIN, APP_ORIGIN } from "@/lib/previewOrigin";
 import { LOCALE_COOKIE, isLocale } from "@/lib/i18n/config";
 import { botVisitTask } from "@/lib/botVisit";
 import { lockBlock, readSiteLocks, LOCK_MESSAGE } from "@/lib/siteLock";
+import { baitResponseBody, baitHitTask, ipKeyEdge, isIpKeyBlocked, touchesDecoyId, lockForDecoy, describeRequest } from "@/lib/bait";
 
 export async function middleware(request: NextRequest, event: NextFetchEvent) {
   const { pathname } = request.nextUrl;
@@ -29,6 +30,25 @@ export async function middleware(request: NextRequest, event: NextFetchEvent) {
       new URL(pathname + request.nextUrl.search, APP_ORIGIN),
       307,
     );
+  }
+
+  // 미끼(lib/bait.ts). ① 숨긴 미끼 id가 주소에 있으면 = 데이터 저장소·백업을 본 사람 → 사이트 잠금.
+  // ② 겉 미끼 주소면 가짜 비밀 파일을 내준다(연 것만으론 안 막고 센다). ③ 겉 미끼 토큰을 써서
+  // 막힌 IP면 /api 전부 403. 셋 다 앱 주소보다 먼저 본다.
+  if (touchesDecoyId(pathname + request.nextUrl.search)) {
+    event.waitUntil(lockForDecoy("숨긴 미끼 id가 요청 주소에 들어왔어요", `${describeRequest(request.headers)} · ${pathname.slice(0, 120)}`));
+    return new NextResponse("Not Found", { status: 404 });
+  }
+  const bait = await baitResponseBody(pathname);
+  if (bait) {
+    event.waitUntil(baitHitTask(bait.label, pathname, request.headers.get("x-vercel-ip-country"), request.headers.get("user-agent")));
+    return new NextResponse(bait.body, {
+      status: 200,
+      headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow" },
+    });
+  }
+  if (pathname.startsWith("/api/") && (await isIpKeyBlocked(await ipKeyEdge(request.headers)))) {
+    return NextResponse.json({ ok: false, error: "Access denied.", code: "BLOCKED" }, { status: 403, headers: { "Cache-Control": "no-store" } });
   }
 
   // 비상 정지(lib/siteLock.ts) — 읽기 전용·업로드 닫기 중이면 /api 쓰기를 503으로 막는다.

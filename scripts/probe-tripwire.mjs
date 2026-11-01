@@ -1,11 +1,14 @@
 // 알아채기·미끼(2026-11-02, lib/tripwire.ts) prod E2E. 조건: 배포 + Vercel 설정값 DECOY_TOKEN_SHA256.
-//   (1) 미끼 토큰을 Bearer로 → 겉으로는 그냥 401 · 사이트가 읽기 전용으로 잠김 · 경보 기록
+//   (1) 숨긴 미끼 토큰(데이터 저장소 쪽)을 Bearer로 → 겉으로는 그냥 401 · 사이트 읽기 전용 · 경보 기록
+//   (1e) 숨긴 미끼 id가 든 주소 → 404 · 사이트 읽기 전용
 //   (2) 잠금 풀기(끝에서 늘)
+//   (2b) 겉 미끼: robots에 /internal/ · /.env·/internal/ops-notes가 가짜 비밀 파일을 냄 · 그 토큰을 쓰면 401 →
+//        이 IP의 /api가 403 BLOCKED · 사이트는 안 잠김 → 이 IP 막힘 풀기(끝에서 늘)
 //   (3) 일회용 토큰을 10분 한도(300) 넘게 → 그 토큰만 끊김(401) · 경보 기록 · 토큰 행 지움
 //   (4) --admin-burst 일 때만: 관리자 API 61번 → 404로 막힘 + 관리자 로그인 전부 끊김
 //       ⚠️ 네 브라우저의 관리자 로그인도 끊긴다. 평소엔 안 돌린다.
 // 미끼 원문은 레포·인자에 두지 않는다 — 미끼 초안의 비공개 칸에서 서비스 키로 읽어 온다.
-// ⚠️ 메일 2통(미끼·과사용). 사이트는 몇 초 잠긴다.
+// ⚠️ 메일 최대 3통(숨긴 미끼·겉 미끼·과사용 — 같은 메일은 10분/하루에 한 통이라 다시 돌리면 덜 온다). 사이트는 몇 초 잠긴다.
 // 사용: node scripts/probe-tripwire.mjs <미끼 초안 id> [--admin-burst]
 import "./_secrets.mjs";
 import { createHash, randomBytes } from "node:crypto";
@@ -39,6 +42,9 @@ const alerts = async () =>
   ((await svc.from("system_status").select("alerts_state").eq("id", "singleton").single()).data?.alerts_state ?? {});
 
 let throwawayId = null;
+// 방금 막힌 IP 풀기 — 이 시험이 만든 것만(2분 안에 생긴 막힘).
+const unblockRecent = () =>
+  svc.from("rate_limits").delete().like("bucket", "ipblock:%").gt("window_start", new Date(Date.now() - 120_000).toISOString());
 try {
   const { data: locks0 } = await anon.rpc("site_locks");
   if (locks0?.readonly) throw new Error("이미 읽기 전용이라 시험을 못 해요 — 먼저 풀 것");
@@ -54,12 +60,42 @@ try {
   ok("(1b) 사이트가 읽기 전용으로 잠김", locks1?.readonly === true, JSON.stringify(locks1));
   const a1 = await alerts();
   ok("(1c) 경보 기록(decoy)", a1.decoy && Date.parse(a1.decoy) >= t0 - 5_000, a1.decoy ?? "없음");
+  await svc.from("system_status").update({ site_readonly_at: null }).eq("id", "singleton");
+  const idHit = await fetch(`${ORIGIN}/api/ingest/status?id=${decoyProjectId}`);
+  ok("(1e) 숨긴 미끼 id가 든 주소 → 404", idHit.status === 404, String(idHit.status));
+  await sleep(1_500); // 잠금은 응답 뒤(waitUntil)에 걸린다
+  const { data: locksId } = await anon.rpc("site_locks");
+  ok("(1f) 사이트가 다시 읽기 전용으로 잠김", locksId?.readonly === true, JSON.stringify(locksId));
 
   // (2)
   await svc.from("system_status").update({ site_readonly_at: null }).eq("id", "singleton");
   const { data: locks2 } = await anon.rpc("site_locks");
   ok("(2) 잠금 풀림", locks2?.readonly === false, JSON.stringify(locks2));
   await sleep(6_500); // middleware 기억 5초
+
+  // (2b) 겉 미끼
+  const robots = await (await fetch(`${ORIGIN}/robots.txt`)).text();
+  ok("(2b) robots.txt에 /internal/ 막음", robots.includes("Disallow: /internal/"));
+  const envRes = await fetch(`${ORIGIN}/.env`);
+  const envText = await envRes.text();
+  const bait = /nf_live_[A-Za-z0-9_-]{43}/.exec(envText)?.[0];
+  ok("(2c) /.env가 가짜 비밀 파일(토큰 있음)", envRes.status === 200 && !!bait, String(envRes.status));
+  const notes = await fetch(`${ORIGIN}/internal/ops-notes`);
+  ok("(2d) /internal/ops-notes 200", notes.status === 200 && /nf_live_/.test(await notes.text()), String(notes.status));
+  const b1 = await status(bait);
+  ok("(2e) 겉 미끼 토큰 → 겉으로는 그냥 401", b1.status === 401, String(b1.status));
+  await sleep(1_000);
+  const blocked = await fetch(`${ORIGIN}/api/ingest/status`);
+  const bb = await blocked.json().catch(() => ({}));
+  ok("(2f) 이 IP의 /api → 403 BLOCKED", blocked.status === 403 && bb.code === "BLOCKED", `${blocked.status} ${bb.code}`);
+  const page = await fetch(`${ORIGIN}/`);
+  ok("(2g) 페이지는 그대로 200", page.status === 200, String(page.status));
+  const { data: locksB } = await anon.rpc("site_locks");
+  ok("(2h) 사이트 전체는 안 잠김", locksB?.readonly === false, JSON.stringify(locksB));
+  const a2 = await alerts();
+  ok("(2i) 경보 기록(bait)", a2.bait && Date.parse(a2.bait) >= t0, a2.bait ?? "없음");
+  await unblockRecent();
+  await sleep(31_000); // 막힘 기억 30초
 
   // (3) 과사용 — 관리자 계정에 일회용 토큰
   const { data: admins } = await svc.from("profiles").select("id").eq("username", "vivestarter").single();
@@ -105,6 +141,7 @@ try {
 } finally {
   await svc.from("system_status").update({ site_readonly_at: null }).eq("id", "singleton");
   if (throwawayId) await svc.from("api_tokens").delete().eq("id", throwawayId);
+  await unblockRecent();
   const { data: end } = await anon.rpc("site_locks");
   ok("끝 — 잠금 풀림·일회용 토큰 지움", end?.readonly === false, JSON.stringify(end));
 }
