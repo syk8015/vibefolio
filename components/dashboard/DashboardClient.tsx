@@ -39,7 +39,8 @@ export interface DashboardProfile {
   github: string | null;
 }
 
-export default function DashboardClient({ user, profile, publishedCount, totalCount }: {
+export default function DashboardClient({ user, profile, publishedCount, totalCount, siteLock = null }: {
+  siteLock?: "readonly" | "uploads" | null;
   user: User;
   profile: DashboardProfile;
   publishedCount: number;
@@ -99,6 +100,14 @@ export default function DashboardClient({ user, profile, publishedCount, totalCo
       <AppNav />
 
       <div className="max-w-4xl mx-auto px-6 py-10">
+
+        {/* 비상 정지 띠 — 저장이 왜 안 되는지 늘 보이게(실패는 접지 않는다) */}
+        {siteLock && (
+          <p role="status" className="mb-8 px-5 py-4 rounded-2xl text-[15px]"
+            style={{ background: "var(--surface-soft)", color: "var(--danger)", fontFamily: "var(--font-nunito)" }}>
+            {siteLock === "readonly" ? t.dashboard.siteReadonly : t.dashboard.uploadsClosed}
+          </p>
+        )}
 
         {/* Welcome banner */}
         {showWelcome && (

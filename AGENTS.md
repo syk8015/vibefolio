@@ -11,6 +11,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - API 실패 응답은 `lib/apiError.ts`의 `apiError()` 한 가지 모양. 인증 게이트는 `lib/routeAuth.ts`(`requireUser`/`requireAdmin`)·`lib/workerAuth.ts`(`requireWorker`).
 
 - **`projects`는 칸 단위로 읽기가 갈린다**(2026-09-23). RLS는 행 단위라 공개 작품의 모든 칸이 익명 키로 읽혔다 → `supabase/migration_private_columns.sql`이 anon·authenticated SELECT를 `lib/projectColumns.ts` `PUBLIC_PROJECT_COLUMNS`로만 허락한다. 비공개 칸(`demo_access`·`demo_user_hint`·`demo_script`·`pending_*`·`demo_build_error`·`demo_source_value`)은 **주인이라도 사용자 키로 못 읽는다** — 서버가 주인 확인 뒤 관리자 권한으로 읽고, 대시보드는 `/api/projects/private`로 받는다. 사용자 키로 projects를 `select("*")`/`select()` 하지 말 것. **칸을 새로 만들면** 공개 칸은 PUBLIC + GRANT SQL, 아니면 PRIVATE(`npm test`의 `probe-project-columns`가 어긋남을 막는다).
+- **비상 정지**(2026-11-02, `/admin` › 비상 정지): 읽기 전용·업로드 닫기·연결/로그인 전부 끊기. 막는 곳은 두 겹 — `middleware.ts`가 `lib/siteLock.ts` `lockBlock()`으로 /api 쓰기를 503, 사용자 키로 바로 쓰는 profiles·projects는 SQL 트리거(`migration_stop_buttons.sql`). **새 쓰기 API는 손대지 않아도 읽기 전용에 막힌다**(기본이 막힘). 잠금 중에도 열어야 하는 주소만 `READONLY_ALLOW`에 까닭과 함께 더한다. 새 업로드 길을 만들면 `UPLOAD_PATHS`에 더한다. 사용자 키로 바로 쓰는 표를 새로 열면 그 표에도 `site_lock_guard` 트리거를 단다.
 
 # 화면·글 기준 (2026-10-02)
 

@@ -33,9 +33,14 @@ export default async function DashboardPage() {
       .eq("user_id", user.id),
   ]);
 
+  // 비상 정지(lib/siteLock.ts) — 잠겨 있으면 맨 위에 띠. SQL 적용 전·읽기 실패면 띠 없음.
+  const { data: locks } = await supabase.rpc("site_locks");
+  const siteLock = locks?.readonly ? "readonly" : locks?.uploadsClosed ? "uploads" : null;
+
   return (
     <Suspense>
       <DashboardClient
+        siteLock={siteLock}
         user={user}
         profile={profileRow as DashboardProfile}
         publishedCount={publishedCount ?? 0}

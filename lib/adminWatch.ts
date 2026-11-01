@@ -22,7 +22,8 @@ async function alertOnce(bucket: string, windowSeconds: number, title: string, l
   if (!first) return;
   await sendEmail({
     to: alertRecipients(),
-    ...adminAlertEmail({ title, lines, ctaLabel: "관제탑 열기", ctaUrl: `${SITE_URL}/admin` }),
+    // 수상한 일 메일이라 비상 정지(app/admin/StopPanel.tsx)가 펼쳐진 채로 연다.
+    ...adminAlertEmail({ title, lines, ctaLabel: "비상 정지 열기", ctaUrl: `${SITE_URL}/admin#stop` }),
   });
 }
 

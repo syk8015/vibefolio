@@ -144,4 +144,5 @@ done < "$WORK/pc.txt"
 echo "✓ 행 수 같은 표: ${same}개"
 if [ -n "$diffs" ]; then echo "  다른 표(백업 뒤 실서버에 새로 쌓였으면 정상):"; printf '%s' "$diffs"; fi
 
-if [ "$FAIL" = 0 ]; then wipe; echo "== 되살리기 연습 통과 (연습용 프로젝트는 다시 비움)"; else echo "== 되살리기 연습 실패 — 위 ✗를 볼 것"; exit 1; fi
+# NF_DRILL_KEEP=1 — 비우지 않고 남긴다(새 SQL을 실서버 전에 연습용 프로젝트에서 시험할 때). 끝나면 다시 돌려 비울 것.
+if [ "$FAIL" = 0 ] && [ "${NF_DRILL_KEEP:-}" = 1 ]; then echo "== 되살리기 연습 통과 (NF_DRILL_KEEP — 연습용 프로젝트에 남겨 둠, 끝나면 그냥 다시 돌려 비울 것)"; elif [ "$FAIL" = 0 ]; then wipe; echo "== 되살리기 연습 통과 (연습용 프로젝트는 다시 비움)"; else echo "== 되살리기 연습 실패 — 위 ✗를 볼 것"; exit 1; fi

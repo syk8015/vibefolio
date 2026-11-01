@@ -1363,3 +1363,10 @@ locale도 언어별(en = "The live portfolio for vibe coders. Show your projects
 | projects.reviewIntroGenre | 영상 틀 | Film style | 새 키 · 검토 창 소개 영상 칸의 틀 고르기(10-04). 옛 reviewIntroText·reviewIntroMood·reviewIntroStyles는 지움 |
 | projects.reviewIntroGenres | 영수증 / 터미널 / 게임기 화면 | Receipt / Terminal / Handheld LCD | 새 키 · 틀 이름(10-04) |
 | projects.reviewIntroGenres (+14) | 글자 그림 / 도면 / 기록계 / 오린 종이 / 칸 글자 / 박자 글자 / 숫자판 / 지하철 / 탑승권 / 입장권 / 카세트 / 사진 부스 / 자판기 / 도서관 카드 | Text art / Blueprint / Chart recorder / Cut paper / Grid letters / Kinetic type / Segment display / Subway / Boarding pass / Ticket / Cassette / Photo booth / Vending machine / Library card | 틀 14개 추가(10-08, 필름 실험실 2차) |
+
+## 비상 정지 띠 (2026-11-02)
+
+| 키 | 한국어 | English | 비고 |
+|---|---|---|---|
+| dashboard.siteReadonly | 지금은 점검 중이라 저장할 수 없어요. 프레임은 그대로 보여요. | Saving is paused for maintenance. Your frame is still visible. | 새 키 · 관리자가 사이트를 읽기 전용으로 잠갔을 때 대시보드 맨 위 |
+| dashboard.uploadsClosed | 지금은 점검 중이라 새로 올릴 수 없어요. 나머지는 그대로 돼요. | Uploads are paused for maintenance. Everything else still works. | 새 키 · 업로드만 닫았을 때 |

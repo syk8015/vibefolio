@@ -4,6 +4,7 @@ import { NextResponse, type NextFetchEvent, type NextRequest } from "next/server
 import { PREVIEW_ORIGIN, APP_ORIGIN } from "@/lib/previewOrigin";
 import { LOCALE_COOKIE, isLocale } from "@/lib/i18n/config";
 import { botVisitTask } from "@/lib/botVisit";
+import { lockBlock, readSiteLocks, LOCK_MESSAGE } from "@/lib/siteLock";
 
 export async function middleware(request: NextRequest, event: NextFetchEvent) {
   const { pathname } = request.nextUrl;
@@ -28,6 +29,20 @@ export async function middleware(request: NextRequest, event: NextFetchEvent) {
       new URL(pathname + request.nextUrl.search, APP_ORIGIN),
       307,
     );
+  }
+
+  // 비상 정지(lib/siteLock.ts) — 읽기 전용·업로드 닫기 중이면 /api 쓰기를 503으로 막는다.
+  // 읽기 요청은 상태를 묻지도 않는다(lockBlock이 GET을 바로 통과시키지만, 묻는 비용도 아낀다).
+  if (pathname.startsWith("/api/") && !["GET", "HEAD", "OPTIONS"].includes(request.method)) {
+    const code = lockBlock(request.method, pathname, await readSiteLocks());
+    if (code) {
+      const cookieLang = request.cookies.get(LOCALE_COOKIE)?.value;
+      const en = cookieLang ? cookieLang === "en" : !/^\s*ko\b/i.test(request.headers.get("accept-language") ?? "");
+      return NextResponse.json(
+        { ok: false, error: LOCK_MESSAGE[code][en ? "en" : "ko"], code },
+        { status: 503, headers: { "Retry-After": "600", "Cache-Control": "no-store" } },
+      );
+    }
   }
 
   // AI·링크 미리보기·검색 로봇의 페이지 요청 기록(lib/botVisit.ts) — 응답 뒤에 돈다.

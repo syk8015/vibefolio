@@ -194,6 +194,9 @@ export const ko = {
     welcomeBody: "이제 작품을 추가해서 프레임을 채워볼게요.",
     welcomeCta: "첫 작품 추가하기 →",
     welcomeClose: "환영 배너 닫기",
+    // 비상 정지(2026-11-02) — 관리자가 잠그면 대시보드 맨 위에 뜬다.
+    siteReadonly: "지금은 점검 중이라 저장할 수 없어요. 프레임은 그대로 보여요.",
+    uploadsClosed: "지금은 점검 중이라 새로 올릴 수 없어요. 나머지는 그대로 돼요.",
     copyAddress: "프레임 주소 복사",
     copied: "복사됨 ✓",
     viewFrame: "내 프레임 보기",

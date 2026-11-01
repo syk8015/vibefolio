@@ -13,6 +13,7 @@ import { AdminRequestList, type AdminRequestItem } from "./AdminRequestList";
 import { ReportInbox, type ReportItem } from "./ReportInbox";
 import { ModerationInbox, type ModerationItem } from "./ModerationInbox";
 import { LinksMenu, type AdminLink } from "./LinksMenu";
+import { StopPanel, type StopState } from "./StopPanel";
 import {
   Verdict,
   TodayChips,
@@ -189,6 +190,8 @@ export default async function AdminPage() {
     eventsRes,
     viewsRes,
     draftsTodayRes,
+    stopRes,
+    activeTokensRes,
   ] = await Promise.all([
     admin
       .from("demo_requests")
@@ -247,6 +250,14 @@ export default async function AdminPage() {
     // 오늘 들어온 초안 수(판정 밑 칩). 프로젝트 행은 인제스트로만 생기고 늘 초안으로 태어나니
     // 오늘 생긴 행 = 오늘 온 초안이다(그 뒤 공개된 것 포함). 행 없이 개수만 받는다.
     admin.from("projects").select("id", { count: "exact", head: true }).gte("created_at", todayStart),
+    // 비상 정지 상태(migration_stop_buttons.sql). 위 system_status 읽기와 따로 둔다 — SQL 적용 전에
+    // 없는 칸을 같이 물으면 워커·크론 상태까지 통째로 못 읽는다.
+    admin
+      .from("system_status")
+      .select("site_readonly_at, uploads_closed_at, tokens_revoked_at")
+      .eq("id", "singleton")
+      .maybeSingle(),
+    admin.from("api_tokens").select("id", { count: "exact", head: true }).is("revoked_at", null),
   ]);
 
   // ── approval queue ─────────────────────────────────────────────────────────
@@ -637,6 +648,16 @@ export default async function AdminPage() {
   if (alertFresh && latestAlert) {
     attention.push({ say: `최근 경보 ${alertEntries.length}건`, detail: `마지막 ${latestAlert[0]} · ${ago(latestAlert[1], now)}` });
   }
+  // 비상 정지가 켜져 있으면 판정 맨 앞 — 잠근 채 잊으면 사이트가 계속 멈춰 있다.
+  const stopRow = stopRes.data as { site_readonly_at: string | null; uploads_closed_at: string | null; tokens_revoked_at: string | null } | null;
+  const stopState: StopState | null = stopRes.error ? null : {
+    readonlyAt: stopRow?.site_readonly_at ?? null,
+    uploadsClosedAt: stopRow?.uploads_closed_at ?? null,
+    tokensRevokedAt: stopRow?.tokens_revoked_at ?? null,
+    activeTokens: activeTokensRes.error ? null : (activeTokensRes.count ?? 0),
+  };
+  if (stopState?.uploadsClosedAt) attention.unshift({ say: "업로드가 닫혀 있어요", detail: `${ago(stopState.uploadsClosedAt, now)}부터`, bad: true });
+  if (stopState?.readonlyAt) attention.unshift({ say: "사이트가 읽기 전용이에요", detail: `${ago(stopState.readonlyAt, now)}부터`, bad: true });
   const verdictNotes = paused
     ? [pendingCount > 0 ? `녹화 워커는 일부러 멈춰 둠 · 촬영 대기 ${pendingCount}건` : "녹화 워커는 일부러 멈춰 둠"]
     : [];
@@ -733,6 +754,9 @@ export default async function AdminPage() {
           승인·신고·검토 대기 없음
         </p>
       )}
+
+      {/* 비상 정지 — 평소엔 접힘, 켜져 있거나 메일의 #stop으로 오면 펼침 */}
+      {stopState && <StopPanel initial={stopState} />}
 
       {/* ④ 숫자 — 파이프라인·성장·유입·이벤트 원본은 접어 둔다 */}
       <Fold label="숫자 보기" className="mt-7">

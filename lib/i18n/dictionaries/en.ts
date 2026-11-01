@@ -167,6 +167,9 @@ export const en: Dictionary = {
     welcomeBody: "Now let's add your work and fill the frame.",
     welcomeCta: "Add your first project →",
     welcomeClose: "Dismiss welcome banner",
+    // 비상 정지(2026-11-02) — 관리자가 잠그면 대시보드 맨 위에 뜬다.
+    siteReadonly: "Saving is paused for maintenance. Your frame is still visible.",
+    uploadsClosed: "Uploads are paused for maintenance. Everything else still works.",
     copyAddress: "Copy frame address",
     copied: "Copied ✓",
     viewFrame: "View my frame",
