@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { apiError, type ApiErrorBody } from "./apiError";
 import { isAdminEmail } from "./adminEmails";
 import { noteAdminDenied, noteAdminAllowed } from "./adminWatch";
+import { noteAdminAction } from "./tripwire";
 
 // Cookie-session gates for API routes and server pages. Same contract as
 // lib/workerAuth.ts (`requireWorker`): the helper either hands back what the
@@ -42,5 +43,9 @@ export async function requireAdmin(): Promise<RouteSession | NextResponse<ApiErr
     return apiError({ status: 404, message: "찾을 수 없어요.", code: "NOT_FOUND" });
   }
   await noteAdminAllowed("관리자 API", user);
+  // 관리자 API가 몰리면(훔친 세션으로 휘젓기) 그 계정 로그인을 끊고 막는다 — lib/tripwire.ts.
+  if (!(await noteAdminAction(user))) {
+    return apiError({ status: 404, message: "찾을 수 없어요.", code: "NOT_FOUND" });
+  }
   return { user, supabase };
 }

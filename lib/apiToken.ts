@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from "crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logger } from "@/lib/logger";
+import { isDecoyTokenHash, tripDecoy, noteTokenUse } from "@/lib/tripwire";
 
 // Nookframe Connect — 개인 액세스 토큰(PAT) 발급/검증. SERVER-ONLY (서비스롤).
 //
@@ -84,9 +85,15 @@ export async function verifyToken(
   raw: string | null | undefined,
 ): Promise<ResolvedToken | null> {
   if (!raw || !raw.startsWith(TOKEN_SCHEME)) return null;
+  const hash = hashToken(raw);
+  // 미끼 토큰(lib/tripwire.ts) — 진짜 사용자는 가질 수 없다. 사이트를 잠그고, 겉으로는 그냥 틀린 토큰.
+  if (isDecoyTokenHash(hash)) {
+    await tripDecoy("미끼 토큰이 Bearer로 쓰였어요");
+    return null;
+  }
   const admin = createAdminClient();
   const live = () =>
-    admin.from("api_tokens").select("id, user_id").eq("token_hash", hashToken(raw)).is("revoked_at", null);
+    admin.from("api_tokens").select("id, user_id").eq("token_hash", hash).is("revoked_at", null);
 
   // 만료 검사(2026-09-17, OAuth). 사람이 만든 PAT는 expires_at이 null이라 이 필터를
   // 그대로 통과한다 — 동작 불변. 만료가 붙는 것은 원격 MCP 커넥터가 받아 가는 토큰뿐이다.
@@ -105,6 +112,8 @@ export async function verifyToken(
     return null;
   }
   if (!data) return null;
+  // 토큰 하나가 몰려 쓰이면 그 토큰만 끊는다(lib/tripwire.ts).
+  if (!(await noteTokenUse(data.id, data.user_id))) return null;
   // last_used_at 갱신은 fire-and-forget — 검증 지연/실패에 영향 주지 않는다.
   void admin
     .from("api_tokens")

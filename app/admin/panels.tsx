@@ -291,6 +291,9 @@ const ALERT_LABEL: Record<string, string> = {
   "pending-not-draining": "대기열이 빠지지 않음",
   "stuck-query-failed": "워치독 DB 조회 실패",
   "reap-update-failed": "워치독 정리 실패",
+  decoy: "미끼 건드림 · 읽기 전용 잠금",
+  "token-burst": "토큰 과사용 · 그 토큰 끊음",
+  "admin-burst": "관리자 조치 몰림 · 로그인 끊음",
 };
 
 export function AlertTicker({
