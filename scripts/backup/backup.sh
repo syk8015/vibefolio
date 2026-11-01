@@ -60,10 +60,10 @@ DUMP="$ROOT/db/nookframe-$TODAY.dump"
 unset PGPASSWORD
 TABLES=$("$PG_RESTORE" --list "$DUMP.part" | grep -c "TABLE DATA public" || true)
 if [ "$TABLES" -lt 10 ]; then
-  echo "!! 덤프가 이상해요: public 표 데이터 $TABLES개"; false
+  echo "!! 덤프가 이상해요: public 표 데이터 ${TABLES}개"; false
 fi
 mv "$DUMP.part" "$DUMP"
-echo "-- 데이터 저장소: $(du -h "$DUMP" | cut -f1), public 표 $TABLES개"
+echo "-- 데이터 저장소: $(du -h "$DUMP" | cut -f1), public 표 ${TABLES}개"
 
 # ── 2. R2 파일 → 이 맥 ───────────────────────────────────────────────────────────
 # 읽기 전용 열쇠(Cloudflare에서 이 버킷 Object Read만). 거울에서 바뀌거나 지워진 파일은
@@ -101,11 +101,11 @@ for dir in "$ROOT"/files-archive/*/; do
   d=$(basename "$dir")
   if [[ "$d" < "$CUTOFF" ]]; then rm -rf "$dir"; fi
 done
-"$RCLONE" lsf nfdrive:db --files-only 2>/dev/null | while read -r name; do
+{ "$RCLONE" lsf nfdrive:db --files-only --retries 1 2>/dev/null || true; } | while read -r name; do
   d=$(echo "$name" | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}' || true)
   if [ -n "$d" ] && [[ "$d" < "$CUTOFF" ]]; then "$RCLONE" deletefile "nfdrive:db/$name"; fi
 done
-"$RCLONE" lsf nfdrive:files-archive --dirs-only 2>/dev/null | while read -r name; do
+{ "$RCLONE" lsf nfdrive:files-archive --dirs-only --retries 1 2>/dev/null || true; } | while read -r name; do
   d=${name%/}
   if [[ "$d" < "$CUTOFF" ]]; then "$RCLONE" purge "nfdrive:files-archive/$d"; fi
 done
