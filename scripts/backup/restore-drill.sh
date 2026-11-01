@@ -55,7 +55,8 @@ prod()  { PGPASSWORD="$PROD_PW"  "$BIN/psql" "$PROD_URL"  -v ON_ERROR_STOP=1 -At
 echo "== 백업: $(basename "$DUMP")  →  연습용 프로젝트"
 
 # ── 1. 연습용 DB 비우기 (public 전부 + 로그인 계정) ─────────────────────────────
-drill <<'SQL'
+# 통과하면 끝에서 한 번 더 비운다 — 연습용 프로젝트에 실데이터 사본을 남기지 않게.
+wipe() { drill -c "$(cat <<'SQL'
 do $$ declare r record; begin
   for r in select c.oid::regclass as t from pg_class c where c.relnamespace = 'public'::regnamespace and c.relkind in ('r','p') loop
     execute format('drop table if exists %s cascade', r.t); end loop;
@@ -68,16 +69,32 @@ do $$ declare r record; begin
   for r in select t.oid::regtype as ty from pg_type t where t.typnamespace = 'public'::regnamespace and t.typtype in ('e','d','c') and not exists (select 1 from pg_class c where c.reltype = t.oid) loop
     execute format('drop type if exists %s cascade', r.ty); end loop;
 end $$;
-delete from auth.users;
+SQL
+)" -c "delete from auth.users" 2>/dev/null; }
+wipe
+drill <<'SQL'
+-- 새 프로젝트의 기본 권한은 public에 새로 만든 표를 anon·authenticated에게 전부 연다. 백업의
+-- 표 권한은 '처음엔 아무 권한도 없다'를 바탕으로 적힌 차이라(GRANT만 있고 REVOKE는 없다),
+-- 이대로 넣으면 실서버에서 잠가 둔 표(desktop_handoffs·media_scans 등)가 anon에게 열린 채
+-- 되살아난다(2026-11-02 첫 연습에서 잡힘). 그래서 넣기 전에 기본 권한을 비운다 — 실서버의
+-- 기본 권한은 백업 끝의 DEFAULT ACL이 다시 깐다.
+alter default privileges for role postgres in schema public revoke all on tables from anon, authenticated, service_role;
+alter default privileges for role postgres in schema public revoke all on sequences from anon, authenticated, service_role;
+alter default privileges for role postgres in schema public revoke all on functions from anon, authenticated, service_role;
 SQL
 echo "-- 연습용 DB 비움"
 
 # ── 2. 되살리기: 로그인 계정 먼저(공개 표의 외래 키가 auth.users를 가리킨다) → public ──
 # 새 프로젝트엔 auth 표가 이미 있으니 auth는 데이터만, 계정·연결 두 표만 넣는다(세션·토큰은
-# 다시 로그인하면 생긴다).
-PGPASSWORD="$DRILL_PW" "$BIN/pg_restore" --data-only --no-owner -n auth -t users -t identities \
-  -d "$DRILL_URL" "$DUMP" 2>"$WORK/auth.err" || true
-PGPASSWORD="$DRILL_PW" "$BIN/pg_restore" --no-owner -n public \
+# 다시 로그인하면 생긴다). 백업 목차에선 identities가 users보다 앞이라 따로 두 번 넣는다.
+: > "$WORK/auth.err"
+for t in users identities; do
+  PGPASSWORD="$DRILL_PW" "$BIN/pg_restore" --data-only --no-owner -n auth -t "$t" \
+    -d "$DRILL_URL" "$DUMP" 2>>"$WORK/auth.err" || true
+done
+# supabase_admin 몫의 기본 권한은 postgres가 바꿀 수 없다(새 프로젝트에 이미 같은 값) → 목차에서 뺀다.
+"$BIN/pg_restore" -l -n public "$DUMP" | grep -v 'DEFAULT ACL public DEFAULT PRIVILEGES FOR [A-Z]* supabase_admin' > "$WORK/public.list"
+PGPASSWORD="$DRILL_PW" "$BIN/pg_restore" --no-owner -n public -L "$WORK/public.list" \
   -d "$DRILL_URL" "$DUMP" 2>"$WORK/public.err" || true
 for part in auth public; do
   n=$(grep -c "error:" "$WORK/$part.err" || true)
@@ -95,6 +112,7 @@ declare -a CHECKS=(
 "칸 권한(anon·authenticated)|select table_name, column_name, grantee, privilege_type from information_schema.column_privileges where table_schema = 'public' and grantee in ('anon','authenticated') order by 1, 2, 3, 4"
 "함수(보안 정의자·search_path)|select p.proname, pg_get_function_identity_arguments(p.oid), p.prosecdef, coalesce(p.proconfig::text,'') from pg_proc p where p.pronamespace = 'public'::regnamespace order by 1, 2"
 "함수 실행 권한|select p.proname, pg_get_function_identity_arguments(p.oid), has_function_privilege('anon', p.oid, 'execute'), has_function_privilege('authenticated', p.oid, 'execute') from pg_proc p where p.pronamespace = 'public'::regnamespace order by 1, 2"
+"기본 권한(postgres 몫)|select defaclobjtype, defaclacl::text from pg_default_acl where defaclnamespace = 'public'::regnamespace and defaclrole = 'postgres'::regrole order by 1"
 "트리거|select c.relname, t.tgname, t.tgenabled from pg_trigger t join pg_class c on c.oid = t.tgrelid where c.relnamespace = 'public'::regnamespace and not t.tgisinternal order by 1, 2"
 )
 FAIL=0
@@ -106,7 +124,7 @@ for item in "${CHECKS[@]}"; do
     echo "✓ ${name}: 같음 ($(wc -l < "$WORK/p.txt" | tr -d ' ')줄)"
   else
     FAIL=1; echo "✗ ${name}: 다름"
-    diff "$WORK/p.txt" "$WORK/d.txt" | head -10 | sed 's/^/     /'
+    { diff "$WORK/p.txt" "$WORK/d.txt" || true; } | head -10 | sed 's/^/     /'
   fi
 done
 
@@ -126,4 +144,4 @@ done < "$WORK/pc.txt"
 echo "✓ 행 수 같은 표: ${same}개"
 if [ -n "$diffs" ]; then echo "  다른 표(백업 뒤 실서버에 새로 쌓였으면 정상):"; printf '%s' "$diffs"; fi
 
-if [ "$FAIL" = 0 ]; then echo "== 되살리기 연습 통과"; else echo "== 되살리기 연습 실패 — 위 ✗를 볼 것"; exit 1; fi
+if [ "$FAIL" = 0 ]; then wipe; echo "== 되살리기 연습 통과 (연습용 프로젝트는 다시 비움)"; else echo "== 되살리기 연습 실패 — 위 ✗를 볼 것"; exit 1; fi

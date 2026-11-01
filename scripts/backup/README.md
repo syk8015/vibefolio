@@ -14,6 +14,10 @@
 
 - 맥 사본: `~/Backups/nookframe/db/nookframe-YYYY-MM-DD.dump`, 파일 거울 `files/`, 지워지거나 바뀐 파일 `files-archive/YYYY-MM-DD/`.
 - 맥이 없을 때: 새 맥에서 4번(gdrive) + `rclone config create nfdrive crypt remote gdrive:nookframe-backup password <암호 앱의 값>` → `rclone copy nfdrive:db ./db`, `rclone copy nfdrive:files ./files`.
-- 데이터 저장소: 새 Supabase 프로젝트에 `pg_restore --no-owner --schema=public` 으로 구조·데이터, auth는 `--data-only --schema=auth`(새 프로젝트에 auth 표가 이미 있다). 칸 단위 GRANT(`migration_private_columns.sql`)가 제대로 들어왔는지 꼭 확인 — 보안이 거기 걸려 있다.
+- 데이터 저장소: **`restore-drill.sh`의 1·2단계 순서를 그대로 따른다** — 그게 검증된 절차다. 요점 셋(2026-11-02 첫 연습에서 잡힌 것):
+  1. 넣기 **전에** 새 프로젝트의 public 기본 권한을 비운다(`alter default privileges for role postgres in schema public revoke all on tables/sequences/functions from anon, authenticated, service_role`). 안 그러면 실서버에서 잠근 표가 anon에게 열린 채 되살아난다 — 백업의 권한은 GRANT만 적혀 있다.
+  2. auth는 `--data-only`로 `users` 먼저, `identities` 다음(한 번에 넣으면 목차 순서 탓에 외래 키 오류).
+  3. public은 `pg_restore -l`로 목차를 뽑아 `DEFAULT ACL … supabase_admin` 줄을 빼고 `-L`로 넣는다(postgres가 못 바꾸는 줄, 새 프로젝트에 이미 같은 값).
+  넣은 뒤 `restore-drill.sh`의 맞춰 보기 쿼리로 칸 권한까지 실서버(또는 백업 당시)와 같은지 본다.
 - 파일: `rclone sync ./files <새 R2>:nookframe`.
 - 한 달에 한 번 빈 새 프로젝트에 실제로 되살려 본다(보안 로드맵 1단계). 절차가 바뀌면 여기를 고친다.
