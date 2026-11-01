@@ -136,8 +136,9 @@ export async function blockIpKey(key: string): Promise<void> {
 }
 
 const blockCache = new Map<string, { at: number; blocked: boolean }>();
-const BLOCK_TTL_MS = 30_000;
-/** 이 IP가 막혀 있나. 인스턴스마다 30초 기억. 읽기 실패면 안 막힌 것으로. */
+// 10초 — 막힌 직후 길어야 10초만 더 통과한다(30초였을 때 실서버 시험에서 막 쓴 IP가 바로 안 막혔다).
+const BLOCK_TTL_MS = 10_000;
+/** 이 IP가 막혀 있나. 인스턴스마다 10초 기억. 읽기 실패면 안 막힌 것으로. */
 export async function isIpKeyBlocked(key: string): Promise<boolean> {
   const now = Date.now();
   const hit = blockCache.get(key);

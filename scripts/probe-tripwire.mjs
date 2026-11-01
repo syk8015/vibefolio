@@ -84,7 +84,7 @@ try {
   ok("(2d) /internal/ops-notes 200", notes.status === 200 && /nf_live_/.test(await notes.text()), String(notes.status));
   const b1 = await status(bait);
   ok("(2e) 겉 미끼 토큰 → 겉으로는 그냥 401", b1.status === 401, String(b1.status));
-  await sleep(1_000);
+  await sleep(11_000); // 막힘 기억 10초 — 앞서 이 IP가 '안 막힘'으로 기억됐을 수 있다
   const blocked = await fetch(`${ORIGIN}/api/ingest/status`);
   const bb = await blocked.json().catch(() => ({}));
   ok("(2f) 이 IP의 /api → 403 BLOCKED", blocked.status === 403 && bb.code === "BLOCKED", `${blocked.status} ${bb.code}`);
@@ -95,7 +95,7 @@ try {
   const a2 = await alerts();
   ok("(2i) 경보 기록(bait)", a2.bait && Date.parse(a2.bait) >= t0, a2.bait ?? "없음");
   await unblockRecent();
-  await sleep(31_000); // 막힘 기억 30초
+  await sleep(11_000); // 막힘 기억 10초
 
   // (3) 과사용 — 관리자 계정에 일회용 토큰
   const { data: admins } = await svc.from("profiles").select("id").eq("username", "vivestarter").single();
