@@ -81,7 +81,7 @@ echo "-- 파일 거울: $(find "$ROOT/files" -type f | wc -l | tr -d ' ')개, $(
 # crypt 암호를 잃으면 드라이브 사본은 영영 못 읽는다 — setup.sh가 만들 때 비밀번호 앱에
 # 따로 저장하라고 안내한다. 이 맥이 통째로 사라져도 드라이브 + 그 암호면 되살린다.
 if ! "$RCLONE" listremotes | grep -qx "gdrive:"; then
-  echo "!! rclone에 gdrive 연결이 없어요 — rclone config create gdrive drive scope drive.file"; false
+  echo "!! rclone에 gdrive 연결이 없어요 — 터미널 앱에서 rclone config create gdrive drive scope drive.file >/dev/null"; false
 fi
 export RCLONE_CONFIG_NFDRIVE_TYPE=crypt RCLONE_CONFIG_NFDRIVE_REMOTE="$DRIVE_DIR"
 RCLONE_CONFIG_NFDRIVE_PASSWORD=$(kc nookframe-backup-crypt | "$RCLONE" obscure -)

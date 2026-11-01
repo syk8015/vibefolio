@@ -7,7 +7,7 @@
 1. **데이터 저장소 비밀번호** — 모르면 Supabase › Project Settings › Database › Reset database password. 앱·워커·스크립트는 이 비밀번호를 안 쓴다(API 키를 쓴다) — 바꿔도 사이트는 그대로다.
 2. **R2 읽기 전용 열쇠** — Cloudflare › R2 › Manage API tokens › Create: 권한 *Object Read only*, 버킷 `nookframe`만. 만든 화면의 S3 주소·Access Key ID·Secret을 3번에서 넣는다.
 3. 터미널 앱에서 `bash ~/Desktop/nookframe/scripts/backup/setup.sh` — 값은 화면에 안 보이고 키체인으로만 간다. 마지막에 클립보드로 받은 **드라이브 암호를 '암호' 앱에 저장**.
-4. `rclone config create gdrive drive scope drive.file` — 브라우저에서 개인 구글 계정으로 허락. (`drive.file`이라 rclone이 만든 파일만 만질 수 있다.)
+4. 터미널 앱에서 `rclone config create gdrive drive scope drive.file >/dev/null` — 브라우저에서 개인 구글 계정으로 허락. (`drive.file`이라 rclone이 만든 파일만 만질 수 있다.) ⚠️ `>/dev/null`을 빼면 구글 토큰을 화면에 그대로 찍는다 — 채팅(`!`)에서 돌리지 말 것.
 5. 첫 백업 `bash scripts/backup/backup.sh`, 확인 뒤 `bash scripts/backup/install.sh`(launchd에 걸기).
 
 ## 되살리기
