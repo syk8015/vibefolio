@@ -370,7 +370,8 @@ export default function ProjectsTab({
           return next;
         });
       }
-      setNotice(t.projects.deleteFailed);
+      const body = res ? await res.json().catch(() => null) as { code?: string } | null : null;
+      setNotice(body?.code === "TAKEN_DOWN" ? t.api.takenDownNoDelete : t.projects.deleteFailed);
       return;
     }
     syncPublic();

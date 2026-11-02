@@ -858,6 +858,7 @@ export const en: Dictionary = {
     retryLater: "Please try again in a moment.",
     projectNotFound: "Project not found.",
     projectForbidden: "You don't have permission for this project.",
+    takenDownNoDelete: "This work was taken down after a report review, so it can't be deleted. Reply to the email we sent and we'll take another look.",
     demoStatusFailed: "Couldn't load the demo status.",
     rerecordReasonRequired: "Tell us what you'd like changed and how.",
     rerecordInFlight: "A demo video is being made right now. Please ask again once it's done.",

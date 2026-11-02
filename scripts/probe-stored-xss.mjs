@@ -88,14 +88,15 @@ try {
   {
     let row = { ...base };
     for (let i = 0; i < 6 && !projectId; i++) {
-      const { data, error } = await user.from("projects").insert(row).select("id").single();
+      // 작품은 인제스트(서버)만 만든다 — 사용자 키 INSERT는 2026-11-02에 닫혔다(migration_suspension_hole.sql).
+      const { data, error } = await svc.from("projects").insert(row).select("id").single();
       if (!error) { projectId = data.id; break; }
       const col = Object.keys(row).find((k) => error.message.includes(k) && k !== "user_id");
       note(`사용자 키 insert 거절: ${error.code} ${error.message}${col ? ` → ${col} 빼고 다시` : ""}`);
       if (!col) break;
       delete row[col];
     }
-    ok("사용자 키: 공격 문자열로 작품 저장됨", !!projectId);
+    ok("공격 문자열로 작품 저장됨(관리자 키)", !!projectId);
     if (!projectId) throw new Error("작품을 못 만들어 화면 검사를 못 함");
   }
 

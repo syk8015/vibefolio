@@ -389,6 +389,14 @@ export async function DELETE(
     const admin = createAdminClient();
     const draft = await loadDraft(admin, id, userId, t);
     if (draft instanceof NextResponse) return draft;
+    // 내린 작품(초안으로 돌려진)은 지우지 않는다 — 대시보드 삭제와 같은 규칙(migration_suspension_hole.sql).
+    // 관리자 권한이라 RLS 삭제 정책을 안 거치므로 여기서 직접 본다.
+    const { data: lock, error: lockErr } = await admin
+      .from("projects").select("taken_down_at").eq("id", draft.id).maybeSingle();
+    if (lockErr) throw new Error(`takedown check failed: ${lockErr.message}`);
+    if (lock?.taken_down_at) {
+      return apiError({ status: 409, message: t.api.takenDownNoDelete, code: "TAKEN_DOWN" });
+    }
 
     // 스토리지 정리 — 인제스트 초안의 파일은 전부 행 폴더 {uid}/{id}/ 아래에 있다
     // (zip 확장·_media·_upload — 행을 먼저 만들고 그 id 폴더에 올리는 설계라,

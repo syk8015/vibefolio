@@ -511,6 +511,7 @@
 | retryLater | 잠시 후 다시 시도해 주세요. | Please try again in a moment. | |
 | projectNotFound | 프로젝트를 찾을 수 없어요. | Project not found. | |
 | projectForbidden | 이 프로젝트에 대한 권한이 없어요. | You don't have permission for this project. | |
+| takenDownNoDelete | 신고 검토로 내려진 작품이라 지울 수 없어요. 받은 메일에 답장하면 다시 검토할게요. | This work was taken down after a report review, so it can't be deleted. Reply to the email we sent and we'll take another look. | 2026-11-02 내린 작품 삭제 막기 |
 | demoStatusFailed | 시연 상태를 불러오지 못했어요. | Couldn't load the demo status. | |
 | rerecordReasonRequired | 무엇을 어떻게 바꾸고 싶은지 적어주세요. | Tell us what you'd like changed and how. | |
 | rerecordInFlight | 지금 시연 영상을 만드는 중이에요. 끝난 뒤에 요청해 주세요. | A demo video is being made right now. Please ask again once it's done. | |

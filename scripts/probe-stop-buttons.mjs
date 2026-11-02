@@ -108,7 +108,8 @@ try {
   const w2 = await owner.from("profiles").update({ updated_at: new Date().toISOString() }).eq("id", adminId);
   ok("(5c) 사용자 키 프로필 수정은 됨", !w2.error, w2.error?.message ?? "");
   const ins = await owner.from("projects").insert({ user_id: adminId, title: "__probe_stop_DONOTKEEP__", demo_url: "https://example.com/" }).select("id");
-  ok("(5d) 사용자 키 새 작품 → UPLOADS_CLOSED", (ins.error?.message ?? "").includes("UPLOADS_CLOSED"), ins.error?.message ?? "막히지 않음");
+  // 2026-11-02부터 사용자 키 projects INSERT 권한 자체가 없다(migration_suspension_hole.sql) — 둘 중 하나면 막힌 것.
+  ok("(5d) 사용자 키 새 작품 → 막힘", /UPLOADS_CLOSED|permission denied/.test(ins.error?.message ?? ""), ins.error?.message ?? "막히지 않음");
   if (!ins.error && ins.data?.[0]?.id) await svc.from("projects").delete().eq("id", ins.data[0].id);
   const uo = await stop({ action: "uploads", on: false });
   ok("(5e) 업로드 다시 열기 → 200", uo.status === 200, String(uo.status));

@@ -96,6 +96,16 @@ export async function DELETE(
 
     const admin = createAdminClient();
 
+    // 내린 작품은 지우지 않는다(2026-11-02, migration_suspension_hole.sql) — 지웠다 다시 올려 내림을
+    // 지우는 길을 닫고 신고 기록을 남긴다. 파일을 지우기 **전에** 본다: 행 삭제는 RLS가 0행으로 조용히
+    // 막으므로 여기서 안 보면 파일만 사라진다. taken_down_at은 비공개 칸이라 관리자 권한으로 읽는다.
+    const { data: lock, error: lockErr } = await admin
+      .from("projects").select("taken_down_at").eq("id", id).maybeSingle();
+    if (lockErr) throw new Error(`takedown check failed: ${lockErr.message}`);
+    if (lock?.taken_down_at) {
+      return apiError({ status: 409, message: t.api.takenDownNoDelete, code: "TAKEN_DOWN" });
+    }
+
     // 폴더 BFS·페이지 넘김(1000개 초과 폴더)은 listFilesDeep.
     // Project folder + the uploaded-source folder (different id — see
     // uploadFolderFromPreviewUrl) + standalone video/thumbnail, in R2 and legacy Supabase.
@@ -129,8 +139,10 @@ export async function DELETE(
     // user closes the tab the instant the row disappears from the list, the server
     // still runs to here; there is no client-side second request left to be cut off.
     // Ownership was verified above; the RLS-scoped user client is a second guard.
-    const { error: rowErr } = await supabase.from("projects").delete().eq("id", id);
+    const { error: rowErr, count: rowCount } = await supabase
+      .from("projects").delete({ count: "exact" }).eq("id", id);
     if (rowErr) throw new Error(`row delete failed: ${rowErr.message}`);
+    if (!rowCount) throw new Error("row delete matched 0 rows (RLS)");
 
     logger.info("project deleted", { projectId: id, sbRemoved, r2Removed });
     return NextResponse.json({ ok: true, sbRemoved, r2Removed, rowDeleted: true });
