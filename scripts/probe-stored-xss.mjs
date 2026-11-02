@@ -35,6 +35,10 @@ const run = (tag) => `(self.__nfx=self.__nfx||[]).push('${tag}')`;
 const html = (tag) =>
   `NF probe ${tag} <img src=x onerror="${run(tag)}"><svg onload="${run(tag + "-svg")}"></svg>` +
   `</script><script>${run(tag + "-script")}</script>"'><iframe srcdoc="<script>parent.${run(tag + "-srcdoc")}</script>">`;
+// 글자 수 상한(migration_length_caps.sql: 이름 100·제목 300)에 맞춘 짧은 꼴.
+const htmlShort = (tag) => `<img src=x onerror="${run(tag)}">`;
+const htmlMid = (tag) =>
+  `<img src=x onerror="${run(tag)}"><svg onload="${run(tag + "-svg")}"></svg></script><script>${run(tag + "-script")}</script>`;
 const jsUrl = (tag) => `javascript:${run(tag)}//https://github.com/x`;
 
 let userId = null;
@@ -63,7 +67,7 @@ try {
     const { error } = await user.from("profiles").upsert({
       id: userId,
       username,
-      name: html("name"),
+      name: htmlShort("name"),
       bio: html("bio"),
       avatar_url: jsUrl("avatar"),
       social_links: [jsUrl("social"), `https://github.com/x" onmouseover="${run("social-attr")}`, "github.com/nfprobe"],
@@ -73,7 +77,7 @@ try {
   }
   const base = {
     user_id: userId,
-    title: html("title"),
+    title: htmlMid("title"),
     description: html("desc"),
     comment: html("comment"),
     tags: [html("tag")],
