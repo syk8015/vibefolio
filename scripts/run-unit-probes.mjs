@@ -19,6 +19,7 @@ const PROBES = [
   "scripts/probe-schema-drift.mts",         // 생성물(cli/src/schema.js·lib/mcpTools.ts)이 원본과 어긋났는지
   "scripts/probe-oauth-unit.mts",           // 원격 MCP OAuth — CIMD 두 항목·client_id 규칙·PKCE
   "scripts/probe-safe-next-unit.mts",     // 로그인 뒤 돌아갈 곳(?next=) — 밖으로 튕기는 모양 차단
+  "scripts/probe-admin-stepup-unit.mts",    // 관리자 추가 인증 — 집 나라 밖은 aal2만, 나라 모르면 6자리, 돌아갈 곳은 /admin 안만
   "scripts/probe-demo-access-unit.mts",     // demoAccess에 토큰·비번 이름이 오면 400(공개 칸이라 새어 나감)
   "scripts/probe-published-twin-unit.mts",  // 이미 공개된 같은 작품(NF-19) — 같은 외부 주소·같은 제목, 미리보기 주소는 안 엮음
   "scripts/probe-owner-interview-unit.mts", // 주인 인터뷰(필수) — 답 3개·자리 채우기 거절·가릴 것 목록·비공개 칸

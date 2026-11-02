@@ -1,8 +1,6 @@
-import { notFound } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { notFound, redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { isAdminEmail } from "@/lib/routeAuth";
-import { noteAdminDenied, noteAdminAllowed } from "@/lib/adminWatch";
+import { checkAdmin } from "@/lib/routeAuth";
 import { AnalyticsEvent } from "@/lib/analytics-events";
 import { promoTrackingUrl, type PromoLocale, type PromoPostStatus } from "@/lib/promo";
 import { Panel, SectionTitle, MonoAside, Ledger, type LedgerEntry } from "../panels";
@@ -16,13 +14,10 @@ import type { ClipPost } from "./ClipCard";
 export const dynamic = "force-dynamic";
 
 export default async function PromoPage() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user || !isAdminEmail(user.email)) {
-    await noteAdminDenied("/admin/promo", user);
-    notFound();
-  }
-  await noteAdminAllowed("/admin/promo", user);
+  const gate = await checkAdmin("/admin/promo");
+  if (gate.kind === "denied") notFound();
+  // 집 나라 밖에서 인증 앱 6자리 없이 왔다 — 확인 화면으로(lib/adminStepUp.ts).
+  if (gate.kind === "step-up") redirect("/admin/verify?next=%2Fadmin%2Fpromo");
 
   const admin = createAdminClient();
   // eslint-disable-next-line react-hooks/purity -- 서버 컴포넌트(force-dynamic): 요청마다 한 번 그린다, 다시 그려질 일이 없다.

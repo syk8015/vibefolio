@@ -1,8 +1,6 @@
-import { notFound } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { notFound, redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { isAdminEmail } from "@/lib/routeAuth";
-import { noteAdminDenied, noteAdminAllowed } from "@/lib/adminWatch";
+import { checkAdmin, hasVerifiedTotp } from "@/lib/routeAuth";
 import { hasErrorReporter } from "@/lib/logger";
 import { isR2Configured, r2Usage } from "@/lib/r2";
 import { parseDemoFailure } from "@/lib/demo-failure";
@@ -50,6 +48,7 @@ export const dynamic = "force-dynamic";
 
 const ADMIN_LINKS: AdminLink[] = [
   { label: "홍보 클립 관리", href: "/admin/promo" },
+  { label: "인증 앱", href: "/admin/verify" },
   { label: "Vercel", href: "https://vercel.com/dashboard" },
   { label: "Supabase", href: "https://supabase.com/dashboard/project/nepwsgrtonmexgqplcdp" },
   { label: "R2", href: "https://dash.cloudflare.com/?to=/:account/r2" },
@@ -164,13 +163,11 @@ const OPS_TOKENS = `
 `;
 
 export default async function AdminPage() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user || !isAdminEmail(user.email)) {
-    await noteAdminDenied("/admin", user);
-    notFound();
-  }
-  await noteAdminAllowed("/admin", user);
+  const gate = await checkAdmin("/admin");
+  if (gate.kind === "denied") notFound();
+  // 집 나라 밖에서 인증 앱 6자리 없이 왔다 — 확인 화면으로(lib/adminStepUp.ts).
+  if (gate.kind === "step-up") redirect("/admin/verify?next=%2Fadmin");
+  const { user } = gate;
 
   const admin = createAdminClient();
   // eslint-disable-next-line react-hooks/purity -- 서버 컴포넌트(force-dynamic): 요청마다 한 번 그린다, 다시 그려질 일이 없다.
@@ -645,6 +642,10 @@ export default async function AdminPage() {
   }
   // 하루 안에 울린 경보 — 지금은 회복됐어도 "손 볼 것 없음"으로 덮지 않는다. 경보 줄은 상태 칸을
   // 눌러야 펼쳐지니, 판정에 한 줄로 올린다(10-01 검토).
+  // 인증 앱이 없으면 집 나라 밖에서 관리자 화면이 아예 안 열린다(lib/adminStepUp.ts) — 등록할 때까지 띄운다.
+  if (!hasVerifiedTotp(user)) {
+    attention.push({ say: "인증 앱이 아직 없어요", detail: "없으면 다른 나라에서 관리자 화면이 안 열려요 · 바로가기 › 인증 앱에서 등록" });
+  }
   if (alertFresh && latestAlert) {
     attention.push({ say: `최근 경보 ${alertEntries.length}건`, detail: `마지막 ${latestAlert[0]} · ${ago(latestAlert[1], now)}` });
   }

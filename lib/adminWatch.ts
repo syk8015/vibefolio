@@ -8,11 +8,12 @@ import { logger } from "@/lib/logger";
 // 관리자 화면 지켜보기(2026-10-02, 위협 목록 "/admin 공격 감지 없음").
 //
 // 관리자 화면·API는 관리자가 아니면 404로 존재를 숨긴다(lib/routeAuth.ts requireAdmin). 그런데
-// 누가 그 문을 계속 두드려도 아무도 몰랐다. 두 가지를 본다:
+// 누가 그 문을 계속 두드려도 아무도 몰랐다. 세 가지를 본다:
 //   1. 막힌 접근 — IP 하나가 10분에 6번 넘게 막히면 관리자에게 메일(전체 1시간에 1통).
 //   2. 열린 접근 — 관리자 세션이 처음 보는 나라에서 열리면 메일(나라마다 30일에 1통). 세션을
 //      훔친 사람은 404에 안 걸리므로 1번으로는 안 보인다. 집 IP는 자주 바뀌어 IP가 아니라 나라로 센다.
-// 셋 다 rl_touch 창(fail-open)이라 표가 없고, 메일·한도기가 고장 나도 화면은 그대로 열리거나 막힌다.
+//   3. 인증 앱 확인에서 멈춤 — 집 나라 밖에서 6자리 없이 온 관리자 세션(lib/adminStepUp.ts). 나라마다 하루 1통.
+// 모두 rl_touch 창(fail-open)이라 표가 없고, 메일·한도기가 고장 나도 화면은 그대로 열리거나 막힌다.
 
 const PROBE_WINDOW_S = 600;
 const PROBE_MAX = 5;
@@ -62,5 +63,22 @@ export async function noteAdminAllowed(where: string, user: User): Promise<void>
     ]);
   } catch (err) {
     logger.error("adminWatch: allowed note failed", { error: err });
+  }
+}
+
+/** 관리자 세션이 집 나라 밖에서 인증 앱 6자리 없이 왔다 — 막는 건 부른 쪽(lib/routeAuth.ts checkAdmin). */
+export async function noteAdminStepUp(where: string, user: User, country: string, hasFactor: boolean): Promise<void> {
+  try {
+    logger.warn("admin: step-up required (new country)", { where, country, hasFactor });
+    await alertOnce(`stepup:${user.id}:${country}`, 86400, "관리자 화면이 인증 앱 확인에서 멈췄어요", [
+      `계정: ${user.email ?? user.id}`,
+      `나라: ${country} · 위치: ${where}`,
+      hasFactor
+        ? "집 나라 밖이라 인증 앱 6자리를 넣어야 열려요. 직접 연 거라면 6자리를 넣으면 돼요."
+        : "집 나라 밖인데 인증 앱이 아직 없어서 열 수 없어요. 집 나라에서 /admin/verify로 먼저 등록해 주세요.",
+      "직접 연 게 아니라면 누가 관리자 로그인을 가졌다는 뜻이에요 — 비상 정지에서 [전부 끊기]를 검토해 주세요.",
+    ]);
+  } catch (err) {
+    logger.error("adminWatch: step-up note failed", { error: err });
   }
 }
