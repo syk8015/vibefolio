@@ -30,7 +30,7 @@ export default async function TermsPage() {
           {en ? "Terms of Service" : "이용약관"}
         </h1>
         <p className="text-sm mb-12" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
-          {en ? "Effective date: October 30, 2026 (previous version: September 22, 2026)" : "시행일: 2026년 10월 30일 (이전 판: 2026년 9월 22일)"}
+          {en ? "Effective date: November 2, 2026 (previous version: October 30, 2026)" : "시행일: 2026년 11월 2일 (이전 판: 2026년 10월 30일)"}
         </p>
 
         <div className="flex flex-col gap-10" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", fontSize: "0.9rem", lineHeight: 1.9 }}>
@@ -98,7 +98,7 @@ function KoBody() {
       <Section title="제6조 (업로드한 파일의 취급)">
         이용자가 업로드한 작품 파일을 서비스가 어떻게 다루는지 아래와 같이 알려드립니다.
         <ul className="list-disc pl-5 flex flex-col gap-1 mt-2">
-          <li><strong>공개 제공:</strong> 업로드한 파일은 작품 미리보기·임베드·미리보기 이미지를 위해 공개 주소로 제공됩니다. 따라서 <strong>주소를 아는 사람은 로그인 없이 해당 파일을 내려받을 수 있습니다</strong>. 이는 아직 발행하지 않은 초안의 파일에도 해당합니다(초안은 목록과 검색에 노출되지 않을 뿐입니다). 공개되면 곤란한 파일은 업로드하지 말아 주세요.</li>
+          <li><strong>공개 범위:</strong> 발행한 작품의 파일은 미리보기·임베드를 위해 공개 주소로 제공되어, 방문자가 로그인 없이 볼 수 있습니다. <strong>아직 발행하지 않은 초안의 파일은 본인만 대시보드에서 열 수 있습니다.</strong> 다만 초안에 붙인 그림·영상(스크린샷·시연 영상)은 주소를 아는 사람이 볼 수 있습니다. 신고 등으로 비공개 처리된 작품의 파일도 초안처럼 닫힙니다. 발행하기 전에 공개되면 곤란한 파일이 없는지 확인해 주세요.</li>
           <li><strong>코드 실행:</strong> 자동 시연 촬영을 위해 업로드한 코드는 격리된 외부 샌드박스(E2B, 미국)에서 <strong>실제로 설치·실행</strong>됩니다. 촬영이 끝나면 샌드박스는 폐기됩니다.</li>
           <li><strong>화면 분석:</strong> 촬영 중 화면 스크린샷과 촬영본의 일부 프레임은 조작 판단 및 콘텐츠 검토(음란·혐오·불법물 확인)를 위해 AI 분석 서비스로 전송됩니다. 자세한 위탁 목록은 <Link href="/privacy" style={{ color: "var(--blue)" }}>개인정보처리방침</Link>에 있습니다.</li>
           <li><strong>비밀 파일 폐기:</strong> 업로드에 <code>.env</code>·<code>.git</code>·개인키·서비스 계정 키 등 비밀이 담기기 쉬운 파일이 포함된 경우, 서비스는 이를 <strong>저장하지 않고 버립니다</strong>. 무엇을 뺐는지는 업로드 결과로 알려드립니다. 다만 이는 사고 방지를 위한 보조 장치이며, 비밀이 포함되지 않도록 확인할 책임은 이용자에게 있습니다.</li>
@@ -203,7 +203,7 @@ function EnBody() {
       <Section title="Article 6 (How Your Uploaded Files Are Handled)">
         Here is what the Service does with the project files you upload.
         <ul className="list-disc pl-5 flex flex-col gap-1 mt-2">
-          <li><strong>Served publicly:</strong> uploaded files are served from public addresses so that previews, embeds, and preview images work. This means <strong>anyone who knows the address can download the file without signing in</strong>, including files belonging to drafts you have not published yet (a draft is merely kept out of listings and search). Please do not upload anything you would not want to be public.</li>
+          <li><strong>Who can see your files:</strong> files of a published work are served from public addresses so previews and embeds work, so visitors can view them without signing in. <strong>Files of a draft you have not published yet can only be opened by you, from your dashboard.</strong> Images and videos you attach to a draft (screenshots, demo videos) can still be viewed by anyone who has their address. A work made private after a report is closed the same way as a draft. Before you publish, check that nothing in it should stay private.</li>
           <li><strong>Your code is executed:</strong> to record the automated demo, uploaded code is actually installed and run inside an isolated third-party sandbox (E2B, US). The sandbox is destroyed after recording.</li>
           <li><strong>Screen analysis:</strong> screenshots taken during recording, and some frames of the resulting film, are sent to an AI analysis service to decide what to click and to review content (checking for adult, hateful, or illegal material). The full list of processors is in the <Link href="/privacy" style={{ color: "var(--blue)" }}>Privacy Policy</Link>.</li>
           <li><strong>Secret files are discarded:</strong> if an upload contains files that commonly hold secrets — <code>.env</code>, <code>.git</code>, private keys, service account keys and the like — the Service <strong>discards them instead of storing them</strong>, and tells you what was left out. This is a safety net, not a guarantee; making sure no secrets are included remains your responsibility.</li>
