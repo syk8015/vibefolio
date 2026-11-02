@@ -5,7 +5,7 @@
 // is the BACK-STOP and the policy gate:
 //
 //   1. decidePolicy()   — read-only vs full, from sourceType + a .env/schema scan.
-//   2. installSafety()  — page.route('**/*') that lets reads through and turns
+//   2. installSafety()  — context.route('**/*') that lets reads through and turns
 //      write-suspect requests into a plausible fake 200, so a stray mutating
 //      request NEVER reaches the user's real server (live_url or remote DB).
 //
@@ -121,7 +121,10 @@ function mockBody(): string {
 
 export type BlockedWrite = { method: string; url: string; kind: "rest" | "graphql" };
 
-// Install the network back-stops on a page (explore + recording both get them).
+// Install the network back-stops on the page's CONTEXT (explore + recording both
+// get them). Context, not page: a window.open() popup is a new page in the same
+// context and must hit the same write-mock + netguard from its first request
+// (audit-8 B4) — page routes never covered popups. One call per context.
 // Two independent layers:
 //   - write-mock: read-only policy only. `full` skips it (sandbox-local DB →
 //     writes are harmless and we WANT the real commit-flow demo). onBlocked is
@@ -136,8 +139,9 @@ export async function installSafety(
   onBlocked?: (w: BlockedWrite) => void,
   opts: { allowPrivateHost?: boolean } = {},
 ): Promise<void> {
+  const context = page.context();
   if (policy !== "full") {
-    await page.route("**/*", async (route: Route) => {
+    await context.route("**/*", async (route: Route) => {
       const req = route.request();
       const verdict = classify(req.method(), req.url(), req.postData());
       if (verdict === "read") return route.continue(); // incl. document/asset/preflight + GraphQL query
@@ -147,5 +151,5 @@ export async function installSafety(
   }
   // Registered last → runs first; allowed requests fallback() into the
   // write-mock route above (or default continue under `full`).
-  if (!opts.allowPrivateHost) await installNetGuard(page);
+  if (!opts.allowPrivateHost) await installNetGuard(context);
 }

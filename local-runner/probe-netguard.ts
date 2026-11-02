@@ -8,7 +8,7 @@
 import { createServer } from "node:http";
 import { chromium } from "playwright-core";
 import { installSafety } from "./safety";
-import { assertFinalUrlPublic, hostBlockReason } from "./netguard";
+import { assertFinalUrlPublic, hostBlockReason, watchLanBreach } from "./netguard";
 
 const VICTIM_PORT = 8931;
 
@@ -21,8 +21,10 @@ function check(name: string, ok: boolean, detail = "") {
 
 // LAN victim: if ANY guarded request reaches it, the guard failed.
 let victimHits = 0;
+const victimPaths: string[] = [];
 const victim = createServer((req, res) => {
   victimHits++;
+  victimPaths.push(req.url ?? "");
   res.writeHead(200, { "Content-Type": "text/html" });
   res.end("<h1>LEAKED-LAN-CONTENT</h1>");
 });
@@ -149,19 +151,86 @@ await page.evaluate((port) => new Promise<void>((resolve) => {
 }), VICTIM_PORT);
 check("websocket to loopback blocked", errors.some((e) => e.includes("BLOCKED websocket")), errors.filter((e) => e.includes("websocket")).slice(-1).join("") || "no netguard ws log");
 
+// ── popups (audit-8 B4): window.open makes a NEW page — the guard lives on the
+// context, so the popup's very first request is already covered.
+const popupDirect = await Promise.all([
+  ctx.waitForEvent("page", { timeout: 5000 }),
+  page.evaluate((port) => { window.open(`http://127.0.0.1:${port}/popup`); }, VICTIM_PORT),
+]).then(async ([p]) => {
+  await p.waitForLoadState("domcontentloaded", { timeout: 5000 }).catch(() => {});
+  const body = await p.evaluate(() => document.body?.innerText ?? "").catch(() => "");
+  await p.close();
+  return body.includes("LEAKED") ? "leaked" : "not shown";
+}, (e) => `no popup: ${String(e).slice(0, 60)}`);
+check("popup opened straight at loopback blocked", !victimPaths.includes("/popup") && errors.some((e) => e.includes("BLOCKED") && e.includes("/popup")), popupDirect);
+
+const popupNoopener = await Promise.all([
+  ctx.waitForEvent("page", { timeout: 5000 }),
+  page.evaluate(() => { window.open("http://192.168.255.254/noopener-popup", "_blank", "noopener"); }),
+]).then(async ([p]) => {
+  await p.waitForTimeout(800);
+  const u = p.url();
+  await p.close();
+  return u;
+}, (e) => `no popup: ${String(e).slice(0, 60)}`);
+check("noopener popup to LAN blocked", errors.some((e) => e.includes("BLOCKED") && e.includes("noopener-popup")), popupNoopener.slice(0, 60));
+
+// a public popup that then reaches into the LAN from inside
+const pub = await Promise.all([
+  ctx.waitForEvent("page", { timeout: 5000 }),
+  page.evaluate(() => { window.open("https://example.com/"); }),
+]).then(([p]) => p);
+await pub.waitForLoadState("domcontentloaded", { timeout: 30000 }).catch(() => {});
+const popupFetch = await pub.evaluate(async (port) => {
+  try { const r = await fetch(`http://127.0.0.1:${port}/from-popup`); return `reached: ${r.status}`; }
+  catch (e) { return `blocked: ${String(e)}`; }
+}, VICTIM_PORT);
+// The netguard log is the proof — https→http fetches also die on Chrome's own
+// mixed-content rule, which would pass this check without us.
+check("fetch from inside a public popup to loopback blocked", !victimPaths.includes("/from-popup") && errors.some((e) => e.includes("BLOCKED") && e.includes("/from-popup")), popupFetch.slice(0, 60));
+const popupMock = await pub.evaluate(async () => {
+  const r = await fetch("https://example.com/api/thing", { method: "POST", body: "{}" });
+  return r.json();
+}).catch((e) => ({ err: String(e) }));
+check("write-mock also covers popups", String((popupMock as { id?: string }).id ?? "").startsWith("mock_"), JSON.stringify(popupMock).slice(0, 60));
+await pub.evaluate((port) => new Promise<void>((resolve) => {
+  const ws = new WebSocket(`ws://127.0.0.1:${port}/ws-popup`);
+  ws.onopen = () => resolve(); ws.onerror = () => resolve(); setTimeout(resolve, 2000);
+}), VICTIM_PORT);
+check("websocket from popup blocked", errors.some((e) => e.includes("BLOCKED websocket") && e.includes("ws-popup")));
+await pub.close();
+
 check("victim server hits = 0", victimHits === 0, `${victimHits} hits`);
 
 // ── 3) assertFinalUrlPublic (redirect-landing closure) ──────────────────────
 // Simulated: an UNGUARDED page that ended up on the LAN (what a redirect hop
 // produces, since Playwright routes don't re-intercept hops).
-const rawPage = await ctx.newPage();
+// Own context — the guarded ctx above would (correctly) block the landing.
+const rawCtx = await browser.newContext();
+const rawPage = await rawCtx.newPage();
 await rawPage.goto(`http://127.0.0.1:${VICTIM_PORT}/landed`, { timeout: 10000 });
 const landedVerdict = await assertFinalUrlPublic(rawPage).then(
   () => "passed (BAD)",
   (e) => String(e),
 );
 check("assertFinalUrlPublic rejects LAN landing", landedVerdict.includes("refusing to record"), landedVerdict.slice(0, 90));
-await rawPage.close();
+await rawCtx.close();
+
+// A popup that slipped onto the LAN (e.g. a redirect hop) must fail the take too:
+// both the end-of-take check and the mid-take latch look at every page.
+const popCtx = await browser.newContext();
+const opener = await popCtx.newPage();
+const breached = watchLanBreach(opener);
+const [lanPopup] = await Promise.all([
+  popCtx.waitForEvent("page"),
+  opener.evaluate((port) => { window.open(`http://127.0.0.1:${port}/popup-landed`); }, VICTIM_PORT),
+]);
+await lanPopup.waitForLoadState("domcontentloaded", { timeout: 10000 }).catch(() => {});
+await new Promise((r) => setTimeout(r, 300));
+const popVerdict = await assertFinalUrlPublic(opener).then(() => "passed (BAD)", (e) => String(e));
+check("assertFinalUrlPublic sees a LAN popup", popVerdict.includes("refusing to record"), popVerdict.slice(0, 90));
+check("watchLanBreach latches a LAN popup", (breached() ?? "").includes("127.0.0.1"), breached() ?? "no breach");
+await popCtx.close();
 
 console.error = origError;
 await browser.close();

@@ -114,7 +114,7 @@ export async function launchRecordingContext(
 ): Promise<{ context: BrowserContext; page: Page }> {
   const context = await chromium.launchPersistentContext(ensureEnglishProfile(filmLocale), {
     ...SANDBOX,
-    // 서비스 워커는 netguard(page.route)를 거치지 않는다 — 막아 둔다(audit-8 B3). 앱은 온라인으로 그대로 돈다.
+    // 서비스 워커는 netguard(context.route)를 거치지 않는다 — 막아 둔다(audit-8 B3). 앱은 온라인으로 그대로 돈다.
     serviceWorkers: "block",
     headless: false,
     channel: "chrome",
@@ -169,12 +169,20 @@ export async function installCaptureCleanliness(
   // site's fallback read files[0]===undefined and crash with an in-app error modal
   // (excalidraw: "Symbol(fileNormalized)"). Leaving the chooser un-actioned keeps
   // the page's promise pending forever: nothing on screen, nothing to crash.
-  page.on("filechooser", (fc) => {
-    console.log(`[cleanliness] file chooser suppressed (left pending): ${fc.page().url().slice(0, 80)}`);
-  });
-  // alert/confirm/beforeunload are native surfaces too — dismiss, never film them.
-  page.on("dialog", (d) => {
-    d.dismiss().catch(() => {});
+  // Popups (window.open) are new pages — they get the same holds, or their
+  // native picker/dialog would film over the crop (audit-8 B4).
+  const hold = (p: Page) => {
+    p.on("filechooser", (fc) => {
+      console.log(`[cleanliness] file chooser suppressed (left pending): ${fc.page().url().slice(0, 80)}`);
+    });
+    // alert/confirm/beforeunload are native surfaces too — dismiss, never film them.
+    p.on("dialog", (d) => {
+      d.dismiss().catch(() => {});
+    });
+  };
+  hold(page);
+  context.on("page", (p) => {
+    if (p !== page) hold(p);
   });
 }
 

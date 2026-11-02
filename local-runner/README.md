@@ -166,8 +166,10 @@ Focus를 직접 제어하는 CLI가 없어서 **단축어(Shortcuts) 2개가 이
 모든 Chrome 실행에 `chromiumSandbox: true`를 주고, 환경변수는 `util.ts childEnv()`(PATH·HOME 등만)만
 넘긴다 — 워커 열쇠가 Chrome·ffmpeg 메모리에 없다. 서비스 워커는 막는다(netguard를 안 거친다).
 Chrome 실행을 새로 만들면 셋 다 같이. 확인: `npx -y tsx local-runner/probe-sandbox.ts`.
-남은 것: 창을 새로 여는(`window.open`) 페이지는 netguard가 안 걸린다(audit-8 B3 나머지). 더 단단히 하려면
-촬영을 키체인·열쇠가 없는 별도 macOS 사용자로 돌린다(아직 안 함).
+새 창(`window.open`)도 같은 검사를 받는다(2026-11-02, audit-8 B4): netguard·쓰기 막기는 페이지가 아니라
+**컨텍스트**에 걸려(`context.route`) 새 창의 첫 요청부터 덮고, 촬영 끝 검사·중간 감시도 열린 창 전부를 본다.
+촬영 컨텍스트에 `page.route`를 더하지 말 것 — 컨텍스트 규칙보다 먼저 돌아 `continue()`로 검사를 건너뛸 수 있다.
+더 단단히 하려면 촬영을 키체인·열쇠가 없는 별도 macOS 사용자로 돌린다(아직 안 함).
 
 ### 폐기 / 교체
 
@@ -190,7 +192,7 @@ npx -y tsx local-runner/index.ts <url|github-url> [--project <id>] [--policy rea
 ```bash
 npx -y tsx local-runner/probe-drag.ts     # drag 액션 (슬라이더 값·링·카메라)
 npx -y tsx local-runner/probe-sketch.ts   # path 액션 (프리핸드 스트로크·잉크 픽셀)
-npx -y tsx local-runner/probe-netguard.ts # 사설IP/LAN 차단 (fetch·iframe·goto·DNS·WS 벡터별 단언)
+npx -y tsx local-runner/probe-netguard.ts # 사설IP/LAN 차단 (fetch·iframe·goto·DNS·WS·새 창 벡터별 단언)
 npx -y tsx local-runner/probe-sandbox.ts  # 촬영 Chrome 샌드박스(--no-sandbox 없음·렌더러 seatbelt)·열쇠 안 넘김·서비스 워커 막힘 — Chrome 창이 잠깐 뜬다
 npx -y tsx local-runner/probe-replay-actions.ts # hover·key·가로스크롤·dismiss·좌표폴백 리포트
 ```

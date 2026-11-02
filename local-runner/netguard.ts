@@ -3,7 +3,11 @@
 // a page that iframes/fetches localhost, 192.168.*, or the router admin page
 // would film that content straight into a PUBLIC video. lib/ssrf.ts guards
 // server-side fetches only — browser navigation needs its own gate, at the
-// page.route level, covering main frame + iframes + subresources alike.
+// context.route level, covering main frame + iframes + subresources alike — and
+// every OTHER page in the context: a window.open() popup is a new page, and a
+// page.route on the opener never saw it (audit-8 B4, 2026-11-02). A context route
+// is in place before the popup's first request; a page route attached from a
+// "page" event is not (Playwright docs: use context.route for popups).
 //
 // Verdicts reuse lib/ssrf's isBlockedIp so the browser gate and the server gate
 // can never disagree on what "private" means. Hostnames are resolved here
@@ -21,7 +25,7 @@
 import { isIP } from "node:net";
 import { lookup } from "node:dns/promises";
 import { isBlockedIp } from "../lib/ssrf";
-import type { Page } from "playwright-core";
+import type { BrowserContext, Page } from "playwright-core";
 
 // hostname → { block reason (null = public), expiry }. TTL-bounded: pinning a
 // verdict forever only helps in the private→public direction; a DNS-rebinding
@@ -81,11 +85,13 @@ export async function hostBlockReason(hostRaw: string): Promise<string | null> {
   return reason;
 }
 
-export async function installNetGuard(page: Page): Promise<void> {
+export async function installNetGuard(context: BrowserContext): Promise<void> {
   // Registered AFTER the write-mock route in installSafety → runs FIRST
   // (Playwright runs handlers newest-first); fallback() hands allowed requests
   // down to the write-mock layer (or default continue when there is none).
-  await page.route("**/*", async (route) => {
+  // Both live on the CONTEXT — a page.route anywhere would run before them and
+  // could continue() past the guard, so keep page-level routes out of the take.
+  await context.route("**/*", async (route) => {
     const url = route.request().url();
     let parsed: URL;
     try {
@@ -102,10 +108,10 @@ export async function installNetGuard(page: Page): Promise<void> {
     return route.fallback();
   });
 
-  // WebSockets bypass page.route entirely. Sync check only (see header): the
+  // WebSockets bypass context.route entirely. Sync check only (see header): the
   // verdictCache usually already holds the DNS verdict because the page loaded
   // http(s) resources from the same host first.
-  await page.routeWebSocket(/./, (ws) => {
+  await context.routeWebSocket(/./, (ws) => {
     let host: string;
     try {
       host = new URL(ws.url()).hostname;
@@ -125,12 +131,13 @@ export async function installNetGuard(page: Page): Promise<void> {
 
 // Continuous redirect-hop guard for the DURATION of a take. assertFinalUrlPublic
 // is point-in-time (nav settle); but page JS can, mid-recording, navigate to a
-// public URL that 302s into the LAN — page.route never sees the redirect hop, so
-// the router page films into the take. Latch any frame that navigates to a
-// private/LAN host; the caller checks breached() before uploading and refuses.
+// public URL that 302s into the LAN — the route layer never sees the redirect hop, so
+// the router page films into the take. Latch any frame — of this page OR any
+// popup it opens — that navigates to a private/LAN host; the caller checks
+// breached() before uploading and refuses.
 export function watchLanBreach(page: Page): () => string | null {
   let breach: string | null = null;
-  page.on("framenavigated", (frame) => {
+  const watch = (p: Page) => p.on("framenavigated", (frame) => {
     let host: string;
     try {
       host = new URL(frame.url()).hostname;
@@ -147,6 +154,9 @@ export function watchLanBreach(page: Page): () => string | null {
       })
       .catch(() => {});
   });
+  const context = page.context();
+  for (const p of context.pages()) watch(p);
+  context.on("page", watch);
   return () => breach;
 }
 
@@ -154,9 +164,11 @@ export function watchLanBreach(page: Page): () => string | null {
 // hops, so a public URL can 302 into the LAN and the request-level guard never
 // fires. Called after navigation settles — a private landing kills the take
 // before any frame of it is recorded.
+// Checks every open page in the context (popups included), not just `page`.
 export async function assertFinalUrlPublic(page: Page): Promise<void> {
   const seen = new Set<string>();
-  for (const frame of page.frames()) {
+  const frames = page.context().pages().filter((p) => !p.isClosed()).flatMap((p) => p.frames());
+  for (const frame of frames) {
     let host: string;
     try {
       host = new URL(frame.url()).hostname;
