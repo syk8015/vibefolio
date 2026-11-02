@@ -15,6 +15,7 @@
 // 어디에 얹나: postprocess의 **body 인코드**. 그 패스는 엔드캡 성패와 무관하게
 // 무조건 돌고, 포스터도 body에서 뽑으므로 썸네일에도 같은 표식이 남는다.
 import { chromium } from "playwright-core";
+import { childEnv } from "./util";
 
 const CREAM = "#f4ede0"; // 브랜드 잉크 2종 중 밝은 쪽(app/globals.css)
 
@@ -65,7 +66,7 @@ export async function renderWatermark(opts: {
 }): Promise<string> {
   const { handle, width, height, outDir } = opts;
   const outPath = `${outDir}/watermark.png`;
-  const browser = await chromium.launch({ headless: true, channel: "chrome" });
+  const browser = await chromium.launch({ headless: true, channel: "chrome", chromiumSandbox: true, env: childEnv() });
   try {
     const ctx = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: 1 });
     const page = await ctx.newPage();

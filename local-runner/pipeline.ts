@@ -235,6 +235,8 @@ export async function recordDemo(opts: RecordDemoOptions): Promise<RecordDemoRes
     // Fixed 1280×720 DSF=1 context so screenshots are 1:1 with the computer-use
     // display and the model's coordinates are logical CSS px (= replay's space).
     const exploreCtx = await browser.newContext({
+      // 서비스 워커는 netguard(page.route)를 거치지 않는다 — 막는다(audit-8 B3, browser.ts 녹화 쪽과 같게).
+      serviceWorkers: "block",
       viewport: { width: VIEW_W, height: VIEW_H },
       deviceScaleFactor: 1,
       // 촬영 언어(작품 두 언어) — 탐색과 녹화가 같은 언어 화면을 봐야 셀렉터·좌표가 맞는다.

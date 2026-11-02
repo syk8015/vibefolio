@@ -10,7 +10,7 @@ import { cpus } from "node:os";
 import { chromium, type Browser } from "playwright-core";
 import { apiPost, putSigned, type SignedTarget } from "./api";
 import { OUT_DIR, PROMO_APP_URL } from "./config";
-import { run } from "./util";
+import { run, childEnv } from "./util";
 
 // 60fps — 명함(PC)이 그 자리에서 그리는 것과 같은 매끈함. 30fps면 카메라 이동이 끊겨 보였다(10-02).
 const FPS = 60;
@@ -71,7 +71,7 @@ export async function renderNextIntro(): Promise<boolean> {
   const job = res.job;
   if (!job) return false;
   console.log(`\n[intro] ${job.id} — rendering ${job.locales.join(", ")}`);
-  const browser = await chromium.launch({ headless: true, channel: "chrome" });
+  const browser = await chromium.launch({ headless: true, channel: "chrome", chromiumSandbox: true, env: childEnv() });
   try {
     const videos: Record<string, string> = {}, posters: Record<string, string> = {}, ts: string[] = [];
     for (const locale of job.locales) {

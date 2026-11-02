@@ -5,7 +5,7 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import type { Page } from "playwright-core";
 import { SCREEN_DEVICE_INDEX, FPS } from "./config";
-import { run } from "./util";
+import { run, childEnv } from "./util";
 import { BlankCaptureError } from "./errors";
 
 export type CropRect = { x: number; y: number; w: number; h: number };
@@ -178,7 +178,7 @@ export function startRecording(outPath: string, crop: CropRect, deviceIndex: num
     "-y",
     outPath,
   ];
-  const proc = spawn("ffmpeg", args, { stdio: ["pipe", "ignore", "pipe"] });
+  const proc = spawn("ffmpeg", args, { stdio: ["pipe", "ignore", "pipe"], env: childEnv() });
   let stderr = "";
   let spawnError: Error | undefined;
   proc.stderr.on("data", (d) => (stderr += d.toString()));

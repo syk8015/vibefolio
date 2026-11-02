@@ -11,17 +11,23 @@ import {
 import { mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { VIEW_W, VIEW_H, WINDOW_POSITION, OUT_DIR } from "./config";
-import { sleep, run } from "./util";
+import { sleep, run, childEnv } from "./util";
 
 // Shared launch env + args for both the explore browser and the recording
 // profile. LANGUAGE/LANG force English on the Linux path; the mac translate kill
 // is the profile pref in ensureEnglishProfile (flags alone don't do it).
-const ENGLISH_ENV = {
-  ...process.env,
+// 허락한 값만 넘긴다(util.ts childEnv, 2026-11-02) — 남의 페이지를 그리는 Chrome에 워커 열쇠를 두지 않는다.
+const ENGLISH_ENV = childEnv({
   LANGUAGE: "en_US:en",
   LANG: "en_US.UTF-8",
   LC_ALL: "en_US.UTF-8",
-};
+});
+
+// 촬영 Chrome은 사용자가 올린 페이지(=남이 만든 코드)를 연다. Playwright는 chromiumSandbox를 true로
+// 주지 않으면 --no-sandbox를 붙인다(리눅스 컨테이너 때문의 기본값). 그러면 Chrome 렌더러 버그 하나로
+// 이 맥 계정(키체인·.env.local·~/.ssh·진짜 Chrome 쿠키)까지 닿는다. 맥은 샌드박스를 그대로 쓸 수 있다
+// (2026-11-02, audit-8 B1 — chrome://sandbox로 확인: local-runner/probe-sandbox.ts).
+const SANDBOX = { chromiumSandbox: true } as const;
 
 function baseChromeArgs(): string[] {
   // Escape hatch for a broken SYSTEM DNS resolver (e.g. a flaky phone hotspot whose
@@ -57,6 +63,7 @@ function baseChromeArgs(): string[] {
 // only has to be gone from the *recorded* window, which uses the profile below.
 export async function launchChromium(): Promise<Browser> {
   return chromium.launch({
+    ...SANDBOX,
     headless: false,
     channel: "chrome", // system Chrome; playwright-core ships no browser binary
     env: ENGLISH_ENV,
@@ -106,6 +113,9 @@ export async function launchRecordingContext(
   filmLocale: FilmLocale = "en",
 ): Promise<{ context: BrowserContext; page: Page }> {
   const context = await chromium.launchPersistentContext(ensureEnglishProfile(filmLocale), {
+    ...SANDBOX,
+    // 서비스 워커는 netguard(page.route)를 거치지 않는다 — 막아 둔다(audit-8 B3). 앱은 온라인으로 그대로 돈다.
+    serviceWorkers: "block",
     headless: false,
     channel: "chrome",
     viewport: null,

@@ -9,7 +9,7 @@
 //    UI를 지워야 했기 때문 — 여기는 애초에 배경이 심플함).
 import { copyFile, mkdir, rm, writeFile } from "node:fs/promises";
 import { chromium } from "playwright-core";
-import { run } from "./util";
+import { run, childEnv } from "./util";
 
 // app/globals.css 라이트 토큰과 정확히 같아야 한다 — 프로모 본편은 이 배경을
 // 그대로 채운 페이지(app/promo-record/page.tsx의 var(--bg))이고 엔드캡이 컷 없이
@@ -126,7 +126,7 @@ export async function renderPromoEndcap(opts: {
   await mkdir(framesDir, { recursive: true });
   const frameCount = Math.ceil(capDur * fps);
 
-  const browser = await chromium.launch({ headless: true, channel: "chrome" });
+  const browser = await chromium.launch({ headless: true, channel: "chrome", chromiumSandbox: true, env: childEnv() });
   try {
     const ctx = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: 1 });
     const page = await ctx.newPage();

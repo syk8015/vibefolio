@@ -12,7 +12,7 @@
 // single ffmpeg pass: [body] xfade [blur+scrim] overlay [typing].
 import { copyFile, mkdir, rm } from "node:fs/promises";
 import { chromium } from "playwright-core";
-import { run } from "./util";
+import { run, childEnv } from "./util";
 
 // Brand inks (mirror app/globals.css).
 const INK = "#1a1612";
@@ -158,7 +158,7 @@ export async function appendEndcap(opts: {
   await mkdir(framesDir, { recursive: true });
   const frameCount = Math.ceil(capDur * fps);
 
-  const browser = await chromium.launch({ headless: true, channel: "chrome" });
+  const browser = await chromium.launch({ headless: true, channel: "chrome", chromiumSandbox: true, env: childEnv() });
   try {
     const ctx = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: 1 });
     const page = await ctx.newPage();

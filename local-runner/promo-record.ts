@@ -22,7 +22,7 @@ import { promoPostprocess } from "./promo-postprocess";
 import { estimateTaglineRecordMs, type PromoOpening } from "../lib/promo";
 import { apiPost, putSigned, type SignedTarget } from "./api";
 import { PROMO_APP_URL, PROMO_FORMATS, PROMO_OUT_DIR, type PromoFormat } from "./config";
-import { run, ffprobeValue } from "./util";
+import { run, ffprobeValue, childEnv } from "./util";
 
 // 첫 페인트(흰→크림)를 찾을 때 쓰는 밝기 계단 임계값과 탐색 상한.
 // 크림 배경은 흰 화면보다 YAVG가 ~11 낮게 잡힌다(2026-08-18 실측).
@@ -175,7 +175,7 @@ export async function recordPromoClip(input: PromoRecordInput): Promise<PromoRec
   // 붙이고 나머지를 회색으로 채운다(2026-08-18 프로브로 확인) — 반드시 DSF 1.
   // 해상도가 달라져도 레이아웃이 같으려면 /promo-record가 vw 기반이어야 한다
   // (그쪽 페이지에서 헤드라인 폰트 clamp 상한을 풀어둔 이유).
-  const browser = await chromium.launch({ headless: true, channel: "chrome" });
+  const browser = await chromium.launch({ headless: true, channel: "chrome", chromiumSandbox: true, env: childEnv() });
   let context: Awaited<ReturnType<typeof browser.newContext>> | null = null;
   try {
     context = await browser.newContext({
