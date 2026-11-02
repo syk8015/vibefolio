@@ -3,7 +3,6 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { apiError } from "@/lib/apiError";
 import { rateLimit } from "@/lib/rate-limit";
 import { ingestAuth, pickApiT } from "../shared";
-import { screenshotUrl } from "@/lib/thumbnail";
 import {
   MAX_UPLOAD_BYTES, UploadError, summarizeDropped, BodyTooLargeError, readJsonCapped, MAX_SMALL_JSON_BYTES,
 } from "@/lib/upload-safety";
@@ -143,17 +142,12 @@ export async function POST(req: NextRequest) {
           throw new UploadError(t.api.uploadTooLarge, "too-large");
         }
         const stored = await storeZipBundle(files, userId, projectId, bundleBuf.buffer as ArrayBuffer);
-        const { entryPath, runnable } = stored;
+        const { entryPath } = stored;
         droppedFiles = summarizeDropped(stored.dropped, t.api.secretFileKinds);
         privacyWarnings = stored.warnings;
         keep = new Set(stored.keys);
         updates.demo_url = `/api/preview/${userId}/${projectId}/${entryPath}`;
-        // runnable 앵커(소스 zip)는 미리보기 화면이 없다 — 인라인 경로와 동일하게
-        // thum.io 썸네일을 만들지 않는다(소스 원문 스크린샷 방지). 교체 발행이면 제작자
-        // 스크린샷(_media/) 썸네일도 덮지 않는다(ingest upsert와 같은 규칙).
-        if (!runnable && !(row.thumbnail as string | null)?.includes("/_media/")) {
-          updates.thumbnail = screenshotUrl(`${req.nextUrl.origin}${updates.demo_url}`);
-        }
+        // 자동 썸네일(thum.io)은 공개할 때 만든다 — 인라인 경로(app/api/ingest)와 같은 까닭(2026-11-02 초안 비공개).
       }
       const media = await uploadMedia(files, userId, projectId, shotBuf, videoBuf, sniffed);
       Object.assign(updates, media); // screenshot thumbnail이 thum.io보다 우선

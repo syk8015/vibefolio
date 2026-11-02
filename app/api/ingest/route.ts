@@ -509,7 +509,6 @@ export async function POST(req: NextRequest) {
     // 유지된다. draftId 없는 zip 경로는 비교할 URL이 없어 항상 새 초안(기존 동작).
     let projectId: string;
     let upserted = false;
-    let existingThumbnail: string | null = null;
     let existing = draftTarget;
     // newDraft면 URL로 찾지 않는다 — 앞 초안을 남기고 새로 만드는 유일한 길(NF-16).
     if (!existing && demoUrl && !newDraft) {
@@ -598,7 +597,6 @@ export async function POST(req: NextRequest) {
 
     if (existing) {
       const existingId = existing.id;
-      existingThumbnail = existing.thumbnail;
       // 소개 영상 틀은 대본과 같이 저장한다 — 주인이 이미 고른 틀은 AI의 재발행이 지우지 않는다(10-08, lib/introFilm/assignGenre.ts).
       const storedIntro = introFilm
         ? (await admin.from("projects").select("intro_film").eq("id", existingId).maybeSingle()).data?.intro_film ?? null
@@ -738,20 +736,16 @@ export async function POST(req: NextRequest) {
           throw new UploadError(t.api.uploadTooLarge, "too-large");
         }
         const stored = await storeZipBundle(files, userId, projectId, await bundle.arrayBuffer());
-        const { entryPath, runnable } = stored;
+        const { entryPath } = stored;
         droppedFiles = summarizeDropped(stored.dropped, t.api.secretFileKinds);
         privacyWarnings = stored.warnings;
         demoUrl = `/api/preview/${userId}/${projectId}/${entryPath}`;
-        // runnable 앵커(파이썬·CLI 소스 zip)는 미리보기가 없어 thum.io 스크린샷이
-        // 소스 코드 원문을 찍는다 — 썸네일 없이 두고 촬영본/제작자 스크린샷이 채운다.
-        // 교체 발행이면 제작자 스크린샷(_media/) 썸네일도 덮지 않는다(6단계와 같은 규칙).
-        const keepShot = !!existingThumbnail?.includes("/_media/");
+        // 자동 썸네일(thum.io)은 여기서 만들지 않는다(2026-11-02, 초안 비공개) — 초안 폴더는 주인 열쇠로만
+        // 열려 thum.io가 404를 찍고, 남에게 초안 주소를 넘기는 일이 된다. 공개하는 순간 대시보드가 만든다
+        // (ProjectsTab handlePublishDraft → lib/thumbnail.ts publishThumbnail). 소스 zip(runnable — 앵커가 HTML이 아님)은 그때도 안 만든다.
         const { error: updErr } = await admin
           .from("projects")
-          .update({
-            demo_url: demoUrl,
-            ...(runnable || keepShot ? {} : { thumbnail: screenshotUrl(`${req.nextUrl.origin}${demoUrl}`) }),
-          })
+          .update({ demo_url: demoUrl })
           .eq("id", projectId);
         if (updErr) throw new UploadError(t.api.demoUrlSaveFailed);
         // 교체 발행이면 새 zip에 없는 옛 파일을 지운다(공개 버킷 — lib/ingestStore.ts).

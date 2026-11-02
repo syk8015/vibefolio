@@ -3,6 +3,8 @@ import { PREVIEW_ORIGIN, APP_ORIGIN } from "@/lib/previewOrigin";
 import { secretFileKind } from "@/lib/upload-safety";
 import { logger } from "@/lib/logger";
 import { readUserFileStream } from "@/lib/userStorage";
+import { isTokenSegment, previewTokenSecret, verifyWith } from "@/lib/previewToken";
+import { folderIsPublic, validPreviewFolder } from "@/lib/previewAccess";
 
 // Preview isolation is a security control, not a nicety: without a distinct sandbox
 // origin, uploaded project JS runs same-origin and can steal a logged-in session.
@@ -34,6 +36,11 @@ const MIME_MAP: Record<string, string> = {
   ico: "image/x-icon",
 };
 
+// 없음·초안·내린 작품 모두 같은 답 — 캐시하지 않는다(공개하자마자 열려야 한다).
+function notFound() {
+  return new NextResponse("Not found", { status: 404, headers: { "Cache-Control": "no-store" } });
+}
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ path: string[] }> }
@@ -57,19 +64,24 @@ export async function GET(
   ) {
     return new NextResponse("Bad request", { status: 400 });
   }
-  const filePath = path.join("/");
+  // 주소 모양: {uid}/{폴더}/[~열쇠/]파일… (2026-11-02, 초안 비공개 — lib/previewToken.ts·previewAccess.ts).
+  // 열쇠 칸은 저장소 경로가 아니다 — 떼고 읽는다. 공개 작품의 폴더는 열쇠 없이, 초안·내린 작품·주인 없는
+  // 폴더는 그 폴더의 열쇠로만 열린다. 아니면 '없음'과 똑같은 404(초안이 있는지조차 안 알린다).
+  const [uid, folder, third] = path;
+  const token = isTokenSegment(third) ? third : null;
+  const rest = path.slice(token ? 3 : 2);
+  if (!uid || !folder || !rest.length || !validPreviewFolder(uid, folder) || rest.some(isTokenSegment)) {
+    return notFound();
+  }
+  const filePath = [uid, folder, ...rest].join("/");
 
-  // 비밀 파일은 저장돼 있더라도 서빙하지 않는다 (2026-09-01). 이 라우트는 공개
-  // 버킷을 그대로 중계하는 무인증 프록시이고, 공개 작품의 demo_url이
-  // `/api/preview/{uid}/{rowId}/index.html`이라 방문자는 `{uid}/{rowId}`를 이미
-  // 안다 — 뒤만 `.env`로 바꾸면 한 번에 맞힌다. 업로드 단계 필터(upload-safety)가
-  // 1차 방어고, 여기는 그걸 우회해 들어온 것(브라우저 직행 업로드는 서버를 안
-  // 거친다)과 필터 이전에 이미 올라간 것을 위한 마지막 그물이다.
-  // ⚠️ 완전한 봉쇄는 아니다 — 버킷 public=true라 Supabase 공개 URL 직격은 이
-  //    라우트를 통과하지 않는다(의도된 상태·서명 URL 전환은 별도 트랙).
-  //    그래서 진짜 방어는 여전히 "애초에 저장하지 않는 것"이다.
+  // 비밀 파일은 저장돼 있더라도 서빙하지 않는다 (2026-09-01). 공개 작품의 demo_url이
+  // `/api/preview/{uid}/{rowId}/index.html`이라 방문자는 `{uid}/{rowId}`를 이미 안다 — 뒤만
+  // `.env`로 바꾸면 한 번에 맞힌다. 업로드 단계 필터(upload-safety·storage/sign)가 1차 방어고, 여기는
+  // 필터 이전에 이미 올라간 것을 위한 마지막 그물이다. 열쇠가 있어도 막는다.
+  // media.nookframe.com/files/… 직접 주소는 Cloudflare 방화벽 규칙이 그림·영상 말고는 막는다(2026-11-02).
   if (secretFileKind(filePath)) {
-    return new NextResponse("Not found", { status: 404 });
+    return notFound();
   }
 
   // Untrusted uploaded content must execute only on the sandbox origin so its JS
@@ -78,10 +90,15 @@ export async function GET(
   // we missed — bounce it to the sandbox origin. No-op in dev (PREVIEW_ORIGIN unset).
   if (PREVIEW_ORIGIN && req.nextUrl.host !== new URL(PREVIEW_ORIGIN).host) {
     return NextResponse.redirect(
-      `${PREVIEW_ORIGIN}/api/preview/${filePath}${req.nextUrl.search}`,
+      `${PREVIEW_ORIGIN}/api/preview/${path.join("/")}${req.nextUrl.search}`,
       307,
     );
   }
+
+  const allowed = token
+    ? verifyWith(previewTokenSecret(), token, uid, folder)
+    : await folderIsPublic(uid, folder);
+  if (!allowed) return notFound();
 
   const ext = filePath.split("?")[0].split(".").pop()?.toLowerCase() ?? "";
   const contentType = MIME_MAP[ext] ?? "application/octet-stream";
@@ -90,7 +107,7 @@ export async function GET(
   // 저장소는 쿼리를 안 보니 내용은 같은데, 쿼리마다 엣지 캐시가 새로 잡혀서 `?아무거나`를 붙여
   // 부르면 매번 함수·전송량이 새로 들었다(퍼가기). 페이지(HTML)는 앱이 쿼리를 읽을 수 있어 그대로.
   if (req.nextUrl.search && !contentType.startsWith("text/html")) {
-    return NextResponse.redirect(new URL(`/api/preview/${filePath}`, req.nextUrl.origin), 308);
+    return NextResponse.redirect(new URL(`/api/preview/${path.join("/")}`, req.nextUrl.origin), 308);
   }
 
   // 파일은 R2에서 바로 읽는다(2026-10-01~, lib/userStorage.ts — CDN이 아니라 저장소라 방금 바꾼
@@ -105,12 +122,13 @@ export async function GET(
     logger.error("preview: upstream fetch failed", { error: err, filePath });
     return new NextResponse("Upstream error", { status: 502 });
   }
-  if (!body) return new NextResponse("Not found", { status: 404 });
+  if (!body) return notFound();
 
   const isHtml = contentType.startsWith("text/html");
   const headers: Record<string, string> = {
     "Content-Type": contentType,
-    "Cache-Control": "public, max-age=60",
+    // 열쇠로 연 것(초안)은 어디에도 남기지 않는다. 공개 작품은 1분 — 내린 작품이 그 안에 닫힌다.
+    "Cache-Control": token ? "private, no-store" : "public, max-age=60",
     "X-Content-Type-Options": "nosniff",
     "Referrer-Policy": "no-referrer",
   };

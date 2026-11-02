@@ -249,6 +249,7 @@ export const en: Dictionary = {
     reviewPreviewLabel: "Preview",
     reviewNoPreview: "Nothing to preview yet",
     reviewEmbedTip: "If the frame looks blank, this site blocks embedding — use [Open work ↗] to check it in a new tab.",
+    reviewPreviewFailed: "Couldn't open the preview. Close this window and open it again.",
     reviewEmbedChecking: "Checking the preview…",
     reviewEmbedBlocked: "This site refuses to be shown inside another page, so we can't render it here. Use [Open work] above to see it in a new tab. The demo film is shot in a real browser, so recording is unaffected.",
     reviewEmbedUnreachable: "Couldn't reach this URL right now. Check that the address is right and the site is up.",

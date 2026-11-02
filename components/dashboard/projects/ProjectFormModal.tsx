@@ -60,7 +60,9 @@ const ERROR: React.CSSProperties = {
 };
 const FOOT_BUTTON: React.CSSProperties = { padding: "0.7rem 1.6rem", fontSize: "0.9375rem" };
 
-export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, userId, captions }: {
+export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submitLabel, userId, captions, isDraft = false }: {
+  /** 초안이면 업로드 화면의 자동 썸네일(thum.io)을 만들지 않는다 — 공개할 때 만든다(2026-11-02 초안 비공개). */
+  isDraft?: boolean;
   title: string;
   initialForm: ProjectForm;
   onClose: () => void;
@@ -324,14 +326,15 @@ export function ProjectFormModal({ title, initialForm, onClose, onSubmit, submit
       // 썸네일 자동 생성 (사용자가 직접 올린 게 없을 때만).
       if (!finalForm.thumbnail && finalForm.demo_url) {
         const isUpload = finalForm.demo_url.startsWith("/api/preview/");
-        if (isUpload) {
+        // 초안 폴더는 주인 열쇠로만 열려 thum.io가 찍을 수 없다 — 초안이면 공개할 때 만든다(ProjectsTab).
+        if (isUpload && !isDraft) {
           // 업로드 프로젝트도 외부 URL과 동일하게 thum.io로 실제 화면을 찍는다.
           // preview 경로는 상대 URL이라 thum.io가 접근할 수 있게 절대 URL로 변환.
           finalForm = {
             ...finalForm,
             thumbnail: screenshotUrl(`${window.location.origin}${finalForm.demo_url}`),
           };
-        } else {
+        } else if (!isUpload) {
           // 외부 URL: og:image가 있으면 그걸, 없으면 thum.io 스크린샷 fallback.
           try {
             const res = await fetch("/api/og-thumbnail", {

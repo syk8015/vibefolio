@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import Image from "next/image";
-import { toPreviewUrl } from "@/lib/previewOrigin";
 import { detectVideoKind, getYouTubeEmbedUrl, getVimeoEmbedUrl } from "@/lib/video";
 import { previewDevice, normalizeTargetDevice } from "@/lib/projectTaxonomy";
 import { isStepWired } from "@/lib/demoScript";
@@ -99,7 +98,23 @@ export function DraftReviewModal({ draft, privateReady = true, username, demoPau
   // 파일 업로드는 샌드박스 오리진(우리가 frame-ancestors를 쥐고 있어 항상 뜬다).
   // 실행형 코드 zip(비HTML 앵커, 2026-08-20)은 미리보기가 소스 원문이라 임베드 안 함.
   const isEmbeddableFile = isFile && /\.html?$/i.test(draft.demo_url.split(/[?#]/)[0]);
-  const fileSrc = isEmbeddableFile ? toPreviewUrl(draft.demo_url) : undefined;
+  // 초안의 업로드 화면은 누구에게나 열리지 않는다(2026-11-02) — 주인만 받는 1시간짜리 열쇠 주소를 서버에서
+  // 받아 띄운다(/api/projects/[id]/preview-link, lib/previewToken.ts). 받는 동안은 빙글이, 못 받으면 한 줄.
+  const [fileLink, setFileLink] = useState<{ src?: string; failed?: boolean }>({});
+  useEffect(() => {
+    if (!isEmbeddableFile) return;
+    let alive = true;
+    fetch(`/api/projects/${draft.id}/preview-link`, { cache: "no-store" })
+      .then(async (res) => {
+        const body = await res.json().catch(() => ({}));
+        if (!alive) return;
+        setFileLink(res.ok && typeof body.url === "string" ? { src: body.url } : { failed: true });
+      })
+      .catch(() => { if (alive) setFileLink({ failed: true }); });
+    return () => { alive = false; };
+  }, [draft.id, draft.demo_url, isEmbeddableFile]);
+  const fileSrc = isEmbeddableFile ? fileLink.src : undefined;
+  const fileLoading = isEmbeddableFile && !fileLink.src && !fileLink.failed;
   // 외부 URL은 **그 사이트가 허락해야** 임베드된다 — 아래 embed-check로 물어본다.
   const externalSrc = !isFile && /^https?:\/\//.test(draft.demo_url) ? draft.demo_url : undefined;
   // "작품 열기" 링크는 막혀 있어도 새 탭에서는 열린다 — 판정과 무관하게 준다.
@@ -620,6 +635,14 @@ export function DraftReviewModal({ draft, privateReady = true, username, demoPau
     <iframe src={fileSrc} title={title} className="absolute inset-0 w-full h-full"
       style={{ border: "none", background: "#fff" }}
       sandbox="allow-scripts allow-same-origin allow-forms allow-popups" />
+  ) : fileLoading ? (
+    <div className="absolute inset-0 flex items-center justify-center">
+      <span className="vf-spinner" style={{ width: "2.4rem", height: "2.4rem" }} />
+    </div>
+  ) : isEmbeddableFile && fileLink.failed ? (
+    <div className="absolute inset-0 flex items-center justify-center">
+      <p style={frameText}>{t.projects.reviewPreviewFailed}</p>
+    </div>
   ) : externalSrc && embedState === "checking" ? (
     <div className="absolute inset-0 flex flex-col items-center justify-center gap-4">
       <span className="vf-spinner" style={{ width: "2.4rem", height: "2.4rem" }} />

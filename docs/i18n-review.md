@@ -1370,3 +1370,9 @@ locale도 언어별(en = "The live portfolio for vibe coders. Show your projects
 |---|---|---|---|
 | dashboard.siteReadonly | 지금은 점검 중이라 저장할 수 없어요. 프레임은 그대로 보여요. | Saving is paused for maintenance. Your frame is still visible. | 새 키 · 관리자가 사이트를 읽기 전용으로 잠갔을 때 대시보드 맨 위 |
 | dashboard.uploadsClosed | 지금은 점검 중이라 새로 올릴 수 없어요. 나머지는 그대로 돼요. | Uploads are paused for maintenance. Everything else still works. | 새 키 · 업로드만 닫았을 때 |
+
+## 초안 비공개 (2026-11-02)
+
+| 키 | 한국어 | English | 비고 |
+|---|---|---|---|
+| projects.reviewPreviewFailed | 미리보기를 못 열었어요. 창을 닫았다가 다시 열어 주세요. | Couldn't open the preview. Close this window and open it again. | 새 키 · 초안 검토 창에서 업로드 화면의 주인 전용 주소를 못 받았을 때(2026-11-02 초안 비공개) |

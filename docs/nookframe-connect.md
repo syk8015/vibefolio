@@ -275,6 +275,7 @@ MCP 규격이 2026-07-28에 갈아엎였다: `initialize`·세션·`ping`이 사
   못 채웠다. pastePrompt·MCP TOOL 스키마 양쪽에 보완), `tags`는 `AI_TOOLS` **화이트리스트 정확 일치**로
   필터(다른 철자는 조용히 버려짐 — 프롬프트·MCP 스키마 enum에 전체 목록 명시로 보완), `contentType`은 8개 고정 id.
 - 파일 경로: 행 id 확보 → `project-files/{uid}/{rowId}/…` 업로드 → `demo_url=/api/preview/…/index.html`.
+  초안인 동안 이 주소는 404다(2026-11-02 초안 비공개) — 주인은 대시보드 검토 창(열쇠 주소)으로만 본다. 공개하면 그대로 열리고, 자동 썸네일(thum.io)도 그때 만든다.
 - **upsert(요청4)**: 같은 유저의 **초안** 중 `demo_url`이 이번 진입 URL(appUrl 우선, `detectDemoSource`
   정규화 후 값)과 같은 행이 있으면 insert 대신 그 행을 **갱신**한다(재푸시=최신 페이로드가 진실.
   응답에 `upserted:true`). 초안 한정이라 공개된 행은 절대 안 건드림(PAT 폭발반경 유지). 제작자

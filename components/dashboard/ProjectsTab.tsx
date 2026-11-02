@@ -17,6 +17,7 @@ import { deleteSwappedAssets } from "./projects/helpers";
 import { type DBProject, type ProjectForm } from "./projects/types";
 import { DraftRow, ProjectRow } from "./projects/rows";
 import { ProjectFormModal } from "./projects/ProjectFormModal";
+import { publishThumbnail } from "@/lib/thumbnail";
 import { AddProjectModal } from "./projects/AddProjectModal";
 import { DraftReviewModal, type DraftPatch } from "./projects/DraftReviewModal";
 import { findPublishedTwin, translationTitles } from "@/lib/publishedTwin";
@@ -572,7 +573,9 @@ export default function ProjectsTab({
     // 방금 공개한 작품은 맨 앞에 — 인제스트는 sort_order를 "기존 행 수"로 넣어
     // 그대로 두면 명함 맨 뒤에 붙고, 첫 화면에서 안 보여 "올라간 게 맞나?"가 된다.
     const sortOrder = projects.reduce((min, p) => Math.min(min, p.sort_order ?? 0), 0) - 1;
-    const base: DBProject = { ...project, is_draft: false, sort_order: sortOrder };
+    // 자동 썸네일은 공개하는 지금 만든다 — 초안 폴더는 주인만 열려 thum.io가 찍을 수 없었다(2026-11-02).
+    const shot = publishThumbnail(project.demo_url, project.thumbnail, window.location.origin);
+    const base: DBProject = { ...project, is_draft: false, sort_order: sortOrder, ...(shot ? { thumbnail: shot } : {}) };
     const published: DBProject = source
       ? { ...base, demo_build_status: "pending", demo_source_type: source.type, demo_source_value: source.value }
       : base;
@@ -582,7 +585,7 @@ export default function ProjectsTab({
     void loadPrivate([project.id]);
 
     // 공개는 초안 검토 창에서 주인 인터뷰를 확인해야만 여기로 온다(2026-09-29) — 그 순간을 남긴다.
-    const publishRow = { is_draft: false, sort_order: sortOrder };
+    const publishRow = { is_draft: false, sort_order: sortOrder, ...(shot ? { thumbnail: shot } : {}) };
     let { error } = await supabase.from("projects")
       .update({ ...publishRow, owner_interview_confirmed_at: new Date().toISOString() })
       .eq("id", project.id);
@@ -780,7 +783,7 @@ export default function ProjectsTab({
           }}
           onClose={() => setEditProject(null)}
           onSubmit={form => handleEdit(editProject.id, form, editHint.known)}
-          submitLabel={t.projects.submitSave} userId={user.id}
+          submitLabel={t.projects.submitSave} userId={user.id} isDraft={editProject.is_draft}
           captions={editCaptions && {
             projectId: editProject.id, track: editCaptions,
             onSaved: next => {
