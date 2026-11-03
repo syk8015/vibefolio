@@ -11,7 +11,7 @@
 // 검증 11단언: (1) 9편 시점 입장 (2) 10편에서 held/user (3) held 사유행 (4) 전역
 // 99에서 입장 (5) 100에서 held/global (6) 전역 사유 문구 (7) TS 미러 일치
 // (8) zip 남의 prefix → BAD_SOURCE (9) 남의 프로젝트 → FORBIDDEN
-// (10) 프로젝트당 시도 2회 유지 → ATTEMPT_LIMIT (11) 미로그인 → UNAUTHORIZED
+// (10) 프로젝트당 시도 2회 유지 → ATTEMPT_LIMIT (11) 미로그인 → 실행 권한 없음(42501, 2026-11-03부터)
 //
 // 비용 $0: 입장(pending)은 워커가 배치 모드라 아무것도 안 찍고, 끝나면 프로젝트를
 // 지워 큐에서 사라진다. 씨앗 이벤트도 넣은 id만 정확히 되지운다.
@@ -110,8 +110,9 @@ try {
     { id: otherId, username: `zzqb${tag}` },
   ]);
   const { data: projs, error: pErr } = await svc.from("projects").insert([
-    { user_id: userId, title: "ZZPROBE quota", type: "image" },
-    { user_id: otherId, title: "ZZPROBE quota B", type: "image" },
+    // 공개 작품이어야 대기열에 들어간다(2026-11-03 migration_request_demo_gate — 초안은 NOT_PUBLIC).
+    { user_id: userId, title: "ZZPROBE quota", type: "image", is_draft: false },
+    { user_id: otherId, title: "ZZPROBE quota B", type: "image", is_draft: false },
   ]).select("id");
   if (pErr) throw new Error(`프로젝트 생성 실패: ${pErr.message}`);
   [projectId, otherProjectId] = projs.map((r) => r.id);
@@ -182,8 +183,9 @@ try {
   ok("(10) 프로젝트당 2회 유지 → ATTEMPT_LIMIT", r.ok === false && r.code === "ATTEMPT_LIMIT", JSON.stringify(r));
 
   // ── (11) 미로그인 ───────────────────────────────────────────────────────
-  const { data: anonRes } = await anon.rpc("request_demo", live);   // anon = 세션 없는 클라이언트
-  ok("(11) 미로그인 → UNAUTHORIZED", anonRes?.ok === false && anonRes?.code === "UNAUTHORIZED", JSON.stringify(anonRes));
+  // 2026-11-03부터 익명 키엔 실행 권한 자체가 없다(migration_request_demo_gate). 함수 안 UNAUTHORIZED는 그 뒤의 둘째 겹.
+  const { data: anonRes, error: anonErr } = await anon.rpc("request_demo", live);   // anon = 세션 없는 클라이언트
+  ok("(11) 미로그인 → 실행 권한 없음", anonErr?.code === "42501" || (anonRes?.ok === false && anonRes?.code === "UNAUTHORIZED"), anonErr?.code ?? JSON.stringify(anonRes));
 } catch (e) {
   ok("프로브 실행", false, e.message);
 } finally {
