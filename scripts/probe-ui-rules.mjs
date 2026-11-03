@@ -44,7 +44,7 @@ const DECOR = {
   "components/theater/Meishi.tsx": ["size", "color", "border", "font"], // 명함 카드(PC 8px 그대로 — 정한 것)
 };
 // 'ko-jsx'를 보지 않는 곳 — 한국어로만 쓰기로 한 관리 화면, 본문을 언어별로 통째 가르는 문서
-const KO_JSX_OK = [/^app\/admin\//, /^components\/admin\//, /^app\/privacy\//, /^app\/terms\//, /^app\/docs\//];
+const KO_JSX_OK = [/^app\/admin\//, /^components\/admin\//, /^app\/privacy\//, /^app\/terms\//, /^app\/docs\//, /^app\/security\//];
 // '명함'을 써도 되는 사전 키 — 명함 카드와 대시보드 명함 탭
 const NAME_OK = [/^dashboard\.tabCard$/, /^card\./, /^theater\.aboutLabel$/];
 
