@@ -70,6 +70,9 @@ const nextConfig: NextConfig = {
         source: "/.well-known/oauth-authorization-server",
         destination: "/api/oauth/meta/authorization-server",
       },
+      // 보안 신고 창구(RFC 9116) — app/security/page.tsx와 짝.
+      { source: "/.well-known/security.txt", destination: "/api/security-txt" },
+      { source: "/security.txt", destination: "/api/security-txt" },
     ];
   },
   async headers() {
