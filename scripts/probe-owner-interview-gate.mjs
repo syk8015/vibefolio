@@ -120,7 +120,7 @@ try {
   ok("301자 답 → 400 OWNER_INTERVIEW_TOO_LONG", long.status === 400 && long.body?.code === "OWNER_INTERVIEW_TOO_LONG", `${long.status} ${long.body?.code}`);
 
   // (4) 영상 동봉은 대본·로그인 게이트만 면제한다 — 주인의 말은 여전히 필요하다.
-  const video = keep(await post({ demoScript: undefined, demoAccess: undefined, uploads: ["video"] }));
+  const video = keep(await post({ demoScript: undefined, demoAccess: undefined, uploads: ["video"], uploadSizes: { video: 1024 } }));
   ok("영상 동봉 + 인터뷰 없음 → 400", video.status === 400 && video.body?.code === "OWNER_INTERVIEW_REQUIRED", `${video.status} ${video.body?.code}`);
 
   // (5) 사전 검사 — 같은 판정, 저장 없음.

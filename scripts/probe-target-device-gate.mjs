@@ -131,7 +131,7 @@ try {
   ok("' Desktop ' → desktop으로 저장", spaced.status === 200 && spaced.body?.accepted?.targetDevice === "desktop", JSON.stringify(spaced.body?.accepted?.targetDevice));
 
   // (5) 영상 동봉은 대본·로그인 게이트만 면제한다 — 대상 화면은 여전히 물어야 한다.
-  const videoBare = keep(await post({ demoScript: undefined, demoAccess: undefined, uploads: ["video"] }));
+  const videoBare = keep(await post({ demoScript: undefined, demoAccess: undefined, uploads: ["video"], uploadSizes: { video: 1024 } }));
   ok("영상 동봉 + 답 없음 → 400", videoBare.status === 400 && videoBare.body?.code === "TARGET_DEVICE_REQUIRED", `status ${videoBare.status}`);
 
   if (mobile.body?.projectId) {

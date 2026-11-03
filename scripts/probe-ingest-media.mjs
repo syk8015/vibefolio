@@ -85,7 +85,7 @@ try {
   // (1) 배포 대기 — uploads 선언 응답에 서명 URL이 실리면 신코드.
   let live = false, probe;
   for (let i = 0; i < 30; i++) {
-    const res = await jsonPost("/api/ingest", { title: "__probe_deploy2__", description: "프로브가 만든 임시 행\n곧 지워집니다", uploads: ["video"], deployUrl: "https://example.com", targetDevice: "desktop", ownerInterview: OI, ...LANG });
+    const res = await jsonPost("/api/ingest", { title: "__probe_deploy2__", description: "프로브가 만든 임시 행\n곧 지워집니다", uploads: ["video"], uploadSizes: { video: 1024 }, deployUrl: "https://example.com", targetDevice: "desktop", ownerInterview: OI, ...LANG });
     probe = await res.json().catch(() => ({}));
     if (probe.projectId) {
       if (probe.uploads?.video) { live = true; break; }
@@ -165,6 +165,9 @@ try {
   ok("2단계 서명 URL에 선언과 다른 크기 PUT → 거절", wrongSize.status === 403 || wrongSize.status === 400, String(wrongSize.status));
   const huge = await jsonPost("/api/ingest", { title: "__probe_huge__", targetDevice: "desktop", ownerInterview: OI, ...LANG, description: "프로브가 만든 임시 행\n곧 지워집니다", deployUrl: `https://example.com/probe-huge-${Date.now()}`, uploads: ["video"], uploadSizes: { video: 5 * 1024 ** 3 } });
   ok("상한 넘는 크기 선언 → 413", huge.status === 413, String(huge.status));
+  const noSize = await jsonPost("/api/ingest", { title: "__probe_nosize__", targetDevice: "desktop", ownerInterview: OI, ...LANG, description: "프로브가 만든 임시 행\n곧 지워집니다", deployUrl: `https://example.com/probe-nosize-${Date.now()}`, uploads: ["video"], uploadSizes: {} });
+  const noSizeBody = await noSize.json().catch(() => ({}));
+  ok("크기 없는 선언(옛 CLI) → 400 UPLOAD_SIZE_REQUIRED", noSize.status === 400 && noSizeBody.code === "UPLOAD_SIZE_REQUIRED", `${noSize.status} ${noSizeBody.code}`);
   const exact = await fetch(d.uploads.video, { method: "PUT", headers: { "Content-Type": "application/octet-stream" }, body: new TextEncoder().encode("definitely not a video") });
   ok("선언한 크기 그대로 PUT → 200", exact.status === 200, String(exact.status));
   const fin = await jsonPost("/api/ingest/finalize", { projectId: d.projectId });
@@ -176,7 +179,7 @@ try {
   // (5) 영상을 선언해 대본 게이트를 면제받고서 **영상을 끝내 안 올린** 경우(2026-09-16).
   // 영상+스크린샷을 선언하고 스크린샷만 올린다 — 아무것도 안 올리면 NOTHING_TO_FINALIZE가
   // 먼저 잡으므로, 새 게이트가 실제로 걸리는 건 이 모양이다.
-  const noFilm = await (await jsonPost("/api/ingest", { title: "__probe_nofilm__", targetDevice: "desktop", ownerInterview: OI, ...LANG, description: "프로브가 만든 임시 행\n곧 지워집니다", deployUrl: `https://example.com/probe-nofilm-${Date.now()}`, uploads: ["video", "screenshot"] })).json();
+  const noFilm = await (await jsonPost("/api/ingest", { title: "__probe_nofilm__", targetDevice: "desktop", ownerInterview: OI, ...LANG, description: "프로브가 만든 임시 행\n곧 지워집니다", deployUrl: `https://example.com/probe-nofilm-${Date.now()}`, uploads: ["video", "screenshot"], uploadSizes: { video: 1024, screenshot: readFileSync(`${S}/tiny.png`).length } })).json();
   ok("영상 선언만으로 발행은 통과(대본 없이)", !!noFilm.projectId, JSON.stringify(noFilm).slice(0, 100));
   if (noFilm.projectId) {
     await fetch(noFilm.uploads.screenshot, { method: "PUT", headers: { "Content-Type": "application/octet-stream" }, body: readFileSync(`${S}/tiny.png`) });
@@ -194,7 +197,7 @@ try {
   const first = await (await jsonPost("/api/ingest", { title: "__probe_keepscript__", targetDevice: "desktop", ownerInterview: OI, ...LANG, description: "프로브가 만든 임시 행\n곧 지워집니다", deployUrl: keepUrl, demoScript: SCRIPT, demoAccess: ACCESS })).json();
   ok("대본 있는 초안 발행 성공", !!first.projectId, JSON.stringify(first).slice(0, 100));
   if (first.projectId) {
-    const again = await (await jsonPost("/api/ingest", { title: "__probe_keepscript__", targetDevice: "desktop", ownerInterview: OI, ...LANG, description: "프로브가 만든 임시 행\n곧 지워집니다", deployUrl: keepUrl, uploads: ["video"] })).json();
+    const again = await (await jsonPost("/api/ingest", { title: "__probe_keepscript__", targetDevice: "desktop", ownerInterview: OI, ...LANG, description: "프로브가 만든 임시 행\n곧 지워집니다", deployUrl: keepUrl, uploads: ["video"], uploadSizes: { video: 1024 } })).json();
     ok("같은 초안을 영상 선언으로 재발행", again.projectId === first.projectId, `${again.projectId} vs ${first.projectId}`);
     const { data: kept } = await svc.from("projects").select("demo_script, demo_access").eq("id", first.projectId).single();
     ok("옛 대본이 살아 있다", (kept?.demo_script?.steps?.length ?? 0) === SCRIPT.steps.length, `steps=${kept?.demo_script?.steps?.length}`);

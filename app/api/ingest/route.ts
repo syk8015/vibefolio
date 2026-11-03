@@ -56,8 +56,8 @@ const MAX_BODY_BYTES =
 const UPLOAD_CAPS: Record<UploadKind, number> = {
   bundle: MAX_UPLOAD_BYTES, screenshot: MAX_MEDIA_IMAGE_BYTES, video: MAX_MEDIA_VIDEO_BYTES,
 };
-// CLI 0.1.28 배포가 확인되면 true — 그 뒤로 크기 없는 두 단계 업로드는 400(옛 CLI·직접 HTTP).
-const REQUIRE_UPLOAD_SIZES = false;
+// CLI 0.1.28 배포 뒤 켬 — 크기 없는 두 단계 업로드는 400(옛 CLI·직접 HTTP).
+const REQUIRE_UPLOAD_SIZES = true; // 11-03 CLI 0.1.28 npm 배포 확인
 
 interface IngestPayload {
   title?: unknown;
@@ -362,7 +362,7 @@ export async function POST(req: NextRequest) {
     for (const kind of declared) {
       const v = rawSizes[kind];
       if (v === undefined || v === null) {
-        if (REQUIRE_UPLOAD_SIZES) {
+        if (REQUIRE_UPLOAD_SIZES && !dryRun) { // 사전 검사(check)는 서명 주소를 안 만든다
           return apiError({ status: 400, message: t.api.uploadSizeRequired, code: "UPLOAD_SIZE_REQUIRED", field: `uploadSizes.${kind}` });
         }
         continue;

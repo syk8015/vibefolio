@@ -116,7 +116,7 @@ try {
     is400(noCap, "CAPTIONS_REQUIRED") && /step 1, 2, 3, 4\b/.test(noCap.body?.error ?? ""), `${noCap.status} ${noCap.body?.code} ${(noCap.body?.error ?? "").slice(0, 80)}`);
 
   // (6) 직접 만든 영상은 자막 면제 · (7) 사전 검사 에코 — 둘 다 행을 만들지 않는다.
-  const video = await post({ demoScript: undefined, uploads: ["video"] }, { dryRun: true });
+  const video = await post({ demoScript: undefined, uploads: ["video"], uploadSizes: { video: 1024 } }, { dryRun: true });
   ok("영상 동봉(사전 검사) → 자막 없이 200", video.status === 200 && video.body?.dryRun === true, `${video.status} ${video.body?.code}`);
   const dry = await post({}, { dryRun: true });
   const L = dry.body?.accepted?.languages;

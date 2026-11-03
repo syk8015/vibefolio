@@ -154,7 +154,7 @@ try {
   }
 
   // ───────── ④ 영상 동봉 = 자동 촬영 없음 → 점검표 없음 ─────────
-  const v = await post({ ...BASE, title: `__probe_review_v_${run}__`, deployUrl: `${FIXTURE}?probe=${run}-v`, uploads: ["video"] });
+  const v = await post({ ...BASE, title: `__probe_review_v_${run}__`, deployUrl: `${FIXTURE}?probe=${run}-v`, uploads: ["video"], uploadSizes: { video: 1024 } });
   ok("영상 동봉 → 200", v.status === 200, `status ${v.status}`);
   ok("영상 동봉 → scriptReview 없음", v.body?.accepted && !("scriptReview" in v.body.accepted), JSON.stringify(Object.keys(v.body?.accepted ?? {})));
 } finally {

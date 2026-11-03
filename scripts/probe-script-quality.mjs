@@ -183,7 +183,7 @@ try {
 
   // 직접 만든 영상은 자동 촬영 자체를 건너뛰므로 대본·로그인 게이트가 면제된다
   // (소개글은 명함에 뜨는 글이라 면제가 아니다 — 이 구분이 이번 라운드의 설계).
-  const withVideo = await post({ demoScript: undefined, demoAccess: undefined, uploads: ["video"] });
+  const withVideo = await post({ demoScript: undefined, demoAccess: undefined, uploads: ["video"], uploadSizes: { video: 1024 } });
   ok("영상 동봉 → 대본·로그인 게이트 면제", withVideo.status === 200, `status ${withVideo.status} ${JSON.stringify(withVideo.body).slice(0, 120)}`);
 
   // ───────── ④ 수정 경로 우회 차단 ─────────

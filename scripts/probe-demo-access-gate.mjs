@@ -126,7 +126,7 @@ try {
 
   // (6) 직접 만든 영상은 자동 촬영 자체를 건너뛰므로 대본과 함께 면제된다.
   const withVideo = keep(
-    await post({ demoScript: undefined, uploads: ["video"] }),
+    await post({ demoScript: undefined, uploads: ["video"], uploadSizes: { video: 1024 } }),
   );
   ok("영상 동봉(uploads:[video]) → 게이트 면제", withVideo.status === 200, `status ${withVideo.status} ${JSON.stringify(withVideo.body).slice(0, 120)}`);
 

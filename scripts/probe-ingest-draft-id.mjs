@@ -186,7 +186,7 @@ try {
     `${b7.status} ${rowB7?.demo_url} ${JSON.stringify(filesB7)}`);
 
   // (8) 같은 URL 재발행 + 불량 스크린샷 → finalize가 거절해도 기존 초안은 남는다(예전엔 지워졌다).
-  const a8 = await post("/api/ingest", { ...GATE, title: "__probe_did_A8__", deployUrl: U("b"), uploads: ["screenshot"] });
+  const a8 = await post("/api/ingest", { ...GATE, title: "__probe_did_A8__", deployUrl: U("b"), uploads: ["screenshot"], uploadSizes: { screenshot: 12 } });
   const marker8 = (await has(A, "_upload/replace.marker")) ? ["replace.marker"] : [];
   ok("(8) 같은 URL 재발행 = upsert + 교체 표식",
     a8.body.projectId === A && a8.body.upserted === true && marker8.includes("replace.marker"),
@@ -206,7 +206,7 @@ try {
 
   // (9) 새 URL 행 + 불량 영상 → 이번 발행이 만든 행은 여전히 지운다(고아 정리).
   const n9 = await post("/api/ingest", {
-    title: "__probe_did_N9__", targetDevice: "desktop", ownerInterview: GATE.ownerInterview, language: GATE.language, appLanguages: GATE.appLanguages, translation: GATE.translation, description: GATE.description, deployUrl: U("d"), uploads: ["video"],
+    title: "__probe_did_N9__", targetDevice: "desktop", ownerInterview: GATE.ownerInterview, language: GATE.language, appLanguages: GATE.appLanguages, translation: GATE.translation, description: GATE.description, deployUrl: U("d"), uploads: ["video"], uploadSizes: { video: 11 },
   });
   if (n9.body.uploads?.video) {
     await fetch(n9.body.uploads.video, {
