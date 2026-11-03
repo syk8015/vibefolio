@@ -992,7 +992,7 @@ export const ko = {
     retryLater: "잠시 후 다시 시도해 주세요.",
     projectNotFound: "프로젝트를 찾을 수 없어요.",
     projectForbidden: "이 프로젝트에 대한 권한이 없어요.",
-    takenDownNoDelete: "신고 검토로 내려진 작품이라 지울 수 없어요. 받은 메일에 답장하면 다시 검토할게요.",
+    takenDownNoDelete: "신고 검토로 내려진 작품이라 바꾸거나 지울 수 없어요. 받은 메일에 답장하면 다시 검토할게요.",
     demoStatusFailed: "시연 상태를 불러오지 못했어요.",
     // 재촬영 요청 (request-rerecord)
     rerecordReasonRequired: "무엇을 어떻게 바꾸고 싶은지 적어주세요.",

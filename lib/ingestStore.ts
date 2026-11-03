@@ -297,15 +297,29 @@ export async function removeRowFolder(
 // 이번 요청이 만든 행을 실패로 되돌린다 — 행을 지우고 그 폴더의 파일도 지운다. 인제스트·
 // finalize의 실패 분기가 같이 쓴다. 파일 정리 실패는 삼키고 기록만(응답은 원래 실패 그대로).
 // 함수 시간 초과로 죽은 요청은 여기까지 못 온다 — 그 잔재는 탈퇴 때 사용자 폴더와 같이 지워진다.
+// 내린 작품(taken_down_at)은 지우지 않는다 — 관리자 권한 삭제라 RLS·트리거가 막지 않으므로 조건으로 건다.
+// 행이 안 지워졌으면 폴더도 두고(신고 증거), 지운 행이 있을 때만 폴더를 지운다(2026-11-03, 보안 5단계 S3-F1).
 type RowAdmin = AdminClient & {
-  from(table: string): { delete(): { eq(column: string, value: string): PromiseLike<unknown> } };
+  from(table: string): {
+    delete(): {
+      eq(column: string, value: string): {
+        is(column: string, value: null): {
+          select(columns: string): PromiseLike<{ data: unknown[] | null; error: unknown }>;
+        };
+      };
+    };
+  };
 };
 export async function dropNewRow(
   admin: RowAdmin,
   userId: string,
   projectId: string,
 ): Promise<void> {
-  await admin.from("projects").delete().eq("id", projectId);
+  const { data, error } = await admin.from("projects").delete().eq("id", projectId).is("taken_down_at", null).select("id");
+  if (error || !data?.length) {
+    logger.warn("ingest: dropNewRow kept the row (taken down or delete failed)", { error, projectId });
+    return;
+  }
   await removeRowFolder(admin, userId, projectId).catch((error) =>
     logger.warn("ingest: orphan folder cleanup failed", { error, projectId }));
 }

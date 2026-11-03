@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
     const files = withUserStorage(admin);
     const { data: row, error: selErr } = await admin
       .from("projects")
-      .select("id, user_id, is_draft, demo_url, video_url, thumbnail, demo_script")
+      .select("id, user_id, is_draft, taken_down_at, demo_url, video_url, thumbnail, demo_script")
       .eq("id", projectId)
       .maybeSingle();
     if (selErr || !row) {
@@ -74,6 +74,11 @@ export async function POST(req: NextRequest) {
     }
     if (!row.is_draft) {
       return apiError({ status: 409, message: t.api.finalizeNotDraft, code: "NOT_DRAFT" });
+    }
+    // 내린 작품(초안으로 돌려진)은 갈아끼우지도 지우지도 않는다 — 실패 분기의 dropNewRow가 관리자 권한으로
+    // 행·폴더를 지우는 길이 됐다(2026-11-03, 보안 5단계 S2-F1·S3-F1).
+    if (row.taken_down_at) {
+      return apiError({ status: 409, message: t.api.takenDownNoDelete, code: "TAKEN_DOWN" });
     }
 
     // 5. 임시 오브젝트 회수 — 1단계가 만든 가장 새 업로드 세션의 키만. download 에러 =

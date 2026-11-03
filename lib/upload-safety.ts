@@ -39,6 +39,10 @@ export function safeRelativePath(raw: string): string | null {
   if (segs.some((s) => s === ".." || s.includes("\\") || /[\x00-\x1f]/.test(s))) {
     return null;
   }
+  // 행 폴더의 예약 칸 — 서버만 쓴다(2026-11-03, 보안 5단계 S3-F1·S3-F6). `_upload/`는 finalize가 고를
+  // 업로드 세션·교체 표식, `_media/`는 판정 끝난 제작자 미디어다. 사용자 파일이 여기 들어오면 finalize가
+  // 엉뚱한 세션을 집어 실패 분기(행 삭제)로 가거나 제작자 미디어를 덮는다.
+  if (/^(_upload|_media)(\/|$)/i.test(p)) return null;
   return p;
 }
 

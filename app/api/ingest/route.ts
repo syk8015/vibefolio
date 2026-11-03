@@ -211,7 +211,7 @@ export async function POST(req: NextRequest) {
       const { data: row, error: rowErr } = draftId
         ? await admin
             .from("projects")
-            .select("id, user_id, is_draft, thumbnail, demo_url")
+            .select("id, user_id, is_draft, taken_down_at, thumbnail, demo_url")
             .eq("id", draftId)
             .maybeSingle()
         : { data: null, error: null };
@@ -223,6 +223,10 @@ export async function POST(req: NextRequest) {
       }
       if (!row.is_draft) {
         return apiError({ status: 409, message: t.api.draftIdNotDraft, code: "NOT_DRAFT" });
+      }
+      // 내린 작품은 다시 올려 덮지 않는다 — 신고 증거를 갈아치우는 길(2026-11-03, 보안 5단계 S2-F1).
+      if (row.taken_down_at) {
+        return apiError({ status: 409, message: t.api.takenDownNoDelete, code: "TAKEN_DOWN" });
       }
       draftTarget = {
         id: row.id as string,

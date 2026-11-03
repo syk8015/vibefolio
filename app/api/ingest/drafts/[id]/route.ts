@@ -80,7 +80,7 @@ async function loadDraft(
     // 대본 게이트의 면제 근거라 여기서 같이 읽는다. demo_url·demo_access는 대본이
     // 바뀔 때 셀렉터 실재 확인(점검표)이 여는 주소.
     // intro_film = 소개 영상 대본(2026-10-02) — 있으면 역시 자동 촬영이 없다(명함이 대본을 재생).
-    .select("id, user_id, is_draft, video_url, demo_url, demo_access, intro_film")
+    .select("id, user_id, is_draft, taken_down_at, video_url, demo_url, demo_access, intro_film")
     .eq("id", id)
     .maybeSingle();
   if (error || !row) {
@@ -91,6 +91,11 @@ async function loadDraft(
   }
   if (!row.is_draft) {
     return apiError({ status: 409, message: t.api.finalizeNotDraft, code: "NOT_DRAFT" });
+  }
+  // 내린 작품(초안으로 돌려진)은 고치지도 지우지도 않는다 — 대시보드 삭제와 같은 규칙
+  // (migration_suspension_hole.sql). 관리자 권한이라 RLS를 안 거치므로 여기서 직접 본다(2026-11-03 S2-F1).
+  if (row.taken_down_at) {
+    return apiError({ status: 409, message: t.api.takenDownNoDelete, code: "TAKEN_DOWN" });
   }
   return {
     id: row.id as string,
@@ -389,14 +394,7 @@ export async function DELETE(
     const admin = createAdminClient();
     const draft = await loadDraft(admin, id, userId, t);
     if (draft instanceof NextResponse) return draft;
-    // 내린 작품(초안으로 돌려진)은 지우지 않는다 — 대시보드 삭제와 같은 규칙(migration_suspension_hole.sql).
-    // 관리자 권한이라 RLS 삭제 정책을 안 거치므로 여기서 직접 본다.
-    const { data: lock, error: lockErr } = await admin
-      .from("projects").select("taken_down_at").eq("id", draft.id).maybeSingle();
-    if (lockErr) throw new Error(`takedown check failed: ${lockErr.message}`);
-    if (lock?.taken_down_at) {
-      return apiError({ status: 409, message: t.api.takenDownNoDelete, code: "TAKEN_DOWN" });
-    }
+    // 내린 작품은 loadDraft가 409 TAKEN_DOWN으로 이미 돌려보냈다.
 
     // 스토리지 정리 — 인제스트 초안의 파일은 전부 행 폴더 {uid}/{id}/ 아래에 있다
     // (zip 확장·_media·_upload — 행을 먼저 만들고 그 id 폴더에 올리는 설계라,

@@ -24,6 +24,7 @@ function fakeAdmin(failKey?: string) {
   let afterThrow = 0;
   let thrown = false;
   const deletedRows: string[] = [];
+  const takenDown = new Set<string>();
   const admin = {
     storage: {
       from: () => ({
@@ -56,10 +57,22 @@ function fakeAdmin(failKey?: string) {
         },
       }),
     },
-    from: () => ({ delete: () => ({ eq: async (_c: string, v: string) => { deletedRows.push(v); } }) }),
+    from: () => ({
+      delete: () => ({
+        eq: (_c: string, v: string) => ({
+          is: () => ({
+            select: async () => {
+              if (takenDown.has(v)) return { data: [], error: null }; // 내린 행 = 조건에 안 걸림
+              deletedRows.push(v);
+              return { data: [{ id: v }], error: null };
+            },
+          }),
+        }),
+      }),
+    }),
   };
   return {
-    admin, stored, deletedRows,
+    admin, stored, deletedRows, takenDown,
     peak: () => peak, markThrown: () => { thrown = true; }, afterThrow: () => afterThrow,
   };
 }
@@ -81,6 +94,14 @@ await new Promise((r) => setTimeout(r, 30));
 ok("하나 실패 → 던짐", !!err && (err as { code?: string }).code === "upload-failed");
 ok("던진 뒤엔 늦게 끝나는 업로드 없음", bad.afterThrow() === 0, `late=${bad.afterThrow()}`);
 ok("실패 뒤 새 업로드를 멈춤", bad.stored.size < 60, `stored=${bad.stored.size}`);
+
+// 내린 작품은 실패 분기에서도 안 지운다(2026-11-03 S3-F1) — 행도 폴더 파일도 남는다.
+bad.takenDown.add("p");
+const before = bad.stored.size;
+await dropNewRow(bad.admin, "u", "p");
+ok("내린 행 → 행 안 지움", !bad.deletedRows.includes("p"));
+ok("내린 행 → 폴더 파일도 그대로", bad.stored.size === before && before > 0, `before=${before} after=${bad.stored.size}`);
+bad.takenDown.delete("p");
 
 await dropNewRow(bad.admin, "u", "p");
 ok("새 행 되돌리기 → 행 삭제", bad.deletedRows.includes("p"));

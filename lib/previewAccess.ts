@@ -3,8 +3,8 @@ import { logger } from "@/lib/logger";
 
 // 미리보기 폴더가 지금 누구에게나 열려도 되나(2026-11-02, 초안 비공개 — lib/previewToken.ts).
 //
-// 열려도 되는 폴더 = 그 uid의 행 중 하나라도 **공개(is_draft=false)이고 내려지지 않은(taken_down_at null)**
-// 행이 이 폴더를 쓰는 것. 행이 폴더를 쓰는 길은 셋이다: 폴더 이름 = 행 id(인제스트), demo_url이
+// 열려도 되는 폴더 = 그 uid의 행 중 하나라도 **공개(is_draft=false)** 행이 이 폴더를 쓰고, **내린(taken_down_at)**
+// 행은 하나도 이 폴더를 쓰지 않는 것. 행이 폴더를 쓰는 길은 셋이다: 폴더 이름 = 행 id(인제스트), demo_url이
 // 이 폴더를 가리킴(대시보드 직접 업로드는 폴더가 무작위 UUID), demo_source_value = "uid/폴더"(소스 zip).
 // 명함 정지는 모든 작품을 초안으로 돌리므로 따로 볼 필요가 없다(migration_takedown_lock.sql).
 //
@@ -32,16 +32,17 @@ export async function folderIsPublic(uid: string, folder: string): Promise<boole
     // 모양 검사를 지난 값만 넣는다([A-Za-z0-9-]) — or() 문법을 깨거나 LIKE 와일드카드를 넣을 수 없다.
     const ors = [`demo_url.like./api/preview/${uid}/${folder}/*`, `demo_source_value.eq.${uid}/${folder}`];
     if (UUID_RE.test(folder)) ors.unshift(`id.eq.${folder}`);
+    // 이 폴더를 쓰는 행을 상태와 상관없이 다 읽는다 — 내린 행이 하나라도 쓰면 닫는다. 같은 주인의 다른
+    // 공개 작품이 demo_url·demo_source_value로 내린 폴더를 가리켜 신고된 주소를 되살리던 길(2026-11-03, S8-F1).
     const { data, error } = await createAdminClient()
       .from("projects")
-      .select("id")
+      .select("is_draft, taken_down_at")
       .eq("user_id", uid)
-      .eq("is_draft", false)
-      .is("taken_down_at", null)
       .or(ors.join(","))
-      .limit(1);
+      .limit(50);
     if (error) throw error;
-    const isOpen = (data?.length ?? 0) > 0;
+    const rows = (data ?? []) as { is_draft: boolean; taken_down_at: string | null }[];
+    const isOpen = !rows.some((r) => r.taken_down_at) && rows.some((r) => !r.is_draft);
     if (isOpen) {
       if (open.size > 5000) open.clear();
       open.set(key, Date.now() + OPEN_TTL_MS);
