@@ -200,5 +200,16 @@ ok("9컷 × hold 2.5 → 30초 초과, 잘리는 스텝(9)을 짚는다",
 const fe6 = estimateFilm(sonnet);
 ok("소넷 6스텝(focus 5·click 1) = 예산 안", fe6.seconds < 30 && fe6.cutFromStep === null, JSON.stringify(fe6));
 
+// 되돌아가기 폭발(2026-11-03 S3-F2) — 닫히지 않은 태그·줄을 건너는 열린 태그 1MB가 1초 안에 끝난다.
+{
+  const t0 = Date.now();
+  indexHtml("<a" + ' x="1"'.repeat(40));
+  indexHtml(Array.from({ length: 10000 }, () => "<a" + ' x="1"'.repeat(16)).join("\n"));
+  const ms = Date.now() - t0;
+  ok("indexHtml: 닫히지 않은 태그 1MB도 1초 안", ms < 1000, `${ms}ms`);
+  const back = indexHtml(`<div id="a" class='b c' data-x=y disabled><img src=x.png/>`);
+  ok("indexHtml: 따옴표·홑따옴표·따옴표 없는 값 그대로", back.ids.has("a") && back.classes.has("c") && back.tags.has("img"));
+}
+
 console.log(failed ? `\n${failed}건 실패` : "\nALL PASS");
 process.exit(failed ? 1 : 0);

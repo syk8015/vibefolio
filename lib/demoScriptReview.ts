@@ -234,7 +234,10 @@ type HtmlIndex = {
   hasScript: boolean;
 };
 
-const TAG_RE = /<([a-zA-Z][\w:-]*)((?:\s+[^\s=>/]+(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+))?)*)\s*\/?>/g;
+// 되돌아가기 폭발 막기(2026-11-03, 보안 5단계 S3-F2): 따옴표 없는 값은 따옴표로 시작하지 못하게 해 `x="1"`이
+// 한 가지로만 읽히게 하고(예전엔 속성마다 갈래가 둘 → 닫히지 않은 태그 하나에 2^n), 한 태그의 속성은 256개까지만
+// 본다(줄을 건너 이어지는 열린 태그가 시작점마다 끝까지 훑는 n^2 막기). 1MB 입력 최악이 수십 ms.
+const TAG_RE = /<([a-zA-Z][\w:-]*)((?:\s+[^\s=>/]+(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>"'][^\s>]*))?){0,256})\s*\/?>/g;
 const ATTR_LIST_RE = /([^\s=/>]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+)))?/g;
 const MAX_TAGS = 50_000;
 
@@ -256,10 +259,11 @@ export function indexHtml(html: string): HtmlIndex {
       if (list) { if (list.length < 500) list.push(value); } else idx.attrs.set(name, [value]);
     }
   }
+  // 닫는 짝이 없으면 끝까지 먹고(`|$`), 태그 안엔 `<`가 없다(`[^<>]`) — 시작점마다 끝까지 훑는 n^2를 막는다(S3-F2).
   idx.textChars = html
-    .replace(/<script[\s\S]*?<\/script>/gi, " ")
-    .replace(/<style[\s\S]*?<\/style>/gi, " ")
-    .replace(/<[^>]+>/g, " ")
+    .replace(/<script[\s\S]*?(?:<\/script>|$)/gi, " ")
+    .replace(/<style[\s\S]*?(?:<\/style>|$)/gi, " ")
+    .replace(/<[^<>]+>/g, " ")
     .replace(/\s+/g, " ")
     .trim().length;
   return idx;

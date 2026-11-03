@@ -46,7 +46,7 @@ try {
   const { data: row, error: rErr } = await svc.from("projects").insert({
     user_id: uid, title: "__probe_worker_scope_DONOTKEEP__", description: "", demo_url: "https://example.com/",
     is_draft: false, demo_build_status: "done", demo_generated_at: "2026-01-01T00:00:00Z",
-    video_url: `${MEDIA}/files/${uid}/videos/probe.mp4`,
+    video_url: `${MEDIA}/files/${uid}/videos/probe-nf.mp4`, // 이미 줄인 영상 = 줄이기 대상 아님
   }).select("id").single();
   if (rErr) throw new Error(`project insert: ${rErr.message}`);
   const id = row.id;
@@ -66,7 +66,7 @@ try {
   await expect("(1h) assets prune → 409", "/api/worker/assets", { op: "prune", projectId: id, keepTs: "1000000000" }, 409, "NOT_IN_FLIGHT");
   await expect("(1i) assets source-list → 409", "/api/worker/assets", { op: "source-list", projectId: id }, 409, "NOT_IN_FLIGHT");
   await expect("(1j) 소개 영상 sign(claim 안 됨) → 409", "/api/worker/intro", { op: "sign", projectId: id }, 409, "NOT_CLAIMED");
-  await expect("(1k) 영상 줄이기 sign(대상 아님) → 409", "/api/worker/video", { op: "sign", projectId: id, size: 10 }, 409, "NOT_CLAIMABLE");
+  await expect("(1k) 영상 줄이기 sign(이미 줄인 영상) → 409", "/api/worker/video", { op: "sign", projectId: id, size: 10 }, 409, "NOT_CLAIMABLE");
 
   // (2) 진행 중인 행이어도 주소·키는 이 작품 폴더만
   await svc.from("projects").update({ demo_build_status: "recording" }).eq("id", id);

@@ -256,6 +256,19 @@ const SECRET_FILE_RULES: ReadonlyArray<readonly [RegExp, SecretKind]> = [
   // `secrets.js`·`secrets.ts` 같은 코드 파일은 빼면 앱이 깨지므로 설정·데이터 확장자만 막는다.
   [/(^|\/)[^/]*\.secrets?(\.[^/.]+)?$/i, "secretsFile"],
   [/(^|\/)secrets?\.(ya?ml|json|toml|ini|cfg|conf|txt|env)$/i, "secretsFile"],
+  // 빠져 있던 흔한 비밀 파일(2026-11-03, 보안 5단계 S3-F5 · audit-3 F2) — CLI(zip.js)는 *.key를 걸렀지만
+  // 대시보드·원격 MCP·직접 HTTP는 이 목록만 거친다. 공개 작품이 되면 /api/preview로 누구나 받는다.
+  [/\.(key|p8|ppk)$/i, "cert"],
+  [/(^|\/)[^/]+\.env$/i, "env"],                 // prod.env · staging.env
+  [/(^|\/)\.env[-_][^/]*$/i, "env"],             // .env-local · .env_prod
+  [/(^|\/)\.dev\.vars$/i, "env"],                // Cloudflare Workers
+  [/\.tfvars(\.json)?$|\.tfstate(\.backup)?$/i, "secretsFile"],
+  [/(^|\/)\.pgpass$/i, "secretsFile"],
+  [/(^|\/)\.docker\/config\.json$/i, "secretsFile"],
+  [/(^|\/)\.kube\/config$/i, "secretsFile"],
+  [/(^|\/)local\.settings\.json$/i, "secretsFile"], // Azure Functions
+  [/(^|\/)\.yarnrc\.yml$/i, "npmrc"],
+  [/(^|\/)wp-config\.php$/i, "secretsFile"],
 ];
 
 /** 비밀/내부 파일이면 종류, 아니면 null.

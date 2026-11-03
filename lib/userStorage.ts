@@ -33,8 +33,9 @@ const ROOT: Record<UserBucket, string> = { "project-files": "files/", avatars: "
 
 /** 직접 올린 파일의 CDN 캐시 — 같은 키를 다시 쓰는 경로(초안 재발행의 _media 등)가 있어 짧게. */
 const USER_FILE_CACHE = "public, max-age=300";
-/** 서명 URL 기본 수명 — 업로드는 2시간(느린 회선의 25MB), 읽기는 30분. */
-const UPLOAD_TTL_S = 2 * 3600;
+/** 두 단계(CLI·AI) 서명 URL — CLI는 받자마자 PUT하고 finalize를 부르므로 30분이면 넉넉하다. 크기를 못 묶는
+ *  URL이라 수명이 곧 '다시 써서 큰 고아 파일을 남기는' 창이다(2026-11-03, 보안 5단계 S3-F4·D3). */
+const TWO_STEP_TTL_S = 30 * 60;
 
 type StorageError = { message: string };
 
@@ -257,7 +258,7 @@ function bucketApi(bucket: UserBucket) {
         const signedUrl = await getSignedUrl(
           r2Client(),
           new PutObjectCommand({ Bucket: r2Bucket(), Key: userFileKey(bucket, path), ContentType: "application/octet-stream" }),
-          { expiresIn: UPLOAD_TTL_S, signableHeaders: new Set(["content-type"]) },
+          { expiresIn: TWO_STEP_TTL_S, signableHeaders: new Set(["content-type"]) },
         );
         return { data: { signedUrl, path, token: "" }, error: null };
       } catch (e) {
