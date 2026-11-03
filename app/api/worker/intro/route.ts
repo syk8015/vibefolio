@@ -3,7 +3,7 @@ import { requireWorker } from "@/lib/workerAuth";
 import { apiError, bodyTooLarge } from "@/lib/apiError";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logger } from "@/lib/logger";
-import { isR2Configured, presignR2Put, pruneR2PrefixExcept } from "@/lib/r2";
+import { isR2Configured, presignR2Put, pruneR2PrefixExcept, r2PublicBase } from "@/lib/r2";
 import { introFilmIssue } from "@/lib/introFilm/schema";
 import { introFilmHash } from "@/lib/introFilm/hash";
 import { BODY_TOO_LARGE, readJsonOr, MAX_MEDIUM_JSON_BYTES } from "@/lib/upload-safety";
@@ -64,10 +64,17 @@ export async function POST(req: NextRequest) {
       return apiError({ status: 400, message: "projectId required", code: "BAD_REQUEST" });
     }
     const { data: row, error: rowErr } = await admin
-      .from("projects").select("id, user_id, intro_film, intro_render").eq("id", projectId).maybeSingle();
+      .from("projects").select("id, user_id, is_draft, intro_film, intro_render").eq("id", projectId).maybeSingle();
     if (rowErr) throw rowErr;
     if (!row?.user_id) return apiError({ status: 404, message: "project not found", code: "NOT_FOUND" });
     const prefix = `${row.user_id}/${row.id}/`;
+    const r = (row.intro_render ?? {}) as Render;
+    const current = row.intro_film && !introFilmIssue(row.intro_film) ? introFilmHash(row.intro_film) : null;
+    // claim이 30분 안에 집은 공개 작품만 — 워커 비밀로 아무 작품의 소개 영상을 바꾸지 못하게
+    // (2026-11-03, 보안 5단계 S6-F1). 지문이 바뀐 done은 아래에서 stale로 끝난다.
+    const claimed = !row.is_draft && !!r.claimed_hash && !!r.claimed_at
+      && Date.now() - Date.parse(r.claimed_at) < CLAIM_TTL_MS;
+    if (!claimed) return apiError({ status: 409, message: "intro job is not claimed", code: "NOT_CLAIMED" });
 
     if (op === "sign") {
       if (!isR2Configured()) return apiError({ status: 503, message: "R2 not configured", code: "R2_UNCONFIGURED" });
@@ -80,9 +87,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, ts, video: { key: videoKey, ...video }, poster: { key: posterKey, ...poster } });
     }
 
-    const r = (row.intro_render ?? {}) as Render;
-    const current = row.intro_film && !introFilmIssue(row.intro_film) ? introFilmHash(row.intro_film) : null;
-
     if (op === "done") {
       const hash = String(body?.hash ?? "");
       const videos = body?.videos as Record<string, string> | undefined;
@@ -90,7 +94,10 @@ export async function POST(req: NextRequest) {
       const tsList = Array.isArray(body?.ts) ? (body.ts as unknown[]).map(String).filter((t) => /^\d+$/.test(t)) : [];
       // 만드는 사이 주인이 대본을 또 고쳤으면 이 파일은 이미 낡았다 — 적지 않고 다음 claim이 새로 만든다.
       if (!current || hash !== current) return NextResponse.json({ ok: true, stale: true });
-      const okUrl = (u: unknown) => typeof u === "string" && /^https:\/\//.test(u) && u.includes(`/${prefix}intro-`);
+      // 우리 R2 주소의 이 작품 폴더 intro-* 파일만(예전엔 https + 부분 문자열이라 아무 호스트가 통과했다).
+      const base = r2PublicBase();
+      const okUrl = (u: unknown) => typeof u === "string" && !!base && u.startsWith(`${base}/${prefix}intro-`)
+        && !u.includes("..") && !/[?#\\]/.test(u);
       if (!videos || !Object.values(videos).every(okUrl) || !posters || !Object.values(posters).every(okUrl)) {
         return apiError({ status: 400, message: "bad urls", code: "BAD_REQUEST" });
       }

@@ -65,9 +65,15 @@ export async function POST(req: NextRequest) {
       return apiError({ status: 400, message: "projectId required", code: "BAD_REQUEST" });
     }
     const { data: row, error: rowErr } = await admin
-      .from("projects").select("id, user_id, video_url").eq("id", projectId).maybeSingle();
+      .from("projects").select("id, user_id, is_draft, video_url").eq("id", projectId).maybeSingle();
     if (rowErr) throw rowErr;
     if (!row?.user_id) return apiError({ status: 404, message: "project not found", code: "NOT_FOUND" });
+    // claim이 고르는 행만(공개 · 우리 저장소의 자기 파일 · 아직 안 줄인 것) — 워커 비밀로 아무 작품의
+    // 영상을 바꾸고 원본을 지우지 못하게(2026-11-03, 보안 5단계 S6-F3). done의 from도 지금 그 원본이어야 한다.
+    const src = ownPath(row as Row, row.video_url);
+    if (row.is_draft || !src || !isTranscodable(src) || src.endsWith(TRANSCODED_SUFFIX)) {
+      return apiError({ status: 409, message: "not a transcode job", code: "NOT_CLAIMABLE" });
+    }
 
     if (op === "sign") {
       if (!isR2Configured()) return apiError({ status: 503, message: "R2 not configured", code: "R2_UNCONFIGURED" });
@@ -86,6 +92,10 @@ export async function POST(req: NextRequest) {
       const toPath = ownPath(row, to);
       if (!toPath || !toPath.startsWith(`${row.user_id}/videos/`) || !toPath.endsWith(TRANSCODED_SUFFIX)) {
         return apiError({ status: 400, message: "bad target", code: "BAD_REQUEST" });
+      }
+      if (from !== row.video_url) {
+        await userStorage.from("project-files").remove([toPath]);
+        return NextResponse.json({ ok: true, stale: true });
       }
       const fromPath = ownPath(row, from);
       // 그사이 주인이 영상을 바꿨거나 지웠다 — 새 파일은 쓸 데가 없으니 지우고 끝.

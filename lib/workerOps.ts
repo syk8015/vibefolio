@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { r2PublicBase } from "@/lib/r2";
 import { logger } from "@/lib/logger";
 import { trackServerEvent } from "@/lib/analytics";
 import { AnalyticsEvent } from "@/lib/analytics-events";
@@ -166,7 +167,8 @@ export async function setPhase(projectId: string, phase: string): Promise<void> 
   const { error } = await admin
     .from("projects")
     .update({ demo_build_status: phase })
-    .eq("id", projectId);
+    .eq("id", projectId)
+    .in("demo_build_status", [...IN_FLIGHT_STATUSES]);
   if (error) logger.error(`worker: status(${phase}) write failed for ${projectId}`, { error });
 }
 
@@ -175,18 +177,23 @@ export async function requeue(projectId: string): Promise<void> {
   const { error } = await admin
     .from("projects")
     .update({ demo_build_status: "pending", demo_build_error: null })
-    .eq("id", projectId);
+    .eq("id", projectId)
+    .in("demo_build_status", [...IN_FLIGHT_STATUSES]);
   if (error) logger.error(`worker: requeue write failed for ${projectId}`, { error });
 }
 
-export async function markFailed(projectId: string, message: string): Promise<void> {
+// 진행 중인 행만 바꾼다 — 바꿨으면 true(실패 메일은 그때만 보낸다).
+export async function markFailed(projectId: string, message: string): Promise<boolean> {
   const admin = createAdminClient();
   const truncated = message.length > 1000 ? message.slice(0, 1000) + "…" : message;
-  const { error } = await admin
+  const { data, error } = await admin
     .from("projects")
     .update({ demo_build_status: "failed", demo_build_error: truncated })
-    .eq("id", projectId);
+    .eq("id", projectId)
+    .in("demo_build_status", [...IN_FLIGHT_STATUSES])
+    .select("id");
   if (error) logger.error(`worker: failed-status write failed for ${projectId}`, { error });
+  return !error && (data?.length ?? 0) > 0;
 }
 
 // The video is already uploaded by the time this runs — a transient DB blip must
@@ -206,11 +213,17 @@ export async function markDone(projectId: string, videoUrl: string, captions: Ca
     demo_locale_videos: null,
   };
   for (let i = 0; i < 3; i++) {
-    const { error } = await admin
+    // 진행 중인 행만(2026-11-03 S6-F1). 0행이면 그사이 다른 길(관리자·복구)이 행을 옮긴 것 — 덮지 않는다.
+    const { data, error } = await admin
       .from("projects")
       .update(upd)
-      .eq("id", projectId);
-    if (!error) return;
+      .eq("id", projectId)
+      .in("demo_build_status", [...IN_FLIGHT_STATUSES])
+      .select("id");
+    if (!error) {
+      if (!data?.length) throw new Error(`job ${projectId} is not in flight — done not written`);
+      return;
+    }
     // 마이그레이션 전(migration_demo_captions.sql) — 그 두 칸만 빼고 다시(영상이 먼저다).
     if ((error.code === "42703" || error.code === "PGRST204") && "demo_captions" in upd) {
       logger.error("worker: demo_captions/demo_locale_videos missing — apply migration_demo_captions.sql", { error });
@@ -472,6 +485,46 @@ export async function jobOwner(projectId: string): Promise<string | null> {
     .from("projects").select("user_id").eq("id", projectId).single();
   if (error || !data?.user_id) return null;
   return data.user_id as string;
+}
+
+// ── 워커가 손댈 수 있는 행·파일 (2026-11-03, 보안 5단계 S1-F2·S6-F1·S6-F2) ─────────────────
+// 워커 비밀 하나로 '지금 찍고 있는 그 작품' 밖을 바꾸지 못하게 한다. 예전엔 작품 id만 받고 행 상태도,
+// 영상 주소의 호스트·폴더도 보지 않아 아무 공개 작품의 영상을 바꾸거나, 격리 키로 버킷 안 아무 파일을
+// 관리자 [거절]에 지우게 할 수 있었다.
+export type JobState = {
+  id: string; user_id: string; is_draft: boolean;
+  demo_build_status: string | null; demo_generated_at: string | null;
+};
+export async function jobState(projectId: string): Promise<JobState | null> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("projects").select("id, user_id, is_draft, demo_build_status, demo_generated_at").eq("id", projectId).maybeSingle();
+  if (error || !data?.user_id) return null;
+  return data as JobState;
+}
+export const isInFlight = (s: JobState) =>
+  (IN_FLIGHT_STATUSES as readonly string[]).includes(s.demo_build_status ?? "");
+// 기본 영상이 끝난 뒤 다른 언어 판을 한 번 더 찍는 동안(같은 배치) — 2시간이면 넉넉하다.
+const JUST_DONE_MS = 2 * 60 * 60 * 1000;
+export const isJustDone = (s: JobState) =>
+  s.demo_build_status === "done" && !!s.demo_generated_at && Date.now() - Date.parse(s.demo_generated_at) < JUST_DONE_MS;
+
+/** 이 작품 촬영 폴더(`{owner}/{id}/`) 안의 키인가. */
+export function ownFilmKey(owner: string, id: string, key: unknown): key is string {
+  return typeof key === "string" && key.startsWith(`${owner}/${id}/`) && key.length < 300
+    && !key.includes("..") && !/[\\\x00-\x1f?#%]/.test(key);
+}
+/** 우리 저장소(R2 공개 주소, 옛 Supabase 공개 버킷)에 있는 이 작품 촬영 폴더의 주소인가. 키를 돌려준다. */
+export function ownFilmUrlKey(owner: string, id: string, url: unknown): string | null {
+  if (typeof url !== "string") return null;
+  const supa = process.env.NEXT_PUBLIC_SUPABASE_URL
+    ? `${process.env.NEXT_PUBLIC_SUPABASE_URL.replace(/\/+$/, "")}/storage/v1/object/public/project-files` : "";
+  for (const base of [r2PublicBase(), supa]) {
+    if (!base || !url.startsWith(`${base}/`)) continue;
+    const key = url.slice(base.length + 1);
+    if (ownFilmKey(owner, id, key)) return key;
+  }
+  return null;
 }
 
 // Job identity for emails/analytics. Always read server-side: the Mac sends only

@@ -4,7 +4,7 @@ import { apiError, bodyTooLarge } from "@/lib/apiError";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logger } from "@/lib/logger";
 import { isR2Configured, presignR2Put, pruneR2PrefixExcept } from "@/lib/r2";
-import { jobOwner } from "@/lib/workerOps";
+import { jobState, isInFlight, isJustDone } from "@/lib/workerOps";
 import { userStorage } from "@/lib/userStorage";
 import { BODY_TOO_LARGE, readJsonOr, MAX_MEDIUM_JSON_BYTES } from "@/lib/upload-safety";
 
@@ -109,9 +109,13 @@ export async function POST(req: NextRequest) {
       }
       prefix = `_test/${projectId}/`;
     } else {
-      const ownerId = await jobOwner(projectId);
-      if (!ownerId) return apiError({ status: 404, message: "job not found", code: "NOT_FOUND" });
-      prefix = `${ownerId}/${projectId}/`;
+      const job = await jobState(projectId);
+      if (!job) return apiError({ status: 404, message: "job not found", code: "NOT_FOUND" });
+      // 진행 중인 촬영(다른 언어 판이면 방금 끝난 것)만 — 워커 비밀로 아무 작품의 영상을 지우거나(prune)
+      // 파일을 받아 가지(source-list) 못하게(2026-11-03, 보안 5단계 S6-F1).
+      const allowed = op === "source-list" ? isInFlight(job) : isInFlight(job) || isJustDone(job);
+      if (!allowed) return apiError({ status: 409, message: "job is not in flight", code: "NOT_IN_FLIGHT" });
+      prefix = `${job.user_id}/${projectId}/`;
     }
 
     switch (op) {

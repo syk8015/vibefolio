@@ -1,3 +1,4 @@
+import { ownFilmKey, ownFilmUrlKey } from "@/lib/workerOps";
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { apiError, bodyTooLarge } from "@/lib/apiError";
@@ -100,6 +101,11 @@ export async function POST(
       : null;
 
     if (action === "approve") {
+      // 공개 영상으로 붙일 주소도 이 작품 촬영 폴더의 것만(S1-F2) — 아니면 처리를 되돌리고 409.
+      if (!project || !ownFilmUrlKey(project.user_id, item.project_id, item.video_url)) {
+        await admin.from("demo_moderation").update({ status: "open", resolved_at: null }).eq("id", id);
+        return apiError({ status: 409, message: "이 작품 폴더의 영상이 아니라 승인할 수 없어요.", code: "FOREIGN_FILM" });
+      }
       // Publish, but only if the project is still parked on THIS quarantine.
       const { data: published, error: pubErr } = await admin
         .from("projects")
@@ -175,7 +181,10 @@ export async function POST(
     // fine), and best-effort: a storage blip must not strand the decision — the
     // objects are unlinked either way and storage-audit can sweep stragglers.
     try {
-      const keys = [item.video_key, item.poster_key].filter((k): k is string => !!k);
+      // 이 작품 촬영 폴더의 키만 지운다 — 워커가 준 키를 그대로 믿으면 버킷 안 아무 파일(남의 업로드·
+      // 아바타)이 지워졌다(2026-11-03, 보안 5단계 S6-F2). 받을 때(jobs held-moderation)도 같은 검사를 한다.
+      const keys = [item.video_key, item.poster_key].filter((k): k is string =>
+        !!project && ownFilmKey(project.user_id, item.project_id, k));
       if (item.storage === "r2" && isR2Configured()) {
         await deleteR2Objects(keys);
       } else if (item.storage === "supabase" && keys.length) {
