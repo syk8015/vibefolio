@@ -117,8 +117,14 @@ try {
     ok("영상 공개 서빙 · 10MB · video/mp4", v.ok && len > 10_000_000 && v.headers.get("content-type")?.includes("video/mp4"), `${v.status} ${len}B`);
     const temp = putUrls.filter((u) => u.includes(`/${r2.projectId}/_upload/`)).map(pathOfSignedPut);
     const left = [];
-    for (const k of temp) if (!k || (await userFileExists(k))) left.push(k);
-    ok("_upload 임시 오브젝트 삭제됨(R2 공개 주소 404)", temp.length >= 2 && left.length === 0, `${temp.length}개 중 남음 ${left.length}`);
+    let unknown = 0;
+    for (const k of temp) {
+      const e = k ? await userFileExists(k) : true;
+      if (e === null) unknown++;
+      else if (e) left.push(k);
+    }
+    if (unknown === temp.length) console.log(`- _upload 임시 오브젝트 삭제: 확인 못 함(방화벽이 .bin을 403 — ${temp.length}개)`);
+    else ok("_upload 임시 오브젝트 삭제됨(R2 공개 주소 404)", temp.length >= 2 && left.length === 0, `${temp.length}개 중 남음 ${left.length} · 모름 ${unknown}`);
     // (5) finalize 멱등 재호출 — 200 성공 + 행 상태 불변이면 합격 (deduped 플래그는
     // CDN 캐시에 따라 빠질 수 있는 best-effort, docs 참고).
     const again = await jsonPost("/api/ingest/finalize", { projectId: r2.projectId });
@@ -141,8 +147,9 @@ try {
   if (r3.projectId) {
     const { data: row } = await svc.from("projects").select("demo_url").eq("id", r3.projectId).single();
     ok("demo_url=/api/preview/…/index.html", !!row?.demo_url?.startsWith(`/api/preview/${prof.id}/${r3.projectId}/`) && row.demo_url.endsWith("index.html"), row?.demo_url);
+    // 초안 파일은 비공개(2026-11-02) — 열쇠 없이는 404. 열쇠 주소로 여는 길은 probe-preview-privacy가 본다.
     const page = await fetch(`${ORIGIN}${row.demo_url}`);
-    ok("preview 서빙 200", page.ok, String(page.status));
+    ok("초안 미리보기는 열쇠 없이 404(비공개)", page.status === 404, String(page.status));
   }
 
   // (4) 불량 영상(가짜 바이트) → finalize 400 BAD_MEDIA + 행 삭제.

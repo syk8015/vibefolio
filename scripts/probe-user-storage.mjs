@@ -31,6 +31,8 @@ const PNG = Uint8Array.from(Buffer.from("89504e470d0a1a0a0000000d494844520000000
 let userId = null;
 let cookie = null;
 let accountDeleted = false;
+let rowId = null;
+let linkUrl = null;
 try {
   const stamp = Date.now();
   const username = `nfprobest${stamp}`.slice(0, 30);
@@ -98,21 +100,30 @@ try {
     const put2 = await fetch(t["app.js"].url, { method: "PUT", headers: t["app.js"].headers, body: JS });
     ok("(2) 서명대로 PUT → 200", put1.ok && put2.ok, `${put1.status} ${put2.status}`);
 
-    // (3) 같은 사이트 문제
+    // (3) 같은 사이트 문제 — media.nookframe.com/files/의 그림·영상 아닌 파일은 Cloudflare 방화벽이 403(2026-11-02),
+    // `/`를 %2F로 쓴 우회 주소도 403(2026-11-03, 5단계 D3). 저장 형식은 그대로 내려받기 전용.
     const pub = await fetch(t["index.html"].publicUrl);
-    ok("(3) media.nookframe.com의 HTML = 내려받기 전용", pub.ok
-      && pub.headers.get("content-type") === "application/octet-stream"
-      && /attachment/.test(pub.headers.get("content-disposition") ?? ""),
-      `${pub.status} ${pub.headers.get("content-type")} ${pub.headers.get("content-disposition")}`);
+    ok("(3) media.nookframe.com/files/의 HTML → 방화벽 403", pub.status === 403, `${pub.status}`);
+    const enc = await fetch(t["index.html"].publicUrl.replace("/files/", "/files%2F"));
+    ok("(3) %2F 우회 주소도 → 403", enc.status === 403, `${enc.status}`);
 
-    // (4) 미리보기 프록시
-    const prev = await fetch(`${ORIGIN}/api/preview/${userId}/${folder}/index.html`);
-    const prevText = await prev.text();
-    ok("(4) 미리보기가 R2에서 읽어 HTML로 띄움", prev.ok && (prev.headers.get("content-type") ?? "").startsWith("text/html") && prevText.includes("nf-probe-r2"),
-      `${prev.status} ${prev.headers.get("content-type")} ${prev.url}`);
-    const previewOrigin = new URL(prev.url).origin;
-    const q = await fetch(`${previewOrigin}/api/preview/${userId}/${folder}/app.js?bust=${stamp}`, { redirect: "manual" });
-    ok("(4) 쿼리 붙은 JS → 308 쿼리 없는 주소", q.status === 308 && !(q.headers.get("location") ?? "").includes("?"), `${q.status} ${q.headers.get("location")}`);
+    // (4) 미리보기 프록시 — 초안 파일은 비공개(2026-11-02)라 주인 열쇠 주소로 연다.
+    const { data: row } = await svc.from("projects").insert({
+      user_id: userId, title: "NF probe storage", demo_url: `/api/preview/${userId}/${folder}/index.html`, is_draft: true,
+    }).select("id").single();
+    rowId = row.id;
+    const plain = await fetch(`${ORIGIN}/api/preview/${userId}/${folder}/index.html`);
+    ok("(4) 초안 폴더를 열쇠 없이 → 404", plain.status === 404, `${plain.status}`);
+    const link = await (await fetch(`${ORIGIN}/api/projects/${rowId}/preview-link`, { headers: { cookie } })).json().catch(() => ({}));
+    linkUrl = link.url ?? null;
+    const prev = link.url ? await fetch(link.url) : null;
+    const prevText = prev ? await prev.text() : "";
+    ok("(4) 열쇠 주소 → 미리보기가 R2에서 읽어 HTML로 띄움", !!prev?.ok && (prev.headers.get("content-type") ?? "").startsWith("text/html") && prevText.includes("nf-probe-r2"),
+      `${prev?.status} ${prev?.headers.get("content-type")}`);
+    if (link.url) {
+      const q = await fetch(`${link.url.replace(/index\.html$/, "app.js")}?bust=${stamp}`, { redirect: "manual" });
+      ok("(4) 쿼리 붙은 JS → 308 쿼리 없는 주소", q.status === 308 && !(q.headers.get("location") ?? "").includes("?"), `${q.status} ${q.headers.get("location")}`);
+    }
   }
 
   // 썸네일·프로필 사진
@@ -133,13 +144,11 @@ try {
 
   // (5) 작품 삭제 → R2 폴더 삭제
   {
-    const { data: row } = await svc.from("projects").insert({
-      user_id: userId, title: "NF probe storage", demo_url: `/api/preview/${userId}/${folder}/index.html`, is_draft: true,
-    }).select("id").single();
-    const del = await fetch(`${ORIGIN}/api/projects/${row.id}/demo-assets`, { method: "DELETE", headers: { cookie } });
-    // 미리보기 응답은 엣지에 60초 캐시된다 — 위 (4)에서 본 주소라 쿼리를 붙여 캐시를 피한다(HTML은 쿼리 허용).
-    const after = await fetch(`${ORIGIN}/api/preview/${userId}/${folder}/index.html?after=${Date.now()}`);
-    ok("(5) 작품 삭제 → 업로드 폴더가 R2에서 지워짐(미리보기 404)", del.ok && after.status === 404, `${del.status} → ${after.status}`);
+    const del = await fetch(`${ORIGIN}/api/projects/${rowId}/demo-assets`, { method: "DELETE", headers: { cookie } });
+    const { data: left } = await svc.from("projects").select("id").eq("id", rowId).maybeSingle();
+    // 열쇠 주소는 행을 보지 않고 R2에서 바로 읽는다(no-store) — 파일이 지워졌으면 404.
+    const after = linkUrl ? await fetch(`${linkUrl}?after=${Date.now()}`) : null;
+    ok("(5) 작품 삭제 → 행과 R2 업로드 폴더가 지워짐(열쇠 주소 404)", del.ok && !left && after?.status === 404, `${del.status} row=${left ? "남음" : "없음"} → ${after?.status}`);
   }
   // (5) 계정 삭제 → 남은 R2 파일(프로필 사진 등)도 지움
   {

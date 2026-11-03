@@ -12,10 +12,13 @@ const MEDIA = "https://media.nookframe.com";
 let bust = 0;
 
 // path = "<uid>/<projectId>/…" (옛 Supabase project-files 경로 그대로; R2 키는 files/ + path)
+// 돌려주는 값: true(있음) · false(없음) · null(모름). 2026-11-02부터 Cloudflare 방화벽이 /files/의 그림·영상
+// 아닌 파일(.bin·.zip·.html…)을 있든 없든 403으로 막아서, 그런 파일은 이 방법으로 확인할 수 없다.
 export async function userFileExists(path) {
   const r = await fetch(`${MEDIA}/files/${path}?nfp=${Date.now()}-${bust++}`, { method: "HEAD" });
   if (r.status === 200) return true;
   if (r.status === 404) return false;
+  if (r.status === 403) return null;
   throw new Error(`media HEAD ${r.status} — files/${path}`);
 }
 
