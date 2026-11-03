@@ -82,6 +82,7 @@ export async function POST(req: NextRequest) {
         .from("projects")
         .select("id, title, user_id")
         .eq("id", targetId)
+        .eq("is_draft", false) // 남이 볼 수 있는 작품만 신고 대상(초안은 주인만 본다 — 자기 초안으로 메일 늘리기 막기)
         .maybeSingle();
       if (!pr) return apiError({ status: 404, message: t.api.targetNotFound, code: "NOT_FOUND" });
       const { data: owner } = await admin
@@ -119,8 +120,14 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // 관리자 메일 상한(2026-11-03, 보안 5단계 S7-F1·S10-F1) — IP를 바꿔 가며 신고해 Resend 하루 100통(가입·
+    // 로그인 코드 메일과 같이 씀)을 바닥내지 못하게, 대상마다 하루 1통 · 전체 하루 20통. 넘으면 신고는 저장하고
+    // 메일만 건너뛴다(관제탑 신고 인박스에는 그대로 뜬다).
+    const mailOk =
+      (await rateLimit({ name: "admin-mail-report-target", key: targetId, windowSeconds: 86400, max: 1 })) &&
+      (await rateLimit({ name: "admin-mail-report", key: "all", windowSeconds: 86400, max: 20 }));
     // sendEmail never throws; a mail failure must not fail the report itself.
-    await sendEmail({
+    if (mailOk) await sendEmail({
       to: alertRecipients(),
       ...adminAlertEmail({
         title: "콘텐츠 신고 접수",

@@ -34,16 +34,12 @@ const nextConfig: NextConfig = {
     turbopackFileSystemCacheForBuild: false,
   },
   images: {
-    // 이미지 최적화기가 대신 받아 오는 곳 — 쓰는 호스트만 둔다(2026-10-29). 목록이 넓을수록
-    // 남의 그림을 우리 서버가 받아 주는 길이 넓어진다. 옛 Supabase 저장소·구글 사진·샘플 그림
-    // 호스트는 DB에 남은 주소가 없어 뺐다(구글·깃허브 사진은 처음부터 안 쓴다).
-    remotePatterns: [
-      // 사용자 파일·촬영 영상 포스터(R2, lib/userStorage.ts) — 2026-10-01부터 프로필 사진·썸네일도 여기.
-      { protocol: "https", hostname: "media.nookframe.com" },
-      // 자동 썸네일(배포 주소 스크린샷)
-      { protocol: "https", hostname: "image.thum.io" },
-    ],
+    // 이미지 최적화기는 쓰지 않는다 — 화면의 <Image>는 모두 unoptimized였다. 바깥 호스트를 열어 두면
+    // /_next/image가 남의 그림을 우리 주소로 받아 주는 길이 된다: image.thum.io를 거쳐 아무 페이지나 찍어 주는
+    // 스크린샷 대행이었다(2026-11-03, 보안 5단계 S7-F3 · audit-5 F1). 바깥 호스트 0 + 기본 unoptimized.
+    unoptimized: true,
   },
+
   async redirects() {
     // Public profiles live at /{username}; the @-prefixed form is what people
     // type from social bios and what the endcap/share copy shows. Map it back to

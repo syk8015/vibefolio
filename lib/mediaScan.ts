@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { sendEmail, isEmailConfigured, alertRecipients } from "@/lib/email";
+import { rateLimit } from "@/lib/rate-limit";
 import { adminAlertEmail, SITE_URL } from "@/lib/email-templates";
 import { logger } from "@/lib/logger";
 import { safeFetch, readResponseCapped } from "@/lib/ssrf";
@@ -310,6 +311,13 @@ async function fileReport(admin: SupabaseClient, item: MediaItem, v: Verdict) {
   });
   if (error && error.code !== "23505") {
     logger.error("media scan: report insert failed", { error, url: item.url });
+  }
+  // 같은 대상에 열린 자동 신고가 이미 있으면(23505) 메일도 다시 안 보낸다 — 프로필 사진 주소만 바꿔 가며
+  // 검사마다 관리자 메일을 쌓던 길(2026-11-03, 보안 5단계 S7-F2). 메일은 Resend 하루 100통을 로그인 메일과 같이 쓴다.
+  if (error?.code === "23505") return;
+  if (!(await rateLimit({ name: "admin-mail-scan", key: "all", windowSeconds: 86400, max: 10 }))) {
+    logger.warn("media scan: admin mail skipped (daily cap)", { url: item.url });
+    return;
   }
   if (!isEmailConfigured()) return;
   await sendEmail({

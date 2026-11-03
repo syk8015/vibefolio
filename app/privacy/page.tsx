@@ -30,7 +30,7 @@ export default async function PrivacyPage() {
           {en ? "Privacy Policy" : "개인정보처리방침"}
         </h1>
         <p className="text-sm mb-12" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
-          {en ? "Effective date: October 30, 2026 (previous version: October 29, 2026)" : "시행일: 2026년 10월 30일 (이전 판: 2026년 10월 29일)"}
+          {en ? "Effective date: November 3, 2026 (previous version: October 30, 2026)" : "시행일: 2026년 11월 3일 (이전 판: 2026년 10월 30일)"}
         </p>
 
         <div className="flex flex-col gap-10" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", fontSize: "0.9rem", lineHeight: 1.9 }}>
@@ -91,6 +91,13 @@ const PROCESSORS = [
     contact: "https://www.anthropic.com/legal/privacy",
     ko: { task: "자동 시연 촬영 시 화면 분석 및 콘텐츠 검토", items: "촬영 중 작품 화면 이미지와 촬영본의 일부 프레임, 작품 정보(제목·설명·시연 안내 문구)" },
     en: { task: "screen analysis and content review during automated demo recording", items: "screen images captured during recording and some frames of the film, project information (title, description, demo instructions)" },
+  },
+  {
+    // 2026-11-03 보안 5단계 S10-F3 — 공개 그림 자동 검사(lib/mediaScan.ts, 기본 공급자 OpenAI)가 처리방침에 빠져 있었다.
+    name: "OpenAI, L.L.C.",
+    contact: "https://openai.com/policies/privacy-policy",
+    ko: { task: "공개된 그림의 유해물 자동 검사", items: "공개된 프로필 사진과 작품 썸네일, 사용자명" },
+    en: { task: "automated harmful-content check of published images", items: "published profile photos and project thumbnails, username" },
   },
   {
     name: "E2B, Inc.",

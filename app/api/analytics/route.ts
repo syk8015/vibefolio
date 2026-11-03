@@ -29,11 +29,26 @@ export async function POST(req: NextRequest) {
       max: 60,
     });
     if (!allowed) return NextResponse.json({ ok: true });
+    // 사이트 전체 천장 + 랜딩 이벤트는 세션(없으면 IP)마다 30분에 1번(2026-11-03, 보안 5단계 S10-F2) — IP를
+    // 바꿔 가며 보내도 무료 데이터 저장소(500MB)를 채우지 못하게. 지금 실제 방문은 분당 몇 건이다.
+    if (!(await rateLimit({ name: "analytics-all", key: "all", windowSeconds: 60, max: 300 }))) {
+      return NextResponse.json({ ok: true });
+    }
+    if (event === AnalyticsEvent.LandingView || event === AnalyticsEvent.LandingEngaged) {
+      const who = typeof body.sessionId === "string" && body.sessionId ? body.sessionId.slice(0, 64) : clientIpKey(req);
+      if (!(await rateLimit({ name: "analytics-once", key: `${event}:${who}`, windowSeconds: 1800, max: 1 }))) {
+        return NextResponse.json({ ok: true });
+      }
+    }
 
+    // props는 납작한 값만(글자·숫자·참거짓) · 16칸 · 글자 300자 — 보내는 쪽이 실제로 쓰는 모양 그대로다.
     let props: Record<string, unknown> = {};
     if (body.props && typeof body.props === "object" && !Array.isArray(body.props)) {
-      const serialized = JSON.stringify(body.props);
-      if (serialized.length <= 2048) props = body.props;
+      for (const [k, v] of Object.entries(body.props as Record<string, unknown>).slice(0, 16)) {
+        if (k.length > 40) continue;
+        if (typeof v === "string") props[k] = v.slice(0, 300);
+        else if (typeof v === "number" || typeof v === "boolean" || v === null) props[k] = v;
+      }
     }
     // 유입 주소는 "https://호스트"만 남긴다 — 가짜 유입처·경로에 실린 남의 정보 차단(cleanReferrer).
     if ("referrer" in props) props = { ...props, referrer: cleanReferrer(props.referrer) };
