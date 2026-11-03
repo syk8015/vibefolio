@@ -118,6 +118,11 @@ try {
   // 썸네일·프로필 사진
   {
     const th = await sign({ kind: "thumbnail", ext: "png", size: PNG.byteLength, contentType: "image/png" });
+    // 서명에 없는 내려받기 이름을 덧붙이면 거절(2026-11-03, 5단계 D3 — 예전엔 update.exe로 저장됐다).
+    const exe = th.json.target ? await fetch(th.json.target.url, {
+      method: "PUT", headers: { ...th.json.target.headers, "content-disposition": 'attachment; filename="nookframe-update.exe"' }, body: PNG,
+    }) : null;
+    ok("(2) 썸네일 PUT에 다른 Content-Disposition → 거절", exe?.status === 403 || exe?.status === 400, String(exe?.status));
     const put = th.json.target ? await fetch(th.json.target.url, { method: "PUT", headers: th.json.target.headers, body: PNG }) : null;
     const got = th.json.target ? await fetch(th.json.target.publicUrl) : null;
     ok("(3) 썸네일 = image/png로 보임", put?.ok && got?.ok && got.headers.get("content-type") === "image/png", `${put?.status} ${got?.headers.get("content-type")}`);

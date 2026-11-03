@@ -149,6 +149,10 @@ try {
   // 고유 URL — (2)와 같은 URL이면 upsert(이미 있던 초안)라 교체 표식 때문에 행이 남는다(09-15 draftId).
   // 여기서 보려는 건 "이번 발행이 새로 만든 행"의 고아 정리다.
   const d = await (await jsonPost("/api/ingest", { title: "__probe_badfinal__", targetDevice: "desktop", ownerInterview: OI, ...LANG, description: "프로브가 만든 임시 행\n곧 지워집니다", deployUrl: `https://example.com/probe-badfinal-${Date.now()}`, uploads: ["video"] })).json();
+  // 서명이 형식을 묶는다(2026-11-03, 보안 5단계 D3 높음) — 예전엔 text/html·inline PUT이 200이라
+  // media.nookframe.com에서 사용자 HTML이 실행됐다.
+  const html = await fetch(d.uploads.video, { method: "PUT", headers: { "Content-Type": "text/html", "Content-Disposition": "inline" }, body: "<script>1</script>" });
+  ok("2단계 서명 URL에 text/html PUT → 거절", html.status === 403 || html.status === 400, String(html.status));
   await fetch(d.uploads.video, { method: "PUT", headers: { "Content-Type": "application/octet-stream" }, body: new TextEncoder().encode("definitely not a video") });
   const fin = await jsonPost("/api/ingest/finalize", { projectId: d.projectId });
   const finBody = await fin.json().catch(() => ({}));
@@ -162,7 +166,7 @@ try {
   const noFilm = await (await jsonPost("/api/ingest", { title: "__probe_nofilm__", targetDevice: "desktop", ownerInterview: OI, ...LANG, description: "프로브가 만든 임시 행\n곧 지워집니다", deployUrl: `https://example.com/probe-nofilm-${Date.now()}`, uploads: ["video", "screenshot"] })).json();
   ok("영상 선언만으로 발행은 통과(대본 없이)", !!noFilm.projectId, JSON.stringify(noFilm).slice(0, 100));
   if (noFilm.projectId) {
-    await fetch(noFilm.uploads.screenshot, { method: "PUT", headers: { "Content-Type": "image/png" }, body: readFileSync(`${S}/tiny.png`) });
+    await fetch(noFilm.uploads.screenshot, { method: "PUT", headers: { "Content-Type": "application/octet-stream" }, body: readFileSync(`${S}/tiny.png`) });
     const fin5 = await jsonPost("/api/ingest/finalize", { projectId: noFilm.projectId });
     const body5 = await fin5.json().catch(() => ({}));
     ok("영상도 대본도 없으면 finalize 400 NO_FILM_SOURCE", fin5.status === 400 && body5.code === "NO_FILM_SOURCE", `${fin5.status} ${body5.code}`);

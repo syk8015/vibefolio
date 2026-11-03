@@ -209,7 +209,8 @@ export async function presignR2Put(
       ContentType: contentType,
       CacheControl: cacheControl,
     }),
-    { expiresIn: expiresInSeconds },
+    // 형식·캐시 헤더를 서명에 넣는다 — 없으면 서명기가 빼고(SignedHeaders=host) 아무 형식으로나 PUT된다(2026-11-03).
+    { expiresIn: expiresInSeconds, signableHeaders: new Set(["content-type", "cache-control"]) },
   );
   // The worker MUST send these back verbatim — a signed PUT whose headers differ
   // from the signature is rejected by R2 with 403 SignatureDoesNotMatch.

@@ -23,7 +23,7 @@ ok("공개 주소", userFilePublicUrl("project-files", "u/p/a.png") === "https:/
 
 // (2)
 const h = (p: string, t?: string) => storedObjectHeaders(p, t);
-ok("png = image/png 그대로", h("a/b.png", "image/png").ContentType === "image/png" && !h("a/b.png").ContentDisposition);
+ok("png = image/png 그대로 · inline을 서명에 묶음(덧붙인 attachment; filename= 막기)", h("a/b.png", "image/png").ContentType === "image/png" && h("a/b.png").ContentDisposition === "inline");
 ok("jpg 요청 형식이 다른 그림이어도 확장자 형식", h("a/b.jpg", "image/png").ContentType === "image/jpeg");
 ok("mp4 = video/mp4", h("a/v.mp4", "video/mp4").ContentType === "video/mp4");
 ok("mov = video/quicktime", h("a/v.mov").ContentType === "video/quicktime");

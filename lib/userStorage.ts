@@ -114,7 +114,10 @@ export function storedObjectHeaders(path: string, requested?: string | null): {
   const inline = INLINE_TYPES[ext];
   const req = (requested ?? "").split(";")[0].trim().toLowerCase();
   if (inline && (!req || req === inline || (req.startsWith("image/") && inline.startsWith("image/")) || (req.startsWith("video/") && inline.startsWith("video/")))) {
-    return { ContentType: inline, CacheControl: USER_FILE_CACHE };
+    // 그림·영상도 Content-Disposition을 정해 서명에 묶는다(2026-11-03, 5단계 D3): 비워 두면 서명에
+    // 안 들어가서, 올리는 사람이 `attachment; filename="update.exe"`를 덧붙여 우리 도메인에서
+    // 아무 이름으로 내려받게 할 수 있었다.
+    return { ContentType: inline, ContentDisposition: "inline", CacheControl: USER_FILE_CACHE };
   }
   return { ContentType: "application/octet-stream", ContentDisposition: "attachment", CacheControl: USER_FILE_CACHE };
 }
@@ -240,6 +243,9 @@ function bucketApi(bucket: UserBucket) {
      * 남(CLI·AI)이 직접 PUT할 서명 URL. 서명에 묶는 헤더는 Content-Type: application/octet-stream
      * 하나뿐 — CLI가 정확히 그 헤더로 보낸다. 다른 형식을 보내면 R2가 403으로 거절하므로, 이 키에
      * HTML 형식 파일이 생길 수 없다(같은 사이트 문제).
+     * signableHeaders가 꼭 있어야 한다(2026-11-03, 5단계 D3 높음): 없으면 서명기가 Content-Type을
+     * 서명에 넣지 않아(SignedHeaders=host) 아무 형식으로나 PUT이 됐고, text/html·inline으로 올린
+     * 파일이 media.nookframe.com에서 실행됐다. 크기는 아직 안 묶는다(CLI가 미리 알리지 않음 — finalize가 캡).
      */
     // 두 번째 인자(supabase-js의 { upsert })는 받지 않는다 — R2 PUT은 늘 덮어쓴다.
     async createSignedUploadUrl(
@@ -251,7 +257,7 @@ function bucketApi(bucket: UserBucket) {
         const signedUrl = await getSignedUrl(
           r2Client(),
           new PutObjectCommand({ Bucket: r2Bucket(), Key: userFileKey(bucket, path), ContentType: "application/octet-stream" }),
-          { expiresIn: UPLOAD_TTL_S },
+          { expiresIn: UPLOAD_TTL_S, signableHeaders: new Set(["content-type"]) },
         );
         return { data: { signedUrl, path, token: "" }, error: null };
       } catch (e) {

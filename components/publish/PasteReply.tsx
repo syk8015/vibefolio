@@ -213,7 +213,8 @@ export function PasteReply({
           if (!url || !blob) continue;
           const put = await fetch(url, {
             method: "PUT",
-            headers: { "Content-Type": blob.type || "application/octet-stream" },
+            // 서버 서명이 이 형식 하나만 받는다(lib/userStorage createSignedUploadUrl) — 진짜 형식은 finalize가 본다.
+            headers: { "Content-Type": "application/octet-stream" },
             body: blob,
           });
           if (!put.ok) {
