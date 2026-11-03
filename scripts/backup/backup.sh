@@ -53,7 +53,8 @@ kc() {
 # (새 Supabase 프로젝트엔 auth 스키마가 이미 있어 auth는 데이터만 넣어야 한다).
 DB_URL=$(kc nookframe-backup-db-url)
 PGPASSWORD=$(kc nookframe-backup-db-password)
-export PGPASSWORD PGSSLMODE=require
+# SCRAM만 — 가짜 서버가 평문 비밀번호를 달라고 해도 안 보낸다(2026-11-03, 보안 5단계 S9a-F2).
+export PGPASSWORD PGSSLMODE=require PGREQUIREAUTH=scram-sha-256
 DUMP="$ROOT/db/nookframe-$TODAY.dump"
 "$PG_DUMP" --format=custom --schema=public --schema=auth --schema=storage \
   --file="$DUMP.part" "$DB_URL"

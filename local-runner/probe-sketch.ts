@@ -3,7 +3,7 @@
 // painting model as fixtures/canvas-sketch.html) + replay() with hand-written
 // path actions, asserting the app actually inked the stroke.
 //
-// Run: npx -y tsx local-runner/probe-sketch.ts
+// Run: npx tsx local-runner/probe-sketch.ts
 //
 // Checks:
 //   1. selector path — a zigzag stroke paints pixels at EVERY waypoint, as ONE

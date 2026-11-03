@@ -1,5 +1,5 @@
 // 연결 창 "AI가 작업을 시작했어요" 판정(네트워크 없음) — lib/connectActivity.ts.
-// 사용: `npx -y tsx scripts/probe-connect-activity-unit.mts`
+// 사용: `npx tsx scripts/probe-connect-activity-unit.mts`
 // 실서버 쪽은 로그인 쿠키가 필요한 주소라, 배포 뒤 로그인 없이 부르면 401인지만 본다.
 import { latestActivity, aiStarted } from "../lib/connectActivity";
 

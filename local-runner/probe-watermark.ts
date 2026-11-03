@@ -1,5 +1,5 @@
 // 무API 프로브: 영상 워터마크(2026-09-01, 도난 방지). 실행:
-//   npx -y tsx local-runner/probe-watermark.ts
+//   npx tsx local-runner/probe-watermark.ts
 // 실 Chrome + 실 ffmpeg만 쓴다(API 0원). postprocess의 body 패스와 같은
 // filter_complex를 그대로 태워, 표식이 정말 픽셀로 찍히는지 본다.
 import { mkdtemp, rm, readFile } from "node:fs/promises";

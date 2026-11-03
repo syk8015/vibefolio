@@ -50,10 +50,10 @@ npm run demo:fixtures                     # -> http://localhost:5050
 # 2. Record. --policy full unlocks interaction (live_url defaults to read-only,
 #    which is right for real sites; these are our own controlled localhost apps).
 #    --project manual-* = dry run: no DB write, no upload.
-npx -y tsx local-runner/index.ts http://localhost:5050/nookgym.html \
+npx tsx local-runner/index.ts http://localhost:5050/nookgym.html \
   --project manual-nookgym --policy full
 
-npx -y tsx local-runner/index.ts http://localhost:5050/canvas-sketch.html \
+npx tsx local-runner/index.ts http://localhost:5050/canvas-sketch.html \
   --project manual-canvas --policy full
 ```
 

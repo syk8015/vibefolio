@@ -1,5 +1,5 @@
 // 무API 프로브: 같은 요소 위 마우스 기록 합치기(script.ts hoverMergesIntoPrev·aimHoverPops, 2026-10-02).
-// 실행: npx -y tsx local-runner/probe-hover-merge.ts
+// 실행: npx tsx local-runner/probe-hover-merge.ts
 // 대본이 장면을 나눠 같은 요소를 연달아 가리키면, 새 장면의 첫 기록이 앞 박자에 먹혀 그 장면의
 // 멈춤 시간·자막 시작 표시가 사라졌다. 새 장면이 시작됐으면 합치지도 지우지도 않는지 본다.
 import { aimHoverPops, hoverMergesIntoPrev } from "./script";

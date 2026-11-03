@@ -3,7 +3,7 @@
 //   real-time 60fps) → intro → one-take replay (ease cursor + cursor-centered
 //   hold-zoom) → post-process zoompan(+pad) → demo.mp4 + contact sheet + report.
 //
-// Run: npx -y tsx local-runner/m0-todomvc.ts
+// Run: npx tsx local-runner/m0-todomvc.ts
 //
 // Verifies the NEW mechanisms (real-time capture, cursor feel, new zoom timing,
 // one-take) with zero safety/explore complexity. Output is judged by eye.

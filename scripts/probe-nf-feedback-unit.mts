@@ -1,5 +1,5 @@
 // 외부 AI 피드백 4차 준비(2026-10-02) 순수 함수 검증 — 네트워크 없음.
-// 사용: `npx -y tsx scripts/probe-nf-feedback-unit.mts`
+// 사용: `npx tsx scripts/probe-nf-feedback-unit.mts`
 //
 // 무엇을 보나:
 //  NF-20 대본 점검의 셀렉터 수가 뒤로가기·셀렉터 없는 기다리기를 따로 세나("8/8 + back 1")

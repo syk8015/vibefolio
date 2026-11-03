@@ -149,12 +149,32 @@ export async function launchRecordingContext(
 // MUST ship as a STRING: esbuild wraps named functions with __name(...), which is
 // undefined in-page and throws (same reason cursor.ts's OVERLAY_SRC is a string).
 // Plain JS only, no backticks inside.
+//
+// 2026-11-03 보안 5단계 S11-F1: 다른 앱·OS 창을 부르는 길도 막는다 — 인쇄 창(window.print), macOS 공유
+// 시트(navigator.share, 최근 대화 상대가 뜬다), http(s)가 아닌 링크·새 창(mailto:·tel:·facetime: … → 메일 앱 등
+// 바깥 앱이 촬영 사각형 위로 올라와 주인 받은편지함이 공개 영상에 찍힐 수 있었다). 스크립트가 location에 바로
+// mailto:를 넣는 길은 페이지 안에서 못 막는다 — 아침 미끼 앱 촬영(E)에서 실제로 뜨는지 본다.
 const NEUTER_NATIVE_PICKERS_SRC = `(() => {
   var names = ["showOpenFilePicker", "showSaveFilePicker", "showDirectoryPicker"];
   for (var i = 0; i < names.length; i++) {
     try { delete window[names[i]]; } catch (e) {}
     try { delete Window.prototype[names[i]]; } catch (e) {}
   }
+  try { window.print = function () {}; } catch (e) {}
+  try { delete Navigator.prototype.share; delete Navigator.prototype.canShare; } catch (e) {}
+  var webish = function (u) {
+    try { var p = new URL(u, location.href).protocol; return p === "http:" || p === "https:" || p === "blob:" || p === "about:" || p === "data:" || p === "javascript:"; }
+    catch (e) { return true; }
+  };
+  try {
+    var open0 = window.open;
+    window.open = function (u) { if (u && !webish(String(u))) return null; return open0.apply(window, arguments); };
+  } catch (e) {}
+  var stop = function (ev) {
+    var a = ev.target && ev.target.closest ? ev.target.closest("a[href], area[href]") : null;
+    if (a && !webish(a.getAttribute("href"))) { ev.preventDefault(); }
+  };
+  try { document.addEventListener("click", stop, true); document.addEventListener("auxclick", stop, true); } catch (e) {}
 })();`;
 
 // Install on a context+page pair BEFORE any navigation. The addInitScript is on

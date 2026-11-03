@@ -1,7 +1,7 @@
 // §10 step 1 — verify the M5 can produce a clean, exactly-cropped capture of the
 // Chrome content viewport (DPR / crop / screen-recording permission).
 //
-// Run: npx -y tsx local-runner/probe-geometry.ts
+// Run: npx tsx local-runner/probe-geometry.ts
 //
 // It launches headed Chrome, pins the viewport to 1280×800, shows a calibration
 // page (magenta fill, 3px green flush border, black corner squares), grabs one

@@ -1,5 +1,5 @@
 // 무API 프로브: 스크롤 더듬기 병합(coalesceScrolls) + focus 카메라 무브 산식 +
-// 브리핑의 focus 스텝 렌더. 실행: npx -y tsx local-runner/probe-focus-coalesce.ts
+// 브리핑의 focus 스텝 렌더. 실행: npx tsx local-runner/probe-focus-coalesce.ts
 // 2026-08-20 사용자 판정("탐색의 스크롤 시행착오가 필름에 그대로 남는다 · 강조는
 // 커서가 아니라 크롭이어야 한다")의 수리를 촬영 없이(과금 0) 회귀 가드한다.
 import { coalesceScrolls, type ScriptAction } from "./script";

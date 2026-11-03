@@ -1,7 +1,7 @@
 // §10 step 1 (part 2) — verify avfoundation sustains a real-time 60fps capture
 // of the Chrome content viewport on this M5, and that motion is smooth.
 //
-// Run: npx -y tsx local-runner/probe-capture.ts
+// Run: npx tsx local-runner/probe-capture.ts
 //
 // Records ~5s of a rAF-driven animation (every frame differs), then reports the
 // raw clip's dimensions / container fps / mpdecimate uniqueFps and writes a

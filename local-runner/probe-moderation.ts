@@ -1,8 +1,8 @@
 // Moderation pipeline probe — verifies the scan plumbing WITHOUT recording a
 // take (and without API spend unless --live).
 //
-//   npx -y tsx local-runner/probe-moderation.ts          # no-API assertions
-//   npx -y tsx local-runner/probe-moderation.ts --live   # + one real classifier
+//   npx tsx local-runner/probe-moderation.ts          # no-API assertions
+//   npx tsx local-runner/probe-moderation.ts --live   # + one real classifier
 //                                                          call on benign frames
 //                                                          (~$0.01, needs key)
 //

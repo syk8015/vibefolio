@@ -1,5 +1,5 @@
 // 사용자 파일 저장(R2) 판정(네트워크 없음) — lib/userStorage.ts.
-// 사용: `npx -y tsx scripts/probe-user-storage-unit.mts`
+// 사용: `npx tsx scripts/probe-user-storage-unit.mts`
 //
 // 무엇을 보나: (1) 키 = 뿌리(files/·avatars/) + 옛 경로 그대로 (2) 같은 사이트 문제 — 그림·영상만 진짜
 // 형식, HTML·JS·SVG·확장자 속임은 내려받기 전용 (3) 공개 주소 ↔ 경로(새 R2 주소와 옛 Supabase 주소 둘 다,

@@ -4,6 +4,9 @@
 // 조건: ffmpeg가 PATH에 있어야 한다(zoom 프로브 2개) — 러너 머신엔 원래 있다.
 import { spawnSync } from "node:child_process";
 import { readdirSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+
+const TSX = fileURLToPath(new URL("../node_modules/.bin/tsx", import.meta.url));
 
 const PROBES = [
   "scripts/probe-script-review-unit.mts",   // lib/demoScriptReview 대본 점검표
@@ -76,7 +79,9 @@ let failed = 0;
 }
 for (const file of PROBES) {
   const t0 = Date.now();
-  const r = spawnSync("npx", ["-y", "tsx", file], { stdio: ["ignore", "pipe", "pipe"], encoding: "utf8" });
+  // 레포에 버전 고정된 tsx(devDependencies·락파일 무결성)만 — `npx -y tsx`는 부를 때마다 레지스트리 최신판을
+  // 받아 이 맥 사용자 권한으로 돌렸다(2026-11-03, 보안 5단계 S9a-F1·S11-F5).
+  const r = spawnSync(TSX, [file], { stdio: ["ignore", "pipe", "pipe"], encoding: "utf8" });
   const ok = r.status === 0;
   if (!ok) failed++;
   console.log(`${ok ? "✓" : "✗"} ${file} (${((Date.now() - t0) / 1000).toFixed(1)}s)`);

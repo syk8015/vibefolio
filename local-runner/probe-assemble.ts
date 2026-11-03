@@ -1,7 +1,7 @@
 // 무API 프로브: 직배선 조립기(assemble.ts) — 셀렉터 대본이 비전 없이 Script가
 // 되는지, 실패가 코드 채점(폴백 신호)으로 떨어지는지. 실행:
 //   npm run demo:fixtures &   (nookgym 픽스처 :5050)
-//   npx -y tsx local-runner/probe-assemble.ts
+//   npx tsx local-runner/probe-assemble.ts
 // probe-landing과 같은 자리(실 Chrome·API 0원). 2026-08-20 직배선 트랙의 회귀 가드.
 import { launchChromium } from "./browser";
 import { assembleScript, isFullyWired } from "./assemble";

@@ -78,7 +78,12 @@ Sentry·Vercel은 셋 다 "200이면 정상"으로 봐서 못 잡는다. 응답 
 export function workerSettings({ readDirs = readableDirs() } = {}) {
   const allow = ['WebSearch', 'WebFetch', 'Glob', 'Grep', 'Read(./**)', 'Write(./**)', 'Edit(./**)'];
   for (const d of readDirs) allow.push(`Read(//${String(d).replace(/^\//, '')}/**)`);
-  // allow 목록에 없는 도구/경로는 -p 모드에서 자동 거부되므로,
-  // deny는 Bash만 명시(이중 안전). Write/Edit는 allow의 ./** 스코프가 상한.
-  return { permissions: { allow, deny: ['Bash'] } };
+  // allow 목록에 없는 도구/경로는 -p 모드에서 자동 거부된다. deny가 allow보다 앞선다:
+  // Bash + 비밀 파일 읽기(2026-11-03, 보안 5단계 S11-F4) — 읽을 수 있는 폴더(레포 등)에 .env.local·.env.staging·
+  // 키 파일이 있고 WebFetch가 열려 있어, 웹페이지 속 숨은 지시로 열쇠가 밖으로 나갈 수 있었다.
+  // Write/Edit는 allow의 ./** 스코프가 상한.
+  const secretReads = ['**/.env', '**/.env.*', '**/.env-*', '**/*.pem', '**/*.key', '**/.git/**', '**/.ssh/**',
+    '**/.aws/**', '**/.npmrc', '**/.netrc', '**/*credentials*', '**/*secret*', '**/.dev.vars']
+    .map((g) => `Read(${g})`);
+  return { permissions: { allow, deny: ['Bash', ...secretReads] } };
 }

@@ -1,5 +1,5 @@
 // 대본 점검표 순수 함수 검증(네트워크 없음) — lib/demoScriptReview.ts.
-// 사용: `npx -y tsx scripts/probe-script-review-unit.mts`
+// 사용: `npx tsx scripts/probe-script-review-unit.mts`
 //
 // 무엇을 보나: (1) 소넷5 실측 대본(09-03)의 통계가 기대대로 나오나 (2) 셀렉터 파서가
 // id·class·태그·속성·조합자·쉼표·가상클래스를 다루나 (3) JS 셸을 "못 찾음"이 아니라

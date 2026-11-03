@@ -47,10 +47,12 @@ PROD_PW=$(kc nookframe-backup-db-password)
 DUMP=$(ls -1 "$ROOT"/db/nookframe-*.dump 2>/dev/null | tail -1)
 [ -n "$DUMP" ] || { echo "✗ $ROOT/db에 백업이 없어요"; exit 1; }
 WORK=$(mktemp -d); trap 'rm -rf "$WORK"' EXIT
-export PGSSLMODE=require
+# SCRAM만 — 가짜 서버가 평문 비밀번호를 달라고 해도 안 보낸다(2026-11-03, 보안 5단계 S9a-F2).
+export PGSSLMODE=require PGREQUIREAUTH=scram-sha-256
 
 drill() { PGPASSWORD="$DRILL_PW" "$BIN/psql" "$DRILL_URL" -v ON_ERROR_STOP=1 -Atq "$@"; }
-prod()  { PGPASSWORD="$PROD_PW"  "$BIN/psql" "$PROD_URL"  -v ON_ERROR_STOP=1 -Atq "$@"; }
+# 실서버는 읽기만 — 세션을 먼저 읽기 전용으로(풀러가 PGOPTIONS를 무시한다, 2026-11-03).
+prod()  { PGPASSWORD="$PROD_PW"  "$BIN/psql" "$PROD_URL"  -v ON_ERROR_STOP=1 -Atq -c "set session characteristics as transaction read only" "$@"; }
 
 echo "== 백업: $(basename "$DUMP")  →  연습용 프로젝트"
 

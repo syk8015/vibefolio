@@ -25,14 +25,17 @@ kc() {
 }
 DB_URL=$(kc nookframe-backup-db-url)
 PGPASSWORD=$(kc nookframe-backup-db-password)
-export PGPASSWORD PGSSLMODE=require PGOPTIONS="-c default_transaction_read_only=on"
+# PGREQUIREAUTH: 서버가 비밀번호를 평문으로 달라고 하면 보내지 않는다(SCRAM만) — 중간에 끼어든 가짜 서버에
+# 관리 비밀번호를 넘기지 않게(2026-11-03, 보안 5단계 S9a-F2). 인증서 확인(verify-full)은 Supabase CA 파일을 받은 뒤.
+# PGOPTIONS 읽기 전용은 Supavisor 풀러가 무시한다(11-03 확인) → 질의마다 세션을 읽기 전용으로 먼저 돌린다.
+export PGPASSWORD PGSSLMODE=require PGREQUIREAUTH=scram-sha-256 PGOPTIONS="-c default_transaction_read_only=on"
 
 umask 077
 mkdir -p "$OUT"
 chmod 700 "$OUT"
 
 q() { # q <파일 이름> <SQL>
-  if "$BIN/psql" "$DB_URL" -X -q --csv -v ON_ERROR_STOP=1 -c "$2" >"$OUT/$1.csv" 2>"$OUT/$1.err"; then
+  if "$BIN/psql" "$DB_URL" -X -q --csv -v ON_ERROR_STOP=1 -c "set session characteristics as transaction read only" -c "$2" >"$OUT/$1.csv" 2>"$OUT/$1.err"; then
     rm -f "$OUT/$1.err"
     printf '  %-26s %s줄\n' "$1" "$(($(wc -l <"$OUT/$1.csv") - 1))"
   else

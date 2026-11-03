@@ -441,7 +441,7 @@ AI 눈에서 사라졌다. 그래서 사람이 대시보드를 보고 말로 옮
   서버 hints는 원시 JSON을 읽는 AI용. 점검표 출력은 `nookframe@0.1.10`부터, 첫 화면/뒤 화면 문구는
   0.1.13부터다. 판정 자체는 서버에 있어 배포 즉시 모든 CLI에 적용된다(옛 CLI는 js-rendered만 한 줄로
   말하고 no-match는 조용히 넘어간다).
-- 검증: `node scripts/probe-script-review.mjs`(prod E2E) + `npx -y tsx scripts/probe-script-review-unit.mts`(순수 함수).
+- 검증: `node scripts/probe-script-review.mjs`(prod E2E) + `npx tsx scripts/probe-script-review-unit.mts`(순수 함수).
 
 ### 칸 경로 — 거절의 `field`, 에코의 `demoScriptNotes` (2026-10-02, 외부 AI 피드백 NF-11)
 
@@ -452,7 +452,7 @@ AI 눈에서 사라졌다. 그래서 사람이 대시보드를 보고 말로 옮
 - `accepted.demoScriptNotes[]`: 대본에서 **조용히 버려지거나 바뀐 칸**을 경로와 한 문장으로 — 모르는 action
   (`"tap"`)·goal 없는 스텝·모르는 칸(`value`·`waitFor`)·잘린 셀렉터·hold 범위·자막 모양·navigate의 `to`·10스텝 초과.
   `lib/demoScriptNotes.ts`가 스텝 하나씩 `normalizeDemoScript`에 다시 태워 원본과 비교한다(규칙 사본 없음). 영어 고정, 최대 12줄.
-- 검증: `npx -y tsx scripts/probe-nf-feedback-unit.mts`(순수 함수, `npm test`에 포함).
+- 검증: `npx tsx scripts/probe-nf-feedback-unit.mts`(순수 함수, `npm test`에 포함).
 
 ## 관련 파일
 

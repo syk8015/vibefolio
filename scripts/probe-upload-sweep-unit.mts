@@ -1,5 +1,5 @@
 // 끝맺음이 안 온 업로드 청소 판정(네트워크 없음) — lib/uploadSweep.ts.
-// 사용: `npx -y tsx scripts/probe-upload-sweep-unit.mts`
+// 사용: `npx tsx scripts/probe-upload-sweep-unit.mts`
 //
 // 무엇을 보나: (1) 빈 초안 — 파일 없는 초안만, 하루 지나야, 공개 작품·파일 붙은 초안은 제외
 // (2) 세션 이름 → 시각(lib/ingestStore.ts newUploadSession과 같은 모양) (3) `_upload/` 목록에서

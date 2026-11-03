@@ -7,7 +7,7 @@
 //   (2) wait 스텝 대본이 통과하고, 영어 자막이 빠진 wait 스텝은 자막 게이트에 안 걸린다.
 //   (3) wait 스텝은 실속으로 안 센다 — 실속 2 + wait 2면 "부실한 대본"으로 400.
 //
-// 사용: 레포 루트에서 `npx -y tsx scripts/probe-wait-curl.mts`
+// 사용: 레포 루트에서 `npx tsx scripts/probe-wait-curl.mts`
 // 주의: 검사 버킷(ingest-check 60/h)을 3번 쓴다. 서비스롤 키는 키체인에서 온다 — scripts/_secrets.mjs.
 import "./_secrets.mjs";
 import { createClient } from "@supabase/supabase-js";

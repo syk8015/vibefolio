@@ -1,7 +1,7 @@
 // 워커 서버 중계 e2e 프로브 — /api/worker/* 가 실제로 도는지 실서버에 대고 확인한다.
 //
-//   npx -y tsx local-runner/probe-worker-relay.ts
-//   WORKER_API_ORIGIN=https://<preview>.vercel.app npx -y tsx local-runner/probe-worker-relay.ts
+//   npx tsx local-runner/probe-worker-relay.ts
+//   WORKER_API_ORIGIN=https://<preview>.vercel.app npx tsx local-runner/probe-worker-relay.ts
 //
 // 왜 필요한가: 2026-09-01에 워커가 서비스롤·R2·RESEND 키를 직접 쓰던 경로를 전부
 // 이 API 뒤로 옮겼다. 키가 사라졌다는 것과 파이프라인이 여전히 돈다는 것은 다른

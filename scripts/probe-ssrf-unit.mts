@@ -1,5 +1,5 @@
 // SSRF 가드 검증(네트워크 없음) — lib/ssrf.ts.
-// 사용: `npx -y tsx scripts/probe-ssrf-unit.mts`
+// 사용: `npx tsx scripts/probe-ssrf-unit.mts`
 //
 // 왜 따로: 실서버 프로브(probe-embed-check.mjs)는 "내부 주소가 없는 도메인과 같은 답"만
 // 볼 수 있다. Vercel 함수 안에선 127.0.0.1·메타데이터 주소가 가드 없이도 어차피 안 열려서,

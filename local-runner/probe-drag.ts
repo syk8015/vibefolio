@@ -2,7 +2,7 @@
 // call, no avfoundation capture: a native <input type=range> page + replay() with
 // hand-written drag actions, asserting the app actually tracked the gesture.
 //
-// Run: npx -y tsx local-runner/probe-drag.ts
+// Run: npx tsx local-runner/probe-drag.ts
 //
 // Checks:
 //   1. cursor overlay down()/up() — pressed ring holds, releases (eyeball pngs)

@@ -1,5 +1,5 @@
 // 링크 순찰 판정(네트워크 없음) — lib/linkPatrol.ts.
-// 사용: `npx -y tsx scripts/probe-link-patrol-unit.mts`
+// 사용: `npx tsx scripts/probe-link-patrol-unit.mts`
 //
 // 무엇을 보나: (1) 순찰 대상(외부 http만, 업로드·GitHub 제외) (2) 죽음으로 세는 상태 코드
 // (봇 차단 401·403·429는 살아 있음) (3) meta refresh 목적지 (4) 판정 — 처음 본 사이트가 기준,

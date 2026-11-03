@@ -1,5 +1,5 @@
 // R2 남은 영상 청소 판정(네트워크 없음) — lib/r2Sweep.ts.
-// 사용: `npx -y tsx scripts/probe-r2-sweep-unit.mts`
+// 사용: `npx tsx scripts/probe-r2-sweep-unit.mts`
 //
 // 무엇을 보나: (1) 하루 한 번 틱(한국 새벽 3시) (2) 작품 트리(UUID/UUID/)만 폴더로 묶고 promo/·_test/는
 // 버림 (3) 폴더의 가장 최근 파일 시각 (4) 행이 있으면 안 지움·하루 안 된 폴더 안 지움·상한.

@@ -72,7 +72,7 @@ update projects set demo_build_status = 'pending', demo_build_error = null
   우선. 스캔 안 돈 실행(dry-run·fail-open)은 `unclear`로 줄 생략.
 
 무과금 경로 테스트: `NF_FAKE_MODERATION=flag|ok` (운영 env 설정 금지). 배관 검증:
-`npx -y tsx local-runner/probe-moderation.ts` (`--live` = 실 분류기 1회, ~$0.01).
+`npx tsx local-runner/probe-moderation.ts` (`--live` = 실 분류기 1회, ~$0.01).
 
 - 큐가 비면 10초 간격으로 폴링하며 대기한다. `Ctrl-C` 1번 = 현재 작업 마치고 종료,
   2번 = 즉시 중단(다음 시작 시 startup recovery가 해당 행을 failed로 정리).
@@ -165,7 +165,7 @@ Focus를 직접 제어하는 CLI가 없어서 **단축어(Shortcuts) 2개가 이
 붙이는데, 그러면 Chrome 렌더러 버그 하나로 이 맥 계정(키체인·`.env.local`·`~/.ssh`)까지 닿는다. 그래서
 모든 Chrome 실행에 `chromiumSandbox: true`를 주고, 환경변수는 `util.ts childEnv()`(PATH·HOME 등만)만
 넘긴다 — 워커 열쇠가 Chrome·ffmpeg 메모리에 없다. 서비스 워커는 막는다(netguard를 안 거친다).
-Chrome 실행을 새로 만들면 셋 다 같이. 확인: `npx -y tsx local-runner/probe-sandbox.ts`.
+Chrome 실행을 새로 만들면 셋 다 같이. 확인: `npx tsx local-runner/probe-sandbox.ts`.
 새 창(`window.open`)도 같은 검사를 받는다(2026-11-02, audit-8 B4): netguard·쓰기 막기는 페이지가 아니라
 **컨텍스트**에 걸려(`context.route`) 새 창의 첫 요청부터 덮고, 촬영 끝 검사·중간 감시도 열린 창 전부를 본다.
 촬영 컨텍스트에 `page.route`를 더하지 말 것 — 컨텍스트 규칙보다 먼저 돌아 `continue()`로 검사를 건너뛸 수 있다.
@@ -180,7 +180,7 @@ Chrome 실행을 새로 만들면 셋 다 같이. 확인: `npx -y tsx local-runn
 ## CLI (큐 없이 단발 실행/드라이런)
 
 ```bash
-npx -y tsx local-runner/index.ts <url|github-url> [--project <id>] [--policy read-only|full] [--upload] [--hint "핵심 기능 설명"]
+npx tsx local-runner/index.ts <url|github-url> [--project <id>] [--policy read-only|full] [--upload] [--hint "핵심 기능 설명"]
 ```
 
 `--project` 없이 돌리면 `manual-*` 드라이런: DB를 건드리지 않고 `_test/`에 업로드.
@@ -190,9 +190,9 @@ npx -y tsx local-runner/index.ts <url|github-url> [--project <id>] [--policy rea
 ## 무API 프로브
 
 ```bash
-npx -y tsx local-runner/probe-drag.ts     # drag 액션 (슬라이더 값·링·카메라)
-npx -y tsx local-runner/probe-sketch.ts   # path 액션 (프리핸드 스트로크·잉크 픽셀)
-npx -y tsx local-runner/probe-netguard.ts # 사설IP/LAN 차단 (fetch·iframe·goto·DNS·WS·새 창 벡터별 단언)
-npx -y tsx local-runner/probe-sandbox.ts  # 촬영 Chrome 샌드박스(--no-sandbox 없음·렌더러 seatbelt)·열쇠 안 넘김·서비스 워커 막힘 — Chrome 창이 잠깐 뜬다
-npx -y tsx local-runner/probe-replay-actions.ts # hover·key·가로스크롤·dismiss·좌표폴백 리포트
+npx tsx local-runner/probe-drag.ts     # drag 액션 (슬라이더 값·링·카메라)
+npx tsx local-runner/probe-sketch.ts   # path 액션 (프리핸드 스트로크·잉크 픽셀)
+npx tsx local-runner/probe-netguard.ts # 사설IP/LAN 차단 (fetch·iframe·goto·DNS·WS·새 창 벡터별 단언)
+npx tsx local-runner/probe-sandbox.ts  # 촬영 Chrome 샌드박스(--no-sandbox 없음·렌더러 seatbelt)·열쇠 안 넘김·서비스 워커 막힘 — Chrome 창이 잠깐 뜬다
+npx tsx local-runner/probe-replay-actions.ts # hover·key·가로스크롤·dismiss·좌표폴백 리포트
 ```

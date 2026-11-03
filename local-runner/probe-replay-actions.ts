@@ -2,7 +2,7 @@
 // Anthropic call, no capture: a synthetic page + replay() with hand-written
 // actions, asserting the page actually reacted.
 //
-// Run: npx -y tsx local-runner/probe-replay-actions.ts
+// Run: npx tsx local-runner/probe-replay-actions.ts
 //
 // Checks:
 //   1. hover      — mouseenter reveals a tooltip (hover beat replays)

@@ -1,5 +1,5 @@
 // 이미 공개된 같은 작품 판정(NF-19) — lib/publishedTwin.ts. 네트워크 없음.
-// 사용: `npx -y tsx scripts/probe-published-twin-unit.mts`
+// 사용: `npx tsx scripts/probe-published-twin-unit.mts`
 //
 // 무엇을 보나: (1) 같은 외부 주소면 쌍둥이(끝 슬래시·#·호스트 대소문자 무시, 쿼리는 다름)
 // (2) 파일 업로드 주소(/api/preview/…)는 주소로 안 엮는다 (3) 제목은 대소문자·공백·전각만

@@ -1,6 +1,6 @@
 // 무API 프로브: 대본의 기다리기(wait) 비트(2026-10-02) — 느린 앱의 결과를 필름이 놓치지 않는지.
 // 실 Chrome, 합성 페이지(버튼을 누르면 1.5초 뒤 결과가 그려진다), 픽스처 서버 불필요.
-//   npx -y tsx local-runner/probe-wait.ts
+//   npx tsx local-runner/probe-wait.ts
 // 확인:
 //   1. 조립(assemble): 셀렉터 wait = 실제로 기다린 뒤 wait 액션 기록 + 다음 스텝이 그 결과 위에서 조립됨
 //   2. 조립: 셀렉터 없는 wait = hold초만큼 멈추는 ms 기록

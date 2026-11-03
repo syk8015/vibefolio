@@ -1,6 +1,6 @@
 // 알아채기·미끼(lib/tripwire.ts·lib/bait.ts) 순수 부분. `npm test`. 네트워크·진짜 비밀값 없음.
 process.env.SUPABASE_SERVICE_ROLE_KEY = "probe-secret-not-real";
-process.env.DECOY_IDS = "61F485F5-0000-4000-8000-000000000001, nope";
+process.env.DECOY_IDS = "0A0A0A0A-0000-4000-8000-000000000001, nope";
 process.env.NEXT_PUBLIC_SUPABASE_URL ??= "https://example.supabase.co";
 
 const { parseDecoyHashes, TOKEN_BURST_MAX, ADMIN_BURST_MAX } = await import("../lib/tripwire");
@@ -41,10 +41,10 @@ check("겉 미끼 본문에 진짜 서비스 키가 안 섞임",
   (await Promise.all(Object.keys(BAIT_ROUTES).map(baitResponseBody))).every((r) => !r!.body.includes("probe-secret-not-real")));
 
 // 숨긴 미끼 id
-check("DECOY_IDS — uuid만", parseDecoyIds("x, 61f485f5-0000-4000-8000-000000000001").length === 1);
-check("주소에 미끼 id(대소문자 무관)", touchesDecoyId("/api/preview/u/61f485f5-0000-4000-8000-000000000001/index.html"));
-check("쿼리·인코딩 속 미끼 id", touchesDecoyId("/api/ingest/status?id=61f485f5%2D0000-4000-8000-000000000001"));
-check("다른 id는 아님", !touchesDecoyId("/api/ingest/status?id=61f485f5-0000-4000-8000-000000000002"));
+check("DECOY_IDS — uuid만", parseDecoyIds("x, 0a0a0a0a-0000-4000-8000-000000000001").length === 1);
+check("주소에 미끼 id(대소문자 무관)", touchesDecoyId("/api/preview/u/0a0a0a0a-0000-4000-8000-000000000001/index.html"));
+check("쿼리·인코딩 속 미끼 id", touchesDecoyId("/api/ingest/status?id=0a0a0a0a%2D0000-4000-8000-000000000001"));
+check("다른 id는 아님", !touchesDecoyId("/api/ingest/status?id=0a0a0a0a-0000-4000-8000-000000000002"));
 
 // IP 표식 — Edge 판이 Node 판과 같아야 막힘 확인이 맞는다
 const h = new Headers({ "x-vercel-forwarded-for": "203.0.113.7" });

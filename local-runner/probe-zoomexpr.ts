@@ -3,7 +3,7 @@
 // ffmpeg on a tiny generated clip. Bisects event count to find where the zoompan
 // expression stops parsing. No recording, no Anthropic.
 //
-// Run: npx -y tsx local-runner/probe-zoomexpr.ts
+// Run: npx tsx local-runner/probe-zoomexpr.ts
 import { buildZoomFilter, coalescePans, type CameraEvent } from "./camera";
 import {
   FPS, PAD_FRAC, PAD_COLOR, CENTER_BIAS, CAMERA_MAX_EVENTS, CAMERA_VF_MAX_CHARS,

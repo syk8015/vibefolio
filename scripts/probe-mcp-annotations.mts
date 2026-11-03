@@ -6,7 +6,7 @@
 //   (3) 읽기 3개는 readOnlyHint, 초안을 바꾸는 4개는 destructiveHint — 뒤바뀌면 Claude가
 //       삭제를 확인 없이 돌리거나 조회마다 묻는다.
 //
-// 사용: 레포 루트에서 `npx -y tsx scripts/probe-mcp-annotations.mts`
+// 사용: 레포 루트에서 `npx tsx scripts/probe-mcp-annotations.mts`
 // 서비스롤 키는 키체인에서 온다 — scripts/_secrets.mjs. 심은 토큰은 끝에 지운다.
 import "./_secrets.mjs";
 import { createClient } from "@supabase/supabase-js";

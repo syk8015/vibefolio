@@ -1,5 +1,5 @@
 // 무API 프로브: 커서 가시성(2026-08-25 v4 육안 판정 수리).
-// 실행: npx -y tsx local-runner/probe-cursor-visibility.ts
+// 실행: npx tsx local-runner/probe-cursor-visibility.ts
 //
 // 수리한 증상: 33초 필름에서 합성 커서가 ~12초만 화면에 있었고, 있는 동안에도
 // 사실상 안 움직였다. 원인은 커서에 "지금 프레임 안에 있나"라는 개념이 없어서

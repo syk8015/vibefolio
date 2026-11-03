@@ -68,7 +68,12 @@ try {
   ok("(1) id 모양 틀림 400 BAD_ID", res.status === 400 && (await res.json()).code === "BAD_ID");
   res = await get(`/api/ingest/status?id=${randomUUID()}`);
   ok("(2) 없는 id 404 NOT_FOUND", res.status === 404 && (await res.json()).code === "NOT_FOUND");
-  const { data: other } = await svc.from("projects").select("id").neq("user_id", prof.id).limit(1).maybeSingle();
+  // '남의 작품'은 공개된 것만 고른다 — 숨긴 미끼 초안(qa-staging)이 뽑히면 주소 속 미끼 id에 사이트 전체가
+  // 읽기 전용으로 잠긴다(2026-11-03, 보안 5단계 S9b-F2). 미끼 계정 행은 아예 빼고, 순서도 고정한다.
+  const { data: decoyOwner } = await svc.from("profiles").select("id").eq("username", "qa-staging").maybeSingle();
+  const { data: other } = await svc.from("projects").select("id")
+    .neq("user_id", prof.id).neq("user_id", decoyOwner?.id ?? "00000000-0000-0000-0000-000000000000")
+    .eq("is_draft", false).order("created_at", { ascending: true }).limit(1).maybeSingle();
   if (other) {
     res = await get(`/api/ingest/status?id=${other.id}`);
     ok("(2) 남의 작품 id도 같은 404", res.status === 404);

@@ -3,14 +3,14 @@
 // consumer in worker.ts.
 //
 //   Live URL (M1-style, read-only):
-//     npx -y tsx local-runner/index.ts <url> [--project manual-m1] [--policy read-only|full] [--upload]
+//     npx tsx local-runner/index.ts <url> [--project manual-m1] [--policy read-only|full] [--upload]
 //
 //   Built source (M2 — E2B builds/serves, local records the sandbox URL):
-//     npx -y tsx local-runner/index.ts --type github --value https://github.com/o/r [--project manual-m2] [--upload]
-//     npx -y tsx local-runner/index.ts --type zip    --value <storage-prefix>      [--project manual-m2] [--upload]
+//     npx tsx local-runner/index.ts --type github --value https://github.com/o/r [--project manual-m2] [--upload]
+//     npx tsx local-runner/index.ts --type zip    --value <storage-prefix>      [--project manual-m2] [--upload]
 //
 //   Queue worker:
-//     npx -y tsx local-runner/worker.ts
+//     npx tsx local-runner/worker.ts
 //
 // manual-* projectIds are dry-runs: upload lands under _test/ and the DB is never
 // touched. --policy overrides the automatic gate — operator's own call, CLI only.

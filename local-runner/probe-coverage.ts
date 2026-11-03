@@ -6,7 +6,7 @@
 // without publishing something. This does exactly that and nothing else: sample
 // the same 4 frames the pipeline would, run the same vision call, print the read.
 //
-//   npx -y tsx local-runner/probe-coverage.ts <film.mp4> [expected: app-ui|landing-only]
+//   npx tsx local-runner/probe-coverage.ts <film.mp4> [expected: app-ui|landing-only]
 //
 // ⚠️ Live API (~$0.015 per run, MODERATION_MODEL). Pass body.mp4 when you have it —
 // the endcap is not part of the film the read is supposed to judge.

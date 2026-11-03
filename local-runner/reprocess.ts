@@ -3,7 +3,7 @@
 // re-recording — the salvage path when zoompan/endcap/poster work fails after a
 // good capture.
 //
-//   npx -y tsx local-runner/reprocess.ts [take-dir]   (default /tmp/nf-runner)
+//   npx tsx local-runner/reprocess.ts [take-dir]   (default /tmp/nf-runner)
 import { readFileSync } from "node:fs";
 import { postprocess } from "./postprocess";
 

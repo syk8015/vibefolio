@@ -1,8 +1,8 @@
 // Entry-scout probe (피드백 B-4) — verifies the landing/app pre-flight pick
 // WITHOUT recording a take (and without API spend unless --live).
 //
-//   npx -y tsx local-runner/probe-scout.ts          # no-API assertions
-//   npx -y tsx local-runner/probe-scout.ts --live   # + one real vision call on
+//   npx tsx local-runner/probe-scout.ts          # no-API assertions
+//   npx tsx local-runner/probe-scout.ts --live   # + one real vision call on
 //                                                     a synthetic "empty app vs
 //                                                     rich landing" pair (~$0.02)
 //

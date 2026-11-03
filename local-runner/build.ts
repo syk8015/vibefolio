@@ -61,6 +61,31 @@ const NODE_PATH_PREFIX = "export PATH=/opt/node/bin:$PATH && ";
 // Terminal (CLI) demo path: what the ttyd take needs to brief the robot with.
 // commands = invocable entry points (package.json bin names / python entry),
 // readme = usage excerpt. Both UNTRUSTED repo data — explore frames them as data.
+
+// 사용자 dev 서버가 떴나 보는 요청(2026-11-03, 보안 5단계 S11-F2). 리다이렉트를 따라가지 않는다 — 사용자 코드가
+// 302로 집 공유기·localhost를 가리키면 이 맥(집 네트워크 안)이 그 주소로 GET을 보냈다. 3xx도 '떠 있음'으로 본다.
+// 본문은 64KB까지만 읽는다(큰 본문으로 워커 메모리 터뜨리기 막기).
+async function readyFetch(url: string): Promise<{ status: number; text: () => Promise<string> }> {
+  const res = await fetch(url, { signal: AbortSignal.timeout(5000), redirect: "manual" });
+  return {
+    status: res.status,
+    text: async () => {
+      const reader = res.body?.getReader();
+      if (!reader) return "";
+      const chunks: Uint8Array[] = [];
+      let total = 0;
+      while (total < 65536) {
+        const { done, value } = await reader.read();
+        if (done || !value) break;
+        chunks.push(value);
+        total += value.length;
+      }
+      await reader.cancel().catch(() => {});
+      return new TextDecoder().decode(Buffer.concat(chunks).subarray(0, 65536));
+    },
+  };
+}
+
 export type TerminalInfo = {
   runtime: "node" | "python";
   commands: string[];
@@ -489,7 +514,7 @@ export async function servePython(
     for (const port of app.ports) {
       const candidate = `https://${sandbox.getHost(port)}`;
       try {
-        const res = await fetch(candidate, { signal: AbortSignal.timeout(5000) });
+        const res = await readyFetch(candidate);
         // django: a 400 here is DisallowedHost (the ALLOWED_HOSTS wrapper didn't
         // take) — treat it as "not up" so we keep waiting and then fail loudly
         // with dev.log, instead of handing the robot an error page to film.
@@ -653,7 +678,7 @@ export async function serveTerminal(
   let ready = false;
   while (Date.now() < deadline) {
     try {
-      const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+      const res = await readyFetch(url);
       if (res.status < 500) {
         ready = true;
         break;
@@ -721,7 +746,7 @@ http.createServer((req,res)=>{
   const deadline = Date.now() + READY_TIMEOUT_MS;
   while (Date.now() < deadline) {
     try {
-      const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+      const res = await readyFetch(url);
       if (res.status < 500) break;
     } catch {
       /* not up yet */
@@ -971,7 +996,7 @@ export async function buildAndServe(
     let lastNote = "";
     while (Date.now() < deadline) {
       try {
-        const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+        const res = await readyFetch(url);
         const body = await res.text();
         // Vite's host-header rejection returns 403 "Blocked request. This host …" —
         // that would record as an error page, so treat it as NOT ready and surface it.

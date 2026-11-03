@@ -1,5 +1,5 @@
 // 임베드 가능 판정 순수 함수 검증(네트워크 없음) — lib/embeddable.ts.
-// 사용: `npx -y tsx scripts/probe-embeddable-unit.mts`
+// 사용: `npx tsx scripts/probe-embeddable-unit.mts`
 //
 // 무엇을 보나: (1) X-Frame-Options 3종(deny·sameorigin·allow-from)이 차단되나
 // (2) 인식 못 하는 XFO 값은 브라우저처럼 무시하나 (3) CSP frame-ancestors가

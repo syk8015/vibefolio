@@ -12,7 +12,7 @@
 // branch now asks the DOM first (dragStateAt / dragStateOfGrab). This probe checks
 // both layers on every gesture, and the DOM layer is the one that must never miss.
 //
-// Run: npm run demo:fixtures &   then   npx -y tsx local-runner/probe-slider-prune.ts
+// Run: npm run demo:fixtures &   then   npx tsx local-runner/probe-slider-prune.ts
 //
 // Per gesture it reports: did the control move, the three SSIM scores, the DOM
 // signature transition, and the verdict explore would reach — plus each thumb's
