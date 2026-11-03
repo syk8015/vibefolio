@@ -30,6 +30,18 @@ export async function DELETE() {
 
     const admin = createAdminClient();
 
+    // 0) 정지 중이면 @아이디를 영구 예약해 둔다(2026-11-03, 보안 5단계 S10-F4 — 사용자 결정). 탈퇴하면 명함이
+    //    지워져 아이디가 비고, 같은 메일로 다시 가입해 정지 전 주소에 명함을 다시 세울 수 있었다. 이메일은 남기지
+    //    않는다. 예약을 못 남기면 탈퇴를 멈춘다(지운 뒤엔 되돌릴 수 없다). 표: supabase/migration_retired_usernames.sql
+    const { data: prof, error: profErr } = await admin
+      .from("profiles").select("username, suspended_at").eq("id", uid).maybeSingle();
+    if (profErr) throw new Error(`profile read failed: ${profErr.message}`);
+    if (prof?.suspended_at && prof.username) {
+      const { error: retErr } = await admin.from("retired_usernames")
+        .upsert({ username: String(prof.username).toLowerCase() }, { onConflict: "username", ignoreDuplicates: true });
+      if (retErr) throw new Error(`retire username failed: ${retErr.message}`);
+    }
+
     // 1) Supabase Storage (legacy, before 2026-10-01) — everything under the user's prefix in both buckets.
     //    project-files/{uid}/…  and  avatars/{uid}/avatar.ext (+ legacy {uid}.ext at root).
     const projectFiles = await listFilesDeep(admin, "project-files", uid);

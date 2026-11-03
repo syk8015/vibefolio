@@ -29,13 +29,16 @@ const rowExists = async (table, id) => !!(await svc.from(table).select("id").eq(
 
 const tag = Date.now().toString(36);
 let uid = null;
+let uid2 = null;
+let accountGone = false;
+const handle = `probesh${tag}`;
 try {
   const { data: tu, error: tuErr } = await svc.auth.admin.createUser({
     email: `vivestarter+probe-sh-${tag}@gmail.com`, email_confirm: true,
   });
   if (tuErr) throw new Error(`createUser: ${tuErr.message}`);
   uid = tu.user.id;
-  const { error: pErr } = await svc.from("profiles").insert({ id: uid, username: `probesh${tag}`, name: "probe" });
+  const { error: pErr } = await svc.from("profiles").insert({ id: uid, username: handle, name: "probe" });
   if (pErr) throw new Error(`profile insert: ${pErr.message}`);
   const mk = async (title, extra) => {
     const { data, error } = await svc.from("projects").insert({
@@ -151,13 +154,31 @@ try {
   ok("(4c') 옛 id 행이 그대로", await rowExists("projects", downDraft));
   const up = await user.from("profiles").update({ bio: "probe" }).eq("id", uid).select("id");
   ok("(4b) 명함 고치기는 그대로", !up.error && up.data?.length === 1, up.error?.message ?? "");
+
+  // (5) 정지 중에 탈퇴하면 @아이디가 영구 예약된다(2026-11-03 S10-F4, migration_retired_usernames.sql)
+  const del = await fetch(`${ORIGIN}/api/account`, { method: "DELETE", headers: { Cookie: cookie } });
+  ok("(5a) 정지된 사람 탈퇴 → 200", del.status === 200, String(del.status));
+  const { data: ret } = await svc.from("retired_usernames").select("username").eq("username", handle).maybeSingle();
+  ok("(5b) @아이디가 예약됨", ret?.username === handle);
+  if (del.status === 200) {
+    accountGone = true;
+    const { data: again } = await svc.auth.admin.createUser({ email: tu.user.email, email_confirm: true });
+    uid2 = again?.user?.id ?? null;
+    if (uid2) {
+      const re = await svc.from("profiles").insert({ id: uid2, username: handle, name: "probe" });
+      ok("(5c) 같은 메일로 다시 가입해 같은 @아이디 → 막힘(23505)", re.error?.code === "23505", re.error?.message ?? "들어감");
+    }
+  }
 } catch (err) {
   ok("예외", false, err instanceof Error ? err.message : String(err));
 } finally {
-  if (uid) {
+  if (uid && !accountGone) {
     const { error } = await svc.auth.admin.deleteUser(uid);
     ok("끝 — 일회용 계정 지움", !error && !(await rowExists("profiles", uid)), error?.message ?? "");
   }
+  if (uid2) await svc.auth.admin.deleteUser(uid2);
+  await svc.from("retired_usernames").delete().eq("username", handle); // 시험이 남긴 예약만 지운다
+  ok("끝 — 시험 계정·예약 정리", !(await rowExists("profiles", uid)));
 }
 
 console.log(failed ? `\n${failed}건 실패` : "\n모두 통과");

@@ -158,6 +158,7 @@ function KoBody() {
         <ul className="list-disc pl-5 flex flex-col gap-1">
           <li>수집된 개인정보와 이용자가 업로드한 파일은 <strong>계정이 유지되는 동안</strong> 보관하며, 별도의 만료 기간을 두지 않습니다.</li>
           <li>회원 탈퇴 시 즉시 파기합니다. 저장소의 작품 파일·프로필 사진·촬영본까지 함께 삭제한 뒤 계정을 삭제합니다.</li>
+          <li>단, 이용 정지 중에 탈퇴한 계정의 사용자명(@아이디)은 같은 주소로 다시 명함을 만드는 것을 막기 위해 보관하며, 다른 정보는 남기지 않습니다.</li>
           <li>개별 프로젝트를 삭제하면 그 프로젝트의 파일과 촬영본도 함께 삭제됩니다.</li>
           <li>단, 서비스 이용 통계(조회수·기능 사용 기록 등)는 개인을 알아볼 수 없도록 계정 식별자를 제거한 형태로 전환하여 보관합니다. 이 기록만으로는 특정 개인을 식별할 수 없습니다.</li>
           <li>단, 관련 법령에 따라 일정 기간 보존이 필요한 경우 해당 기간 동안 보관 후 파기합니다.</li>
@@ -298,6 +299,7 @@ function EnBody() {
         <ul className="list-disc pl-5 flex flex-col gap-1">
           <li>Personal information and the files you upload are kept <strong>for as long as your account exists</strong>; there is no separate expiry period.</li>
           <li>When you delete your account, everything is destroyed immediately: stored project files, profile photo, and recordings are deleted first, then the account itself.</li>
+          <li>Exception: if an account is deleted while it is suspended, its username (@handle) is kept so the same address cannot be used to rebuild the profile. Nothing else is kept.</li>
           <li>Deleting an individual project also deletes that project&apos;s files and recordings.</li>
           <li>However, service usage statistics (view counts, feature usage records, etc.) are converted into a de-identified form with account identifiers removed, and retained in that form. These records alone cannot identify any individual.</li>
           <li>Where retention is required by applicable law, the information is kept for the legally required period and then destroyed.</li>
