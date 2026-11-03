@@ -5,7 +5,7 @@
 //   (3) 내린 작품은 못 지운다 — 사용자 키 직접 · 대시보드 삭제 길(409 TAKEN_DOWN, 파일도 안 지움) ·
 //       인제스트 초안 삭제 길(PAT, 409) · 고치기(PATCH)·finalize도 409 · 예약 폴더 서명 거절 ·
 //       내린 폴더를 다른 공개 작품이 가리켜도 미리보기 닫힘(2026-11-03, 보안 5단계)
-//   (4) 평소 일은 그대로 — 내리지 않은 작품 삭제 200 · 명함 고치기
+//   (4) 평소 일은 그대로 — 내리지 않은 작품 삭제 200 · 명함 고치기 · 작품 id는 못 바꿈(4c)
 //   끝: 일회용 계정 지움(행·토큰은 함께 지워진다)
 // 사용: node scripts/probe-suspension-hole.mjs
 import "./_secrets.mjs";
@@ -145,6 +145,10 @@ try {
   // (4)
   const r5 = await fetch(`${ORIGIN}/api/projects/${normal}/demo-assets`, { method: "DELETE", headers: { Cookie: cookie } });
   ok("(4a) 내리지 않은 작품 삭제 → 200 · 행 사라짐", r5.status === 200 && !(await rowExists("projects", normal)), String(r5.status));
+  // (4c) 작품 id(기본 키)는 못 바꾼다(2026-11-03 S8-F2, migration_project_id_lock.sql) — 신고 뒤 [내리기] 피하기 막기
+  const idSwap = await user.from("projects").update({ id: crypto.randomUUID() }).eq("id", downDraft).select("id");
+  ok("(4c) 사용자 키로 작품 id 바꾸기 → 막힘", !!idSwap.error && /PROJECT_ID_IMMUTABLE/.test(idSwap.error.message), idSwap.error?.message ?? `${idSwap.data?.length ?? 0}행 바뀜`);
+  ok("(4c') 옛 id 행이 그대로", await rowExists("projects", downDraft));
   const up = await user.from("profiles").update({ bio: "probe" }).eq("id", uid).select("id");
   ok("(4b) 명함 고치기는 그대로", !up.error && up.data?.length === 1, up.error?.message ?? "");
 } catch (err) {
