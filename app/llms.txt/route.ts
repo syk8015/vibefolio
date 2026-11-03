@@ -75,20 +75,27 @@ const SAMPLE_MIN = 5;
 async function sampleFrames(): Promise<string> {
   try {
     const supabase = createPublicClient();
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("username, name")
-      .order("updated_at", { ascending: false })
-      .limit(SAMPLE_LIMIT);
+    // 공개 작품이 있는 명함만(사이트맵과 같은 기준 — 빈 명함·심사용 계정은 싣지 않는다). 이름은 주인이 쓰는
+    // 글이라 마크다운 글자·줄바꿈을 지운다 — 링크·문단(외부 AI에게 주는 지시문)을 심던 길(2026-11-03, S4a-F1).
+    const [{ data, error }, { data: owners, error: ownersError }] = await Promise.all([
+      supabase.from("profiles").select("id, username, name").order("updated_at", { ascending: false }).limit(200),
+      supabase.from("projects").select("user_id").eq("is_draft", false),
+    ]);
     throwIfReadFailed(error, "llms:profiles");
+    throwIfReadFailed(ownersError, "llms:owners");
+    const withWork = new Set((owners ?? []).map((r) => r.user_id as string));
 
-    const rows = (data ?? []).filter((p) => Boolean(p.username));
+    const rows = (data ?? [])
+      .filter((p) => Boolean(p.username) && withWork.has(p.id as string))
+      .slice(0, SAMPLE_LIMIT);
     if (rows.length < SAMPLE_MIN) return "";
 
+    const clean = (v: string) => v.replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029[\]()<>*_`#|\\!]/g, " ")
+      .replace(/\s+/g, " ").trim().slice(0, 60);
     const lines = rows
       .map((p) => {
-        const label = (p.name as string | null) || (p.username as string);
-        return `- [${label}](${SITE}/${p.username})`;
+        const label = clean((p.name as string | null) || "") || (p.username as string);
+        return `- [${label}](${SITE}/${encodeURIComponent(p.username as string)})`;
       })
       .join("\n");
     return `\n## 실제 프레임\n\n${lines}\n`;

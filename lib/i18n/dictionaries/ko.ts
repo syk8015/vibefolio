@@ -997,6 +997,7 @@ export const ko = {
     // 재촬영 요청 (request-rerecord)
     rerecordReasonRequired: "무엇을 어떻게 바꾸고 싶은지 적어주세요.",
     rerecordInFlight: "지금 시연 영상을 만드는 중이에요. 끝난 뒤에 요청해 주세요.",
+    rerecordNotFilmed: "아직 찍힌 시연 영상이 없어서 다시 찍을 수 없어요. 첫 영상이 나온 뒤에 눌러 주세요.",
     rerecordSaveFailed: "요청을 저장하지 못했어요. 잠시 후 다시 시도해 주세요.",
     // 공개된 영상 자막 고치기 (projects/[id]/captions)
     captionNotFound: "이 자막을 찾지 못했어요. 창을 닫았다가 다시 열어 주세요.",

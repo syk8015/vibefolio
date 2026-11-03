@@ -102,11 +102,21 @@ function ownHosts(): Set<string> {
     hosts.add(app.startsWith("www.") ? app.slice(4) : `www.${app}`);
   }
   // 호출 시점에 env를 읽는다(모듈 로드 시점 상수 대신) — 순수 검사 스크립트가 값을 바꿔 볼 수 있게.
-  for (const o of [process.env.NEXT_PUBLIC_PREVIEW_ORIGIN, process.env.NEXT_PUBLIC_SUPABASE_URL]) {
+  // R2 사용자 파일 주소(media.nookframe.com)도 — 그림 이름(.png)·아바타로 JSON을 올려 200으로 서빙시킬 수
+  // 있었다(2026-11-03, 보안 5단계 S2-F2 · audit-1 F1). 앱 도메인의 하위 도메인 전부는 아래 ownHost가 막는다.
+  for (const o of [process.env.NEXT_PUBLIC_PREVIEW_ORIGIN, process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.R2_PUBLIC_URL_BASE]) {
     const h = hostOf(o);
     if (h) hosts.add(h);
   }
   return hosts;
+}
+
+/** 우리 호스트이거나 앱 도메인(nookframe.com)의 하위 도메인인가. */
+function ownHost(host: string): boolean {
+  if (ownHosts().has(host)) return true;
+  const app = hostOf(APP_ORIGIN);
+  const apex = app?.startsWith("www.") ? app.slice(4) : app;
+  return !!apex && host.endsWith(`.${apex}`);
 }
 
 /**
@@ -135,7 +145,7 @@ export function parseClientId(raw: unknown): string {
   // 호스트를 "누가 연결을 원하는지"로 크게 보여주는데, 작품 미리보기 주소와 Supabase
   // 저장소 주소는 누구나 파일을 올려 200으로 서빙시킬 수 있다 — 가짜 앱 설명 파일을
   // 올리면 화면에 우리 주소가 뜨는 클라이언트가 된다. 우리 자신은 클라이언트가 아니다.
-  if (ownHosts().has(url.hostname.toLowerCase())) {
+  if (ownHost(url.hostname.toLowerCase())) {
     throw new OAuthError("invalid_client", "client_id must not be hosted on this service's own domains");
   }
   // 점 세그먼트 금지. **원문에서** 본다 — URL 파서는 "/a/../b"를 파싱하면서 "/b"로
@@ -246,6 +256,11 @@ export async function fetchClientDoc(clientId: string): Promise<ClientDoc> {
   }
   if (res.status !== 200) {
     throw new OAuthError("invalid_client", `client metadata document returned HTTP ${res.status}`);
+  }
+  // JSON으로 내놓은 문서만 — 그림·영상 형식으로 서빙되는 파일을 설명서로 읽지 않는다(S2-F2).
+  const ctype = (res.headers.get("content-type") ?? "").toLowerCase();
+  if (!/^application\/([\w.+-]*\+)?json\b/.test(ctype) && !/^text\/plain\b/.test(ctype)) {
+    throw new OAuthError("invalid_client", `client metadata document must be served as application/json (got ${ctype.slice(0, 60) || "none"})`);
   }
   const bytes = await readResponseCapped(res, DOC_MAX_BYTES);
   let parsed: unknown;

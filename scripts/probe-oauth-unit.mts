@@ -47,6 +47,10 @@ rejects("(1k) www 앱 주소 거절", () => parseClientId("https://www.nookframe
 rejects("(1l) 작품 미리보기 주소 거절", () => parseClientId("https://sandbox-probe.vercel.app/api/preview/u/r/c.json"));
 rejects("(1m) 대소문자·포트 바꿔도 거절", () => parseClientId("https://SANDBOX-probe.vercel.app:8443/api/preview/u/r/c.json"));
 rejects("(1n) Supabase 저장소 주소 거절", () => parseClientId("https://probe-ref.supabase.co/storage/v1/object/public/project-files/u/r/c.json"));
+process.env.R2_PUBLIC_URL_BASE = "https://media.nookframe.com";
+rejects("(1p) R2 사용자 파일 주소 거절(11-03 S2-F2)", () => parseClientId("https://media.nookframe.com/avatars/u/avatar.png"));
+rejects("(1q) 앱 도메인의 아무 하위 도메인 거절", () => parseClientId("https://files.nookframe.com/c.json"));
+ok("(1r) 이름만 비슷한 바깥 도메인은 통과", parseClientId("https://notnookframe.com/c.json") === "https://notnookframe.com/c.json");
 ok("(1o) 다른 vercel.app·supabase.co는 통과", parseClientId("https://other-app.vercel.app/oauth/c.json") === "https://other-app.vercel.app/oauth/c.json" && parseClientId("https://other.supabase.co/c.json") === "https://other.supabase.co/c.json");
 
 // ── (2) 리다이렉트 주소 대조 ─────────────────────────────────────────────────

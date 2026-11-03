@@ -37,7 +37,7 @@ export async function POST(
 
     const { data: project, error: selErr } = await supabase
       .from("projects")
-      .select("id, user_id, title, demo_url, demo_build_status, rerecord_self_used")
+      .select("id, user_id, title, is_draft, demo_url, demo_build_status, rerecord_self_used")
       .eq("id", id)
       .single();
     if (selErr || !project) {
@@ -53,7 +53,7 @@ export async function POST(
     // — 주인 확인이 위에서 끝났으니 관리자 권한으로 읽되, user_id를 한 번 더 건다.
     const { data: priv, error: privErr } = await admin
       .from("projects")
-      .select("pending_demo_script, pending_script_note")
+      .select("pending_demo_script, pending_script_note, taken_down_at")
       .eq("id", id)
       .eq("user_id", user.id)
       .single();
@@ -70,6 +70,18 @@ export async function POST(
     }
     if (IN_FLIGHT.includes(project.demo_build_status ?? "")) {
       return apiError({ status: 409, message: t.api.rerecordInFlight, code: "IN_FLIGHT" });
+    }
+    // 재촬영은 '공개됐고 한 번 찍힌' 작품만(2026-11-03, 보안 5단계 S5-F1). 예전엔 초안·내린 작품·한도 초과로
+    // 관리자 승인을 기다리는 행(held)도 여기서 바로 pending이 돼, 촬영 한도(request_demo)와 관리자 판단을 건너뛰었다.
+    // 정지된 사람의 작품은 모두 초안으로 돌아가므로 초안 검사에 같이 걸린다.
+    if (priv.taken_down_at) {
+      return apiError({ status: 409, message: t.api.takenDownNoDelete, code: "TAKEN_DOWN" });
+    }
+    if (project.is_draft) {
+      return apiError({ status: 409, message: t.api.rerecordDraft, code: "DRAFT_NOT_PUBLISHED" });
+    }
+    if (project.demo_build_status !== "done" && project.demo_build_status !== "failed") {
+      return apiError({ status: 409, message: t.api.rerecordNotFilmed, code: "NOT_FILMED" });
     }
 
     // ── 2회차부터: 관리자 승인 대기열로. 대본은 pending에 그대로 두고, 승인

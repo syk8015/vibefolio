@@ -862,6 +862,7 @@ export const en: Dictionary = {
     demoStatusFailed: "Couldn't load the demo status.",
     rerecordReasonRequired: "Tell us what you'd like changed and how.",
     rerecordInFlight: "A demo video is being made right now. Please ask again once it's done.",
+    rerecordNotFilmed: "There is no demo video yet, so there is nothing to re-record. Press this once the first video is out.",
     rerecordSaveFailed: "Couldn't save the request. Please try again in a moment.",
     captionNotFound: "Couldn't find this caption. Close the window and open it again.",
     captionEmpty: "A caption can't be empty.",

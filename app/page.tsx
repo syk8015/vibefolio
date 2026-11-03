@@ -2,6 +2,8 @@ import Link from "next/link";
 import { unstable_cache } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createPublicClient, throwIfReadFailed } from "@/lib/supabase/public";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { isAdminEmail } from "@/lib/adminEmails";
 import HomeProfileMenu from "@/components/HomeProfileMenu";
 import { randomInt } from "node:crypto";
 import PortfolioPipSection from "@/components/PortfolioPipSection";
@@ -30,6 +32,12 @@ interface FeaturedProfile {
 const getLandingData = unstable_cache(
   async () => {
     const supabase = createPublicClient();
+    // 진열칸 후보는 운영자 계정의 명함만(2026-11-03, 보안 5단계 S4a-F5·S4b-F1). 예전엔 '공개 작품 3개'면
+    // 누구 명함이든 익명 방문자 랜딩 한가운데 라이브로 떴고(사람 확인 없음), 후보 40명은 주인이 고칠 수
+    // 있는 updated_at 순이었다. 바깥 사람 명함을 올리려면 운영자가 고르는 길을 따로 만든다.
+    const { data: userList, error: usersError } = await createAdminClient().auth.admin.listUsers({ perPage: 1000 });
+    if (usersError) throw usersError;
+    const showcaseIds = userList.users.filter((u) => isAdminEmail(u.email)).map((u) => u.id);
     const [
       { count: userCount, error: countError },
       { data: featuredProfiles, error: profilesError },
@@ -38,8 +46,7 @@ const getLandingData = unstable_cache(
       supabase.from("profiles").select("*", { count: "exact", head: true }),
       supabase.from("profiles")
         .select("id, username, name")
-        .order("updated_at", { ascending: true })
-        .limit(40),
+        .in("id", showcaseIds.length ? showcaseIds : ["00000000-0000-0000-0000-000000000000"]),
       // Just the owner column — counted in JS to find who has enough work to
       // showcase, without leaning on an embedded-relationship name.
       supabase.from("projects").select("user_id"),
