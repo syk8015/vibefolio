@@ -82,11 +82,9 @@ const cookie = createChunks(`sb-${ref}-auth-token`, "base64-" + stringToBase64UR
   ok("라우트: 비공개 칸 7개가 키로 있음", rows.length === 0 || PRIVATE.every((c) => c in rows[0]));
   ok("라우트: no-store", (r1.headers.get("cache-control") ?? "").includes("no-store"));
 
-  // '남의 작품'은 공개된 것만 고른다 — 숨긴 미끼 초안(qa-staging)이 뽑히면 주소 속 미끼 id에 사이트 전체가
-  // 읽기 전용으로 잠긴다(2026-11-03, 보안 5단계 S9b-F2). 미끼 계정 행은 아예 빼고, 순서도 고정한다.
-  const { data: decoyOwner } = await svc.from("profiles").select("id").eq("username", "qa-staging").maybeSingle();
+  // '남의 작품'은 공개된 것만 고른다 — 초안 id를 실서버 주소에 넣지 않는다(2026-11-03, 보안 5단계 S9b-F2). 순서도 고정.
   const { data: other } = await svc.from("projects").select("id")
-    .neq("user_id", me).neq("user_id", decoyOwner?.id ?? "00000000-0000-0000-0000-000000000000")
+    .neq("user_id", me)
     .eq("is_draft", false).order("created_at", { ascending: true }).limit(1);
   if (other?.[0]) {
     const r2 = await fetch(`${ORIGIN}/api/projects/private?ids=${other[0].id}`, { headers: { cookie } });
