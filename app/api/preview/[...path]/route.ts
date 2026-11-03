@@ -88,11 +88,12 @@ export async function GET(
   // can never touch nookframe.com cookies/localStorage (session theft). If this
   // request reached the main app origin — direct nav, a stale link, or an embed
   // we missed — bounce it to the sandbox origin. No-op in dev (PREVIEW_ORIGIN unset).
+  // 쿼리는 버리고 끝에 빈 `#`을 붙인다(2026-11-03, 5단계 S1-F8 높음). Supabase는 Site URL과 같은
+  // 호스트면 어떤 경로든 로그인 뒤 돌아갈 곳으로 받는다 → 공격자가 돌아갈 곳을 이 주소로 잡은 로그인·
+  // 재설정 메일을 보내면, 쿼리(?code=)나 브라우저가 이어 붙이는 #access_token이 이 307을 타고 공격자
+  // 작품 페이지(미리보기 도메인)로 넘어갔다. Location에 `#`이 있으면 브라우저가 원래 조각을 잇지 않는다.
   if (PREVIEW_ORIGIN && req.nextUrl.host !== new URL(PREVIEW_ORIGIN).host) {
-    return NextResponse.redirect(
-      `${PREVIEW_ORIGIN}/api/preview/${path.join("/")}${req.nextUrl.search}`,
-      307,
-    );
+    return NextResponse.redirect(`${PREVIEW_ORIGIN}/api/preview/${path.join("/")}#`, 307);
   }
 
   const allowed = token

@@ -69,7 +69,9 @@ export default async function AuthorizePage({ searchParams }: { searchParams: Se
       url.searchParams.set("error", check.error.code);
       url.searchParams.set("error_description", check.error.message);
       if (check.state) url.searchParams.set("state", check.state);
-      redirect(url.toString());
+      // 빈 `#`: 이 주소가 로그인 메일의 돌아갈 곳으로 쓰이면 브라우저가 #access_token을 남의
+      // redirect_uri로 이어 붙인다(CIMD는 누구나 만든다). 조각을 끊는다(2026-11-03).
+      redirect(`${url.toString()}#`);
     }
     return <Card><ErrorBody t={t} message={check.error.message} /></Card>;
   }
