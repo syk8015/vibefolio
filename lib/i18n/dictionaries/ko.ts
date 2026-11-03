@@ -1024,6 +1024,7 @@ export const ko = {
     loginOrTokenRequired: "로그인이 필요해요. (토큰 또는 세션)",
     tooManyRequests: "요청이 너무 많아요. 잠시 후 다시 시도해 주세요.",
     uploadTooLarge: "업로드가 너무 커요 (최대 25MB).",
+    uploadSizeRequired: "업로드할 파일 크기가 빠졌어요. 명령줄 도구를 최신으로 올려 주세요(`npx nookframe@latest`).",
     payloadPartRequired: "payload(JSON) 파트가 필요해요.",
     payloadJsonInvalid: "payload JSON을 읽을 수 없어요.",
     jsonBodyInvalid: "JSON 본문을 읽을 수 없어요.",

@@ -155,12 +155,18 @@ try {
   // (4) 불량 영상(가짜 바이트) → finalize 400 BAD_MEDIA + 행 삭제.
   // 고유 URL — (2)와 같은 URL이면 upsert(이미 있던 초안)라 교체 표식 때문에 행이 남는다(09-15 draftId).
   // 여기서 보려는 건 "이번 발행이 새로 만든 행"의 고아 정리다.
-  const d = await (await jsonPost("/api/ingest", { title: "__probe_badfinal__", targetDevice: "desktop", ownerInterview: OI, ...LANG, description: "프로브가 만든 임시 행\n곧 지워집니다", deployUrl: `https://example.com/probe-badfinal-${Date.now()}`, uploads: ["video"] })).json();
+  const d = await (await jsonPost("/api/ingest", { title: "__probe_badfinal__", targetDevice: "desktop", ownerInterview: OI, ...LANG, description: "프로브가 만든 임시 행\n곧 지워집니다", deployUrl: `https://example.com/probe-badfinal-${Date.now()}`, uploads: ["video"], uploadSizes: { video: 22 } })).json();
   // 서명이 형식을 묶는다(2026-11-03, 보안 5단계 D3 높음) — 예전엔 text/html·inline PUT이 200이라
   // media.nookframe.com에서 사용자 HTML이 실행됐다.
   const html = await fetch(d.uploads.video, { method: "PUT", headers: { "Content-Type": "text/html", "Content-Disposition": "inline" }, body: "<script>1</script>" });
   ok("2단계 서명 URL에 text/html PUT → 거절", html.status === 403 || html.status === 400, String(html.status));
-  await fetch(d.uploads.video, { method: "PUT", headers: { "Content-Type": "application/octet-stream" }, body: new TextEncoder().encode("definitely not a video") });
+  // 크기도 서명에 묶인다(2026-11-03, S3-F4) — 선언(22바이트)과 다른 크기는 거절, 상한 넘는 선언은 413.
+  const wrongSize = await fetch(d.uploads.video, { method: "PUT", headers: { "Content-Type": "application/octet-stream" }, body: new TextEncoder().encode("definitely not a video, longer") });
+  ok("2단계 서명 URL에 선언과 다른 크기 PUT → 거절", wrongSize.status === 403 || wrongSize.status === 400, String(wrongSize.status));
+  const huge = await jsonPost("/api/ingest", { title: "__probe_huge__", targetDevice: "desktop", ownerInterview: OI, ...LANG, description: "프로브가 만든 임시 행\n곧 지워집니다", deployUrl: `https://example.com/probe-huge-${Date.now()}`, uploads: ["video"], uploadSizes: { video: 5 * 1024 ** 3 } });
+  ok("상한 넘는 크기 선언 → 413", huge.status === 413, String(huge.status));
+  const exact = await fetch(d.uploads.video, { method: "PUT", headers: { "Content-Type": "application/octet-stream" }, body: new TextEncoder().encode("definitely not a video") });
+  ok("선언한 크기 그대로 PUT → 200", exact.status === 200, String(exact.status));
   const fin = await jsonPost("/api/ingest/finalize", { projectId: d.projectId });
   const finBody = await fin.json().catch(() => ({}));
   ok("불량 영상 finalize 400 BAD_MEDIA", fin.status === 400 && finBody.code === "BAD_MEDIA", `${fin.status} ${finBody.code}`);

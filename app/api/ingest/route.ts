@@ -52,6 +52,13 @@ const MAX_ACTIVE_DRAFTS = 20;
 const MAX_BODY_BYTES =
   MAX_UPLOAD_BYTES + MAX_MEDIA_VIDEO_BYTES + MAX_MEDIA_IMAGE_BYTES + 2 * 1024 * 1024;
 
+// 두 단계 업로드 종류별 상한 — finalize가 읽는 상한과 같다(번들 25MB · 스크린샷 5MB · 영상 20MB).
+const UPLOAD_CAPS: Record<UploadKind, number> = {
+  bundle: MAX_UPLOAD_BYTES, screenshot: MAX_MEDIA_IMAGE_BYTES, video: MAX_MEDIA_VIDEO_BYTES,
+};
+// CLI 0.1.28 배포가 확인되면 true — 그 뒤로 크기 없는 두 단계 업로드는 400(옛 CLI·직접 HTTP).
+const REQUIRE_UPLOAD_SIZES = false;
+
 interface IngestPayload {
   title?: unknown;
   description?: unknown;
@@ -71,6 +78,7 @@ interface IngestPayload {
   appLanguages?: unknown;
   translation?: unknown;
   uploads?: unknown;
+  uploadSizes?: unknown; // 두 단계 업로드 크기 {bundle,screenshot,video: 바이트} — CLI 0.1.28~
   // 파일 하나짜리 작품의 HTML 전문(2026-09-17) — 셸 없는 채팅창 AI가 파일 대신 넘기는 길.
   htmlBody?: unknown;
   // 소개 영상(2026-10-02) — 찍을 화면이 없는 작품의 장면 대본 { style, scenes }. lib/introFilm/schema.ts.
@@ -344,6 +352,26 @@ export async function POST(req: NextRequest) {
           ),
         )].filter((k) => (k === "bundle" ? !bundle : k === "screenshot" ? !screenshot : !video))
       : [];
+
+    // 두 단계 업로드 크기(2026-11-03, 보안 5단계 S3-F4·D3) — 서명 주소에 Content-Length를 묶어, 선언과 다른
+    // 크기(5GB 고아 파일 등)는 R2가 거절한다. CLI 0.1.28부터 보낸다. REQUIRE_UPLOAD_SIZES가 켜지면 크기 없는
+    // 옛 CLI는 '최신으로 다시'로 되돌려보낸다.
+    const rawSizes = payload?.uploadSizes && typeof payload.uploadSizes === "object"
+      ? (payload.uploadSizes as Record<string, unknown>) : {};
+    const uploadSizes: Partial<Record<UploadKind, number>> = {};
+    for (const kind of declared) {
+      const v = rawSizes[kind];
+      if (v === undefined || v === null) {
+        if (REQUIRE_UPLOAD_SIZES) {
+          return apiError({ status: 400, message: t.api.uploadSizeRequired, code: "UPLOAD_SIZE_REQUIRED", field: `uploadSizes.${kind}` });
+        }
+        continue;
+      }
+      if (typeof v !== "number" || !Number.isInteger(v) || v <= 0 || v > UPLOAD_CAPS[kind]) {
+        return apiError({ status: 413, message: t.api.uploadTooLarge, code: "TOO_LARGE", field: `uploadSizes.${kind}` });
+      }
+      uploadSizes[kind] = v;
+    }
 
     // 촬영 대본 게이트(2026-08-25 사용자 확정). 대본이 없으면 로봇은 화면을
     // 픽셀로 더듬어 추측 촬영한다 — 품질도 비용도 나쁜 옛 경로다(편당 $0.19 vs
@@ -808,7 +836,7 @@ export async function POST(req: NextRequest) {
       for (const kind of declared) {
         const { data, error } = await files.storage
           .from("project-files")
-          .createSignedUploadUrl(UPLOAD_TEMP_KEYS[kind](userId, projectId, session));
+          .createSignedUploadUrl(UPLOAD_TEMP_KEYS[kind](userId, projectId, session), uploadSizes[kind]);
         if (error || !data) {
           if (!upserted) await dropNewRow(files, userId, projectId);
           return apiError({

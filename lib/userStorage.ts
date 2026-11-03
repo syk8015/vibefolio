@@ -248,17 +248,24 @@ function bucketApi(bucket: UserBucket) {
      * 서명에 넣지 않아(SignedHeaders=host) 아무 형식으로나 PUT이 됐고, text/html·inline으로 올린
      * 파일이 media.nookframe.com에서 실행됐다. 크기는 아직 안 묶는다(CLI가 미리 알리지 않음 — finalize가 캡).
      */
-    // 두 번째 인자(supabase-js의 { upsert })는 받지 않는다 — R2 PUT은 늘 덮어쓴다.
+    // 두 번째 인자는 supabase-js의 { upsert }가 아니라 크기다 — R2 PUT은 늘 덮어쓴다.
+    // size를 주면 Content-Length를 서명에 묶는다(2026-11-03, 보안 5단계 S3-F4·D3): 다른 크기로 PUT하면 R2가 403.
+    // CLI 0.1.28부터 크기를 미리 알린다(uploadSizes). 크기 없는 요청은 인제스트가 막는다.
     async createSignedUploadUrl(
       path: string,
+      size?: number,
     ): Promise<{ data: { signedUrl: string; path: string; token: string } | null; error: StorageError | null }> {
       try {
         ensure();
         const getSignedUrl = await presigner();
+        const sized = Number.isInteger(size) && (size as number) > 0;
         const signedUrl = await getSignedUrl(
           r2Client(),
-          new PutObjectCommand({ Bucket: r2Bucket(), Key: userFileKey(bucket, path), ContentType: "application/octet-stream" }),
-          { expiresIn: TWO_STEP_TTL_S, signableHeaders: new Set(["content-type"]) },
+          new PutObjectCommand({
+            Bucket: r2Bucket(), Key: userFileKey(bucket, path), ContentType: "application/octet-stream",
+            ...(sized ? { ContentLength: size } : {}),
+          }),
+          { expiresIn: TWO_STEP_TTL_S, signableHeaders: new Set(sized ? ["content-type", "content-length"] : ["content-type"]) },
         );
         return { data: { signedUrl, path, token: "" }, error: null };
       } catch (e) {

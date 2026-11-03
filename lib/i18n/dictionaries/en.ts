@@ -886,6 +886,7 @@ export const en: Dictionary = {
     loginOrTokenRequired: "Authentication required (token or session).",
     tooManyRequests: "Too many requests. Please try again later.",
     uploadTooLarge: "The upload is too large (max 25MB).",
+    uploadSizeRequired: "The upload sizes are missing. Update the CLI and try again (`npx nookframe@latest`).",
     payloadPartRequired: "A payload (JSON) part is required.",
     payloadJsonInvalid: "Couldn't parse the payload JSON.",
     jsonBodyInvalid: "Couldn't parse the JSON body.",

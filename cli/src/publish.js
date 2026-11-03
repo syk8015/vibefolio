@@ -51,20 +51,22 @@ export async function runPublish({ payload = {}, dir = null, screenshotPath = nu
   if (screenshotPath) uploads.push("screenshot");
   if (videoPath) uploads.push("video");
 
-  const step1 = await fetch(endpoint, {
-    method: "POST",
-    headers: authJson,
-    body: JSON.stringify({ ...payload, uploads }),
-  });
-  const body1 = await step1.json().catch(() => ({}));
-  if (!step1.ok) throw new Error(`${body1.error || `Could not start the upload (HTTP ${step1.status})`}${body1.field ? ` [field: ${body1.field}]` : ""}`);
-
+  // 파일을 먼저 읽어 크기를 서버에 알린다 — 서버가 그 크기를 업로드 주소 서명에 묶는다(0.1.28~, 다른 크기는 거절).
   const zipped = dir ? await zipDirWithInfo(dir) : null;
   const files = {
     bundle: zipped ? zipped.buffer : null,
     screenshot: screenshotPath ? await readFile(screenshotPath) : null,
     video: videoPath ? await readFile(videoPath) : null,
   };
+  const uploadSizes = Object.fromEntries(uploads.map((kind) => [kind, files[kind].byteLength]));
+
+  const step1 = await fetch(endpoint, {
+    method: "POST",
+    headers: authJson,
+    body: JSON.stringify({ ...payload, uploads, uploadSizes }),
+  });
+  const body1 = await step1.json().catch(() => ({}));
+  if (!step1.ok) throw new Error(`${body1.error || `Could not start the upload (HTTP ${step1.status})`}${body1.field ? ` [field: ${body1.field}]` : ""}`);
   for (const kind of uploads) {
     const url = body1.uploads?.[kind];
     if (!url) throw new Error(`The server did not return an upload URL for ${kind}.`);

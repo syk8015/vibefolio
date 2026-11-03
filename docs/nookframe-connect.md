@@ -227,7 +227,9 @@ MCP 규격이 2026-07-28에 갈아엎였다: `initialize`·세션·`ping`이 사
     **⚠️ 인라인 multipart는 Vercel 함수 본문 상한 ~4.5MB(실측 2026-08-14: 4.2MB 통과·5MB 413)까지만
     실제로 통과한다** — 그보다 큰 파일은 아래 2단계로.
 - **서명 URL 2단계 (대용량 zip ≤25MB · 영상 ≤20MB의 정규 경로)**:
-  1. `POST /api/ingest` JSON에 `uploads: ["bundle"|"screenshot"|"video", …]`를 선언 →
+  1. `POST /api/ingest` JSON에 `uploads: ["bundle"|"screenshot"|"video", …]`와 `uploadSizes: {kind: 바이트}`를 선언
+     (2026-11-03, CLI 0.1.28~ — 크기가 서명에 묶여 다른 크기 PUT은 R2가 403, 상한(25·5·20MB) 넘는 선언은 413.
+     `REQUIRE_UPLOAD_SIZES`를 켜면 크기 없는 선언은 400 `UPLOAD_SIZE_REQUIRED`) →
      응답에 `{ projectId, uploads: {kind: signedUrl}, finalizeUrl }` (서명 URL은 서버가 만든 키
      `{uid}/{rowId}/_upload/<session>/…` 전용, 클라 입력이 키에 안 섞임. 세션 폴더는 업로드마다 새로 만든다 —
      고정 키를 다시 쓰면 같은 초안에 다시 올릴 때 CDN 캐시의 옛 임시 파일이 새 파일 대신 읽혔다(09-15 prod
