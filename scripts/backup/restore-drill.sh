@@ -48,7 +48,10 @@ DUMP=$(ls -1 "$ROOT"/db/nookframe-*.dump 2>/dev/null | tail -1)
 [ -n "$DUMP" ] || { echo "✗ $ROOT/db에 백업이 없어요"; exit 1; }
 WORK=$(mktemp -d); trap 'rm -rf "$WORK"' EXIT
 # SCRAM만 — 가짜 서버가 평문 비밀번호를 달라고 해도 안 보낸다(2026-11-03, 보안 5단계 S9a-F2).
-export PGSSLMODE=require PGREQUIREAUTH=scram-sha-256
+# 서버 인증서까지 확인(verify-full) — Supabase 루트 CA(공개 인증서, 2031-04 만료)를 레포에 둔다(2026-11-03 S9a-F2).
+NF_CA="$(cd "$(dirname "${BASH_SOURCE[0]}")/." && pwd)/supabase-prod-ca-2021.crt"
+[ -r "$NF_CA" ] || { echo "Supabase CA 파일이 없어요: $NF_CA" >&2; exit 1; }
+export PGSSLMODE=verify-full PGSSLROOTCERT="$NF_CA" PGREQUIREAUTH=scram-sha-256
 
 drill() { PGPASSWORD="$DRILL_PW" "$BIN/psql" "$DRILL_URL" -v ON_ERROR_STOP=1 -Atq "$@"; }
 # 실서버는 읽기만 — 세션을 먼저 읽기 전용으로(풀러가 PGOPTIONS를 무시한다, 2026-11-03).
