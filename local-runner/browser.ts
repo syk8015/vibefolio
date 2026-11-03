@@ -54,6 +54,8 @@ function baseChromeArgs(): string[] {
     "--no-default-browser-check",
     "--disable-session-crashed-bubble",
     "--disable-popup-blocking",
+    // 권한 묻는 창(알림·위치·카메라…)을 띄우지 않고 거절한다 — Chrome 자체 말풍선이 촬영 영역에 찍혔다(11-03 미끼 앱 촬영).
+    "--deny-permission-prompts",
     // NOTE: do NOT add --headless / --use-gl=swiftshader — that kills the GPU
     // path and reintroduces the soft-compositor problems we left E2B to escape.
   ];
@@ -115,6 +117,7 @@ export async function launchRecordingContext(
   const context = await chromium.launchPersistentContext(ensureEnglishProfile(filmLocale), {
     ...SANDBOX,
     // 서비스 워커는 netguard(context.route)를 거치지 않는다 — 막아 둔다(audit-8 B3). 앱은 온라인으로 그대로 돈다.
+    // persistent context에서도 듣는다 — register()는 성공처럼 답하지만 등록은 0개(11-03 확인, 페이지 기록의 'sw registered'는 겉모습).
     serviceWorkers: "block",
     headless: false,
     channel: "chrome",
@@ -153,7 +156,7 @@ export async function launchRecordingContext(
 // 2026-11-03 보안 5단계 S11-F1: 다른 앱·OS 창을 부르는 길도 막는다 — 인쇄 창(window.print), macOS 공유
 // 시트(navigator.share, 최근 대화 상대가 뜬다), http(s)가 아닌 링크·새 창(mailto:·tel:·facetime: … → 메일 앱 등
 // 바깥 앱이 촬영 사각형 위로 올라와 주인 받은편지함이 공개 영상에 찍힐 수 있었다). 스크립트가 location에 바로
-// mailto:를 넣는 길은 페이지 안에서 못 막는다 — 아침 미끼 앱 촬영(E)에서 실제로 뜨는지 본다.
+// mailto:를 넣는 길은 Navigation API로 막는다(11-03 미끼 앱 촬영에서 실제로 메일 앱이 떠서 찍혔다).
 const NEUTER_NATIVE_PICKERS_SRC = `(() => {
   var names = ["showOpenFilePicker", "showSaveFilePicker", "showDirectoryPicker"];
   for (var i = 0; i < names.length; i++) {
@@ -175,6 +178,23 @@ const NEUTER_NATIVE_PICKERS_SRC = `(() => {
     if (a && !webish(a.getAttribute("href"))) { ev.preventDefault(); }
   };
   try { document.addEventListener("click", stop, true); document.addEventListener("auxclick", stop, true); } catch (e) {}
+  // 맥 클립보드에 쓰기 막기 — 리플레이 클릭이 진짜 사용자 동작이라 페이지가 주인 클립보드를 바꿀 수 있었다(11-03 확인).
+  // 알림·카메라·위치 요청도 바로 거절(창이 안 뜨게).
+  try {
+    var deny = function () { return Promise.reject(new DOMException("blocked while filming", "NotAllowedError")); };
+    if (navigator.clipboard) { Clipboard.prototype.writeText = deny; Clipboard.prototype.write = deny; }
+    var exec0 = Document.prototype.execCommand;
+    Document.prototype.execCommand = function (c) { if (/^(copy|cut)$/i.test(String(c))) return false; return exec0.apply(this, arguments); };
+  } catch (e) {}
+  try { if (window.Notification) Notification.requestPermission = function () { return Promise.resolve("denied"); }; } catch (e) {}
+  try { if (navigator.mediaDevices) MediaDevices.prototype.getUserMedia = deny; } catch (e) {}
+  // 스크립트가 location에 mailto:를 넣는 길 — Chrome은 mailto를 묻지 않고 메일 앱에 넘긴다(11-03 미끼 앱 촬영에서
+  // 메일 앱 '계정 추가' 창이 공개 영상에 찍힘). Navigation API의 navigate 이벤트가 그 이동을 먼저 받아 취소할 수 있다.
+  try {
+    if (window.navigation) navigation.addEventListener("navigate", function (e) {
+      if (e.cancelable && !webish(e.destination.url)) e.preventDefault();
+    });
+  } catch (e) {}
 })();`;
 
 // Install on a context+page pair BEFORE any navigation. The addInitScript is on
