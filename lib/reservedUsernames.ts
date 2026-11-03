@@ -1,14 +1,14 @@
 // Usernames live at the root path (/{username}), so a name that collides with a
 // real route becomes an unreachable card, and trust-sensitive labels (admin, www,
 // official …) invite impersonation. Mirrored by the DB check constraint
-// profiles_username_not_reserved (최신: supabase/migration_username_rules.sql) —
+// profiles_username_not_reserved (최신: supabase/migration_request_demo_gate.sql) —
 // keep the two lists in sync (the DB is the backstop; this list gives the
 // friendly error before a write is attempted).
 export const RESERVED_USERNAMES = new Set([
   // app routes (app/*)
   "admin", "api", "auth", "dashboard", "login", "signup", "onboarding",
   "publish", "privacy", "terms", "forgot-password", "reset-password",
-  "error", "not-found", "oauth", "promo-record",
+  "error", "not-found", "oauth", "promo-record", "send", "intro-render", "security",
   // framework / static surfaces
   "_next", "static", "public", "assets", "favicon", "robots", "sitemap",
   "icon", "apple-icon",

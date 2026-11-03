@@ -18,12 +18,17 @@
 //   - System Chrome present at /Applications/Google Chrome.app => channel:"chrome".
 import { fileURLToPath } from "node:url";
 
+// 워커가 쓰지 않는 열쇠는 파일에서 읽어 오지 않는다(2026-11-03, 5단계 낮음 S11-F9) — 사용자 페이지를 여는
+// 프로세스에 크론 열쇠·Vercel 토큰·OpenAI 열쇠까지 들고 있을 까닭이 없다. 이미 셸에 있던 값은 건드리지 않는다.
+const WORKER_UNUSED_KEYS = ["CRON_SECRET", "VERCEL_OIDC_TOKEN", "OPENAI_API_KEY", "EMAIL_REPLY_TO", "NEXT_PUBLIC_TURNSTILE_SITE_KEY"];
+const preset = new Set(WORKER_UNUSED_KEYS.filter((k) => k in process.env));
 try {
   // path arg => independent of the process working directory
   process.loadEnvFile(fileURLToPath(new URL("../.env.local", import.meta.url)));
 } catch {
   // missing .env.local is fine for paths that don't need keys (M0)
 }
+for (const k of WORKER_UNUSED_KEYS) if (!preset.has(k)) delete process.env[k];
 
 // avfoundation video input index for the main display screen-capture device.
 export const SCREEN_DEVICE_INDEX = 2;

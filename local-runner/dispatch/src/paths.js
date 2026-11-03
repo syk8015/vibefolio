@@ -28,7 +28,9 @@ export const dirs = {
 };
 
 export function ensureDirs() {
-  for (const d of Object.values(dirs)) fs.mkdirSync(d, { recursive: true });
+  // 이 맥 사용자만 읽게(2026-11-03, 5단계 낮음 S11-F8) — 실행 폴더·로그에 작업 내용이 남는다.
+  for (const d of Object.values(dirs)) fs.mkdirSync(d, { recursive: true, mode: 0o700 });
+  try { fs.chmodSync(DATA, 0o700); } catch { /* 없거나 남의 것이면 그대로 */ }
 }
 
 export const expandTilde = (p) => (p && p.startsWith('~') ? path.join(os.homedir(), p.slice(1)) : p);

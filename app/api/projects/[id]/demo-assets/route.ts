@@ -203,6 +203,20 @@ export async function POST(
       return apiError({ status: 403, message: t.api.projectForbidden, code: "FORBIDDEN" });
     }
 
+    // 내린 작품(신고 증거)의 파일은 이 길로도 못 지운다(2026-11-03, 5단계 낮음 S5-F4) — 이 작품이 내려졌으면 409,
+    // 다른 작품을 통해 내린 작품의 폴더·파일 주소를 넘겨도 걸러 낸다. 관리자 권한이라 RLS 없이 직접 본다.
+    const { data: downRows, error: downErr } = await createAdminClient()
+      .from("projects").select("id, video_url, thumbnail, demo_url").eq("user_id", user.id).not("taken_down_at", "is", null);
+    if (downErr) throw new Error(`takedown check failed: ${downErr.message}`);
+    if ((downRows ?? []).some((r) => r.id === id)) {
+      return apiError({ status: 409, message: t.api.takenDownNoDelete, code: "TAKEN_DOWN" });
+    }
+    const downDirs = (downRows ?? []).flatMap((r) => [`${user.id}/${r.id}/`, uploadFolderFromPreviewUrl(r.demo_url, user.id)])
+      .filter((d): d is string => !!d).map((d) => (d.endsWith("/") ? d : `${d}/`));
+    const downFiles = new Set((downRows ?? []).flatMap((r) => [r.video_url, r.thumbnail]).map(storagePathFromPublicUrl)
+      .filter((p): p is string => !!p));
+    const protectedPath = (p: string) => downFiles.has(p) || downDirs.some((d) => p.startsWith(d));
+
     const ownerPrefix = `${user.id}/`;
     const inUse = new Set(
       [project.video_url, project.thumbnail]
@@ -210,12 +224,12 @@ export async function POST(
         .filter((p): p is string => !!p),
     );
     const stale = [...new Set(candidates.map(storagePathFromPublicUrl))]
-      .filter((p): p is string => !!p && p.startsWith(ownerPrefix) && !inUse.has(p));
+      .filter((p): p is string => !!p && p.startsWith(ownerPrefix) && !inUse.has(p) && !protectedPath(p));
 
     const oldDir = uploadFolderFromPreviewUrl(prevDemoUrl, user.id);
     const oldFolder = oldDir?.slice(ownerPrefix.length) ?? null;
     let folderGone = false;
-    if (oldDir && oldFolder && UUID_RE.test(oldFolder)
+    if (oldDir && oldFolder && UUID_RE.test(oldFolder) && !protectedPath(`${oldDir}/`)
       && oldDir !== uploadFolderFromPreviewUrl(project.demo_url, user.id)) {
       // 주인의 다른 작품이 이 폴더를 행 폴더로 쓰거나 demo_url로 가리키면 손대지 않는다.
       const [{ data: asRow, error: e1 }, { data: asUrl, error: e2 }] = await Promise.all([

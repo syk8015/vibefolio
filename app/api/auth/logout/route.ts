@@ -10,7 +10,10 @@ export async function POST(request: NextRequest) {
   // 로그아웃은 부작용이 작지만 남의 사이트가 임의로 걸 이유도 없다.
   // same-origin POST만 받는다(Origin 없는 요청 = 폼/스크립트 아님 → 허용).
   const origin = request.headers.get("origin");
-  if (origin && new URL(origin).host !== request.headers.get("host")) {
+  // `Origin: null`(샌드박스 iframe·file:)이나 깨진 값은 URL()이 던져 500이 났다(5단계 낮음 S1-F12·D2) — 남의 출처로 본다.
+  let originHost: string | null = null;
+  try { originHost = origin ? new URL(origin).host : null; } catch { originHost = "invalid"; }
+  if (origin && originHost !== request.headers.get("host")) {
     return apiError({ status: 403, message: "잘못된 요청입니다.", code: "FORBIDDEN" });
   }
 

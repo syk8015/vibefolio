@@ -33,6 +33,8 @@ const nextConfig: NextConfig = {
   experimental: {
     turbopackFileSystemCacheForBuild: false,
   },
+  // X-Powered-By: Next.js 빼기(5단계 낮음 S9a-F9) — 쓰는 틀을 알려 줄 까닭이 없다.
+  poweredByHeader: false,
   images: {
     // 이미지 최적화기는 쓰지 않는다 — 화면의 <Image>는 모두 unoptimized였다. 바깥 호스트를 열어 두면
     // /_next/image가 남의 그림을 우리 주소로 받아 주는 길이 된다: image.thum.io를 거쳐 아무 페이지나 찍어 주는

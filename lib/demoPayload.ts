@@ -49,7 +49,10 @@ export async function resolveBuildPayload(
     const prefix = source.value
       .replace(/^\/api\/preview\//, "")
       .replace(/\/[^/]+$/, ""); // strip filename → {userId}/{projectId}
-    if (prefix.split("/")[0] !== ownerId) {
+    // '..'·'.'·빈 칸·인코딩된 점 세그먼트는 거절 — 첫 칸만 보던 주인 확인을 `{내uid}/../{남uid}`로 비켜 갔다
+    // (2026-11-03, 5단계 낮음 D1). 워커도 주소를 정규화해 다시 막지만 서버에서 먼저 끊는다.
+    const segs = prefix.split("/");
+    if (segs[0] !== ownerId || segs.some((x) => x === "" || x === "." || x === ".." || /%2e|%2f|%5c|\\/i.test(x))) {
       throw new DemoSourceError("preview source does not belong to the project owner");
     }
     // Runnable-code zips (2026-08-20 입구 완화): the anchor demo_url points at a

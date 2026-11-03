@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { rateLimit } from "@/lib/rate-limit";
 import { apiError, bodyTooLarge } from "@/lib/apiError";
 import { requireUser } from "@/lib/routeAuth";
 import { getT } from "@/lib/i18n/server";
@@ -25,6 +26,10 @@ export async function POST(
     const auth = await requireUser(t.api.loginRequired);
     if (auth instanceof NextResponse) return auth;
     const { user, supabase } = auth;
+    // 요청 제한(2026-11-03, 5단계 낮음 S5-F7) — 사람마다 시간당 20번.
+    if (!(await rateLimit({ name: "request-rerecord", key: user.id, windowSeconds: 3600, max: 20 }))) {
+      return apiError({ status: 429, message: t.api.tooManyRequests, code: "RATE_LIMITED" });
+    }
 
     let reason = "";
     try {

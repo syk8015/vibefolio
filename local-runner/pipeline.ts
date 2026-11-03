@@ -9,7 +9,7 @@
 //
 // Recording needs this machine's screen exclusively (avfoundation grabs the real
 // display) — callers must never run two takes concurrently.
-import { existsSync, mkdirSync, renameSync, statfsSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, renameSync, statfsSync, writeFileSync } from "node:fs";
 import { spawn } from "node:child_process";
 import {
   launchChromium,
@@ -158,7 +158,9 @@ export async function recordDemo(opts: RecordDemoOptions): Promise<RecordDemoRes
   // Reassigned by the pre-flight scout below when a second candidate exists.
   let url = opts.url;
 
-  mkdirSync(OUT_DIR, { recursive: true });
+  // 촬영 산출물(프로필 쿠키·take-meta·영상)은 이 맥 사용자만 읽게(2026-11-03, 5단계 낮음 S11-F8).
+  mkdirSync(OUT_DIR, { recursive: true, mode: 0o700 });
+  chmodSync(OUT_DIR, 0o700);
   const raw = `${OUT_DIR}/raw.mp4`;
   const demo = `${OUT_DIR}/demo.mp4`;
   const sheet = `${OUT_DIR}/demo-sheet.png`;

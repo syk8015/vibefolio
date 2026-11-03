@@ -3,6 +3,7 @@ import { detectDemoSource, liveUrlIssue } from "@/lib/demoSource";
 import { normalizeDemoAccess, entryOnLinkedSite } from "@/lib/demoAccess";
 import { resolveBuildPayload, DemoSourceError, type BuildPayload } from "@/lib/demoPayload";
 import { assertSafePublicUrl, SsrfError } from "@/lib/ssrf";
+import { rateLimit } from "@/lib/rate-limit";
 import { apiError } from "@/lib/apiError";
 import { requireUser } from "@/lib/routeAuth";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -244,7 +245,8 @@ export async function POST(
       });
       // 승인 대기 알림 (T4): "보통 24h내" 약속은 관리자가 큐를 봐야 지켜진다.
       // deduped 재발화(이미 held인 행 재클릭)는 메일도 재발송하지 않는다.
-      if (!result.deduped) {
+      // 관리자 메일은 하루 20통까지(2026-11-03, 5단계 낮음 D4) — 넘으면 관제탑 대기열에만 남는다.
+      if (!result.deduped && await rateLimit({ name: "admin-mail-held", key: "all", windowSeconds: 86400, max: 20 })) {
         await mailApprovalRequest({
           title: "시연 승인 대기 — 한도 초과 요청",
           lines: [

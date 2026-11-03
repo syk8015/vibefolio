@@ -50,6 +50,10 @@ export async function middleware(request: NextRequest, event: NextFetchEvent) {
   if (pathname.startsWith("/api/") && (await isIpKeyBlocked(await ipKeyEdge(request.headers)))) {
     return NextResponse.json({ ok: false, error: "Access denied.", code: "BLOCKED" }, { status: 403, headers: { "Cache-Control": "no-store" } });
   }
+  // 깨진 퍼센트 인코딩(%c0%ae 등)은 프레임워크가 주소 인자를 풀다 500을 냈다(5단계 낮음 D1) — 미끼 검사 뒤에 400.
+  try { decodeURIComponent(pathname); } catch {
+    return new NextResponse("Bad Request", { status: 400, headers: { "Cache-Control": "no-store" } });
+  }
 
   // 비상 정지(lib/siteLock.ts) — 읽기 전용·업로드 닫기 중이면 /api 쓰기를 503으로 막는다.
   // 읽기 요청은 상태를 묻지도 않는다(lockBlock이 GET을 바로 통과시키지만, 묻는 비용도 아낀다).

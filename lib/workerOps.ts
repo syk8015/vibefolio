@@ -116,6 +116,9 @@ export async function claimNext(skipIds: string[] = []): Promise<ClaimResult> {
       .from("projects")
       .select(cols)
       .eq("demo_build_status", "pending")
+      // 공개·안 내린 작품만(2026-11-03, 낮음 S6-F5·D4) — 대기 중에 내려지거나 초안으로 돌아간 행은 찍지 않는다.
+      .eq("is_draft", false)
+      .is("taken_down_at", null)
       .not("demo_source_type", "is", null);
     if (skipList.length) q = q.not("id", "in", `(${skipList.join(",")})`);
     const { data, error } = await q

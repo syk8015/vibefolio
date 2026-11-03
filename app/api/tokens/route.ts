@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { rateLimit } from "@/lib/rate-limit";
 import { apiError, bodyTooLarge } from "@/lib/apiError";
 import { requireUser } from "@/lib/routeAuth";
 import { getT } from "@/lib/i18n/server";
@@ -15,6 +16,10 @@ export async function POST(req: NextRequest) {
     const auth = await requireUser(t.api.loginRequired);
     if (auth instanceof NextResponse) return auth;
     const { user } = auth;
+    // 요청 제한(2026-11-03, 5단계 낮음 D4 — 동시 발급으로 상한 넘기기·자동 토큰 연타) — 사람마다 시간당 30번.
+    if (!(await rateLimit({ name: "token-issue", key: user.id, windowSeconds: 3600, max: 30 }))) {
+      return apiError({ status: 429, message: t.api.tooManyRequests, code: "RATE_LIMITED" });
+    }
 
     let name: string | null = null;
     // 센티널 이름 2종: 프롬프트 자동발급(auto) · MCP 설정 복사(mcp, 2026-09-04).

@@ -16,7 +16,9 @@ export async function POST() {
   try {
     const auth = await requireUser(t.api.loginRequired);
     if (auth instanceof NextResponse) return auth;
-    if (await rateLimit({ name: "revalidate", key: auth.user.id, windowSeconds: 3600, max: 120 })) {
+    // 사람마다 + 사이트 전체 천장(2026-11-03, 5단계 낮음 S5-F6) — 가입만 하면 누구나 공용 캐시를 계속 비울 수 있었다.
+    if (await rateLimit({ name: "revalidate", key: auth.user.id, windowSeconds: 3600, max: 120 })
+      && await rateLimit({ name: "revalidate-all", key: "all", windowSeconds: 3600, max: 600 })) {
       revalidatePortfolio();
     }
     return new NextResponse(null, { status: 204 });
