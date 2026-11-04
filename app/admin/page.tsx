@@ -48,6 +48,7 @@ export const dynamic = "force-dynamic";
 
 const ADMIN_LINKS: AdminLink[] = [
   { label: "홍보 클립 관리", href: "/admin/promo" },
+  { label: "오늘의 밈", href: "/admin/memes" },
   { label: "인증 앱", href: "/admin/verify" },
   { label: "Vercel", href: "https://vercel.com/dashboard" },
   { label: "Supabase", href: "https://supabase.com/dashboard/project/nepwsgrtonmexgqplcdp" },

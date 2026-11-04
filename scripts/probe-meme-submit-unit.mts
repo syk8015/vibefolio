@@ -1,6 +1,7 @@
 // 매일 밈 후보 검사 순수 규칙(lib/memeSubmit.ts) — 네트워크 없음. `npm test`에 연결.
 import assert from "node:assert/strict";
 import { MEME_JSON_FIELD_MAX, MEME_MAX_LINES, memeKey, parseMemeSubmission } from "../lib/memeSubmit";
+import { MEME_TRANSITIONS, kstDay, parseMemeReview } from "../lib/memeReview";
 
 let n = 0;
 const t = (name: string, fn: () => void) => { fn(); n++; console.log(`✓ ${name}`); };
@@ -73,6 +74,33 @@ t("겹침 열쇠: 답글까지 같아야 같은 줄", () => {
   assert.equal(memeKey({ lang: "en", text: "a", reply: null }), memeKey({ lang: "en", text: "a", reply: null }));
   assert.notEqual(memeKey({ lang: "en", text: "a", reply: "b" }), memeKey({ lang: "en", text: "a", reply: null }));
   assert.notEqual(memeKey({ lang: "ko", text: "a", reply: null }), memeKey({ lang: "en", text: "a", reply: null }));
+});
+
+const ID = "4b3c2a10-1111-4222-8333-944455556666";
+t("검토: 동작과 상태 이동 — 공개·버림은 대기에서만, 내림은 공개에서만, 되돌리기는 버림·내림에서만", () => {
+  assert.deepEqual(MEME_TRANSITIONS.publish, { from: ["pending"], to: "approved" });
+  assert.deepEqual(MEME_TRANSITIONS.drop, { from: ["pending"], to: "rejected" });
+  assert.deepEqual(MEME_TRANSITIONS.retire, { from: ["approved"], to: "retired" });
+  assert.deepEqual(MEME_TRANSITIONS.restore, { from: ["rejected", "retired"], to: "pending" });
+});
+
+t("검토: 잘못된 id·동작은 거절, 상태를 직접 보내도 받지 않음", () => {
+  assert.equal(parseMemeReview({ id: "x", op: "publish" }).ok, false);
+  assert.equal(parseMemeReview({ id: ID, op: "approve" }).ok, false);
+  const r = parseMemeReview({ id: ID, op: "drop", status: "approved" });
+  assert.ok(r.ok && r.op === "drop" && r.edit === null);
+});
+
+t("검토: 고친 글은 공개에만, 한 줄 120자, 빈 답글은 답글 없음", () => {
+  assert.equal(parseMemeReview({ id: ID, op: "drop", text: "x" }).ok, false);
+  assert.equal(parseMemeReview({ id: ID, op: "publish", text: "a\nb" }).ok, false);
+  assert.equal(parseMemeReview({ id: ID, op: "publish", text: "x".repeat(121) }).ok, false);
+  const r = parseMemeReview({ id: ID, op: "publish", text: "  Shipped it  ", reply: "" });
+  assert.ok(r.ok && r.edit?.text === "Shipped it" && r.edit.reply === null);
+});
+
+t("검토: 한국 날짜", () => {
+  assert.equal(kstDay(Date.parse("2026-11-05T00:30:00+09:00")), "2026-11-05");
 });
 
 console.log(`\n${n} checks passed`);

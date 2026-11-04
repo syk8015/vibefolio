@@ -90,6 +90,13 @@ try {
   ok("(5a) 익명 키로 meme_lines 못 읽음", !!a1.error || (a1.data ?? []).length === 0, a1.error?.code ?? `rows=${a1.data?.length}`);
   const a2 = await anon.from("meme_runs").select("id").limit(1);
   ok("(5b) 익명 키로 meme_runs 못 읽음", !!a2.error || (a2.data ?? []).length === 0, a2.error?.code ?? `rows=${a2.data?.length}`);
+  // (6) 검토 길(관리자 전용) — 로그인 없이 부르면 404(있다는 것도 안 알림)
+  const g = await fetch(`${ORIGIN}/api/admin/memes`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
+  ok("(6a) 관리자 아님 → /api/admin/memes 404", g.status === 404, String(g.status));
+  const pg = await fetch(`${ORIGIN}/admin/memes`, { redirect: "manual" });
+  ok("(6b) 관리자 아님 → /admin/memes 404", pg.status === 404, String(pg.status));
+  const w = await fetch(`${ORIGIN}/api/admin/memes`, { method: "POST", headers: { authorization: `Bearer ${process.env.MEME_SECRET}`, "content-type": "application/json" }, body: "{}" });
+  ok("(6c) 밤 작업 열쇠로도 검토 길 못 씀 → 404", w.status === 404, String(w.status));
 } finally {
   await svc.from("meme_lines").delete().like("text", `__probe_meme_${tag}__%`);
   if (runIds.length) await svc.from("meme_runs").delete().in("id", runIds);

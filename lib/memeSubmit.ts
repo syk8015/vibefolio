@@ -47,7 +47,7 @@ const BAD_CHARS = /[\u0000-\u001f\u007f-\u009f​-‏‪-‮⁠-⁩﻿]/;
 const isObj = (v: unknown): v is Record<string, unknown> =>
   typeof v === "object" && v !== null && !Array.isArray(v);
 
-function cleanLine(v: unknown, max: number): string | null | "bad" {
+export function cleanLine(v: unknown, max: number): string | null | "bad" {
   if (v === undefined || v === null) return null;
   if (typeof v !== "string") return "bad";
   const s = v.normalize("NFC").trim();

@@ -19,7 +19,7 @@ export const slug = (s) => s.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+
 
 /**
  * 판정 합치기(순수). 점수는 올라가기만: 판정관 최댓값 · 바닥값(거르기 표시·속임수·원본 기록 없음).
- * @param {{ judges:any[], softFlags?:string[], originNoRecord?:boolean, injectionTexts?:string[] }} x
+ * @param {{ judges:any[], softFlags?:string[], originNoRecord?:boolean, injectionFlags?:boolean[], injectionTexts?:string[] }} x
  */
 export function aggregate({ judges, softFlags = [], originNoRecord = false, injectionFlags = [], injectionTexts = [] }) {
   const cats = {};
