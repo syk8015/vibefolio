@@ -205,11 +205,17 @@ export const loggedInTaglinesEn: LoggedInTagline[] = [
   { text: "Used by people who ask AI instead of Stack Overflow" },
   { text: "These days people ship without ever touching Ctrl+C" },
 
-  // G. 보여 주기 — 처음부터 영어로 쓴 홍보 영상용 밈(2026-11-04, 사용자 고름). '만들었는데 보여줄 데가 없다'.
+  // G. 보여 주기 — 처음부터 영어로 쓴 홍보 영상용 밈(2026-11-04, 후보 12개 모두 씀). '만들었는데 보여줄 데가 없다'.
   { text: "\"Can you show me what you built?\"", reply: "*sends localhost:3000*" },
+  { text: "Vibe coded it in 3 hours", reply: "Recording the demo took 3 days" },
   { text: "\"Just record a quick demo\"", reply: "Take 47" },
   { text: "The app works perfectly", reply: "until I hit record" },
+  { text: "Step 1: prompt. Step 2: ship.", reply: "Step 3: nobody ever sees it" },
+  { text: "Apps built: 30", reply: "Apps anyone has seen: 2" },
   { text: "Every side project is live", reply: "on my laptop, while the lid is open" },
+  { text: "Shipped it. Told no one" },
+  { text: "My portfolio: 14 GitHub repos", reply: "0 READMEs" },
+  { text: "\"Walk me through your code\"", reply: "I was hoping you'd walk me through it" },
   { text: "Link in bio", reply: "it's a 404 now" },
   { text: "Your app deserves more than a screenshot in a group chat" },
 ];
