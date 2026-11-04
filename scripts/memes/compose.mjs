@@ -1,7 +1,7 @@
 // 매일 밈 밤 작업 — 오늘 도는 틀 찾기(3a) + 후보 쓰기(4)(2026-11-05). 영어부터.
 import { join } from "node:path";
 import { readdirSync } from "node:fs";
-import { log, readJson, writeJson } from "./util.mjs";
+import { log, readJson } from "./util.mjs";
 import { runClaude } from "./claude.mjs";
 import { SPOT_SCHEMA, SPOT_SYSTEM, WRITE_SCHEMA, WRITE_SYSTEM } from "./prompts.mjs";
 
