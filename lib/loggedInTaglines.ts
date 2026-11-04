@@ -210,7 +210,7 @@ export const loggedInTaglinesEn: LoggedInTagline[] = [
   { text: "Vibe coded it in 3 hours", reply: "Recording the demo took 3 days" },
   { text: "\"Just record a quick demo\"", reply: "Take 47" },
   { text: "The app works perfectly", reply: "until I hit record" },
-  { text: "Step 1: prompt. Step 2: ship.", reply: "Step 3: nobody ever sees it" },
+  { text: "Step 1: prompt. Step 2: ship", reply: "Step 3: nobody ever sees it" },
   { text: "Apps built: 30", reply: "Apps anyone has seen: 2" },
   { text: "Every side project is live", reply: "on my laptop, while the lid is open" },
   { text: "Shipped it. Told no one" },
