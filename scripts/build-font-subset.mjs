@@ -36,7 +36,9 @@ const FONT_URL = "https://raw.githubusercontent.com/google/fonts/main/ofl/hahmle
 // 정적 카피가 사는 곳. 유저 콘텐츠는 대상이 아니다(런타임에 구글 조각으로 처리).
 const GLOBS = [
   "lib/i18n/dictionaries/ko.ts",
+  "lib/taglines.ts",
   "lib/loggedInTaglines.ts",
+  "lib/identityLine.ts",
   "lib/connectSnippets.ts",
   "lib/rerecordPrompt.ts",
   "lib/demo-failure.ts",
