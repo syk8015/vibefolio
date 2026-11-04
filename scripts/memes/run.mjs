@@ -2,13 +2,20 @@
 //   node run.mjs [--submit] [--force] [--date YYYY-MM-DD]
 //     --submit  그날 실행 기록을 서버(/api/worker/memes)에 남긴다(MEME_SECRET: 키체인)
 //     --force   사용량 판단을 건너뛴다(손으로 시험할 때만)
-// 지금 있는 단계: 1 사용량 판단 → 2 재료 모으기 → (3·4·6 쓰기·검사는 다음 단계에서 붙음) → 7 기록
+//     --gather-only  재료 모으기까지만(Claude 안 부름)
+// 단계: 1 사용량 판단 → 2 재료 모으기 → 3 틀 찾기(Claude) + 유행 숫자 → 4 후보 쓰기(Claude)
+//       → 5 1차 거르기 → 6 반박 검사(Claude 조사관·판정관) → 7 '대기'로 올리기 + 비용 실측 기록
 import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 import { rmSync, writeFileSync } from "node:fs";
 import { BASE, appendJsonl, ensureDir, exists, kstDate, log, readJson } from "./util.mjs";
 import { decideRun, estimateCost, fetchLimits } from "./usage.mjs";
 import { gather } from "./gather.mjs";
+import { spotFormats, writeCandidates } from "./compose.mjs";
+import { measurePhrase } from "./trend.mjs";
+import { filterCandidate, lineKey } from "./filter.mjs";
+import { checkAll, fitSensitivity } from "./check.mjs";
+import { writeJson } from "./util.mjs";
 
 const args = process.argv.slice(2);
 const flag = (f) => args.includes(f);
@@ -17,6 +24,9 @@ const ORIGIN = process.env.NF_ORIGIN || "https://nookframe.com";
 const HISTORY = join(BASE, "history.jsonl");
 const LOCK = join(BASE, "run.lock");
 const MAX_WAIT_MS = 5 * 3600_000;
+const SUBMITTED = join(BASE, "submitted.jsonl"); // 지금까지 올린 줄(겹침 막기·'최근에 쓴 것' 알려 주기)
+const MAX_NEW = 14;
+const MAX_REFRESH = 4;
 
 ensureDir(BASE);
 
@@ -88,8 +98,78 @@ async function main() {
     const okSources = manifest.filter((m) => m.status === 200).length;
     record.gathered = { ok: okSources, total: manifest.length };
 
-    // 3·4·6 (쓰기·유행 숫자·반박 검사)은 다음 단계에서 이 자리에 붙는다.
-    const claudeUsed = false;
+    let lines = [];
+    let claudeUsed = false;
+    const costs = { usd: 0 };
+    if (!flag("--gather-only")) {
+      claudeUsed = true;
+      const dir = join(BASE, "raw", date);
+      const existing = readJson(join(BASE, "existing-lines.json"), { lines: [] }).lines;
+      const submitted = exists(SUBMITTED)
+        ? String(execFileSync("tail", ["-n", "300", SUBMITTED])).split("\n").filter(Boolean).map((l) => JSON.parse(l))
+        : [];
+
+      // 3. 오늘 도는 틀 + 유행 숫자(틀마다 한 번씩, 차례로)
+      const spot = await spotFormats(date, dir);
+      costs.usd += spot.costUsd;
+      for (const f of spot.formats) {
+        try { f.trend = await measurePhrase(f.searchPhrase, { wikiTitle: f.wikiTitle || undefined }); }
+        catch (e) { f.trend = { verdict: "error", error: e.message }; }
+      }
+      writeJson(join(dir, "_formats.json"), spot);
+      log("유행:", spot.formats.map((f) => `${f.name}=${f.trend?.verdict}`).join(" · "));
+
+      // 4. 후보 쓰기
+      const w = await writeCandidates({
+        date, formats: spot.formats, existing,
+        recent: submitted.slice(-60).map((l) => (l.reply ? `${l.text} / ${l.reply}` : l.text)),
+      });
+      costs.usd += w.costUsd;
+
+      // 5. 1차 거르기 — 형식·겹침·낱말. 최신화는 바꿀 문구가 실제로 있어야.
+      const existingKeys = new Set([...existing, ...submitted].map((l) => lineKey({ ...l, lang: l.lang ?? "en" })));
+      const existingTexts = new Set(existing.filter((l) => l.lang === "en").map((l) => l.text));
+      const kept = [];
+      for (const c of w.candidates) {
+        const line = { lang: "en", text: c.text.trim(), reply: c.reply?.trim() || null };
+        if (c.kind === "refresh" && !existingTexts.has(c.replaces)) { log("최신화 대상 없음 — 뺌:", c.replaces); continue; }
+        const f = filterCandidate(line, { existing: existingKeys });
+        if (!f.ok) { log("거름:", f.hard.join(","), "—", line.text); continue; }
+        existingKeys.add(lineKey(line));
+        kept.push({ ...c, ...line, filter: f });
+      }
+      const rank = (c) => spot.formats.find((f) => f.name === c.format)?.trend?.score ?? 40;
+      const news = kept.filter((c) => c.kind === "new").sort((a, b) => rank(b) - rank(a)).slice(0, MAX_NEW);
+      const refresh = kept.filter((c) => c.kind === "refresh").slice(0, MAX_REFRESH);
+      const toCheck = [...news, ...refresh];
+      writeJson(join(dir, "_candidates.json"), { written: w.candidates, kept: toCheck });
+
+      // 6. 반박 검사
+      const checked = await checkAll(toCheck, { date, dir, formats: spot.formats });
+      costs.usd += checked.cost.usd;
+      costs.calls = checked.cost.calls + 2;
+      costs.failed = checked.cost.failed;
+      writeJson(join(dir, "_checks.json"), checked);
+
+      // 7. 올릴 모양으로
+      lines = toCheck.map((c, i) => {
+        const s = checked.results[i];
+        const f = spot.formats.find((x) => x.name === c.format);
+        return {
+          lang: "en", audience: c.audience, kind: c.kind, text: c.text, reply: c.reply,
+          replaces: c.kind === "refresh" ? c.replaces : null,
+          source: f ? { format: f.name, kind: f.kind, description: f.description, sources: f.sources.slice(0, 4), why: c.why } : { why: c.why },
+          trend: f?.trend ? { score: f.trend.score, verdict: f.trend.verdict, ratio: f.trend.ratio, phrase: f.trend.phrase, sources: f.trend.sources, window: f.trend.window } : null,
+          sensitivity: fitSensitivity({
+            score: s.score, level: s.level, floors: s.floors, injected: s.injected, note: s.note,
+            categories: s.categories, summaries: s.summaries, judges: s.judges, mechanical: c.filter?.soft ?? [],
+          }),
+          sensitivity_score: s.score,
+        };
+      });
+      for (const l of lines) appendJsonl(SUBMITTED, { date, lang: l.lang, text: l.text, reply: l.reply });
+      log(`올릴 후보 ${lines.length}줄 — 초록 ${lines.filter((l) => l.sensitivity.level === "green").length} · 노랑 ${lines.filter((l) => l.sensitivity.level === "yellow").length} · 빨강 이상 ${lines.filter((l) => ["red", "drop"].includes(l.sensitivity.level)).length}`);
+    }
 
     // 7. 기록 — Claude를 쓴 실행만 비용 실측으로 남긴다(다음 판단의 근거).
     let after = null;
@@ -102,12 +182,16 @@ async function main() {
         minutes,
       };
     }
+    record.costs = costs;
     await submit({
       status: "ok",
-      reason: "시범: 재료 모으기까지만(쓰기·검사 단계 전)",
-      usage: { before, after, cost, numbers: record.decision?.numbers ?? null },
-      counts: { sources_ok: okSources, sources_total: manifest.length, minutes },
-    });
+      reason: claudeUsed ? null : "재료 모으기까지만(--gather-only)",
+      usage: { before, after, cost, measured: record.measured ?? null, numbers: record.decision?.numbers ?? null },
+      counts: {
+        sources_ok: okSources, sources_total: manifest.length, minutes, lines: lines.length,
+        claude_calls: costs.calls ?? 0, claude_failed: costs.failed ?? 0, api_equivalent_usd: Math.round(costs.usd * 100) / 100,
+      },
+    }, lines);
   } catch (e) {
     record.error = String(e?.message ?? e);
     log("실패:", record.error);
