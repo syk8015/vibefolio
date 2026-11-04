@@ -204,4 +204,12 @@ export const loggedInTaglinesEn: LoggedInTagline[] = [
   { text: "Used by fellow token-burning enthusiasts" },
   { text: "Used by people who ask AI instead of Stack Overflow" },
   { text: "These days people ship without ever touching Ctrl+C" },
+
+  // G. 보여 주기 — 처음부터 영어로 쓴 홍보 영상용 밈(2026-11-04, 사용자 고름). '만들었는데 보여줄 데가 없다'.
+  { text: "\"Can you show me what you built?\"", reply: "*sends localhost:3000*" },
+  { text: "\"Just record a quick demo\"", reply: "Take 47" },
+  { text: "The app works perfectly", reply: "until I hit record" },
+  { text: "Every side project is live", reply: "on my laptop, while the lid is open" },
+  { text: "Link in bio", reply: "it's a 404 now" },
+  { text: "Your app deserves more than a screenshot in a group chat" },
 ];
