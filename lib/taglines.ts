@@ -20,15 +20,16 @@ export const taglineIntros: string[] = [
   "만든 걸 보여주는 데 필요한 건 링크 하나",
 ];
 
+// 2026-11-04 다시 씀 — 번역이 아니라 처음부터 영어로, 브랜드 기준(진짜 · 다 만든 그다음 · 라이브 포트폴리오)에 맞춤.
 export const taglineIntrosEn: string[] = [
-  "Send the URL — the demo video records itself",
-  "A portfolio that moves, instead of screenshots",
-  "A live portfolio visitors can actually touch",
-  "Ask your AI once, and your work is up",
-  "The link you send instead of a GitHub URL",
-  "The demo films itself. The bragging is yours",
-  "Your work lands without anyone opening the code",
-  "All it takes to show your work is one link",
+  "Real apps, running live. Not screenshots",
+  "Your app, running — not a picture of it",
+  "Don't describe your app. Let them use it",
+  "For what comes after you build it",
+  "You built it with AI. Now let people use it",
+  "A live portfolio for things you built with AI",
+  "Paste the link. The demo video films itself",
+  "Ask your AI to upload it. You just hit publish",
 ];
 
 // 사용자 수가 이보다 적으면 {N} 문장을 뺀다 — "빌더 3명이 사용 중"은 오히려
@@ -203,4 +204,9 @@ export const taglinesEn: string[] = [
   "Your most honest introduction is the thing you built",
   "Starting is the hard part. Start here",
   "The rough edges are part of the work, sum = all",
+
+  // 다 괜찮아·흔적 (2026-11-04)
+  "Half-finished counts. Show it running",
+  "The work goes first. Your name comes after",
+  "Not a résumé. A trail of what you've built",
 ];
