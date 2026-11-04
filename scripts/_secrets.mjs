@@ -34,6 +34,8 @@ const QUIET = process.env.NF_SECRETS_QUIET === "1";
 // 키체인에 사는 비밀값. 이름을 늘릴 땐 여기에만 추가한다.
 const MANAGED = [
   { env: "SUPABASE_SERVICE_ROLE_KEY", service: "nookframe-supabase-service-role" },
+  // 없어도 되는 것(optional): 그 값을 쓰는 스크립트만 스스로 확인한다.
+  { env: "MEME_SECRET", service: "nookframe-meme-secret", optional: true }, // 매일 밈 밤 작업 → /api/worker/memes
 ];
 
 function loadEnvFiles() {
@@ -52,7 +54,7 @@ function loadEnvFiles() {
 
 export function loadSecrets() {
   loadEnvFiles();
-  for (const { env, service } of MANAGED) {
+  for (const { env, service, optional } of MANAGED) {
     const fromKeychain = readKeychain(service);
     if (fromKeychain) {
       process.env[env] = fromKeychain; // 키체인 우선 — 파일 값이 있어도 덮는다
@@ -63,6 +65,7 @@ export function loadSecrets() {
       if (!QUIET) console.error(`[secrets] ${env} ← .env 파일 (폴백)`);
       continue;
     }
+    if (optional) continue;
     console.error(
       `[secrets] ✗ ${env} 를 어디서도 못 찾았어요.\n` +
         `  키체인에 심으려면 (security -i 라서 값이 ps에 안 뜹니다):\n` +

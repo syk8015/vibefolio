@@ -18,8 +18,7 @@ import { apiError } from "./apiError";
 // oracle would get plenty of samples.
 type WorkerGate = "ok" | "unconfigured" | "denied";
 
-function authorizeWorker(req: NextRequest): WorkerGate {
-  const secret = process.env.WORKER_SECRET;
+function authorizeBearer(req: NextRequest, secret: string | undefined): WorkerGate {
   if (!secret) return "unconfigured";
   const header = req.headers.get("authorization");
   if (!header?.startsWith("Bearer ")) return "denied";
@@ -32,17 +31,14 @@ function authorizeWorker(req: NextRequest): WorkerGate {
   return timingSafeEqual(a, b) ? "ok" : "denied";
 }
 
-// Returns null when the caller is the worker, or the response to send back.
-// Callers: `const denied = requireWorker(req); if (denied) return denied;`
-export function requireWorker(req: NextRequest) {
-  const gate = authorizeWorker(req);
+function gateResponse(gate: WorkerGate, envName: string, unconfiguredCode: string) {
   if (gate === "unconfigured") {
     // Loud 503 rather than a silent open door — a deploy that forgot the env var
-    // must stop the worker, not run it unauthenticated.
+    // must stop the caller, not run it unauthenticated.
     return apiError({
       status: 503,
-      message: "WORKER_SECRET not configured",
-      code: "WORKER_UNCONFIGURED",
+      message: `${envName} not configured`,
+      code: unconfiguredCode,
       log: true,
     });
   }
@@ -50,4 +46,22 @@ export function requireWorker(req: NextRequest) {
     return apiError({ status: 401, message: "unauthorized", code: "UNAUTHORIZED", log: false });
   }
   return null;
+}
+
+// Returns null when the caller is the worker, or the response to send back.
+// Callers: `const denied = requireWorker(req); if (denied) return denied;`
+export function requireWorker(req: NextRequest) {
+  return gateResponse(authorizeBearer(req, process.env.WORKER_SECRET), "WORKER_SECRET", "WORKER_UNCONFIGURED");
+}
+
+// The nightly meme job on the owner's Mac (2026-11-04, daily memes). A SEPARATE
+// secret from the worker's on purpose: it can only drop lines into the review queue
+// as 'pending' (/api/worker/memes) — never read, approve, publish or delete — and the
+// recording worker's secret can't reach that route either. Revocation = rotate
+// MEME_SECRET in Vercel. A value equal to WORKER_SECRET is refused (503) so the two
+// can't silently collapse into one key.
+export function requireMemeJob(req: NextRequest) {
+  const secret = process.env.MEME_SECRET;
+  const same = !!secret && secret === process.env.WORKER_SECRET;
+  return gateResponse(authorizeBearer(req, same ? undefined : secret), "MEME_SECRET", "MEME_UNCONFIGURED");
 }

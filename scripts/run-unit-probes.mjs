@@ -17,6 +17,7 @@ const PROBES = [
   "scripts/probe-upload-warnings-unit.mts", // 올린 파일 속 이메일·MAC·데이터 폴더 경고 — 자리표시는 안 잡고 값은 안 실음
   "scripts/probe-cli-gitignore-unit.mjs",   // CLI zip이 올리는 폴더 안 .gitignore를 따름 — 되살리기·하위 폴더·dist 위 규칙 무시
   "scripts/probe-small-holes-unit.mts",     // 작은 구멍 — 유입 주소는 호스트만·소셜 배지 www. 앞만·길이 상한 SQL not valid
+  "scripts/probe-meme-submit-unit.mts",     // 매일 밈 후보 검사 — 대기만·한 줄 글·민감도 필수·크기 상한
   "scripts/probe-media-scan-unit.mts",      // 공개 그림 내용 검사 — 본 주소 건너뛰기·오류 하루 뒤 다시·답 다듬기·신고 사유·키 없으면 꺼짐
   "scripts/probe-prompt-secrets-unit.mts",  // 프롬프트 3종에 토큰이 안 실리는지(1회용 코드만)
   "scripts/probe-schema-drift.mts",         // 생성물(cli/src/schema.js·lib/mcpTools.ts)이 원본과 어긋났는지
