@@ -21,7 +21,7 @@ export const slug = (s) => s.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+
  * 판정 합치기(순수). 점수는 올라가기만: 판정관 최댓값 · 바닥값(거르기 표시·속임수·원본 기록 없음).
  * @param {{ judges:any[], softFlags?:string[], originNoRecord?:boolean, injectionTexts?:string[] }} x
  */
-export function aggregate({ judges, softFlags = [], originNoRecord = false, injectionTexts = [] }) {
+export function aggregate({ judges, softFlags = [], originNoRecord = false, injectionFlags = [], injectionTexts = [] }) {
   const cats = {};
   const overall = [];
   for (const j of judges) {
@@ -46,9 +46,9 @@ export function aggregate({ judges, softFlags = [], originNoRecord = false, inje
   if (softFlags.includes("sensitive_number_or_date")) floor(30, "sensitive_number_or_date");
   if (softFlags.includes("contested_word")) floor(30, "contested_word");
   if (originNoRecord) floor(25, "origin_no_record");
-  // 조사관·판정관이 '자료 속 지시문'을 보고했거나(빈칸·"none" 류 제외), 그 글에 지시문 꼴이 그대로 있으면.
-  const reported = (t) => !!t && t.trim().length > 0 && !/^\s*(none|no\b|n\/a|nothing|없음)/i.test(t) && !/\bno (instruction|injection)/i.test(t);
-  const injected = injectionTexts.some((t) => t && (INJECTION.test(t) || reported(t)));
+  // 조사관·판정관이 '자료 속 지시문을 만났다'고 표시했거나(예/아니오 칸 — 11-05 자유 글 칸은 'none' 류 답이 헛경보를 냄),
+  // 그들이 옮긴 글에 지시문 꼴이 그대로 있으면.
+  const injected = injectionFlags.some((f) => f === true) || injectionTexts.some((t) => !!t && INJECTION.test(t));
   if (injected) floor(60, "injection_seen");
   return {
     score, level: levelOf(score), floors, injected,
@@ -65,6 +65,10 @@ async function verifyQuote(url, quote) {
   return norm(htmlToText(r.body)).includes(norm(quote).slice(0, 80));
 }
 
+const injectionOf = (outs) => ({
+  injectionFlags: outs.map((o) => o?.injectionFound === true),
+  injectionTexts: outs.map((o) => o?.injectionDetail ?? ""),
+});
 const lineText = (c) => (c.reply ? `${c.text}\n↳ ${c.reply}` : c.text);
 const data = (o) => `<data>\n${JSON.stringify(o, null, 2)}\n</data>`;
 const investigate = (system, subject) =>
@@ -124,14 +128,14 @@ export async function checkAll(candidates, { date, dir, formats = [] }) {
     if (j1.ok) judges.push(j1.data);
     let agg = aggregate({
       judges, softFlags: c.filter?.soft, originNoRecord: !!origins[c.format]?.noRecord,
-      injectionTexts: [a.data?.injectionSeen, a2.data?.injectionSeen, origins[c.format]?.injectionSeen, j1.data?.injectionSeen],
+      ...injectionOf([a.data, a2.data, origins[c.format], j1.data]),
     });
     if (!j1.ok || (agg.score >= 30 && agg.score <= 70)) {
       const j2 = await judge();
       if (j2.ok) judges.push(j2.data);
       agg = aggregate({
         judges, softFlags: c.filter?.soft, originNoRecord: !!origins[c.format]?.noRecord,
-        injectionTexts: [a.data?.injectionSeen, a2.data?.injectionSeen, origins[c.format]?.injectionSeen, j1.data?.injectionSeen, judges[1]?.injectionSeen],
+        ...injectionOf([a.data, a2.data, origins[c.format], ...judges]),
       });
     }
     if (!judges.length) agg = { ...agg, score: Math.max(agg.score, 60), level: levelOf(Math.max(agg.score, 60)), floors: [...agg.floors, "judge_failed"] };
@@ -158,6 +162,8 @@ export async function checkAll(candidates, { date, dir, formats = [] }) {
         origin: c.format ? origins[c.format]?.summary?.slice(0, 400) ?? "(not investigated)" : null,
       },
       judges: judges.length,
+      // 맥에만 남기는 원본(서버로 안 보냄) — 점수가 왜 그렇게 나왔는지 되짚을 때
+      debug: { line: a.data ?? a.error, echoes: a2.data ?? a2.error, judges },
     };
   });
   log(`반박 검사: 후보 ${candidates.length} · Claude 호출 ${cost.calls}(실패 ${cost.failed}) · API로 쳤다면 약 $${cost.usd.toFixed(2)}`);
