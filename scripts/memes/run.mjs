@@ -44,16 +44,22 @@ function memeSecret() {
 
 async function submit(run, lines = []) {
   if (!flag("--submit")) return log("(기록 안 보냄 — --submit 없음)");
-  try {
-    const r = await fetch(`${ORIGIN}/api/worker/memes`, {
-      method: "POST",
-      headers: { authorization: `Bearer ${memeSecret()}`, "content-type": "application/json" },
-      body: JSON.stringify({ run: { run_date: date, ...run }, lines }),
-    });
-    const b = await r.json().catch(() => ({}));
-    log(`서버 기록 ${r.status}`, b.ok ? `inserted=${b.inserted} skipped=${b.skipped}` : b.code ?? "");
-  } catch (e) {
-    log("서버 기록 실패:", e.message);
+  // 네트워크가 잠깐 끊긴 밤도 있다(11-05 실측 'fetch failed') — 세 번까지, 점점 길게 기다리며.
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const r = await fetch(`${ORIGIN}/api/worker/memes`, {
+        method: "POST",
+        headers: { authorization: `Bearer ${memeSecret()}`, "content-type": "application/json" },
+        body: JSON.stringify({ run: { run_date: date, ...run }, lines }),
+        signal: AbortSignal.timeout(30_000),
+      });
+      const b = await r.json().catch(() => ({}));
+      log(`서버 기록 ${r.status}`, b.ok ? `inserted=${b.inserted} skipped=${b.skipped}` : `${b.code ?? ""} ${b.field ?? ""} ${b.error ?? ""}`);
+      if (r.status < 500) return;
+    } catch (e) {
+      log(`서버 기록 실패(${attempt}/3):`, e.message, e.cause?.code ?? "");
+    }
+    await sleep(attempt * 20_000);
   }
 }
 

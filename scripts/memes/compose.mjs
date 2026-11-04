@@ -15,14 +15,14 @@ export function digestRaw(dir) {
     if (!d || d.status !== 200 || d.id === "imgflip") continue;
     out.push({
       source: d.id, url: d.url,
-      links: (d.links ?? []).slice(0, 40).map((l) => `${l.title} — ${l.url}`),
-      text: (d.text ?? "").slice(0, PER_SOURCE_TEXT),
-      items: (d.items ?? []).slice(0, 40).map((i) => i.title ?? i.text),
+      links: (Array.isArray(d.links) ? d.links : []).slice(0, 40).map((l) => `${l.title} — ${l.url}`),
+      text: (typeof d.text === "string" ? d.text : "").slice(0, PER_SOURCE_TEXT),
+      items: (Array.isArray(d.items) ? d.items : []).slice(0, 40).map((i) => i.title ?? i.text),
     });
   }
   // 밈 그림 틀 순위(상위 25)
   const img = readJson(join(dir, "imgflip.json"));
-  if (img?.items) out.push({ source: "imgflip-top-templates", items: img.items.slice(0, 25).map((m) => `#${m.rank} ${m.name}`) });
+  if (Array.isArray(img?.items)) out.push({ source: "imgflip-top-templates", items: img.items.slice(0, 25).map((m) => `#${m.rank} ${m.name}`) });
   return out;
 }
 

@@ -71,12 +71,12 @@ export async function gather(date, { only } = {}) {
     try { res = await src.run(); } catch (e) { res = { status: 0, error: String(e?.message ?? e) }; }
     const entry = {
       id: src.id, url: src.url, lang: src.lang, status: res.status, error: res.error ?? null,
-      links: res.links?.length ?? 0, items: res.items?.length ?? 0, textChars: res.text?.length ?? 0,
+      linkCount: res.links?.length ?? 0, itemCount: res.items?.length ?? 0, textChars: res.text?.length ?? 0,
       ms: Date.now() - started,
     };
     manifest.push(entry);
     writeJson(join(dir, `${src.id}.json`), { ...entry, fetchedAt: new Date().toISOString(), ...res });
-    log(`${entry.status === 200 ? "✓" : "✗"} ${src.id} ${entry.status} links=${entry.links} items=${entry.items} text=${entry.textChars}`);
+    log(`${entry.status === 200 ? "✓" : "✗"} ${src.id} ${entry.status} links=${entry.linkCount} items=${entry.itemCount} text=${entry.textChars}`);
   }
   writeJson(join(dir, "manifest.json"), { date, at: new Date().toISOString(), sources: manifest });
   return manifest;
