@@ -7,7 +7,13 @@
 // ANTHROPIC_API_KEY는 지운다 — 있으면 구독이 아니라 API 크레딧으로 청구된다(공식 문서).
 import { spawn } from "node:child_process";
 
-const CLAUDE = process.env.NF_CLAUDE_BIN || "claude";
+import { existsSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
+
+// launchd PATH엔 ~/.local/bin(공식 설치 위치)이 없다 → 있으면 그 경로를 바로 쓴다.
+const LOCAL = join(homedir(), ".local/bin/claude");
+const CLAUDE = process.env.NF_CLAUDE_BIN || (existsSync(LOCAL) ? LOCAL : "claude");
 
 /**
  * @param {{ system:string, prompt:string, schema:object, tools?:string[], model?:string,
