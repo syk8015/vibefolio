@@ -47,7 +47,11 @@ export const WRITE_SYSTEM =
   "- English written by a native speaker, not translated. Observational and dry, self-aware, never mean.\n" +
   "- No terminal period. A question mark or quotes are fine. No hashtags, no emoji, no exclamation spam.\n" +
   "- Two shapes: a single line, or a setup line + a short reply line (the reply is shown after a ↳ marker).\n" +
-  "- Max 80 characters per line (hard max 120).\n" +
+  "- Short enough to fit on ONE line of a phone screen: the first line at most 40 characters, the reply at most 45. " +
+  "Shorter lands harder; a line that wraps reads badly on the home page.\n" +
+  "- For every line also write Korean notes for the Korean reviewer (they are never shown on the site): " +
+  "'ko' = a natural Korean rendering of the first line (keep the joke, not word-for-word), 'ko_reply' = the same for the reply (empty if none), " +
+  "'explain' = 2–3 Korean sentences in plain words: which meme or situation it riffs on, and why a builder would find it funny. Avoid unexplained jargon.\n" +
   "- 'everyone' lines must make sense to a first-time visitor who is not a developer; 'logged_in' lines can be insider jokes for builders.\n" +
   "- Remix the FORMAT of a trending meme; never copy someone's exact joke. Do not name real private people. " +
   "Public companies/products may be mentioned only affectionately. No politics, religion, tragedies, sexual or hateful content.\n" +
@@ -61,7 +65,7 @@ export const WRITE_SCHEMA = {
       type: "array", maxItems: 20,
       items: {
         type: "object", additionalProperties: false,
-        required: ["audience", "kind", "text", "reply", "replaces", "format", "why"],
+        required: ["audience", "kind", "text", "reply", "replaces", "format", "why", "ko", "ko_reply", "explain"],
         properties: {
           audience: { type: "string", enum: ["logged_in", "everyone"] },
           kind: { type: "string", enum: ["new", "refresh"] },
@@ -70,6 +74,9 @@ export const WRITE_SCHEMA = {
           replaces: { type: "string", description: "for refresh: the EXACT existing line text it replaces; else empty" },
           format: { type: "string", description: "name of the trending format it remixes, or empty" },
           why: { type: "string", description: "one sentence: why it is funny now" },
+          ko: { type: "string", description: "Korean rendering of the first line (for the reviewer)" },
+          ko_reply: { type: "string", description: "Korean rendering of the reply, or empty" },
+          explain: { type: "string", description: "2-3 Korean sentences: what meme/situation it riffs on and what it means" },
         },
       },
     },

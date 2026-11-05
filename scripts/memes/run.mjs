@@ -164,7 +164,8 @@ async function main() {
         return {
           lang: "en", audience: c.audience, kind: c.kind, text: c.text, reply: c.reply,
           replaces: c.kind === "refresh" ? c.replaces : null,
-          source: f ? { format: f.name, kind: f.kind, description: f.description, sources: f.sources.slice(0, 4), why: c.why } : { why: c.why },
+          source: { ...(f ? { format: f.name, kind: f.kind, description: f.description, sources: f.sources.slice(0, 4) } : {}),
+            why: c.why, ko: c.ko || undefined, ko_reply: c.ko_reply || undefined, explain: c.explain || undefined },
           trend: f?.trend ? { score: f.trend.score, verdict: f.trend.verdict, ratio: f.trend.ratio, phrase: f.trend.phrase, sources: f.trend.sources, window: f.trend.window } : null,
           sensitivity: fitSensitivity({
             score: s.score, level: s.level, floors: s.floors, injected: s.injected, note: s.note,

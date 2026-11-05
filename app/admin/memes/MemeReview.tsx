@@ -20,7 +20,8 @@ export type MemeRow = {
   text: string;
   reply: string | null;
   replaces: string | null;
-  source: { format?: string; description?: string; why?: string; sources?: string[] } | null;
+  // ko·explain: 영어 줄의 한국어 번역과 '무슨 밈·무슨 뜻'(밤 작업이 같이 쓴다, 검토용 — 홈에는 안 뜬다)
+  source: { format?: string; description?: string; why?: string; sources?: string[]; ko?: string; ko_reply?: string; explain?: string } | null;
   trend: { score: number | null; verdict: string; ratio: number | null; sources?: TrendSource[] } | null;
   sensitivity: {
     score: number; level: string; floors?: string[]; note?: string; categories?: Category[];
@@ -63,6 +64,19 @@ const perDay = (s: TrendSource) => `${(s.recent / 7).toFixed(1)}/일 ← ${(s.ba
 const safeUrl = (u: string) => (/^https?:\/\//i.test(u) ? u : null);
 const host = (u: string) => { try { return new URL(u).host.replace(/^www\./, ""); } catch { return u; } };
 
+// 홈(LoggedInHeadline)과 같은 계산으로 한 줄에 들어가는지 잰다 — 글자 min(3.4vw, 2.5rem)·답글 min(2.8vw, 2rem),
+// 폭 min(92vw, 화면-48px), 답글은 앞에 1.4em 들여쓰기 + ↳. 폰 390px · PC 1440px 기준.
+function fitsOneLine(ctx: CanvasRenderingContext2D, fam: string, text: string, reply: string | null, vw: number) {
+  const room = Math.min(0.92 * vw, vw - 48);
+  const h = Math.min(Math.max(17.6, 0.034 * vw), 40);
+  const r = Math.min(Math.max(15.2, 0.028 * vw), 32);
+  ctx.font = `500 ${h}px ${fam}`;
+  if (ctx.measureText(text).width + h * 0.6 > room) return false;
+  if (!reply) return true;
+  ctx.font = `italic 400 ${r}px ${fam}`;
+  return ctx.measureText(`↳ ${reply}`).width + r * 2 <= room;
+}
+
 export default function MemeReview({ initial, run, loadError, today }: { initial: MemeRow[]; run: MemeRunInfo | null; loadError: string | null; today: string }) {
   const [rows, setRows] = useState(initial);
   const [tab, setTab] = useState<Tab>("new");
@@ -80,8 +94,11 @@ export default function MemeReview({ initial, run, loadError, today }: { initial
   const [error, setError] = useState<string | null>(null);
   const reduce = useRef(false);
 
-  // 고른 줄이 바뀌면 처음부터 다시 친다(움직임 줄이기면 한 번에).
-  const total = sel ? sel.text.length + (sel.reply?.length ?? 0) : 0;
+  // 고른 줄이 바뀌면 처음부터 다시 친다 — 홈과 같은 빠르기(한 타 0.09~0.15초, 답글 앞 0.65초 쉼).
+  // 무대를 누르면 끝까지 한 번에. 움직임 줄이기면 처음부터 한 번에.
+  const tl = sel?.text.length ?? 0;
+  const total = sel ? tl + (sel.reply?.length ?? 0) : 0;
+  const typer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     reduce.current = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     setTyped(reduce.current ? total : 0);
@@ -89,11 +106,43 @@ export default function MemeReview({ initial, run, loadError, today }: { initial
     setOpen(false);
     setError(null);
     if (reduce.current) return;
-    const t = setInterval(() => setTyped((n) => (n >= total ? n : n + 2)), 28);
-    return () => clearInterval(t);
-  }, [sel?.id, total]);
+    let n = 0;
+    const step = () => {
+      n++;
+      setTyped(n);
+      if (n < total) typer.current = setTimeout(step, (n === tl ? 650 : 0) + 90 + Math.random() * 60);
+    };
+    typer.current = setTimeout(step, 300);
+    return () => { if (typer.current) clearTimeout(typer.current); };
+  }, [sel?.id, total, tl]);
+  const skipTyping = () => { if (typer.current) clearTimeout(typer.current); setTyped(total); };
 
-  const pick = (id: string) => { setPhase("enter"); setSelId(id); };
+  // 홈에서 한 줄에 들어가는지(폰·PC). 글꼴이 다 내려온 뒤에 잰다.
+  const stageRef = useRef<HTMLDivElement>(null);
+  const [fit, setFit] = useState<{ id: string; pc: boolean; phone: boolean } | null>(null);
+  useEffect(() => {
+    if (!sel || !stageRef.current) return;
+    let live = true;
+    const el = stageRef.current;
+    document.fonts.ready.then(() => {
+      const ctx = document.createElement("canvas").getContext("2d");
+      if (!live || !ctx) return;
+      const fam = getComputedStyle(el).fontFamily;
+      setFit({ id: sel.id, pc: fitsOneLine(ctx, fam, sel.text, sel.reply, 1440), phone: fitsOneLine(ctx, fam, sel.text, sel.reply, 390) });
+    });
+    return () => { live = false; };
+  }, [sel]);
+  const fitNote = !fit || fit.id !== sel?.id ? null
+    : !fit.pc ? "PC 홈에서도 두 줄로 넘어가요" : !fit.phone ? "폰 홈에서는 두 줄로 넘어가요" : null;
+
+  const stageTop = useRef<HTMLElement>(null);
+  const pick = (id: string) => {
+    setPhase("enter");
+    setSelId(id);
+    // 목록 아래쪽을 눌렀을 때 무대가 화면 위로 지나가 있으면 무대로 올려 준다.
+    const top = stageTop.current?.getBoundingClientRect().top ?? 0;
+    if (top < 0) stageTop.current?.scrollIntoView({ behavior: reduce.current ? "auto" : "smooth", block: "start" });
+  };
   const switchTab = (t: Tab) => {
     setTab(t);
     const first = rows.find((r) => (t === "done" ? r.status !== "pending" : r.status === "pending" && r.kind === (t === "new" ? "new" : "refresh")));
@@ -140,7 +189,6 @@ export default function MemeReview({ initial, run, loadError, today }: { initial
   const score = sel?.sensitivity_score ?? sel?.sensitivity?.score ?? 0;
   const flagged = score >= 30;
   const showEvidence = flagged || open;
-  const tl = sel?.text.length ?? 0;
 
   return (
     <main className="nf-ops" style={{ minHeight: "100dvh", background: "var(--bg)", color: "var(--text-primary)", fontFamily: "var(--font-nunito)", padding: "40px 24px 64px" }}>
@@ -187,7 +235,7 @@ export default function MemeReview({ initial, run, loadError, today }: { initial
               ))}
             </nav>
 
-            <section aria-label="고른 후보" style={{ flex: "999 1 560px", minWidth: 0 }}>
+            <section ref={stageTop} aria-label="고른 후보" style={{ flex: "999 1 560px", minWidth: 0, scrollMarginTop: 16 }}>
               <div key={sel.id + phase} className={phase === "leave" ? "nf-meme-leave" : "nf-meme-enter"}
                 style={{ background: "var(--surface)", borderRadius: 16, boxShadow: "var(--shadow-panel)", padding: 28, display: "flex", flexDirection: "column", gap: 20 }}>
 
@@ -200,6 +248,7 @@ export default function MemeReview({ initial, run, loadError, today }: { initial
                       : sel.audience === "everyone" ? "공개하면 로그아웃 홈 소개 다음과 로그인 홈에 떠요" : "공개하면 로그인 홈 맨 앞에 떠요"}
                   </span>
                   {sel.status !== "pending" && <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>· {STATUS_TEXT[sel.status]}{sel.edited ? " (고쳐서)" : ""}</span>}
+                  {fitNote && <span style={{ fontSize: 13, color: "var(--ops-warn)" }}>· {fitNote}</span>}
                 </div>
 
                 {sel.kind === "refresh" && sel.replaces && (
@@ -207,14 +256,15 @@ export default function MemeReview({ initial, run, loadError, today }: { initial
                 )}
 
                 {!editing ? (
-                  <div aria-label={sel.reply ? `${sel.text} / ${sel.reply}` : sel.text}
-                    style={{ background: "var(--bg)", borderRadius: 12, minHeight: 196, padding: "40px 32px", display: "flex", flexDirection: "column", gap: 12, alignItems: "center", justifyContent: "center", textAlign: "center" }}>
-                    <p aria-hidden style={{ margin: 0, fontFamily: "var(--font-serif), serif", fontWeight: 500, fontSize: 30, lineHeight: 1.4, maxWidth: "22ch", wordBreak: "keep-all" }}>
+                  <div ref={stageRef} aria-label={sel.reply ? `${sel.text} / ${sel.reply}` : sel.text} className="nf-meme-stage" onClick={skipTyping}
+                    title={typed < total ? "누르면 끝까지 보여요" : undefined}
+                    style={{ background: "var(--bg)", borderRadius: 12, minHeight: 196, padding: "40px 24px", display: "flex", flexDirection: "column", gap: "0.4em", alignItems: "center", justifyContent: "center", textAlign: "center", fontFamily: "var(--font-serif), serif", cursor: typed < total ? "pointer" : "default" }}>
+                    <p aria-hidden className="nf-meme-h" style={{ margin: 0, fontWeight: 500, lineHeight: 1.45, letterSpacing: "-0.01em", wordBreak: "keep-all", overflowWrap: "break-word" }}>
                       {sel.text.slice(0, Math.min(typed, tl))}
                       {(typed <= tl || !sel.reply) && <span className="vf-cursor vf-cursor-inline" />}
                     </p>
                     {sel.reply && typed > tl && (
-                      <p aria-hidden style={{ margin: 0, fontFamily: "var(--font-serif), serif", fontStyle: "italic", fontSize: 21, color: "var(--text-secondary)", maxWidth: "30ch" }}>
+                      <p aria-hidden className="nf-meme-r" style={{ margin: 0, fontStyle: "italic", lineHeight: 1.45, letterSpacing: "-0.01em", color: "var(--text-secondary)", paddingLeft: "1.4em", wordBreak: "keep-all", overflowWrap: "break-word" }}>
                         <span style={{ marginRight: "0.35em", opacity: 0.7 }}>↳</span>
                         {sel.reply.slice(0, typed - tl)}
                         <span className="vf-cursor vf-cursor-inline" />
@@ -232,6 +282,19 @@ export default function MemeReview({ initial, run, loadError, today }: { initial
                         style={{ fontFamily: "var(--font-serif), serif", fontSize: 17 }} />
                     </label>
                     <p style={{ margin: 0, fontSize: 13, color: "var(--ops-warn)" }}>고친 글은 다시 검사하지 않아요. 검사는 고치기 전 글 기준이에요.</p>
+                  </div>
+                )}
+
+                {sel.lang === "en" && (
+                  <div style={{ background: "var(--surface-soft)", borderRadius: 12, padding: 16, display: "flex", flexDirection: "column", gap: 8 }}>
+                    <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>한국어로</span>
+                    {sel.source?.ko ? (
+                      <>
+                        <span style={{ fontSize: 15, lineHeight: 1.5, fontWeight: 600 }}>{sel.source.ko}</span>
+                        {sel.source.ko_reply && <span style={{ fontSize: 15, lineHeight: 1.5 }}>↳ {sel.source.ko_reply}</span>}
+                      </>
+                    ) : <span style={{ fontSize: 14, color: "var(--text-secondary)" }}>번역이 아직 없어요.</span>}
+                    {sel.source?.explain && <span style={{ fontSize: 14, lineHeight: 1.6, color: "var(--text-secondary)" }}>{sel.source.explain}</span>}
                   </div>
                 )}
 
@@ -348,4 +411,10 @@ const MEME_CSS = `
 .nf-meme-leave { animation: nf-meme-out 170ms cubic-bezier(.55,0,1,.45) both; }
 @media (prefers-reduced-motion: reduce) { .nf-meme-enter, .nf-meme-leave { animation: none; } }
 @media (max-width: 760px) { .nf-meme-list { max-width: none !important; max-height: 40vh; overflow-y: auto; } }
+/* 넓은 화면: 목록은 화면 높이에 붙어 따로 굴러간다 — 아래쪽 줄을 눌러도 오른쪽 무대가 그대로 보인다. */
+@media (min-width: 761px) { .nf-meme-list { position: sticky; top: 16px; max-height: calc(100dvh - 32px); overflow-y: auto; } }
+/* 무대 = PC 홈(폭 1440px)을 줄인 모형. 홈 글자 40px·답글 32px ÷ 글 폭 1325px 비율 그대로라 줄바꿈 자리가 홈과 같다. */
+.nf-meme-stage { container-type: inline-size; }
+.nf-meme-h { font-size: max(15px, 3.02cqi); }
+.nf-meme-r { font-size: max(13px, 2.42cqi); }
 `;
