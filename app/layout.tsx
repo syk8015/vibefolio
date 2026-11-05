@@ -3,6 +3,7 @@ import { Inter, Hahmlet, JetBrains_Mono } from "next/font/google";
 import FirstTouch from "@/components/FirstTouch";
 import { LocaleProvider } from "@/lib/i18n/client";
 import { getLocale } from "@/lib/i18n/server";
+import { siteShareImage } from "@/lib/siteShareImage";
 import "./globals.css";
 
 const inter = Inter({
@@ -36,6 +37,7 @@ const SITE_DESCRIPTION = {
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getLocale();
   const description = SITE_DESCRIPTION[locale];
+  const image = siteShareImage(locale);
   return {
     title: SITE_TITLE,
     description,
@@ -48,11 +50,13 @@ export async function generateMetadata(): Promise<Metadata> {
       type: "website",
       locale: locale === "en" ? "en_US" : "ko_KR",
       alternateLocale: locale === "en" ? "ko_KR" : "en_US",
+      images: [image],
     },
     twitter: {
       card: "summary_large_image",
       title: SITE_TITLE,
       description,
+      images: [image],
     },
   };
 }
@@ -62,7 +66,7 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // 언어는 서버가 정한다(쿠키 → Accept-Language → ko, lib/i18n/server.ts). <html lang>이 늘 "ko"면
+  // 언어는 서버가 정한다(쿠키 → Accept-Language → 없으면 영어·카카오톡 미리보기만 ko, lib/i18n/server.ts). <html lang>이 늘 "ko"면
   // 영어 화면도 JS를 안 돌리는 검색·미리보기 로봇에겐 한국어 페이지로 읽힌다(2026-10-02).
   // 이걸 읽으면 루트 아래 전부가 매 요청 렌더가 된다 — 이미 랜딩·명함·로그인·가입·대시보드·설정이
   // 그랬고, 새로 동적이 되는 건 비밀번호 찾기·재설정·온보딩 같은 가벼운 화면뿐이다.

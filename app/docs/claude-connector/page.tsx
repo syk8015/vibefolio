@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Logo from "@/components/Logo";
 import LanguageToggle from "@/components/LanguageToggle";
 import { getLocale } from "@/lib/i18n/server";
+import { siteShareImage } from "@/lib/siteShareImage";
 import { MCP_TOOLS } from "@/lib/mcpTools";
 
 // Claude 커넥터 공개 안내(2026-10-02) — 커넥터 디렉터리 등록 요건인 "공개 안내 문서"가 이 페이지다.
@@ -35,14 +36,14 @@ export async function generateMetadata(): Promise<Metadata> {
       siteName: "Nookframe",
       type: "website",
       locale: locale === "en" ? "en_US" : "ko_KR",
-      // 파일로 둔 루트 그림(app/opengraph-image.png)도 openGraph를 다시 쓰면 빠진다 — 직접 단다.
-      images: [{ url: "/opengraph-image.png", width: 1200, height: 630 }],
+      // 루트의 공유 그림도 openGraph를 다시 쓰면 빠진다 — 직접 단다.
+      images: [siteShareImage(locale)],
     },
     twitter: {
       card: "summary_large_image",
       title,
       description,
-      images: [{ url: "/twitter-image.png", width: 1200, height: 630 }],
+      images: [siteShareImage(locale)],
     },
   };
 }

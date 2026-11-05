@@ -20,6 +20,7 @@ const PROBES = [
   "scripts/probe-meme-submit-unit.mts",     // 매일 밈 후보 검사 — 대기만·한 줄 글·민감도 필수·크기 상한
   "scripts/probe-memes-unit.mts",           // 매일 밈 밤 작업 — 사용량 판단·유행 점수·1차 거르기·HTML 글 뽑기
   "scripts/probe-meme-live-unit.mts",       // 매일 밈 홈 연결 — 오늘 줄 맨 앞·모두에게 줄·최신화 덮어쓰기
+  "scripts/probe-share-locale-unit.mts",    // 공유 미리보기 언어 — 언어 정보 없으면 영어, 카카오톡만 한국어, 그림 파일
   "scripts/probe-media-scan-unit.mts",      // 공개 그림 내용 검사 — 본 주소 건너뛰기·오류 하루 뒤 다시·답 다듬기·신고 사유·키 없으면 꺼짐
   "scripts/probe-prompt-secrets-unit.mts",  // 프롬프트 3종에 토큰이 안 실리는지(1회용 코드만)
   "scripts/probe-schema-drift.mts",         // 생성물(cli/src/schema.js·lib/mcpTools.ts)이 원본과 어긋났는지

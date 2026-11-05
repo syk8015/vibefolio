@@ -1,7 +1,7 @@
 import { cookies, headers } from "next/headers";
 import {
-  DEFAULT_LOCALE,
   LOCALE_COOKIE,
+  fallbackLocale,
   isLocale,
   matchLanguageTags,
   type Locale,
@@ -17,8 +17,9 @@ import { getDictionary } from "./dictionaries";
 export async function getLocale(): Promise<Locale> {
   const cookie = (await cookies()).get(LOCALE_COOKIE)?.value;
   if (isLocale(cookie)) return cookie;
-  const accept = (await headers()).get("accept-language");
-  return (accept && matchLanguageTags(accept.split(","))) || DEFAULT_LOCALE;
+  const h = await headers();
+  const accept = h.get("accept-language");
+  return (accept && matchLanguageTags(accept.split(","))) || fallbackLocale(h.get("user-agent"));
 }
 
 export async function getT() {

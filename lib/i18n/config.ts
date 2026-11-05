@@ -20,3 +20,11 @@ export function matchLanguageTags(tags: readonly string[]): Locale | null {
   }
   return null;
 }
+
+// 언어 정보(쿠키·Accept-Language)가 없는 요청 = 거의 링크 미리보기·검색 로봇. 주 대상이 영어권이라
+// 영어로 답하고(2026-11-05, 그전엔 ko), 한국어 채널인 카카오톡의 미리보기 로봇(kakaotalk-scrap)만
+// 한국어. 사람 방문자는 브라우저가 늘 Accept-Language를 보내므로 이 길로 오지 않는다.
+// DEFAULT_LOCALE(받는 사람 언어를 모를 때의 메일 등)은 그대로 ko다.
+export function fallbackLocale(userAgent: string | null | undefined): Locale {
+  return /kakaotalk/i.test(userAgent ?? "") ? "ko" : "en";
+}
