@@ -65,8 +65,16 @@ async function verifyQuote(url, quote) {
   return norm(htmlToText(r.body)).includes(norm(quote).slice(0, 80));
 }
 
+// 검색 도구가 결과 끝에 늘 붙이는 서식 안내(웹 글이 아님). 11-05 밤 작업에서 판정관이 이걸 속임수로 표시해
+// 4줄이 헛빨강(60)이 됐다. 이 안내만 짚은 표시는 세지 않는다 — 다른 지시문 꼴이 같이 있으면 그대로 센다.
+export const SEARCH_TOOL_NOTE = /REMINDER: You MUST include the sources above in your response to the user using markdown hyperlinks\.?/gi;
+export const onlyToolNote = (detail = "") => {
+  SEARCH_TOOL_NOTE.lastIndex = 0;
+  if (!SEARCH_TOOL_NOTE.test(detail)) return false;
+  return !INJECTION.test(detail.replace(SEARCH_TOOL_NOTE, ""));
+};
 const injectionOf = (outs) => ({
-  injectionFlags: outs.map((o) => o?.injectionFound === true),
+  injectionFlags: outs.map((o) => o?.injectionFound === true && !onlyToolNote(o?.injectionDetail)),
   injectionTexts: outs.map((o) => o?.injectionDetail ?? ""),
 });
 const lineText = (c) => (c.reply ? `${c.text}\n↳ ${c.reply}` : c.text);

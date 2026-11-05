@@ -15,6 +15,7 @@ import { spotFormats, writeCandidates } from "./compose.mjs";
 import { measurePhrase } from "./trend.mjs";
 import { filterCandidate, lineKey } from "./filter.mjs";
 import { checkAll, fitSensitivity } from "./check.mjs";
+import { koreanize } from "./korean.mjs";
 import { writeJson } from "./util.mjs";
 
 const args = process.argv.slice(2);
@@ -175,6 +176,17 @@ async function main() {
         };
       });
       for (const l of lines) appendJsonl(SUBMITTED, { date, lang: l.lang, text: l.text, reply: l.reply });
+      // 8. 조사 내용을 한국어로(검토 화면이 기본으로 보여 줌). 실패해도 영어로 올린다.
+      const kr = await koreanize(lines.map((l, i) => ({ key: String(i), sensitivity: l.sensitivity })), { log });
+      costs.usd += kr.usd;
+      lines.forEach((l, i) => {
+        const ko = kr.ko.get(String(i));
+        if (!ko) return;
+        const withKo = fitSensitivity({ ...l.sensitivity, ko }, 16_000);
+        // 서버 상한(16KB)을 넘으면 번역을 빼고 올린다 — 한 줄 때문에 묶음 전체가 거절되면 안 된다.
+        if (Buffer.byteLength(JSON.stringify(withKo), "utf8") <= 16_000) l.sensitivity = withKo;
+      });
+      log(`조사 내용 한국어로 ${kr.ko.size}/${lines.length}줄 (약 $${kr.usd.toFixed(2)})`);
       log(`올릴 후보 ${lines.length}줄 — 초록 ${lines.filter((l) => l.sensitivity.level === "green").length} · 노랑 ${lines.filter((l) => l.sensitivity.level === "yellow").length} · 빨강 이상 ${lines.filter((l) => ["red", "drop"].includes(l.sensitivity.level)).length}`);
     }
 

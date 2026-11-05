@@ -26,6 +26,8 @@ export type MemeRow = {
   sensitivity: {
     score: number; level: string; floors?: string[]; note?: string; categories?: Category[];
     summaries?: { line?: string; echoes?: string; origin?: string | null };
+    // 조사 내용의 한국어(scripts/memes/korean.mjs). 화면은 이걸 먼저 보여 주고 '원문 보기'로 영어를 연다.
+    ko?: { note?: string; summaries?: { line?: string; echoes?: string; origin?: string }; reasons?: Record<string, string>; quotes?: Record<string, string> };
   } | null;
   sensitivity_score: number | null;
   status: MemeStatus;
@@ -380,35 +382,53 @@ export default function MemeReview({ initial, run, loadError, today }: { initial
 }
 
 function EvidencePanel({ s, flagged }: { s: NonNullable<MemeRow["sensitivity"]>; flagged: boolean }) {
+  const ko = s.ko;
+  const [orig, setOrig] = useState(!ko);
+  const kr = !orig && ko ? ko : null;
   const cats = (s.categories ?? []).filter((c) => c.score >= 10).slice(0, 4);
   const sums: [string, string | null | undefined][] = [
-    ["우리 줄을 조사한 결과", s.summaries?.line], ["떠올리게 하는 것", s.summaries?.echoes], ["원본 밈", s.summaries?.origin],
+    ["우리 줄을 조사한 결과", kr?.summaries?.line ?? s.summaries?.line],
+    ["떠올리게 하는 것", kr?.summaries?.echoes ?? s.summaries?.echoes],
+    ["원본 밈", kr?.summaries?.origin ?? s.summaries?.origin],
   ];
+  const note = kr?.note ?? s.note;
   return (
     <div style={{ background: flagged ? "var(--surface-sunken)" : "var(--surface-soft)", borderRadius: 12, padding: "16px 18px", display: "flex", flexDirection: "column", gap: 14 }}>
-      {s.note && <p style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>{s.note}</p>}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12 }}>
+        <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>{ko ? (orig ? "원문(영어)" : "조사 내용(한국어로 옮김)") : "조사 내용(번역이 아직 없어요)"}</span>
+        {ko && (
+          <button type="button" className="vf-button-text" aria-pressed={orig} onClick={() => setOrig(!orig)} style={{ fontSize: 13, flex: "none" }}>
+            {orig ? "한국어로 보기" : "원문 보기"}
+          </button>
+        )}
+      </div>
+      {note && <p lang={kr ? "ko" : "en"} style={{ margin: 0, fontSize: 14, fontWeight: 600, lineHeight: 1.6 }}>{note}</p>}
       {(s.floors ?? []).map((f) => FLOOR[f] && <p key={f} style={{ margin: 0, fontSize: 14, color: "var(--ops-warn)" }}>{FLOOR[f]}</p>)}
-      {cats.map((c) => (
-        <div key={c.category} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>{CATEGORY[c.category] ?? c.category} <span className="vf-mono">{c.score}</span></span>
-          {c.reason && <span style={{ fontSize: 14, lineHeight: 1.5 }}>{c.reason}</span>}
-          {(c.evidence ?? []).map((e, i) => {
-            const url = safeUrl(e.url);
-            return (
-              <span key={i} style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.5 }}>
-                {e.quote && <>“{e.quote}” </>}
-                {url ? <a href={url} target="_blank" rel="noopener noreferrer nofollow">{host(url)}</a> : e.url}
-                {e.date && `, ${e.date}`}
-                {`, ${e.verified === true ? "인용 확인됨" : e.verified === false ? "인용을 원문에서 못 찾음" : "원문 확인 못 함"}`}
-              </span>
-            );
-          })}
-        </div>
-      ))}
+      {cats.map((c) => {
+        const reason = kr?.reasons?.[c.category] ?? c.reason;
+        return (
+          <div key={c.category} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>{CATEGORY[c.category] ?? c.category} <span className="vf-mono">{c.score}</span></span>
+            {reason && <span lang={kr?.reasons?.[c.category] ? "ko" : "en"} style={{ fontSize: 14, lineHeight: 1.6 }}>{reason}</span>}
+            {(c.evidence ?? []).map((e, i) => {
+              const url = safeUrl(e.url);
+              const quote = kr?.quotes?.[`${c.category}#${i}`] ?? e.quote;
+              return (
+                <span key={i} style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6 }}>
+                  {quote && <>“{quote}” </>}
+                  {url ? <a href={url} target="_blank" rel="noopener noreferrer nofollow">{host(url)}</a> : e.url}
+                  {e.date && `, ${e.date}`}
+                  {`, ${e.verified === true ? "인용 확인됨" : e.verified === false ? "인용을 원문에서 못 찾음" : "원문 확인 못 함"}`}
+                </span>
+              );
+            })}
+          </div>
+        );
+      })}
       {sums.filter(([, v]) => v).map(([k, v]) => (
         <div key={k} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>{k}</span>
-          <span lang="en" style={{ fontSize: 14, lineHeight: 1.5 }}>{v}</span>
+          <span lang={kr ? "ko" : "en"} style={{ fontSize: 14, lineHeight: 1.6 }}>{v}</span>
         </div>
       ))}
     </div>
