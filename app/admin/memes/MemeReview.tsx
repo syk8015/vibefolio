@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Segmented } from "@/components/Segmented";
-import { kstDay, type MemeOp, type MemeStatus } from "@/lib/memeReview";
+import { MEME_TRANSITIONS, kstDay, type MemeOp, type MemeStatus } from "@/lib/memeReview";
 
 // 오늘의 밈 검토 화면(시안 C '교정쇄', 2026-11-05). 왼쪽 목록 · 오른쪽 무대.
 // 무대는 홈과 같은 글꼴·커서로 한 글자씩 쳐서 '공개하면 이렇게 뜬다'를 그대로 보여 준다.
@@ -86,12 +86,11 @@ export default function MemeReview({ initial, run, loadError, today }: { initial
   const sel = rows.find((r) => r.id === selId) ?? list[0] ?? null;
 
   const [typed, setTyped] = useState(0);
-  const [phase, setPhase] = useState<"enter" | "leave">("enter");
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState({ text: "", reply: "" });
   const [open, setOpen] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(0);
+  const [failed, setFailed] = useState<{ row: MemeRow; message: string } | null>(null);
   const reduce = useRef(false);
 
   // 고른 줄이 바뀌면 처음부터 다시 친다 — 홈과 같은 빠르기(한 타 0.09~0.15초, 답글 앞 0.65초 쉼).
@@ -104,7 +103,6 @@ export default function MemeReview({ initial, run, loadError, today }: { initial
     setTyped(reduce.current ? total : 0);
     setEditing(false);
     setOpen(false);
-    setError(null);
     if (reduce.current) return;
     let n = 0;
     const step = () => {
@@ -112,7 +110,7 @@ export default function MemeReview({ initial, run, loadError, today }: { initial
       setTyped(n);
       if (n < total) typer.current = setTimeout(step, (n === tl ? 650 : 0) + 90 + Math.random() * 60);
     };
-    typer.current = setTimeout(step, 300);
+    typer.current = setTimeout(step, 120);
     return () => { if (typer.current) clearTimeout(typer.current); };
   }, [sel?.id, total, tl]);
   const skipTyping = () => { if (typer.current) clearTimeout(typer.current); setTyped(total); };
@@ -137,7 +135,6 @@ export default function MemeReview({ initial, run, loadError, today }: { initial
 
   const stageTop = useRef<HTMLElement>(null);
   const pick = (id: string) => {
-    setPhase("enter");
     setSelId(id);
     // 목록 아래쪽을 눌렀을 때 무대가 화면 위로 지나가 있으면 무대로 올려 준다.
     const top = stageTop.current?.getBoundingClientRect().top ?? 0;
@@ -149,34 +146,41 @@ export default function MemeReview({ initial, run, loadError, today }: { initial
     pick(first?.id ?? "");
   };
 
-  async function act(op: MemeOp) {
-    if (!sel || busy) return;
-    setBusy(true);
-    setError(null);
-    const edit = op === "publish" && editing ? { text: draft.text, reply: draft.reply } : {};
-    try {
-      const r = await fetch("/api/admin/memes", {
-        method: "POST", headers: { "content-type": "application/json" },
-        body: JSON.stringify({ id: sel.id, op, ...edit }),
-      });
-      const body = await r.json().catch(() => ({}));
-      if (!r.ok) { setError(body.error ?? "저장하지 못했어요."); return; }
-      setPhase("leave");
-      await new Promise((res) => setTimeout(res, reduce.current ? 0 : 170));
-      const updated = { ...sel, ...body.line };
-      const next = rows.map((x) => (x.id === sel.id ? updated : x));
-      setRows(next);
-      // 같은 탭에서 아직 안 본 다음 줄로
-      const pool = next.filter((x) => (tab === "done" ? x.status !== "pending" : x.status === "pending" && x.kind === sel.kind));
-      const idx = list.findIndex((x) => x.id === sel.id);
-      const after = pool.find((x) => list.findIndex((y) => y.id === x.id) > idx) ?? pool[0];
-      pick(after?.id ?? "");
-    } catch {
-      setError("연결이 끊겼어요. 다시 눌러 주세요.");
-    } finally {
-      setBusy(false);
-    }
+  // 누르면 바로 다음 줄로 넘어가고 저장은 뒤에서 한다(관리자 확인·기록이 서울↔미국 서버를 여러 번 오가 1초 넘게 걸림).
+  // 저장이 실패하면 그 줄을 원래대로 되돌리고 위에 알린다.
+  function act(op: MemeOp) {
+    if (!sel) return;
+    const before = sel;
+    const t = MEME_TRANSITIONS[op];
+    const edit = op === "publish" && editing ? { text: draft.text.trim(), reply: draft.reply.trim() || null } : null;
+    const optimistic: MemeRow = { ...before, status: t.to, reviewed_at: new Date().toISOString(), ...(edit ? { ...edit, edited: true } : {}) };
+    const next = rows.map((x) => (x.id === before.id ? optimistic : x));
+    setRows(next);
+    setFailed(null);
+    // 같은 탭에서 아직 안 본 다음 줄로
+    const pool = next.filter((x) => (tab === "done" ? x.status !== "pending" : x.status === "pending" && x.kind === before.kind));
+    const idx = list.findIndex((x) => x.id === before.id);
+    const after = pool.find((x) => list.findIndex((y) => y.id === x.id) > idx) ?? pool[0];
+    pick(after?.id ?? "");
+
+    setSaving((n) => n + 1);
+    fetch("/api/admin/memes", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ id: before.id, op, ...(edit ? { text: edit.text, reply: edit.reply ?? "" } : {}) }),
+    })
+      .then(async (r) => {
+        const body = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(body.error ?? "저장하지 못했어요.");
+        setRows((rs) => rs.map((x) => (x.id === before.id ? { ...x, ...body.line } : x)));
+      })
+      .catch((e: unknown) => {
+        setRows((rs) => rs.map((x) => (x.id === before.id ? before : x)));
+        const message = e instanceof Error && !(e instanceof TypeError) ? e.message : "연결이 끊겼어요.";
+        setFailed({ row: before, message });
+      })
+      .finally(() => setSaving((n) => n - 1));
   }
+
 
   const publishedToday = rows.filter((r) => r.status === "approved" && r.reviewed_at && kstDay(Date.parse(r.reviewed_at)) === today).length;
   const count = (t: Tab) => rows.filter((r) => (t === "done" ? r.status !== "pending" : r.status === "pending" && r.kind === (t === "new" ? "new" : "refresh"))).length;
@@ -203,6 +207,7 @@ export default function MemeReview({ initial, run, loadError, today }: { initial
           <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
             <span style={{ fontSize: 14, color: "var(--text-secondary)" }}>
               오늘 공개 <span className="vf-mono" style={{ color: "var(--text-primary)", fontSize: 15 }}>{publishedToday}/10</span>
+              {saving > 0 && " · 저장하는 중"}
             </span>
             <Segmented<Tab> label="후보 묶음" value={tab} onPick={switchTab} options={[
               { value: "new", label: `새 밈 ${count("new")}` },
@@ -213,6 +218,17 @@ export default function MemeReview({ initial, run, loadError, today }: { initial
         </header>
 
         {loadError && <p style={{ margin: 0, fontSize: 14, color: "var(--danger)" }}>{loadError}</p>}
+        {failed && (
+          <p role="alert" style={{ margin: 0, fontSize: 14, color: "var(--danger)", display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap" }}>
+            “{failed.row.text}”을 저장하지 못해서 원래대로 돌려놨어요. {failed.message}
+            <button type="button" className="vf-button-text" style={{ fontSize: 14 }} onClick={() => {
+              const r = failed.row;
+              setTab(r.status === "pending" ? (r.kind === "new" ? "new" : "refresh") : "done");
+              pick(r.id);
+              setFailed(null);
+            }}>그 줄 다시 보기</button>
+          </p>
+        )}
 
         {!sel ? (
           <div style={{ background: "var(--surface-soft)", borderRadius: 16, padding: "48px 24px", textAlign: "center" }}>
@@ -236,7 +252,7 @@ export default function MemeReview({ initial, run, loadError, today }: { initial
             </nav>
 
             <section ref={stageTop} aria-label="고른 후보" style={{ flex: "999 1 560px", minWidth: 0, scrollMarginTop: 16 }}>
-              <div key={sel.id + phase} className={phase === "leave" ? "nf-meme-leave" : "nf-meme-enter"}
+              <div key={sel.id} className="nf-meme-enter"
                 style={{ background: "var(--surface)", borderRadius: 16, boxShadow: "var(--shadow-panel)", padding: 28, display: "flex", flexDirection: "column", gap: 20 }}>
 
                 <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
@@ -332,25 +348,24 @@ export default function MemeReview({ initial, run, loadError, today }: { initial
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, paddingTop: 4 }}>
                   {sel.status === "pending" && !editing && (
                     <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", justifyContent: "center" }}>
-                      <button type="button" className="vf-button-primary" disabled={busy} onClick={() => act("publish")}>공개하기</button>
-                      <button type="button" className="vf-button-ghost" disabled={busy}
+                      <button type="button" className="vf-button-primary" onClick={() => act("publish")}>공개하기</button>
+                      <button type="button" className="vf-button-ghost"
                         onClick={() => { setDraft({ text: sel.text, reply: sel.reply ?? "" }); setEditing(true); }}>고쳐서 공개</button>
-                      <button type="button" className="vf-button-text" disabled={busy} onClick={() => act("drop")} style={{ color: "var(--danger)" }}>버리기</button>
+                      <button type="button" className="vf-button-text" onClick={() => act("drop")} style={{ color: "var(--danger)" }}>버리기</button>
                     </div>
                   )}
                   {sel.status === "pending" && editing && (
                     <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                      <button type="button" className="vf-button-primary" disabled={busy || !draft.text.trim()} onClick={() => act("publish")}>고친 대로 공개</button>
-                      <button type="button" className="vf-button-text" disabled={busy} onClick={() => setEditing(false)}>그만 고치기</button>
+                      <button type="button" className="vf-button-primary" disabled={!draft.text.trim()} onClick={() => act("publish")}>고친 대로 공개</button>
+                      <button type="button" className="vf-button-text" onClick={() => setEditing(false)}>그만 고치기</button>
                     </div>
                   )}
                   {sel.status === "approved" && (
-                    <button type="button" className="vf-button-ghost" disabled={busy} onClick={() => act("retire")}>홈에서 내리기</button>
+                    <button type="button" className="vf-button-ghost" onClick={() => act("retire")}>홈에서 내리기</button>
                   )}
                   {(sel.status === "rejected" || sel.status === "retired") && (
-                    <button type="button" className="vf-button-ghost" disabled={busy} onClick={() => act("restore")}>다시 검토하기</button>
+                    <button type="button" className="vf-button-ghost" onClick={() => act("restore")}>다시 검토하기</button>
                   )}
-                  {error && <p role="alert" style={{ margin: 0, fontSize: 14, color: "var(--danger)" }}>{error}</p>}
                 </div>
               </div>
               <p style={{ margin: "14px 0 0", fontSize: 13, color: "var(--text-secondary)", textAlign: "center" }}>
@@ -400,16 +415,14 @@ function EvidencePanel({ s, flagged }: { s: NonNullable<MemeRow["sensitivity"]>;
   );
 }
 
-// 이 화면에서만 쓰는 상태 색(관제탑과 같은 값) + 카드 들어오기·나가기(들어올 때 0.26초, 나갈 때 0.17초).
+// 이 화면에서만 쓰는 상태 색(관제탑과 같은 값) + 카드 들어오기(0.26초).
 // ui-allow: color 관제탑(app/admin/page.tsx)과 같은 화면 한정 상태 색 — 다크 값도 같이 둔다
 const MEME_CSS = `
 .nf-ops { --ops-ok: #2e7d4a; --ops-warn: #a5741f; --ops-bad: #b53f3f; }
 [data-theme="dark"] .nf-ops { --ops-ok: #3f9e60; --ops-warn: #bd831f; --ops-bad: #cd5f4a; }
 @keyframes nf-meme-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
-@keyframes nf-meme-out { to { opacity: 0; transform: translateY(-14px); } }
 .nf-meme-enter { animation: nf-meme-in 260ms cubic-bezier(.23,1,.32,1) both; }
-.nf-meme-leave { animation: nf-meme-out 170ms cubic-bezier(.55,0,1,.45) both; }
-@media (prefers-reduced-motion: reduce) { .nf-meme-enter, .nf-meme-leave { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .nf-meme-enter { animation: none; } }
 @media (max-width: 760px) { .nf-meme-list { max-width: none !important; max-height: 40vh; overflow-y: auto; } }
 /* 넓은 화면: 목록은 화면 높이에 붙어 따로 굴러간다 — 아래쪽 줄을 눌러도 오른쪽 무대가 그대로 보인다. */
 @media (min-width: 761px) { .nf-meme-list { position: sticky; top: 16px; max-height: calc(100dvh - 32px); overflow-y: auto; } }
