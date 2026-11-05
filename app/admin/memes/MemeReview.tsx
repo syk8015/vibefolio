@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { Segmented } from "@/components/Segmented";
 import { MEME_TRANSITIONS, kstDay, type MemeOp, type MemeStatus } from "@/lib/memeReview";
@@ -79,6 +79,10 @@ function fitsOneLine(ctx: CanvasRenderingContext2D, fam: string, text: string, r
   return ctx.measureText(`↳ ${reply}`).width + r * 2 <= room;
 }
 
+const PROMO_KEY = "nf-meme-promo";
+const readPromo = () => { try { return localStorage.getItem(PROMO_KEY) === "1"; } catch { return false; } };
+const subscribePromo = (cb: () => void) => { window.addEventListener("storage", cb); return () => window.removeEventListener("storage", cb); };
+
 export default function MemeReview({ initial, run, loadError, today }: { initial: MemeRow[]; run: MemeRunInfo | null; loadError: string | null; today: string }) {
   const [rows, setRows] = useState(initial);
   const [tab, setTab] = useState<Tab>("new");
@@ -92,6 +96,15 @@ export default function MemeReview({ initial, run, loadError, today }: { initial
   const [draft, setDraft] = useState({ text: "", reply: "" });
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(0);
+  // '공개할 때 홍보 영상 대기열에도 넣기' — 고른 값은 이 브라우저에 기억(편의용, 없어도 꺼짐으로 돈다).
+  const [promoMem, setPromoMem] = useState<boolean | null>(null); // 이번 화면에서 고른 값(기억 못 하는 브라우저용)
+  const promoStored = useSyncExternalStore(subscribePromo, readPromo, () => false);
+  const promo = promoMem ?? promoStored;
+  const [promoError, setPromoError] = useState<string | null>(null);
+  const togglePromo = (on: boolean) => {
+    setPromoMem(on);
+    try { localStorage.setItem(PROMO_KEY, on ? "1" : "0"); } catch { /* 기억만 못 함 */ }
+  };
   const [failed, setFailed] = useState<{ row: MemeRow; message: string } | null>(null);
   const reduce = useRef(false);
 
@@ -150,6 +163,21 @@ export default function MemeReview({ initial, run, loadError, today }: { initial
 
   // 누르면 바로 다음 줄로 넘어가고 저장은 뒤에서 한다(관리자 확인·기록이 서울↔미국 서버를 여러 번 오가 1초 넘게 걸림).
   // 저장이 실패하면 그 줄을 원래대로 되돌리고 위에 알린다.
+  // 홍보 영상 대기열(/admin/promo와 같은 길) — 세로 9:16 · 바로 문구부터. 촬영은 맥에서 npm run promo:batch.
+  function queuePromo(locale: "ko" | "en", text: string) {
+    setPromoError(null);
+    fetch("/api/admin/promo/clips", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ locale, text, format: "vertical", opening: "hook" }),
+    })
+      .then(async (r) => {
+        if (r.ok) return;
+        const body = await r.json().catch(() => ({}));
+        setPromoError(`“${text}”을 홍보 영상 대기열에 넣지 못했어요. ${body.error ?? ""} 공개는 됐어요.`);
+      })
+      .catch(() => setPromoError(`“${text}”을 홍보 영상 대기열에 넣지 못했어요(연결이 끊김). 공개는 됐어요.`));
+  }
+
   function act(op: MemeOp) {
     if (!sel) return;
     const before = sel;
@@ -174,6 +202,7 @@ export default function MemeReview({ initial, run, loadError, today }: { initial
         const body = await r.json().catch(() => ({}));
         if (!r.ok) throw new Error(body.error ?? "저장하지 못했어요.");
         setRows((rs) => rs.map((x) => (x.id === before.id ? { ...x, ...body.line } : x)));
+        if (op === "publish" && promo) queuePromo(before.lang, body.line?.text ?? optimistic.text);
       })
       .catch((e: unknown) => {
         setRows((rs) => rs.map((x) => (x.id === before.id ? before : x)));
@@ -220,6 +249,7 @@ export default function MemeReview({ initial, run, loadError, today }: { initial
         </header>
 
         {loadError && <p style={{ margin: 0, fontSize: 14, color: "var(--danger)" }}>{loadError}</p>}
+        {promoError && <p role="alert" style={{ margin: 0, fontSize: 14, color: "var(--danger)" }}>{promoError}</p>}
         {failed && (
           <p role="alert" style={{ margin: 0, fontSize: 14, color: "var(--danger)", display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap" }}>
             “{failed.row.text}”을 저장하지 못해서 원래대로 돌려놨어요. {failed.message}
@@ -355,6 +385,12 @@ export default function MemeReview({ initial, run, loadError, today }: { initial
                         onClick={() => { setDraft({ text: sel.text, reply: sel.reply ?? "" }); setEditing(true); }}>고쳐서 공개</button>
                       <button type="button" className="vf-button-text" onClick={() => act("drop")} style={{ color: "var(--danger)" }}>버리기</button>
                     </div>
+                  )}
+                  {sel.status === "pending" && (
+                    <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13, color: "var(--text-secondary)", cursor: "pointer" }}>
+                      <input type="checkbox" checked={promo} onChange={(e) => togglePromo(e.target.checked)} />
+                      공개할 때 홍보 영상 대기열에도 넣기 (세로 · 바로 문구부터)
+                    </label>
                   )}
                   {sel.status === "pending" && editing && (
                     <div style={{ display: "flex", gap: 10, alignItems: "center" }}>

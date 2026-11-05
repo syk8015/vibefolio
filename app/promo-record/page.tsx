@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import LoggedInHeadline from "@/components/LoggedInHeadline";
-import { loggedInTaglines, loggedInTaglinesEn } from "@/lib/loggedInTaglines";
+import { getPromoPool } from "@/lib/memeLive";
 import type { Locale } from "@/lib/i18n/config";
 
 export const metadata: Metadata = {
@@ -24,7 +24,8 @@ export default async function PromoRecordPage({
 }) {
   const { promo, locale: localeParam, format } = await searchParams;
   const locale: Locale = localeParam === "en" ? "en" : "ko";
-  const pool = locale === "en" ? loggedInTaglinesEn : loggedInTaglines;
+  // 고정 문구 + 공개한 매일 밈(최신화 반영) — 촬영 대기열(/api/admin/promo/clips)과 같은 목록.
+  const pool = await getPromoPool(locale);
   const forced = promo ? pool.find((item) => item.text === promo) : undefined;
   const isHorizontal = format === "horizontal";
 

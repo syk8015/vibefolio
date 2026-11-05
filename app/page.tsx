@@ -18,6 +18,7 @@ import Logo from "@/components/Logo";
 import JsonLd from "@/components/JsonLd";
 import LandingPing from "@/components/LandingPing";
 import { getT } from "@/lib/i18n/server";
+import { getLiveMemes } from "@/lib/memeLive";
 
 interface FeaturedProfile {
   username: string;
@@ -109,13 +110,17 @@ export default async function LandingPage() {
   // 이름·아바타는 profiles가 정본이다. user_metadata는 가입 때(구글 값) 찍힌
   // 사본이라 명함 탭에서 이름을 바꿔도 여기만 옛 이름이 남았다(2026-09-22 실측).
   // 행이 아직 없으면(온보딩 전) metadata로 떨어진다.
-  const { data: ownProfile } = user
-    ? await supabase
-        .from("profiles")
-        .select("username, name, avatar_url")
-        .eq("id", user.id)
-        .maybeSingle()
-    : { data: null };
+  // 매일 밈(검토 화면에서 공개한 줄, lib/memeLive.ts — 10분 캐시, 공개·내리기 때 바로 비움)도 같이 읽는다.
+  const [{ data: ownProfile }, live] = await Promise.all([
+    user
+      ? supabase
+          .from("profiles")
+          .select("username, name, avatar_url")
+          .eq("id", user.id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+    getLiveMemes(locale),
+  ]);
   const meta = user?.user_metadata || {};
   const username = ownProfile?.username || meta.username || user?.email?.split("@")[0] || "";
   const name = ownProfile?.name || meta.name || username;
@@ -162,7 +167,7 @@ export default async function LandingPage() {
           <p className="text-sm" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)" }}>
             {t.landing.greetingBefore}<span style={{ color: "var(--text-primary)", fontWeight: 600 }}>{name}</span>{t.landing.greetingAfter}
           </p>
-          <LoggedInHeadline locale={locale} />
+          <LoggedInHeadline locale={locale} live={live} />
           <div className="flex flex-wrap justify-center items-center gap-3">
             <Link href={`/${username}`}
               className="px-7 py-3 rounded-full text-sm transition-opacity hover:opacity-80"
@@ -229,7 +234,7 @@ export default async function LandingPage() {
           </div>
         </nav>
 
-        <TypingTagline userCount={userCount ?? 0} locale={locale} />
+        <TypingTagline userCount={userCount ?? 0} locale={locale} live={live} />
 
         {/* Scroll hint — fades out as soon as the user scrolls.
             Not gated on `profiles`: the FAQ section below always renders, so

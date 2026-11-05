@@ -5,6 +5,7 @@ import { AnalyticsEvent } from "@/lib/analytics-events";
 import { promoTrackingUrl, type PromoLocale, type PromoPostStatus } from "@/lib/promo";
 import { Panel, SectionTitle, MonoAside, Ledger, type LedgerEntry } from "../panels";
 import TaglinePicker, { type TaglineShots } from "./TaglinePicker";
+import { getPromoPool } from "@/lib/memeLive";
 import ClipGallery, { type ClipData } from "./ClipGallery";
 import PerfRank, { type PerfRow } from "./PerfRank";
 import type { ClipPost } from "./ClipCard";
@@ -131,6 +132,9 @@ export default async function PromoPage() {
     (a, b) => b.visits - a.visits || b.signups - a.signups || a.label.localeCompare(b.label),
   );
 
+  const [poolKo, poolEn] = await Promise.all([getPromoPool("ko"), getPromoPool("en")]);
+  const pickerPools = { ko: poolKo, en: poolEn };
+
   // 태그라인 풀에서 "이미 찍은 문구"를 표시하려고 문구 텍스트로 묶는다
   // (promo_clips에 문구 원문이 그대로 저장돼 있어 조인이 필요 없다).
   const taglineShots: TaglineShots = {};
@@ -189,7 +193,7 @@ export default async function PromoPage() {
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 items-start">
           <div className="xl:col-span-8">
             <Panel title="태그라인 풀" aside={<MonoAside>문구를 누르면 촬영 큐에 추가</MonoAside>}>
-              <TaglinePicker shots={taglineShots} />
+              <TaglinePicker shots={taglineShots} pools={pickerPools} />
             </Panel>
           </div>
           <div className="xl:col-span-4">

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { apiError, bodyTooLarge } from "@/lib/apiError";
 import { requireAdmin } from "@/lib/routeAuth";
-import { loggedInTaglines, loggedInTaglinesEn } from "@/lib/loggedInTaglines";
+import { getPromoPool } from "@/lib/memeLive";
 import { isPromoOpening } from "@/lib/promo";
 import { BODY_TOO_LARGE, readJsonOr, MAX_SMALL_JSON_BYTES } from "@/lib/upload-safety";
 
@@ -42,8 +42,15 @@ export async function POST(req: NextRequest) {
     // 클라이언트는 text만 보내고, reply는 서버가 실제 풀에서 재조회한다 — 항상
     // "진짜 풀에 있는 문구"만 촬영 큐에 들어가도록 보장한다(LoggedInHeadline의
     // promoNotFound 가드와 같은 원칙).
-    const pool = locale === "en" ? loggedInTaglinesEn : loggedInTaglines;
-    const tagline = pool.find((item) => item.text === text);
+    // 고정 문구 + 공개한 매일 밈(lib/memeLive.ts) — 촬영 페이지(/promo-record)가 같은 목록에서 찾는다.
+    const pool = await getPromoPool(locale);
+    let tagline = pool.find((item) => item.text === text);
+    if (!tagline) {
+      // 방금 공개한 매일 밈은 캐시가 비워지기 전일 수 있다 — 표에서 바로 확인한다.
+      const { data: fresh } = await createAdminClient()
+        .from("meme_lines").select("text, reply").eq("lang", locale).eq("status", "approved").eq("kind", "new").eq("text", text).limit(1);
+      if (fresh?.[0]) tagline = { text: fresh[0].text, reply: fresh[0].reply ?? undefined };
+    }
     if (!tagline) {
       return apiError({ status: 400, message: "풀에 없는 문구예요.", code: "TAGLINE_NOT_FOUND" });
     }

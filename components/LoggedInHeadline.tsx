@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { loggedInTaglines, loggedInTaglinesEn, type LoggedInTagline } from "@/lib/loggedInTaglines";
 import type { Locale } from "@/lib/i18n/config";
+import { applyOverrides, type LiveMemes } from "@/lib/memeLiveShape";
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -27,8 +28,11 @@ export default function LoggedInHeadline({
   forceText,
   forceReply,
   promoNotFound,
+  live,
 }: {
   locale: Locale;
+  /** 검토 화면에서 공개한 매일 밈(lib/memeLive.ts). 오늘 공개한 줄이 맨 앞, 최신화는 기존 문구를 갈아 끼운다. */
+  live?: LiveMemes;
   forceText?: string;
   forceReply?: string;
   promoNotFound?: boolean;
@@ -39,10 +43,15 @@ export default function LoggedInHeadline({
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   useEffect(() => {
-    const pool = locale === "en" ? loggedInTaglinesEn : loggedInTaglines;
+    // 고정 문구(최신화 반영) + 공개한 매일 밈. 오늘 공개한 줄은 섞되 맨 앞에.
+    const pool = [
+      ...applyOverrides(locale === "en" ? loggedInTaglinesEn : loggedInTaglines, live?.overrides ?? {}),
+      ...(live?.rest ?? []),
+    ];
+    const fresh = live?.fresh ?? [];
     // forceText가 있으면 큐를 그 문구 1개로 고정 — runPhrase 이하 상태기계는
     // 손대지 않고 그대로 재사용된다(길이 1 큐를 계속 랩어라운드 재생할 뿐).
-    const queue = forceText ? [{ text: forceText, reply: forceReply }] : shuffle(pool);
+    const queue = forceText ? [{ text: forceText, reply: forceReply }] : [...shuffle(fresh), ...shuffle(pool)];
     let idx = 0;
     let cancelled = false;
 
@@ -134,7 +143,7 @@ export default function LoggedInHeadline({
     };
     if (typeof document !== "undefined" && document.fonts) {
       // forced 재생은 그 문구 글자만 프리워밍하면 충분(더 빨리 준비됨).
-      const glyphSource = forceText ? [{ text: forceText, reply: forceReply ?? "" }] : pool;
+      const glyphSource = forceText ? [{ text: forceText, reply: forceReply ?? "" }] : [...fresh, ...pool];
       const sample = Array.from(
         new Set(glyphSource.flatMap((t) => [...t.text, ...(t.reply ?? "")]))
       ).join("");
@@ -163,7 +172,7 @@ export default function LoggedInHeadline({
       timers.current.forEach(clearTimeout);
       timers.current = [];
     };
-  }, [locale, forceText, forceReply]);
+  }, [locale, forceText, forceReply, live]);
 
   if (promoNotFound) {
     // 홍보 클립 촬영 워커(local-runner/promo-record.ts)가 이 마커를 폴링해

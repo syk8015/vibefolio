@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
+import { MEMES_TAG } from "@/lib/memeLive";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { apiError, bodyTooLarge } from "@/lib/apiError";
 import { requireAdmin } from "@/lib/routeAuth";
@@ -42,6 +44,8 @@ export async function POST(req: NextRequest) {
     if (!data?.length) {
       return apiError({ status: 409, message: "그사이 상태가 바뀌었어요. 새로고침해 주세요.", code: "STALE" });
     }
+    // 홈이 읽는 공개 줄 캐시(lib/memeLive.ts)를 비워 공개·내리기가 바로 보이게.
+    revalidateTag(MEMES_TAG, { expire: 0 });
     return NextResponse.json({ ok: true, line: data[0] });
   } catch (err) {
     return apiError({ status: 500, message: "저장하지 못했어요. 잠시 뒤 다시 눌러 주세요.", code: "INTERNAL", cause: err });

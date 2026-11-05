@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { loggedInTaglines, loggedInTaglinesEn } from "@/lib/loggedInTaglines";
+import type { LoggedInTagline } from "@/lib/loggedInTaglines";
 import { PROMO_OPENINGS, type PromoOpening } from "@/lib/promo";
 
 type Pool = "ko" | "en";
@@ -15,7 +15,8 @@ export type TaglineShots = Record<string, { done: number; queued: number; failed
 // 촬영 큐(promo_clips)에 넣는다. 실제 촬영은 여기서 안 일어난다 — 관리자가
 // npm run promo:batch를 로컬에서 실행해야 큐가 소화된다(계획 문서 참고).
 // 풀이 100개를 넘어가서, 이미 찍은 문구는 배지로 표시하고 "미촬영만" 필터를 둔다.
-export default function TaglinePicker({ shots = {} }: { shots?: TaglineShots }) {
+// pools: 고정 문구 + 공개한 매일 밈(최신화 반영) — page.tsx가 lib/memeLive.ts getPromoPool로 넘긴다.
+export default function TaglinePicker({ shots = {}, pools }: { shots?: TaglineShots; pools: Record<Pool, LoggedInTagline[]> }) {
   const router = useRouter();
   const [pool, setPool] = useState<Pool>("ko");
   const [format, setFormat] = useState<Format>("vertical");
@@ -25,7 +26,7 @@ export default function TaglinePicker({ shots = {} }: { shots?: TaglineShots }) 
   const [justQueued, setJustQueued] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const all = pool === "en" ? loggedInTaglinesEn : loggedInTaglines;
+  const all = pools[pool];
   const unshotCount = useMemo(() => all.filter((t) => !shots[t.text]).length, [all, shots]);
   const items = onlyUnshot ? all.filter((t) => !shots[t.text]) : all;
 
@@ -66,7 +67,7 @@ export default function TaglinePicker({ shots = {} }: { shots?: TaglineShots }) 
               cursor: "pointer",
             }}
           >
-            {p === "ko" ? "한국어" : "영어"} · {p === "ko" ? loggedInTaglines.length : loggedInTaglinesEn.length}
+            {p === "ko" ? "한국어" : "영어"} · {pools[p].length}
           </button>
         ))}
         <span style={{ width: 1, height: 18, background: "var(--border)" }} />
