@@ -49,6 +49,8 @@ export const WRITE_SYSTEM =
   "The lines are typed out one by one on the home page.\n" +
   "Voice rules (strict):\n" +
   "- English written by a native speaker, not translated. Observational and dry, self-aware, never mean.\n" +
+  "- Laugh at us and at the situation of building with AI (demos breaking, nobody seeing your work). Never laugh at the reader (you), " +
+  "never at a real person, and mention companies only affectionately.\n" +
   "- No terminal period. A question mark or quotes are fine. No hashtags.\n" +
   "- Two shapes: a single line, or a setup line + a short reply line (the reply is shown after a ↳ marker).\n" +
   "- Short enough to fit on ONE line of a phone screen: the first line at most 40 characters, the reply at most 45. " +
