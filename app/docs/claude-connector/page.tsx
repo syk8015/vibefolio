@@ -121,8 +121,8 @@ export default async function ClaudeConnectorPage() {
       </div>
 
       <footer className="flex items-center justify-center gap-6 py-8" style={{ borderTop: "1px solid var(--border)" }}>
-        <Link href="/terms" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem", textDecoration: "none" }}>{en ? "Terms of Service" : "이용약관"}</Link>
-        <Link href="/privacy" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem", textDecoration: "none" }}>{en ? "Privacy Policy" : "개인정보처리방침"}</Link>
+        <Link href="/terms" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem", textDecoration: "none" }}>{en ? "Terms of service" : "이용약관"}</Link>
+        <Link href="/privacy" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem", textDecoration: "none" }}>{en ? "Privacy policy" : "개인정보처리방침"}</Link>
         <span style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem" }}>© {new Date().getFullYear()} nookframe</span>
       </footer>
     </main>
@@ -231,10 +231,10 @@ function EnBody() {
       <Section title="Connect">
         <ol className="list-decimal pl-5 flex flex-col gap-1">
           <li>In Claude, open Settings → Connectors → Browse connectors and find nookframe. You can also get there from the tools button at the lower left of a chat → Add connectors.</li>
-          <li>Press Connect. nookframe&apos;s sign-in and consent screen opens — sign in, then press Allow.</li>
+          <li>Press Connect. nookframe&apos;s sign-in and consent screen opens. Sign in, then press Allow.</li>
         </ol>
         <p className="mt-2">
-          Not in the list? Add <Code>{CONNECTOR_URL}</Code> under Settings → Connectors → Add custom connector instead — it&apos;s the same connector.
+          Not in the list? Add <Code>{CONNECTOR_URL}</Code> under Settings → Connectors → Add custom connector instead. It&apos;s the same connector.
         </p>
         <p className="mt-2">
           The consent screen lists what the connector can do (upload drafts, edit or delete the drafts it uploaded) and
@@ -245,7 +245,7 @@ function EnBody() {
       <Section title="Try it">
         Ask Claude things like:
         <ul className="list-disc pl-5 flex flex-col gap-1 mt-2">
-          <li>&ldquo;Publish this project to nookframe&rdquo;</li>
+          <li>&ldquo;Upload this to nookframe&rdquo;</li>
           <li>&ldquo;Is my nookframe demo video filmed yet?&rdquo;</li>
           <li>&ldquo;Show my nookframe drafts&rdquo;</li>
         </ul>
@@ -277,7 +277,7 @@ function EnBody() {
           <li>The connector only receives what Claude passes when it calls a tool: the work&apos;s details (title, description, demo script), your interview answers, and the work&apos;s URL or HTML. It does not read your chat history or Claude&apos;s memory.</li>
           <li>Sign-in tokens are stored only as hashes. Access tokens expire after 12 hours, refresh tokens after 90 days.</li>
           <li>You can disconnect at any time: nookframe Settings → AI connections → Disconnect. The connection stops working immediately.</li>
-          <li>Everything else follows our <Link href="/privacy" style={{ color: "var(--blue)" }}>Privacy Policy</Link>.</li>
+          <li>Everything else follows our <Link href="/privacy" style={{ color: "var(--blue)" }}>privacy policy</Link>.</li>
         </ul>
       </Section>
 

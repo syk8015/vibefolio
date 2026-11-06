@@ -49,8 +49,8 @@ export default async function SecurityPage() {
       </div>
 
       <footer className="flex items-center justify-center gap-6 py-8">
-        <Link href="/terms" style={muted}>{en ? "Terms of Service" : "이용약관"}</Link>
-        <Link href="/privacy" style={muted}>{en ? "Privacy Policy" : "개인정보처리방침"}</Link>
+        <Link href="/terms" style={muted}>{en ? "Terms of service" : "이용약관"}</Link>
+        <Link href="/privacy" style={muted}>{en ? "Privacy policy" : "개인정보처리방침"}</Link>
         <span style={muted}>© {new Date().getFullYear()} nookframe</span>
       </footer>
     </main>
@@ -143,13 +143,13 @@ function EnBody() {
         </ul>
       </Section>
 
-      <Section title="Please don't">
+      <Section title="What not to do">
         <ul className="list-disc pl-5 flex flex-col gap-1">
           <li>View or change anyone else&apos;s account, works, or personal data. If you see some by accident, stop, don&apos;t keep or share it, and tell us.</li>
-          <li>Slow down or take down the site, or point automated scanners at it</li>
-          <li>Email or message other people, or trick anyone into giving up information</li>
+          <li>Slow down or take down the site, or point automated scanners at it.</li>
+          <li>Email or message other people, or trick anyone into giving up information.</li>
           <li>Attack the services we use (Vercel, Supabase, Cloudflare, E2B and others). Follow their own rules.</li>
-          <li>Publish details before a fix. We&apos;ll agree on disclosure together after.</li>
+          <li>Publish details before a fix. Once it&apos;s fixed, we&apos;ll agree on disclosure together.</li>
         </ul>
       </Section>
 

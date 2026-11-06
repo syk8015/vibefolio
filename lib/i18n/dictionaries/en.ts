@@ -77,7 +77,7 @@ export const en: Dictionary = {
     agreePrefix: "By continuing, you agree to the ",
     termsLink: "Terms",
     agreeAnd: " and ",
-    privacyLink: "Privacy Policy",
+    privacyLink: "privacy policy",
     agreeSuffix: "",
     errors: {
       invalid: "Incorrect email or password",

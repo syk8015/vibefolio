@@ -10,7 +10,7 @@ import { getLocale } from "@/lib/i18n/server";
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getLocale();
   return {
-    title: locale === "en" ? "Terms of Service | nookframe" : "이용약관 | nookframe",
+    title: locale === "en" ? "Terms of service | nookframe" : "이용약관 | nookframe",
   };
 }
 
@@ -27,7 +27,7 @@ export default async function TermsPage() {
 
       <div className="max-w-2xl mx-auto px-6 py-16">
         <h1 className="text-3xl font-black mb-2" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}>
-          {en ? "Terms of Service" : "이용약관"}
+          {en ? "Terms of service" : "이용약관"}
         </h1>
         <p className="text-sm mb-12" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
           {en ? "Effective date: November 2, 2026 (previous version: October 30, 2026)" : "시행일: 2026년 11월 2일 (이전 판: 2026년 10월 30일)"}
@@ -39,8 +39,8 @@ export default async function TermsPage() {
       </div>
 
       <footer className="flex items-center justify-center gap-6 py-8" style={{ borderTop: "1px solid var(--border)" }}>
-        <Link href="/terms" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem", textDecoration: "none" }}>{en ? "Terms of Service" : "이용약관"}</Link>
-        <Link href="/privacy" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem", textDecoration: "none" }}>{en ? "Privacy Policy" : "개인정보처리방침"}</Link>
+        <Link href="/terms" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem", textDecoration: "none" }}>{en ? "Terms of service" : "이용약관"}</Link>
+        <Link href="/privacy" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem", textDecoration: "none" }}>{en ? "Privacy policy" : "개인정보처리방침"}</Link>
         <span style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem" }}>© {new Date().getFullYear()} nookframe</span>
       </footer>
     </main>
@@ -167,11 +167,11 @@ function EnBody() {
         <ul className="list-disc pl-5 flex flex-col gap-1">
           <li>&quot;Service&quot; means the portfolio creation and sharing platform provided by nookframe.</li>
           <li>&quot;User&quot; means anyone who agrees to these Terms and uses the Service.</li>
-          <li>&quot;Content&quot; means any information a user registers on the Service, including projects, images, links, and text.</li>
+          <li>&quot;Content&quot; means any information a user registers on the Service, including works, images, links, and text.</li>
         </ul>
       </Section>
 
-      <Section title="Article 3 (Effect and Amendment of the Terms)">
+      <Section title="Article 3 (Effect and amendment of the Terms)">
         <ul className="list-disc pl-5 flex flex-col gap-1">
           <li>These Terms take effect when posted on the Service or otherwise announced to users.</li>
           <li>The operator may amend these Terms when necessary. Amended Terms take effect 7 days after they are announced.</li>
@@ -179,7 +179,7 @@ function EnBody() {
         </ul>
       </Section>
 
-      <Section title="Article 4 (Sign-up and Accounts)">
+      <Section title="Article 4 (Sign-up and accounts)">
         <ul className="list-disc pl-5 flex flex-col gap-1">
           <li>You may sign up with a Google or GitHub account (social login) or with a one-time code sent to your email address.</li>
           <li>The Service is only available to users aged 14 or older. Children under 14 may not use the Service.</li>
@@ -188,7 +188,7 @@ function EnBody() {
         </ul>
       </Section>
 
-      <Section title="Article 5 (Content and Copyright)">
+      <Section title="Article 5 (Content and copyright)">
         <ul className="list-disc pl-5 flex flex-col gap-1">
           <li>Copyright in the content you register on the Service belongs to you.</li>
           <li>You may not use the Service to infringe other users&apos; copyrights, privacy, or other rights.</li>
@@ -200,28 +200,28 @@ function EnBody() {
         </ul>
       </Section>
 
-      <Section title="Article 6 (How Your Uploaded Files Are Handled)">
-        Here is what the Service does with the project files you upload.
+      <Section title="Article 6 (How your uploaded files are handled)">
+        Here is what the Service does with the work files you upload.
         <ul className="list-disc pl-5 flex flex-col gap-1 mt-2">
-          <li><strong>Who can see your files:</strong> files of a published work are served from public addresses so previews and embeds work, so visitors can view them without signing in. <strong>Files of a draft you have not published yet can only be opened by you, from your dashboard.</strong> Images and videos you attach to a draft (screenshots, demo videos) can still be viewed by anyone who has their address. A work made private after a report is closed the same way as a draft. Before you publish, check that nothing in it should stay private.</li>
+          <li><strong>Who can see your files:</strong> files of a published work are served from public addresses so previews and embeds work, which means visitors can view them without signing in. <strong>Files of a draft you have not published yet can only be opened by you, from your dashboard.</strong> Images and videos you attach to a draft (screenshots, demo videos) can still be viewed by anyone who has their address. A work made private after a report is closed the same way as a draft. Before you publish, check that nothing in it should stay private.</li>
           <li><strong>Your code is executed:</strong> to record the automated demo, uploaded code is actually installed and run inside an isolated third-party sandbox (E2B, US). The sandbox is destroyed after recording.</li>
-          <li><strong>Screen analysis:</strong> screenshots taken during recording, and some frames of the resulting film, are sent to an AI analysis service to decide what to click and to review content (checking for adult, hateful, or illegal material). The full list of processors is in the <Link href="/privacy" style={{ color: "var(--blue)" }}>Privacy Policy</Link>.</li>
-          <li><strong>Secret files are discarded:</strong> if an upload contains files that commonly hold secrets — <code>.env</code>, <code>.git</code>, private keys, service account keys and the like — the Service <strong>discards them instead of storing them</strong>, and tells you what was left out. This is a safety net, not a guarantee; making sure no secrets are included remains your responsibility.</li>
-          <li><strong>Retention:</strong> uploaded files are kept until you delete them or delete your account. Deleting a project or your account also deletes the stored files and recordings.</li>
+          <li><strong>Screen analysis:</strong> screenshots taken during recording, and some frames of the resulting film, are sent to an AI analysis service to decide what to click and to review content (checking for adult, hateful, or illegal material). The full list of processors is in the <Link href="/privacy" style={{ color: "var(--blue)" }}>privacy policy</Link>.</li>
+          <li><strong>Secret files are discarded:</strong> if an upload contains files that commonly hold secrets (<code>.env</code>, <code>.git</code>, private keys, service account keys and the like), the Service <strong>discards them instead of storing them</strong>, and tells you what was left out. This is a safety net, not a guarantee; making sure no secrets are included remains your responsibility.</li>
+          <li><strong>Retention:</strong> uploaded files are kept until you delete them or delete your account. Deleting a work or your account also deletes the stored files and recordings.</li>
         </ul>
       </Section>
 
-      <Section title="Article 7 (Reporting Infringement)">
+      <Section title="Article 7 (Reporting infringement)">
         <ul className="list-disc pl-5 flex flex-col gap-1">
           <li>If you believe content posted on the Service infringes your copyright, likeness, privacy, or other rights, anyone may report it to the contact email below.</li>
-          <li>Please include: the address of the page in question, the right you believe is infringed and why, and how to reach you.</li>
+          <li>A report should include the address of the page in question, the right you believe is infringed and why, and how to reach you.</li>
           <li>The operator will review the report within 3 business days of receipt and, where warranted, make the content private or delete it.</li>
           <li>If the person who posted the content disagrees with the outcome, they may request a re-review at the same email address.</li>
           <li>Signed-in users can also report through the report button on a work&apos;s page or a profile page.</li>
         </ul>
       </Section>
 
-      <Section title="Article 8 (Prohibited Conduct)">
+      <Section title="Article 8 (Prohibited conduct)">
         You may not do any of the following.
         <ul className="list-disc pl-5 flex flex-col gap-1 mt-2">
           <li>Impersonate others or register false information</li>
@@ -232,7 +232,7 @@ function EnBody() {
         </ul>
       </Section>
 
-      <Section title="Article 9 (Changes to and Termination of the Service)">
+      <Section title="Article 9 (Changes to and termination of the Service)">
         <ul className="list-disc pl-5 flex flex-col gap-1">
           <li>The operator may change or terminate the Service, and will give advance notice of significant changes.</li>
           <li>The operator may temporarily suspend the Service for maintenance, outages, force majeure, or similar reasons.</li>
@@ -247,7 +247,7 @@ function EnBody() {
         </ul>
       </Section>
 
-      <Section title="Article 11 (Governing Law and Jurisdiction)">
+      <Section title="Article 11 (Governing law and jurisdiction)">
         These Terms are interpreted under the laws of the Republic of Korea, and disputes related to the Service
         fall under the jurisdiction of the courts of the Republic of Korea.
       </Section>

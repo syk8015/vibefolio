@@ -10,7 +10,7 @@ import { getLocale } from "@/lib/i18n/server";
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getLocale();
   return {
-    title: locale === "en" ? "Privacy Policy | nookframe" : "개인정보처리방침 | nookframe",
+    title: locale === "en" ? "Privacy policy | nookframe" : "개인정보처리방침 | nookframe",
   };
 }
 
@@ -27,7 +27,7 @@ export default async function PrivacyPage() {
 
       <div className="max-w-2xl mx-auto px-6 py-16">
         <h1 className="text-3xl font-black mb-2" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}>
-          {en ? "Privacy Policy" : "개인정보처리방침"}
+          {en ? "Privacy policy" : "개인정보처리방침"}
         </h1>
         <p className="text-sm mb-12" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
           {en ? "Effective date: November 3, 2026 (previous version: October 30, 2026)" : "시행일: 2026년 11월 3일 (이전 판: 2026년 10월 30일)"}
@@ -39,8 +39,8 @@ export default async function PrivacyPage() {
       </div>
 
       <footer className="flex items-center justify-center gap-6 py-8" style={{ borderTop: "1px solid var(--border)" }}>
-        <Link href="/terms" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem", textDecoration: "none" }}>{en ? "Terms of Service" : "이용약관"}</Link>
-        <Link href="/privacy" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem", textDecoration: "none" }}>{en ? "Privacy Policy" : "개인정보처리방침"}</Link>
+        <Link href="/terms" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem", textDecoration: "none" }}>{en ? "Terms of service" : "이용약관"}</Link>
+        <Link href="/privacy" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem", textDecoration: "none" }}>{en ? "Privacy policy" : "개인정보처리방침"}</Link>
         <span style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem" }}>© {new Date().getFullYear()} nookframe</span>
       </footer>
     </main>
@@ -54,7 +54,7 @@ const PROCESSORS = [
     name: "Supabase Inc.",
     contact: "https://supabase.com/privacy",
     ko: { task: "데이터베이스·인증·파일 저장", items: "제1조의 회원 정보 전부, 업로드한 작품 파일, 서비스 이용 기록" },
-    en: { task: "database, authentication, and file storage", items: "all account information in Article 1, uploaded project files, service usage records" },
+    en: { task: "database, authentication, and file storage", items: "all account information in Article 1, uploaded work files, service usage records" },
   },
   {
     name: "Vercel Inc.",
@@ -90,26 +90,26 @@ const PROCESSORS = [
     name: "Anthropic PBC",
     contact: "https://www.anthropic.com/legal/privacy",
     ko: { task: "자동 시연 촬영 시 화면 분석 및 콘텐츠 검토", items: "촬영 중 작품 화면 이미지와 촬영본의 일부 프레임, 작품 정보(제목·설명·시연 안내 문구)" },
-    en: { task: "screen analysis and content review during automated demo recording", items: "screen images captured during recording and some frames of the film, project information (title, description, demo instructions)" },
+    en: { task: "screen analysis and content review during automated demo recording", items: "screen images captured during recording and some frames of the film, work information (title, description, demo instructions)" },
   },
   {
     // 2026-11-03 보안 5단계 S10-F3 — 공개 그림 자동 검사(lib/mediaScan.ts, 기본 공급자 OpenAI)가 처리방침에 빠져 있었다.
     name: "OpenAI, L.L.C.",
     contact: "https://openai.com/policies/privacy-policy",
     ko: { task: "공개된 그림의 유해물 자동 검사", items: "공개된 프로필 사진과 작품 썸네일, 사용자명" },
-    en: { task: "automated harmful-content check of published images", items: "published profile photos and project thumbnails, username" },
+    en: { task: "automated harmful-content check of published images", items: "published profile photos and work thumbnails, username" },
   },
   {
     name: "E2B, Inc.",
     contact: "https://e2b.dev/privacy",
     ko: { task: "자동 시연을 위한 업로드 코드의 격리 실행 샌드박스", items: "업로드한 작품 파일(코드)" },
-    en: { task: "isolated sandbox that runs uploaded code for the automated demo", items: "uploaded project files (code)" },
+    en: { task: "isolated sandbox that runs uploaded code for the automated demo", items: "uploaded work files (code)" },
   },
   {
     name: "thum.io",
     contact: "https://www.thum.io",
     ko: { task: "공개된 작품 페이지의 미리보기 이미지 생성", items: "공개된 작품의 주소" },
-    en: { task: "preview image generation for published project pages", items: "the address of the published work" },
+    en: { task: "preview image generation for published work pages", items: "the address of the published work" },
   },
   {
     name: "Functional Software, Inc. (Sentry)",
@@ -266,10 +266,10 @@ function EnBody() {
         personal information the Service collects and how it is used.
       </p>
 
-      <Section title="Article 1 (Information We Collect)">
+      <Section title="Article 1 (Information we collect)">
         The Service collects the following information for sign-up and service delivery.
         <ul className="list-disc pl-5 flex flex-col gap-1 mt-2">
-          <li><strong>Required:</strong> email address, username, and — depending on how you sign up — your Google or GitHub account identifier (social login). If you set a password, the password (stored with one-way encryption)</li>
+          <li><strong>Required:</strong> email address, username, and, depending on how you sign up, your Google or GitHub account identifier (social login). If you set a password, the password (stored with one-way encryption)</li>
           <li><strong>Optional:</strong> name, profile photo, bio, GitHub/Twitter/other social links</li>
           <li><strong>Collected automatically:</strong> service usage records (page views, feature usage), IP address, country and region of access (city level), browser and device type (User-Agent), browser language setting, referral source (referrer and UTM values), cookies and session data, and an anonymous identifier kept in your browser&apos;s local storage</li>
         </ul>
@@ -278,14 +278,14 @@ function EnBody() {
           children under 14.
         </p>
         <p className="mt-3">
-          The project files you upload are not collected as personal information, but they are <strong>served from
-          public addresses and can be downloaded by anyone who knows the address</strong>. Please do not put your own
+          The work files you upload are not collected as personal information, but they are <strong>served from
+          public addresses and can be downloaded by anyone who knows the address</strong>. Do not put your own
           or anyone else&apos;s personal information inside them. See{" "}
           <Link href="/terms" style={{ color: "var(--blue)" }}>Article 6 of the Terms</Link> for details.
         </p>
       </Section>
 
-      <Section title="Article 2 (Purpose of Collection and Use)">
+      <Section title="Article 2 (Purpose of collection and use)">
         Collected personal information is used only for the following purposes.
         <ul className="list-disc pl-5 flex flex-col gap-1 mt-2">
           <li>Identifying members and authenticating logins</li>
@@ -295,19 +295,19 @@ function EnBody() {
         </ul>
       </Section>
 
-      <Section title="Article 3 (Retention and Use Period)">
+      <Section title="Article 3 (Retention and use period)">
         <ul className="list-disc pl-5 flex flex-col gap-1">
           <li>Personal information and the files you upload are kept <strong>for as long as your account exists</strong>; there is no separate expiry period.</li>
-          <li>When you delete your account, everything is destroyed immediately: stored project files, profile photo, and recordings are deleted first, then the account itself.</li>
+          <li>When you delete your account, everything is destroyed immediately: stored work files, profile photo, and recordings are deleted first, then the account itself.</li>
           <li>Exception: if an account is deleted while it is suspended, its username (@handle) is kept so the same address cannot be used to rebuild the profile. Nothing else is kept.</li>
-          <li>Deleting an individual project also deletes that project&apos;s files and recordings.</li>
+          <li>Deleting a single work also deletes that work&apos;s files and recordings.</li>
           <li>However, service usage statistics (view counts, feature usage records, etc.) are converted into a de-identified form with account identifiers removed, and retained in that form. These records alone cannot identify any individual.</li>
           <li>Where retention is required by applicable law, the information is kept for the legally required period and then destroyed.</li>
           <li><strong>How it is destroyed:</strong> information in electronic form is permanently deleted in a way that cannot be recovered. We do not keep personal information on paper.</li>
         </ul>
       </Section>
 
-      <Section title="Article 4 (Disclosure to Third Parties)">
+      <Section title="Article 4 (Disclosure to third parties)">
         The Service does not provide personal information to outside parties without your prior consent, except in
         the following cases.
         <ul className="list-disc pl-5 flex flex-col gap-1 mt-2">
@@ -316,13 +316,13 @@ function EnBody() {
         </ul>
       </Section>
 
-      <Section title="Article 5 (Outsourcing and International Transfer)">
+      <Section title="Article 5 (Outsourcing and international transfer)">
         The Service entrusts the following processors with data processing tasks to operate the Service. All of them
         are located outside Korea (in the US), so your personal information is transferred abroad.
         <ul className="list-disc pl-5 flex flex-col gap-3 mt-2">
           {PROCESSORS.map((p) => (
             <li key={p.name}>
-              <strong>{p.name}</strong> — {p.en.task} (US)
+              <strong>{p.name}</strong>: {p.en.task} (US)
               <br />
               Data transferred: {p.en.items}
               <br />
@@ -337,28 +337,28 @@ function EnBody() {
         </ul>
       </Section>
 
-      <Section title="Article 6 (Your Rights)">
+      <Section title="Article 6 (Your rights)">
         You may exercise the following rights at any time.
         <ul className="list-disc pl-5 flex flex-col gap-1 mt-2">
           <li>Request access to, correction of, or deletion of your personal information</li>
           <li>Request suspension of processing of your personal information</li>
           <li>Delete your personal information by deleting your account</li>
         </ul>
-        You can do most of this yourself: edit or delete your profile and works from the dashboard, and use
-        <strong>Delete account</strong> at the bottom of Settings (top of the page) — it removes your
-        stored project files, profile photo, and recordings first, then the account. For anything you cannot do
+        You can do most of this yourself: edit or delete your profile and works from the dashboard, and use{" "}
+        <strong>Delete account</strong> at the bottom of Settings (top of the page). It removes your
+        stored work files, profile photo, and recordings first, then the account. For anything you cannot do
         yourself, email the privacy officer listed below.
       </Section>
 
-      <Section title="Article 7 (Cookies and Local Storage)">
+      <Section title="Article 7 (Cookies and local storage)">
         <ul className="list-disc pl-5 flex flex-col gap-1">
           <li><strong>Cookies:</strong> used to keep you signed in and to remember your language setting.</li>
           <li><strong>Local storage:</strong> for visit statistics, a randomly generated anonymous identifier and the referral source of your first visit (referrer and UTM values) are stored in your browser&apos;s local storage. These values alone cannot identify you.</li>
-          <li>You can refuse or clear cookies and site data in your browser settings. If you refuse cookies, some features, such as staying logged in, may not work properly.</li>
+          <li>You can refuse or clear cookies and site data in your browser settings. If you refuse cookies, some features, such as staying signed in, may not work properly.</li>
         </ul>
       </Section>
 
-      <Section title="Article 8 (Security Measures)">
+      <Section title="Article 8 (Security measures)">
         The Service takes the following measures to keep personal information safe.
         <ul className="list-disc pl-5 flex flex-col gap-1 mt-2">
           <li><strong>Encryption:</strong> passwords are stored with one-way encryption, and all data exchanged with the Service travels over encrypted connections (HTTPS).</li>
@@ -368,10 +368,10 @@ function EnBody() {
         </ul>
       </Section>
 
-      <Section title="Article 9 (Privacy Officer)">
+      <Section title="Article 9 (Privacy officer)">
         For questions, complaints, or remedies regarding privacy, contact the officer below.
         <div className="mt-3 p-4 rounded-xl" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
-          <p><strong style={{ color: "var(--text-primary)" }}>Privacy officer:</strong> nookframe Operations Team</p>
+          <p><strong style={{ color: "var(--text-primary)" }}>Privacy officer:</strong> nookframe operations team</p>
           <p><strong style={{ color: "var(--text-primary)" }}>Email:</strong>{" "}
             <a href="mailto:vivestarter@gmail.com" style={{ color: "var(--blue)" }}>vivestarter@gmail.com</a>
           </p>
@@ -379,7 +379,7 @@ function EnBody() {
         </div>
       </Section>
 
-      <Section title="Article 10 (Remedies for Privacy Infringement)">
+      <Section title="Article 10 (Remedies for privacy infringement)">
         To seek remedies for a privacy infringement, you may apply for dispute resolution or counseling with the
         following Korean agencies.
         <ul className="list-disc pl-5 flex flex-col gap-1 mt-2">
@@ -390,7 +390,7 @@ function EnBody() {
         </ul>
       </Section>
 
-      <Section title="Article 11 (Changes to This Policy)">
+      <Section title="Article 11 (Changes to this policy)">
         This policy may be revised to reflect changes in law or in the Service. Changes will be announced through
         the Service.
       </Section>

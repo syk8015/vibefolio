@@ -1713,3 +1713,4 @@ locale도 언어별(en = "The live portfolio for vibe coders. Show your projects
 | email.handoffNotYou | 요청한 적이 없다면 이 메일은 무시하세요. 더 보내지 않아요. | Didn't ask for this? Ignore this email — we won't send another. | Didn't ask for this? Ignore this email. We won't send another. |
 | email.handoffRemindSubject | 어제 폰에서 보낸 nookframe 링크예요 | Your Nookframe link from yesterday | Your nookframe link from yesterday |
 | email.handoffRemindBody | 어제 폰에서 알림을 요청하셔서 한 번 더 보내요. 버튼을 누르면 이메일이 채워진 화면이 열리고, AI에 한 줄만 붙여넣으면 첫 작품이 올라가요. | You asked for a reminder from your phone yesterday, so here it is. The button opens Nookframe with your email filled in; paste one line into your AI and your first project is up. | You asked for a reminder from your phone yesterday, so here it is. The button opens nookframe with your email filled in. Paste one line into your AI and your first work goes up. |
+| login.privacyLink | 개인정보처리방침 | Privacy Policy | privacy policy (문장 가운데 링크) |
