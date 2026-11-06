@@ -57,7 +57,7 @@ export const taglines: string[] = [
   // 자랑·격려
   "주말에 만든 그것의 자리",
   "미완성도 한 장의 프레임",
-  "숨겨둔 결과물의 첫 무대",
+  "구석에서 만들고, 프레임에 건다",
   "작업을 인정받는 곳",
   "보여주는 순간부터 포트폴리오",
   "자랑할 자격, 만든 사람의 몫",
@@ -144,7 +144,7 @@ export const taglinesEn: string[] = [
   // 자랑·격려
   "A spot for that thing you built over the weekend",
   "Even a work-in-progress deserves a frame",
-  "A first stage for the work you've been hiding",
+  "Made in a nook. Shown in a frame",
   "Where your work gets the applause it deserves",
   "A portfolio from the moment you show it",
   "You shipped it. You get the bragging rights",

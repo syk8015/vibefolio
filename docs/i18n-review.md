@@ -468,7 +468,7 @@
 | login | 로그인 | Log in | |
 | emptyTitle | 아직 공개된 프로젝트가 없어요 | No public projects yet | |
 | emptyBody | 곧 새로운 작업물이 올라올 예정이에요. | New work is coming soon. | |
-| screenings | 상영 목록 · {N} works | Screenings · {N} works | 함수 |
+| screenings | 작품 · {N} | Works · {N} | 함수 · 폰 작품 목록 제목(11-06 극장 비유 버림) |
 | aboutLabel | 명함 · About | About | 검수 반영: Card 단독은 결제카드 오해 소지 → About만 사용 |
 | upNextLabel | 상영 목록 · Up Next | Up Next | ⚠️ 영어판은 병기 접기 |
 | prevWork | 이전 작품 | Previous work | aria |

@@ -818,7 +818,7 @@ export const en: Dictionary = {
     makeYourOwn: "Make your own",
     emptyTitle: "No public projects yet",
     emptyBody: "New work is coming soon.",
-    screenings: (total: number) => `Screenings · ${total} works`,
+    screenings: (total: number) => `Works · ${total}`,
     aboutLabel: "About",
     worksLabel: "Works",
     prevWork: "Previous work",

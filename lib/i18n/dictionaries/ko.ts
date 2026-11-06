@@ -944,9 +944,9 @@ export const ko = {
     makeYourOwn: "나도 만들기",
     emptyTitle: "아직 공개된 프로젝트가 없어요",
     emptyBody: "곧 새로운 작업물이 올라올 예정이에요.",
-    screenings: (total: number) => `상영 목록 · ${total} works`,
+    screenings: (total: number) => `작품 · ${total}`,
     aboutLabel: "명함 · About",
-    // PC 오른쪽 작품 목록 이름(작품이 둘 이상일 때만 나온다) — 극장 말("상영 목록") 대신 쉬운 말.
+    // PC 오른쪽 작품 목록 이름(작품이 둘 이상일 때만 나온다). 폰 목록도 같은 말(11-06 극장 비유를 버림, docs/brand.md §1).
     worksLabel: "작품",
     prevWork: "이전 작품",
     nextWork: "다음 작품",
