@@ -844,7 +844,7 @@ locale도 언어별(en = "The live portfolio for vibe coders. Show your projects
 | loginMethods.unlinked | {p} 계정 연결을 해제했어요. | {p} unlinked. | 신규 · 함수(p) |
 | loginMethods.takenTitle | 이 {p} 계정은 이미 다른 Nookframe 계정에 연결돼 있어요. | This {p} account is already linked to another Nookframe account. | 신규 · 함수(p) · Supabase identity_already_exists |
 | loginMethods.takenBody / contact | 그 Nookframe 계정을 지우거나 두 계정을 합치려면 문의해 주세요. / 메일 보내기 | To delete that account or merge the two, contact us. / Email us | 신규 · 합치기는 운영자가 손으로. contact는 아래 줄의 mailto 링크("문의"가 겹치지 않게 동작으로) |
-| loginMethods.failed | 연결이 취소됐거나 끝나지 못했어요. 다시 눌러 주세요. | Linking was cancelled or didn't finish. Please try again. | 신규 · 공급자 화면에서 취소·거절 |
+| loginMethods.failed | 연결이 취소됐거나 끝나지 못했어요. 다시 눌러 주세요. | Linking was canceled or didn't finish. Please try again. | 신규 · 공급자 화면에서 취소·거절 |
 | loginMethods.startFailed | 연결을 시작하지 못했어요. 잠시 뒤에 다시 눌러 주세요. | Couldn't start linking. Please try again in a moment. | 신규 · 대표 사례: 대시보드 "Allow manual linking" 꺼짐 |
 | loginMethods.unlinkFailed | 해제하지 못했어요. 잠시 뒤에 다시 눌러 주세요. | Couldn't unlink. Please try again in a moment. | 신규 |
 | auth.inAppBody | 오른쪽 위 ⋯ 메뉴에서 '외부 브라우저로 열기'를 눌러 주세요. | Tap the ⋯ menu (top right) and choose 'Open in external browser'. | 교체 · 뒤 두 문장(구글이 막힐 때가 있어요 / GitHub·이메일은 여기서도 돼요) 삭제 — 제목이 이유를 말하고 버튼이 바로 아래 보여 군더더기(09-25 사용자 지시) |
@@ -1201,7 +1201,7 @@ locale도 언어별(en = "The live portfolio for vibe coders. Show your projects
 | login.agreeAnd | · |  and  | 신규 |
 | login.privacyLink | 개인정보처리방침 | Privacy Policy | 신규 |
 | login.agreeSuffix | 에 동의하게 돼요 |  | 신규 |
-| login.callbackOauthFailed | 로그인이 취소됐어요. 다시 하거나 다른 방법을 골라 주세요. | Sign-in was cancelled. Try again or pick another way. | 변경 · 전: 로그인이 취소됐거나 끝나지 못했어요. 다시 해 보거나 다른 방법으로 들어와 주세요. / Sign-in was cancelled or didn't finish. Try again, or use another option. |
+| login.callbackOauthFailed | 로그인이 취소됐어요. 다시 하거나 다른 방법을 골라 주세요. | Sign-in was canceled. Try again or pick another way. | 변경 · 전: 로그인이 취소됐거나 끝나지 못했어요. 다시 해 보거나 다른 방법으로 들어와 주세요. / Sign-in was cancelled or didn't finish. Try again, or use another option. |
 | forgotPassword.backToLogin | 로그인으로 돌아가기 | Back to sign in | 신규 |
 | forgotPassword.sentTitle | 메일을 확인해 주세요 | Check your email | 변경 · 전: 메일을 확인해주세요 / Check your email |
 | forgotPassword.sentBefore |  | We sent a reset link to  | 신규 |

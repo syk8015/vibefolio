@@ -85,7 +85,7 @@ export const en: Dictionary = {
     callbackConfirmFailed: "That link couldn't finish in this browser. Your email is verified — log in below.",
     callbackResetFailed: "That reset link expired or was opened in a different browser.",
     callbackResetAgain: "Send a new reset link →",
-    callbackOauthFailed: "Sign-in was cancelled. Try again or pick another way.",
+    callbackOauthFailed: "Sign-in was canceled. Try again or pick another way.",
   },
   signup: {
     nameLabel: "Name",
@@ -520,7 +520,7 @@ export const en: Dictionary = {
     takenTitle: (p: string) => `This ${p} account is already linked to another Nookframe account.`,
     takenBody: "To delete that account or merge the two, contact us.",
     contact: "Email us",
-    failed: "Linking was cancelled or didn't finish. Please try again.",
+    failed: "Linking was canceled or didn't finish. Please try again.",
     startFailed: "Couldn't start linking. Please try again in a moment.",
     unlinkFailed: "Couldn't unlink. Please try again in a moment.",
   },
