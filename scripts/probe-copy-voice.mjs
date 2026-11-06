@@ -54,6 +54,9 @@ const lineOf = (sf, node) => sf.getLineAndCharacterOfPosition(node.getStart()).l
     ["Home", ""],
     ["Built with Swift", ""],
     ["Let us leverage AI", "word:H27"],
+    ["Your project is saved", "word:N06"],
+    ["My side project died", ""],
+    ["Add a work", ""],
     ["one two three four five six seven eight nine ten", "length"],
   ];
   const bad = cases.filter(([t, want]) => rules(t, { cap: 9 }) !== want);
