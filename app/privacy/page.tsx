@@ -30,7 +30,7 @@ export default async function PrivacyPage() {
           {en ? "Privacy policy" : "개인정보처리방침"}
         </h1>
         <p className="text-sm mb-12" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
-          {en ? "Effective date: November 3, 2026 (previous version: October 30, 2026)" : "시행일: 2026년 11월 3일 (이전 판: 2026년 10월 30일)"}
+          {en ? "Effective date: November 6, 2026 (previous version: November 3, 2026)" : "시행일: 2026년 11월 6일 (이전 판: 2026년 11월 3일)"}
         </p>
 
         <div className="flex flex-col gap-10" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-nunito)", fontSize: "0.9rem", lineHeight: 1.9 }}>
@@ -138,8 +138,11 @@ function KoBody() {
           서비스는 만 14세 이상만 가입할 수 있으며, 만 14세 미만 아동의 개인정보는 수집하지 않습니다.
         </p>
         <p className="mt-3">
-          이용자가 업로드한 작품 파일은 개인정보 수집 항목이 아니지만, <strong>공개 주소로 제공되어 주소를 아는
-          사람이 내려받을 수 있습니다</strong>. 파일 안에 본인이나 타인의 개인정보를 담지 말아 주세요. 자세한 내용은{" "}
+          이용자가 업로드한 작품 파일은 개인정보 수집 항목이 아닙니다. <strong>발행한 작품의 파일은 공개 주소로
+          제공되어 주소를 아는 사람이 내려받을 수 있습니다</strong>. 아직 발행하지 않은 초안의 파일은 본인만 대시보드에서
+          열 수 있습니다. 다만 초안에 붙인 그림·영상(스크린샷·시연 영상)은 주소를 아는 사람이 볼 수 있습니다. 신고
+          등으로 비공개 처리된 작품의 파일도 초안처럼 닫힙니다. 파일 안에 본인이나 타인의 개인정보를
+          담지 말아 주세요. 자세한 내용은{" "}
           <Link href="/terms" style={{ color: "var(--blue)" }}>이용약관 제6조</Link>에 있습니다.
         </p>
       </Section>
@@ -278,9 +281,12 @@ function EnBody() {
           children under 14.
         </p>
         <p className="mt-3">
-          The work files you upload are not collected as personal information, but they are <strong>served from
-          public addresses and can be downloaded by anyone who knows the address</strong>. Do not put your own
-          or anyone else&apos;s personal information inside them. See{" "}
+          The work files you upload are not collected as personal information. <strong>Files of a published work
+          are served from public addresses and can be downloaded by anyone who knows the address</strong>. Files of a
+          draft you have not published yet can only be opened by you, from your dashboard. Images and videos you attach
+          to a draft (screenshots, demo videos) can still be viewed by anyone who has their address. A work made
+          private after a report is closed the same way as a draft. Do not put your own or anyone else&apos;s personal information
+          inside them. See{" "}
           <Link href="/terms" style={{ color: "var(--blue)" }}>Article 6 of the Terms</Link> for details.
         </p>
       </Section>
