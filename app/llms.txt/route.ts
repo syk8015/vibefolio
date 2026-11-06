@@ -18,18 +18,18 @@ const HOST = "nookframe.com";
 // 공개 클라이언트라 정적 캐시가 그대로 먹는다.
 export const revalidate = 3600;
 
-const HEAD = `# Nookframe
+const HEAD = `# nookframe
 
 > AI로 무언가 만드는 사람을 위한 라이브 포트폴리오. 만든 것을 링크 하나로 보여주고,
 > 방문자는 멈춘 스크린샷이 아니라 실제로 도는 화면을 만난다.
 
-Nookframe is a live portfolio for people who build things with AI ("vibe coders").
+nookframe is a live portfolio for people who build things with AI ("vibe coders").
 Each person gets one page — ${HOST}/<username> — where the work leads instead of the
 profile. Uploaded builds run live inside the page; projects that live at a deployed URL
 get an auto-recorded demo video plus a one-tap door to the real site. The product is
 Korean-first with an English UI toggle.
 
-깃허브는 코드의 집, 노션은 한 페이지, 링크트리는 링크 묶음 — Nookframe은 한 사람의
+깃허브는 코드의 집, 노션은 한 페이지, 링크트리는 링크 묶음 — nookframe은 한 사람의
 작품 집이다. 완성작만 올리는 곳이 아니라 주말에 만들다 만 것, 시험용, 데모도 전부 올린다.
 
 ## 어떻게 동작하나

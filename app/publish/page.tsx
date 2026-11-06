@@ -7,7 +7,7 @@ import PublishForm from "./PublishForm";
 export async function generateMetadata() {
   const locale = await getLocale();
   return {
-    title: locale === "en" ? "Paste your AI's reply · Nookframe" : "AI 답 붙여넣기 · Nookframe",
+    title: locale === "en" ? "Paste your AI's reply · nookframe" : "AI 답 붙여넣기 · nookframe",
   };
 }
 

@@ -75,14 +75,14 @@ const SITE_JSONLD = {
       "@type": "WebSite",
       "@id": "https://nookframe.com/#website",
       url: "https://nookframe.com",
-      name: "Nookframe",
+      name: "nookframe",
       inLanguage: "ko",
       publisher: { "@id": "https://nookframe.com/#org" },
     },
     {
       "@type": "Organization",
       "@id": "https://nookframe.com/#org",
-      name: "Nookframe",
+      name: "nookframe",
       url: "https://nookframe.com",
       logo: "https://nookframe.com/brand/oauth-logo-512.png",
       description:
@@ -186,7 +186,7 @@ export default async function LandingPage() {
           <Link href="/terms" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem", textDecoration: "none" }}>{t.common.terms}</Link>
           <Link href="/privacy" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem", textDecoration: "none" }}>{t.common.privacy}</Link>
           <a href="mailto:vivestarter@gmail.com" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem", textDecoration: "none" }}>{t.common.contact}</a>
-          <span style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem" }}>© {new Date().getFullYear()} Nookframe</span>
+          <span style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem" }}>© {new Date().getFullYear()} nookframe</span>
         </footer>
       </main>
     );
@@ -258,7 +258,7 @@ export default async function LandingPage() {
         <Link href="/terms" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem", textDecoration: "none" }}>{t.common.terms}</Link>
         <Link href="/privacy" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem", textDecoration: "none" }}>{t.common.privacy}</Link>
         <a href="mailto:vivestarter@gmail.com" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem", textDecoration: "none" }}>{t.common.contact}</a>
-        <span style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem" }}>© {new Date().getFullYear()} Nookframe</span>
+        <span style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem" }}>© {new Date().getFullYear()} nookframe</span>
       </footer>
     </main>
   );

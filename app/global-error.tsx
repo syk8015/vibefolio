@@ -8,7 +8,7 @@ import { LOCALE_COOKIE, isLocale, type Locale } from "@/lib/i18n/config";
 // 쿠키만 직접 읽어 ko/en을 고른다(항상 클라이언트 렌더라 document 접근 안전).
 const COPY = {
   ko: {
-    title: "문제가 발생했어요 — Nookframe",
+    title: "문제가 발생했어요 — nookframe",
     eyebrow: "문제가 발생했어요",
     heading: "페이지를 불러오지 못했어요",
     desc: "잠시 문제가 생겼어요. 다시 시도하거나 홈으로 돌아가 주세요.",
@@ -17,7 +17,7 @@ const COPY = {
     digest: "오류 코드",
   },
   en: {
-    title: "Something went wrong — Nookframe",
+    title: "Something went wrong — nookframe",
     eyebrow: "Something went wrong",
     heading: "We couldn't load this page",
     desc: "Something briefly went wrong. Try again or head back home.",
@@ -45,7 +45,7 @@ function detectLocale(): Locale {
 // React <title> element instead.
 
 // Mirrors the paper/ink palette from globals.css so the crash screen still feels
-// like Nookframe even with the stylesheet pipeline bypassed.
+// like nookframe even with the stylesheet pipeline bypassed.
 const STYLES = `
   .ge-root {
     --ge-bg: #fdfaf3;

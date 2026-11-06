@@ -74,25 +74,25 @@ export async function generateMetadata({
 
   const name = profile.name || username;
   // 소개글은 줄바꿈을 품는다 — meta·OG는 한 줄로 눕힌다(작품 페이지와 같은 처리).
-  const description = (profile.bio && oneLine(profile.bio)) || `${name}의 Nookframe — 바이브코더의 라이브 포트폴리오`;
+  const description = (profile.bio && oneLine(profile.bio)) || `${name}의 nookframe — 바이브코더의 라이브 포트폴리오`;
   const url = `https://nookframe.com/${username}`;
   // 공개 작품이 하나도 없는 명함은 검색에 안 올린다(빈 페이지 · 심사용 계정).
   const isEmpty = (await getProjects(profile.id)).length === 0;
 
   return {
-    title: `${name} | Nookframe`,
+    title: `${name} | nookframe`,
     description,
     ...(isEmpty && { robots: { index: false } }),
     openGraph: {
-      title: `${name} | Nookframe`,
+      title: `${name} | nookframe`,
       description,
       url,
       type: "profile",
-      siteName: "Nookframe",
+      siteName: "nookframe",
     },
     twitter: {
       card: "summary_large_image",
-      title: `${name} | Nookframe`,
+      title: `${name} | nookframe`,
       description,
     },
   };
@@ -412,7 +412,7 @@ export default async function UserPortfolioPage({
         <Link href="/privacy" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem", textDecoration: "none" }}>{t.common.privacy}</Link>
         <a href="mailto:vivestarter@gmail.com" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem", textDecoration: "none" }}>{t.common.contact}</a>
         {!isOwner && <ReportButton targetType="profile" targetId={p.id} />}
-        <span style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem" }}>© {new Date().getFullYear()} Nookframe</span>
+        <span style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem" }}>© {new Date().getFullYear()} nookframe</span>
       </footer>
       )}
 

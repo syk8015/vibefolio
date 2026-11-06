@@ -1,4 +1,4 @@
-// Nookframe transactional email templates (T4).
+// nookframe transactional email templates (T4).
 //
 // Pure functions — no env, no framework imports — so the tsx worker, API routes
 // and the cron watchdog all render identical mail. Each returns { subject, html }.
@@ -77,7 +77,7 @@ function shell(preheader: string, content: string, locale: Locale = DEFAULT_LOCA
   <tr><td align="center" style="padding:40px 16px;">
     <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;">
       <tr><td style="padding:0 8px 16px;">
-        <span style="font-family:${FONT};font-size:15px;font-weight:800;letter-spacing:0.02em;color:${INK};">Nookframe</span>
+        <span style="font-family:${FONT};font-size:15px;font-weight:800;letter-spacing:0.02em;color:${INK};">nookframe</span>
       </td></tr>
       <tr><td style="background:${CREAM};border-radius:20px;padding:36px 32px;">
         ${content}
@@ -248,7 +248,7 @@ export function adminAlertEmail(input: {
     )
     .join("\n");
   return {
-    subject: `[Nookframe] ${clampSubject(input.title, 80)}`,
+    subject: `[nookframe] ${clampSubject(input.title, 80)}`,
     html: shell(
       input.title,
       [

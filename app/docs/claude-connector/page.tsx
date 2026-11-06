@@ -18,11 +18,11 @@ const PAGE_PATH = "/docs/claude-connector";
 
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getLocale();
-  const title = locale === "en" ? "Claude connector | Nookframe" : "Claude 커넥터 | Nookframe";
+  const title = locale === "en" ? "Claude connector | nookframe" : "Claude 커넥터 | nookframe";
   const description =
     locale === "en"
-      ? "Connect Claude to Nookframe and let it upload your vibe-coded work as a draft for you to review."
-      : "Claude를 Nookframe에 연결하면, 바이브 코딩한 작품을 Claude가 초안으로 올려 줍니다.";
+      ? "Connect Claude to nookframe and let it upload your vibe-coded work as a draft for you to review."
+      : "Claude를 nookframe에 연결하면, 바이브 코딩한 작품을 Claude가 초안으로 올려 줍니다.";
   // openGraph를 따로 둔다 — 안 두면 루트 것(og:url = 홈)을 물려받아 이 주소를 공유해도 홈 카드가 뜬다.
   return {
     title,
@@ -33,7 +33,7 @@ export async function generateMetadata(): Promise<Metadata> {
       title,
       description,
       url: PAGE_PATH,
-      siteName: "Nookframe",
+      siteName: "nookframe",
       type: "website",
       locale: locale === "en" ? "en_US" : "ko_KR",
       // 루트의 공유 그림도 openGraph를 다시 쓰면 빠진다 — 직접 단다.
@@ -109,7 +109,7 @@ export default async function ClaudeConnectorPage() {
 
       <div className="max-w-2xl mx-auto px-6 py-16">
         <h1 className="text-3xl font-black mb-2" style={{ color: "var(--text-primary)", fontFamily: "var(--font-nunito)" }}>
-          {en ? "Nookframe for Claude" : "Claude용 Nookframe 커넥터"}
+          {en ? "nookframe for Claude" : "Claude용 nookframe 커넥터"}
         </h1>
         <p className="text-sm mb-12" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)" }}>
           {en ? "Last updated: October 29, 2026" : "마지막 수정: 2026년 10월 29일"}
@@ -123,7 +123,7 @@ export default async function ClaudeConnectorPage() {
       <footer className="flex items-center justify-center gap-6 py-8" style={{ borderTop: "1px solid var(--border)" }}>
         <Link href="/terms" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem", textDecoration: "none" }}>{en ? "Terms of Service" : "이용약관"}</Link>
         <Link href="/privacy" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem", textDecoration: "none" }}>{en ? "Privacy Policy" : "개인정보처리방침"}</Link>
-        <span style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem" }}>© {new Date().getFullYear()} Nookframe</span>
+        <span style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem" }}>© {new Date().getFullYear()} nookframe</span>
       </footer>
     </main>
   );
@@ -133,14 +133,14 @@ function KoBody() {
   return (
     <>
       <Section title="무엇을 하나요">
-        Nookframe은 바이브 코딩으로 만든 작품을 실제로 돌아가는 화면과 자동 촬영한 시연 영상으로 보여 주는
-        포트폴리오입니다. 이 커넥터를 붙이면 Claude가 대화 중에 작품을 Nookframe에 <strong>초안으로</strong> 올려 줍니다.
+        nookframe은 바이브 코딩으로 만든 작품을 실제로 돌아가는 화면과 자동 촬영한 시연 영상으로 보여 주는
+        포트폴리오입니다. 이 커넥터를 붙이면 Claude가 대화 중에 작품을 nookframe에 <strong>초안으로</strong> 올려 줍니다.
         초안은 주인만 볼 수 있고, 주인이 대시보드에서 확인하고 [공개]를 눌러야 공개됩니다.
       </Section>
 
       <Section title="준비물">
         <ul className="list-disc pl-5 flex flex-col gap-1">
-          <li>Nookframe 계정(무료)</li>
+          <li>nookframe 계정(무료)</li>
           <li>Claude 계정(웹 또는 데스크톱 앱). 커넥터 목록은 폰 앱에서는 열 수 없습니다. Team·Enterprise 요금제는 조직 관리자가 먼저 커넥터를 허용해야 할 수 있습니다.</li>
         </ul>
         <SignupButton en={false} />
@@ -148,8 +148,8 @@ function KoBody() {
 
       <Section title="연결하기">
         <ol className="list-decimal pl-5 flex flex-col gap-1">
-          <li>Claude에서 설정 → 커넥터 → [Browse connectors]를 열고 Nookframe을 찾습니다. 대화창 왼쪽 아래 도구 버튼 → [Add connectors]로도 열 수 있습니다.</li>
-          <li>[Connect]를 누르면 Nookframe 로그인과 허락 화면이 뜹니다. 로그인한 뒤 [허용]을 누릅니다.</li>
+          <li>Claude에서 설정 → 커넥터 → [Browse connectors]를 열고 nookframe을 찾습니다. 대화창 왼쪽 아래 도구 버튼 → [Add connectors]로도 열 수 있습니다.</li>
+          <li>[Connect]를 누르면 nookframe 로그인과 허락 화면이 뜹니다. 로그인한 뒤 [허용]을 누릅니다.</li>
         </ol>
         <p className="mt-2">
           목록에서 안 보이면 설정 → 커넥터 → [Add custom connector]에 <Code>{CONNECTOR_URL}</Code>을 넣어도 같습니다.
@@ -162,9 +162,9 @@ function KoBody() {
       <Section title="써 보기">
         대화에서 이렇게 말하면 됩니다.
         <ul className="list-disc pl-5 flex flex-col gap-1 mt-2">
-          <li>&ldquo;이 프로젝트를 Nookframe에 올려 줘&rdquo;</li>
-          <li>&ldquo;내 Nookframe 시연 영상 다 찍혔어?&rdquo;</li>
-          <li>&ldquo;Nookframe 초안 목록 보여 줘&rdquo;</li>
+          <li>&ldquo;이 프로젝트를 nookframe에 올려 줘&rdquo;</li>
+          <li>&ldquo;내 nookframe 시연 영상 다 찍혔어?&rdquo;</li>
+          <li>&ldquo;nookframe 초안 목록 보여 줘&rdquo;</li>
         </ul>
         <p className="mt-2">
           올리기 전에 Claude가 작품에 대해 짧게 세 가지를 묻습니다(가장 자랑하고 싶은 장면, 실제로 어떻게 쓰는지, 영상에 꼭 나와야 할 것).
@@ -191,7 +191,7 @@ function KoBody() {
         <ul className="list-disc pl-5 flex flex-col gap-1">
           <li>커넥터가 받는 것은 Claude가 도구를 부를 때 넘기는 내용뿐입니다: 작품 정보(제목·설명·촬영 대본), 주인 인터뷰 답, 작품 주소나 HTML. 대화 기록이나 Claude의 메모리는 읽지 않습니다.</li>
           <li>로그인 토큰은 서버에 해시로만 저장합니다. 접근 토큰은 12시간, 갱신 토큰은 90일이 지나면 끊깁니다.</li>
-          <li>연결은 언제든 끊을 수 있습니다: Nookframe 설정 → AI 연결 → [끊기]. 끊는 즉시 그 연결로는 아무것도 올릴 수 없습니다.</li>
+          <li>연결은 언제든 끊을 수 있습니다: nookframe 설정 → AI 연결 → [끊기]. 끊는 즉시 그 연결로는 아무것도 올릴 수 없습니다.</li>
           <li>나머지는 <Link href="/privacy" style={{ color: "var(--blue)" }}>개인정보처리방침</Link>을 따릅니다.</li>
         </ul>
       </Section>
@@ -214,15 +214,15 @@ function EnBody() {
   return (
     <>
       <Section title="What it does">
-        Nookframe is a portfolio for vibe-coded work: each work is shown as a live, running app plus a demo video that
-        is filmed automatically. With this connector, Claude can upload your work to Nookframe <strong>as a draft</strong>{" "}
+        nookframe is a portfolio for vibe-coded work: each work is shown as a live, running app plus a demo video that
+        is filmed automatically. With this connector, Claude can upload your work to nookframe <strong>as a draft</strong>{" "}
         right from the conversation. Only you can see a draft; nothing becomes public until you review it in your
         dashboard and press Publish.
       </Section>
 
       <Section title="What you need">
         <ul className="list-disc pl-5 flex flex-col gap-1">
-          <li>A Nookframe account (free)</li>
+          <li>A nookframe account (free)</li>
           <li>A Claude account on the web or the desktop app. The connector directory can&apos;t be opened in the mobile apps. On Team and Enterprise plans, an organization owner may need to allow the connector first.</li>
         </ul>
         <SignupButton en />
@@ -230,8 +230,8 @@ function EnBody() {
 
       <Section title="Connect">
         <ol className="list-decimal pl-5 flex flex-col gap-1">
-          <li>In Claude, open Settings → Connectors → Browse connectors and find Nookframe. You can also get there from the tools button at the lower left of a chat → Add connectors.</li>
-          <li>Press Connect. Nookframe&apos;s sign-in and consent screen opens — sign in, then press Allow.</li>
+          <li>In Claude, open Settings → Connectors → Browse connectors and find nookframe. You can also get there from the tools button at the lower left of a chat → Add connectors.</li>
+          <li>Press Connect. nookframe&apos;s sign-in and consent screen opens — sign in, then press Allow.</li>
         </ol>
         <p className="mt-2">
           Not in the list? Add <Code>{CONNECTOR_URL}</Code> under Settings → Connectors → Add custom connector instead — it&apos;s the same connector.
@@ -245,9 +245,9 @@ function EnBody() {
       <Section title="Try it">
         Ask Claude things like:
         <ul className="list-disc pl-5 flex flex-col gap-1 mt-2">
-          <li>&ldquo;Publish this project to Nookframe&rdquo;</li>
-          <li>&ldquo;Is my Nookframe demo video filmed yet?&rdquo;</li>
-          <li>&ldquo;Show my Nookframe drafts&rdquo;</li>
+          <li>&ldquo;Publish this project to nookframe&rdquo;</li>
+          <li>&ldquo;Is my nookframe demo video filmed yet?&rdquo;</li>
+          <li>&ldquo;Show my nookframe drafts&rdquo;</li>
         </ul>
         <p className="mt-2">
           Before uploading, Claude asks you three short questions about the work (the moment you&apos;re proudest of, how
@@ -276,7 +276,7 @@ function EnBody() {
         <ul className="list-disc pl-5 flex flex-col gap-1">
           <li>The connector only receives what Claude passes when it calls a tool: the work&apos;s details (title, description, demo script), your interview answers, and the work&apos;s URL or HTML. It does not read your chat history or Claude&apos;s memory.</li>
           <li>Sign-in tokens are stored only as hashes. Access tokens expire after 12 hours, refresh tokens after 90 days.</li>
-          <li>You can disconnect at any time: Nookframe Settings → AI connections → Disconnect. The connection stops working immediately.</li>
+          <li>You can disconnect at any time: nookframe Settings → AI connections → Disconnect. The connection stops working immediately.</li>
           <li>Everything else follows our <Link href="/privacy" style={{ color: "var(--blue)" }}>Privacy Policy</Link>.</li>
         </ul>
       </Section>

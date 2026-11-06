@@ -30,7 +30,7 @@ export function buildPublishFixPrompt(
 
   // 본문은 영어 하나(2026-09-05). 거절 사유(reason)는 화면 언어 그대로 실린다 —
   // AI가 그걸 읽고 고치는 데는 문제가 없고, 사람이 같은 문장을 화면에서 봤다.
-  return `The JSON below was rejected when I tried to publish it to Nookframe. Read the reason, fix the JSON, and give me the corrected version.
+  return `The JSON below was rejected when I tried to publish it to nookframe. Read the reason, fix the JSON, and give me the corrected version.
 
 Reply with the complete JSON object only — no explanation, no code fence, nothing else. Keep everything that was already fine; change only what the reason asks for.
 

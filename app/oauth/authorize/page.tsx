@@ -17,7 +17,7 @@ import ConnectPair from "./ConnectPair";
 
 export async function generateMetadata() {
   const locale = await getLocale();
-  return { title: locale === "en" ? "Connect · Nookframe" : "연결 확인 · Nookframe" };
+  return { title: locale === "en" ? "Connect · nookframe" : "연결 확인 · nookframe" };
 }
 
 /** 이 화면은 쿠키와 검색 파라미터를 읽는다 — 절대 캐시되면 안 된다. */
@@ -83,7 +83,7 @@ export default async function AuthorizePage({ searchParams }: { searchParams: Se
 
   // 가운데 정렬 한 줄기(10-01 덜어내기 라): 주소 → 이름 → 질문 → 할 수 있는 일 두 줄 → 못 하는 일 한 줄
   // → (내 컴퓨터면 경고) → [닫기][허용하고 돌아가기] → 돌아갈 곳 → 끊는 곳.
-  // 업그레이드(10-01): 맨 위에 [요청한 쪽] ··🔒·· [Nookframe] 짝 그림.
+  // 업그레이드(10-01): 맨 위에 [요청한 쪽] ··🔒·· [nookframe] 짝 그림.
   return (
     <Card>
       <ConnectPair verifiedHost={clientHost} local={isLoopback} localLabel={t.oauth.localBadge} />

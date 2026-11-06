@@ -123,7 +123,7 @@ export async function callTool(
         return {
           isError: false,
           text:
-            `${verb} on Nookframe (draft id: ${id} — pass it as draftId to update this draft). ` +
+            `${verb} on nookframe (draft id: ${id} — pass it as draftId to update this draft). ` +
             `Nothing is public yet: the owner reviews it and presses publish at ${r.body.reviewUrl}. ` +
             `After that, get_nookframe_status with this id tells you when the demo video is filmed.${echo(r.body)}`,
         };
@@ -139,7 +139,7 @@ export async function callTool(
           // 드라이런을 모르는 서버라면 방금 진짜로 올라간 것이다 — 반드시 알린다.
           return {
             isError: true,
-            text: `This Nookframe server does not support checking yet, so the payload was PUBLISHED as a draft (id ${r.body.projectId ?? "unknown"}). Tell the owner, or remove it with delete_nookframe_draft.`,
+            text: `This nookframe server does not support checking yet, so the payload was PUBLISHED as a draft (id ${r.body.projectId ?? "unknown"}). Tell the owner, or remove it with delete_nookframe_draft.`,
           };
         }
         const wouldUpdate = r.body.wouldUpdate ? `It would UPDATE the existing draft ${r.body.draftId}.` : "It would create a NEW draft.";
@@ -210,6 +210,6 @@ export async function callTool(
   } catch (err) {
     logger.error("mcp: tool call failed", { error: err, tool: name });
     const why = err instanceof Error && err.name === "TimeoutError" ? "the request timed out" : "the request failed";
-    return { isError: true, text: `Could not reach Nookframe: ${why}. Try again in a moment.` };
+    return { isError: true, text: `Could not reach nookframe: ${why}. Try again in a moment.` };
   }
 }

@@ -187,7 +187,7 @@ export async function alertMail(title: string, lines: string[]): Promise<void> {
   const site = process.env.NEXT_PUBLIC_SITE_URL || "https://nookframe.com";
   await sendEmail({
     to: alertRecipients(),
-    subject: `[Nookframe] ${title}`,
+    subject: `[nookframe] ${title}`,
     html:
       `<div style="font-family:sans-serif;font-size:14px;line-height:1.7">` +
       `<p style="font-size:16px;font-weight:700">${esc(title)}</p><ul>${lines.map((l) => `<li>${esc(l)}</li>`).join("")}</ul>` +

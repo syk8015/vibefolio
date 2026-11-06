@@ -168,7 +168,7 @@ export function filmingStatus(row: FilmingRow, { paused, nowMs }: { paused: bool
       message: moderation
         ? "On hold for a quick content check before filming goes live."
         : credit
-          ? "On hold — filming is paused on Nookframe's side for now and resumes automatically."
+          ? "On hold — filming is paused on nookframe's side for now and resumes automatically."
           : "On hold — past the daily auto-demo limit, waiting for approval.",
       next: moderation
         ? `${en.projects.heldModerationTip} Nothing to do but wait.`
@@ -185,7 +185,7 @@ export function filmingStatus(row: FilmingRow, { paused, nowMs }: { paused: bool
       state: "queued",
       slow: !paused && slow,
       message: paused
-        ? `Waiting in the filming queue${waitedText}. Nookframe films in batches, so this can take a few hours — sometimes up to a day.${keepsOld}`
+        ? `Waiting in the filming queue${waitedText}. nookframe films in batches, so this can take a few hours — sometimes up to a day.${keepsOld}`
         : slow
           ? `Waiting in the filming queue${waitedText} — longer than usual, but still queued.${keepsOld}`
           : `Waiting in the filming queue${waitedText} — filming usually starts within a few minutes.${keepsOld}`,

@@ -18,7 +18,7 @@ import { StageChip } from "@/components/theater/StageMarks";
 
 // The public per-project watch page. Its whole job is to unfurl the demo mp4 as
 // og:video (Discord/Slack/Telegram/iMessage inline-play it) and hand the viewer a
-// door into the owner's Nookframe. 화면 글자는 방문자 언어를 따른다(2026-09-22
+// door into the owner's nookframe. 화면 글자는 방문자 언어를 따른다(2026-09-22
 // 결정 D2 — 예전 "English by design"은 결정 목록에 없던 주석이었다). 링크 미리보기
 // (meta·OG)는 크롤러가 읽는 자리라 영어 그대로, 신고 창도 en 고정(의도).
 //
@@ -41,7 +41,7 @@ const COPY = {
     showLess: "접기",
     viewFrame: (name: string) => `${name}의 프레임 보기`,
     makeYourOwn: "내 작품도 올리기",
-    madeWith: "Nookframe으로 만든 페이지",
+    madeWith: "nookframe으로 만든 페이지",
   },
   en: {
     caption: CAPTION,
@@ -51,7 +51,7 @@ const COPY = {
     showLess: "Show less",
     viewFrame: (name: string) => `View ${name}'s frame`,
     makeYourOwn: "Put your own work up",
-    madeWith: "Made with Nookframe",
+    madeWith: "Made with nookframe",
   },
 };
 // 영상이 없는 작품은 둘로 갈린다: 지금 찍는 중(곧 생긴다)과 영상이 올 일이 없는
@@ -84,7 +84,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const project = { ...data.project, title: lw.title, description: lw.description };
 
   const handle = `@${profile.username}`;
-  const title = `${project.title} · ${handle} on Nookframe`;
+  const title = `${project.title} · ${handle} on nookframe`;
   // 설명은 3줄로 끊어 쓴 카피라 줄바꿈을 품는다 — 화면은 그대로 살리고,
   // meta·OG처럼 기계가 읽는 자리에서는 한 줄로 눕힌다(lib/text.ts).
   const clip = watchVideo(project);
@@ -93,9 +93,9 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
     ? oneLine(project.description)
     : clip
       ? clip.auto
-        ? `${CAPTION}. Watch ${handle}'s demo on Nookframe.`
-        : `Watch ${handle}'s demo on Nookframe.`
-      : `${project.title} by ${handle} on Nookframe.`;
+        ? `${CAPTION}. Watch ${handle}'s demo on nookframe.`
+        : `Watch ${handle}'s demo on nookframe.`
+      : `${project.title} by ${handle} on nookframe.`;
   const watchUrl = `${SITE}/${profile.username}/${project.id}`;
 
   // og:image / twitter:image come from the co-located opengraph-image.tsx (a
@@ -110,7 +110,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
       title,
       description,
       url: watchUrl,
-      siteName: "Nookframe",
+      siteName: "nookframe",
       // 영상이 없는데 video.other를 걸면 og:video 없는 영상 카드가 나간다.
       type: video ? "video.other" : "website",
       // Discord/Slack/Telegram/iMessage inline-play this. (X ignores direct-mp4
@@ -348,8 +348,8 @@ export default async function WatchPage({ params }: Params) {
         )}
 
         {/* 공유 링크로 온 사람이 제일 먼저 하고 싶은 건 앱을 만져보는 것 —
-            체험이 첫 버튼, 주인의 Nookframe은 두 번째. 체험 주소가 없으면
-            Nookframe 버튼이 첫 자리로 올라온다. iframe이 아니라 새 탭 링크라
+            체험이 첫 버튼, 주인의 nookframe은 두 번째. 체험 주소가 없으면
+            nookframe 버튼이 첫 자리로 올라온다. iframe이 아니라 새 탭 링크라
             05-21 결정(명함 외 임베드 금지)과 부딪히지 않는다. */}
         <div className="flex flex-wrap items-center gap-3 mt-8">
           {tryIt && (
@@ -399,7 +399,7 @@ export default async function WatchPage({ params }: Params) {
           {c.madeWith}
         </Link>
         <span style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem" }}>
-          © {new Date().getFullYear()} Nookframe
+          © {new Date().getFullYear()} nookframe
         </span>
         <ReportButton targetType="project" targetId={project.id} locale="en" />
       </footer>

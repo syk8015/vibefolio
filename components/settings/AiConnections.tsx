@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDay } from "@/lib/dates";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useT } from "@/lib/i18n/client";
@@ -170,7 +171,7 @@ export default function AiConnections() {
 
   const count = tokens?.length ?? 0;
   const locked = busy !== null;
-  const dateFmt = (iso: string) => new Date(iso).toLocaleDateString(locale === "ko" ? "ko-KR" : "en-US");
+  const dateFmt = (iso: string) => formatDay(iso, locale);
   const origin = typeof window !== "undefined" ? window.location.origin : "https://nookframe.com";
   const note = (color: string): React.CSSProperties => ({ ...TEXT, fontSize: "0.8125rem", color, margin: "10px 0 0" });
   const preStyle: React.CSSProperties = {

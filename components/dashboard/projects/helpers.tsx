@@ -1,4 +1,5 @@
 import { memo } from "react";
+import { formatDayTime, formatFull } from "@/lib/dates";
 import { AI_TOOL_DOMAINS } from "@/lib/projectTaxonomy";
 import { AI_TOOL_MARKS } from "@/components/dashboard/aiToolPaths";
 import { safeRelativePath, secretFileKind, summarizeDropped, type DroppedFile } from "@/lib/upload-safety";
@@ -189,14 +190,10 @@ export function formatUploadedAt(iso: string | null | undefined, locale: "ko" | 
   if (!iso) return null;
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return null;
-  const tag = locale === "ko" ? "ko-KR" : "en-US";
   return {
-    // 목록에는 "9월 3일 21:49"까지만 — 연도까지 적으면 회색 한 줄이 숫자로
-    // 붐빈다(시안 1 확정). 연도는 title(마우스 올림)이 책임진다.
-    short:
-      locale === "ko"
-        ? d.toLocaleString(tag, { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false })
-        : d.toLocaleString(tag, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }),
-    full: d.toLocaleString(tag, { dateStyle: "full", timeStyle: "medium" }),
+    // 목록에는 "9월 3일 오후 9:49"까지만 — 올해 것은 연도를 빼야 회색 한 줄이 숫자로
+    // 붐비지 않는다(시안 1 확정). 시각은 12시간 한 가지(docs/brand.md §11, 11-06). 전체는 title(마우스 올림).
+    short: formatDayTime(d, locale),
+    full: formatFull(d, locale),
   };
 }

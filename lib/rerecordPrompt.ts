@@ -75,7 +75,7 @@ export function rerecordPrompt(
 
   // 본문은 영어 하나(2026-09-05). 대본의 goal/expect는 소유자가 검토 화면에서
   // 눈으로 읽는 문장이라, 그 언어만 outputLanguageLine이 정해 준다.
-  return `Rewrite the filming script for a Nookframe auto-demo. You built this project; the owner watched the current film and told us what to fix.
+  return `Rewrite the filming script for a nookframe auto-demo. You built this project; the owner watched the current film and told us what to fix.
 
 ${outputLanguageLine(locale)}
 
@@ -105,7 +105,7 @@ RULES (the robot follows the script literally)
 - Re-check the live page if you can: selectors that no longer exist are the most common reason a beat goes missing.
 
 HOW TO SUBMIT — pick whichever fits you (this replaces nothing until the owner approves it in their dashboard)
-- If you have the Nookframe MCP server: call the "rerecord_nookframe_demo" tool with
+- If you have the nookframe MCP server: call the "rerecord_nookframe_demo" tool with
   { "id": "${c.projectId}", "demoScript": <your script>, "note": "one line on what you changed and why" }
 - If you have a shell: pair once, write {"demoScript": <your script>, "note": "what you changed and why"} to a file, then submit it —
    ${loginCommand(codeArg)}
@@ -115,7 +115,7 @@ HOW TO SUBMIT — pick whichever fits you (this replaces nothing until the owner
 ${curlFallback(base, codeArg, [
     { url: submitUrl, body: `-d '{"demoScript": <your script>, "note": "one line on what you changed and why"}'` },
   ])}
-Then tell the owner what you changed AND that nothing is re-recorded yet — they have to open Nookframe and press re-record.
+Then tell the owner what you changed AND that nothing is re-recorded yet — they have to open nookframe and press re-record.
 After they do, ${NPX_STATUS} ${c.projectId} (or the "get_nookframe_status" tool) tells you when the new film is done, or why it failed — check when asked, don't loop.
 
 Script shape:

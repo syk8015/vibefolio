@@ -23,13 +23,13 @@ export const taglineIntros: string[] = [
 // 2026-11-04 다시 씀 — 번역이 아니라 처음부터 영어로, 브랜드 기준(진짜 · 다 만든 그다음 · 라이브 포트폴리오)에 맞춤.
 export const taglineIntrosEn: string[] = [
   "Real apps, running live. Not screenshots",
-  "Your app, running — not a picture of it",
+  "Your app, running. Not a picture of it",
   "Don't describe your app. Let them use it",
   "For what comes after you build it",
-  "You built it with AI. Now let people use it",
+  "Built with AI. Now let people use it",
   "A live portfolio for things you built with AI",
   "Paste the link. The demo video films itself",
-  "Ask your AI to upload it. You just hit publish",
+  "Your AI uploads it. You just hit publish",
 ];
 
 // 사용자 수가 이보다 적으면 {N} 문장을 뺀다 — "빌더 3명이 사용 중"은 오히려
@@ -125,34 +125,34 @@ export const taglines: string[] = [
  */
 export const taglinesEn: string[] = [
   // 기존 카피 (변주)
-  "The AI built it. You take the credit",
+  "The AI wrote the code. The idea was yours",
   "Show off your vibe coding with a single link",
   "5 minutes to frame your work",
   "The live portfolio for vibe coders",
   "A portfolio, no README required",
-  "\"I built this\" — one link says it all",
+  "\"I built this.\" One link says it all",
 
   // 정의 / 선언
   "Vibe coding: turning thin air into shipped products",
   "It all started with a single prompt",
   "Ideas first. Code… eventually",
   "If you made it, you're the artist",
-  "Every side project deserves a spotlight",
-  "Built by you, celebrated by everyone",
+  "Every side project deserves to be seen",
+  "Built by you, cheered by everyone",
   "New prompt, new frame",
 
   // 자랑·격려
-  "A spot for that thing you built over the weekend",
+  "That thing you built over the weekend",
   "Even a work-in-progress deserves a frame",
   "Made in a nook. Shown in a frame",
-  "Where your work gets the applause it deserves",
+  "Your work, finally getting noticed",
   "A portfolio from the moment you show it",
   "You shipped it. You get the bragging rights",
   "Time to tell the world: \"I built this\"",
   "It may be spaghetti code, but it's your spaghetti",
 
   // 인정
-  "No CS degree needed — if you shipped it, you're a builder",
+  "No CS degree needed. Shipped it? You're a builder",
   "Show the product, not the prompt",
   "Forget the tech stack. Show what you built",
   "Your first deploy is still a deploy",
@@ -161,24 +161,24 @@ export const taglinesEn: string[] = [
 
   // 자조·유머
   "Plenty of people can't code and build anyway",
-  "Copy-pasting error messages until you become a builder",
+  "From copy-pasting error messages to shipping",
   "My vision, AI's syntax",
 
   // 정체성
-  "Used by people who are the PM, the designer, and the dev",
-  "Used by people doing a whole team's job solo",
-  "A spot for solo founders whose only teammate is AI",
-  "Where idea people actually ship",
-  "Used by people who code in plain English",
-  "Ideas > syntax — welcome aboard",
-  "Used by people who've asked ChatGPT \"why isn't this working??\"",
-  "Used by the actual \"1\" in one-person startups",
-  "Used by people running a whole company from one keyboard",
+  "PM, designer, and dev. Same person",
+  "A whole team's job, done solo",
+  "Solo founder, one teammate: AI",
+  "Started as an idea. Ended up shipped",
+  "Plain English is a programming language now",
+  "Ideas > syntax. Welcome aboard",
+  "We've all asked ChatGPT \"why isn't this working??\"",
+  "Being the \"one\" in a one-person startup",
+  "One keyboard, one whole company",
 
   // 상황 묘사
   "That thing you built at 3 AM",
   "Shipped under the influence of caffeine",
-  "The \"wait, this actually works?\" project",
+  "The \"wait, this actually works?\" build",
   "A masterpiece squeezed into spare minutes",
   "The side project born on a lunch break",
   "An idea that started on the morning commute",
@@ -188,7 +188,7 @@ export const taglinesEn: string[] = [
   "{N} builders here treat AI as their junior dev",
   "{N} people here shipped products without writing code",
   "{N} people here clock in with a prompt",
-  "{N} people here are waiting to be asked \"who made this?\"",
+  "{N} people here want to hear \"who made this?\"",
   "{N} people here have definitely yelled at an AI",
   "{N} people here prompt more than they commit",
 
@@ -199,11 +199,11 @@ export const taglinesEn: string[] = [
   "A trail of endless creativity",
   "Your first build is someone else's inspiration",
   "You built it. Now let them see it",
-  "Ideas without gatekeeping — that's the real coding",
-  "If you care about what you made, that's a portfolio",
+  "Ideas without gatekeeping. That's real coding",
+  "Care about what you made? That's a portfolio",
   "Your most honest introduction is the thing you built",
   "Starting is the hard part. Start here",
-  "The rough edges are part of the work, sum = all",
+  "Rough edges are part of the work",
 
   // 다 괜찮아·흔적 (2026-11-04)
   "Half-finished counts. Show it running",

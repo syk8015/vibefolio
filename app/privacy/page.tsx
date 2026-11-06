@@ -10,7 +10,7 @@ import { getLocale } from "@/lib/i18n/server";
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getLocale();
   return {
-    title: locale === "en" ? "Privacy Policy | Nookframe" : "개인정보처리방침 | Nookframe",
+    title: locale === "en" ? "Privacy Policy | nookframe" : "개인정보처리방침 | nookframe",
   };
 }
 
@@ -41,7 +41,7 @@ export default async function PrivacyPage() {
       <footer className="flex items-center justify-center gap-6 py-8" style={{ borderTop: "1px solid var(--border)" }}>
         <Link href="/terms" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem", textDecoration: "none" }}>{en ? "Terms of Service" : "이용약관"}</Link>
         <Link href="/privacy" style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem", textDecoration: "none" }}>{en ? "Privacy Policy" : "개인정보처리방침"}</Link>
-        <span style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem" }}>© {new Date().getFullYear()} Nookframe</span>
+        <span style={{ color: "var(--text-muted)", fontFamily: "var(--font-nunito)", fontSize: "0.75rem" }}>© {new Date().getFullYear()} nookframe</span>
       </footer>
     </main>
   );
@@ -123,7 +123,7 @@ function KoBody() {
   return (
     <>
       <p>
-        Nookframe(이하 &quot;서비스&quot;)는 이용자의 개인정보를 중요하게 여기며, 「개인정보 보호법」 및 관련 법령을 준수합니다.
+        nookframe(이하 &quot;서비스&quot;)는 이용자의 개인정보를 중요하게 여기며, 「개인정보 보호법」 및 관련 법령을 준수합니다.
         본 방침은 서비스가 어떤 개인정보를 수집하고, 어떻게 활용하는지 안내합니다.
       </p>
 
@@ -232,7 +232,7 @@ function KoBody() {
       <Section title="제9조 (개인정보 보호책임자)">
         개인정보 보호에 관한 문의, 불만 처리, 피해 구제 등에 관한 사항은 아래 담당자에게 연락해 주세요.
         <div className="mt-3 p-4 rounded-xl" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
-          <p><strong style={{ color: "var(--text-primary)" }}>개인정보 보호책임자:</strong> Nookframe 운영팀</p>
+          <p><strong style={{ color: "var(--text-primary)" }}>개인정보 보호책임자:</strong> nookframe 운영팀</p>
           <p><strong style={{ color: "var(--text-primary)" }}>이메일:</strong>{" "}
             <a href="mailto:vivestarter@gmail.com" style={{ color: "var(--blue)" }}>vivestarter@gmail.com</a>
           </p>
@@ -261,7 +261,7 @@ function EnBody() {
   return (
     <>
       <p>
-        Nookframe (the &quot;Service&quot;) takes your privacy seriously and complies with applicable privacy laws,
+        nookframe (the &quot;Service&quot;) takes your privacy seriously and complies with applicable privacy laws,
         including the Personal Information Protection Act of the Republic of Korea. This policy explains what
         personal information the Service collects and how it is used.
       </p>
@@ -371,7 +371,7 @@ function EnBody() {
       <Section title="Article 9 (Privacy Officer)">
         For questions, complaints, or remedies regarding privacy, contact the officer below.
         <div className="mt-3 p-4 rounded-xl" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
-          <p><strong style={{ color: "var(--text-primary)" }}>Privacy officer:</strong> Nookframe Operations Team</p>
+          <p><strong style={{ color: "var(--text-primary)" }}>Privacy officer:</strong> nookframe Operations Team</p>
           <p><strong style={{ color: "var(--text-primary)" }}>Email:</strong>{" "}
             <a href="mailto:vivestarter@gmail.com" style={{ color: "var(--blue)" }}>vivestarter@gmail.com</a>
           </p>

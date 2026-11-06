@@ -72,7 +72,7 @@ export function buildDraftFixPrompt(c: DraftFixContext, locale: "ko" | "en" = "k
   const login = loginCommand(c.code);
 
   // 프롬프트 본문은 영어 하나로 통일(2026-09-05) — 결과 카피 언어만 locale이 정한다.
-  return `Revise a Nookframe draft you published earlier. You built this project, so read the repo again if you need to.
+  return `Revise a nookframe draft you published earlier. You built this project, so read the repo again if you need to.
 
 ${outputLanguageLine(locale)}
 
@@ -102,7 +102,7 @@ ${curlFallback(c.origin, c.code, [
     { url: `${c.origin}/api/ingest?dryRun=1`, body: "--data @<that file>", note: "Check (stores nothing):" },
     { url: `${c.origin}/api/ingest`, body: "--data @<that file>", note: "Then publish:" },
   ])}${c.deployUrl ? "" : "\n  This draft was a file upload, and a folder can only be re-sent with the CLI — over plain HTTP, send a deployUrl or htmlBody instead."}
-- If you have the Nookframe MCP server: call "publish_to_nookframe" with the revised fields, draftId included.
+- If you have the nookframe MCP server: call "publish_to_nookframe" with the revised fields, draftId included.
 - No shell? Print the revised JSON only and I'll paste it into ${c.origin}/publish.
 The server rejects thin work with an error that says exactly what to fix — read it and resubmit. Then tell the owner what you changed.`;
 }

@@ -18,9 +18,9 @@ export default async function Image({
     .eq("username", username)
     .single();
 
-  // 없는 아이디면 주소 글자를 그대로 그리지 않는다 — 누구나 'nookframe.com/<아무 말>'로 Nookframe 브랜드 그림에
-  // 원하는 문구를 박아 퍼뜨릴 수 있었다(2026-11-03, 5단계 낮음 S4a-F4). 일반 Nookframe 그림으로.
-  const name = profile ? (profile.name || username) : "Nookframe";
+  // 없는 아이디면 주소 글자를 그대로 그리지 않는다 — 누구나 'nookframe.com/<아무 말>'로 nookframe 브랜드 그림에
+  // 원하는 문구를 박아 퍼뜨릴 수 있었다(2026-11-03, 5단계 낮음 S4a-F4). 일반 nookframe 그림으로.
+  const name = profile ? (profile.name || username) : "nookframe";
   const bio = profile?.bio
     ? profile.bio.length > 80
       ? profile.bio.slice(0, 80) + "…"

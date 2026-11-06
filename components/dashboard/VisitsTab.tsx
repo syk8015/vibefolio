@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDay } from "@/lib/dates";
 import { useState, useEffect, useMemo } from "react";
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
@@ -71,8 +72,8 @@ function timeAgo(date: string, t: Dictionary, locale: Locale): string {
   const hours = Math.floor(mins / 60);
   if (hours < 24) return t.visits.hoursAgo(hours);
   const days = Math.floor(hours / 24);
-  if (days < 30) return t.visits.daysAgo(days);
-  return new Date(date).toLocaleDateString(locale === "ko" ? "ko-KR" : "en-US");
+  if (days < 7) return t.visits.daysAgo(days);
+  return formatDay(date, locale); // 7일 넘으면 날짜(docs/brand.md §11, 11-06)
 }
 
 // 요약 카드 오른쪽의 7일 선 그래프 — 아래 14일 막대의 마지막 7칸과 같은 숫자. 점은 방문이 있던 날과

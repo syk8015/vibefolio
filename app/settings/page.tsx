@@ -6,7 +6,7 @@ import SettingsClient from "@/components/settings/SettingsClient";
 
 export async function generateMetadata() {
   const locale = await getLocale();
-  return { title: locale === "en" ? "Settings · Nookframe" : "설정 · Nookframe" };
+  return { title: locale === "en" ? "Settings · nookframe" : "설정 · nookframe" };
 }
 
 // 설정 화면(2026-09-26). 미들웨어가 비로그인 → /login?next=/settings로 먼저 보내지만, 여기서도

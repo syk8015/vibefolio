@@ -10,7 +10,7 @@ import { safeFetch, readResponseCapped } from "@/lib/ssrf";
 // an explicit display. Keep those in mind when editing.
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
-export const alt = "A demo on Nookframe";
+export const alt = "A demo on nookframe";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const CREAM = "#f4ede0";

@@ -1,4 +1,4 @@
-// Nookframe Connect — "당신의 AI에 붙여넣으세요" 정규 스니펫. ConnectPanel·/publish
+// nookframe Connect — "당신의 AI에 붙여넣으세요" 정규 스니펫. ConnectPanel·/publish
 // 페이지·docs가 같은 출처를 쓰도록 한 곳에 둔다. 프롬프트는 프로젝트를 "만든" AI가
 // 레포를 introspection해 카피를 대신 쓰게 유도하고, 셸 유무에 따라 CLI 실행 또는
 // JSON 출력으로 환경 자동적응한다.
@@ -102,9 +102,9 @@ export function mcpConfigJson(token: string = MCP_TOKEN_PLACEHOLDER): string {
 export function outputLanguageLine(locale: "ko" | "en"): string {
   // 작품 두 언어(2026-09-29): 기본 언어 = 화면 언어, 다른 언어 판은 translation에 한 벌 더.
   if (locale === "en") {
-    return 'LANGUAGE — write every human-readable string you produce (title, description, builderNote, notes) in English, and set "language": "en". Nookframe also shows every work in Korean, so put the same title/description/builderNote in natural Korean in "translation".';
+    return 'LANGUAGE — write every human-readable string you produce (title, description, builderNote, notes) in English, and set "language": "en". nookframe also shows every work in Korean, so put the same title/description/builderNote in natural Korean in "translation".';
   }
-  return 'LANGUAGE — this owner\'s page is Korean, so write every human-readable string you produce (title, description, builderNote, notes) in KOREAN, and set "language": "ko". Nookframe also shows every work in English, so put the same title/description/builderNote in natural English in "translation". Do NOT translate JSON keys, enum values (contentType, targetDevice, action names) or tag spellings — those stay exactly as written below.';
+  return 'LANGUAGE — this owner\'s page is Korean, so write every human-readable string you produce (title, description, builderNote, notes) in KOREAN, and set "language": "ko". nookframe also shows every work in English, so put the same title/description/builderNote in natural English in "translation". Do NOT translate JSON keys, enum values (contentType, targetDevice, action names) or tag spellings — those stay exactly as written below.';
 }
 
 // 2026-09-15 외부 AI 업로드 피드백으로 사실과 어긋나거나 위험한 문장을 바로잡았다:
@@ -119,12 +119,12 @@ export function pastePrompt(
   code?: string,
 ): string {
   const login = loginCommand(code ?? CONNECT_CODE_PLACEHOLDER);
-  return `Upload this project to Nookframe (a vibe-coding portfolio) as a DRAFT — only the owner can make it public.
+  return `Upload this project to nookframe (a vibe-coding portfolio) as a DRAFT — only the owner can make it public.
 
 ${outputLanguageLine(locale)}
 
 You're the AI that built this project, so read the repo yourself and describe it on my behalf:
-1) If this session already has Nookframe MCP tools (check_nookframe_payload, publish_to_nookframe), you're already connected to my account — skip this step, and in steps 5 and 6 call those tools with the JSON instead of the npx commands (same server, same checks). Otherwise, if you have a shell, first run this once to pair with my account (skip if you have no shell):
+1) If this session already has nookframe MCP tools (check_nookframe_payload, publish_to_nookframe), you're already connected to my account — skip this step, and in steps 5 and 6 call those tools with the JSON instead of the npx commands (same server, same checks). Otherwise, if you have a shell, first run this once to pair with my account (skip if you have no shell):
    ${login}
    That argument is a ONE-TIME pairing code, not a token: the command trades it at the server for the real token and saves that on this machine. It works once and dies 30 minutes after I copied this prompt, so putting it in an Authorization header will fail — if it's already used or expired, ask me to press "Copy prompt" again for a fresh one.
    If you have a shell but npx won't run (no Node.js, or the npm registry is blocked), don't stop and don't ask me to install anything — skip this command and use the plain-HTTP route in step 6 instead.
@@ -134,7 +134,7 @@ You're the AI that built this project, so read the repo yourself and describe it
    b. How do you use it — when, how often, what for? If I haven't really used it yet, ask what I built it for instead.
    c. What's the one thing a first-time viewer must notice?
    d. (optional) Is there anything that must never be shown — people's names, amounts, places, health details?
-   e. Only if the app's own screens have no English (you checked in step 2 — a language switch, i18n files): "Should I add an English version of the app?" Nookframe shows every work to English-speaking visitors too. It means changing and redeploying my app, so it's my call: yes → add English, deploy it (tell me what you changed), and list both in appLanguages; no → give every demoScript step an English caption instead. If only Korean is missing, don't ask — just write Korean captions.
+   e. Only if the app's own screens have no English (you checked in step 2 — a language switch, i18n files): "Should I add an English version of the app?" nookframe shows every work to English-speaking visitors too. It means changing and redeploying my app, so it's my call: yes → add English, deploy it (tell me what you changed), and list both in appLanguages; no → give every demoScript step an English caption instead. If only Korean is missing, don't ask — just write Korean captions.
    If the project is still half-built or has nothing to see yet (a backend with no screen, a tool that has never produced output), say so first in one or two plain sentences, then ask whether I want to upload it now as a work in progress or wait until there is something to show — and fit a–c to that (what it will do, what works so far).
    Keep this message to these questions. Don't put filming mechanics in it — no talk of robots, repos, logs, selectors or test data. If filming later needs something from me (a demo mode, sample data, my own video), ask that separately after I answer: one plain sentence saying what you'd do and why, and a yes/no.
    A demo is not the real app, and only I know what matters. My answers go into ownerInterview (step 4) and shape the rest: open or linger on (a) and (c) in the demoScript, draw builderNote from (b), and leave any screen that shows (d) out of the script.
@@ -150,7 +150,7 @@ You're the AI that built this project, so read the repo yourself and describe it
        a live portfolio you can actually touch
      Keep each line short (~20 CJK / ~40 Latin characters) so it doesn't wrap on a phone. 3 lines at most. A single paragraph is rejected (it must be 2–3 lines), and so is any line over 52 columns (a CJK character counts as 2) or anything over 200 characters
    • builderNote — (optional) a short one-liner shown as a speech bubble on my frame, drawn from my answer (b) in my voice. One line, not a paragraph — e.g. "I check it every Monday morning"
-   • introFilm — for a work with NO screen worth filming: a CLI tool, a backend or bot, hardware/IoT, or an app locked behind a private access code. Instead of robot filming, Nookframe plays a short motion film made from scenes you write ({ style: { text, mood }, scenes: [...] } — the exact shape is in the publish schema), so send it INSTEAD of demoScript and demoAccess, and no deployUrl is needed. Write it from my interview answers: why I built it, what it does, the moment I'm proud of. Every on-screen text is { "en", "ko" }; numbers are "sample" (made-up, labelled as such on screen) unless they are real and you name the source ("measured"). Never put real names, addresses, keys or private usage in a film. Apps with a real screen keep robot filming — don't use introFilm for them.
+   • introFilm — for a work with NO screen worth filming: a CLI tool, a backend or bot, hardware/IoT, or an app locked behind a private access code. Instead of robot filming, nookframe plays a short motion film made from scenes you write ({ style: { text, mood }, scenes: [...] } — the exact shape is in the publish schema), so send it INSTEAD of demoScript and demoAccess, and no deployUrl is needed. Write it from my interview answers: why I built it, what it does, the moment I'm proud of. Every on-screen text is { "en", "ko" }; numbers are "sample" (made-up, labelled as such on screen) unless they are real and you name the source ("measured"). Never put real names, addresses, keys or private usage in a film. Apps with a real screen keep robot filming — don't use introFilm for them.
    • demoScript — **REQUIRED** (the exceptions: attaching your own demo "video", which skips auto-recording, or sending introFilm for a work with no screen). A publish without it is rejected with an error telling you to write one. The filming script the auto-demo robot follows. You BUILT this app, so you know which screen shows what and which control proves the core value — don't make the robot guess from pixels. Shape:
        { "steps": [ { "goal": "what this beat proves", "selector": "the control's CSS selector — you know the code, give the exact one", "where": "how to FIND it by eye (visible label/position) — the fallback when a selector misses", "action": "click|type|drag|scroll|hover|draw|focus|navigate|wait", "toSelector": "(drag only) CSS selector of the drop target", "text": "what to type (type only)", "expect": "what the screen should show right after", "hold": 2 } ],
          "skip": ["things NOT worth a beat because every app has them — e.g. a dark-mode or language toggle"],

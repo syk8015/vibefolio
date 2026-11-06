@@ -19,9 +19,9 @@ const RESEND_ENDPOINT = "https://api.resend.com/emails";
 const SEND_TIMEOUT_MS = 10_000;
 
 // Sender identity. The domain must be verified in Resend before this works;
-// until then set EMAIL_FROM="Nookframe <onboarding@resend.dev>" to smoke-test
+// until then set EMAIL_FROM="nookframe <onboarding@resend.dev>" to smoke-test
 // (Resend only delivers that sender to the account owner's own address).
-const DEFAULT_FROM = "Nookframe <notify@nookframe.com>";
+const DEFAULT_FROM = "nookframe <notify@nookframe.com>";
 
 export function isEmailConfigured(): boolean {
   return Boolean(process.env.RESEND_API_KEY);

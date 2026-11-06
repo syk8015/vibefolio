@@ -23,7 +23,7 @@ export const WORD_RULES = DATA.rules
 
 // 기계로 재는 문장부호·모양(§11 문장부호·대문자)
 const DASH = /—|\s–\s/; // 줄표(em dash), 띄어 쓴 en dash도 같은 역할
-const BANG = /!/;
+const BANG = /(?<!<)!(?!=)/; // <!doctype html>·!= 같은 코드 조각은 빼고
 const DOTS = /\.\.\./; // 말줄임은 글자 하나 '…'
 const EMOJI = /\p{Emoji_Presentation}|\uFE0F/u; // ™·↗·↳ 같은 글자 기호는 괜찮다
 const PLACEHOLDER = /\[(?:your|insert|name|company)[^\]]*\]|\bINSERT_|\blorem ipsum\b|\b20\d\d-XX\b/i; // TODO는 개발 농담에 쓰여서 뺀다

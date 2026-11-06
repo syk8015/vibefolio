@@ -84,7 +84,7 @@ export const ko = {
   // 로그인·가입 = 문 하나(/login = /signup, components/auth/AuthDoor, 2026-10-02 덜어내기 2차).
   // 새 계정은 메일 코드·구글·깃허브로만 생긴다 — 비밀번호 가입 폼은 없앴고 비밀번호 로그인은 남았다.
   login: {
-    title: "Nookframe 시작하기",
+    title: "nookframe 시작하기",
     forgotPassword: "비밀번호 찾기",
     submitting: "로그인 중...",
     submit: "로그인",
@@ -577,8 +577,8 @@ export const ko = {
     linked: (p: string) => `${p} 계정을 연결했어요. 이제 ${p}로도 들어올 수 있어요.`,
     unlinked: (p: string) => `${p} 계정 연결을 해제했어요.`,
     // 그 깃허브가 이미 다른 계정에 붙어 있다(identity_already_exists) — 합치기는 운영자가 손으로 한다.
-    takenTitle: (p: string) => `이 ${p} 계정은 이미 다른 Nookframe 계정에 연결돼 있어요.`,
-    takenBody: "그 Nookframe 계정을 지우거나 두 계정을 합치려면 문의해 주세요.",
+    takenTitle: (p: string) => `이 ${p} 계정은 이미 다른 nookframe 계정에 연결돼 있어요.`,
+    takenBody: "그 nookframe 계정을 지우거나 두 계정을 합치려면 문의해 주세요.",
     contact: "메일 보내기",
     failed: "연결이 취소됐거나 끝나지 못했어요. 다시 눌러 주세요.",
     startFailed: "연결을 시작하지 못했어요. 잠시 뒤에 다시 눌러 주세요.",
@@ -674,7 +674,7 @@ export const ko = {
       "유튜브": "유튜브",
       "구글 검색": "구글 검색",
       "공유 링크(앱 미상)": "공유 링크(앱 미상)",
-      "Nookframe 안에서": "Nookframe 안에서",
+      "Nookframe 안에서": "nookframe 안에서",
       "로컬 테스트(localhost)": "로컬 테스트(localhost)",
       "직접/알 수 없음": "직접/알 수 없음",
     },
@@ -710,7 +710,7 @@ export const ko = {
     // 공개 범위는 버튼 바로 아래 한 줄이 늘 말한다. 말은 쉬운 말로(셸·JSON·토큰 → 채팅 AI·AI 답·연결).
     title: "AI로 올리기",
     // 업그레이드(2026-10-01, 사용자 확정): 제목 아래 가치 한 줄(창 머리 AddProjectModal).
-    valueLine: "AI가 올리면 시연 영상은 Nookframe이 찍어요",
+    valueLine: "AI가 올리면 시연 영상은 nookframe이 찍어요",
     visibility: "초안으로 와요. 공개는 내가 눌러야 돼요.",
     // 두 줄은 "쓰는 곳"이 아니라 "할 수 있는 일"로 나눈다(2026-09-22 사용자 확정). 쓰는 곳
     // (터미널·앱·웹)으로 나누면 Claude Code·Codex가 두 줄에 겹치고, Claude 데스크탑 앱은
@@ -730,7 +730,7 @@ export const ko = {
     // tool = null은 "그 밖의" 칩 — 이름 대신 "AI"로 말한다.
     copiedTerminal: (tool: string | null) => (tool ? `복사했어요 — ${tool}에 붙여넣어요` : "복사했어요 — AI에게 붙여넣어요"),
     copiedChat: (tool: string | null) => (tool ? `복사했어요 — ${tool}에 붙여넣고 답을 복사해 와요` : "복사했어요 — AI 대화에 붙여넣고 답을 복사해 와요"),
-    copiedClaude: "복사했어요 — Claude에서 “Nookframe에 올려줘”라고 말해요",
+    copiedClaude: "복사했어요 — Claude에서 “nookframe에 올려줘”라고 말해요",
     // 기다림 한 줄 — AI가 초안을 올리는 순간 확인 화면이 저절로 열린다.
     waitingAi: "AI가 올리면 여기서 바로 열려요",
     waitingClaude: "Claude가 올리면 여기서 바로 열려요",
@@ -767,7 +767,7 @@ export const ko = {
     // ── 설정 → AI 연결(components/settings/AiConnections)이 쓴다 — 연결 창에서 옮겨 갔다(라, 2026-10-01).
     // MCP 연결(2026-09-04, 인터뷰 ⑦): 터미널 AI는 붙여넣기 자체가 없어지는 길. 누르면 내 열쇠를 새로 채워 복사.
     mcpTitle: "한 번 연결해 두기 (MCP)",
-    mcpLead: "연결해 두면 “Nookframe에 올려줘” 한마디로 끝나요.",
+    mcpLead: "연결해 두면 “nookframe에 올려줘” 한마디로 끝나요.",
     mcpClaudeCode: "Claude Code 명령 복사",
     mcpJson: "Claude 데스크탑·Cursor 설정 복사",
     mcpCopying: "준비 중…",
@@ -787,7 +787,7 @@ export const ko = {
   // 사람이 여기서 한 번 허용해야 한다. **이름이 아니라 주소를 크게 보여 준다** —
   // 클라이언트 이름은 그쪽이 스스로 적어 올린 값이라 사칭이 공짜다.
   oauth: {
-    title: "Nookframe에 연결할까요?",
+    title: "nookframe에 연결할까요?",
     selfName: (name: string) => `스스로 밝힌 이름: ${name}`,
     can1: "작품을 초안으로 올리기",
     can2: "자기가 올린 초안 고치기·지우기",
@@ -854,9 +854,9 @@ export const ko = {
   // /publish — 셸 없는 AI(챗봇)가 준 JSON을 붙여넣는 페이지
   // 폰 → 컴퓨터 넘기기 화면 /send (2026-09-23, docs/desktop-handoff.md).
   handoff: {
-    pageTitle: "컴퓨터로 보내기 | Nookframe",
+    pageTitle: "컴퓨터로 보내기 | nookframe",
     title: "컴퓨터에서 이어서 하세요",
-    body: "Nookframe은 컴퓨터의 AI 도구로 작품을 올려요. 이메일을 넣으면 컴퓨터에서 바로 열 링크를 보내 드려요.",
+    body: "nookframe은 컴퓨터의 AI 도구로 작품을 올려요. 이메일을 넣으면 컴퓨터에서 바로 열 링크를 보내 드려요.",
     emailLabel: "이메일",
     remindLabel: "내일 한 번 더 알려주기 (선택)",
     submit: "내 컴퓨터로 보내기",
@@ -1019,7 +1019,7 @@ export const ko = {
     demoStartFailed: "자동 시연을 시작할 수 없어요.",
     heldGlobal: "오늘 자동 시연 생성이 많아 잠시 대기열에 넣었어요. 관리자 확인 후 생성돼요.",
     heldUser: "하루 자동 시연 한도를 넘어 관리자 승인 대기로 전환했어요. 승인 전까지는 이미지로 표시돼요.",
-    // 인제스트 (Nookframe Connect)
+    // 인제스트 (nookframe Connect)
     tokenInvalid: "토큰이 유효하지 않거나 폐기됐어요.",
     loginOrTokenRequired: "로그인이 필요해요. (토큰 또는 세션)",
     tooManyRequests: "요청이 너무 많아요. 잠시 후 다시 시도해 주세요.",
@@ -1070,7 +1070,7 @@ export const ko = {
       `ownerInterview.${key}가 너무 길어요 — 답마다 ${max}자 안으로 주인의 말을 옮기세요(설명을 덧붙이지 마세요).`,
     // 작품 두 언어(2026-09-29) — 받는 쪽은 AI라 문장이 곧 지시문이다. lib/workLanguages.ts.
     languageRequired:
-      'language가 필요해요 — 제목·소개·builderNote를 쓴 말, 곧 주인이 쓰는 말이에요: "ko"(한국어) 또는 "en"(영어). Nookframe의 모든 작품은 다른 언어 판도 translation에 함께 갖고, 보는 사람은 자기 언어 판을 봐요.',
+      'language가 필요해요 — 제목·소개·builderNote를 쓴 말, 곧 주인이 쓰는 말이에요: "ko"(한국어) 또는 "en"(영어). nookframe의 모든 작품은 다른 언어 판도 translation에 함께 갖고, 보는 사람은 자기 언어 판을 봐요.',
     languageInvalid: (got: string) =>
       `language는 "ko" 또는 "en"만 돼요 — 받은 값: ${got}. 주인이 당신에게 쓰는 말로 정하고, 다른 언어는 translation에 넣으세요.`,
     appLanguagesRequired:
@@ -1256,7 +1256,7 @@ export const ko = {
     },
     policy: {
       title: "콘텐츠 정책에 맞지 않아 게시하지 못했어요",
-      body: "검토 결과 이 시연은 Nookframe에 공개하기 어려운 내용이 담겨 있었어요. 내용을 수정한 뒤 다시 시도해 주시고, 잘못된 판단이라고 생각되면 회신으로 알려주세요.",
+      body: "검토 결과 이 시연은 nookframe에 공개하기 어려운 내용이 담겨 있었어요. 내용을 수정한 뒤 다시 시도해 주시고, 잘못된 판단이라고 생각되면 회신으로 알려주세요.",
     },
     declined: {
       title: "촬영 요청이 승인되지 않았어요",
@@ -1270,7 +1270,7 @@ export const ko = {
   // 유저 수신 알림 이메일(완성·실패) — lib/email-templates.ts가 읽는다.
   // 관리자 경보 메일(adminAlertEmail)은 한국어 유지라 여기 없다.
   email: {
-    footer: "Nookframe 자동 알림이에요. 궁금한 점은 이 메일에 회신해 주세요.",
+    footer: "nookframe 자동 알림이에요. 궁금한 점은 이 메일에 회신해 주세요.",
     untitledProject: "내 프로젝트",
     readySubject: (title: string) => `시연 영상이 완성됐어요 — ${title}`,
     readyPreheader: (title: string) => `${title} 자동 시연 영상이 방금 완성됐어요.`,
@@ -1313,14 +1313,14 @@ export const ko = {
     declinedCta: "대시보드에서 보기",
     // 폰 → 컴퓨터 넘기기(2026-09-23). 본인이 폰에서 요청한 메일이라 광고 문구를 섞지 않는다
     // (섞으면 광고 메일로 분류돼 규제가 달라진다). 알림은 동의한 사람에게만 딱 1번.
-    handoffSubject: "폰에서 보낸 Nookframe 링크",
+    handoffSubject: "폰에서 보낸 nookframe 링크",
     handoffPreheader: "컴퓨터에서 이 메일을 열고 버튼을 누르세요.",
     handoffHeading: "컴퓨터에서 이어서 하세요",
-    handoffBody: "Nookframe은 컴퓨터의 AI 도구(Claude Code·Cursor·ChatGPT 같은 것)로 작품을 올려요. 아래 버튼을 누르면 이메일이 채워진 화면이 열리고, 메일로 받은 코드로 들어가면 3분이면 첫 작품까지 올릴 수 있어요.",
-    handoffCta: "Nookframe 열기",
+    handoffBody: "nookframe은 컴퓨터의 AI 도구(Claude Code·Cursor·ChatGPT 같은 것)로 작품을 올려요. 아래 버튼을 누르면 이메일이 채워진 화면이 열리고, 메일로 받은 코드로 들어가면 3분이면 첫 작품까지 올릴 수 있어요.",
+    handoffCta: "nookframe 열기",
     handoffTypeHint: "버튼이 안 되면 브라우저에 nookframe.com 을 직접 쳐도 돼요.",
     handoffNotYou: "요청한 적이 없다면 이 메일은 무시하세요. 더 보내지 않아요.",
-    handoffRemindSubject: "어제 폰에서 보낸 Nookframe 링크예요",
+    handoffRemindSubject: "어제 폰에서 보낸 nookframe 링크예요",
     handoffRemindPreheader: "컴퓨터 앞이라면 지금 이어서 할 수 있어요.",
     handoffRemindHeading: "컴퓨터 앞이세요?",
     handoffRemindBody: "어제 폰에서 알림을 요청하셔서 한 번 더 보내요. 버튼을 누르면 이메일이 채워진 화면이 열리고, AI에 한 줄만 붙여넣으면 첫 작품이 올라가요.",

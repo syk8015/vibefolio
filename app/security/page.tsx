@@ -15,7 +15,7 @@ const THANKS: { name: string; when: string }[] = [];
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getLocale();
   return {
-    title: locale === "en" ? "Report a security issue | Nookframe" : "보안 문제 알리기 | Nookframe",
+    title: locale === "en" ? "Report a security issue | nookframe" : "보안 문제 알리기 | nookframe",
     alternates: { canonical: "https://nookframe.com/security" },
   };
 }
@@ -51,7 +51,7 @@ export default async function SecurityPage() {
       <footer className="flex items-center justify-center gap-6 py-8">
         <Link href="/terms" style={muted}>{en ? "Terms of Service" : "이용약관"}</Link>
         <Link href="/privacy" style={muted}>{en ? "Privacy Policy" : "개인정보처리방침"}</Link>
-        <span style={muted}>© {new Date().getFullYear()} Nookframe</span>
+        <span style={muted}>© {new Date().getFullYear()} nookframe</span>
       </footer>
     </main>
   );
@@ -61,7 +61,7 @@ function KoBody() {
   return (
     <>
       <p>
-        Nookframe에서 보안 문제를 찾았다면 {mail} 으로 알려 주세요. 받은 지 7일 안에 답장해요.
+        nookframe에서 보안 문제를 찾았다면 {mail} 으로 알려 주세요. 받은 지 7일 안에 답장해요.
       </p>
 
       <Section title="알려 줄 때">
@@ -84,7 +84,7 @@ function KoBody() {
           <li>다른 사람의 계정·작품·개인정보를 보거나 바꾸기. 우연히 봤다면 바로 멈추고, 저장하거나 퍼뜨리지 말고 알려 주세요.</li>
           <li>사이트를 느리게 하거나 멈추게 하는 대량 요청, 자동 도구로 마구 찌르기</li>
           <li>다른 사람에게 메일·메시지 보내기, 속여서 정보 얻기</li>
-          <li>Nookframe가 쓰는 다른 회사(Vercel, Supabase, Cloudflare, E2B 등)를 직접 공격하기. 그곳은 그 회사의 규칙을 따라 주세요.</li>
+          <li>nookframe이 쓰는 다른 회사(Vercel, Supabase, Cloudflare, E2B 등)를 직접 공격하기. 그곳은 그 회사의 규칙을 따라 주세요.</li>
           <li>고쳐지기 전에 내용을 공개하기. 고친 뒤 공개는 함께 정해요.</li>
         </ul>
       </Section>
@@ -125,7 +125,7 @@ function EnBody() {
   return (
     <>
       <p>
-        Found a security issue in Nookframe? Email {mail}. We reply within 7 days.
+        Found a security issue in nookframe? Email {mail}. We reply within 7 days.
       </p>
 
       <Section title="What to include">
@@ -161,7 +161,7 @@ function EnBody() {
       </Section>
 
       <Section title="Rewards">
-        Nookframe is a small, one-person service, so there are no cash rewards. If you&apos;d like, we&apos;ll add your name to the thanks list below.
+        nookframe is a small, one-person service, so there are no cash rewards. If you&apos;d like, we&apos;ll add your name to the thanks list below.
       </Section>
 
       <Section title="Out of scope">

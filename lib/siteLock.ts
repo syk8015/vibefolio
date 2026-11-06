@@ -54,7 +54,7 @@ export function lockBlock(method: string, pathname: string, locks: SiteLocks): L
 export const LOCK_MESSAGE: Record<LockCode, { ko: string; en: string }> = {
   SITE_READONLY: {
     ko: "지금은 점검 중이라 저장할 수 없어요. 보는 건 그대로 돼요. 잠시 뒤 다시 해 주세요.",
-    en: "Nookframe is read-only for maintenance right now. Viewing still works — please try again later.",
+    en: "nookframe is read-only for maintenance right now. Viewing still works — please try again later.",
   },
   UPLOADS_CLOSED: {
     ko: "지금은 점검 중이라 새로 올릴 수 없어요. 잠시 뒤 다시 해 주세요.",
