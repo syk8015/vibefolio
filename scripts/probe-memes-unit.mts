@@ -82,9 +82,19 @@ t("거르기: 끝 마침표·기존 문구 겹침·비하 낱말은 빼고, 말�
   assert.deepEqual(filterCandidate({ lang: "en", text: "Shipped it." }).hard, ["terminal_period"]);
   assert.equal(filterCandidate({ lang: "ko", text: "흠.." }).ok, true);
   const existing = new Set([lineKey({ lang: "en", text: "Take 47", reply: null })]);
-  assert.deepEqual(filterCandidate({ lang: "en", text: "take 47!" }, { existing }).hard, ["duplicate_existing"]);
+  assert.deepEqual(filterCandidate({ lang: "en", text: "take 47?" }, { existing }).hard, ["duplicate_existing"]);
   assert.ok(filterCandidate({ lang: "ko", text: "이거 완전 운지각" }).hard.includes("slur_or_hate_word"));
   assert.ok(filterCandidate({ lang: "en", text: "that's so retarded" }).hard.includes("slur_or_hate_word"));
+});
+
+t("거르기: 영어 말투(금지 낱말·대문자 이름·줄표·느낌표·단어 수)는 빼고, 경고 낱말은 둔다", () => {
+  assert.ok(filterCandidate({ lang: "en", text: "A seamless way to ship" }).hard.includes("voice_word"));
+  assert.ok(filterCandidate({ lang: "en", text: "Nookframe ate my weekend" }).hard.includes("voice_name"));
+  assert.ok(filterCandidate({ lang: "en", text: "Shipped — then it broke" }).hard.includes("voice_dash"));
+  assert.ok(filterCandidate({ lang: "en", text: "Ship it", reply: "Done!" }).hard.includes("voice_bang"));
+  assert.ok(filterCandidate({ lang: "en", audience: "everyone", text: "one two three four five six seven eight nine ten" }).hard.includes("voice_length"));
+  assert.equal(filterCandidate({ lang: "en", audience: "logged_in", text: "one two three four five six seven eight nine ten" }).ok, true);
+  assert.equal(filterCandidate({ lang: "en", text: "It actually works on my machine" }).ok, true);
 });
 
 t("거르기: 숫자·날짜·논란 낱말은 통과하되 표시", () => {

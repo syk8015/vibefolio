@@ -4,6 +4,8 @@
 //   soft = 통과하되 표시(반박 검사와 검토 화면에서 경보) — 숫자·날짜, 오탐이 잦은 낱말
 // 낱말 목록은 '이런 말이 섞였으면 사람이 꼭 보게' 하는 그물이지 판정이 아니다.
 
+import { checkEnglish, WORD_CAPS } from "../copy-voice.mjs";
+
 export const TEXT_MAX = 120;
 
 // 같은 문구 비교용: 소문자·NFC, 글자·숫자만 남김.
@@ -29,7 +31,7 @@ function hasChungSlur(s) {
 const SOFT_NUM = /(?<![\d.])(5\.?18|6\.?25|4\.?16|10\.?29|12\.?29|1\.?23|9\/11|911)(?![\d])|(오일팔|육이오|세월호|이태원)/;
 
 /**
- * @param {{lang:"ko"|"en", text:string, reply?:string|null}} line
+ * @param {{lang:"ko"|"en", text:string, reply?:string|null, audience?:"everyone"|"logged_in"}} line
  * @param {{ existing?: Set<string> }} ctx  기존 문구 열쇠(lineKey)
  * @returns {{ ok:boolean, hard:string[], soft:string[] }}
  */
@@ -44,6 +46,14 @@ export function filterCandidate(line, { existing = new Set() } = {}) {
     if (/[\r\n\t]/.test(s)) hard.push("multi_line");
     // 끝 마침표 하나는 말투 규칙 위반('흠..'·'...' 같은 말줄임은 허용)
     if (/(^|[^.])\.$/.test(s.trim())) hard.push("terminal_period");
+  }
+  // 영어 말투(docs/brand.md §11·docs/banned-words.json): 금지 낱말·소문자 이름·줄표·느낌표·단어 수 — 어기면 빼기.
+  // 홈(everyone)은 9단어, 로그인 밈은 12단어(답글은 따로 센다). 경고 낱말(just·actually…)은 농담에 자연스러워 그냥 둔다.
+  if (line.lang === "en") {
+    const cap = line.audience === "everyone" ? WORD_CAPS.home : WORD_CAPS.loggedIn;
+    for (const s of parts) {
+      for (const v of checkEnglish(s, { cap, period: false })) if (v.level === "block") hard.push(`voice_${v.rule}`);
+    }
   }
   if (!line.text?.trim()) hard.push("no_text");
   if (existing.has(lineKey(line))) hard.push("duplicate_existing");

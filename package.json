@@ -19,6 +19,7 @@
     "intro:glyphs": "tsx scripts/build-intro-glyphs.mts",
     "font:check": "node scripts/build-font-subset.mjs --check",
     "ui:baseline": "node scripts/probe-ui-rules.mjs --write",
+    "copy:baseline": "node scripts/probe-copy-voice.mjs --write",
     "prebuild": "node scripts/build-font-subset.mjs --check"
   },
   "dependencies": {

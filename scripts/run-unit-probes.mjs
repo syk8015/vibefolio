@@ -52,6 +52,7 @@ const PROBES = [
   "scripts/probe-video-transcode-unit.mts", // 올린 영상 줄이기 — 줄인 파일 다시 안 집기·영상만·별 효과 없으면 mp4는 상자만
   "scripts/probe-site-lock-unit.mts",      // 비상 정지 게이트 — 읽기 전용은 기본 막힘·열어 둔 주소·업로드 길·읽기는 늘 통과
   "scripts/probe-tripwire-unit.mts",       // 미끼 해시 목록 읽기(원문 토큰을 넣어도 미끼가 안 됨)·과사용 한도 하한
+  "scripts/probe-copy-voice.mjs",           // 영어 말투(docs/brand.md §11·docs/banned-words.json) — 금지 낱말·소문자 nookframe·줄표·끝 마침표·느낌표·단어 수, 기준선보다 새로 생긴 것만 실패
   "scripts/probe-ui-rules.mjs",             // 화면·글 기준(docs/ui-rules.md) — 기준선보다 새로 어긋난 것만 실패(작은 글자·직접 쓴 색·테두리·말투…)
   "scripts/probe-cli-input.mjs",            // CLI --file·표준입력·schema (127.0.0.1 가짜 서버, 네트워크 없음)
   "local-runner/probe-focus-coalesce.ts",   // 스크롤 병합·focus 카메라 산식

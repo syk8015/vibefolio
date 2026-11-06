@@ -140,7 +140,7 @@ async function main() {
       for (const c of w.candidates) {
         const line = { lang: "en", text: c.text.trim(), reply: c.reply?.trim() || null };
         if (c.kind === "refresh" && !existingTexts.has(c.replaces)) { log("최신화 대상 없음 — 뺌:", c.replaces); continue; }
-        const f = filterCandidate(line, { existing: existingKeys });
+        const f = filterCandidate({ ...line, audience: c.audience }, { existing: existingKeys });
         if (!f.ok) { log("거름:", f.hard.join(","), "—", line.text); continue; }
         existingKeys.add(lineKey(line));
         kept.push({ ...c, ...line, filter: f });
